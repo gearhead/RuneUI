@@ -2670,6 +2670,10 @@ if ($action === 'reset') {
             // runelog('conf output (in loop)', $output, __FUNCTION__);
             }
             $output .="\n";
+
+            if ($redis->hGet("snapserver", "enable") === "1") {
+		$output .= "audio_output {\n\ttype\t\"fifo\"\n\tname\t\"Snapserver\"\n\tpath\t\"/tmp/snapfifo\"\n\tformat\t\"48000:16:2\"\n\tmixer_type\t\"software\"\n}\n";
+            }
             // debug
             // runelog('raw mpd.conf', $output, __FUNCTION__);
             // check if mpd.conf was modified outside RuneUI (advanced mode)
