@@ -2910,6 +2910,17 @@ if ($('#section-index').length) {
                 $('#overlay-playsource-close').trigger('click');
             }
         });
+        $('#playsource-snapcast').click(function(){
+            if ($(this).hasClass('inactive')) {
+				GUI.forceGUIupdate = true;
+                $.ajax({
+                    url: '/command/?switchplayer=Snapcast',
+                    cache: false
+                });
+                // close switch buttons layer
+                $('#overlay-playsource-close').trigger('click');
+            }
+        });
         $('#playsource-spotify').click(function(){
             if ($(this).hasClass('inactive')) {
                 if (GUI.libraryhome.Spotify === '1') {

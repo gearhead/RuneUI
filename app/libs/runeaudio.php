@@ -3861,6 +3861,10 @@ function wrk_switchplayer($redis, $playerengine)
             usleep(500000);
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl start mpdscribble');
             if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl start upmpdcli');
+            if ($redis->hGet('snapserver','enable') === '1') {
+		sysCmd('systemctl stop snapclient');
+		sysCmd('systemctl start snapserver');
+	    }
             $redis->set('activePlayer', 'MPD');
 			wrk_mpdRestorePlayerStatus($redis);
             $return = sysCmd('systemctl stop spopd');
@@ -3874,6 +3878,10 @@ function wrk_switchplayer($redis, $playerengine)
             usleep(500000);
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl stop mpdscribble');
             if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl stop upmpdcli');
+            if ($redis->hGet('snapserver','enable') === '1') {
+		sysCmd('systemctl stop snapclient');
+		sysCmd('systemctl start snapserver');
+	    }
 			sysCmd('systemctl stop ashuffle');
 			wrk_mpdPlaybackStatus($redis);
             $redis->set('activePlayer', 'Spotify');
@@ -3883,6 +3891,20 @@ function wrk_switchplayer($redis, $playerengine)
             // set process priority
             sysCmdAsync('rune_prio nice');
             break;
+	case 'Snapcast':
+            if ($redis->hGet('snapserver','enable') === '1') {
+                sysCmd('systemctl stop snapserver');
+		usleep(500000);
+                sysCmd('systemctl start snapclient');
+            }
+                        wrk_mpdPlaybackStatus($redis);
+            $redis->set('activePlayer', 'Snapcast');
+            $redis->set('mpd_playback_status', 'stop');
+            $return = sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+            // set process priority
+            sysCmdAsync('rune_prio nice');
+	    break;
+
     }
     return $return;
 }
