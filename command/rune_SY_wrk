@@ -272,6 +272,18 @@ if ($playerid_db === '') {
 		unset($retval);
 		// start spotify, if not started
 		sysCmd('pgrep -x spopd || systemctl start spopd');
+	} else if ($activePlayer === 'Snapcast') {
+		// check MPD process, it can be started earlier
+		$retval = sysCmd('systemctl is-active mpd');
+		if ($retval[0] === 'active') {
+			// stop mpd with kill, this saves the state-file
+			sysCmd('mpd --kill');
+		}
+		unset($retval);
+		// stop snapserver
+		sysCmd('systemctl stop snapserver');
+		// start snapclient
+		sysCmd('systemctl start snapclient');
 	} else {
 		// stop spotify, if started
 		sysCmd('pgrep -x spopd && systemctl stop spopd');

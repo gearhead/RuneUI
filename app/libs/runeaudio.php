@@ -2672,7 +2672,7 @@ if ($action === 'reset') {
             $output .="\n";
 
             if ($redis->hGet("snapserver", "enable") === "1") {
-		$output .= "audio_output {\n\ttype\t\"fifo\"\n\tname\t\"Snapserver\"\n\tpath\t\"/tmp/snapfifo\"\n\tformat\t\"48000:16:2\"\n\tmixer_type\t\"software\"\n}\n";
+		$output .= "audio_output {\n\ttype\t\"fifo\"\n\tname\t\"Snapserver\"\n\tpath\t\"/tmp/snapfifo\"\n\tformat\t\"48000:16:2\"\n\tmixer_type\t\"software\"\n\talways_on\t\"yes\"\n}\n";
             }
             // debug
             // runelog('raw mpd.conf', $output, __FUNCTION__);
@@ -3850,6 +3850,8 @@ function wrk_switchplayer($redis, $playerengine)
 {
     switch ($playerengine) {
         case 'MPD':
+	    sysCmd('systemctl stop snapclient');
+	    usleep(250000);
 			$retval = sysCmd('systemctl is-active mpd');
 			if ($retval[0] === 'active') {
 				// do nothing
@@ -3862,7 +3864,6 @@ function wrk_switchplayer($redis, $playerengine)
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl start mpdscribble');
             if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl start upmpdcli');
             if ($redis->hGet('snapserver','enable') === '1') {
-		sysCmd('systemctl stop snapclient');
 		sysCmd('systemctl start snapserver');
 	    }
             $redis->set('activePlayer', 'MPD');
@@ -3878,8 +3879,8 @@ function wrk_switchplayer($redis, $playerengine)
             usleep(500000);
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl stop mpdscribble');
             if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl stop upmpdcli');
+	    sysCmd('systemctl stop snapclient');
             if ($redis->hGet('snapserver','enable') === '1') {
-		sysCmd('systemctl stop snapclient');
 		sysCmd('systemctl start snapserver');
 	    }
 			sysCmd('systemctl stop ashuffle');
@@ -3895,10 +3896,11 @@ function wrk_switchplayer($redis, $playerengine)
             if ($redis->hGet('snapserver','enable') === '1') {
                 sysCmd('systemctl stop snapserver');
 		usleep(500000);
-                sysCmd('systemctl start snapclient');
             }
+	    sysCmd('systemctl start snapclient');
                         wrk_mpdPlaybackStatus($redis);
             $redis->set('activePlayer', 'Snapcast');
+            $return = sysCmd('systemctl stop mpd');
             $redis->set('mpd_playback_status', 'stop');
             $return = sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
             // set process priority
