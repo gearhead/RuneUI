@@ -283,6 +283,15 @@ if ($playerid_db === '') {
 		// stop snapserver
 		sysCmd('systemctl stop snapserver');
 		// start snapclient
+        $file = '/etc/default/snapclient';
+		$newArray = wrk_replaceTextLine($file, 
+				'', 
+				'SNAPCLIENT_OPTS=', 
+				'SNAPCLIENT_OPTS="-h '.$redis->get("snapcast_host").'"');
+        // Commit change
+        $fp = fopen($file, 'w');
+        fwrite($fp, implode("", $newArray));
+        fclose($fp);
 		sysCmd('systemctl start snapclient');
 	} else {
 		// stop spotify, if started

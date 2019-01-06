@@ -480,7 +480,7 @@ function setPlaybackSource() {
     var source = activePlayer.toLowerCase();
     $('#playsource-' + source).removeClass('inactive');
     // update volume knob and control buttons
-    if (activePlayer === 'Spotify' || activePlayer === 'Airplay') {
+    if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'Snapcast') {
         $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
         $('#volume-knob').addClass('nomixer');
         $('#volume-knob button').prop('disabled', true);
@@ -519,7 +519,7 @@ function renderLibraryHome() {
         divClose = '</div>',
         toggleMPD = '',
         toggleSpotify = '',
-        notMPD = (obj.ActivePlayer === 'Spotify' || obj.ActivePlayer === 'Airplay');
+        notMPD = (obj.ActivePlayer === 'Spotify' || obj.ActivePlayer === 'Airplay' || obj.ActivePlayer === 'Snapcast');
     if(isLocalHost) {
         content = '';
     } else {
@@ -673,6 +673,15 @@ function renderLibraryHome() {
         }
     }
 
+    // Snapcast block
+    if (chkKey(obj.Snapcast)) {
+        if(isLocalHost) {
+            content += divOpen + '<div id="home-snapcast" class="home-block' + toggleMPD + '" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3></div>' + divClose;
+        } else {
+            content += divOpen + '<div id="home-snapcast" class="home-block' + toggleMPD + '" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3>browse local Snapcast streams</div>' + divClose;
+        }
+    }
+
     // Dirble block
     if (chkKey(obj.Dirble)) {
         if(isLocalHost) {
@@ -733,6 +742,7 @@ function refreshState() {
         $('#format-bitrate-ss').html('&nbsp;');
         $('li', '#playlist-entries').removeClass('active');
     }
+    setPlaybackSource();
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
         // $('#elapsed').html((GUI.json.elapsed !== undefined)? timeConvert(GUI.json.elapsed) : '00:00');
@@ -865,23 +875,25 @@ function updateGUI() {
                 $.ajax({
                     url: '/artist_info/',
                     success: function(data){
-                        var info = jQuery.parseJSON(data);
-                        if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
-                            $('#artist-bio-ss').html(info.artist.bio.content.substring(0,550) + ' ... ');
-                            $('#artist-bio-overlay').html(info.artist.bio.summary);
-                            $('#artist-bio-full-overlay').html(info.artist.bio.content);
-                            $('#addinfo-text-ss').html('Similar Artists:<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[0].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[1].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[2].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[3].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[4].name);
-                            $('#addinfo-text-overlay').html('Similar Artists:<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[0].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[1].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[2].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[3].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[4].name + '<br>&nbsp;<br>&nbsp;');
-                            $('#artist-image-ss').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
-							$('#artist-image-overlay').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
-                        } else {
-                            $('#artist-bio-ss').html(' sorry, no info available ');
-                            $('#artist-bio-overlay').html(' sorry, no info available ');
-                            $('#addinfo-text-ss').html('');
-                            $('#addinfo-text-overlay').html('');
-							$('#lyric-text-overlay').html('');
-							$('#artist-image-ss').css('background-image','url("assets/img/unkown.png")');
-							$('#artist-image-overlay').css('background-image','url("assets/img/unkown.png")');
+                        if (data !== "") {
+                            var info = jQuery.parseJSON(data);
+                            if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
+                                $('#artist-bio-ss').html(info.artist.bio.content.substring(0,550) + ' ... ');
+                                $('#artist-bio-overlay').html(info.artist.bio.summary);
+                                $('#artist-bio-full-overlay').html(info.artist.bio.content);
+                                $('#addinfo-text-ss').html('Similar Artists:<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[0].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[1].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[2].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[3].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[4].name);
+                                $('#addinfo-text-overlay').html('Similar Artists:<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[0].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[1].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[2].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[3].name + '<br>&nbsp;&nbsp;&nbsp;&nbsp;' + info.artist.similar.artist[4].name + '<br>&nbsp;<br>&nbsp;');
+                                $('#artist-image-ss').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
+                                $('#artist-image-overlay').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
+                            } else {
+                                $('#artist-bio-ss').html(' sorry, no info available ');
+                                $('#artist-bio-overlay').html(' sorry, no info available ');
+                                $('#addinfo-text-ss').html('');
+                                $('#addinfo-text-overlay').html('');
+                                $('#lyric-text-overlay').html('');
+                                $('#artist-image-ss').css('background-image','url("assets/img/unkown.png")');
+                                $('#artist-image-overlay').css('background-image','url("assets/img/unkown.png")');
+                            }
                         }
                     },
                     cache: false
@@ -1332,7 +1344,21 @@ function parseResponse(options) {
                 content += '</span></li>';
             }
         break;
-        
+
+        case 'Snapcast':
+        // Snapcast plugin
+            if (querytype === '') {
+            // streams
+                content = '<li id="db-' + (i + 1) + '" class="db-snapcast db-radio" data-path="';
+                content += inputArr.name;
+                content += '"><i class="fa fa-wifi db-icon"></i>';
+                content += '<span class="sn">' + inputArr.name;
+		content += '</span><span class="bl">';
+		content += inputArr.ip;
+                content += '</span></li>';
+            } 
+        break;
+
         case 'Jamendo':
         // Jamendo plugin
             // if (querytype === 'radio') {
@@ -1437,6 +1463,37 @@ function populateDB(options){
                 content += parseResponse({
                     inputArr: row,
                     respType: 'Dirble',
+                    i: i,
+                    querytype: querytype
+                });
+            }
+            document.getElementById('database-entries').innerHTML = content;
+        }
+        if (plugin === 'Snapcast') {
+        // Snapcast plugin
+            $('#database-entries').removeClass('hide');
+            $('#db-level-up').removeClass('hide');
+            $('#home-blocks').addClass('hide');
+            if (path) {
+                if (querytype === 'search') {
+                    GUI.currentpath = 'Snapcast';
+                } else {
+                    GUI.currentpath = path;
+                }
+            }
+            document.getElementById('database-entries').innerHTML = '';
+            // console.log(data);
+            
+            data.sort(function(a, b){
+                nameA = a.hasOwnProperty('name')?a.name.toLowerCase():'';
+                nameB = b.hasOwnProperty('name')?b.name.toLowerCase():'';
+                return nameA.localeCompare(nameB);
+            });
+
+            for (i = 0; (row = data[i]); i += 1) {
+                content += parseResponse({
+                    inputArr: row,
+                    respType: 'Snapcast',
                     i: i,
                     querytype: querytype
                 });
@@ -1640,6 +1697,16 @@ function getDB(options){
                 }, 'json');
             }
         }
+        else if (plugin === 'Snapcast') {
+        // Snapcast plugin
+                $.post('/db/?cmd=snapcast', null, function(data){
+                    populateDB({
+                        data: data,
+                        path: path,
+                        plugin: plugin
+                    });
+                }, 'json');
+	}
         else if (plugin === 'Jamendo') {
         // Jamendo plugin
             $.post('/db/?cmd=jamendo', { 'querytype': (querytype === '') ? 'radio' : querytype, 'args': args }, function(data){
@@ -1818,7 +1885,7 @@ function commandButton(el) {
 // Library home screen
 function libraryHome(text) {
     GUI.libraryhome = text[0];
-    if (GUI.libraryhome.clientUUID === GUI.clientUUID && GUI.plugin !== 'Dirble' && GUI.currentpath !== 'Webradio') {
+    if (GUI.libraryhome.clientUUID === GUI.clientUUID && GUI.plugin !== 'Dirble' && GUI.plugin !== 'Snapcast' && GUI.currentpath !== 'Webradio') {
         renderLibraryHome(); // TODO: do it only while in home
     }
     if (GUI.currentpath === 'Webradio') {
@@ -2558,6 +2625,14 @@ if ($('#section-index').length) {
                             args: el.data('path')
                         });
                         GUI.plugin = 'Dirble';
+                    } else if (el.hasClass('db-snapcast')) {
+                    // Snapcast streams
+                        path = GUI.currentpath + '/' + el.find('span').text();
+                        getDB({
+                            path: path,
+                            plugin: 'Snapcast'
+                        });
+                        GUI.plugin = 'Snapcast';
                     } else if (el.hasClass('db-jamendo')) {
                     // Jamendo folders
                         // path = GUI.currentpath    + '/' + el.find('span').text();
@@ -2604,6 +2679,11 @@ if ($('#section-index').length) {
                         cmd: 'spaddplay',
                         path: path,
                         querytype: 'spotify-track'
+                    });
+		} else if (el.hasClass('db-snapcast')) {
+		    $.ajax({
+                        url: '/command/?switchplayer=Snapcast&host='+path,
+                        cache: false
                     });
                 } else {
                     path = (el.hasClass('db-dirble')) ? path.split(' | ')[1] : path;

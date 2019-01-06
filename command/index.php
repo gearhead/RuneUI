@@ -43,6 +43,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $switchOK = 0;
         }
     } else if ($_GET['switchplayer'] === 'Snapcast') {
+	$redis->set("snapcast_host", $_GET['host']);
         $switchOK = 1;
     }
     if ($switchOK === 1 OR $_GET['switchplayer'] === 'MPD') {

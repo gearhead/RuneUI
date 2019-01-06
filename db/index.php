@@ -163,6 +163,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 }
             }
             break;
+	case 'snapcast':
+	    $servers=array(
+		array("name" => "runeaudio-1.local", "ip" => "192.168.1.19"),
+		array("name" => "mike.local", "ip" => "192.168.1.15")
+	    );
+	    echo json_encode($servers);
+	    break;
         case 'dirble':
             if ($activePlayer === 'MPD') {
                 $proxy = $redis->hGetall('proxy');

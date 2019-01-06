@@ -1,0 +1,10 @@
+Spider mode enabled. Check if remote file exists.
+--2019-01-06 21:55:38--  https://www.google.com/
+Loaded CA certificate '/etc/ssl/certs/ca-certificates.crt'
+Resolving www.google.com (www.google.com)... 216.58.198.196
+Connecting to www.google.com (www.google.com)|216.58.198.196|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: unspecified [text/html]
+Remote file exists and could contain further links,
+but recursion is disabled -- not retrieving.
+
