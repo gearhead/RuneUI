@@ -250,10 +250,7 @@ while (1) {
 				sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
 				sysCmdAsync('/var/www/command/ui_update_async');
 			}
-			do {
-				sleep(2);
-			} while ($redis->get('activePlayer') === 'Airplay');
-			sleep(1);
+            sleep(1);
 		} else if ($activePlayer === 'Snapcast') {
 			if ($forceupdate !== 0) {
 				$forceupdate = 0;
@@ -289,9 +286,6 @@ while (1) {
 				sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
 				sysCmdAsync('/var/www/command/ui_update_async');
 			}
-			do {
-				sleep(2);
-			} while ($redis->get('activePlayer') === 'Snapcast');
 			sleep(1);
 		} else {
 			$forceupdate = 1;

@@ -38,7 +38,6 @@
 var GUI = {
     DBentry: ['','',''],
     DBupdate: 0,
-    activePlayer: '',
     browsemode: 'file',
     checkvol: 0,
     currentDBpos: [0,0,0,0,0,0,0,0,0,0,0],
@@ -186,18 +185,24 @@ function refreshTimer(startFrom, stopTo, state) {
     // console.log('startFrom = ', startFrom);
     // console.log('state = ', state);
     var display = $('#countdown-display');
-    display.countdown('destroy');
-    display.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-    if (state !== 'play'){
-        // console.log('startFrom = ', startFrom);
-        display.countdown('pause');
-    }
     var displayss = $('#countdown-display-ss');
-    displayss.countdown('destroy');
-    displayss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-    if (state !== 'play'){
-        // console.log('startFrom = ', startFrom);
-        displayss.countdown('pause');
+    if (GUI.json.actPlayer === "Airplay" || GUI.json.actPlayer === "Snapcast") {
+        display.countdown('destroy');
+        displayss.countdown('destroy');
+        return;
+    } else {
+        display.countdown('destroy');
+        display.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
+        if (state !== 'play'){
+            // console.log('startFrom = ', startFrom);
+            display.countdown('pause');
+        }
+        displayss.countdown('destroy');
+        displayss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
+        if (state !== 'play'){
+            // console.log('startFrom = ', startFrom);
+            displayss.countdown('pause');
+        }
     }
 }
 
@@ -742,7 +747,9 @@ function refreshState() {
         $('#format-bitrate-ss').html('&nbsp;');
         $('li', '#playlist-entries').removeClass('active');
     }
-    setPlaybackSource();
+    if($('#overlay-playsource-open button').text() !== GUI.libraryhome.ActivePlayer) {
+        renderLibraryHome();
+    }
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
         // $('#elapsed').html((GUI.json.elapsed !== undefined)? timeConvert(GUI.json.elapsed) : '00:00');
