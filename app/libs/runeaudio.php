@@ -3897,10 +3897,7 @@ function wrk_switchplayer($redis, $playerengine)
                 sysCmd('systemctl stop snapserver');
         		usleep(500000);
             }
-            $newArray = wrk_replaceTextLine('/etc/default/snapclient', 
-                    '', 
-                    'SNAPCLIENT_OPTS=', 
-                    'SNAPCLIENT_OPTS="-h '.$redis->get("snapcast_host").'"');
+            wrk_configureSnapclient($redis);
             sysCmd('systemctl start snapclient');
             wrk_mpdPlaybackStatus($redis);
             $redis->set('activePlayer', 'Snapcast');
@@ -3915,6 +3912,26 @@ function wrk_switchplayer($redis, $playerengine)
     return $return;
 }
 
+function wrk_configureSnapclient($redis)
+{
+        $file = '/etc/default/snapclient';
+        $ao = $redis->get("ao");
+        $acard = json_decode($redis->hGet("acards", $ao));
+        $acard_system = $acard->system;
+        runelog("acard_system $acard_system");
+        $shortname = explode(':', $acard_system)[1];
+        runelog("shortname $shortname");
+        $shortname = trim(explode(' ', $shortname)[1]);
+        runelog("shortname now $shortname");
+                $newArray = wrk_replaceTextLine($file, 
+                                '', 
+                                'SNAPCLIENT_OPTS=', 
+                                'SNAPCLIENT_OPTS="-h '.$redis->get("snapcast_host").' -s '.$shortname.'"');
+        // Commit change
+        $fp = fopen($file, 'w');
+        fwrite($fp, implode("", $newArray));
+        fclose($fp);
+}
 function wrk_sysAcl()
 {
     sysCmd('chown -R http.http /srv/http/');
