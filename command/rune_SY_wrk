@@ -280,9 +280,8 @@ if ($playerid_db === '') {
 			sysCmd('mpd --kill');
 		}
 		unset($retval);
-		// stop snapserver
-		sysCmd('systemctl stop snapserver');
 		// start snapclient
+		sysCmd('systemctl stop snapclient');
 		wrk_configureSnapclient($redis);
 		sysCmd('systemctl start snapclient');
 	} else {

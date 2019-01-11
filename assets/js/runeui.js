@@ -681,9 +681,9 @@ function renderLibraryHome() {
     // Snapcast block
     if (chkKey(obj.Snapcast)) {
         if(isLocalHost) {
-            content += divOpen + '<div id="home-snapcast" class="home-block' + toggleMPD + '" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3></div>' + divClose;
+            content += divOpen + '<div id="home-snapcast" class="home-block" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3></div>' + divClose;
         } else {
-            content += divOpen + '<div id="home-snapcast" class="home-block' + toggleMPD + '" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3>browse local Snapcast streams</div>' + divClose;
+            content += divOpen + '<div id="home-snapcast" class="home-block" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-globe"></i><h3>Snapcast</h3>browse local Snapcast streams</div>' + divClose;
         }
     }
 
