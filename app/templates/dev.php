@@ -227,7 +227,7 @@
 					<label class="col-sm-2 control-label">Update RuneUI</label>
 					<div class="col-sm-10">
 						<input class="btn btn-default btn-lg" type="submit" name="syscmd" value="gitpull" id="syscmd-gitpull" <?php if($this->dev !== '1'): ?> disabled <?php endif ?>>
-						<span class="help-block">Download and install the latest updates, a reboot is recommended after updating<br>
+						<span class="help-block">Download and install the latest updates<br>
 						A gitpull will effectively remove Rern's Addons, you will need to reinstall it after an update.<br>
 						An <strong>automatic reboot</strong> will be initiated after an update and Dev Mode will then be automatically switched OFF</span>
 					</div>
@@ -269,6 +269,13 @@
 					<div class="col-sm-10">
 						<input class="btn btn-default btn-lg" type="submit" name="syscmd" value="airplayconfreset" id="syscmd-airplayconfreset" <?php if($this->dev !== '1'): ?> disabled <?php endif ?>>
 						<span class="help-block">This will reset the shairport-sync.conf file back to defaults and reinitialise Airplay</span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="col-sm-2 control-label">Reset Samba config</label>
+					<div class="col-sm-10">
+						<input class="btn btn-default btn-lg" type="submit" name="syscmd" value="sambaconfreset" id="syscmd-sambaconfreset" <?php if($this->dev !== '1'): ?> disabled <?php endif ?>>
+						<span class="help-block">This will reset the smb-prod.conf and smb-dev.conf files back to defaults, remove any Samba usernames/passwords and reinitialise Samba</span>
 					</div>
 				</div>
             </div>

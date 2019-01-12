@@ -35,11 +35,12 @@
 // common include
 include('/srv/http/app/libs/runeaudio.php');
 $start = microtime(true);
-$savecpu_rp = 15;
+$savecpu_rp = 10;
 $savecpu_mnt = 1;
 $savecpu_smt = 2400;
 $savecpu_inc = 10;
 $savecpu_sps = 43200;
+$savecpu_avd = 86400;
 $allmounted = 0;
 $retriesmounting = 100;
 ini_set('display_errors', '1');
@@ -428,7 +429,7 @@ if ($playerid_db === '') {
 
 	// close startup Redis connection
 	$redis->close();
-	// reset usb storage (also starts samba), set the mpd volume, collect debug data, set process priority (to nice) and check the contents of redis
+	// reset usb storage (also starts samba), set the mpd volume, collect debug data, set process priority (to nice)
 	sysCmdAsync('/var/www/command/usbmount ; /var/www/command/set_mpd_volume.php ; /var/www/command/debug_collector ; /srv/http/command/rune_prio nice');
 	runelog('--- NORMAL STARTUP');
 	// --- NORMAL STARTUP //
@@ -448,18 +449,27 @@ while (1) {
             runelog('(loop) start job', $jobID);
             // decode redis data
             $job = json_decode($job);
+			runelog('wrk_SY: ', $job->wrkcmd);
+			if (isset($job->action)) {
+				runelog($job->wrkcmd.' action: ', $job->action);
+			} else {
+				runelog($job->wrkcmd.' action: ', 'Not set');
+			}
+			if (isset($job->args)) {
+				runelog($job->wrkcmd.'   args: ', $job->args);
+			} else {
+				runelog($job->wrkcmd.'   args: ', 'Not set');
+			}
             switch($job->wrkcmd) {
                 case 'test':
-                    runelog('wrk_SY: ', $job->action);
+					runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    runelog("testjob: action ", $job->action);
-                    runelog("testjob: args[] ", $job->args);
                     // send notfy to UI
                     ui_notify_async('Test', 'text message: jobID='.$jobID, $jobID);
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'airplay':
-                    runelog('wrk_SY: ', $job->wrkcmd);
+					runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     if ($job->args !== $redis->hGet('airplay', 'name')) {
                         $redis->hSet('airplay', 'name', $job->args);
@@ -497,15 +507,83 @@ while (1) {
                     }
                     $redis->sRem('w_lock', $jobID);
                     break;
+                case 'xorgserver':
+					runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+					if ($job->action === 'start') {
+						// save the local browser values
+						$redis->hSet('local_browser', 'enable', $job->args);
+						// set bootsplash-disable OFF for the next reboot
+						$redis->hSet('local_browser', 'disable-splash', 0);
+						wrk_xorgconfig($redis, $job->action, 0);
+						sysCmd('systemctl enable bootsplash');
+						// start the local browser
+						sysCmd('systemctl start local-browser');
+					} else if ($job->action === 'stop') {
+						// save the local browser values
+						$redis->hSet('local_browser', 'enable', $job->args);
+						// set bootsplash-disable ON for the next reboot
+						$redis->hSet('local_browser', 'disable-splash', 1);
+						wrk_xorgconfig($redis, $job->action, 1);
+						sysCmd('systemctl disable bootsplash');
+						// stop the local browser
+						sysCmd('systemctl stop local-browser');
+					} else if ($job->action === 'zoomfactor') {
+						// zoomfactor
+						// reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points
+						$zoomfactor = floatval(preg_replace("/[^0-9.]/", "", $job->args));
+						// check range of zoomfactor
+						if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
+							// strip any leading & trailing zero's, spaces, etc.
+							$zoomfactor = trim(trim($zoomfactor, '0'));
+							// save the localbrowser zoomfactor value
+							$redis->hSet('local_browser', $job->action, $zoomfactor);
+							// set the parameter file
+							wrk_xorgconfig($redis, $job->action, $zoomfactor);
+							// retart local browser if enabled
+							if ($redis->hGet('local_browser', 'enable')) {
+								sysCmd('systemctl stop local-browser');
+								sysCmd('systemctl daemon-reload');
+								sysCmd('systemctl start local-browser');
+							}
+						} else {
+							ui_notify('Invalid zoomfactor', $job->args.' value must be between 0.1 and 10');
+							sleep(3);
+						}
+					} else if ($job->action === 'localSStime') {
+						// localSStime
+						// save localSStime
+						$redis->set('localSStime', $job->args);
+						// retart local browser if enabled
+						if ($redis->hGet('local_browser', 'enable')) {
+							sysCmd('systemctl stop local-browser');
+							sysCmd('systemctl daemon-reload');
+							sysCmd('systemctl start local-browser');
+						}
+					} else {
+						// rotate or mouse_cursor
+						// save the local browser rotate or mouse_cursor values
+						$redis->hSet('local_browser', $job->action, $job->args);
+						// set the parameter file
+						wrk_xorgconfig($redis, $job->action, $job->args);
+						// retart local browser if enabled
+						if ($redis->hGet('local_browser', 'enable')) {
+							sysCmd('systemctl stop local-browser');
+							sysCmd('systemctl daemon-reload');
+							sysCmd('systemctl start local-browser');
+						}
+					}
+					$redis->sRem('w_lock', $jobID);
+					break;
                 case 'backup':
-                    runelog('wrk_SY: ', $job->wrkcmd);
+					runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     $backup = wrk_backup($redis);
                     $redis->hSet('w_msg', $jobID, $backup);
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'restoreact':
-                    runelog('wrk_SY: ', $job->wrkcmd);
+					runelog('wrk_SY: ', $job->wrkcmd);
 					// Activate the Restore function
                     $redis->sAdd('w_lock', $jobID);
 					$redis->set('restoreact', ' 1');
@@ -513,8 +591,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 // case 'restore':
-                    // runelog('wrk_SY: ', $job->wrkcmd);
-					// runelog('restore: ', $job->args);
+					// runelog('wrk_SY: ', $job->wrkcmd);
                     // $redis->sAdd('w_lock', $jobID);
 					// ui_notify_async('Restore backup', 'please wait for a restart...', $jobID);
                     // wrk_restore($redis, "/run/".$job->args);
@@ -522,7 +599,6 @@ while (1) {
                     // $redis->sRem('w_lock', $jobID);
                     // break;
                 case 'clearimg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     // Clean IMG
                     runelog('Clean IMG');
@@ -535,12 +611,12 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'debug':
-                    runelog('wrk_SY: ', $job->wrkcmd);
+					runelog('wrk_SY: ', $job->wrkcmd);
                     sysCmd('/var/www/command/debug_collector');
-                    $redis->sRem('w_lock', $jobID);
+                    // $redis->sRem('w_lock', $jobID);???
                     break;
                 case 'dlna':
-                    runelog('wrk_SY: ', $job->wrkcmd);
+					runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
 					sysCmd('systemctl stop upmpdcli');
                     if (($job->args->name !== $redis->hGet('dlna', 'name')) OR ($job->args->queueowner !== $redis->hGet('dlna', 'queueowner'))) {
@@ -720,7 +796,6 @@ while (1) {
                         $redis->hSet('lastfm', 'enable', 1);
                     }
                     if ($job->action === 'stop') {
-                        runelog('service: MPDSCRIBBLE stop');
                         sysCmd('systemctl stop mpdscribble');
                         // check if spotify is configured
                         if ($redis->hGet('spotify','enable') === '1') {
@@ -780,7 +855,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 //case 'ashufflestart':
-                    //runelog('wrk_SY: ', $job->wrkcmd);
+                    // runelog('wrk_SY: ', $job->wrkcmd);
                     //$redis->sAdd('w_lock', $jobID);
 					// shuffle.service has the line: ExecStart=/usr/bin/ashuffle -f /var/lib/mpd/playlists/RandomPlayPlaylist.m3u
 					// The hard coded /var/lib/mpd/playlists is set to $redis->hget('mpdconf', 'playlist_directory')
@@ -825,7 +900,6 @@ while (1) {
                     break;
                 case 'pl_ashuffle':
                     runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('pl_ashuffle args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
 					// Make a symbolic link to the selected playlist for random play, ashuffle will use it on startup if it is available
 					sysCmd('ln -sf '.$redis->hget('mpdconf', 'playlist_directory').'/'.$job->args.'.m3u '.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
@@ -840,7 +914,6 @@ while (1) {
                     break;
                 case 'addrandomtracks':
                     runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('addrandomtracks args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
 					// save the number of files to add
 					$redis->set('addrandom', $job->args);
@@ -851,7 +924,6 @@ while (1) {
                     break;
                 case 'airplaymetadata':
                     runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('airplaymetadata action: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					// start or stop rune_SSM_wrk
 					if ($job->action == 'start') {
@@ -865,8 +937,6 @@ while (1) {
                     break;
 				case 'sambaonoff':
                     runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('sambaonoff action: ', $job->action);
-					runelog('sambaonoff args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->hSet('samba', 'enable', $job->action);
 					$redis->hSet('samba', 'readwrite', $job->args);
@@ -880,11 +950,11 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
 					break;
 				case 'rerninstall':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
 					ui_notify("Install Rern's Addons", 'It takes some time .....');
                     $redis->sAdd('w_lock', $jobID);
-					sysCmd('systemctl stop addons');
-					sysCmd('systemctl disable addons');
+					sysCmd('systemctl stop addons cronie');
+					sysCmd('systemctl disable addons cronie');
 					sysCmd('rm -f /etc/systemd/system/addons.service');
 					sysCmd('rm -f /etc/sudoers.d/http');
 					sysCmd('rm -f /etc/sudoers.d/http-backup');
@@ -899,11 +969,11 @@ while (1) {
 					sysCmd('wget -vN --no-check-certificate https://github.com/rern/RuneAudio_Addons/raw/master/install.sh --output-file=/home/rern/Rern_Addons.log');
 					sysCmd('chmod +x -v ./install.sh  >> /home/rern/Rern_Addons.log');
 					sysCmd('./install.sh >> /home/rern/Rern_Addons.log');
-					sleep(1);
-					$retval = sysCmd("cat /home/rern/Rern_Addons.log | grep -i -E 'installed|please'");
-					ui_notify("Rern's Addons", implode("\n", $retval));
+					sysCmd('sed -i "s,\x1B\[[0-9;]*[a-zA-Z],,g" /home/rern/Rern_Addons.log');
+					$retval = sysCmd('grep -i -E "installed|please" /home/rern/Rern_Addons.log');
+					ui_notify("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
 					sleep(3);
-					ui_notify("Rern's Addons", "You may need to reboot...");
+					ui_notify("Rern's Addons", 'You may need to reboot...');
 					sleep(3);
 					unset($retval);
 					$redis->hSet('addons', 'update', '0');
@@ -912,11 +982,11 @@ while (1) {
 					$redis->sRem('w_lock', $jobID);
 					break;
 				case 'rernremove':
-				    runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
 					ui_notify("Remove Rern's Addons", 'It takes some time .....');
                     $redis->sAdd('w_lock', $jobID);
-					sysCmd('systemctl stop addons');
-					sysCmd('systemctl disable addons');
+					sysCmd('systemctl stop addons cronie');
+					sysCmd('systemctl disable addons cronie');
 					sysCmd('rm -f /etc/systemd/system/addons.service');
 					sysCmd('rm -f /etc/sudoers.d/http');
 					sysCmd('rm -f /etc/sudoers.d/http-backup');
@@ -927,7 +997,7 @@ while (1) {
 					sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
 					$redis->del('addons');
 					$redis->del('addo');
-					ui_notify("Rern's Addons", "You may need to reboot...");
+					ui_notify("Remove Rern's Addons", 'You may need to reboot...');
 					sleep(3);
 					$redis->hSet('addons', 'update', '0');
 					$redis->hSet('addons', 'font', '20170901');
@@ -947,7 +1017,6 @@ while (1) {
 					break;
                 case 'NTPswitch':
                     runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('NTPswitch: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					sysCmd('/srv/http/command/switch_'.$job->action.'_time_on.sh');
 					$redis->sRem('w_lock', $jobID);
@@ -967,50 +1036,6 @@ while (1) {
 					wrk_mpdconf($redis, 'refresh');
 					$redis->sRem('w_lock', $jobID);
                                         break;
-                case 'xorgserver':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-					runelog('xorgserver action: ', $job->action);
-					runelog('xorgserver args: ', $job->args);
-                    $redis->sAdd('w_lock', $jobID);
-					if ($job->action === 'start') {
-						$redis->hSet('local_browser', 'enable', $job->args);
-						sysCmd('systemctl start local-browser');
-					} else if ($job->action === 'stop') {
-						$redis->hSet('local_browser', 'enable', $job->args);
-						sysCmd('systemctl stop local-browser');
-					} else if ($job->action === 'zoomfactor') {
-						// zoomfactor
-						// reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points
-						$zoomfactor = floatval(preg_replace("/[^0-9.]/", "", $job->args));
-						// check range of zoomfactor
-						if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
-							// strip a leading zero if needed
-							if (substr($zoomfactor, 0, 1) === '0') {
-								$zoomfactor = substr($zoomfactor, 1);
-							}
-							$redis->hSet('local_browser', $job->action, $zoomfactor);
-							wrk_xorgconfig($redis, $job->action, $zoomfactor);
-							if ($redis->hGet('local_browser', 'enable')) {
-								sysCmd('systemctl stop local-browser');
-								sysCmd('systemctl daemon-reload');
-								sysCmd('systemctl start local-browser');
-							}
-						} else {
-							ui_notify('Invalid zoomfactor', $job->args.' value must be between 0.1 and 10');
-							sleep(3);
-						}
-					} else {
-						// rotate or mouse_cursor
-						$redis->hSet('local_browser', $job->action, $job->args);
-						wrk_xorgconfig($redis, $job->action, $job->args);
-						if ($redis->hGet('local_browser', 'enable')) {
-							sysCmd('systemctl stop local-browser');
-							sysCmd('systemctl daemon-reload');
-							sysCmd('systemctl start local-browser');
-						}
-					}
-					$redis->sRem('w_lock', $jobID);
-					break;
                 case 'airplayconfreset':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
@@ -1027,9 +1052,29 @@ while (1) {
 					wrk_shairport($redis, $redis->get('ao'), $airplay_name);
 					$redis->sRem('w_lock', $jobID);
 					break;
+                case 'sambaconfreset':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+					// stop samba
+					sysCmd('systemctl stop smbd nmbd');
+					sysCmd('systemctl disable smbd nmbd');
+					// reset the config files
+					sysCmd('rm -f /etc/samba/*.conf');
+					sysCmd('cp /var/www/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
+					sysCmd('cp /var/www/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
+					sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
+					sysCmd('find /etc/samba -name *.conf -exec chmod 644 {} \;');
+					// reset the redis varables for samba (set to OFF and Read-Only)
+					$redis->del('samba');
+					sysCmd('/var/www/db/redis_datastore_setup check');
+					// remove any samba usernames and passwords
+					sysCmd('pdbedit -L | grep -o ^[^:]* | smbpasswd -x');
+					// restart samba if required (e.g. when in dev mode)
+					wrk_restartSamba($redis);
+					$redis->sRem('w_lock', $jobID);
+					break;
                 case 'soxrmpd':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('soxrmpd action: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->set('soxrmpdonoff', $job->action);
                     wrk_mpdconf($redis, 'refresh');
@@ -1045,7 +1090,6 @@ while (1) {
 					break;
                 case 'metadataairplay':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('metadataairplay action: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->hSet('airplay', 'metadataonoff', $job->action);
 					wrk_shairport($redis, $redis->get('ao'));
@@ -1053,7 +1097,6 @@ while (1) {
 					break;
                 case 'artworkairplay':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('artworkairplay action: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->hSet('airplay', 'artworkonoff', $job->action);
 					wrk_shairport($redis, $redis->get('ao'));
@@ -1061,7 +1104,6 @@ while (1) {
 					break;
                 case 'airplayoutputformat':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('airplayoutputformat args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->hSet('airplay', 'alsa_output_format', $job->args);
 					wrk_shairport($redis, $redis->get('ao'));
@@ -1069,7 +1111,6 @@ while (1) {
 					break;
                 case 'airplayoutputrate':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('airplayoutputrate args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
 					$redis->hSet('airplay', 'alsa_output_rate', $job->args);
 					wrk_shairport($redis, $redis->get('ao'));
@@ -1077,7 +1118,6 @@ while (1) {
 					break;
                 case 'playernamemenu':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('playernamemenu action: ', $job->action);
                     $redis->sAdd('w_lock', $jobID);
 					wrk_playernamemenu($job->action);
 					$redis->set('playernamemenu', $job->action);
@@ -1086,20 +1126,16 @@ while (1) {
 					break;
                 case 'netcfg':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('netcfg action: ', $job->action);
-                    runelog('netcfg args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
                     // reset network configuration to default
                     if ($job->action === 'reset') {
                         wrk_netconfig($redis,'reset',$job->args);
-                        $redis->sRem('w_lock', $jobID);
                     }
                     // write network configuration
                     if ($job->action === 'config') {
                         // send notfy to UI
                         ui_notify('Networkconfiguration', 'it takes some time .....');
                         $retval = wrk_netconfig($redis, 'writecfg', $job->args);
-                        $redis->sRem('w_lock', $jobID);
                         // reboot if needed !!!
                         if ($retval === 'reboot') {
                             //$notification = new stdClass();
@@ -1108,39 +1144,33 @@ while (1) {
                             //wrk_notify($redis, 'kernelswitch', $notification, $jobID);
                             sysCmd('/var/www/command/rune_shutdown reboot');
                             sysCmdAsync('systemctl reboot');
-                            //$redis->sRem('w_lock', $jobID);
                         }
 						unset($retval);
                     }
                     // refresh network configuration
                     if ($job->action === 'refresh') {
                         sysCmd('/var/www/command/refresh_nics');
-                        $redis->sRem('w_lock', $jobID);
                     }
                     // manual network configuration
                     if ($job->action === 'manual') {
                         // wrk_netconfig($redis,'manual',$job->args);
-                        $redis->sRem('w_lock', $jobID);
                     }
+                    $redis->sRem('w_lock', $jobID);
                     break;
                 case 'apcfg':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('apcfg action: ', $job->action);
-                    runelog('apcfg args: ', $job->args);
                     $redis->sAdd('w_lock', $jobID);
                     // reset accesspoint configuration to default
                     if ($job->action === 'reset') {
 						// Need to test the following
                         // $redis->Del('AccessPoint');
 						// sysCmd('/var/www/command/refresh_nics');
-                        $redis->sRem('w_lock', $jobID);
                     }
                     // write network configuration
                     if ($job->action === 'config') {
                         // send notfy to UI
                         ui_notify('AccessPoint configuration', 'it takes some time .....');
                         $retval = wrk_apconfig($redis, 'writecfg', $job->args);
-                        $redis->sRem('w_lock', $jobID);
                         // reboot if needed !!!
                         if ($retval === 'reboot') {
                             $notification = new stdClass();
@@ -1152,6 +1182,7 @@ while (1) {
                         }
 						unset($retval);
                     }
+                    $redis->sRem('w_lock', $jobID);
                     break;
                 case 'ntpserver':
                     runelog('wrk_SY: ', $job->wrkcmd);
@@ -1180,7 +1211,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'orionprofile':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     $profile = $job->args." ".$redis->get('hwplatformid');
                     runelog("env: SET KERNEL PROFILE", $job->args);
@@ -1190,13 +1221,13 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'phprestart':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     sysCmd('systemctl reload-or-restart php-fpm || systemctl start php-fpm');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'poweroff':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
 					// save the playback status
 					wrk_mpdPlaybackStatus($redis);
@@ -1208,7 +1239,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'reboot':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
 					// save the playback status
 					wrk_mpdPlaybackStatus($redis);
@@ -1220,7 +1251,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
 				case 'display_off':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     sysCmd('export DISPLAY=:0; xset dpms force off');
                     $redis->sRem('w_lock', $jobID);
@@ -1274,7 +1305,7 @@ while (1) {
                 case 'sourcecfg':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    if (wrk_sourcecfg($redis, $job->action,$job->args)) sysCmd('mpc update');
+                    if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'switchplayer':
@@ -1317,7 +1348,7 @@ while (1) {
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'webradio':
-					runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     $mpd = openMpdSocket('/run/mpd.sock');
                     if ($job->action === 'add') {
@@ -1414,7 +1445,7 @@ while (1) {
                     foreach ($job->args as $raw_notification) {
                         wrk_notify($redis, 'raw', $raw_notification);
                     }
-                    $redis->sRem('w_lock', $jobID);
+                    // $redis->sRem('w_lock', $jobID); ???
                     break;
             } // end switch
             // delete processed job from the w_queue
@@ -1425,7 +1456,7 @@ while (1) {
         } // end foreach loop
     } // end if loop
     // mount all sources
-    if ((!$allmounted) && ($retriesmounting = 100)) {
+    if ((!$allmounted) && ($retriesmounting == 100)) {
         runelog('wrk_SY: try to mount all shares! - First time');
 		// first time, so call directly
 		// parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
@@ -1453,10 +1484,9 @@ while (1) {
 			sysCmdAsync('/var/www/command/mount_async.php');
 		}
 	}
-	// The following parts are a bit heavy on cpu time, run then only on every +/-15th cycle (= every +/-7 seconds)
-	// this will allow the normal queued actions to be more responsive, waiting only 0,5 seconds in sleep state
+	// Random play auto start and stop, run first after 10 cycles (+/-5 seconds), then only on every +/-20th cycle (= every +/-10 seconds)
 	if ($savecpu_rp-- === 0) {
-		$savecpu_rp = 10 + rand(0, 10);
+		$savecpu_rp = 15 + rand(0, 10);
 		// Detect deletion of playlist random file
 		// Stop / restart ashuffle if the file RandomPlayPlaylist.m3u has been deleted
 		// To-do: Better if the UI informs /db/index.php that it has deleted a file, then start the ashufflereset in /db/index.php
@@ -1636,6 +1666,15 @@ while (1) {
 			sysCmd('systemctl daemon-reload');
 			sysCmd('systemctl start shairport-sync');
 		}
+	}
+	// Restart avahi-daemon every 12 hours
+	// There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
+	// It will normally run correctly for at least 24 hours
+	// Restart every +/-86400 cycles (= every +/-12 hours)
+	if ($savecpu_avd-- === 0) {
+		$savecpu_avd = 86300 + rand(0, 200);
+		// restart avahi-daemon
+		sysCmd('systemctl restart avahi-daemon');
 	}
     // unload CPU: 0,5 second sleep
     usleep(500000);

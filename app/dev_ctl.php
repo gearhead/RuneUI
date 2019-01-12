@@ -150,6 +150,8 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'extendpartition') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'extendpartition'));
         // ----- RESET AIRPLAY CONFIG -----
         if ($_POST['syscmd'] === 'airplayconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayconfreset'));
+        // ----- RESET SAMBA CONFIG -----
+        if ($_POST['syscmd'] === 'sambaconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaconfreset'));
         // ----- RESET / SWITCH ON CHRONYD-TIME -----
         if ($_POST['syscmd'] === 'chronydon') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'NTPswitch', 'action' => 'chronyd'));
         // ----- RESET / SWITCH ON SYSTEMD-TIME -----

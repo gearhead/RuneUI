@@ -193,7 +193,7 @@ function redisDatastore($redis,$action) {
 			$redis->del('soxrmpdonoff');
 			$redis->set('localSStime', -1);
 			$redis->set('remoteSStime', -1);
-            $redis->set('ashuffle_start_delay', '10');
+            $redis->set('ashuffle_start_delay', '5');
 			$redis->set('ashuffle_wait_for_play', '0');
 			$redis->set('mpd_playback_laststate', '');
 			$redis->set('mpd_playback_lastnumber', '');
@@ -203,6 +203,7 @@ function redisDatastore($redis,$action) {
 			$redis->hSet('local_browser', 'zoomfactor', '1.8');
 			$redis->hSet('local_browser', 'rotate', 'NORMAL');
 			$redis->hSet('local_browser', 'mouse_cursor', 0);
+			$redis->hSet('local_browser', 'disable-splash', 1);
 			$redis->set('restoreact', 0);
 			$redis->set('restoreact', 0);
 			$redis->set('playernamemenu', 0);
@@ -428,7 +429,7 @@ function redisDatastore($redis,$action) {
 			$redis->exists('localSStime') || $redis->set('localSStime', -1);
 			$redis->exists('remoteSStime') || $redis->set('remoteSStime', -1);
             $redis->exists('audio_on_off') || $redis->set('audio_on_off', '1');
-			$redis->exists('ashuffle_start_delay') || $redis->set('ashuffle_start_delay', '10');
+			$redis->exists('ashuffle_start_delay') || $redis->set('ashuffle_start_delay', '5');
 			$redis->exists('ashuffle_wait_for_play') || $redis->set('ashuffle_wait_for_play', '0');
 			$redis->exists('mpd_playback_laststate') || $redis->set('mpd_playback_laststate', '');
 			$redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
@@ -438,6 +439,7 @@ function redisDatastore($redis,$action) {
 			$redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', '1.8');
 			$redis->hExists('local_browser', 'rotate') || $redis->hSet('local_browser', 'rotate', 'NORMAL');
 			$redis->hExists('local_browser', 'mouse_cursor') || $redis->hSet('local_browser', 'mouse_cursor', 0);
+			$redis->hExists('local_browser', 'disable-splash') || $redis->hSet('local_browser', 'disable-splash', 1);
 			$redis->hExists('snapserver', 'enable') || $redis->hSet('snapserver', 'enable', 0);
 			$redis->exists('restoreact') || $redis->set('restoreact', 0);
 			$redis->exists('playernamemenu') || $redis->set('playernamemenu', 0);

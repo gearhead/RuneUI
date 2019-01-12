@@ -48,8 +48,11 @@ mpd --kill
 systemctl stop nginx
 sleep 1
 systemctl stop local-browser
+disablesplash=$( redis-cli hget local_browser disable-splash )
+if [[ $disablesplash == 0 ]] ; then
+	ply-image "$splash"
+fi
 sleep 1
-ply-image "$splash"
 redis-cli save
 systemctl stop shairport-sync mpd spopd smbd nmbd rune_PL_wrk rune_SSM_wrk
 sleep 1

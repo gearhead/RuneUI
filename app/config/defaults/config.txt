@@ -78,7 +78,10 @@ dtparam=audio=on
 lcd_rotate=0
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
-disable_splash=0  # set to 1 to disable boot splash
+
+## Boot splash
+# set to 1 to disable or 0 to enable boot splash
+disable_splash=1
 
 # Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1

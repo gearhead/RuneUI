@@ -47,7 +47,7 @@ if (isset($_POST)) {
         if ($_POST['action'] == 'add') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'add', 'args' => $_POST['mount']));
         if ($_POST['action'] == 'edit') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'edit', 'args' => $_POST['mount']));
         if ($_POST['action'] == 'delete') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'delete', 'args' => $_POST['mount']));
-        if ($_POST['action'] == 'reset') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfgman', 'action' => 'reset' ));
+        if ($_POST['action'] == 'reset') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
     }
     // ----- FEATURES -----
     if (isset($_POST['sources'])) {

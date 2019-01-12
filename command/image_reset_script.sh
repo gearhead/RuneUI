@@ -22,16 +22,16 @@ udevil clean
 #
 # set up services and stop them
 systemctl unmask systemd-journald
-systemctl disable ashuffle mpd mpdscribble nmbd smbd udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd
+systemctl disable ashuffle mpd mpdscribble nmbd smbd udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd bootsplash cronie
 systemctl enable avahi-daemon haveged nginx redis rune_SY_wrk sshd systemd-resolved systemd-journald systemd-timesyncd
-systemctl stop ashuffle mpd spopd smbd nmbd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd
+systemctl stop ashuffle mpd spopd smbd nmbd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie
 #
 # install raspi-rotate
 /var/www/command/raspi-rotate-install.sh
 #
 # remove rerns addons menu (if installed)
-systemctl stop addons
-systemctl disable addons
+systemctl stop addons cronie
+systemctl disable addons cronie
 rm -f /etc/systemd/system/addons.service
 rm -f /etc/sudoers.d/http
 rm -f /etc/sudoers.d/http-backup

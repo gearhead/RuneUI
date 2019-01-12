@@ -13,7 +13,7 @@
                     <input class="form-control osk-trigger input-lg" type="text" id="nas-name" name="mount[name]" value="<?=$this->mount['name']?>" data-trigger="change" autocomplete="off" placeholder="es: Classical" required>
                     <input type="hidden" name="mount[id]" value="<?=$this->mount['id']?>">
                     <input type="hidden" name="action" value="<?=$this->action ?>">
-                    <span class="help-block">The name you want to give to this source. It will appear in your database tree structure</span>
+                    <span class="help-block">The name you want to give to this source (no spaces allowed). It will appear in your database tree structure</span>
                 </div>
             </div>
             <div class="form-group">
@@ -24,14 +24,14 @@
                     <option value="osx" <?php if($this->mount['type'] == 'osx'): ?> selected <?php endif ?>>SMB/CIFS (OS X share)</option>
                     <option value="nfs" <?php if($this->mount['type'] == 'nfs'): ?> selected <?php endif ?>>NFS</option>
                     </select>
-                    <span class="help-block">Select SMB/CIFS for Windows or Samba file shares or NFS for unix file shares</span>
+                    <span class="help-block">Select SMB/CIFS for Windows, Samba or OS X file shares, NFS for unix file shares</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="nas-ip">IP address</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="nas-ip" name="mount[address]" value="<?=$this->mount['address']?>" data-trigger="change" autocomplete="off" placeholder="es: 192.168.1.250">
-                    <span class="help-block">Specify your NAS address. For fixed IP addresses enter the IP address.<br>
+                    <input class="form-control osk-trigger input-lg" type="text" id="nas-ip" name="mount[address]" value="<?=$this->mount['address']?>" data-trigger="change" autocomplete="off" placeholder="es: 192.168.1.250" required>
+                    <span class="help-block">Specify your NAS address. For fixed IP addresses enter the IP address (normally no spaces allowed).<br>
 					You can also specify <i>hostname</i>.local, this works well for many devices which do not have a fixed IP address. For example, another RuneAudio player with Samba enabled</span>
                 </div>
             </div>
@@ -50,7 +50,7 @@
                             <input id="nas-guest" name="nas-guest" type="checkbox" <?php if(empty($this->mount['username'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Log with guest account (no user/password required)</span>
+                        <span class="help-block">Log with guest account (no user/password required) for CIFS mounts (not used for NFS)</span>
                     </div>
                 </div>
                 <div id="mount-auth" class="optional disabled">
@@ -58,14 +58,14 @@
                         <label class="col-sm-2 control-label" for="nas-usr">Username</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="nas-usr" name="mount[username]" value="<?=$this->mount['username']?>" data-trigger="change" autocomplete="off" placeholder="user">
-                            <span class="help-block">If required, specify username to grant access to the NAS (case sensitive)</span>
+                            <span class="help-block">If required, specify username to grant access to the NAS (case sensitive) with a CIFS mount (ignored for NFS)</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="nas-pasw">Password</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="password" id="nas-pasw" name="mount[password]" value="<?=$this->mount['password']?>" autocomplete="off" placeholder="pass">
-                            <span class="help-block">If required, specify password to grant access to the NAS (case sensitive)</span>
+                            <span class="help-block">If required, specify password to grant access to the NAS (case sensitive) with a CIFS mount (ignored for NFS)</span>
                         </div>
                     </div>
                     <div class="disabler <?php if(!empty($this->mount['username'])): ?> hide <?php endif ?>"><!-- disabling layer --></div>

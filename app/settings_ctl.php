@@ -113,11 +113,11 @@ if (isset($_POST)) {
     if (isset($_POST['features'])) {
         if ($_POST['features']['airplay']['enable'] == 1) {
             if ($redis->hGet('airplay','enable') !== $_POST['features']['airplay']['enable'] OR $redis->hGet('airplay','name') !== $_POST['features']['airplay']['name']) {
-                // create worker job (start shairport)
+                // create worker job (start shairport-sync)
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplay', 'action' => 'start', 'args' => $_POST['features']['airplay']['name']));
             }
         } else {
-            // create worker job (stop shairport)
+            // create worker job (stop shairport-sync)
             $redis->hGet('airplay','enable') === '0' || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplay', 'action' => 'stop', 'args' => $_POST['features']['airplay']['name']));
         }
         if ($_POST['features']['dlna']['enable'] == 1) {
@@ -139,10 +139,10 @@ if (isset($_POST)) {
         } else {
             $redis->hGet('local_browser', 'enable') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'stop', 'args' => 0));
         }
-		if ($_POST['features']['local_browser']['zoomfactor'] != $redis->get('local_browser', 'zoomfactor')) {
+		if ($_POST['features']['local_browser']['zoomfactor'] != $redis->hGet('local_browser', 'zoomfactor')) {
 			$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'zoomfactor', 'args' => $_POST['features']['local_browser']['zoomfactor']));
 		}
-		if ($_POST['features']['local_browser']['rotate'] != $redis->get('local_browser', 'rotate')) {
+		if ($_POST['features']['local_browser']['rotate'] != $redis->hGet('local_browser', 'rotate')) {
 			$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'rotate', 'args' => $_POST['features']['local_browser']['rotate']));
 		}
         if ($_POST['features']['local_browser']['mouse_cursor'] == 1) {
@@ -150,13 +150,13 @@ if (isset($_POST)) {
         } else {
             $redis->hGet('local_browser', 'mouse_cursor') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'mouse_cursor', 'args' => 0));
         }
+        if ($_POST['features']['localSStime'] != $redis->get('localSStime')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'localSStime', 'args' => $_POST['features']['localSStime']));
+        }
         if ($_POST['features']['pwd_protection'] == 1) {
             $redis->get('pwd_protection') == 1 || $redis->set('pwd_protection', 1);
         } else {
             $redis->get('pwd_protection') == 0 || $redis->set('pwd_protection', 0);
-        }
-        if (isset($_POST['features']['localSStime'])) {
-            $redis->set('localSStime', $_POST['features']['localSStime']);
         }
         if (isset($_POST['features']['remoteSStime'])) {
             $redis->set('remoteSStime', $_POST['features']['remoteSStime']);

@@ -1375,6 +1375,18 @@ function getmac($nicname)
 function wrk_xorgconfig($redis, $action, $args)
 {
 	switch ($action) {
+		case 'start':
+			// no break
+		case 'stop':
+			// modify bootsplash on/off setting in /boot/config.txt
+			$file = '/boot/config.txt';
+			// replace the line with 'disable_splash='
+			$newArray = wrk_replaceTextLine($file, '', 'disable_splash=', 'disable_splash='.$args);
+			// Commit changes to /boot/config.txt
+			$fp = fopen($file, 'w');
+			$return = fwrite($fp, implode("", $newArray));
+			fclose($fp);
+			break;
 		case 'zoomfactor':
 			// modify the zoom factor in /etc/X11/xinit/start_chromium.sh
 			$file = '/etc/X11/xinit/start_chromium.sh';
@@ -2452,10 +2464,10 @@ if ($action === 'reset') {
 			// for v0.20 and higher SoXr is reported in the --version list if it was included in the build
 			if ($redis->hGet('mpdconf', 'version') >= '0.20.00') {
 				// MPD version is higher than 0.20
-				$count = sysCmd("mpd --version | grep -c 'soxr'");
+				$count = sysCmd('mpd --version | grep -c "soxr"');
 			} elseif ($redis->hGet('mpdconf', 'version') >= '0.19.00') {
 				// MPD version is higher than 0.19 but lower than 0.20
-				$count = sysCmd("grep -c 'soxr' /usr/bin/mpd");
+				$count = sysCmd('grep -c "soxr" /usr/bin/mpd');
 			} else {
 				// MPD version is lower than 0.19
 				$count[0] = 0;
@@ -2783,6 +2795,7 @@ if ($action === 'reset') {
 				sleep(2);
 				// ashuffle gets started automatically
 				// restore the player status
+				sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
 				wrk_mpdRestorePlayerStatus($redis);
                 // restart mpdscribble
                 if ($redis->hGet('lastfm', 'enable') === '1') {
@@ -2803,6 +2816,12 @@ if ($action === 'reset') {
             //$mpd = openMpdSocket('/run/mpd.sock', 0);
             //sendMpdCommand($mpd, 'kill');
             //closeMpdSocket($mpd);
+			$retval  = sysCmd('mpc volume');
+			$redis->set('lastmpdvolume', preg_replace('/[^0-9]/', '',$retval[0]));
+			unset($retval);
+			sysCmd('mpc stop');
+			sysCmd('mpc volume 100');
+			sysCmd('mpc volume');
 			sysCmd('mpd --kill');
             sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
@@ -3075,8 +3094,16 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
     switch ($action) {
         case 'mount':
             $mp = $redis->hGetAll('mount_'.$id);
+			if ($mp['type'] === 'cifs' OR $mp['type'] === 'osx') {
+				$type = 'cifs';
+			} else if ($mp['type'] === 'nfs') {
+				$type = 'nfs';
+				// some possible UI values are not valid for nfs, so empty them
+				$mp['username'] = '';
+				$mp['password'] = '';
+			}
 			// check that it is not already mounted
-			$retval = sysCmd('cat /proc/mounts | grep -c //'.$mp['address'].'/'.$mp['remotedir']);
+			$retval = sysCmd('grep "'.$mp['address'].'" /proc/mounts | grep "'.$mp['remotedir'].'" | grep "'.$type.'" | grep -c "/mnt/MPD/NAS/'.$mp['name'].'"');
 			if ($retval[0]) {
 				// already mounted, do nothing and return
 				return 1;
@@ -3090,9 +3117,50 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 				// return 0;
 			// }
 			// unset($retval);
+			// validate the mount name
+			$mp['name'] = trim($mp['name']);
+			if ($mp['name'] != preg_replace('/[^A-Za-z0-9-._]/', '', $mp['name'])) {
+				// no spaces or special characters allowed in the mount name
+				$mp['error'] = '"'.$mp['name'].'" Invalid Mount Name - no spaces or special characters allowed';
+				if (!$quiet) {
+					ui_notify($mp['type'].' mount', $mp['error']);
+					sleep(3);
+				}
+				$redis->hMSet('mount_'.$id, $mp);
+				return 0;
+			}
+			// clean up the address and remotedir variables: make backslashes slashes and remove leading and trailing slashes
+			$mp['address'] = trim(str_replace(chr(92) , '/', $mp['address']));
+			$mp['address'] = trim($mp['address'], '/');
+			$mp['remotedir'] = trim(str_replace(chr(92), '/', $mp['remotedir']));
+			$mp['remotedir'] = trim($mp['remotedir'], '/');
+			if ($mp['address'] != preg_replace('/[^A-Za-z0-9-.]/', '', $mp['address'])) {
+				// spaces or special characters are not normally valid in an IP Address
+				$mp['error'] = 'Warning "'.$mp['address'].'" IP Address seems incorrect - contains space(s) and/or special character(s) - continuing';
+				if (!$quiet) {
+					ui_notify($mp['type'].' mount', $mp['error']);
+					sleep(3);
+				}
+			}
+			if ($mp['remotedir'] != preg_replace('|[^A-Za-z0-9-._/ ]|', '', $mp['remotedir'])) {
+				// special characters are not normally valid as a remote directory name
+				$mp['error'] = 'Warning "'.$mp['remotedir'].'" Remote Directory seems incorrect - contains special character(s) - continuing';
+				if (!$quiet) {
+					ui_notify($mp['type'].' mount', $mp['error']);
+					sleep(3);
+				}
+			}
+			if (strlen($mp['remotedir']) === 0) {
+				// normally valid as a remote directory name should be specified
+				$mp['error'] = 'Warning "'.$mp['remotedir'].'" Remote Directory seems incorrect - empty - continuing';
+				if (!$quiet) {
+					ui_notify($mp['type'].' mount', $mp['error']);
+					sleep(3);
+				}
+			}
             $mpdproc = getMpdDaemonDetalis();
             sysCmd("mkdir \"/mnt/MPD/NAS/".$mp['name']."\"");
-            if ($mp['type'] === 'nfs') {
+            if ($type === 'nfs') {
                 // nfs mount
 				if (trim($mp['options']) == '') {
 					// no mount options set by the user or from previous auto mount, so set it to a value
@@ -3103,7 +3171,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 				// $mountstr = "mount -t nfs -o soft,retry=0,actimeo=1,retrans=2,timeo=50,nofsc,noatime,rsize=".$mp['rsize'].",wsize=".$mp['wsize'].",".$mp['options']." \"".$mp['address'].":/".$mp['remotedir']."\" \"/mnt/MPD/NAS/".$mp['name']."\"";
                 // $mountstr = "mount -t nfs -o soft,retry=1,noatime,rsize=".$mp['rsize'].",wsize=".$mp['wsize'].",".$mp['options']." \"".$mp['address'].":/".$mp['remotedir']."\" \"/mnt/MPD/NAS/".$mp['name']."\"";
             }
-            if ($mp['type'] === 'cifs' OR $mp['type'] === 'osx') {
+            if ($type === 'cifs') {
 				// smb/cifs mount
 				$auth = 'guest';
                 if (!empty($mp['username'])) {
@@ -3130,13 +3198,14 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 				$busy = 0;
 				unset($retval);
 				$retval = sysCmd($mountstr);
+				$mp['error'] = implode("\n", $retval);
 				foreach ($retval as $line) {
 					$busy += substr_count($line, 'resource busy');
 					$unresolved += substr_count($line, 'could not resolve address');
 					$noaddress += substr_count($line, 'Unable to find suitable address');
 				}
 			}
-            runelog('system response',var_dump($retval));
+			runelog('system response', var_dump($retval));
             if (empty($retval)) {
 				// mounted OK
 				$mp['error'] = '';
@@ -3150,9 +3219,8 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 				}
                 return 1;
             } else {
-				$mp['error'] = implode("\n", $retval);
 				unset($retval);
-				$retval = sysCmd('cat /proc/mounts | grep -c //'.$mp['address'].'/'.$mp['remotedir']);
+				$retval = sysCmd('grep "'.$mp['address'].'" /proc/mounts | grep "'.$mp['remotedir'].'" | grep "'.$type.'" | grep -c "/mnt/MPD/NAS/'.$mp['name'].'"');
 				if ($retval[0]) {
 					// mounted OK
 					$mp['error'] = '';
@@ -3253,6 +3321,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 							$busy = 0;
 							unset($retval);
 							$retval = sysCmd($mountstr);
+							$mp['error'] = implode("\n", $retval);
 							foreach ($retval as $line) {
 								$busy += substr_count($line, 'resource busy');
 							}
@@ -3271,9 +3340,8 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 							}
 							return 1;
 						} else {
-							$mp['error'] = implode("\n", $retval);
 							unset($retval);
-							$retval = sysCmd('cat /proc/mounts | grep -c //'.$mp['address'].'/'.$mp['remotedir']);
+							$retval = sysCmd('grep "'.$mp['address'].'" /proc/mounts | grep "'.$mp['remotedir'].'" | grep "'.$type.'" | grep -c "/mnt/MPD/NAS/'.$mp['name'].'"');
 							if ($retval[0]) {
 								// mounted OK
 								$mp['error'] = '';
@@ -3455,7 +3523,7 @@ function wrk_getHwPlatform($redis)
                     case "0":
 						// 0 = A or B
                         $arch = '08';
-						$redis->exits('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
+						$redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
 						$redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
 						$redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 0);
 						$redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 0);
@@ -3834,7 +3902,7 @@ function wrk_playerID($arch)
     }
     // And just in case a normal Pi Zero boots the first time without any network interface use the CPU serial number
     if (trim($playerid) === $arch) {
-        $retval = sysCmd("grep -Po '^Serial\s*:\s*\K[[:xdigit:]]{16}' /proc/cpuinfo");
+        $retval = sysCmd('grep -Po "^Serial\s*:\s*\K[[:xdigit:]]{16}" /proc/cpuinfo');
         $playerid = $arch.'CPU'.$retval[0];
 		unset($retval);
     }

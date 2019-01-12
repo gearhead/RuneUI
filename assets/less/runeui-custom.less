@@ -464,6 +464,159 @@ html, body {
 
 
 
+// Screensaver display and panels panels
+// --------------------------------------------------------------
+
+.leftpanel-ss {
+	float: left;
+	width: 40%;
+	height: 100%;
+}
+.leftpanel-expandable-ss {
+	float: left;
+	width: 100%;
+	height: 100%;
+}
+.rightpanel-ss {
+	float: right;
+	width: 60%;
+	height: 100%;
+}
+.rightpanel-compactable-ss {
+	float: right;
+	width: 0%;
+	height: 100%;
+	display: none;
+}
+#currentartist-ss {
+	font-size: 30px;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+	line-height: 1.42857;
+	color: rgb(224, 231, 238);
+}
+#currentsong-ss {
+	white-space: nowrap;
+	overflow: hidden;
+	height: 40px;
+	font-size: 40px;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+	font-weight: bold;
+	color: rgb(0, 149, 216);
+	line-height: 34px;
+}
+#currentalbum-ss {
+	font-size: 30px;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+	line-height: 1.42857;
+	color: rgb(224, 231, 238);
+}
+div.coverart-ss {
+	height: auto;
+	margin: 10px auto 11px;
+	width: 100%;
+}
+#cover-art-ss {
+	width: 100%;
+	height: auto;
+	border: 2px solid rgb(52, 73, 94);
+	margin-bottom: 20px;
+	border-radius: 6px;
+	background-size: 100% 100%;
+}
+#countdown-display-ss {
+	float: left;
+	width: 50%;
+	line-height: 38px;
+	font-size: 20px;
+	font-weight: bold;
+	text-align: center;
+}
+#total-ss {
+	line-height: 38px;
+	font-size: 20px;
+	font-weight: bold;
+	text-align: center;
+}
+#extrainfo-ss {
+	height: 110px;
+}
+#extrainfo-ss div {
+	font-size: 22px;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+	font-weight: bold;
+	color: rgb(0, 149, 216);
+	line-height: 34px;
+}
+#playlist-position-ss {
+	padding-top: 30px;
+}
+.rightpanel-ss .coverart {
+	height: auto;
+	margin: 10px auto 11px;
+	width: 100%;
+}
+#artist-ss {
+	font-size: 30px;
+	display: block;
+	box-sizing: border-box;
+	text-align: left;
+	font-weight: bold;
+	color: rgb(0, 149, 216);
+	line-height: 34px;
+}
+#artist-image-ss {
+	margin-right: 20px;
+	margin-left: 10px;
+	float: left;
+	width: 130px;
+	height: auto;
+	border: 2px solid rgb(52, 73, 94);
+	border-radius: 6px;
+	background-size: 100% 100%;
+}
+#artist-bio-ss {
+	font-size: 20px;
+}
+#addinfo-ss {
+	font-size: 24px;
+	display: block;
+	box-sizing: border-box;
+	text-align: left;
+	font-weight: bold;
+	color: rgb(0, 149, 216);
+	line-height: 34px;
+}
+#addinfo-text-ss {
+	font-size: 20px;
+	box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+	.leftpanel-expandable-ss {
+		width: 40%;
+	}
+	.rightpanel-compactable-ss {
+		width: 60%;
+		display: block;
+	}
+	#countdown-display-ss {
+		font-size: 38px;
+	}
+	#total-ss {
+		font-size: 28px;
+	}
+}
+
+
+
 // Playlist and Database panels
 // --------------------------------------------------------------
 
