@@ -7,6 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="msapplication-tap-highlight" content="no" />
     <link rel="stylesheet" href="<?=$this->asset('/css/runeui.css')?>">
+    <link rel="stylesheet" href="<?=$this->asset('/css/slidernav.css')?>">
     <?php if (is_localhost()): ?>
         <link rel="stylesheet" href="<?=$this->asset('/css/onScreenKeyboard.css')?>">
     <?php endif ?>
