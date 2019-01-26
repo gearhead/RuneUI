@@ -6,26 +6,35 @@
  */
 $.fn.sliderNav = function(options) {
 	console.log("init slider");
-	var items = $("#database-entries").find("li");
+	var items = $("#database-entries").children("li");
 	var height = $(".btnlist-bottom").position().top - $("#database-entries").position().top;
-	var stdheight = $('#database-entries').height();
+	var stdheight = 0;
+	for (var i = 0; i < items.length; i++) {
+		stdheight += $(items[i]).height();
+	}
 	console.log("slider height from", stdheight, "to", height);
 	if (stdheight < height) {
+		$(".slider-nav").remove();
+		$('#database-entries').css('padding-right', 0);
 		return;
 	}
 	$('#database-entries').height(height);
 
-	var defaults = { items: ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"], debug: false, height: null, event: 'pointerover'};
+	var defaults = { items: ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"], debug: false, height: null};
 	var opts = $.extend(defaults, options); var o = $.meta ? $.extend({}, opts, $$.data()) : opts; var slider = $(this); $(slider).addClass('slider');
 	$('.slider-content li:first', slider).addClass('selected');
-	$(slider).append('<div class="slider-nav"><ul></ul></div>');
+	var input = "<input orient=vertical type=range min=1 max=26 value=26 id='slider-range'>";
+	$(slider).append('<div class="slider-nav"><ul>' + input + '</ul></div>');
 	for(var i = 0; i < o.items.length; ++i) $('.slider-nav ul', slider).append("<li><a alt='#"+o.items[i]+"'>"+o.items[i]+"</a></li>");
 	$('.slider-content, .slider-nav', slider).css('top',$("#database-entries").position().top);
 	$('.slider-content, .slider-nav', slider).css('height',height);
+	$('#slider-range').css('top',$("#database-entries").position().top);
+	$('#slider-range').css('height',height);
 	$('.slider-content, .slider-nav li', slider).css('height',(height-2)/26);
 	$('.slider-content, .slider-nav li', slider).css('font-size','90%');
 	$('#database-entries').css('overflow-y', 'scroll');
 	$('#database-entries').css('padding-right', $('.slider-nav').width());
+	$('#slider-range').css('width',$(".slider-nav").width());
 
 	var last='';
 	console.log("slider loop", items.length);
@@ -45,10 +54,13 @@ $.fn.sliderNav = function(options) {
 		}
 	}
 
-	$('.slider-nav a', slider).on(opts.event, function(event){
-		var target = $(this).attr('alt').toUpperCase();
+	$('#slider-range', slider).on("input", function(event){
+		var value = 26 - $(this).val();
+		var current = opts.items[value];
+		var target = current.toUpperCase();
+		console.log("value", value, "current", current, "target", target);
 		var cOffset = $('#database-entries').offset().top;
-		var tOffset = $('#database-entries '+target).offset().top;
+		var tOffset = $('#database-entries #'+target).offset().top;
 		var pScroll = (tOffset - cOffset);
 		$('#database-entries').stop().animate({scrollTop: "+=" + pScroll + "px"});
 	});
