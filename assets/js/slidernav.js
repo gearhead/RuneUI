@@ -7,6 +7,8 @@
 
 function addAlphaAnchors(items) {
 	var last='';
+	var is_ordered = true;
+
 	console.log("slider loop", items.length);
 	for (var i = 0; i < items.length; i++) {
 		if ($(items[i]).attr("data-path") === undefined) {
@@ -15,7 +17,16 @@ function addAlphaAnchors(items) {
 		var name = $(items[i]).find("span").text();
 		if (name !== undefined) {
 			var initial = name[0].toUpperCase();
+			if (initial < 'A' || initial > 'Z') {
+				continue;
+			}
 			if (initial != last) {
+				if (initial < last) {
+					console.log("back from", last, "to", initial, ", list is unordered");
+					is_ordered = false;
+					$(items[i]).parent().find("li.alpha-anchor").remove();
+					break;
+				}
 				last = initial;
 				console.log("now at", last, items[i]);
 				anchor = "<li id='" + initial + "' class='alpha-anchor'>" + initial + "</li>";
@@ -24,7 +35,7 @@ function addAlphaAnchors(items) {
 		}
 	}
 
-	return true;
+	return is_ordered;
 }
 
 function sliderRemove() {
