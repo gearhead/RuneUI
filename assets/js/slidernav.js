@@ -15,7 +15,7 @@ function addAlphaAnchors(items) {
 			continue;
 		}
 		var name = $(items[i]).find("span").text();
-		if (name !== undefined) {
+		if (name !== undefined && name.length > 0) {
 			var initial = name[0].toUpperCase();
 			if (initial < 'A' || initial > 'Z') {
 				continue;
