@@ -67,7 +67,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hSet('mpdconf', 'version', '0.20.20');
+            $command = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4- -d' '");
+            $redis->hSet('mpdconf', 'version', trim(reset($command)));
 			break;
 		case 'mpdcheck':
             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
