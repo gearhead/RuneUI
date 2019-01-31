@@ -4457,7 +4457,11 @@ function ui_libraryHome($redis, $clientUUID=null)
     // Spotify
     $spotify = $redis->hGet('spotify', 'enable');
     //Snapcast
-    $snapcast = '1';
+    if (file_exists('/usr/bin/snapclient')) {
+        $snapcast = '1';
+    } else {
+        $snapcast = '';
+    }
     // Check current player backend
     $activePlayer = $redis->get('activePlayer');
     // Bookmarks
