@@ -44,7 +44,7 @@ Previous changes for 0.1 to 0.4b are not included.
 •	Switching local browser on and off also enables and disables the boot/shutdown/reboot splash screens.
 •	Added some small modifications for the on-screen keyboard and screen saver format for improved portrait mode (90 degree rotation) use.
 •	Modified the I2S audio card selector in the Settings UI to remember the selected card type.
-•	Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default).
+•	Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default). Added IQaudIO Pi-DAC PRO in the Settings UI I²S kernel modules selector
 •	Added workaround fixes for situations when shairport-sync and the RuneAudio player fail to broadcast their respective names on the network (using avahi). The problem tends to happen only after 24+ hours of usage, the reason is unknown.
 
 Known problems:

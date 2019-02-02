@@ -35,10 +35,10 @@
 // common include
 include('/srv/http/app/libs/runeaudio.php');
 $start = microtime(true);
-$savecpu_rp = 10;
+$savecpu_rp = 12;
 $savecpu_mnt = 1;
-$savecpu_smt = 2400;
-$savecpu_inc = 10;
+$savecpu_smt = 480;
+$savecpu_inc = 8;
 $savecpu_sps = 43200;
 $savecpu_avd = 86400;
 $allmounted = 0;
@@ -59,6 +59,9 @@ if (file_exists('/srv/http/command/update_os.php')) {
     include '/srv/http/command/update_os.php';
     updateOS($redis);
 }
+
+// Set redis variable disk_error to false
+$redis->set('disk_error', 0);
 
 // clean up Rern's addons security
 // Rern's addons menu
@@ -210,6 +213,7 @@ if ($playerid_db === '') {
 	}
     runelog('--- MPD VERSION HAS CHANGED PROCESS');
     // invoke rune_SY_wrk respawn
+    $redis->close();
     sysCmd('systemctl daemon-reload');
     sysCmd('systemctl restart rune_SY_wrk');
     // --- MPD VERSION HAS CHANGED PROCESS//
@@ -1477,19 +1481,20 @@ while (1) {
 	$allmounted = $redis->get('allmounted');
 	// If mounting is unsuccessful retry mounting the first time on the 1st cycle, then every +/-1800th cycle (= every +/-15 minutes), first time it is set to zero
 	if ((!$allmounted) && ($savecpu_mnt-- === 0)) {
-		$savecpu_mnt = 1750 + rand(0, 100);
 		if ($retriesmounting-- > 0) {
 			runelog('wrk_SY: error mounting shares, try it again! Count: '.$retriesmounting);
 			// run asynchronous mount script
-			sysCmdAsync('/var/www/command/mount_async.php');
+			sysCmdAsync('nice --adjustment=2 /var/www/command/mount_async.php');
 		}
+		$savecpu_mnt = 1750 + rand(0, 100);
 	}
-	// Random play auto start and stop, run first after 10 cycles (+/-5 seconds), then only on every +/-20th cycle (= every +/-10 seconds)
+	// Random play auto start and stop, run first after 12 cycles (+/-6 seconds), then only on every +/-30th cycle (= every +/-15 seconds)
+	// Detect deletion of playlist random file and restart if applicable
+	// Start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons, this is the only place where it is started
 	if ($savecpu_rp-- === 0) {
-		$savecpu_rp = 15 + rand(0, 10);
-		// Detect deletion of playlist random file
-		// Stop / restart ashuffle if the file RandomPlayPlaylist.m3u has been deleted
-		// To-do: Better if the UI informs /db/index.php that it has deleted a file, then start the ashufflereset in /db/index.php
+		// Detect deletion of playlist random play file
+		// Stop (and restart) ashuffle if the file RandomPlayPlaylist.m3u has been deleted
+		// To-do: Better if the UI informs /db/index.php that it has deleted a file, then call the ashufflereset function in /db/index.php
 		$retval = sysCmd('systemctl is-active ashuffle');
 		if ($retval[0] == 'active') {
 			if (file_exists($redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u')) {
@@ -1551,39 +1556,25 @@ while (1) {
 				}
 			}
 		}
+		$savecpu_rp = 25 + rand(0, 10);
 	}
 	// Test to see if an internet connection is available. Disable the artistinfo & lyrics functions when no internet is available
 	// This will resolve freezing problems
-	// Test first on the 10th cycle then every +/-1800 cycles (= every +/-15 minutes)
+	// Test first after 8 cycles (+/-4 seconds), then every +/-1800 cycles (= every +/-15 minutes)
 	if ($savecpu_inc-- === 0) {
+		// run the tests and disable/enable the artistinfo & lyrics synchronously
+		sysCmdAsync('nice --adjustment=2 /srv/http/command/internet_available_async.sh');
 		$savecpu_inc = 1750 + rand(0, 100);
-		// see if we can see google.com
-		$retval = sysCmd('wget --force-html --spider https://www.google.com/ > /dev/null 2>&1 && echo "Internet OK"');
-		if ($retval[0] == 'Internet OK') {
-			// internet connection is available, so make the artist info & lyric files executable
-			sysCmd('chown http.http /srv/http/command/lyric.sh');
-			sysCmd('chown http.http /srv/http/command/artist_info.sh');
-			sysCmd('chmod 755 /srv/http/command/lyric.sh');
-			sysCmd('chmod 755 /srv/http/command/artist_info.sh');
-		} else {
-			// internet connection not available, so make the artist info & lyric files non-executable
-			sysCmd('chown root.root /srv/http/command/lyric.sh');
-			sysCmd('chown root.root /srv/http/command/artist_info.sh');
-			sysCmd('chmod 600 /srv/http/command/lyric.sh');
-			sysCmd('chmod 600 /srv/http/command/artist_info.sh');
-		}
-		unset($retval);
 	}
 	// S.M.A.R.T. monitoring tools
 	// will test each attached hard disk and tape unit
-	// test only when something is playing and at a maximum rate of once per +/-2400 cycles (= +/20 minutes)
+	// test only when something is playing
+	// first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/20 minutes)
+	// when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
 	// Why test only when something is playing?
 	//	a) someone needs see the error messages and 
 	//  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
 	if ($savecpu_smt-- === 0) {
-		$savecpu_smt = 2350 + rand(0, 100);
-		// more than check minutes have past
-		// store the microtime for the next cycle
 		$retval = sysCmd('cat /proc/asound/card?/pcm?p/sub?/hw_params | grep -v closed');
 		if (!empty(trim($retval[0]))) {
 			// something is playing
@@ -1635,9 +1626,8 @@ while (1) {
 									// SMART is available, enabled, there is a result and it is not good
 									// display the information
 									ui_notify('Disk errors - Action required', implode("\n", $self_check));
-									// set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
-									$savecpu_smt = 170 + rand(0, 20);
-								}
+									// set the disk_error flag to true
+									$redis->set('disk_error', 1);								}
 							}
 						}
 						unset($self_check);
@@ -1649,6 +1639,13 @@ while (1) {
 			}
 		}
 		unset($retval);
+		if ($redis->get('disk_error')) {
+			// set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
+			$savecpu_smt = 170 + rand(0, 20);
+		} else {
+			// set the disk check frequency to +/-2400 cycles (= +/20 minutes)
+			$savecpu_smt = 2350 + rand(0, 100);
+		}
 	}
 	// Restart shairport-sync every 6 hours, but only when it is inactive
 	// There is an unresolved problem with shairport-sync which stops broadcasting its name after a number of hours

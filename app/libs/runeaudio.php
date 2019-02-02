@@ -3164,7 +3164,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // nfs mount
 				if (trim($mp['options']) == '') {
 					// no mount options set by the user or from previous auto mount, so set it to a value
-					$mp['options'] = 'ro,nocto';
+					$mp['options'] = 'ro,nocto,noexec';
 				}
                 // janui nfs mount string modified, old invalid options removed, no longer use nfsvers='xx' - let it auto-negotiate
 				$mountstr = "mount -t nfs -o soft,retry=0,retrans=2,timeo=50,noatime,rsize=".$mp['rsize'].",wsize=".$mp['wsize'].",".$mp['options']." \"".$mp['address'].":/".$mp['remotedir']."\" \"/mnt/MPD/NAS/".$mp['name']."\"";
@@ -3179,7 +3179,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 }
 				if (trim($mp['options']) == '') {
 					// no mount options set by the user or from previous auto mount, so set it to a value
-					$options2 = 'cache=none,noserverino,ro,sec=ntlmssp';
+					$options2 = 'cache=none,noserverino,ro,sec=ntlmssp,noexec';
 				} else {
 					// mount options provided so use them
 					if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting previous mount options');
@@ -3256,31 +3256,31 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 					switch ($i) {
 						case 1:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting automatic negotiation');
-							$options1 = 'cache=none,noserverino,ro';
+							$options1 = 'cache=none,noserverino,ro,noexec';
 							break;
 						case 2:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=3.1.1');
-							$options1 = 'cache=none,noserverino,ro,vers=3.1.1';
+							$options1 = 'cache=none,noserverino,ro,vers=3.1.1,noexec';
 							break;
 						case 3:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=3.02');
-							$options1 = 'cache=none,noserverino,ro,vers=3.02';
+							$options1 = 'cache=none,noserverino,ro,vers=3.02,noexec';
 							break;
 						case 4:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=3.0');
-							$options1 = 'cache=none,noserverino,ro,vers=3.0';
+							$options1 = 'cache=none,noserverino,ro,vers=3.0,noexec';
 							break;
 						case 5:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=2.1');
-							$options1 = 'cache=none,noserverino,ro,vers=2.1';
+							$options1 = 'cache=none,noserverino,ro,vers=2.1,noexec';
 							break;
 						case 6:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=2.0');
-							$options1 = 'cache=none,noserverino,ro,vers=2.0';
+							$options1 = 'cache=none,noserverino,ro,vers=2.0,noexec';
 							break;
 						case 7:
 					        if (!$quiet) ui_notify($mp['type'].' mount', 'Attempting vers=1.0');
-							$options1 = 'cache=none,noserverino,ro,vers=1.0';
+							$options1 = 'cache=none,noserverino,ro,vers=1.0,noexec';
 							break;
 						default:
 							if(!empty($mp['name'])) sysCmd("rmdir \"/mnt/MPD/NAS/".$mp['name']."\"");

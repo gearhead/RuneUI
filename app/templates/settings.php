@@ -162,6 +162,7 @@
 						<option value="iqaudio-dacplus|IQaudIO DAC Plus" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO DAC Plus'): ?> selected <?php endif ?>>IQaudIO DAC Plus</option>
 						<option value="iqaudio-dacplus|IQaudIO DAC Pro" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO DAC Pro'): ?> selected <?php endif ?>>IQaudIO DAC Pro</option>
 						<option value="iqaudio-digi-wm8804-audio|IQaudIO Digi wm8804 audio" <?php if($this->i2smodule_select === 'iqaudio-digi-wm8804-audio|IQaudIO Digi wm8804 audio'): ?> selected <?php endif ?>>IQaudIO Digi wm8804 audio</option>
+						<option value="iqaudio-dacplus|IQaudIO Pi-DAC PRO" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DAC PRO'): ?> selected <?php endif ?>>IQaudIO Pi-DAC PRO</option>
 						<option value="iqaudio-dacplus|IQaudIO Pi-DAC+" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DAC+'): ?> selected <?php endif ?>>IQaudIO Pi-DAC+</option>
 						<option value="iqaudio-dacplus|IQaudIO Pi-DACZero" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DACZero'): ?> selected <?php endif ?>>IQaudIO Pi-DACZero</option>
 						<option value="iqaudio-digi-wm8804-audio|IQaudIO Pi-Digi+" <?php if($this->i2smodule_select === 'iqaudio-digi-wm8804-audio|IQaudIO Pi-Digi+'): ?> selected <?php endif ?>>IQaudIO Pi-Digi+</option>

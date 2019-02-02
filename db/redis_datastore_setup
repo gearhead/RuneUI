@@ -67,7 +67,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hSet('mpdconf', 'version', '0.20.20');
+            $command = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4- -d' '");
+            $redis->hSet('mpdconf', 'version', trim(reset($command)));
 			break;
 		case 'mpdcheck':
             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
@@ -267,7 +268,7 @@ function redisDatastore($redis,$action) {
             $redis->del('acards');
             $redis->set('mountidx', 1);
 			$redis->set('allmounted', 0);
-            $redis->set('debugdata', '');
+			$redis->set('disk_error', 0);
 			// pre-installed Rern's add-ons
 			$redis->hSet('addons', 'update', '0');
 			$redis->hSet('addons', 'font', '20170901');
@@ -498,7 +499,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('wlans') || $redis->set('wlans', '');
             $redis->exists('mountidx') || $redis->set('mountidx', 1);
 			$redis->exists('allmounted') || $redis->set('allmounted', 0);
-            $redis->exists('debugdata') || $redis->set('debugdata', '');
+			$redis->exists('disk_error') || $redis->set('disk_error', 0);
 			// pre-installed Rern's add-ons
 			$redis->hExists('addons', 'update') || $redis->hSet('addons', 'update', '0');
 			$redis->hExists('addons', 'font') || $redis->hSet('addons', 'font', '20170901');

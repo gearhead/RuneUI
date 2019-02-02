@@ -51,6 +51,7 @@ iqaudio-dac|IQaudIO DAC
 iqaudio-dacplus|IQaudIO DAC Plus
 iqaudio-dacplus|IQaudIO DAC Pro
 iqaudio-digi-wm8804-audio|IQaudIO Digi wm8804 audio
+iqaudio-dacplus|IQaudIO Pi-DAC PRO
 iqaudio-dacplus|IQaudIO Pi-DAC+
 iqaudio-dacplus|IQaudIO Pi-DACZero
 iqaudio-digi-wm8804-audio|IQaudIO Pi-Digi+

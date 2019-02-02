@@ -173,6 +173,13 @@ find /mnt/MPD/USB -type d -exec chmod 777 {} \;
 find /mnt/MPD/USB -type f -exec chmod 644 {} \;
 chown -R mpd.audio /var/lib/mpd
 #
+# set lyrics and artistinfo for no internet connection
+chown root.root /srv/http/command/lyric.sh
+chown root.root /srv/http/command/artist_info.sh
+chmod 600 /srv/http/command/lyric.sh
+chmod 600 /srv/http/command/artist_info.sh
+
+#
 # reset services so that any cached files are replaced by the latest ones (in case you don't want to reboot)
 systemctl daemon-reload
 #
