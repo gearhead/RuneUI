@@ -213,6 +213,7 @@ if ($playerid_db === '') {
 	}
     runelog('--- MPD VERSION HAS CHANGED PROCESS');
     // invoke rune_SY_wrk respawn
+    $redis->close();
     sysCmd('systemctl daemon-reload');
     sysCmd('systemctl restart rune_SY_wrk');
     // --- MPD VERSION HAS CHANGED PROCESS//
