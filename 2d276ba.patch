@@ -1,0 +1,32 @@
+commit 2d276bacb7b8f3ceadb805e114268544bfaf16c0
+Author: Colin Leroy-Mira <colin@colino.net>
+Date:   Wed Jan 30 07:40:51 2019 -1100
+
+    Fix initial setup with mpd != 0.20.20
+
+diff --git a/command/rune_SY_wrk b/command/rune_SY_wrk
+index 37633a7..446efc6 100755
+--- a/command/rune_SY_wrk
++++ b/command/rune_SY_wrk
+@@ -210,6 +210,7 @@ if ($playerid_db === '') {
+ 	}
+     runelog('--- MPD VERSION HAS CHANGED PROCESS');
+     // invoke rune_SY_wrk respawn
++    $redis->close();
+     sysCmd('systemctl daemon-reload');
+     sysCmd('systemctl restart rune_SY_wrk');
+     // --- MPD VERSION HAS CHANGED PROCESS//
+diff --git a/db/redis_datastore_setup b/db/redis_datastore_setup
+index 4c87290..967a9cc 100755
+--- a/db/redis_datastore_setup
++++ b/db/redis_datastore_setup
+@@ -67,7 +67,8 @@ function redisDatastore($redis,$action) {
+             $redis->hSet('mpdconf', 'curl', 'yes');
+             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
+             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
+-            $redis->hSet('mpdconf', 'version', '0.20.20');
++            $command = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4- -d' '");
++            $redis->hSet('mpdconf', 'version', trim(reset($command)));
+ 			break;
+ 		case 'mpdcheck':
+             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
