@@ -9,4 +9,4 @@ title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title"`
 echo $artist
 echo $title
 
-curl -s "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" |sed ':a;N;$!ba;s/\n/<\/br>/g'
+curl -sf "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" |sed ':a;N;$!ba;s/\n/<\/br>/g'
