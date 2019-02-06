@@ -23,7 +23,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: app/network_ctl.php
@@ -117,7 +117,7 @@ if (isset($template->action)) {
                     foreach ($wlan_profiles as $key => $value) {
                         $template->wlan_profiles->{$key} = json_decode($value);
                     }
-                } 
+                }
             }
             // we are in the wlan subtemplate (ex. http://runeaudio/network/wlan/....)
         } else {

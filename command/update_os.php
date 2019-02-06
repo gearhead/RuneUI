@@ -168,6 +168,14 @@ function updateOS($redis) {
 				$redis->set('patchlevel', 7);
 			}
 		}
+		if ($redis->get('patchlevel') == 7) {
+			// 8th update - create a xbindkeys configuration file called /root/.xbindkeysrc
+			// if it already exists don't create it
+			// on the Pi1 image it will never be used, no problem if it fails
+			sysCmd('xbindkeys || xbindkeys --defaults > /root/.xbindkeysrc');
+			// set the patch level
+			$redis->set('patchlevel', 8);
+		}
 		//
 		// if ($redis->get('patchlevel') == x) {
 			// // xth update - install runeaudio.cron in /etc/cron.d/ after it is delivered by git pull
