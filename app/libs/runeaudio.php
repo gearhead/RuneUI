@@ -23,7 +23,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: app/libs/runeaudio.php
@@ -1945,6 +1945,9 @@ function wrk_netconfig($redis, $action, $args = null, $configonly = null)
                 }
             }
             if ($args->wireless === '1') {
+				if ($args->hidden === '1') {
+					$nic .= "Hidden=yes\n";
+				}
                 $nic .= "WPAConfigSection=(\n";
                 if ($args->newssid === "add") {
                     $nic .= "    'ssid=\"".$args->ssid."\"'\n";
@@ -2686,38 +2689,29 @@ if ($action === 'reset') {
             // runelog('raw mpd.conf', $output, __FUNCTION__);
             // check if mpd.conf was modified outside RuneUI (advanced mode)
             runelog('mpd.conf advanced state', $mpdconf_advanced);
-            if ($mpdconf_advanced !== '1' OR $mpdconf_advanced === '') {
-                if ($mpdconf_advanced !== '') {
-                    runelog('mpd.conf advanced mode OFF');
-                } else {
-                    runelog('mpd.conf advanced mode RESET STATE');
-                }
-				// many users need to add an extra output device to MPD
-				// this can be specified in the file /home/your-extra-mpd.conf
-				// see the example file: /var/www/app/config/defaults/your-extra-mpd.conf
-				if (file_exists('/home/your-extra-mpd.conf')) {
-					$output .= file_get_contents('/home/your-extra-mpd.conf');
-				}
-                // write mpd.conf file to /tmp location
-                $fh = fopen('/tmp/mpd.conf', 'w');
-                fwrite($fh, $output);
-                fclose($fh);
-				// check whether the mpd.conf file has changed
-				if ($redis->get('mpdconfhash') == md5_file('/tmp/mpd.conf')) {
-					// nothing has changed, set mpdconfchange off
-					$redis->set('mpdconfchange', 0);
-					syscmd('rm -f /tmp/mpd.conf');
-				} else {
-					// mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted
-					$redis->set('mpdconfchange', 1);
-					syscmd('cp /tmp/mpd.conf /etc/mpd.conf');
-					syscmd('rm -f /tmp/mpd.conf');
-					// update hash
-					$redis->set('mpdconfhash', md5_file('/etc/mpd.conf'));
-				}
-            } else {
-                runelog('mpd.conf advanced mode ON');
-            }
+			// many users need to add an extra output device to MPD
+			// this can be specified in the file /home/your-extra-mpd.conf
+			// see the example file: /var/www/app/config/defaults/your-extra-mpd.conf
+			if (file_exists('/home/your-extra-mpd.conf')) {
+				$output .= file_get_contents('/home/your-extra-mpd.conf');
+			}
+			// write mpd.conf file to /tmp location
+			$fh = fopen('/tmp/mpd.conf', 'w');
+			fwrite($fh, $output);
+			fclose($fh);
+			// check whether the mpd.conf file has changed
+			if ($redis->get('mpdconfhash') == md5_file('/tmp/mpd.conf')) {
+				// nothing has changed, set mpdconfchange off
+				$redis->set('mpdconfchange', 0);
+				syscmd('rm -f /tmp/mpd.conf');
+			} else {
+				// mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
+				$redis->set('mpdconfchange', 1);
+				syscmd('cp /tmp/mpd.conf /etc/mpd.conf');
+				syscmd('rm -f /tmp/mpd.conf');
+				// update hash
+				$redis->set('mpdconfhash', md5_file('/etc/mpd.conf'));
+			}
 			// write the changes to the Airplay (shairport-sync) configuration file
             wrk_shairport($redis, $ao);
             break;
@@ -2938,6 +2932,9 @@ function wrk_shairport($redis, $ao, $name = null)
 	} else {
 		$mixer_device = '';
 	}
+	if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
+		$mixer_device = '';
+	}
     runelog('wrk_shairport acard mixer_device : ', $mixer_device);
 	$redis->hSet('airplay', 'alsa_mixer_device', $mixer_device);
 	//
@@ -2947,6 +2944,9 @@ function wrk_shairport($redis, $ao, $name = null)
 		$mixer_control = 'PCM';
 	}
 	if ($mixer_control === '') {
+		$mixer_control = 'PCM';
+	}
+	if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
 		$mixer_control = 'PCM';
 	}
     runelog('wrk_shairport acard mixer_control: ', $mixer_control);

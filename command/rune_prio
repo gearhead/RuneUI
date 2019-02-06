@@ -23,7 +23,7 @@
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with RuneAudio; see the file COPYING.  If not, see
+#  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 # 
 #  file: command/rune_prio
@@ -57,6 +57,8 @@ renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' mpd' | sed -e 's/^[[:space
 renice -1 $(pgrep -wx shairport-sync)
 renice -1 $(pgrep -wx spopd)
 renice -1 $(pgrep -wx upmpdcli)
+renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+renice 10 $(pgrep -wx chromium)
 renice 3 $(pgrep -wx ashuffle)
 renice 3 $(pgrep -wx local-browser)
 renice 3 $(pgrep -wx mpdscribble)
@@ -65,7 +67,11 @@ renice 3 $(pgrep -wx rune_PL_wrk)
 renice 3 $(pgrep -wx rune_SSM_wrk)
 renice 3 $(pgrep -wx rune_SY_wrk)
 renice 2 $(pgrep -wx smbd)
-renice 1 $(pgrep -wx sshd)
+renice 2 $(pgrep -wx sshd)
+renice 2 $(pgrep -wx xinit)
+renice 1 $(pgrep -wx Xorg)
+renice 1 $(pgrep -wx matchbox-window)
+renice 2 $(pgrep -wx xbindkeys)
 }
 
 prio_default () {
@@ -93,6 +99,8 @@ renice 0 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' mpd' | sed -e 's/^[[:space:
 renice 0 $(pgrep -wx shairport-sync)
 renice 0 $(pgrep -wx spopd)
 renice 0 $(pgrep -wx upmpdcli)
+# renice 0 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+# renice 0 $(pgrep -wx chromium)
 renice 0 $(pgrep -wx ashuffle)
 renice 0 $(pgrep -wx local-browser)
 renice 0 $(pgrep -wx mpdscribble)
@@ -102,6 +110,10 @@ renice 0 $(pgrep -wx rune_SSM_wrk)
 renice 0 $(pgrep -wx rune_SY_wrk)
 renice 0 $(pgrep -wx smbd)
 renice 0 $(pgrep -wx sshd)
+renice 0 $(pgrep -wx xinit)
+renice 0 $(pgrep -wx Xorg)
+renice 0 $(pgrep -wx matchbox-window)
+renice 0 $(pgrep -wx xbindkeys)
 }
 
 if [ "$1" == "default" ]; then
@@ -116,8 +128,6 @@ if [ "$1" == "nice" ]; then
     exit 0
 fi
 
-if [ "$1" == "" ]; then
-    echo "RuneAudio process priority settings"
-    echo "Usage: $0 {default|nice}"
-    exit 1
-fi
+echo "RuneAudio process priority settings"
+echo "Usage: $0 {default|nice}"
+exit 1

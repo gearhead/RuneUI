@@ -109,6 +109,16 @@
                         <span class="help-block">Choose between DHCP and Static configuration</span>
                     </div>
                 </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="nic[hidden]">Hidden SSID</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="nic[hidden]" type="checkbox" value="1"<?php if($this->{$this->uri(3)}->hidden == 1): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Set if your SSID is hidden</span>
+                </div>
+            </div>
                 <div id="network-manual-config" class="hide">        
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="nic[ip]">IP address</label>

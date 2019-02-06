@@ -52,5 +52,5 @@
 <script src="<?=$this->asset('/js/vendor/pnotify.custom.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/modernizr-2.6.2-respond-1.1.0.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/openwebapp.js')?>"></script>
-<script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js">
-</script><script src="<?=$this->asset('/js/restore.js')?>"></script>
+<script src="<?=$this->asset('/js/vendor/jquery-ui.js')?>"></script>
+<script src="<?=$this->asset('/js/restore.js')?>"></script>

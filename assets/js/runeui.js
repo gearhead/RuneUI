@@ -847,6 +847,18 @@ function updateGUI() {
         } else {
             $('#single').removeClass('btn-primary');
         }
+		if (GUI.currentsong !== currentsong) {
+			$('#lyric-text-overlay').html('');
+            if (GUI.stream !== 'radio') {
+                $.ajax({
+                    url: '/lyric/',
+                    success: function(data){
+                       $('#lyric-text-overlay').html(data);
+                    },
+                    cache: false
+                });
+			}
+		}
         GUI.currentsong = currentsong;
         var currentalbumstring = currentartist + ' - ' + currentalbum;
         if (GUI.old_state !== GUI.state || GUI.currentalbum !== currentalbumstring) {
@@ -857,7 +869,6 @@ function updateGUI() {
             $('#artist-bio-overlay').html('');
             $('#artist-image-overlay').css('background-image', '');
             $('#addinfo-text-overlay').html('');
-			$('#lyric-text-overlay').html('');
             if (GUI.stream !== 'radio') {
                 var covercachenum = Math.floor(Math.random()*1001);
                 $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
@@ -886,13 +897,6 @@ function updateGUI() {
                     },
                     cache: false
                 });
-                $.ajax({
-                    url: '/lyric/',
-                    success: function(data){
-                       $('#lyric-text-overlay').html(data);
-                    },
-                    cache: false
-                });
             } else {
                 var covercachenum = Math.floor(Math.random()*1001);
                 $.ajax({
@@ -911,7 +915,7 @@ function updateGUI() {
                 $('#cover-art').css('background-image','url("assets/img/cover-radio.jpg")');
                 $('#cover-art-ss').css('background-image','url("assets/img/cover-radio.jpg")');
             }
-        }        
+        }
         GUI.currentalbum = currentalbumstring;
     }
 }
