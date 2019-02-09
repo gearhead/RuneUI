@@ -530,7 +530,6 @@ function renderLibraryHome() {
     } else {
         content = '<div class="col-sm-12"><h1 class="txtmid">Browse your library</h1></div>';
     }
-    
     // Set active player
     setPlaybackSource();
     if (notMPD) {
@@ -1895,7 +1894,13 @@ function commandButton(el) {
 
 // Library home screen
 function libraryHome(text) {
+    var actualPlayer = GUI.libraryhome.ActivePlayer;
+
     GUI.libraryhome = text[0];
+
+    if (GUI.libraryhome.ActivePlayer !== actualPlayer) {
+        GUI.forceGUIupdate = true;
+    }
     if (GUI.libraryhome.clientUUID === GUI.clientUUID && GUI.plugin !== 'Dirble' && GUI.plugin !== 'Snapcast' && GUI.currentpath !== 'Webradio') {
         renderLibraryHome(); // TODO: do it only while in home
     }

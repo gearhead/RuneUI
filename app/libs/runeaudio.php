@@ -3938,7 +3938,6 @@ function wrk_switchplayer($redis, $playerengine)
             // set process priority
             sysCmdAsync('rune_prio nice');
             break;
-        
         case 'Spotify':
             $return = sysCmd('systemctl start spopd');
             usleep(500000);
@@ -4341,7 +4340,7 @@ function ui_notify_async($title = null, $text, $type = null, $permanotice = null
     }
     $output = json_encode($output);
     runelog('notify (async) JSON string: ', $output);
-    sysCmdAsync('/var/www/command/ui_notify.php \''.$output);
+    sysCmdAsync('/var/www/command/ui_notify.php \''.$output.'\'');
 }
 
 function wrk_notify($redis, $action, $notification, $jobID = null)
