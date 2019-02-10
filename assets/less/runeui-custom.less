@@ -1981,3 +1981,33 @@ ul.parsley-error-list {
         }
     }
 }
+
+.knobs {
+    display:flex;
+    flex-flow: column;
+}
+
+.knobs #time-knob {
+    order:2;
+}
+.knobs .coverart {
+    order:1;
+}
+.knobs #volume-knob {
+    order:3;
+}
+
+@media (min-width: @screen-sm-min) {
+    .knobs {
+        display:block;
+    }
+    .knobs #time-knob {
+        order:1;
+    }
+    .knobs .coverart {
+        order:2;
+    }
+    .knobs #volume-knob {
+        order:3;
+    }
+}
