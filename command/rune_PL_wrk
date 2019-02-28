@@ -140,8 +140,9 @@ while (1) {
 				//}
 				
 				// store information for lyrics and info
-				$redis->hSet('lyrics', 'currentartist', $status['currentartist']);
-				$redis->hSet('lyrics', 'currentsong', $status['currentsong']);
+				$redis->hSet('lyrics', 'currentartist', lyricsStringClean($status['currentartist'], 'artist'));
+				$redis->hSet('lyrics', 'currentsong', lyricsStringClean($status['currentsong']));
+				$redis->hSet('lyrics', 'currentalbum', lyricsStringClean($status['currentalbum']));
 
 				if ($status['changed'] === 'mixer') {
 					//$redis->set('current_volume', $status['volume']);
@@ -203,9 +204,9 @@ while (1) {
 				runelog('rune_PL_wrk: close SPOP socket');
 
 				// store information for lyrics and info
-				$redis->hSet('lyrics', 'currentartist', $status['currentartist']);
-				$redis->hSet('lyrics', 'currentsong', $status['currentsong']);
-				$redis->hSet('lyrics', 'currentalbum', $status['currentalbum']);
+				$redis->hSet('lyrics', 'currentartist', lyricsStringClean($status['currentartist'], 'artist'));
+				$redis->hSet('lyrics', 'currentsong', lyricsStringClean($status['currentsong']));
+				$redis->hSet('lyrics', 'currentalbum', lyricsStringClean($status['currentalbum']));
 
 				// save JSON response for extensions
 				$status['actPlayer'] = "Spotify";

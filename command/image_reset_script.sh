@@ -1,13 +1,10 @@
 #!/bin/bash
 set -x # echo all commands to cli
 set +e # continue on errors
-#Image reset script
-
-#Use the next line only for a distribution build, do not use on development versions!!! It clears the pacman history, makes a lot of space free, but that history is useful.
+#
+# Image reset script
 if [ "$1" == "full" ]; then
-	echo "Running full cleanup and image initialisation"
-	echo "Removing pacman cache"
-	pacman -Sc --noconfirm
+	echo "Running full cleanup and image initialisation for a distribution image"
 else
 	echo "Running quick image initialisation"
 fi
@@ -22,12 +19,23 @@ udevil clean
 #
 # set up services and stop them
 systemctl unmask systemd-journald
-systemctl disable ashuffle mpd mpdscribble nmbd smbd udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd bootsplash cronie
-systemctl enable avahi-daemon haveged nginx redis rune_SY_wrk sshd systemd-resolved systemd-journald systemd-timesyncd
-systemctl stop ashuffle mpd spopd smbd nmbd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie
+systemctl disable ashuffle mpd mpdscribble nmbd nmb smbd smb udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd bootsplash cronie winbindd udevil
+systemctl enable avahi-daemon haveged nginx redis rune_SY_wrk sshd systemd-resolved systemd-journald systemd-timesyncd winbind
+systemctl stop ashuffle mpd spopd nmbd nmb smbd smb winbind shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie udevil
+#
+# run poweroff script (and remove network mounts)
+/var/www/command/rune_shutdown poweroff
+#
+# unmount USB drives and delete the mount points
+umount -R /mnt/MPD/USB/*
+rmdir /mnt/MPD/USB/*
+rm -fr /mnt/MPD/USB/*
 #
 # install raspi-rotate
 /var/www/command/raspi-rotate-install.sh
+#
+# install spotifyd
+/var/www/command/spotifyd-install.sh
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons cronie
@@ -44,6 +52,10 @@ redis-cli del addons
 redis-cli del addo
 #
 # remove user files and logs
+rm -rf /var/log/runeaudio/*
+umount /srv/http/tmp
+umount //var/log/runeaudio
+umount /var/log
 rm -f /var/lib/mpd/mpd.db
 rm -f /var/lib/mpd/mpdstate
 rm -rf /var/log/*
@@ -99,8 +111,11 @@ cd /home
 # remove any samba passwords
 pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 #
-# The following commands should also be run after a system update or any package updates
-# Reset the service and configuration files to the distribution standard
+# reset root password
+echo -e "rune\nrune" | passwd root
+#
+# reset the service and configuration files to the distribution standard
+# the following commands should also be run after a system update or any package updates
 cp /var/www/app/config/defaults/avahi-daemon.conf /etc/avahi/avahi-daemon.conf
 cp /var/www/app/config/defaults/chrony.conf /etc/chrony.conf
 cp /var/www/app/config/defaults/hostapd.conf /etc/hostapd/hostapd.conf
@@ -149,41 +164,36 @@ cp /var/www/app/config/defaults/test /etc/netctl/test
 # copy a standard config.txt
 cp /var/www/app/config/defaults/config.txt /boot/config.txt
 #
-# remove logs, run poweroff script and remove mounts
-rm -rf /var/log/runeaudio/*
-/var/www/command/rune_shutdown poweroff
-rm -rf /mnt/MPD/NAS/*
+# modify standard .service files
+sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/smb.service
+sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/nmb.service
+sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/winbind.service
+sed -i 's|.*User=mpd.*|#User=mpd|' /usr/lib/systemd/system/mpd.service
 #
-# file protection and ownership
-# (the find commands are slow but work with spaces in file-names, required for chrome/xorg)
-chown -R http.http /srv/http/
-find /srv/http/ -type f -exec chmod 644 {} \;
-find /srv/http/ -type d -exec chmod 755 {} \;
-find /etc -name *.conf -exec chmod 644 {} \;
-find /usr/lib/systemd/system -name *.service -exec chmod 644 {} \;
-chmod 644 /etc/nginx/html/50x.html
-chmod 777 /run
-chmod 755 /srv/http/command/*
-chmod 755 /srv/http/db/redis_datastore_setup
-chmod 755 /srv/http/db/redis_acards_details
-chmod 755 /etc/X11/xinit/start_chromium.sh
-chown mpd.audio /mnt/MPD/*
-chown mpd.audio /mnt/MPD/USB/*
-find /mnt/MPD/USB -type d -exec chmod 777 {} \;
-find /mnt/MPD/USB -type f -exec chmod 644 {} \;
-chown -R mpd.audio /var/lib/mpd
+# make sure that all files are unix format and have the correct ownerships and protections
+# the 'final' option also removes the dos2unix package
+if [ "$1" == "full" ]; then
+	/srv/http/command/convert_dos_files_to_unix_script.sh final
+else
+	/srv/http/command/convert_dos_files_to_unix_script.sh
+fi
 #
 # set lyrics and artistinfo for no internet connection
 chown root.root /srv/http/command/lyric.sh
 chown root.root /srv/http/command/artist_info.sh
 chmod 600 /srv/http/command/lyric.sh
 chmod 600 /srv/http/command/artist_info.sh
-
 #
-# reset services so that any cached files are replaced by the latest ones (in case you don't want to reboot)
+#for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
+if [ "$1" == "full" ]; then
+	pacman -Sc --noconfirm
+fi
+#
+# reset systemd services so that any cached files are replaced by the latest ones
 systemctl daemon-reload
 #
-# zero fill the file system if parameter full is selected
+# zero fill the file system if parameter 'full' is selected
+# this takes ages to run, but the zipped distribution image will then be very small
 if [ "$1" == "full" ]; then
 	redis-cli save
 	echo "Zero filling the file system"
@@ -201,9 +211,6 @@ if [ "$1" == "full" ]; then
 	sync
 	cd /home
 fi
-#
-# reset root password
-echo -e "rune\nrune" | passwd root
 #
 # reset host information (icon-name, chassis and hostname)
 hostnamectl --static --transient --pretty set-icon-name multimedia-player

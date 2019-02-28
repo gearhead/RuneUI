@@ -42,7 +42,7 @@ function redisDatastore($redis,$action) {
             // default MPD config
             $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
             $redis->hSet('mpdconf', 'zeroconf_name', 'RuneAudio');
-            $redis->hSet('mpdconf', 'log_level', 'none');
+            $redis->hSet('mpdconf', 'log_level', 'default');
             $redis->hSet('mpdconf', 'bind_to_address', 'any');
             $redis->hSet('mpdconf', 'port', '6600');
             $redis->hSet('mpdconf', 'max_connections', '20');
@@ -73,7 +73,7 @@ function redisDatastore($redis,$action) {
 		case 'mpdcheck':
             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
             $redis->hExists('mpdconf', 'zeroconf_name') || $redis->hSet('mpdconf', 'zeroconf_name', 'RuneAudio');
-            $redis->hExists('mpdconf', 'log_level') || $redis->hSet('mpdconf', 'log_level', 'none');
+            $redis->hExists('mpdconf', 'log_level') || $redis->hSet('mpdconf', 'log_level', 'default');
             $redis->hExists('mpdconf', 'bind_to_address') || $redis->hSet('mpdconf', 'bind_to_address', 'any');
             $redis->hExists('mpdconf', 'port') || $redis->hSet('mpdconf', 'port', '6600');
             $redis->hExists('mpdconf', 'max_connections') || $redis->hSet('mpdconf', 'max_connections', '20');
@@ -114,7 +114,7 @@ function redisDatastore($redis,$action) {
 			$hash = password_hash('rune', PASSWORD_BCRYPT, $option);
 			$redis->set('password', $hash);
 			// Access Point
-			$redis->hSet('AccessPoint', 'enabled', 1);
+			$redis->hDel('AccessPoint', 'enabled');
 			$redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
 			$redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
 			$redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');

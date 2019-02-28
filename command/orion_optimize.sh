@@ -215,8 +215,10 @@ echo "Set normal priority for: rune_PL_wrk"
 renice 20 $(pgrep rune_PL_wrk)
 echo "Set normal priority for: smbd"
 renice 19 $(pidof smbd)
+renice 19 $(pidof smb)
 echo "Set normal priority for: nmbd"
 renice 19 $(pidof nmbd)
+renice 19 $(pidof nmb)
 
 ##################
 # sound profiles #

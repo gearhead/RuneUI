@@ -1,6 +1,6 @@
 [Unit]
 Description=RuneAudio System Worker
-After=multi-user.target network.target redis.target
+After=multi-user.target network.target redis.target sound.target
 
 [Service]
 ExecStart=/var/www/command/rune_SY_wrk

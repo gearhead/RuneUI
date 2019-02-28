@@ -24,7 +24,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: command/rune_SY_wrk
@@ -77,7 +77,7 @@ sysCmd('rm -f /etc/sudoers.d/http-backup');
 $redis->set('restoreact', 0);
 
 // determine the actual mpd player version
-$retval = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4- -d' '");
+$retval = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4 -d' '");
 $mpdversion = trim($retval[0]);
 unset($retval);
 
@@ -908,12 +908,14 @@ while (1) {
                 case 'pl_ashuffle':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-					// Make a symbolic link to the selected playlist for random play, ashuffle will use it on startup if it is available
-					sysCmd('ln -sf '.$redis->hget('mpdconf', 'playlist_directory').'/'.$job->args.'.m3u '.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
-					// set the indicator to say a playlist random file exists
-					$redis->set('last_pl_randomfile', 'exists');
 					// Stop ashuffle
 					sysCmd('systemctl stop ashuffle');
+					// delete the existing symbolic link if it exists
+					sysCmd('rm -f "'.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u"');
+					// Make a symbolic link to the selected playlist for random play, ashuffle will use it on startup if it is available
+					sysCmd('ln -sf "'.$redis->hget('mpdconf', 'playlist_directory').'/'.$job->args.'.m3u" "'.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u"');
+					// set the indicator to say a playlist random file exists
+					$redis->set('last_pl_randomfile', 'exists');
 					// Set global random ON
 					$redis->set('globalrandom', '1');
 					// ashuffle gets started automatically
@@ -1063,8 +1065,8 @@ while (1) {
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
 					// stop samba
-					sysCmd('systemctl stop smbd nmbd');
-					sysCmd('systemctl disable smbd nmbd');
+					sysCmd('systemctl stop smbd smb nmbd nmb');
+					sysCmd('systemctl disable smbd smb nmbd nmb');
 					// reset the config files
 					sysCmd('rm -f /etc/samba/*.conf');
 					sysCmd('cp /var/www/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');

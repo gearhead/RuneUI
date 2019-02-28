@@ -186,6 +186,7 @@
                     <input type="hidden" name="nic[AuthenticationSuites2]" value="<?=$this->{urldecode($this->uri(4))}->{'Authentication Suites (2)'} ?>">
                     <input type="hidden" name="nic[ie]"                    value="<?=$this->{urldecode($this->uri(4))}->{'IE'} ?>">
                 <?php endif; ?>
+				<span class="help-block"><br>A <strong>Reboot</strong> is often required to activate the profile after saving</span>
             </div>
         </div>
         <?php endif; ?>
