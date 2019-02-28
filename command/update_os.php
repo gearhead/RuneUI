@@ -176,6 +176,36 @@ function updateOS($redis) {
 			// set the patch level
 			$redis->set('patchlevel', 8);
 		}
+		if ($redis->get('patchlevel') == 8) {
+			// 9th update - lots of small changes since the last patch level increment
+			// just increment the patch level, no other actions, do it only when /srv/http/db/redis_datastore_setup has been updated
+			$retval = sysCmd("grep -i 'AccessPoint' /srv/http/db/redis_datastore_setup | grep -i 'enabled' | grep -i 'redis' | grep -c -i 'hDel'");
+			if ($retval[0] == 1) {
+				// set the patch level
+				$redis->set('patchlevel', 9);
+			}
+			unset($retval);
+		}
+		if ($redis->get('patchlevel') == 9) {
+			// 10th update - change the MPD Log level to 'default' and replace the exitsing /usr/lib/systemd/system/rune_SY_wrk.service with the latest version
+			// change the redis value when /srv/http/db/redis_datastore_setup has been updated
+			$retval = sysCmd("grep -i 'mpdconf' /srv/http/db/redis_datastore_setup | grep -i 'log_level' | grep -i 'redis' | grep -c -i 'default'");
+			if ($retval[0] == 2) {
+				// set the actual redis variable mpdconf log_level to 'default'
+				$redis->hSet('mpdconf', 'log_level', 'default');
+				// copy the latest version of /usr/lib/systemd/system/rune_SY_wrk.service and set the correct file owner and protection
+				sysCmd('cp /var/www/app/config/defaults/rune_SY_wrk.service /usr/lib/systemd/system/rune_SY_wrk.service');
+				sysCmd('chown root.root /usr/lib/systemd/system/rune_SY_wrk.service');
+				sysCmd('chmod 644 /usr/lib/systemd/system/rune_SY_wrk.service');
+				// clear the refresh ao lock
+				$redis->set('lock_refresh_ao', 0);
+				// delete incorrect redis variable
+				$redis->del('globalrandom_lock');
+				// set the patch level
+				$redis->set('patchlevel', 10);
+			}
+			unset($retval);
+		}
 		//
 		// if ($redis->get('patchlevel') == x) {
 			// // xth update - install runeaudio.cron in /etc/cron.d/ after it is delivered by git pull

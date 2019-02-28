@@ -23,7 +23,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: app/accesspoint_ctl.php
@@ -45,6 +45,9 @@ waitSyWrk($redis,$jobID);
 $template->enabled = $redis->hGet('AccessPoint', 'enabled');
 $template->accesspoint = $redis->hGetAll('AccessPoint');
 $template->hostname = $redis->get('hostname');
-$template->wifiavailable = (is_dir('/sys/class/net/wlan0')) ? 1 : 0;
+exec('ifconfig -a', $phyinfo);
+$template->wifiavailable = (preg_match_all("/^.*\wlan0:/m", implode("\n", $phyinfo))) ? 1 : 0;
 exec('iw phy phy0 info', $phyinfo);
+$template->wififullfunction = (preg_match_all("/^.*\interface combinations are not supported/m", implode("\n", $phyinfo))) ? 0 : 1;
+exec('iw phy phy0 info | sed -n "/Supported interface modes:/,/:/p"', $phyinfo);
 $template->wififeatureAP = (preg_match_all("/^.*\* AP$/m", implode("\n", $phyinfo))) ? 1 : 0;

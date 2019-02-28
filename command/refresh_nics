@@ -24,7 +24,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: command/refresh_nics
@@ -188,36 +188,7 @@ if (!empty($removed_nics)) {
     }
 }
 
-// handle removed nics
-
 // start AP if configured and no IP is assigned
-if (FALSE === $redis->hGet('AccessPoint', 'enabled')) {
-    $redis->hSet('AccessPoint', 'enabled', 1);
-}
-if (FALSE === $redis->hGet('AccessPoint', 'ip-address')) {
-    $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'broadcast')) {
-    $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'ssid')) {
-    $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'passphrase')) {
-    $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'dhcp-range')) {
-    $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'dhcp-option-dns')) {
-    $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'dhcp-option-router')) {
-    $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
-}
-if (FALSE === $redis->hGet('AccessPoint', 'enable-NAT')) {
-    $redis->hSet('AccessPoint', 'enable-NAT', 1);
-}
 if ($redis->hGet('AccessPoint', 'enabled') === '1') {
 	runelog('------------------ try to start AP if no IP is assigned ---------------------');
 	$got_one_IP = false;

@@ -39,16 +39,17 @@ Previous changes for 0.1 to 0.4b are not included.
 •	RuneAudio freezing problem when no internet is available fixed.
 •	Added bitrate and output format controls for shairport-sync in the /dev UI.
 •	Added Random Play reset button and current random play source display in the MPD UI.
-•	Network mount improvements for CIFS and NFS including Async retries.
+•	Network mount improvements for CIFS and NFS, including Async retries. A NAS which is switched on after Rune has booted will be found and mounted.
 •	Added extra local browser controls for zoomfactor, rotate and mouse cursor (including raspi-rotate) in the Settings UI, all work on the fly.
 •	Switching local browser on and off also enables and disables the boot/shutdown/reboot splash screens.
 •	Added some small modifications for the on-screen keyboard and screen saver format for improved portrait mode (90 degree rotation) use.
 •	Modified the I2S audio card selector in the Settings UI to remember the selected card type.
 •	Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default). Added IQaudIO Pi-DAC PRO in the Settings UI I²S kernel modules selector
 •	Added workaround fixes for situations when shairport-sync and the RuneAudio player fail to broadcast their respective names on the network (using avahi). The problem tends to happen only after 24+ hours of usage, the reason is unknown.
-•	Lyrics now change when the song changes.
+•	Lyrics now change when the song changes. Optimised Lyrics and Artist Information for situations when when only partial information is available.
 •	Fixed UI Problems when the lyrics server is not available.
 •	Added an option for Hidden SSID for WiFi in the Network UI.
+•	Access Point default on/off depending on Pi type (with on-board WiFi > ON, otherwise OFF), WiFi dongles with partial AP functionality are now supported.
 
 Known problems:
 •	Spotify has stopped working (see forum for details).

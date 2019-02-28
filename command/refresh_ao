@@ -44,6 +44,20 @@ $lock = $redis->get('lock_refresh_ao');
 runelog('lock status ', $lock);
 // startup
 runelog('--------------------------- start Audio Outputs refresh ---------------------------');
+// wait for sound.target before running
+// just in case maximum 40 loops
+$count = 40;
+do {
+	$retval = sysCmd('systemctl is-active sound.target');
+	if ($retval[0] == 'active') {
+		unset($retval);
+		// exit the loop sound.target is active
+		break;
+	}
+	unset($retval);
+	// sleep 0.2 seconds
+	usleep(200000);
+} while ($count--); 
 // refesh audio hardware status (soundcards and MPD config)
 if ($lock === '0') {
     $redis->set('lock_refresh_ao', '1');
