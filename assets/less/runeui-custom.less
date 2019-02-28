@@ -300,7 +300,7 @@ html, body {
         text-align: center;
     }
 }
-#currentartist, #currentsong, #currentalbum, #format-bitrate, #elapsed, #countdown-display {
+#currentsong, #format-bitrate, #elapsed, #countdown-display {
     display: block;
 }
 #currentsong {
@@ -318,12 +318,17 @@ html, body {
         color: @brand-alt;
     }
 }
-#currentalbum {
-    margin-bottom: 20px;
+
+#currentartist {
+	display: inline-block;
 }
+#currentalbum {
+	display: inline-block;
+}
+
 #overlay-playsource-open {
-    display: inline-block;
-    margin: 0 auto;
+    display: block;
+    margin: 10px auto;
     &:hover {
         cursor: pointer;
         button {

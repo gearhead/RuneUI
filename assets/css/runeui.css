@@ -6447,9 +6447,7 @@ body {
   padding-bottom: 20px;
   text-align: center;
 }
-#currentartist,
 #currentsong,
-#currentalbum,
 #format-bitrate,
 #elapsed,
 #countdown-display {
@@ -6472,12 +6470,15 @@ body {
 #currentalbum .notag {
   color: #34495e;
 }
+#currentartist {
+  display: inline-block;
+}
 #currentalbum {
-  margin-bottom: 20px;
+  display: inline-block;
 }
 #overlay-playsource-open {
-  display: inline-block;
-  margin: 0 auto;
+  display: block;
+  margin: 10px auto;
 }
 #overlay-playsource-open:hover {
   cursor: pointer;
