@@ -7,13 +7,13 @@
             </div>
             <h2>RuneAudio team</h2><h3>Version 0.5</h3>
             <div class="alert alert-info">
-            <a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS - Full kernel and package upgrade, kernel patch for alsa 384kHz audio support and Chromium local browser</span><br>
-            <a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI - Shairport sync with metadata, random play and autostart rework, Samba optimisation and 101 bugfixes</span><br>
-			<span class="help-block"><i>A special thanks to our test team: englishtim, ianhaynes, nic, R101, Stephane, tml3nr, PhilHill, thisisjay, jlynton, popov, s.k., klassikmann & Colin</i></span><br>
+				<a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS - Full kernel and package upgrade, kernel patch for alsa 384kHz audio support and Chromium local browser</span><br>
+				<a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI - Shairport sync with metadata, random play and autostart rework, Samba optimisation and 101 bugfixes</span><br>
+				<span class="help-block"><i>A special thanks to our test team: englishtim, ianhaynes, nic, R101, Stephane, tml3nr, PhilHill, thisisjay, jlynton, popov, s.k., klassikmann & Colin</i></span><br>
             </div>
             <h3>Version 0.4</h3>
             <div class="alert alert-info">
-            <a href="https://github.com/hondagx35" target="_blank" rel="nofollow"><strong>Frank Friedmann</strong></a> (aka hondagx35) <span class="help-block">- A grand solo effort, AP, Local Browser, Lyrics, many upgrades, bugfixes and other improvements</span><br>
+				<a href="https://github.com/hondagx35" target="_blank" rel="nofollow"><strong>Frank Friedmann</strong></a> (aka hondagx35) <span class="help-block">- A grand solo effort, AP, Local Browser, Lyrics, many upgrades, bugfixes and other improvements</span><br>
             </div>
             <h3>Version 0.1 - 0.3</h3>
             <div class="alert alert-info">
@@ -22,14 +22,16 @@
                 <a href="http://www.runeaudio.com/team/" target="_blank" rel="nofollow"><strong>Carmelo San Giovanni</strong></a> (aka Um3ggh1U) <span class="help-block">- RuneOS distro build &amp; Kernel optimization</span><br>
             </div>
             <h2>Main contributors</h2><h3>Version 0.1 - 0.3</h3>
-            <a href="https://github.com/cristianp6" target="_blank" rel="nofollow"><strong>Cristian Pascottini</strong></a> <span class="help-block">- RuneUI Javascript optimizations</span><br>
-            <a href="https://github.com/vabatta"><strong>Valerio Battaglia</strong></a> <span class="help-block">- RuneUI Javascript optimizations</span><br>
-            <a href="https://github.com/hondagx35" target="_blank" rel="nofollow"><strong>Frank Friedmann</strong></a> (aka hondagx35) <span class="help-block">- RuneUI/RuneOS PHP backend code debug, refactoring of network management, RuneOS porting for Cubietruck</span><br>
-            <a href="https://github.com/kdubious" target="_blank" rel="nofollow"><strong>Kevin Welsh</strong></a> (aka kdubious) <span class="help-block">- RuneUI/RuneOS Frontend & backend development</span><br> 
-            <a href="https://github.com/GitAndrer" target="_blank" rel="nofollow"><strong>Andrea Rizzato</strong></a> (aka AandreR) <span class="help-block">- RuneUI/RuneOS PHP backend code debug, integration of Wolfson Audio Card</span><br>
-            <a href="http://www.runeaudio.com/forum/member275.html" target="_blank" rel="nofollow"><strong>Saman</strong></a> <span class="help-block">- RuneOS RT Linux kernel for Wolfson Audio Card (RaspberryPi)</span><br>
-            <a href="https://github.com/Mte90" target="_blank" rel="nofollow"><strong>Daniele Scasciafratte</strong></a> (aka Mte90) <span class="help-block">- RuneUI Firefox integration</span><br>
-            <a href="https://github.com/fcasarsa"><strong>Francesco Casarsa</strong></a> (aka CAS)<span class="help-block">- Shairport patch</span><br>
+            <div class="alert alert-info">
+				<a href="https://github.com/cristianp6" target="_blank" rel="nofollow"><strong>Cristian Pascottini</strong></a> <span class="help-block">- RuneUI Javascript optimizations</span><br>
+				<a href="https://github.com/vabatta"><strong>Valerio Battaglia</strong></a> <span class="help-block">- RuneUI Javascript optimizations</span><br>
+				<a href="https://github.com/hondagx35" target="_blank" rel="nofollow"><strong>Frank Friedmann</strong></a> (aka hondagx35) <span class="help-block">- RuneUI/RuneOS PHP backend code debug, refactoring of network management, RuneOS porting for Cubietruck</span><br>
+				<a href="https://github.com/kdubious" target="_blank" rel="nofollow"><strong>Kevin Welsh</strong></a> (aka kdubious) <span class="help-block">- RuneUI/RuneOS Frontend & backend development</span><br> 
+				<a href="https://github.com/GitAndrer" target="_blank" rel="nofollow"><strong>Andrea Rizzato</strong></a> (aka AandreR) <span class="help-block">- RuneUI/RuneOS PHP backend code debug, integration of Wolfson Audio Card</span><br>
+				<a href="http://www.runeaudio.com/forum/member275.html" target="_blank" rel="nofollow"><strong>Saman</strong></a> <span class="help-block">- RuneOS RT Linux kernel for Wolfson Audio Card (RaspberryPi)</span><br>
+				<a href="https://github.com/Mte90" target="_blank" rel="nofollow"><strong>Daniele Scasciafratte</strong></a> (aka Mte90) <span class="help-block">- RuneUI Firefox integration</span><br>
+				<a href="https://github.com/fcasarsa"><strong>Francesco Casarsa</strong></a> (aka CAS)<span class="help-block">- Shairport patch</span><br>
+			</div>
         </div>
         <div class="col-md-4">
             <h3 class="txtmid">Support us!</h3>
@@ -71,6 +73,8 @@
     <p><strong>FastClick</strong> by <a href="https://github.com/ftlabs" target="_blank" rel="nofollow">ftlabs</a><br><a href="http://ftlabs.github.io/fastclick/" target="_blank" rel="nofollow">http://ftlabs.github.io/fastclick</a></p>
     <p><strong>Font Awesome</strong> by <a href="https://twitter.com/davegandy" target="_blank" rel="nofollow">Dave Gandy</a><br><a href="http://fontawesome.io/" target="_blank" rel="nofollow">http://fontawesome.io</a></p>
     <p><strong>Lato-Fonts</strong> by <a href="http://alfabety.pl/" target="_blank" rel="nofollow">Lukasz Dziedzic</a><br><a href="http://www.latofonts.com/lato-free-fonts/" target="_blank" rel="nofollow">http://www.latofonts.com/lato-free-fonts</a></p>
+    <p><strong>last.fm artist information and albumart services</strong> by <a href="https://www.last.fm/" target="_blank" rel="nofollow">last.fm</a><br><a href="https://www.last.fm/" target="_blank" rel="nofollow">https://www.last.fm/</a></p>
+    <p><strong>makeitpersonal song lyrics service</strong> by <a href="https://github.com/febuiles" target="_blank" rel="nofollow">Federico Builes</a><br><a href="https://github.com/febuiles/makeitpersonal" target="_blank" rel="nofollow">https://github.com/febuiles/makeitpersonal</a> and <a href="https://makeitpersonal.co/" target="_blank" rel="nofollow">https://makeitpersonal.co/</a></p>
     <p><strong>NGiNX Push Stream Module</strong><br><a href="http://wiki.nginx.org/HttpPushStreamModule" target="_blank" rel="nofollow">http://wiki.nginx.org/HttpPushStreamModule</a></p>
     <p><strong>NGiNX</strong><br><a href="http://nginx.org/" target="_blank" rel="nofollow">http://nginx.org</a></p>
     <p><strong>PHP language v5.5</strong> by <a href="http://php.net/credits.php" target="_blank" rel="nofollow">PHP Team</a><br><a href="http://php.net/" target="_blank" rel="nofollow">http://php.net</a></p>
@@ -88,7 +92,7 @@
     <p><strong>jQuery Knob</strong> by <a href="http://anthonyterrien.com/" target="_blank" rel="nofollow">Anthony Terrien</a><br><a href="https://github.com/aterrien/jQuery-Knob" target="_blank" rel="nofollow">https://github.com/aterrien/jQuery-Knob</a></p>
     <p><strong>jQuery scrollTo</strong> by <a href="http://flesler.blogspot.com/" target="_blank" rel="nofollow">Ariel Flesler</a><br><a href="http://flesler.blogspot.it/2007/10/jqueryscrollto.html" target="_blank" rel="nofollow">http://flesler.blogspot.it/2007/10/jqueryscrollto.html</a></p>
     <p>Also thanks to B. Carlisle (<strong>MPD-class</strong> <a href="http://mpd.24oz.com/" target="_blank" rel="nofollow">http://mpd.24oz.com</a>) for code inspiration on some data-parsing functions.</p>
-	<p><i>Please contact us if you think we have forgotten someone</i></p>	
+	<p><i>Please contact us if you think we have forgotten someone</i></p>
     <h2>RuneOS credits</h2>
 	<p><i>In alphabetical order, credits for all versions included</i></p>
     <p>Alac by Timothy Gu<br><a href="https://github.com/TimothyGu" target="_blank" rel="nofollow">https://github.com/TimothyGu</a></p>

@@ -209,7 +209,7 @@ while (1) {
 						$status['currentartist'] = empty($buf) ? 'Unknown' : trim($buf);
 						runelog('rune_SSM_wrk: Currentartist: ', $status['currentartist']);
 						// store information for lyrics and info
-						$redis->hSet('lyrics', 'currentartist', $status['currentartist']);
+						$redis->hSet('lyrics', 'currentartist', lyricsStringClean($status['currentartist'], 'artist'));
 						break;
 					case 'core astm':
 						// song time in milliseconds - do not use this, song time is derived from 'ssnc prgr' progress
@@ -220,13 +220,14 @@ while (1) {
 						$status['currentalbum'] = empty($buf) ? 'Unknown' : trim($buf);
 						runelog('rune_SSM_wrk: Currentalbum: ', $status['currentalbum']);
 						// store information for lyrics and info
+						$redis->hSet('lyrics', 'currentalbum', lyricsStringClean($status['currentalbum']));
 						break;
 					case 'core minm':
 						// song
 						$status['currentsong'] = empty($buf) ? 'Unknown' : trim($buf);
 						runelog('rune_SSM_wrk: Currentsong: ', $status['currentsong']);
 						// store information for lyrics and info
-						$redis->hSet('lyrics', 'currentsong', $status['currentsong']);
+						$redis->hSet('lyrics', 'currentsong', lyricsStringClean($status['currentsong']));
 						break;
 					case 'core asgn':
 						// genre
@@ -416,7 +417,7 @@ while (1) {
 						// artwork
 						// skip this section if cover art is not set, should never get here
 						if ($redis->hget('airplay', 'metadata_include_cover_art') == 'yes') {
-							// first detemine the image file type
+							// first determine the image file type
 							$tmp = ' '.substr($buf, 0, 32);
 							if (strpos($tmp, 'PNG') !== false) {
 								$imgtype = 'png';

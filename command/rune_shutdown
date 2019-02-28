@@ -54,7 +54,7 @@ if [[ $disablesplash == 0 ]] ; then
 fi
 sleep 1
 redis-cli save
-systemctl stop shairport-sync mpd spopd smbd nmbd rune_PL_wrk rune_SSM_wrk
+systemctl stop shairport-sync mpd spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
 sleep 1
 export DISPLAY=:0
 xset dpms force off

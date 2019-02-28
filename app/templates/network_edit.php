@@ -2,8 +2,12 @@
     <h1>Network interface</h1>
     <?php if ($this->nic->wireless === 1): ?>
     <legend>Wi-Fi networks in range</legend>
-    <span class="help-block">The list of available Wi-Fi networks is automatically refreshed while you are on this page (so be sure to close this page to avoid unnecessary system load).</span>
+    <span class="help-block">The list of available Wi-Fi networks is automatically refreshed while you are on this page 
+		(so be sure to close this page to avoid unnecessary system load).</span>
     <span class="help-block">Click on an entry to connect or to generate a new profile.</span>
+    <span class="help-block"><i>Note: If you are using a WiFi dongle and are connected using the built in Access Point, it is possible that the dongle 
+		cannot support simultaneous Access Point and network search functions. If this is the case no networks will be 
+		shown, you can add a WiFi profile manually by selecting SHOW then ADD&nbsp;NEW&nbsp;PROFILE</i></span>
     <fieldset>
         <div id="wifiNetworks" class="boxed">
             <p><a class="btn btn-lg btn-default btn-block" href="#"><i class="fa fa-cog fa-spin sx"></i>scanning for networks...</a></p>
@@ -17,7 +21,7 @@
                 <span><span>SHOW<i class="fa fa-chevron-down dx"></i></span><span>HIDE<i class="fa fa-chevron-up dx"></i></span></span><a class="btn btn-primary"></a>
             </label>
             <div id="wifiProfilesBox" class="hide">
-                <span class="help-block">Add, edit or delete stored Wi-Fi profiles.</span>
+                <span class="help-block">Add or delete stored Wi-Fi profiles.</span>
                 <div id="wifiStored">
                 <?php foreach ($this->wlan_profiles as $profile): ?>
                 <p><a href="/network/wlan/<?=$this->arg ?>/<?=$profile->ssid ?>" class="btn btn-lg btn-default btn-block"><?php if ($this->nic->currentssid === $profile->ssid): ?><i class="fa fa-check green sx"></i><?php endif; ?><?php if ($profile->encryption !== 'open'): ?><i class="fa fa-lock sx"></i><?php endif; ?><strong><?=$profile->ssid ?></strong></a></p>
@@ -110,7 +114,7 @@
                 <label class="switch-light well" onclick="">
                     <input id="reboot" name="nic[reboot]" type="checkbox" value="1">
                         <span><span>NO</span><span>YES</span></span><a class="btn btn-primary"></a>
-                    </label>
+                </label>
                 <span class="help-block">If you experience problems, set this to <strong>YES</strong>.</span>
             </div>
         </div>

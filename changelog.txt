@@ -29,7 +29,7 @@ Previous changes for 0.1 to 0.4b are not included.
 •	Rern’s Addon 'RuneUI Fonts - Extended Characters' is pre-installed.
 •	The player name is included in the browser tab and can optionally be included in 'Menu' text. The control to switch ON/OFF is included in the /dev UI.
 •	Extend the Linux Partition is now an option in the /dev UI.
-•	All UI checked and updated. Extra notes added where required. Specifically, credits UI updated, /dev UI notes added for mediainfo, 384k kernel and smartmontools.
+•	All UI's checked and updated. Extra notes added where required. Specifically, credits UI updated, /dev UI notes added for mediainfo, 384k kernel and smartmontools.
 •	No sound/hissing problems with Allo Piano 2.1 with Kali Reclocker fixed (32 bit is now forced by default).
 •	Rern's Addons Menu can be installed and removed from the /dev UI.
 •	CIFS network mounts logic reworked.
@@ -39,13 +39,17 @@ Previous changes for 0.1 to 0.4b are not included.
 •	RuneAudio freezing problem when no internet is available fixed.
 •	Added bitrate and output format controls for shairport-sync in the /dev UI.
 •	Added Random Play reset button and current random play source display in the MPD UI.
-•	Network mount improvements for CIFS and NFS including Async retries.
+•	Network mount improvements for CIFS and NFS, including Async retries. A NAS which is switched on after Rune has booted will be found and mounted.
 •	Added extra local browser controls for zoomfactor, rotate and mouse cursor (including raspi-rotate) in the Settings UI, all work on the fly.
 •	Switching local browser on and off also enables and disables the boot/shutdown/reboot splash screens.
 •	Added some small modifications for the on-screen keyboard and screen saver format for improved portrait mode (90 degree rotation) use.
 •	Modified the I2S audio card selector in the Settings UI to remember the selected card type.
 •	Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default). Added IQaudIO Pi-DAC PRO in the Settings UI I²S kernel modules selector
 •	Added workaround fixes for situations when shairport-sync and the RuneAudio player fail to broadcast their respective names on the network (using avahi). The problem tends to happen only after 24+ hours of usage, the reason is unknown.
+•	Lyrics now change when the song changes. Optimised Lyrics and Artist Information for situations when when only partial information is available.
+•	Fixed UI Problems when the lyrics server is not available.
+•	Added an option for Hidden SSID for WiFi in the Network UI.
+•	Access Point default on/off depending on Pi type (with on-board WiFi > ON, otherwise OFF), WiFi dongles with partial AP functionality are now supported.
 
 Known problems:
 •	Spotify has stopped working (see forum for details).
@@ -54,6 +58,5 @@ Known problems:
 •	Dim the volume control in UI when in Airplay mode is not working. There are also other screen refresh issues.
 •	Using UPnP/DLNA when Global Random (ashuffle) is enabled will not work. This is documented in the UI.
 •	The library navigation based on Artist, Composer and Genre do not work correctly. This functionality is unchanged in 0.5b, the same problems also exist in 0.4b. It seems to occurs when the metadata album name differs from the directory name containing the song files from the album.
-•	Lyrics only changing when an artist changes, should also change when song changes.
 •	Special characters in the WiFi SysID will fail.
 •	Casting MP3 via UPnP/DLNA has sound quality problems, other file formats are OK. See here for the probable cause: http://www.runeaudio.com/forum/digital-output-and-input-for-runeaudio-t6592.html

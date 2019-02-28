@@ -87,13 +87,12 @@
                 <label class="col-sm-2 control-label" for="log-level">Log level</label>
                 <div class="col-sm-10">
                     <select id="log-level" name="conf[log_level]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="none" <?php if($this->conf['log_level'] == 'none'): ?> selected <?php endif ?>>disabled</option>
                         <option value="default" <?php if($this->conf['log_level'] == 'default'): ?> selected <?php endif ?>>default</option>
                         <option value="secure" <?php if($this->conf['log_level'] == 'secure'): ?> selected <?php endif ?>>secure</option>    
                         <option value="verbose" <?php if($this->conf['log_level'] == 'verbose'): ?> selected <?php endif ?>>verbose</option>
                     </select>         
-                    <span class="help-block">This setting controls the type of information which is logged. Available setting arguments are "disabled", "default", "secure" or "verbose".
-					The "verbose" setting argument is recommended for troubleshooting, though can quickly stretch available resources on limited hardware storage.</span>
+                    <span class="help-block">This setting controls the type of information which is logged. Available settings are "default", "secure" or "verbose".
+					The "verbose" setting is recommended for troubleshooting, though can quickly stretch available resources on limited hardware storage.</span>
                 </div>
             </div>
             <div class="form-group">
@@ -116,7 +115,7 @@
                     <span class="help-block">FFmpeg decoder plugin. Enable this setting if you need AAC / ALAC support. May slow down MPD database refresh.</span>
                 </div>
             </div>
-			<?php if(!$this->conf['mpdv21']): ?>
+			<?php if(!$this->mpdv21): ?>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="gapless-mp3-playback">Gapless mp3 playback</label>
                 <div class="col-sm-10">
@@ -182,7 +181,7 @@
                     <span class="help-block">This specifies the size of the audio buffer in kibibytes. The default is 4096, large enough for nearly 24 seconds of CD-quality audio.</span>
                 </div>
             </div>
-			<?php if(!$this->conf['mpdv21']): ?>
+			<?php if(!$this->mpdv21): ?>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="dsd-usb">Buffer before play</label>
                 <div class="col-sm-10">
