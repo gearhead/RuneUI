@@ -288,6 +288,10 @@ if ($playerid_db === '') {
 		// start snapclient
 		sysCmd('systemctl stop snapclient');
 		wrk_configureSnapclient($redis);
+		sysCmd('mkdir -p /srv/http/tmp/snapcast');
+		sysCmd('cp /srv/http/assets/img/snapcast.png /srv/http/tmp/snapcast/snapcast.png');
+		sysCmd('chown -R http.http /srv/http/tmp');
+		sysCmd('chmod 644 /srv/http/tmp/snapcast/snapcast.png');
 		sysCmd('systemctl start snapclient');
 	} else {
 		// stop spotify, if started
