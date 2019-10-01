@@ -60,7 +60,14 @@ function sliderSetListHeight(items, o) {
 function sliderSetupLayout(slider, o) {
 	var input = "<input orient=vertical type=range min=1 max=26 value=26 id='slider-range'>";
 	$(slider).append('<div class="slider-nav"><ul>' + input + '</ul></div>');
-	for(var i = 0; i < o.items.length; ++i) $('.slider-nav ul', slider).append("<li><a alt='#"+o.items[i]+"'>"+o.items[i]+"</a></li>");
+	for(var i = 0; i < o.items.length; ++i) {
+        $('.slider-nav ul', slider).append(
+            "<li>"
+            +"<div class='slider-hint' id='slider-hint-"+o.items[i]+"'>"+o.items[i]+"</div>"
+            +"<a alt='#"+o.items[i]+"'>"
+            +o.items[i]
+            +"</a></li>");
+    }
 	$('.slider-content, .slider-nav', slider).css('top',$("#database-entries").position().top);
 	$('.slider-content, .slider-nav', slider).css('height',o.height);
 	$('#slider-range').css('top',$("#database-entries").position().top);
@@ -102,9 +109,14 @@ $.fn.sliderNav = function(options) {
 		if ($('#database-entries #'+target).offset() === undefined) {
 			return;
 		}
+        $(".slider-hint").hide();
+        $("#slider-hint-"+current).show();
 		var cOffset = $('#database-entries').offset().top;
 		var tOffset = $('#database-entries #'+target).offset().top;
 		var pScroll = (tOffset - cOffset);
 		$('#database-entries').stop().animate({scrollTop: "+=" + pScroll + "px"});
 	});
+    $('#slider-range', slider).on("change", function(event) {
+        $(".slider-hint").hide();
+    });
 };
