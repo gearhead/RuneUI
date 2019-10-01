@@ -142,12 +142,8 @@ if ($playerid_db === '') {
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
 	// check that mpd is running
-	$retval = sysCmd('systemctl is-active mpd');
-	if ($retval[0] === 'active') {
-		// do nothing
-	} else {
-		sysCmd('systemctl start mpd');
-	}
+	wrk_start_mpd($redis);
+
 	unset($retval);
 	// ashuffle gets started automatically
     // reconnect to new instance of MPD
@@ -190,13 +186,7 @@ if ($playerid_db === '') {
 	// reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_sourcecfg($redis,'reset');
-    // reconnect to new instance of MPD
-	$retval = sysCmd('systemctl is-active mpd');
-	if ($retval[0] === 'active') {
-		// do nothing
-	} else {
-		sysCmd('systemctl start mpd');
-	}
+    wrk_start_mpd($redis);
 	unset($retval);
 	// ashuffle gets started automatically
     // clear MPD database
@@ -264,6 +254,7 @@ if ($playerid_db === '') {
 		} else {
 			// Start and refresh MPD (audio hardware status - soundcards and MPD config)
 			wrk_mpdconf($redis,'refresh');
+            wrk_start_mpd($redis);
 		}
 		unset($retval);
 		// ashuffle gets started automatically
@@ -304,6 +295,7 @@ if ($playerid_db === '') {
 		} else {
 			// Start and refresh MPD (audio hardware status - soundcards and MPD config)
 			wrk_mpdconf($redis,'refresh');
+            wrk_start_mpd($redis);
 		}
 		unset($retval);
 		// ashuffle gets started automatically
