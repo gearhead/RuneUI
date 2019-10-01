@@ -9,14 +9,14 @@ title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title"`
 echo $artist
 echo $title
 
-lyric=$( curl -sf "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
+lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
 
-if [[ $lyric == *"We're sorry, but something went wrong."* ]];
+if [[ $lyric == *"something went wrong"* ]];
 then
   echo "No lyrics server available"
 elif [ "$lyric" == "" ];
 then
-  echo "No lyrics server available"
+  echo "No lyrics available"
 else
   echo $lyric
 fi

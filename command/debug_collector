@@ -278,8 +278,8 @@ function debug_data($redis)
     $command = sysCmd('dmesg');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
-    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|loaded|loading' | head -n 200) ######\n";
-    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|loaded|loading" | head -n 200');
+    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
+    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|loaded|loading" | grep -i -v "audit" | head -n 200');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
 	// $output .= "###### latest systemd (journal) messages (journalctl | tail -n 50) ######\n";

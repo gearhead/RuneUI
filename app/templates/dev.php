@@ -174,8 +174,8 @@
 							<option value="S32" <?php if($this->airplayof === 'S32'): ?> selected <?php endif ?>> S32</option>
 							<option value="U8" <?php if($this->airplayof === 'U8'): ?> selected <?php endif ?>> U8</option>
 							<option value="S8" <?php if($this->airplayof === 'S8'): ?> selected <?php endif ?>> S8</option>
-							<option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S32_3LE</option>
-							<option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S32_3BE</option>
+							<option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
+							<option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
 						</select>
 						<span class="help-block">Airplay is set up to play music at 41.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound by changing this setting.<br>
 						However, some DAC cards and output devices have problems playing at 16bit depth. And if you use a Mac as source (not a iPhone or iPad) then 24bit can be supported (you need to manually switch this ON on the Mac).<br>

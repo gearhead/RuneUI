@@ -19,9 +19,9 @@ udevil clean
 #
 # set up services and stop them
 systemctl unmask systemd-journald
-systemctl disable ashuffle mpd mpdscribble nmbd nmb smbd smb udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd bootsplash cronie winbindd udevil
-systemctl enable avahi-daemon haveged nginx redis rune_SY_wrk sshd systemd-resolved systemd-journald systemd-timesyncd winbind
-systemctl stop ashuffle mpd spopd nmbd nmb smbd smb winbind shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie udevil
+systemctl disable ashuffle mpd mpdscribble nmbd nmb smbd smb winbindd winbind udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd systemd-timesyncd php-fpm ntpd bluetooth chronyd bootsplash cronie
+systemctl enable avahi-daemon haveged nginx redis rune_SY_wrk sshd systemd-resolved systemd-journald systemd-timesyncd
+systemctl stop ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie udevil
 #
 # run poweroff script (and remove network mounts)
 /var/www/command/rune_shutdown poweroff
@@ -91,14 +91,13 @@ redis-cli set hwplatformid ""
 # update local git
 rm -f /var/www/command/mpd-watchdog
 cd /srv/http/
-git stash
-git add .
-git pull
+git config --global core.editor "nano"
 git config user.email "any@body.com"
 git config user.name "anybody"
 git stash
 git add .
-git pull
+git stash
+git pull --no-edit
 git stash
 cd /home
 #
@@ -168,7 +167,7 @@ cp /var/www/app/config/defaults/config.txt /boot/config.txt
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/smb.service
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/nmb.service
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/winbind.service
-sed -i 's|.*User=mpd.*|#User=mpd|' /usr/lib/systemd/system/mpd.service
+sed -i 's|.*User=mpd.*|#User=mpd|g' /usr/lib/systemd/system/mpd.service
 #
 # make sure that all files are unix format and have the correct ownerships and protections
 # the 'final' option also removes the dos2unix package

@@ -48,6 +48,7 @@ $redis->hSet('acards_details', 'Devialet USB Audio 2.0', '{"sysname":"Devialet U
 $redis->hSet('acards_details', 'DigiHug USB Audio', '{"sysname":"DigiHug USB Audio","extlabel":"DigiHug USB DAC","mixer_numid":"1","mixer_control":"PCM","hwplatformid":"08","type":"usb"}');
 $redis->hSet('acards_details', 'Geek Out HD Audio 1V0', '{"sysname":"Geek Out HD Audio 1V0","extlabel":"LH Labs Geek Out 720","mixer_numid":"3","mixer_control":"LH Labs Clock Selector","type":"usb"}');
 $redis->hSet('acards_details', 'Hugo', '{"sysname":"Hugo","extlabel":"Chord Hugo","mixer_numid":"4","mixer_control":"Hugo","type":"usb"}');
+$redis->hSet('acards_details', 'I-Sabre Q2M DAC', '{"sysname":"I-Sabre Q2M DAC","extlabel":"I-Sabre Q2M DAC (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"02","type":"i2s"}');
 $redis->hSet('acards_details', 'NuForce USB Audio', '{"sysname":"NuForce USB Audio","extlabel":"NuForce DDA-100","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'ODROID-DAC', '{"sysname":"ODROID-DAC","extlabel":"ODROID HifiShield (I&#178;S)","mixer_numid":"1","hwplatformid":"10","type":"i2s"}');
@@ -67,12 +68,12 @@ $redis->hSet('acards_details', 'imx-hdmi-soc', '{"sysname":"imx-hdmi-soc","extla
 $redis->hSet('acards_details', 'imx-spdif', '{"sysname":"imx-spdif","extlabel":"Utilite Coax SPDIF Out","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'raspyplay3', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"RaspyPlay3 (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'raspyplay4', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'wm8731-audio', '{"sysname":"wm8731-audio","extlabel":"Utilite Analog Out","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp+ (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"08","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dac', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"HiFiBerry DAC (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplus', '{"sysname":"snd_rpi_hifiberry_dacplus","extlabel":"HiFiBerry DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_digi', '{"sysname":"snd_rpi_hifiberry_digi","extlabel":"HiFiBerry Digi (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_iqaudio_dac', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01","type":"i2s"}');
+$redis->hSet('acards_details', 'wm8731-audio', '{"sysname":"wm8731-audio","extlabel":"Utilite Analog Out","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","hwplatformid":"08","type":"i2s"}');
 // Two alternative versions of the rpi-dac configuration specifically for the es9023 DAC - in principal this DAC will only work for bitrates up to 192k
 // The above line will provide bitrates up to 384k, these below are limited to 192k - if all your music is less than 192k then do nothing (most is 44.1k)

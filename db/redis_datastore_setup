@@ -123,6 +123,18 @@ function redisDatastore($redis,$action) {
 			$redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
 			$redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
 			$redis->hSet('AccessPoint', 'enable-NAT', 1);
+			// Internet services
+			$redis->hSet('service', 'internet', 0);
+			$redis->hSet('service', 'webradio', 0);
+			$redis->hSet('service', 'dirble', 0);
+			$redis->hSet('service', 'lastfm', 0);
+			$redis->hSet('service', 'makeitpersonal', 0);
+			$redis->hSet('service', 'musicbrainz', 0);
+			$redis->hSet('service', 'coverartarchiveorg', 0);
+			$redis->hSet('service', 'wikipedia', 0);
+			$redis->hSet('service', 'azlyrics', 0);
+			$redis->hSet('service', 'discogs', 0);
+			$redis->hSet('service', 'fanarttv', 0);
             // player features
             $redis->set('hostname', 'RuneAudio');
             $redis->set('ntpserver', 'pool.ntp.org');
@@ -191,6 +203,7 @@ function redisDatastore($redis,$action) {
 			// default lyrics and info
 			$redis->hSet('lyrics', 'currentartist', '');
 			$redis->hSet('lyrics', 'currentsong', '');
+			$redis->hSet('lyrics', 'artistmbid', '');
 			$redis->del('soxrmpdonoff');
 			$redis->set('localSStime', -1);
 			$redis->set('remoteSStime', -1);
@@ -209,6 +222,7 @@ function redisDatastore($redis,$action) {
 			$redis->set('restoreact', 0);
 			$redis->set('playernamemenu', 0);
             // plugins api-keys
+            $redis->set('fanarttv_apikey', '06f56465de874e4c75a2e9f0cc284fa3');
             $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hSet('lastfm', 'apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hSet('spotify', 'clientid', 'c236e0f5a84e48a3a7f6c730f684f255');
@@ -373,6 +387,18 @@ function redisDatastore($redis,$action) {
 			$redis->hExists('AccessPoint', 'dhcp-option-dns') || $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
 			$redis->hExists('AccessPoint', 'dhcp-option-router') || $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
 			$redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 1);
+			// Internet services
+			$redis->hExists('service', 'internet') || $redis->hSet('service', 'internet', 0);
+			$redis->hExists('service', 'webradio') || $redis->hSet('service', 'webradio', 0);
+			$redis->hExists('service', 'dirble') || $redis->hSet('service', 'dirble', 0);
+			$redis->hExists('service', 'lastfm') || $redis->hSet('service', 'lastfm', 0);
+			$redis->hExists('service', 'makeitpersonal') || $redis->hSet('service', 'makeitpersonal', 0);
+			$redis->hExists('service', 'musicbrainz') || $redis->hSet('service', 'musicbrainz', 0);
+			$redis->hExists('service', 'coverartarchiveorg') || $redis->hSet('service', 'coverartarchiveorg', 0);
+			$redis->hExists('service', 'wikipedia') || $redis->hSet('service', 'wikipedia', 0);
+			$redis->hExists('service', 'azlyrics') || $redis->hSet('service', 'azlyrics', 0);
+			$redis->hExists('service', 'discogs') || $redis->hSet('service', 'discogs', 0);
+			$redis->hExists('service', 'fanarttv') || $redis->hSet('service', 'fanarttv', 0);
             // player features
             $redis->exists('hostname') || $redis->set('hostname', 'RuneAudio');
             $redis->exists('ntpserver') || $redis->set('ntpserver', 'pool.ntp.org');
@@ -417,6 +443,7 @@ function redisDatastore($redis,$action) {
 			// default lyrics and info
 			$redis->hExists('lyrics', 'currentartist') || $redis->hSet('lyrics', 'currentartist', '');
 			$redis->hExists('lyrics', 'currentsong') || $redis->hSet('lyrics', 'currentsong', '');
+			$redis->hExists('lyrics', 'artistmbid') || $redis->hSet('lyrics', 'artistmbid', '');
             $redis->exists('udevil') || $redis->set('udevil', 1);
             $redis->exists('coverart') || $redis->set('coverart', 1);
             $redis->exists('playmod') || $redis->set('playmod', 0);
@@ -451,6 +478,7 @@ function redisDatastore($redis,$action) {
 			$redis->exists('libaoconfchange') || $redis->set('libaoconfchange', 0);
 			$redis->exists('avahiconfchange') || $redis->set('avahiconfchange', 0);
             // plugins api-keys
+            $redis->exists('fanarttv_apikey') || $redis->set('fanarttv_apikey', '06f56465de874e4c75a2e9f0cc284fa3');
             $redis->exists('lastfm_apikey') || $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hExists('lastfm', 'apikey') || $redis->hSet('lastfm', 'apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hExists('jamendo', 'clientid') || $redis->hSet('jamendo', 'clientid', '5f3ed86c');

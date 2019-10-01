@@ -657,7 +657,7 @@ while (1) {
 					sysCmd('cd /srv/http/ && git config user.name "'.$redis->get('playerid').'"');
 					sysCmd('cd /srv/http/ && git config user.email "'.$redis->get('playerid').'@runeaudio.com"');
                     // git stash, git add then git pull
-                    $retval = sysCmd('cd /srv/http/ && git stash ; git add . ; git pull');
+                    $retval = sysCmd('cd /srv/http/ && git stash ; git add . ; git stash ; git pull --no-edit');
                     //sysCmd("curl -s -X GET 'http://localhost/clear'");
                     // send notfy to UI
                     ui_notify('Update RuneUI', 'RuneUI update message<br>'.implode('<br>', $retval));
