@@ -2482,17 +2482,17 @@ if ($action === 'reset') {
 				$redis->hDel('mpdconf', 'soxr');
 			}
 			unset($count);
-			// some MPD options are no longer valid for version 0.21.00 and later
-			if ($redis->hGet('mpdconf', 'version') >= '0.21.00') {
-				$redis->hDel('mpdconf', 'id3v1_encoding');
-				$redis->hDel('mpdconf', 'buffer_before_play');
-				$redis->hDel('mpdconf', 'gapless_mp3_playback');
-			}
 			// set mpd zeroconfig name to hostname
             $redis->hSet('mpdconf', 'zeroconf_name', $redis->get('hostname'));
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'writecfg':
+			// some MPD options are no longer valid for version 0.21.00 and later
+			if ($redis->hGet('mpdconf', 'version') >= '0.21.00') {
+				$redis->hExists('mpdconf', 'id3v1_encoding') && $redis->hDel('mpdconf', 'id3v1_encoding');
+				$redis->hExists('mpdconf', 'buffer_before_play') && $redis->hDel('mpdconf', 'buffer_before_play');
+				$redis->hExists('mpdconf', 'gapless_mp3_playback') && $redis->hDel('mpdconf', 'gapless_mp3_playback');
+			}
             $mpdcfg = $redis->hGetAll('mpdconf');
             $current_out = $redis->Get('ao');
             // if (!$redis->hExists('acards', $current_out)) {
@@ -4652,7 +4652,7 @@ function curlGet($url, $proxy = null)
         }
     }
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 400);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HEADER, 0);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     $response = curl_exec($ch);

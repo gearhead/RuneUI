@@ -206,6 +206,11 @@ function updateOS($redis) {
 			}
 			unset($retval);
 		}
+		if ($redis->get('patchlevel') == 10) {
+			// 10th update - fix for last.fm outage - this file is updated at the same time as others, so just increment the patchlevel
+			// set the patch level
+			$redis->set('patchlevel', 11);
+		}
 		//
 		// if ($redis->get('patchlevel') == x) {
 			// // xth update - install runeaudio.cron in /etc/cron.d/ after it is delivered by git pull
