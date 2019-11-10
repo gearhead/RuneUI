@@ -2769,6 +2769,8 @@ if ($action === 'reset') {
                 runelog('switchao (RECOVER STATE!)');
                 syscmd('mpc toggle');
             }
+            wrk_reconfigureSnapclient($redis);
+            wrk_shairport($redis, $args);
             // set notify label
             if (isset($interface_details->extlabel)) { $interface_label = $interface_details->extlabel; } else { $interface_label = $args; }
             // notify UI
@@ -3814,6 +3816,7 @@ function wrk_startAirplay($redis)
     $activePlayer = $redis->get('activePlayer');
     if ($activePlayer != 'Airplay') {
         $redis->set('stoppedPlayer', $activePlayer);
+
         if ($activePlayer === 'MPD') {
 			// record  the mpd status
 			wrk_mpdPlaybackStatus($redis);
@@ -3976,9 +3979,8 @@ function wrk_playerID($arch)
     return $playerid;
 }
 
-function wrk_start_mpd($redis)
+function wrk_reconfigureSnapclient($redis)
 {
-    runelog("starting mpd");
     sysCmd('systemctl stop snapclient');
     if ($redis->hGet("snapserver", "enable") === "1") {
         /* route sound via snapcast */
@@ -3987,6 +3989,13 @@ function wrk_start_mpd($redis)
         sysCmd('systemctl start snapclient');
         runelog("enable local snapclient");
     }
+}
+
+function wrk_start_mpd($redis)
+{
+    runelog("starting mpd");
+    wrk_reconfigureSnapclient($redis);
+
     /* update mpd config */
     wrk_mpdconf($redis, 'writecfg');
     if ($redis->get('mpdconfchange')) {
