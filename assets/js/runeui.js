@@ -1004,6 +1004,7 @@ function updateGUI() {
                             $('#artist-image-ss').css('background-image','url("assets/img/unkown.png")');
                             $('#artist-image-overlay').css('background-image','url("assets/img/unkown.png")');
                         }
+                        }
                     },
                     cache: false
                 });
