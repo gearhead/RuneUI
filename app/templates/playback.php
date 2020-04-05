@@ -467,6 +467,9 @@
             <?php if ($this->spotifyconnect): ?>
             <li><a href="javascript:;" id="playsource-spotify-connect" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-spotify sx"></i> <span>spotyfyd</span> Spotify Connect</a></li>
             <?php endif; ?>
+            <?php if ($this->snapcast): ?>
+            <li><a href="javascript:;" id="playsource-snapcast" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-spotify sx"></i> <span>snapcast</span> Snapcast</a></li>
+            <?php endif; ?>
             <?php if ($this->airplay): ?>
             <li><a href="javascript:;" id="playsource-airplay" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-apple sx"></i> <span>shairport-sync</span> Airplay</a></li>
             <?php endif; ?>

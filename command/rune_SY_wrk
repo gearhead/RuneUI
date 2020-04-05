@@ -142,12 +142,8 @@ if ($playerid_db === '') {
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
     // check that mpd is running
-    $retval = sysCmd('systemctl is-active mpd');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start mpd');
-    }
+    wrk_start_mpd($redis);
+
     unset($retval);
     // ashuffle gets started automatically
     // reconnect to new instance of MPD
@@ -191,12 +187,7 @@ if ($playerid_db === '') {
     runelog('reset sourcecfg to defaults');
     wrk_sourcecfg($redis,'reset');
     // reconnect to new instance of MPD
-    $retval = sysCmd('systemctl is-active mpd');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start mpd');
-    }
+    wrk_start_mpd($redis);
     unset($retval);
     // ashuffle gets started automatically
     // clear MPD database
@@ -213,6 +204,7 @@ if ($playerid_db === '') {
     }
     runelog('--- MPD VERSION HAS CHANGED PROCESS');
     // invoke rune_SY_wrk respawn
+    $redis->close();
     sysCmd('systemctl daemon-reload');
     sysCmd('systemctl restart rune_SY_wrk');
     // --- MPD VERSION HAS CHANGED PROCESS//
@@ -276,6 +268,22 @@ if ($playerid_db === '') {
         unset($retval);
         // start spotify, if not started
         sysCmd('pgrep -x spopd || systemctl start spopd');
+    } else if ($activePlayer === 'Snapcast') {
+        // check MPD process, it can be started earlier
+        $retval = sysCmd('systemctl is-active mpd');
+        if ($retval[0] === 'active') {
+                // stop mpd with kill, this saves the state-file
+                sysCmd('mpd --kill');
+        }
+        unset($retval);
+        // start snapclient
+        sysCmd('systemctl stop snapclient');
+        wrk_configureSnapclient($redis);
+        sysCmd('mkdir -p /srv/http/tmp/snapcast');
+        sysCmd('cp /srv/http/assets/img/snapcast.png /srv/http/tmp/snapcast/snapcast.png');
+        sysCmd('chown -R http.http /srv/http/tmp');
+        sysCmd('chmod 644 /srv/http/tmp/snapcast/snapcast.png');
+        sysCmd('systemctl start snapclient');
     } else {
         // stop spotify, if started
         sysCmd('pgrep -x spopd && systemctl stop spopd');
@@ -437,6 +445,13 @@ if ($playerid_db === '') {
         sysCmdAsync('systemctl stop local-browser');
     }
 
+    // start snapserver
+    if (($redis->hGet('snapserver', 'enable')) && (file_exists('/usr/bin/snapserver'))) {
+            sysCmdAsync('systemctl start snapserver');
+    } else {
+            sysCmdAsync('systemctl stop snapserver');
+    }
+
     // turn wifi power saving off
     sysCmd('iwconfig wlan0 power off');
 
@@ -523,7 +538,7 @@ while (1) {
                     runelog('wrk_SY: ', $job->wrkcmd);
                     if ($job->action === 'start') {
                         // switch the player to airplay
-                        wrk_startPlayer($redis, 'Airplay');
+                        wrk_switchplayer($redis, 'Airplay');
                         // start rune_SSM_wrk if metadata is enabled
                         if ($redis->hGet('airplay', 'metadata_enabled') == 'yes') {
                             sysCmd('systemctl start rune_SSM_wrk');
@@ -1036,9 +1051,24 @@ while (1) {
                 case 'NTPswitch':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    sysCmd('/srv/http/command/switch_'.$job->action.'_time_on.sh');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
+		    sysCmd('/srv/http/command/switch_'.$job->action.'_time_on.sh');
+		    $redis->sRem('w_lock', $jobID);
+		    break;
+                case 'snapserver':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('snapserver action: ', $job->action);
+                    runelog('snapserver args: ', $job->args);
+                    $redis->sAdd('w_lock', $jobID);
+		    if ($job->action === 'start') {
+			$redis->hSet('snapserver', 'enable', $job->args);
+			sysCmd('systemctl start snapserver');
+		    } else if ($job->action === 'stop') {
+			$redis->hSet('snapserver', 'enable', $job->args);
+			sysCmd('systemctl stop snapserver');
+		    }
+		wrk_mpdconf($redis, 'refresh');
+		$redis->sRem('w_lock', $jobID);
+                break;
                 case 'airplayconfreset':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
@@ -1386,7 +1416,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     // switch the player to spotify connect
                     // connect signals: stop, play: start, next track: change, stop: stop
-                    wrk_startPlayer($redis, 'SpotifyConnect');
+                    wrk_switchplayer($redis, 'SpotifyConnect');
                     // process metadata if enabled
                     if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
                         wrk_SpotifyConnectMetadata($redis, $job->action, $job->args);
@@ -1402,7 +1432,7 @@ while (1) {
                 case 'switchplayer':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    if (wrk_startPlayer($redis, $job->args)) {
+                    if (wrk_switchplayer($redis, $job->args)) {
                         ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
                     }
                     $redis->sRem('w_lock', $jobID);

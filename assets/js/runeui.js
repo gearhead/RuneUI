@@ -38,7 +38,6 @@
 var GUI = {
     DBentry: ['','',''],
     DBupdate: 0,
-    activePlayer: '',
     browsemode: 'file',
     checkvol: 0,
     currentDBpos: [0,0,0,0,0,0,0,0,0,0,0],
@@ -218,18 +217,24 @@ function refreshTimer(startFrom, stopTo, state) {
     // console.log('startFrom = ', startFrom);
     // console.log('state = ', state);
     var display = $('#countdown-display');
-    display.countdown('destroy');
-    display.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-    if (state !== 'play'){
-        // console.log('startFrom = ', startFrom);
-        display.countdown('pause');
-    }
     var displayss = $('#countdown-display-ss');
-    displayss.countdown('destroy');
-    displayss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-    if (state !== 'play'){
-        // console.log('startFrom = ', startFrom);
-        displayss.countdown('pause');
+    if (GUI.json.actPlayer === "Airplay" || GUI.json.actPlayer === "Snapcast") {
+        display.countdown('destroy');
+        displayss.countdown('destroy');
+        return;
+    } else {
+        display.countdown('destroy');
+        display.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
+        if (state !== 'play'){
+            // console.log('startFrom = ', startFrom);
+            display.countdown('pause');
+        }
+        displayss.countdown('destroy');
+        displayss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
+        if (state !== 'play'){
+            // console.log('startFrom = ', startFrom);
+            displayss.countdown('pause');
+        }
     }
     var displaysss = $('#countdown-display-sss');
     displaysss.countdown('destroy');
@@ -518,10 +523,13 @@ function setPlaybackSource() {
     // update the playback section
     $('#overlay-playsource-open button').text(activePlayer);
     $('#overlay-playsource a').addClass('inactive');
-    var source = activePlayer.toLowerCase();
+    var source = "unknown";
+    if (activePlayer !== undefined) {
+        activePlayer.toLowerCase();
+    }
     $('#playsource-' + source).removeClass('inactive');
     // update volume knob and control buttons
-    if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
+    if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect' || activePlayer === 'Snapcast') {
         $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
         $('#volume-knob').addClass('nomixer');
         $('#volume-knob button').prop('disabled', true);
@@ -560,13 +568,12 @@ function renderLibraryHome() {
         divClose = '</div>',
         toggleMPD = '',
         toggleSpotify = '',
-        notMPD = (obj.ActivePlayer === 'Spotify' || obj.ActivePlayer === 'Airplay');
+        notMPD = (obj.ActivePlayer === 'Spotify' || obj.ActivePlayer === 'Airplay' || obj.ActivePlayer === 'Snapcast');
     if(isLocalHost) {
         content = '';
     } else {
         content = '<div class="col-sm-12"><h1 class="txtmid">Browse your library</h1></div>';
     }
-    
     // Set active player
     setPlaybackSource();
     if (notMPD) {
@@ -722,6 +729,14 @@ function renderLibraryHome() {
             content += divOpen + '<div id="home-dirble" class="home-block' + toggleMPD + '" data-plugin="Dirble" data-path="Dirble"><i class="fa fa-globe"></i><h3>Dirble</h3>radio stations open directory</div>' + divClose;
         }
     }
+    // Snapcast block
+    if (chkKey(obj.Snapcast)) {
+        if(isLocalHost) {
+            content += divOpen + '<div id="home-snapcast" class="home-block" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-wifi"></i><h3>Snapcast</h3></div>' + divClose;
+        } else {
+            content += divOpen + '<div id="home-snapcast" class="home-block" data-plugin="Snapcast" data-path="Snapcast"><i class="fa fa-wifi"></i><h3>Snapcast</h3>browse local Snapcast streams</div>' + divClose;
+        }
+    }
     if (chkKey(obj.Jamendo)) {
         // Jamendo
         if(isLocalHost) {
@@ -779,6 +794,9 @@ function refreshState() {
         $('#format-bitrate-ss').html('&nbsp;');
         $('#format-bitrate-sss').html('&nbsp;');
         $('li', '#playlist-entries').removeClass('active');
+    }
+    if($('#overlay-playsource-open button').text() !== GUI.libraryhome.ActivePlayer) {
+        renderLibraryHome();
     }
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
@@ -959,11 +977,12 @@ function updateGUI() {
             // if (GUI.stream !== 'radio') {
                 var covercachenum = Math.floor(Math.random()*1001);
                 $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');            
-                $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');            
+                $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
                 $.ajax({
                     url: '/artist_info/',
                     success: function(data){
+                        if (data !== "") {
                         var info = jQuery.parseJSON(data);
                         if (typeof info.artist.bio.content !== 'undefined' && info.artist.bio.content !== '') {
                             $('#artist-bio-ss').html(info.artist.bio.content.substring(0,550) + ' ... ');
@@ -987,6 +1006,7 @@ function updateGUI() {
                         } else {
                             $('#artist-image-ss').css('background-image','url("assets/img/unkown.png")');
                             $('#artist-image-overlay').css('background-image','url("assets/img/unkown.png")');
+                        }
                         }
                     },
                     cache: false
@@ -1431,7 +1451,21 @@ function parseResponse(options) {
                 content += '</span></li>';
             }
         break;
-        
+
+        case 'Snapcast':
+        // Snapcast plugin
+            if (querytype === '') {
+            // streams
+                content = '<li id="db-' + (i + 1) + '" class="db-snapcast db-radio" data-path="';
+                content += inputArr.name;
+                content += '"><i class="fa fa-wifi db-icon"></i>';
+                content += '<span class="sn">' + inputArr.name;
+		content += '</span><span class="bl">';
+		content += inputArr.ip;
+                content += '</span></li>';
+            }
+        break;
+
         case 'Jamendo':
         // Jamendo plugin
             // if (querytype === 'radio') {
@@ -1536,6 +1570,37 @@ function populateDB(options){
                 content += parseResponse({
                     inputArr: row,
                     respType: 'Dirble',
+                    i: i,
+                    querytype: querytype
+                });
+            }
+            document.getElementById('database-entries').innerHTML = content;
+        }
+        if (plugin === 'Snapcast') {
+        // Snapcast plugin
+            $('#database-entries').removeClass('hide');
+            $('#db-level-up').removeClass('hide');
+            $('#home-blocks').addClass('hide');
+            if (path) {
+                if (querytype === 'search') {
+                    GUI.currentpath = 'Snapcast';
+                } else {
+                    GUI.currentpath = path;
+                }
+            }
+            document.getElementById('database-entries').innerHTML = '';
+            // console.log(data);
+
+            data.sort(function(a, b){
+                nameA = a.hasOwnProperty('name')?a.name.toLowerCase():'';
+                nameB = b.hasOwnProperty('name')?b.name.toLowerCase():'';
+                return nameA.localeCompare(nameB);
+            });
+
+            for (i = 0; (row = data[i]); i += 1) {
+                content += parseResponse({
+                    inputArr: row,
+                    respType: 'Snapcast',
                     i: i,
                     querytype: querytype
                 });
@@ -1739,6 +1804,16 @@ function getDB(options){
                 }, 'json');
             }
         }
+        else if (plugin === 'Snapcast') {
+        // Snapcast plugin
+                $.post('/db/?cmd=snapcast', null, function(data){
+                    populateDB({
+                        data: data,
+                        path: path,
+                        plugin: plugin
+                    });
+                }, 'json');
+	}
         else if (plugin === 'Jamendo') {
         // Jamendo plugin
             $.post('/db/?cmd=jamendo', { 'querytype': (querytype === '') ? 'radio' : querytype, 'args': args }, function(data){
@@ -1923,8 +1998,14 @@ function commandButton(el) {
 
 // Library home screen
 function libraryHome(text) {
+    var actualPlayer = GUI.libraryhome.ActivePlayer;
+
     GUI.libraryhome = text[0];
-    if (GUI.libraryhome.clientUUID === GUI.clientUUID && GUI.plugin !== 'Dirble' && GUI.currentpath !== 'Webradio') {
+
+    if (GUI.libraryhome.ActivePlayer !== actualPlayer) {
+        GUI.forceGUIupdate = true;
+    }
+    if (GUI.libraryhome.clientUUID === GUI.clientUUID && GUI.plugin !== 'Dirble' && GUI.plugin !== 'Snapcast' && GUI.currentpath !== 'Webradio') {
         renderLibraryHome(); // TODO: do it only while in home
     }
     if (GUI.currentpath === 'Webradio') {
@@ -2690,6 +2771,14 @@ if ($('#section-index').length) {
                             args: el.data('path')
                         });
                         GUI.plugin = 'Dirble';
+                    } else if (el.hasClass('db-snapcast')) {
+                    // Snapcast streams
+                        path = GUI.currentpath + '/' + el.find('span').text();
+                        getDB({
+                            path: path,
+                            plugin: 'Snapcast'
+                        });
+                        GUI.plugin = 'Snapcast';
                     } else if (el.hasClass('db-jamendo')) {
                     // Jamendo folders
                         // path = GUI.currentpath    + '/' + el.find('span').text();
@@ -2736,6 +2825,11 @@ if ($('#section-index').length) {
                         cmd: 'spaddplay',
                         path: path,
                         querytype: 'spotify-track'
+                    });
+		} else if (el.hasClass('db-snapcast')) {
+		    $.ajax({
+                        url: '/command/?switchplayer=Snapcast&host='+path,
+                        cache: false
                     });
                 } else {
                     path = (el.hasClass('db-dirble')) ? path.split(' | ')[1] : path;
@@ -3036,6 +3130,17 @@ if ($('#section-index').length) {
                 GUI.forceGUIupdate = true;
                 $.ajax({
                     url: '/command/?switchplayer=MPD',
+                    cache: false
+                });
+                // close switch buttons layer
+                $('#overlay-playsource-close').trigger('click');
+            }
+        });
+        $('#playsource-snapcast').click(function(){
+            if ($(this).hasClass('inactive')) {
+				GUI.forceGUIupdate = true;
+                $.ajax({
+                    url: '/command/?switchplayer=Snapcast',
                     cache: false
                 });
                 // close switch buttons layer
