@@ -46,6 +46,9 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
         } else {
             $switchOK = 0;
         }
+    } else if ($_GET['switchplayer'] === 'Snapcast') {
+	$redis->set("snapcast_host", $_GET['host']);
+        $switchOK = 1;
     }
     if ($switchOK === 1 OR $_GET['switchplayer'] === 'MPD') {
         // switch player engine
@@ -55,7 +58,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
         $notification->text = 'Switch player backend started...';
         wrk_notify($redis, 'startjob', $notification, $jobID);
     } else {
-        ui_notify('Spotify not enabled', 'Enable and configure it under the Settings screen');
+        ui_notify($_GET['switchplayer'].' not enabled', 'Enable and configure it under the Settings screen');
     }
 } elseif (isset($_GET['cmd']) && $_GET['cmd'] !== '') {
     // debug

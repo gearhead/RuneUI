@@ -526,6 +526,20 @@
                 <?php endif ?>
             </div>
             <div class="form-group">
+                <label for="snapserver" class="control-label col-sm-2">Snapcast server</label>
+                <div class="col-sm-10">
+                    <?php if($this->snapserveronoff): ?>
+                    <label class="switch-light well" onclick="">
+                        <input name="features[snapserver][enable]" type="checkbox" value="1"<?php if($this->snapserver['enable'] == 1): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <?php else: ?>
+			<span class="help-block"><br>Disabled, the required software is not installed on this model<br><br></span>
+                    <?php endif ?>
+                    <span class="help-block">Cast audio to compatible devices using Snapserver</span>
+                </div>
+            </div>
+            <div class="form-group">
                 <label for="pwd-protection" class="control-label col-sm-2">Password protection</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
