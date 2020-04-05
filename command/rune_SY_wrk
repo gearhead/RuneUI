@@ -538,7 +538,7 @@ while (1) {
                     runelog('wrk_SY: ', $job->wrkcmd);
                     if ($job->action === 'start') {
                         // switch the player to airplay
-                        wrk_startPlayer($redis, 'Airplay');
+                        wrk_switchplayer($redis, 'Airplay');
                         // start rune_SSM_wrk if metadata is enabled
                         if ($redis->hGet('airplay', 'metadata_enabled') == 'yes') {
                             sysCmd('systemctl start rune_SSM_wrk');
@@ -1416,7 +1416,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     // switch the player to spotify connect
                     // connect signals: stop, play: start, next track: change, stop: stop
-                    wrk_startPlayer($redis, 'SpotifyConnect');
+                    wrk_switchplayer($redis, 'SpotifyConnect');
                     // process metadata if enabled
                     if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
                         wrk_SpotifyConnectMetadata($redis, $job->action, $job->args);
@@ -1432,7 +1432,7 @@ while (1) {
                 case 'switchplayer':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    if (wrk_startPlayer($redis, $job->args)) {
+                    if (wrk_switchplayer($redis, $job->args)) {
                         ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
                     }
                     $redis->sRem('w_lock', $jobID);

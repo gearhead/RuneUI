@@ -419,11 +419,10 @@ while (1) {
             }
             sleep(1);
     } else {
-        } else {
-            $forceupdate = 1;
-            sleep(1);
-        }
         $forceupdate = 1;
+        sleep(1);
+    }  
+    $forceupdate = 1;
     }
     // close Redis connection
     $redis->close();
