@@ -1633,6 +1633,8 @@ function populateDB(options){
             // console.log('highlighted entry = ', GUI.currentDBpos[GUI.currentDBpos[10]]);
         }
     }
+
+    $("#database-entries").sliderNav();
     var breadcrumb = $('span', '#db-currentpath');
     if (GUI.browsemode === 'album') {
         if (path === 'Albums') {
