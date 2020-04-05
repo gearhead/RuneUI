@@ -386,7 +386,7 @@ while (1) {
             if ($forceupdate !== 0) {
                     $forceupdate = 0;
                     runelog('---------------------------- FORCE UPDATE Snapcast ----------------------------------');
-                    sysCmd('rm -f /srv/http/tmp/airplay/airplay-cover.*');
+		    $redis->hSet('lyrics', 'art', '/srv/http/assets/img/snapcast.png');
 //				$status = array();
                     if (!empty($redis->get('lastmpdvolume'))) {
                             $status['volume'] = $redis->get('lastmpdvolume');

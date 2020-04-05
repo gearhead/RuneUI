@@ -99,7 +99,7 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
             $output = 1;
         }
     }
-} else if (((substr($request_coverfile, 0, 2) === '?v') || ($current_mpd_folder ===  $request_folder)) && ($activePlayer === 'MPD')) {
+} else if (($activePlayer === 'MPD') && ((substr($request_coverfile, 0, 2) === '?v') || ($current_mpd_folder ===  $request_folder))) {
     // extact song details
     if (isset($curTrack[0]['Title'])) {
         $status['currentartist'] = $curTrack[0]['Artist'];
@@ -269,7 +269,7 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
 } else if ($activePlayer === 'Snapcast') {
     // clear the cache before testing for the existence of a file
     clearstatcache();
-    $imgfilename = $_SERVER['HOME'].'/tmp/snapcast/snapcast.png';
+    $imgfilename = $_SERVER['HOME'].'/assets/img/snapcast.png';
     // debug
     runelog('Snapcast coverart match: ', $imgfilename);
     header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.

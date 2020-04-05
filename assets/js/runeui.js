@@ -523,7 +523,10 @@ function setPlaybackSource() {
     // update the playback section
     $('#overlay-playsource-open button').text(activePlayer);
     $('#overlay-playsource a').addClass('inactive');
-    var source = activePlayer.toLowerCase();
+    var source = "unknown";
+    if (activePlayer !== undefined) {
+        activePlayer.toLowerCase();
+    }
     $('#playsource-' + source).removeClass('inactive');
     // update volume knob and control buttons
     if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect' || activePlayer === 'Snapcast') {
