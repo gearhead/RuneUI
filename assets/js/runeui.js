@@ -525,7 +525,7 @@ function setPlaybackSource() {
     $('#overlay-playsource a').addClass('inactive');
     var source = "unknown";
     if (activePlayer !== undefined) {
-        activePlayer.toLowerCase();
+        source = activePlayer.toLowerCase();
     }
     $('#playsource-' + source).removeClass('inactive');
     // update volume knob and control buttons
