@@ -1900,7 +1900,10 @@ function commandButton(el) {
 
 // Library home screen
 function libraryHome(text) {
-    var actualPlayer = GUI.libraryhome.ActivePlayer;
+    var actualPlayer = undefined;
+    if (GUI !== undefined && GUI.libraryhome !== undefined && GUI.libraryhome.ActivePlayer !== undefined) {
+        actualPlayer = GUI.libraryhome.ActivePlayer;
+    }
 
     GUI.libraryhome = text[0];
 
