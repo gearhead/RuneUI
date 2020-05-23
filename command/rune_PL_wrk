@@ -71,7 +71,7 @@ while (1) {
         }
     }
 
-    if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect")) {
+    if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect") && ($activePlayer !== "Snapcast")) {
         // exit script
         // die();
         runelog('rune_PL_wrk: no valid socket or streamer');
@@ -382,15 +382,50 @@ while (1) {
                 sleep(2);
             } while ($redis->get('activePlayer') === 'SpotifyConnect');
             sleep(1);
-        } else {
-            $forceupdate = 1;
+    } else if ($activePlayer === 'Snapcast') {
+            if ($forceupdate !== 0) {
+                    $forceupdate = 0;
+                    runelog('---------------------------- FORCE UPDATE Snapcast ----------------------------------');
+		    $redis->hSet('lyrics', 'art', '/srv/http/assets/img/snapcast.png');
+//				$status = array();
+                    if (!empty($redis->get('lastmpdvolume'))) {
+                            $status['volume'] = $redis->get('lastmpdvolume');
+                    }
+                    $status['audio'] = "48000:16:2";
+                    $status['audio_sample_rate'] = "48";
+                    $status['audio_sample_depth'] = "16";
+                    $status['bitrate'] = "1411";
+                    $status['audio_channels'] = "Stereo";
+                    $status['random'] = "0";
+                    $status['single'] = "0";
+                    $status['consume'] = "0";
+                    $status['playlist'] = "";
+                    $status['playlistlength'] = "";
+                    $status['state'] = "play";
+                    $status['time'] = "0";
+                    $status['elapsed'] = "0";
+                    $status['song_percent'] = "100";
+                    $status['currentartist'] = "Snapcast";
+                    $status['currentalbum'] = $redis->get('snapcast_host');
+                    $status['currentsong'] = "-----";
+                    $status['actPlayer'] = "Snapcast";
+                    $status['radioname'] = null;
+                    $status['OK'] = null;
+                    // save JSON response for extensions
+                    $redis->set('act_player_info', json_encode($status));
+                    ui_render('playback', json_encode($status));
+                    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                    sysCmdAsync('/var/www/command/ui_update_async');
+            }
             sleep(1);
-        }
+    } else {
         $forceupdate = 1;
+        sleep(1);
+    }  
+    $forceupdate = 1;
     }
     // close Redis connection
     $redis->close();
 // --- WORKER MAIN LOOP --- //
 }
 // These command never get executed!!!
-

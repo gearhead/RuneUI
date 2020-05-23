@@ -56,6 +56,7 @@ $template->dev = $redis->get('dev');
 $template->spotify = $redis->hGet('spotify', 'enable');
 $template->spotifyconnect = $redis->hGet('spotifyconnect', 'enable');
 $template->airplay = $redis->hGet('airplay', 'enable');
+$template->snapcast = file_exists('/usr/bin/snapclient');
 $template->dlna = $redis->hGet('dlna', 'enable');
 $template->localSStime = $redis->hGet('local_browser', 'localSStime');
 $template->remoteSStime = $redis->get('remoteSStime');

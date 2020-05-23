@@ -242,6 +242,7 @@ function redisDatastore($redis,$action) {
             $redis->set('mpd_playback_laststate', '');
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
+            $redis->hSet('snapserver', 'enable', 0);
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'zoomfactor', '1.8');
             $redis->hSet('local_browser', 'rotate', 'NORMAL');
@@ -529,6 +530,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('local_browser', 'disable-splash') || $redis->hSet('local_browser', 'disable-splash', 1);
             $redis->hExists('local_browser', 'smallScreenSaver') || $redis->hSet('local_browser', 'smallScreenSaver', 0);
             $redis->hExists('local_browser', 'localSStime') || $redis->hSet('local_browser', 'localSStime', -1);
+            $redis->hExists('snapserver', 'enable') || $redis->hSet('snapserver', 'enable', 0);
             $redis->exists('restoreact') || $redis->set('restoreact', 0);
             $redis->exists('playernamemenu') || $redis->set('playernamemenu', 0);
             $redis->exists('dynVolumeKnob') || $redis->set('dynVolumeKnob', 0);

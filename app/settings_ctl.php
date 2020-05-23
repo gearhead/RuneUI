@@ -134,6 +134,11 @@ if (isset($_POST)) {
             // create worker job (stop upmpdcli)
             $redis->hGet('dlna','enable') === '0' || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
         }
+        if ((isset($_POST['features']['snapserver']['enable'])) && ($_POST['features']['snapserver']['enable'])) {
+            $redis->hGet('snapserver', 'enable') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'snapserver', 'action' => 'start', 'args' => 1));
+        } else {
+            $redis->hGet('snapserver', 'enable') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'snapserver', 'action' => 'stop', 'args' => 0));
+        }
         if ((isset($_POST['features']['local_browser']['enable'])) && ($_POST['features']['local_browser']['enable'])) {
             $redis->hGet('local_browser', 'enable') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'start', 'args' => 1));
             if ((isset($_POST['features']['local_browser']['zoomfactor'])) && ($_POST['features']['local_browser']['zoomfactor'] != $redis->hGet('local_browser', 'zoomfactor'))) {
@@ -264,6 +269,7 @@ $template->orionprofile = $redis->get('orionprofile');
 $template->airplay = $redis->hGetAll('airplay');
 $template->dlna = $redis->hGetAll('dlna');
 $template->local_browser = $redis->hGetAll('local_browser');
+$template->snapserver = $redis->hGetAll('snapserver');
 $template->remoteSStime = $redis->get('remoteSStime');
 $template->udevil = $redis->get('udevil');
 $template->coverart = $redis->get('coverart');
@@ -290,4 +296,5 @@ $template->audio_on_off = $redis->get('audio_on_off');
 $template->kernel = $redis->get('kernel');
 $template->pwd_protection = $redis->get('pwd_protection');
 $template->local_browseronoff = file_exists('/usr/bin/xinit');
+$template->snapserveronoff = file_exists('/usr/bin/snapserver');
 $template->restoreact = $redis->get('restoreact');

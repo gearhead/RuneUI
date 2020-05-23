@@ -2698,71 +2698,84 @@ if ($action === 'reset') {
             runelog('detected ACARDS ', $acards, __FUNCTION__);
             $ao = $redis->Get('ao');
             $sub_count = 0;
-            foreach ($acards as $main_acard_name => $main_acard_details) {
-                $card_decoded = new stdClass();
-                $card_decoded = json_decode($main_acard_details);
+
+            if ($redis->hGet("snapserver", "enable") === "0") {
+                /* If we don't use snapcast, set mpd to output directly to the soundcard */
+                foreach ($acards as $main_acard_name => $main_acard_details) {
+                    $card_decoded = new stdClass();
+                    $card_decoded = json_decode($main_acard_details);
+                    // debug
+                    runelog('decoded ACARD '.$card_decoded->name, $card_decoded, __FUNCTION__);
+                    // handle sub-interfaces
+                    if (isset($card_decoded->integrated_sub) && $card_decoded->integrated_sub === 1) {
+                        // record UI audio output name
+                        $current_card = $card_decoded->name;
+                        // if ($sub_count >= 1) continue;
+                        // $card_decoded = json_decode($card_decoded->real_interface);
+                        runelog('current AO ---->  ', $ao, __FUNCTION__);
+                        // var_dump($ao);
+                        runelog('current card_name ---->  ', $card_decoded->name, __FUNCTION__);
+                        // var_dump($card_decoded->name);
+                        // var_dump(strpos($ao, $card_decoded->name));
+                        if (strpos($ao,$card_decoded->name) === true OR strpos($ao, $card_decoded->name) === 0) $sub_interface_selected = 1;
+                        // debug
+                        if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
+                        // debug
+                        runelog('this is a sub_interface', __FUNCTION__);
+                        $sub_interface = 1;
+                        // debug
+                        $sub_count++;
+                        runelog('sub_count', $sub_count, __FUNCTION__);
+                    }
+                    $output .="\n";
+                    $output .="audio_output {\n";
+                    // $output .="name \t\t\"".$card_decoded->name."\"\n";
+                    if (isset($sub_interface)) {
+                        $output .="\tname \t\t\"".$card_decoded->name."\"\n";
+                    } else {
+                        $output .="\tname \t\t\"".$main_acard_name."\"\n";
+                    }
+                    $output .="\ttype \t\t\"".$card_decoded->type."\"\n";
+                    $output .="\tdevice \t\t\"".$card_decoded->device."\"\n";
+                    if (isset($hwmixer)) {
+                         if (isset($card_decoded->mixer_control)) {
+                            $output .="\tmixer_control \t\"".$card_decoded->mixer_control."\"\n";
+                            $output .="\tmixer_type \t\"hardware\"\n";
+                            $output .="\tmixer_device \t\"".substr($card_decoded->device, 0, 4)."\"\n";
+                        } else {
+                            if (!isset($sub_interface)) {
+                                $output .="\tmixer_control \t\"".alsa_findHwMixerControl(substr($card_decoded->device, 5, 1))."\"\n";
+                            }
+                        }
+                        // $output .="\tmixer_index \t\"0\"\n";"\t\t  \t\"0\"\n";
+                    }
+                    // test if there is an option for mpd.conf set
+                    // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
+                    if (isset($card_decoded->card_option)) {
+                        $output .= "\t".$card_decoded->card_option."\n";
+                    }
+                    if ($mpdcfg['dsd_usb'] === 'yes') $output .="\tdsd_usb \t\"yes\"\n";
+                    if ($mpdcfg['dsd_usb'] === 'DSDNATIVE') $output .="\tdsd_native \t\"yes\"\n\tdsd_native_type \t\"2\"\n";
+                    if ($mpdcfg['dsd_usb'] === 'DSDDOP') $output .="\tdsd_usb \t\"yes\"\n";
+                    $output .="\tauto_resample \t\"no\"\n";
+                    $output .="\tauto_format \t\"no\"\n";
+                    if ($ao === $main_acard_name) $output .="\tenabled \t\"yes\"\n";
+                    $output .="}\n";
+                    unset($sub_interface);
                 // debug
-                runelog('decoded ACARD '.$card_decoded->name, $card_decoded, __FUNCTION__);
-                // handle sub-interfaces
-                if (isset($card_decoded->integrated_sub) && $card_decoded->integrated_sub === 1) {
-                    // record UI audio output name
-                    $current_card = $card_decoded->name;
-                    // if ($sub_count >= 1) continue;
-                    // $card_decoded = json_decode($card_decoded->real_interface);
-                    runelog('current AO ---->  ', $ao, __FUNCTION__);
-                    // var_dump($ao);
-                    runelog('current card_name ---->  ', $card_decoded->name, __FUNCTION__);
-                    // var_dump($card_decoded->name);
-                    // var_dump(strpos($ao, $card_decoded->name));
-                    if (strpos($ao,$card_decoded->name) === true OR strpos($ao, $card_decoded->name) === 0) $sub_interface_selected = 1;
-                    // debug
-                    if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
-                    // debug
-                    runelog('this is a sub_interface', __FUNCTION__);
-                    $sub_interface = 1;
-                    // debug
-                    $sub_count++;
-                    runelog('sub_count', $sub_count, __FUNCTION__);
+                // runelog('conf output (in loop)', $output, __FUNCTION__);
                 }
                 $output .="\n";
-                $output .="audio_output {\n";
-                // $output .="name \t\t\"".$card_decoded->name."\"\n";
-                if (isset($sub_interface)) {
-                    $output .="\tname \t\t\"".$card_decoded->name."\"\n";
-                } else {
-                    $output .="\tname \t\t\"".$main_acard_name."\"\n";
-                }
-                $output .="\ttype \t\t\"".$card_decoded->type."\"\n";
-                $output .="\tdevice \t\t\"".$card_decoded->device."\"\n";
-                if (isset($hwmixer)) {
-                     if (isset($card_decoded->mixer_control)) {
-                        $output .="\tmixer_control \t\"".$card_decoded->mixer_control."\"\n";
-                        $output .="\tmixer_type \t\"hardware\"\n";
-                        $output .="\tmixer_device \t\"".substr($card_decoded->device, 0, 4)."\"\n";
-                    } else {
-                        if (!isset($sub_interface)) {
-                            $output .="\tmixer_control \t\"".alsa_findHwMixerControl(substr($card_decoded->device, 5, 1))."\"\n";
-                        }
-                    }
-                    // $output .="\tmixer_index \t\"0\"\n";"\t\t  \t\"0\"\n";
-                }
-                // test if there is an option for mpd.conf set
-                // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-                if (isset($card_decoded->card_option)) {
-                    $output .= "\t".$card_decoded->card_option."\n";
-                }
-                if ($mpdcfg['dsd_usb'] === 'yes') $output .="\tdsd_usb \t\"yes\"\n";
-                if ($mpdcfg['dsd_usb'] === 'DSDNATIVE') $output .="\tdsd_native \t\"yes\"\n\tdsd_native_type \t\"2\"\n";
-                if ($mpdcfg['dsd_usb'] === 'DSDDOP') $output .="\tdsd_usb \t\"yes\"\n";
-                $output .="\tauto_resample \t\"no\"\n";
-                $output .="\tauto_format \t\"no\"\n";
-                if ($ao === $main_acard_name) $output .="\tenabled \t\"yes\"\n";
-                $output .="}\n";
-                unset($sub_interface);
-            // debug
-            // runelog('conf output (in loop)', $output, __FUNCTION__);
+            } else {
+                /* setup mpd to output to snapcast fifo for synchronisation */
+                $output .= "audio_output {\n\ttype\t\"fifo\"\n"
+                                ."\tname\t\"Snapserver\"\n"
+                                ."\tpath\t\"/tmp/snapfifo\"\n"
+                                ."\tformat\t\"48000:16:2\"\n"
+                                ."\tmixer_type\t\"software\"\n"
+                                ."\talways_on\t\"yes\"\n"
+                           ."}\n";
             }
-            $output .="\n";
             // debug
             // runelog('raw mpd.conf', $output, __FUNCTION__);
             // check if mpd.conf was modified outside RuneUI (advanced mode)
@@ -2832,6 +2845,8 @@ if ($action === 'reset') {
                 runelog('switchao (RECOVER STATE!)');
                 syscmd('mpc toggle');
             }
+            wrk_reconfigureSnapclient($redis);
+            wrk_shairport($redis, $args);
             // set notify label
             if (isset($interface_details->extlabel)) { $interface_label = $interface_details->extlabel; } else { $interface_label = $args; }
             // notify UI
@@ -2850,6 +2865,8 @@ if ($action === 'reset') {
             break;
         case 'start':
             $activePlayer = $redis->get('activePlayer');
+            // set mpdconfchange off
+            $redis->set('mpdconfchange', 0);
             if ($activePlayer === 'MPD') {
                 // reload systemd daemon to activate any changed configuration files
                 sysCmd('systemctl daemon-reload');
@@ -3547,7 +3564,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             }
             // reset mount index
             if ($return) $redis->del('mountidx');
-            sysCmd('systemctl start mpd');
+            wrk_start_mpd($redis);
             // ashuffle gets started automatically
             // set process priority
             sysCmdAsync('sleep 1 && rune_prio nice');
@@ -3563,7 +3580,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
                 sysCmd("umount -f \"/mnt/MPD/NAS/".$mp['name']."\"");
                 sysCmd("rmdir \"/mnt/MPD/NAS/".$mp['name']."\"");
             }
-            sysCmd('systemctl start mpd');
+            wrk_start_mpd($redis);
             // ashuffle gets started automatically
             // set process priority
             sysCmdAsync('sleep 1 && rune_prio nice');
@@ -3882,6 +3899,7 @@ function wrk_startAirplay($redis)
     $activePlayer = $redis->get('activePlayer');
     if ($activePlayer != 'Airplay') {
         $redis->set('stoppedPlayer', $activePlayer);
+
         if ($activePlayer === 'MPD') {
             // record  the mpd status
             wrk_mpdPlaybackStatus($redis);
@@ -4044,17 +4062,43 @@ function wrk_playerID($arch)
     return $playerid;
 }
 
+function wrk_reconfigureSnapclient($redis)
+{
+    sysCmd('systemctl stop snapclient');
+    if ($redis->hGet("snapserver", "enable") === "1") {
+        /* route sound via snapcast */
+        $redis->set("snapcast_host", "127.0.0.1");
+        wrk_configureSnapclient($redis);
+        sysCmd('systemctl start snapclient');
+        runelog("enable local snapclient");
+    }
+}
+
+function wrk_start_mpd($redis)
+{
+    runelog("starting mpd");
+    wrk_reconfigureSnapclient($redis);
+
+    /* update mpd config */
+    wrk_mpdconf($redis, 'writecfg');
+    if ($redis->get('mpdconfchange')) {
+        wrk_mpdconf($redis, 'refresh');
+    }
+	$retval = sysCmd('systemctl is-active mpd');
+	if ($retval[0] === 'active') {
+		/* nothing to do */
+        runelog("mpd already running");
+	} else {
+        runelog("starting mpd daemon");
+		$return = sysCmd('systemctl start mpd');
+	}
+    return $return;
+}
 function wrk_switchplayer($redis, $playerengine)
 {
     switch ($playerengine) {
         case 'MPD':
-            $retval = sysCmd('systemctl is-active mpd');
-            if ($retval[0] === 'active') {
-                // do nothing
-            } else {
-                $return = sysCmd('systemctl start mpd');
-            }
-            unset($retval);
+            $return = wrk_start_mpd($redis);
             // ashuffle gets started automatically
             usleep(500000);
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl start mpdscribble');
@@ -4072,6 +4116,7 @@ function wrk_switchplayer($redis, $playerengine)
             usleep(500000);
             if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl stop mpdscribble');
             if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl stop upmpdcli');
+            sysCmd('systemctl stop snapclient');
             sysCmd('systemctl stop ashuffle');
             wrk_mpdPlaybackStatus($redis);
             $redis->set('activePlayer', 'Spotify');
@@ -4081,10 +4126,51 @@ function wrk_switchplayer($redis, $playerengine)
             // set process priority
             sysCmdAsync('rune_prio nice');
             break;
+	case 'Snapcast':
+            sysCmd('systemctl stop snapclient');
+            wrk_configureSnapclient($redis);
+            sysCmd('systemctl start snapclient');
+            wrk_mpdPlaybackStatus($redis);
+            $redis->set('activePlayer', 'Snapcast');
+            $return = sysCmd('systemctl stop mpd');
+            $redis->set('mpd_playback_status', 'stop');
+            $return = sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+            // set process priority
+            sysCmdAsync('rune_prio nice');
+            break;
+
     }
     return $return;
 }
 
+function wrk_configureSnapclient($redis)
+{
+        $file = '/etc/default/snapclient';
+        $ao = $redis->get("ao");
+        $acard = json_decode($redis->hGet("acards", $ao));
+        if (isset($acard->sysname)) {
+            $card_param="-s '".$acard->sysname."'";
+        } else if (isset($acard->system)) {
+            $acard_system = $acard->system;
+            runelog("acard ".$acard_system);
+            runelog("acard_system $acard_system");
+            $shortname = explode(':', $acard_system)[1];
+            runelog("shortname $shortname");
+            $shortname = trim(explode(' ', $shortname)[1]);
+            runelog("shortname now $shortname");
+            $card_param="-s '".$shortname."'";
+        } else {
+            $card_param="";
+        }
+        $newArray = wrk_replaceTextLine($file,
+            '',
+            'SNAPCLIENT_OPTS=',
+            'SNAPCLIENT_OPTS="-h '.$redis->get("snapcast_host").' '.$card_param.'"');
+        // Commit change
+        $fp = fopen($file, 'w');
+        fwrite($fp, implode("", $newArray));
+        fclose($fp);
+}
 function wrk_sysAcl()
 {
     sysCmd('chown -R http.http /srv/http/');
@@ -4428,7 +4514,7 @@ function ui_notify_async($title = null, $text, $type = null, $permanotice = null
     }
     $output = json_encode($output);
     runelog('notify (async) JSON string: ', $output);
-    sysCmdAsync('/var/www/command/ui_notify.php \''.$output);
+    sysCmdAsync('/var/www/command/ui_notify.php \''.$output.'\'');
 }
 
 function wrk_notify($redis, $action, $notification, $jobID = null)
@@ -4575,6 +4661,12 @@ function ui_libraryHome($redis, $clientUUID=null)
     } else {
         $spotify = '';
     }
+    //Snapcast
+    if (file_exists('/usr/bin/snapclient')) {
+        $snapcast = '1';
+    } else {
+        $snapcast = '';
+    }
     // Check current player backend
     $activePlayer = $redis->get('activePlayer');
     // Bookmarks
@@ -4594,7 +4686,18 @@ function ui_libraryHome($redis, $clientUUID=null)
     // runelog('ui_libraryHome - bookmarks: ',$bookmarks);
     // $jsonHome = json_encode(array_merge($bookmarks, array(0 => array('networkMounts' => $networkmounts)), array(0 => array('USBMounts' => $usbmounts)), array(0 => array('webradio' => $webradios)), array(0 => array('Dirble' => $dirble->amount)), array(0 => array('ActivePlayer' => $activePlayer))));
     // $jsonHome = json_encode(array_merge($bookmarks, array(0 => array('networkMounts' => $networkmounts)), array(0 => array('USBMounts' => $usbmounts)), array(0 => array('webradio' => $webradios)), array(0 => array('Spotify' => $spotify)), array(0 => array('Dirble' => $dirble->amount)), array(0 => array('ActivePlayer' => $activePlayer))));
-    $jsonHome = json_encode(array('internetAvailable' => $internetAvailable, 'bookmarks' => $bookmarks, 'localStorages' => $localStorages, 'networkMounts' => $networkMounts, 'USBMounts' => $usbMounts, 'webradio' => $webradios, 'Spotify' => $spotify, 'Dirble' => $dirbleAmount, 'Jamendo' => $jamendo, 'ActivePlayer' => $activePlayer, 'clientUUID' => $clientUUID));
+    $jsonHome = json_encode(array('internetAvailable' => $internetAvailable,
+                                  'bookmarks' => $bookmarks,
+                                  'localStorages' => $localStorages,
+                                  'networkMounts' => $networkMounts,
+                                  'USBMounts' => $usbMounts,
+                                  'webradio' => $webradios,
+                                  'Spotify' => $spotify,
+                                  'Snapcast' => $snapcast,
+                                  'Dirble' => $dirbleAmount,
+                                  'Jamendo' => $jamendo,
+                                  'ActivePlayer' => $activePlayer,
+                                  'clientUUID' => $clientUUID));
     // Encode UI response
     runelog('ui_libraryHome - JSON: ', $jsonHome);
     ui_render('library', $jsonHome);
