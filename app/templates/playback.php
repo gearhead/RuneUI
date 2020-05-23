@@ -74,12 +74,11 @@
     <!-- PLAYBACK PANEL -->
     <div id="playback" class="tab-pane active disable-scrollbar-1 disable-scrollbar-2">
         <div class="container-fluid">
-            <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
-            <div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
-                <span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
-                <span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
+            <div id="currentinfos">
+	        <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
+                -
+                <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
+                <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
             </div>
             <div class="knobs row">
                 <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
@@ -112,6 +111,10 @@
                     </div>
                 </div>
             </div>
+			<div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
+				<span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
+				<span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
+			</div>
         </div>
     </div>
     <!-- LIBRARY PANEL -->
