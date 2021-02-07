@@ -5517,7 +5517,7 @@ function metadataStringClean($string, $type='')
         // this should remove things like '[live]', '(disk 1)', etc. from the string
         $string = preg_split('!( \()|( \{)|( \<)|( \[)|\]|\>|\}|\)!', $string)[0];
         if ($type == 'artist') {
-            // truncate the string up to a space colon, space semicolon, space slash or the 
+            // truncate the string up to a space colon, space semicolon, space slash or the
             //  text strings ' Feat. ', ' feat. ', ' Ft. ' or ' ft. ' (=featuring)
             //  this should remove a second artist or a featured artist from the string
             $string = preg_split('!( \:)|( \;)|( \/)|( Feat. )|( feat. )|( Ft. )|( ft. )!', $string)[0];
@@ -6914,7 +6914,7 @@ function get_lastFm($redis, $url)
             $redis->hSet('service', 'lastfm', 0);
             // this will be reset each 15 minutes, if the last.fm site is up
         }
-        // an error has been returned, 
+        // an error has been returned,
         return 0;
     } else if (!is_array($retval)) {
         // response is not an array
@@ -8035,6 +8035,6 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
             $info = array_merge($info, $retval);
         }
     }
-    
+
     return $info;
 }
