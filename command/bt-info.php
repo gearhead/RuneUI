@@ -1,8 +1,8 @@
 #!/usr/bin/php
 <?php
 // script which runs when a BT device is 'connected' to the systemctl
-// bluetoothctl connect MAC will cause this to run as it is triggerd by 
-// udev rule 60-bluetooth.rules 
+// bluetoothctl connect MAC will cause this to run as it is triggerd by
+// udev rule 60-bluetooth.rules
 // Keith Grider 12/2020
 
 // common include
