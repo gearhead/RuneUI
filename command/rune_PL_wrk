@@ -156,7 +156,7 @@ while (1) {
                 if (!isset($newStatus['file'])) {
                     $newStatus['file'] = '';
                 }
-                
+
                 // set the webradio flag
                 if ((!isset($newStatus['currentalbum']) || !$newStatus['currentalbum']) && (!isset($newStatus['radioname']) || !$newStatus['radioname'])) {
                     if (isset($radioUrl) && $radioUrl && ($radioUrl === $newStatus['file'])) {
@@ -180,7 +180,7 @@ while (1) {
                 } else {
                     $newStatus['radio'] = false;
                 }
-                
+
                 // determine what has been returned by MPD, it could be a new song or some sort of status change
                 // the current $status will be filled with extra information for each new song, this information is not delivered by MPD,
                 //  it should not be lost
