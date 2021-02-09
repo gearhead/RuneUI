@@ -6785,12 +6785,12 @@ function set_last_mpd_volume($redis)
             do {
                 // retry getting the volume until MPD is up and returns a valid entry
                 $retval = sysCmd('mpc volume | grep "volume:" | xargs');
-                if (!$retval[0]) {
+                if (!isset($retval[0]) || !$retval[0]) {
                     // no response
                     sleep(2);
                     continue;
                 }
-                $retval = explode(' ',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
                 if (!isset($retval[1])) {
                     // invalid response
                     sleep(2);
@@ -6811,13 +6811,15 @@ function set_last_mpd_volume($redis)
                     if (abs($mpdvolume - $lastmpdvolume) > 4) {
                         // set the mpd volume, do a soft increase/decrease
                         $setvolume = $mpdvolume - round((($mpdvolume-$lastmpdvolume)/2), 0, PHP_ROUND_HALF_UP);
-                        $retval = sysCmd('mpc volume '.$setvolume);
+                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs');
+                        $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
                         // sleep 1 second before looping
                         sleep(1);
                     } else {
                         // set the mpd volume directly
                         $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs');
-                        $retval = explode(' ',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
                         $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
                         if ($mpdvolume && is_numeric($mpdvolume) && ($mpdvolume >= 0) && ($mpdvolume <= 100)) {
                             // when $mpdvolume has a valid value we are finished
