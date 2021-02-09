@@ -94,12 +94,9 @@ while (1) {
                 ui_update($redis, $socket, 0);
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
             }
-            $status['radio'] = false;
             $status = array();
+            $newStatus = array();
             $status = _parseStatusResponse($redis, MpdStatus($socket));
-            $status['mainArtURL'] = $artUrl.'/none.png';
-            $status['smallArtURL'] = $artUrl.'/mpd/black.png';
-            $status['bigArtURL'] = $artUrl.'/mpd/black.png';
             // store next songid
             $redis->set('nextsongid', $status['nextsongid']);
             // store "lastsongid"
@@ -108,12 +105,23 @@ while (1) {
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value
             set_last_mpd_volume($redis);
+            $status = array_merge($status, array('currentartist' => '',
+                'currentalbumartist' => '',
+                'currentalbum' => '',
+                'currentsong' => '',
+                'file' => ''));
+            $saveCurrentsong = '';
+            $saveFile = '';
+            $status['mainArtURL'] = $artUrl.'/none.png';
+            $status['smallArtURL'] = $artUrl.'/mpd/black.png';
+            $status['bigArtURL'] = $artUrl.'/mpd/black.png';
             do {
                 // idle LOOP
                 runelog('rune_PL_wrk: enter idle loop');
-                $status = monitorMpdState($redis, $socket);
+                $newStatus = monitorMpdState($redis, $socket);
                 // if we have lost the connection to mpd then break the loop
-                if (!$status) {
+                // if (!$newStatus || !is_array($newStatus)) {
+                if (!$newStatus) {
                     break;
                 }
                 // $monArray = monitorMpdState($redis, $socket);
@@ -123,54 +131,109 @@ while (1) {
                 // }
                 // $status['currentartist'] = '';
                 // $status['currentalbumartist'] = '';
-                // $status['currentartist'] = '';
                 // $status['currentalbum'] = '';
                 // $status['currentsong'] = '';
-                // $status = array_merge($status, $monArray);
+                // $status = array_merge($newStatus, $monArray);
                 // store next songid
-                $redis->set('nextsongid', $status['nextsongid']);
+                $redis->set('nextsongid', $newStatus['nextsongid']);
                 // store "lastsongid"
-                $redis->set('lastsongid', $status['songid']);
-                $redis->set('pl_length', $status['playlistlength']);
+                $redis->set('lastsongid', $newStatus['songid']);
+                $redis->set('pl_length', $newStatus['playlistlength']);
 
-                // runelog('---------status data------------',$status);
-                $status = ui_status($socket, $status);
-                runelog('---------status data(2)------------',$status);
+                // runelog('---------status data------------',$newStatus);
+                $newStatus = ui_status($socket, $newStatus);
+                runelog('---------status data(2)------------',$newStatus);
                 // render Queue (push async)
                 //if ($status['changed'] === 'playlist') {
                 //    sysCmdAsync('ui_render_pl');
                 //    runelog('---------------- PLAYLIST RENDER ----------------');
                 //}
 
-
-                $status['radio'] = false;
-                if ((!isset($status['currentalbum']) || !$status['currentalbum']) && (!isset($status['radioname']) || !$status['radioname'])) {
-                    if (isset($radioUrl) && $radioUrl && ($radioUrl === $status['file'])) {
-                        $status['currentalbum'] = $radioName;
-                        $status['radioname'] = $radioName;
-                        $status['radio'] = true;
+                // make sure currentartist and file variables are set
+                if (!isset($newStatus['currentartist'])) {
+                    $newStatus['currentartist'] = '';
+                }
+                if (!isset($newStatus['file'])) {
+                    $newStatus['file'] = '';
+                }
+                
+                // set the webradio flag
+                if ((!isset($newStatus['currentalbum']) || !$newStatus['currentalbum']) && (!isset($newStatus['radioname']) || !$newStatus['radioname'])) {
+                    if (isset($radioUrl) && $radioUrl && ($radioUrl === $newStatus['file'])) {
+                        $newStatus['currentalbum'] = $radioName;
+                        $newStatus['radioname'] = $radioName;
+                        $newStatus['radio'] = true;
                     } else {
-                        $radioName = is_radioUrl($redis, $status['file']);
+                        $radioName = is_radioUrl($redis, $newStatus['file']);
                         if ($radioName) {
-                            $radioUrl = $status['file'];
-                            $status['currentalbum'] = $radioName;
-                            $status['radioname'] = $radioName;
-                            $status['radio'] = true;
+                            $radioUrl = $newStatus['file'];
+                            $newStatus['currentalbum'] = $radioName;
+                            $newStatus['radioname'] = $radioName;
+                            $newStatus['radio'] = true;
                         } else {
                             $radioUrl = '';
+                            $newStatus['radio'] = false;
                         }
                     }
+                } else if (isset($newStatus['radioname']) && $newStatus['radioname']) {
+                    $newStatus['radio'] = true;
+                } else {
+                    $newStatus['radio'] = false;
                 }
+                
+                // determine what has been returned by MPD, it could be a new song or some sort of status change
+                // the current $status will be filled with extra information for each new song, this information is not delivered by MPD,
+                //  it should not be lost
+                //  the routines which create this extra information are time consuming and should only be run when when a new song is detected
+                if ($newStatus['radio']) {
+                    if ($newStatus['currentsong'] === $saveCurrentsong) {
+                        // same song, just replace specific parts of $status
+                        unset($newStatus['currentartist'],
+                            $newStatus['currentalbumartist'],
+                            $newStatus['currentalbum'],
+                            $newStatus['currentsong'],
+                            $newStatus['currentcomposer'],
+                            $newStatus['file'],
+                            $newStatus['fileext']);
+                        $status = array_merge($status, $newStatus);
+                        $mpdChangeSong = false;
+                    } else {
+                        // new song, replace status
+                        $status = $newStatus;
+                        $saveCurrentartist = $newStatus['currentartist'];
+                        $mpdChangeSong = true;
+                    }
+                } else {
+                    if ($newStatus['file'] === $saveFile) {
+                        // same song, just replace specific parts of $status
+                        unset($newStatus['currentartist'],
+                            $newStatus['currentalbumartist'],
+                            $newStatus['currentalbum'],
+                            $newStatus['currentsong'],
+                            $newStatus['currentcomposer'],
+                            $newStatus['file'],
+                            $newStatus['fileext']);
+                        $status = array_merge($status, $newStatus);
+                        $mpdChangeSong = false;
+                    } else {
+                        // new song, replace status
+                        $status = $newStatus;
+                        $saveFile = $newStatus['file'];
+                        $mpdChangeSong = true;
+                    }
+                }
+                $newStatus = array();
+
 
                 // decode radio song name and determine the metadata and albumart
-                $rts = 0;
-                if (isset($status['radioname']) && $status['radioname'] && (!isset($status['currentartist']) || !$status['currentartist'])) {
+                // $rts = 0;
+                if ($mpdChangeSong && $status['radio'] && (!isset($status['currentartist']) || !$status['currentartist'])) {
                     runelog('rune_PL_wrk: radioname = ', $status['radioname']);
                     if (isset($status['currentsong']) && $status['currentsong']) {
-                        $rts = time();
+                        // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
                         $retval = wrk_get_webradio_art($redis, $status['currentsong']);
-                        $rts = time() - $rts;
+                        // $rts = time() - $rts;
                     } else {
                         $retval = false;
                         $status['currentsong'] = '';
@@ -183,7 +246,7 @@ while (1) {
                     $status['currentalbumartist'] = '';
                     $status['currentartist'] = '';
                     if ($retval) {
-                        ui_notify('Radio success ', $rts.' seconds, change status '.$status['changed']);
+                        // ui_notify('Radio success ', $rts.' seconds, change status '.$status['changed']);
                         if ($retval['song']) {
                             $status['currentsong'] = $retval['song'];
                         }
@@ -218,7 +281,7 @@ while (1) {
                             }
                         }
                     } else {
-                        ui_notify('Radio fail ', $rts.' seconds, change status '.$status['changed']);
+                        // ui_notify('Radio fail ', $rts.' seconds, change status '.$status['changed']);
                     }
                     if (!$status['currentartist']) {
                         $status['currentartist'] = 'Streaming';
