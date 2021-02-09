@@ -8,14 +8,15 @@ find /boot/webradios -type f -name *.pls -exec cp -fn -- '{}' $webradiodir/ \;
 find /boot/webradios -type f -name *.pls -delete
 
 # create webradio files when they are defined in redis but the file does not exist
-webradios=$( redis-cli hkeys webradios )
-for webradio in $webradios; do
+redis-cli hkeys webradios > /tmp/radios
+while IFS= read -r webradio; do
     if [ ! -f "$webradiodir/$webradio.pls" ]; then
         # file is not there create it
         url=$( redis-cli hget webradios "$webradio" )
         echo -e "[playlist]\nNumberOfEntries=1\nFile1=$url\nTitle1=$webradio" > "$webradiodir/$webradio.pls"
     fi
-done
+done < "/tmp/radios"
+rm /tmp/radios
 
 # if sub directories
 if ls -d $webradiodir/*/ &> /dev/null; then
