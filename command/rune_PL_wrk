@@ -120,8 +120,8 @@ while (1) {
                 runelog('rune_PL_wrk: enter idle loop');
                 $newStatus = monitorMpdState($redis, $socket);
                 // if we have lost the connection to mpd then break the loop
-                // if (!$newStatus || !is_array($newStatus)) {
-                if (!$newStatus) {
+                if (!$newStatus || !is_array($newStatus)) {
+                // if (!$newStatus) {
                     break;
                 }
                 // $monArray = monitorMpdState($redis, $socket);
