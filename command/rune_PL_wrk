@@ -194,7 +194,8 @@ while (1) {
                             $newStatus['currentsong'],
                             $newStatus['currentcomposer'],
                             $newStatus['file'],
-                            $newStatus['fileext']);
+                            $newStatus['fileext'],
+                            $status['updating_db']);
                         $status = array_merge($status, $newStatus);
                         $mpdChangeSong = false;
                     } else {
@@ -212,7 +213,8 @@ while (1) {
                             $newStatus['currentsong'],
                             $newStatus['currentcomposer'],
                             $newStatus['file'],
-                            $newStatus['fileext']);
+                            $newStatus['fileext'],
+                            $status['updating_db']);
                         $status = array_merge($status, $newStatus);
                         $mpdChangeSong = false;
                     } else {
