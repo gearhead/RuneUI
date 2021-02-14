@@ -177,15 +177,15 @@ if ($playerid_db === '') {
     } else {
         sysCmd('/var/www/command/bluetooth_off.sh');
     }
-    // invoke rune_SY_wrk respawn
     sysCmd('systemctl daemon-reload');
-    // // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
-    // sysCmd('/var/www/command/rune_shutdown reboot');
-    // sysCmd('reboot');
-    // // should never get here
     // set first time boot to true
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS');
+    // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
+    sysCmd('/var/www/command/rune_shutdown reboot');
+    sysCmd('reboot');
+    // should never get here
+    // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
     // --- RUNEAUDIO FIRST RUN PROCESS //
 } else if ($redis->hGet('mpdconf', 'version') != $mpdversion) {
