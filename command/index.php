@@ -85,12 +85,14 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                     $status = trim(preg_replace('!\s+!', ' ', $status));
                     if (strpos(' '.$status, 'volume:')) {
                         // found the volume, extract it from the line
-                        $volume = explode(': ', $status);
+                        $volume = explode(':', $status);
                         if (isset($volume[1]) && trim($volume[1])) {
                             // the volume level has a value, make it an integer
-                            $volume = intval(trim($volume[1]));
-                            // set the redis variable
-                            $redis->set('lastmpdvolume', $volume);
+                            $volume = trim(preg_replace('/[^0-9]/', '', $volume[1]));
+                            if ($volume && ($volume >= 0) && ($volume <= 100)) {
+                                // set the redis variable
+                                $redis->set('lastmpdvolume', $volume);
+                            }
                         }
                         // exit the loop after the volume has been found
                         break;

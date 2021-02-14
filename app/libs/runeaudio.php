@@ -3066,15 +3066,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             break;
         case 'stop':
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
-            //$mpd = openMpdSocket('/run/mpd/socket', 0);
-            //sendMpdCommand($mpd, 'kill');
-            //closeMpdSocket($mpd);
-            $retval  = sysCmd('mpc volume');
-            $redis->set('lastmpdvolume', preg_replace('/[^0-9]/', '',$retval[0]));
-            unset($retval);
             sysCmd('mpc stop');
-            sysCmd('mpc volume 100');
-            sysCmd('mpc volume');
             sysCmd('mpd --kill');
             sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
