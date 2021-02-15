@@ -3226,6 +3226,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $spotifyd_conf .= "#\n";
     $sccfg = $redis->hGetAll('spotifyconnect');
     foreach ($sccfg as $param => $value) {
+        $value = trim($value);
         switch ($param) {
         case "username":
             // no break;
@@ -3240,29 +3241,32 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         case "onevent":
             // no break;
         case "device_name":
-            // no break;
+            if ($value) {
+                $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
+            }
+            break;
         case "bitrate":
-            if ($value != '') {
+            if ($value) {
                 $spotifyd_conf .= $param." = ".$value."\n";
             }
             break;
         case "volume_control":
-            $spotifyd_conf .= "volume-control = ".$value."\n";
+            $spotifyd_conf .= "volume-control = ".'"'.$value.'"'."\n";
             break;
         case "volume_normalisation":
             if ($value == 'true') {
-                $spotifyd_conf .= "volume-normalisation = ".$value."\n";
+                $spotifyd_conf .= "volume-normalisation = ".'"'.$value.'"'."\n";
             }
             break;
         case "normalisation_pregain":
             if ($sccfg['volume_normalisation'] == 'true') {
-                $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
+                $spotifyd_conf .= "normalisation-pregain = ".'"'.$value.'"'."\n";
             }
             break;
         case "cache_path":
             if ($value != '') {
                 $spotifyd_conf .= "# Disable the cache, it uses too much memory\n";
-                $spotifyd_conf .= "# ".$param." = ".$value."\n";
+                $spotifyd_conf .= "# ".$param." = ".'"'.$value.'"'."\n";
             }
             break;
         default:
