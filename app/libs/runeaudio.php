@@ -5254,7 +5254,7 @@ function autoset_timezone($redis) {
                 runelog('autoset_timezone :', $result['data']['timezone']['id']);
                 $timeZone = $result['data']['timezone']['id'];
                 $countryCode = $result['data']['country_code'];
-                $result = sysCmd('timedatectl set-timezone '."'".$timeZone."'")[0];
+                $result = sysCmd('timedatectl set-timezone '."'".$timeZone."' | xargs")[0];
                 $result = ' '.strtolower($result);
                 if (strpos($result, 'failed') || strpos($result, 'invalid')) {
                     sysCmd("timedatectl set-timezone 'Pacific/Pago_Pago'");
