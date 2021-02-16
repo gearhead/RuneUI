@@ -5216,7 +5216,7 @@ function autoset_timezone($redis) {
     //      distribution default timezone (Pacific/Pago_Pago) the Wi-Fi regulatory domain = 00 and internet is available
     // https://ipsidekick.com/ and https://ipapi.co/ were found to be unreliable, currently using https://timezoneapi.io
     //
-    $wifiRegDom00 = sysCmd('iw reg get | grep -ic 00')[0];
+    $wifiRegDom00 = sysCmd('iw reg get | grep -"ic country 00:"')[0];
     if ($redis->hget('service', 'internet') && ($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDom00) {
         // make sure that file_get_contents() times out when nothing is returned
         $opts = array('http' =>
@@ -5236,7 +5236,7 @@ function autoset_timezone($redis) {
         $timezoneapiToken = $redis->hGet('TimezoneAPI', 'apikey');
         $result = file_get_contents('https://timezoneapi.io/api/ip/?token='.$timezoneapiToken, false, $context);
         // debug
-        $redis->set('wrk_autoset_timezone', $result);
+        // $redis->set('wrk_autoset_timezone', $result);
         if ($result) {
             $result = json_decode($result, true);
             // https://ipsidekick.com/
@@ -5255,7 +5255,7 @@ function autoset_timezone($redis) {
                 $timeZone = $result['data']['timezone']['id'];
                 $countryCode = $result['data']['country_code'];
                 $result = sysCmd('timedatectl set-timezone '."'".$timeZone."'")[0];
-                $result = ' '.strtolower($restult);
+                $result = ' '.strtolower($result);
                 if (strpos($result, 'failed') || strpos($result, 'invalid')) {
                     sysCmd("timedatectl set-timezone 'Pacific/Pago_Pago'");
                 } else {
