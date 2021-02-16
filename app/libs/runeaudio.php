@@ -63,7 +63,7 @@ function openMpdSocket($path, $type = null)
             // the header should contain a 'OK', if not something went wrong
             if (!strpos(' '.$header, 'OK')) {
                 runelog("[error][".$sock['resource']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ".$header."<<<<<<",'');
-                // ui_notifyError('MPD open error: '.$sock.'','Greeting response = '.$header);
+                // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
                 closeMpdSocket($sock);
                 return false;
             }
@@ -71,7 +71,7 @@ function openMpdSocket($path, $type = null)
             return $sock;
         } else {
             runelog("[error][".$sock['resource']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-            // ui_notifyError('MPD sock: '.$sock.'','socket error = '.socket_last_error($sock));
+            // ui_notifyError('MPD sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     // create blocking socket connection
@@ -84,15 +84,15 @@ function openMpdSocket($path, $type = null)
             // the header should contain a 'OK', if not something went wrong
             if (!strpos(' '.$header, 'OK')) {
                 runelog("[error][".$sock['resource']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ".$header."<<<<<<",'');
-                // ui_notifyError('MPD open error: '.$sock.'','Greeting response = '.$header);
+                // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
                 closeMpdSocket($sock);
                 return false;
             }
-            runelog("[open][".$sock."]\t<<<<<<<<<<<< OPEN MPD SOCKET ---- MPD greeting response: ".$header.">>>>>>>>>>>>",'');
+            runelog("[open][".$sock['resource']."]\t<<<<<<<<<<<< OPEN MPD SOCKET ---- MPD greeting response: ".$header.">>>>>>>>>>>>",'');
             return $sock;
         } else {
-            runelog("[error][".$sock."]\t<<<<<<<<<<<< MPD SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
-            // ui_notifyError('MPD sock: '.$sock.'','socket error = '.socket_last_error($sock));
+            runelog("[error][".$sock['resource']."]\t<<<<<<<<<<<< MPD SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
+            // ui_notifyError('MPD sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     }
@@ -332,7 +332,7 @@ function openSpopSocket($host, $port, $type = null)
             return $sock;
         } else {
             runelog("[error][".$sock['resource']."]\t>>>>>> SPOP SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-            // ui_notifyError('SPOP sock: '.$sock.'','socket error = '.socket_last_error($sock));
+            // ui_notifyError('SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     // create blocking socket connection
@@ -346,7 +346,7 @@ function openSpopSocket($host, $port, $type = null)
             return $sock;
         } else {
             runelog("[error][".$sock."]\t<<<<<<<<<<<< SPOP SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
-            // ui_notifyError('SPOP sock: '.$sock.'','socket error = '.socket_last_error($sock));
+            // ui_notifyError('SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     }
@@ -377,7 +377,7 @@ function sendSpopCommand($sock, $cmd)
     $cmd = $cmd."\n";
     socket_write($sockResource, $cmd, strlen($cmd));
     runelog("SPOP COMMAND: (socket=".$sockResource.")", $cmd);
-    //ui_notify('COMMAND GIVEN','CMD = '.$cmd,'','.9');
+    //ui_notify('COMMAND GIVEN','CMD = '.$cmd,'.9');
 }
 
 // detect end of SPOP response
@@ -4893,7 +4893,7 @@ function deleteRadio($mpd,$redis,$data)
     return $return;
 }
 
-function ui_notify($title = null, $text, $type = null, $permanotice = null)
+function ui_notify($title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
@@ -4907,7 +4907,7 @@ function ui_notify($title = null, $text, $type = null, $permanotice = null)
     ui_render('notify', json_encode($output));
 }
 
-function ui_notifyError($title = null, $text, $type = null, $permanotice = null)
+function ui_notifyError($title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '', 'icon' => 'fa fa-exclamation');
@@ -4921,7 +4921,7 @@ function ui_notifyError($title = null, $text, $type = null, $permanotice = null)
     ui_render('notify', json_encode($output));
 }
 
-function ui_notify_async($title = null, $text, $type = null, $permanotice = null)
+function ui_notify_async($title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
@@ -5321,7 +5321,7 @@ function ui_mpd_response($mpd, $notify = null)
     // --- TODO: check this condition
     if (strpos($response, "OK") && isset($notify)) {
         runelog('send UI notify: ', $notify);
-        ui_notify($notify['title'], $notify['text']);
+        ui_notify($notify['title'].'', $notify['text']);
     }
     echo $response;
 }
