@@ -7140,7 +7140,7 @@ function setup_metadata_array($metadataArray=array())
     // these are the elements in the array, check that they exist in $info
     $infoElements = array('webradiostring', 'webradiostring_filename', 'artist', 'albumartist', 'artist_mbid', 'artist_arturl',
          'artist_bio_summary', 'artist_bio_content', 'artist_similar', 'artist_filename', 'song', 'song_mbid',
-         'song_lyrics', 'song_filename', 'song_instumental', 'album', 'album_mbid', 'album_arturl_large', 'album_arturl_medium', 'album_arturl_small',
+         'song_lyrics', 'song_filename', 'album', 'album_mbid', 'album_arturl_large', 'album_arturl_medium', 'album_arturl_small',
          'album_filename');
     foreach ($infoElements as $infoElement) {
         if (!isset($metadataArray[$infoElement])) {
@@ -7278,24 +7278,20 @@ function get_songInfo($redis, $info=array())
     //
     // lyrics are sourced from makeitpersonal using artist name and song name as key
     if (!$info['song_lyrics']) {
-        if (!isset($info['song_instrumental']) || !$info['song_instrumental']) {
-            foreach ($searchArtists as $searchArtist) {
-                foreach ($searchSongs as $searchSong) {
-                    // url format: https://makeitpersonal.co/lyrics?artist=annie+lennox&title=little+bird
-                    $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
-                    $retval = get_makeitpersonal($redis, $url);
-                    if ($retval) {
-                        // found the release (song) on last.fm, use the data if it is set
-                        if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
-                            $info['song_lyrics'] = $retval['song_lyrics'];
-                            // break both loops
-                            break 2;
-                        }
+        foreach ($searchArtists as $searchArtist) {
+            foreach ($searchSongs as $searchSong) {
+                // url format: https://makeitpersonal.co/lyrics?artist=annie+lennox&title=little+bird
+                $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
+                $retval = get_makeitpersonal($redis, $url);
+                if ($retval) {
+                    // found the release (song) on last.fm, use the data if it is set
+                    if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
+                        $info['song_lyrics'] = $retval['song_lyrics'];
+                        // break both loops
+                        break 2;
                     }
                 }
             }
-        } else {
-            $info['song_lyrics'] = '<br>Instrumental<br>';
         }
     }
     if (!$info['song_lyrics']) {
@@ -7817,7 +7813,7 @@ function wrk_get_webradio_art($redis, $radiostring)
             unset($infoCache);
         }
     }
-    $toSetInfoFields = array('webradiostring', 'webradiostring_filename', 'artist', 'artist_filename', 'album', 'album_filename', 'song', 'song_filename', 'song_instrumental');
+    $toSetInfoFields = array('webradiostring', 'webradiostring_filename', 'artist', 'artist_filename', 'album', 'album_filename', 'song', 'song_filename');
     $toCacheInfoFields = $toSetInfoFields;
     // check all the required elements exist in $info
     $info = setup_metadata_array($info);
@@ -7919,15 +7915,6 @@ function wrk_get_webradio_art($redis, $radiostring)
                 } else {
                     if (isset($retval['artist-credit'][0]['artist']['name']) && $retval['artist-credit'][0]['artist']['name']) {
                         $info['albumartist'] = ucfirst(metadataStringClean($retval['artist-credit'][0]['artist']['name'], 'artist'));
-                    }
-                }
-                if (!$info['song_instrumental'] && isset($retval['artist-credit'][0]['artist']['tags'][0])) {
-                    $info['song_instrumental'] = false;
-                    foreach ( $retval['artist-credit'][0]['artist']['tags'] as $tag) {
-                        if (isset($tag['name']) && strpos(strtolower(' '.$tag['name']), 'instrumental')) {
-                            $info['song_instrumental'] = true;
-                            break;
-                        }
                     }
                 }
             }
