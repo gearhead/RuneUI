@@ -43,8 +43,12 @@ function is_localhost() {
         return true;
 }
 
-function openMpdSocket($path, $type = null)
+function openMpdSocket($path, $type = 0)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
+// normal (blocking) is default when type is not specified
+// the success return value is an array containing 'resource' = the socket and 'type' = connection type
+// historically the return value could contain a non-array value containing the socket, connection type 0 was then
+//  assumed, code still exists to work this way - TO-DO: remove the superfluous code for the MPD I/O routines
 {
     $sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
     // create non blocking socket connection
@@ -77,10 +81,11 @@ function openMpdSocket($path, $type = null)
     // create blocking socket connection
     } else {
         runelog('opened **NORMAL MODE (blocking)** socket resource: ',$sock);
-        $connection = socket_connect($sock, $path);
+        $sock = array('resource' => $sock, 'type' => $type);
+        $connection = socket_connect($sock['resource'], $path);
         if ($connection) {
             // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-            $header = socket_read($sock, 20, PHP_NORMAL_READ);
+            $header = socket_read($sock['resource'], 20, PHP_NORMAL_READ);
             // the header should contain a 'OK', if not something went wrong
             if (!strpos(' '.$header, 'OK')) {
                 runelog("[error][".$sock['resource']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ".$header."<<<<<<",'');
