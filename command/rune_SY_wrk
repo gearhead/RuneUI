@@ -1638,8 +1638,8 @@ while (1) {
     //  a) someone needs see the error messages and
     //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
     if ($savecpuSmt-- <= 0) {
-        $retval = sysCmd('grep -vh closed /proc/asound/card?/pcm?p/sub?/hw_params');
-        if (!empty(trim($retval[0]))) {
+        $retval = sysCmd('grep -vh closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs');
+        if (!trim($retval[0])) {
             // something is playing
             // clear the cache otherwise file_exists() returns incorrect values
             clearstatcache(true, '/usr/bin/smartctl');
@@ -1647,7 +1647,7 @@ while (1) {
                 // monitoring tools software is installed
                 // scan for hard disks
                 $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
-                if (!empty($drive_list)) {
+                if (isset($drive_list) && !empty($drive_list)) {
                     foreach($drive_list as $drive) {
                         // for each connected drive
                         $drive = trim($drive);
