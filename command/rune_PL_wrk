@@ -97,10 +97,23 @@ while (1) {
             $status = array();
             $newStatus = array();
             $status = _parseStatusResponse($redis, MpdStatus($socket));
+            if (!issest($status) || !is_array($status)) {
+                $status = array();
+            }
             // store next songid
+            if (!isset($status['nextsongid'])) {
+                $status['nextsongid'] = 0;
+            }
             $redis->set('nextsongid', $status['nextsongid']);
             // store "lastsongid"
+            if (!isset($status['songid'])) {
+                $status['songid'] = 0;
+            }
             $redis->set('lastsongid', $status['songid']);
+            // store the playlist length
+            if (!isset($status['playlistlength'])) {
+                $status['playlistlength'] = 0;
+            }
             $redis->set('pl_length', $status['playlistlength']);
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value

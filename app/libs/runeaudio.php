@@ -46,87 +46,70 @@ function is_localhost() {
 function openMpdSocket($path, $type = 0)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
 // normal (blocking) is default when type is not specified
-// the success return value is an array containing 'resource' = the socket and 'type' = connection type
-// historically the return value could contain a non-array value containing the socket, connection type 0 was then
-//  assumed, code still exists to work this way - TO-DO: remove the superfluous code for the MPD I/O routines
+// the success return value is an array containing 'resource' = the socket object (from php v8 socket is an object), 
+//  'type' = connection type and 'description' = a description of the socket object
 {
     $sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
-    // create non blocking socket connection
-    if ($type === 1 OR $type === 2) {
-        if ($type === 2) {
-            socket_set_nonblock($sock);
-            runelog('opened **BURST MODE 2 (non blocking)** socket resource: ',$sock);
-        } else {
-            runelog('opened **BURST MODE (blocking)** socket resource: ',$sock);
-        }
-        $sock = array('resource' => $sock, 'type' => $type);
-        $connection = socket_connect($sock['resource'], $path);
-        if ($connection) {
-            // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-            $header = rtrim(socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
-            // the header should contain a 'OK', if not something went wrong
-            if (!strpos(' '.$header, 'OK')) {
-                runelog("[error][".$sock['resource']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ".$header."<<<<<<",'');
-                // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
-                closeMpdSocket($sock);
-                return false;
-            }
-            runelog("[open][".$sock['resource']."]\t>>>>>> OPEN MPD SOCKET - Greeting response: ".$header."<<<<<<",'');
-            return $sock;
-        } else {
-            runelog("[error][".$sock['resource']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-            // ui_notifyError('MPD sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
-            return false;
-        }
-    // create blocking socket connection
+    ob_start();
+    var_dump($sock);
+    $sockDesc = trim(preg_replace('/[\t\n\r\s]+/',' ', ob_get_clean()));
+    // create socket connection
+    $sock = array('resource' => $sock, 'type' => $type, 'description' => $sockDesc);
+    if ($type === 2) {
+        socket_set_nonblock($sock['resource']);
+        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<",'');
+    } else if ($type === 1) {
+        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<",'');
     } else {
-        runelog('opened **NORMAL MODE (blocking)** socket resource: ',$sock);
-        $sock = array('resource' => $sock, 'type' => $type);
-        $connection = socket_connect($sock['resource'], $path);
-        if ($connection) {
-            // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-            $header = socket_read($sock['resource'], 20, PHP_NORMAL_READ);
-            // the header should contain a 'OK', if not something went wrong
-            if (!strpos(' '.$header, 'OK')) {
-                runelog("[error][".$sock['resource']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ".$header."<<<<<<",'');
-                // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
-                closeMpdSocket($sock);
-                return false;
-            }
-            runelog("[open][".$sock['resource']."]\t<<<<<<<<<<<< OPEN MPD SOCKET ---- MPD greeting response: ".$header.">>>>>>>>>>>>",'');
-            return $sock;
-        } else {
-            runelog("[error][".$sock['resource']."]\t<<<<<<<<<<<< MPD SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
-            // ui_notifyError('MPD sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
+        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<",'');
+    }
+    $connection = @socket_connect($sock['resource'], $path);
+    if ($connection) {
+        // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
+        $header = rtrim(socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
+        // the header should contain a 'OK', if not something went wrong
+        if (!strpos(' '.$header, 'OK')) {
+            runelog("[open][".$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
+            // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
+            closeMpdSocket($sock['resource']);
             return false;
         }
+        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - Greeting response: ".$header."<<<<<<",'');
+        return $sock;
+    } else {
+        runelog("[open][".$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
+        // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($sock['resource']));
+        return false;
     }
 }
 
 function closeMpdSocket($sock)
 {
-    if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-    } else {
-        $sockResource = $sock;
+    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
     }
     sendMpdCommand($sock, 'close');
-    // socket_shutdown($sock, 2);
-    // debug
-    runelog("[close][".$sockResource."]\t<<<<<< CLOSE MPD SOCKET (".socket_strerror(socket_last_error($sockResource)).") >>>>>>",'');
-    socket_close($sockResource);
+    @socket_close($sock['resource']);
+    runelog("[close][".$sock['description']."]\t<<<<<< MPD SOCKET CLOSE : ", socket_strerror(socket_last_error($sock['resource'])));
 }
 
 function sendMpdCommand($sock, $cmd)
 {
-    if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-    } else {
-        $sockResource = $sock;
+    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
     }
-    $cmd = $cmd."\n";
-    socket_write($sockResource, $cmd, strlen($cmd));
-    runelog("MPD COMMAND: (socket=".$sockResource.")", $cmd);
+    $cmd = trim($cmd)."\n";
+    if (@socket_write($sock['resource'], $cmd, strlen($cmd))) {
+        runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET SEND : ", $cmd);
+    } else {
+        runelog("[send][".$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (".socket_strerror(socket_last_error($sock['resource'])).") >>>>>>",'');
+    }
 }
 
 // detect end of MPD response
@@ -145,12 +128,11 @@ function checkEOR($chunk)
 
 function readMpdResponse($sock)
 {
-     if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-        $sockType = $sock['type'];
-    } else {
-        $sockResource = $sock;
-        $sockType = 0;
+    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[read][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
     }
     // initialize vars
     $output = '';
@@ -165,17 +147,22 @@ function readMpdResponse($sock)
     // timestamp
     // $starttime = microtime(true);
     // runelog('START timestamp:', $starttime);
-    if ($sockType === 2) {
+    if ($sock['type'] === 2) {
         // handle burst mode 2 (nonblocking) socket session
-        $read_monitor = array($sockResource);
+        $read_monitor = array($sock['resource']);
         $buff = 1024;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
+        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         $end = 0;
         while($end === 0) {
-            if (is_resource($sockResource)) {
-                $read = socket_read($sockResource, $buff);
+            if (@is_resource($sock['resource'])) {
+                $read = @socket_read($sock['resource'], $buff);
+                if (!isset($read) || $read === false) {
+                    $output = socket_strerror(socket_last_error($sock['resource']));
+                    runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
+                    break;
+                }
             } else {
                 break;
             }
@@ -199,29 +186,29 @@ function readMpdResponse($sock)
             }
             usleep(200);
         }
-    } elseif ($sockType === 1) {
+    } else if ($sock['type'] === 1) {
     // handle burst mode 1 (blocking) socket session
-        $read_monitor = array($sockResource);
+        $read_monitor = array($sock['resource']);
         $buff = 1310720;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
+        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         do {
             // debug
             // $i++;
             // $elapsed = microtime(true);
             // read data from socket
-            if (is_resource($sockResource) === true) {
-                $read = socket_read($sockResource, $buff);
+            if (@is_resource($sock['resource'])) {
+                $read = @socket_read($sock['resource'], $buff);
             } else {
                 break;
             }
             // debug
             // runelog('socket_read status', $read);
-            if ($read === '' OR $read === false) {
-                $output = socket_strerror(socket_last_error($sockResource));
+            if (!isset($read) || $read === '' || $read === false) {
+                $output = socket_strerror(socket_last_error($sock['resource']));
                 // debug
-                runelog('socket disconnected!!!', $output);
+                runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
                 break;
             }
             $output .= $read;
@@ -239,26 +226,26 @@ function readMpdResponse($sock)
         return $output;
     } else {
         // handle normal mode (blocking) socket session
-        $read_monitor = array($sockResource);
+        $read_monitor = array($sock['resource']);
         $buff = 4096;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
+        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         do {
             // debug
             // $i++;
             // $elapsed = microtime(true);
-            if (is_resource($sockResource) === true) {
-                $read = socket_read($sockResource, $buff, PHP_NORMAL_READ);
+            if (@is_resource($sock['resource'])) {
+                $read = @socket_read($sock['resource'], $buff, PHP_NORMAL_READ);
             } else {
                 break;
             }
             // debug
             // runelog('socket_read status', $read);
-            if ($read === '' OR $read === false) {
-                $output = socket_strerror(socket_last_error($sockResource));
+            if (!isset($read) || $read === '' || $read === false) {
+                $output = socket_strerror(socket_last_error($sock['resource']));
                 // debug
-                runelog('socket disconnected!!!', $output);
+                runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED : ",$output);
                 break;
             }
             $output .= $read;
