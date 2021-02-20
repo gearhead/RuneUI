@@ -46,7 +46,7 @@ function is_localhost() {
 function openMpdSocket($path, $type = 0)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
 // normal (blocking) is default when type is not specified
-// the success return value is an array containing 'resource' = the socket object (from php v8 socket is an object), 
+// the success return value is an array containing 'resource' = the socket object (from php v8 socket is an object),
 //  'type' = connection type and 'description' = a description of the socket object
 {
     $sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
