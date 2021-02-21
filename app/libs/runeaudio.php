@@ -140,6 +140,8 @@ function readMpdResponse($sock)
     $read_monitor = array();
     $write_monitor  = NULL;
     $except_monitor = NULL;
+    // the variable phpVersion contains the major release, for example 5, 7, 8 , 9, etc.
+    $phpVersion = intval(phpversion());
     // debug
     // socket monitoring
     // iteration counter
@@ -156,7 +158,8 @@ function readMpdResponse($sock)
         // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         $end = 0;
         while($end === 0) {
-            if (@is_resource($sock['resource'])) {
+            // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
+            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
                 $read = @socket_read($sock['resource'], $buff);
                 if (!isset($read) || $read === false) {
                     $output = socket_strerror(socket_last_error($sock['resource']));
@@ -198,7 +201,8 @@ function readMpdResponse($sock)
             // $i++;
             // $elapsed = microtime(true);
             // read data from socket
-            if (@is_resource($sock['resource'])) {
+            // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
+            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
                 $read = @socket_read($sock['resource'], $buff);
             } else {
                 break;
@@ -235,7 +239,8 @@ function readMpdResponse($sock)
             // debug
             // $i++;
             // $elapsed = microtime(true);
-            if (@is_resource($sock['resource'])) {
+            // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
+            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
                 $read = @socket_read($sock['resource'], $buff, PHP_NORMAL_READ);
             } else {
                 break;
@@ -5013,7 +5018,9 @@ class ui_renderQueue
 
 function ui_status($mpd, $status)
 {
-    $curTrack = getTrackInfo($mpd, $status['song']);
+    if (isset($status['song'])) {
+        $curTrack = getTrackInfo($mpd, $status['song']);
+    }
     if (isset($curTrack[0]['Title'])) {
         // $status['currentalbumartist'] = htmlentities($curTrack[0]['AlbumArtist'], ENT_XML1, 'UTF-8');
         // $status['currentartist'] = htmlentities($curTrack[0]['Artist'], ENT_XML1, 'UTF-8');
@@ -5026,7 +5033,7 @@ function ui_status($mpd, $status)
         $status['currentalbum'] = $curTrack[0]['Album'];
         $status['currentcomposer'] = $curTrack[0]['Composer'];
         $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
-    } else {
+    } else if (isset($curTrack) && is_array($curTrack)) {
         $path = parseFileStr($curTrack[0]['file'], '/');
         $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
         $status['currentartist'] = "";
@@ -5036,6 +5043,8 @@ function ui_status($mpd, $status)
         } else {
             $status['currentalbum'] = '';
         }
+    } else {
+        return false;
     }
     $status['file'] = $curTrack[0]['file'];
     $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1, 'UTF-8');

@@ -148,9 +148,19 @@ while (1) {
                 // $status['currentsong'] = '';
                 // $status = array_merge($newStatus, $monArray);
                 // store next songid
+                if (!isset($newStatus['nextsongid'])) {
+                    $newStatus['nextsongid'] = 0;
+                }
                 $redis->set('nextsongid', $newStatus['nextsongid']);
                 // store "lastsongid"
+                if (!isset($newStatus['songid'])) {
+                    $newStatus['songid'] = 0;
+                }
                 $redis->set('lastsongid', $newStatus['songid']);
+                // store playlist length
+                if (!isset($newStatus['playlistlength'])) {
+                    $newStatus['playlistlength'] = 0;
+                }
                 $redis->set('pl_length', $newStatus['playlistlength']);
 
                 // runelog('---------status data------------',$newStatus);
