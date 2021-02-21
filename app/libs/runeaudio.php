@@ -66,7 +66,7 @@ function openMpdSocket($path, $type = 0)
     $connection = @socket_connect($sock['resource'], $path);
     if ($connection) {
         // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-        $header = rtrim(socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
+        $header = rtrim(@socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
         // the header should contain a 'OK', if not something went wrong
         if (!strpos(' '.$header, 'OK')) {
             runelog("[open][".$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
@@ -277,11 +277,15 @@ function monitorMpdState($redis, $sock)
 {
     if ($change = sendMpdIdle($sock)) {
         $status = _parseStatusResponse($redis, MpdStatus($sock));
-        $status['changed'] = substr($change[1], 0, -3);
-        // runelog('monitorMpdState()', $status);
-        return $status;
+        if (isset($change[1]) && isset($status) && is_array($status)) {
+            $status['changed'] = substr($change[1], 0, -3);
+            // runelog('monitorMpdState()', $status);
+            return $status;
+        } else {
+            return false;
+        }
     } else {
-        $status = false;
+        return false;
     }
 }
 

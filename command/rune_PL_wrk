@@ -97,7 +97,7 @@ while (1) {
             $status = array();
             $newStatus = array();
             $status = _parseStatusResponse($redis, MpdStatus($socket));
-            if (!issest($status) || !is_array($status)) {
+            if (!isset($status) || !is_array($status)) {
                 $status = array();
             }
             // store next songid
@@ -335,8 +335,12 @@ while (1) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
-                $errorcode = socket_last_error($socket);
-                runelog('MPD last socket error = ', $errorcode);
+                if (isset($socket['resource']) && isset($socket['description'])) {
+                    $errorcode = socket_last_error($socket['resource']);
+                    runelog('MPD last socket error for '.$socket['description'].' = ', $errorcode.' '.socket_strerror($errorcode));
+                } else {
+                    runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
+                }
                 wrk_clean_music_metadata($redis);
             } while (($errorcode === 0) && ($redis->get('activePlayer') === 'MPD'));
 
