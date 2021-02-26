@@ -46,69 +46,124 @@ function is_localhost() {
 function openMpdSocket($path, $type = 0)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
 // normal (blocking) is default when type is not specified
-// the success return value is an array containing 'resource' = the socket object (from php v8 socket is an object),
-//  'type' = connection type and 'description' = a description of the socket object
+// the success return value is an array containing 'resource' = the socket resource or object (previously a resource,
+//  from php v8 socket is an object), 'sockVarName' = the socket variable name, 'type' = connection type and
+//  'description' = a description of the socket object derives van a var_dump of the resource
+// the variable with the name contained in the variable sockVarName is a global, accessible outside this function
+//  within the current php job, it is referenced to by using the $$ variable variable construction
+//  so $sock['sockVarName'] contains the name of the global variable containing the globally defined resource or object
+//  the format of the globally defined resource or object variable is 'mpdsock_A_B', where A is the socket type
+//  and B is a numeric value between 0 and 9, examples of globally defined resource or object variables
+//  are: $mpdsock_0_0, $mpdsock_2_9
+// the globally defined resource or object variables are removed when the socket is closed
 {
-    $sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
+    // find a free socket variable name
+    for ($i = 0; $i <= 10; $i++) {
+        if ($i === 10) {
+            runelog("[open]\t>>>>>> OPEN MPD SOCKET ERROR - **All sockets used for type = ".$type."** <<<<<<",'');
+            return false;
+        }
+        $sockVarName = 'mpdsock_'.$type.'_'.$i;
+        if (!isset($GLOBALS[$sockVarName])) {
+            break;
+        }
+    }
+    // define the socket variable name as global
+    global $$sockVarName;
+    // create the socket
+    $$sockVarName = socket_create(AF_UNIX, SOCK_STREAM, 0);
+    // create a description of the socket
     ob_start();
-    var_dump($sock);
+    var_dump($$sockVarName);
     $sockDesc = trim(preg_replace('/[\t\n\r\s]+/',' ', ob_get_clean()));
-    // create socket connection
-    $sock = array('resource' => $sock, 'type' => $type, 'description' => $sockDesc);
+    // create socket connection array
+    $sock = array('resource' => $$sockVarName, 'sockVarName' => $sockVarName, 'type' => $type, 'description' => $sockDesc);
     if ($type === 2) {
-        socket_set_nonblock($sock['resource']);
+        socket_set_nonblock($$sockVarName);
         runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<",'');
     } else if ($type === 1) {
+        socket_set_block($$sockVarName);
         runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<",'');
     } else {
+        socket_set_block($$sockVarName);
         runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<",'');
     }
-    $connection = @socket_connect($sock['resource'], $path);
+    $connection = socket_connect($$sockVarName, $path);
     if ($connection) {
         // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-        $header = rtrim(@socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
+        $header = rtrim(socket_read($$sockVarName, 20, PHP_NORMAL_READ), "\n\r\0");
         // the header should contain a 'OK', if not something went wrong
         if (!strpos(' '.$header, 'OK')) {
             runelog("[open][".$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
-            // ui_notifyError('MPD open error: '.$sock['resource'],'Greeting response = '.$header);
-            closeMpdSocket($sock['resource']);
+            // ui_notifyError('MPD open error: '.$sock['description'],'Greeting response = '.$header);
+            closeMpdSocket($sock);
             return false;
         }
         runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - Greeting response: ".$header."<<<<<<",'');
         return $sock;
     } else {
-        runelog("[open][".$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-        // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($sock['resource']));
+        runelog("[open][".$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($$sockVarName)." <<<<<<",'');
+        // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($$sockVarName));
+        closeMpdSocket($sock);
         return false;
     }
 }
 
 function closeMpdSocket($sock)
 {
-    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+    if (!is_array($sock) || !isset($sock['sockVarName'])) {
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
         runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
     }
+    // define the socket variable name as global
+    $sockVarName = $sock['sockVarName'];
+    global $$sockVarName;
+    if (!isset($$sockVarName)) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+    }
+    // tell MPD to close the connection
     sendMpdCommand($sock, 'close');
-    @socket_close($sock['resource']);
-    runelog("[close][".$sock['description']."]\t<<<<<< MPD SOCKET CLOSE : ", socket_strerror(socket_last_error($sock['resource'])));
+    // code to force the socket to close
+    $linger = array ('l_linger' => 0, 'l_onoff' => 1);
+    socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
+    // close the socket
+    socket_close($$sockVarName);
+    runelog("[close][".$sock['description']."]\t<<<<<< MPD SOCKET CLOSE >>>>>>", "");
+    // remove the global variable containing the socket resource or object
+    unset($$sockVarName);
+    unset($GLOBALS[$sockVarName]);
 }
 
 function sendMpdCommand($sock, $cmd)
 {
-    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+    if (!is_array($sock) || !isset($sock['sockVarName'])) {
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
         runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
+        return false;
+    }
+    // define the socket variable name as global
+    $sockVarName = $sock['sockVarName'];
+    global $$sockVarName;
+    if (!isset($$sockVarName)) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+        return false;
     }
     $cmd = trim($cmd)."\n";
-    if (@socket_write($sock['resource'], $cmd, strlen($cmd))) {
+    if (socket_write($$sockVarName, $cmd, strlen($cmd))) {
         runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET SEND : ", $cmd);
     } else {
-        runelog("[send][".$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (".socket_strerror(socket_last_error($sock['resource'])).") >>>>>>",'');
+        runelog("[send][".$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (".socket_strerror(socket_last_error($$sockVarName)).") >>>>>>",'');
+        return false;
     }
 }
 
@@ -117,9 +172,12 @@ function checkEOR($chunk)
 {
     if (strpos(" ".$chunk, "OK\n")) {
         return true;
-    } elseif (strpos(" ".$chunk, "ACK [")) {
-        if (preg_match("/(\[[0-9]@[0-9]\])/", $chunk) === 1) {
+    } else if (strpos(" ".$chunk, "ACK [")) {
+        // the format is "ACK [99@9] ...", see: https://www.musicpd.org/doc/html/protocol.html
+        if (preg_match("/(\[[0-9]+@[0-9]+\])/", $chunk)) {
             return true;
+        } else {
+            return false;
         }
     } else {
         return false;
@@ -128,11 +186,22 @@ function checkEOR($chunk)
 
 function readMpdResponse($sock)
 {
-    if ((!is_array($sock)) || (!isset($sock['resource']))) {
+    if (!is_array($sock) || !isset($sock['sockVarName'])) {
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
         runelog("[read][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
+        return false;
+    }
+    // define the socket variable name as global
+    $sockVarName = $sock['sockVarName'];
+    global $$sockVarName;
+    if (!isset($$sockVarName)) {
+        if (!isset($sock['description'])) {
+            $sock['description'] = 'UNSET SOCKET';
+        }
+        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+        return false;
     }
     // initialize vars
     $output = '';
@@ -151,7 +220,7 @@ function readMpdResponse($sock)
     // runelog('START timestamp:', $starttime);
     if ($sock['type'] === 2) {
         // handle burst mode 2 (nonblocking) socket session
-        $read_monitor = array($sock['resource']);
+        $read_monitor = array($$sockVarName);
         $buff = 1024;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
@@ -159,10 +228,10 @@ function readMpdResponse($sock)
         $end = 0;
         while($end === 0) {
             // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
-            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
-                $read = @socket_read($sock['resource'], $buff);
+            if ((($phpVersion < 8) && is_resource($$sockVarName)) || (($phpVersion > 7) && is_object($$sockVarName))) {
+                $read = socket_read($$sockVarName, $buff);
                 if (!isset($read) || $read === false) {
-                    $output = socket_strerror(socket_last_error($sock['resource']));
+                    $output = socket_strerror(socket_last_error($$sockVarName));
                     runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
                     break;
                 }
@@ -191,7 +260,7 @@ function readMpdResponse($sock)
         }
     } else if ($sock['type'] === 1) {
     // handle burst mode 1 (blocking) socket session
-        $read_monitor = array($sock['resource']);
+        $read_monitor = array($$sockVarName);
         $buff = 1310720;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
@@ -202,15 +271,15 @@ function readMpdResponse($sock)
             // $elapsed = microtime(true);
             // read data from socket
             // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
-            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
-                $read = @socket_read($sock['resource'], $buff);
+            if ((($phpVersion < 8) && is_resource($$sockVarName)) || (($phpVersion > 7) && is_object($$sockVarName))) {
+                $read = socket_read($$sockVarName, $buff);
             } else {
                 break;
             }
             // debug
             // runelog('socket_read status', $read);
             if (!isset($read) || $read === '' || $read === false) {
-                $output = socket_strerror(socket_last_error($sock['resource']));
+                $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
                 runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
                 break;
@@ -230,7 +299,7 @@ function readMpdResponse($sock)
         return $output;
     } else {
         // handle normal mode (blocking) socket session
-        $read_monitor = array($sock['resource']);
+        $read_monitor = array($$sockVarName);
         $buff = 4096;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
@@ -240,15 +309,15 @@ function readMpdResponse($sock)
             // $i++;
             // $elapsed = microtime(true);
             // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
-            if (($phpVersion < 8) && is_resource($sock['resource']) || ($phpVersion > 7) && is_object($sock['resource'])) {
-                $read = @socket_read($sock['resource'], $buff, PHP_NORMAL_READ);
+            if ((($phpVersion < 8) && is_resource($$sockVarName)) || (($phpVersion > 7) && is_object($$sockVarName))) {
+                $read = socket_read($$sockVarName, $buff, PHP_NORMAL_READ);
             } else {
                 break;
             }
             // debug
             // runelog('socket_read status', $read);
             if (!isset($read) || $read === '' || $read === false) {
-                $output = socket_strerror(socket_last_error($sock['resource']));
+                $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
                 runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED : ",$output);
                 break;
