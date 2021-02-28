@@ -35,61 +35,68 @@ set +e # continue on errors
 prio_nice () {
 # MPD has the capability of setting its own priority in real time
 # the following is to make sure that its associated processes are also set to a higher priority
-for pid in $(pgrep -wx mpd);
+for pid in $(pgrep -w mpd);
 do
     renice -1 $pid;
 done;
+renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+renice -1 $(pgrep -w mpd)
+renice -1 $(pgrep -w shairport-sync)
+renice -1 $(pgrep -w spopd)
+renice -1 $(pgrep -w upmpdcli)
 # set the local browser to a low value
 for pid in $(pgrep -w chromium);
 do
     renice 10 $pid;
 done;
-renice -1 $(pgrep -wx shairport-sync)
-renice -1 $(pgrep -wx spopd)
-renice -1 $(pgrep -wx upmpdcli)
-renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-renice 10 $(pgrep -wx chromium)
-renice 3 $(pgrep -wx ashuffle)
-renice 3 $(pgrep -wx local-browser)
-renice 3 $(pgrep -wx mpdscribble)
-renice 2 $(pgrep -wx nmbd)
-renice 2 $(pgrep -wx nmb)
-renice 3 $(pgrep -wx rune_PL_wrk)
-renice 3 $(pgrep -wx rune_SSM_wrk)
-renice 3 $(pgrep -wx rune_SY_wrk)
-renice 2 $(pgrep -wx smbd)
-renice 2 $(pgrep -wx smb)
-renice 2 $(pgrep -wx sshd)
-renice 2 $(pgrep -wx xinit)
-renice 1 $(pgrep -wx Xorg)
-renice 1 $(pgrep -wx matchbox-window)
-renice 2 $(pgrep -wx xbindkeys)
+renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+renice 10 $(pgrep -w chromium)
+renice 3 $(pgrep -w ashuffle)
+renice 3 $(pgrep -w local-browser)
+renice 3 $(pgrep -w mpdscribble)
+renice 2 $(pgrep -w nmbd)
+renice 2 $(pgrep -w nmb)
+renice 3 $(pgrep -w rune_PL_wrk)
+renice 3 $(pgrep -w rune_SSM_wrk)
+renice 3 $(pgrep -w rune_SY_wrk)
+renice 2 $(pgrep -w smbd)
+renice 2 $(pgrep -w smb)
+renice 2 $(pgrep -w sshd)
+renice 2 $(pgrep -w xinit)
+renice 1 $(pgrep -w Xorg)
+renice 1 $(pgrep -w matchbox-window)
+renice 2 $(pgrep -w xbindkeys)
+renice 4 $(pgrep -w uwsgi)
+renice 6 $(pgrep -w upowerd)
 }
 
 prio_default () {
-for pid in $(pgrep -wx mpd);
+# always leave chromium at a lower priority
+# always leave upowerd at a lower priority
+# always leave uwsgi at a lower priority
+for pid in $(pgrep -w mpd);
 do
     renice 0 $pid;
 done;
-# always leave chromium at a lower priority
-renice 0 $(pgrep -wx shairport-sync)
-renice 0 $(pgrep -wx spopd)
-renice 0 $(pgrep -wx upmpdcli)
-renice 0 $(pgrep -wx ashuffle)
-renice 0 $(pgrep -wx local-browser)
-renice 0 $(pgrep -wx mpdscribble)
-renice 0 $(pgrep -wx nmbd)
-renice 0 $(pgrep -wx nmb)
-renice 0 $(pgrep -wx rune_PL_wrk)
-renice 0 $(pgrep -wx rune_SSM_wrk)
-renice 0 $(pgrep -wx rune_SY_wrk)
-renice 0 $(pgrep -wx smbd)
-renice 0 $(pgrep -wx smb)
-renice 0 $(pgrep -wx sshd)
-renice 0 $(pgrep -wx xinit)
-renice 0 $(pgrep -wx Xorg)
-renice 0 $(pgrep -wx matchbox-window)
-renice 0 $(pgrep -wx xbindkeys)
+renice 0 $(pgrep -w mpd)
+renice 0 $(pgrep -w shairport-sync)
+renice 0 $(pgrep -w spopd)
+renice 0 $(pgrep -w upmpdcli)
+renice 0 $(pgrep -w ashuffle)
+renice 0 $(pgrep -w local-browser)
+renice 0 $(pgrep -w mpdscribble)
+renice 0 $(pgrep -w nmbd)
+renice 0 $(pgrep -w nmb)
+renice 0 $(pgrep -w rune_PL_wrk)
+renice 0 $(pgrep -w rune_SSM_wrk)
+renice 0 $(pgrep -w rune_SY_wrk)
+renice 0 $(pgrep -w smbd)
+renice 0 $(pgrep -w smb)
+renice 0 $(pgrep -w sshd)
+renice 0 $(pgrep -w xinit)
+renice 0 $(pgrep -w Xorg)
+renice 0 $(pgrep -w matchbox-window)
+renice 0 $(pgrep -w xbindkeys)
 }
 
 if [ "$1" == "default" ]; then
