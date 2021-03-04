@@ -6766,7 +6766,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     }
     // first get the number of files in the directory, we will always leave between 10 and
     //  15 files regardless of the memory which we want to recover
-    $filesInArtDir = sysCmd('ls -q1 "'.$artDir.'" | wc -l | xargs');
+    $filesInArtDir = sysCmd('ls -q1 "'.$artDir.'" | wc -l | xargs')[0];
     // we will delete the files in blocks of 5, calculate the maximum number of delete cycles
     $deleteCycles = intval(($filesInArtDir - 10 ) / 5);
     while (($recoverKB > 0) && ($deleteCycles-- > 0)) {
