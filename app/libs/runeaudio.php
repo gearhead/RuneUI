@@ -33,7 +33,7 @@
  */
 
 // Expected MPD & SPOP Open Response messages
-// MPD: " OK MPD x.xx.xx\n" (16 bytes, as of version 0.21.11)
+// MPD: "OK MPD x.xx.xx\n" (14 to 15 bytes, as of version 0.22.0)
 // SPOP: "spop x.x.x\n" (11 bytes, as of version 0.0.1)
 // Where x is a numeric vanue (version number)
 
@@ -77,32 +77,35 @@ function openMpdSocket($path, $type = 0)
     var_dump($$sockVarName);
     $sockDesc = trim(preg_replace('/[\t\n\r\s]+/',' ', ob_get_clean()));
     // create socket connection array
-    $sock = array('resource' => $$sockVarName, 'sockVarName' => $sockVarName, 'type' => $type, 'description' => $sockDesc);
+    $sock = array('sockVarName' => $sockVarName, 'type' => $type, 'description' => $sockDesc);
     if ($type === 2) {
         socket_set_nonblock($$sockVarName);
-        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<",'');
+        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<','');
     } else if ($type === 1) {
         socket_set_block($$sockVarName);
-        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<",'');
+        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<','');
     } else {
         socket_set_block($$sockVarName);
-        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<",'');
+        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<','');
     }
     $connection = socket_connect($$sockVarName, $path);
     if ($connection) {
-        // skip MPD greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs for reporting
-        $header = rtrim(socket_read($$sockVarName, 20, PHP_NORMAL_READ), "\n\r\0");
-        // the header should contain a 'OK', if not something went wrong
+        // Expected MPD Open Response messages
+        // MPD: 'OK MPD x.xx.xx\n' (14 to 15 bytes, as of version 0.22.0)
+        // Where x is a numeric value (version number)
+        // read the MPD greeting response, use the first 20 bytes - trim the leading and trailing whitespace
+        $header = trim(socket_read($$sockVarName, 20, PHP_NORMAL_READ));
+        // the header should contain an 'OK', if not something went wrong
         if (!strpos(' '.$header, 'OK')) {
-            runelog("[open][".$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
+            runelog('[open]['.$sock['description'].']\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ', $header);
             // ui_notifyError('MPD open error: '.$sock['description'],'Greeting response = '.$header);
             closeMpdSocket($sock);
             return false;
         }
-        runelog("[open][".$sock['description']."]\t>>>>>> OPEN MPD SOCKET - Greeting response: ".$header."<<<<<<",'');
+        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - Greeting response: '.$header.'<<<<<<','');
         return $sock;
     } else {
-        runelog("[open][".$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($$sockVarName)." <<<<<<",'');
+        runelog('[open]['.$sock['description'].']\t>>>>>> MPD SOCKET ERROR: '.socket_last_error($$sockVarName).' <<<<<<','');
         // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($$sockVarName));
         closeMpdSocket($sock);
         return false;
@@ -115,7 +118,7 @@ function closeMpdSocket($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
+        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Continuing >>>>>>','');
     }
     // define the socket variable name as global
     $sockVarName = $sock['sockVarName'];
@@ -124,7 +127,7 @@ function closeMpdSocket($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>','');
     }
     // tell MPD to close the connection
     sendMpdCommand($sock, 'close');
@@ -133,7 +136,7 @@ function closeMpdSocket($sock)
     socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
     // close the socket
     socket_close($$sockVarName);
-    runelog("[close][".$sock['description']."]\t<<<<<< MPD SOCKET CLOSE >>>>>>", "");
+    runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET CLOSE >>>>>>', '');
     // remove the global variable containing the socket resource or object
     unset($$sockVarName);
     unset($GLOBALS[$sockVarName]);
@@ -145,7 +148,7 @@ function sendMpdCommand($sock, $cmd)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
+        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
         return false;
     }
     // define the socket variable name as global
@@ -155,14 +158,15 @@ function sendMpdCommand($sock, $cmd)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
         return false;
     }
     $cmd = trim($cmd)."\n";
     if (socket_write($$sockVarName, $cmd, strlen($cmd))) {
-        runelog("[send][".$sock['description']."\t<<<<<< MPD SOCKET SEND : ", $cmd);
+        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET SEND : ', $cmd);
+        return true;
     } else {
-        runelog("[send][".$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (".socket_strerror(socket_last_error($$sockVarName)).") >>>>>>",'');
+        runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
         return false;
     }
 }
@@ -170,10 +174,10 @@ function sendMpdCommand($sock, $cmd)
 // detect end of MPD response
 function checkEOR($chunk)
 {
-    if (strpos(" ".$chunk, "OK\n")) {
+    if (strpos(' '.$chunk, "OK\n")) {
         return true;
-    } else if (strpos(" ".$chunk, "ACK [")) {
-        // the format is "ACK [99@9] ...", see: https://www.musicpd.org/doc/html/protocol.html
+    } else if (strpos(' '.$chunk, 'ACK [')) {
+        // the format is 'ACK [99@9] ...', see: https://www.musicpd.org/doc/html/protocol.html
         if (preg_match("/(\[[0-9]+@[0-9]+\])/", $chunk)) {
             return true;
         } else {
@@ -190,7 +194,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[read][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
+        runelog('[read]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
         return false;
     }
     // define the socket variable name as global
@@ -200,7 +204,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog("[close][".$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
+        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
         return false;
     }
     // initialize vars
@@ -224,7 +228,7 @@ function readMpdResponse($sock)
         $buff = 1024;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
         $end = 0;
         while($end === 0) {
             // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
@@ -232,7 +236,7 @@ function readMpdResponse($sock)
                 $read = socket_read($$sockVarName, $buff);
                 if (!isset($read) || $read === false) {
                     $output = socket_strerror(socket_last_error($$sockVarName));
-                    runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
+                    runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED: ',$output);
                     break;
                 }
             } else {
@@ -247,7 +251,7 @@ function readMpdResponse($sock)
                 $end = 1;
                 break;
             }
-            if (strpos($read, "\n")) {
+            if (strpos(' '.$read, "\n")) {
                 ob_start();
                 echo $read;
                 // flush();
@@ -264,7 +268,7 @@ function readMpdResponse($sock)
         $buff = 1310720;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
         do {
             // debug
             // $i++;
@@ -281,7 +285,7 @@ function readMpdResponse($sock)
             if (!isset($read) || $read === '' || $read === false) {
                 $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
-                runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED: ',$output);
                 break;
             }
             $output .= $read;
@@ -303,7 +307,7 @@ function readMpdResponse($sock)
         $buff = 4096;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog("[read][".$sock['description']."][pre-loop][".$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
         do {
             // debug
             // $i++;
@@ -319,7 +323,7 @@ function readMpdResponse($sock)
             if (!isset($read) || $read === '' || $read === false) {
                 $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
-                runelog("[read][".$sock['description']."][read-loop][".$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED : ",$output);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED : ',$output);
                 break;
             }
             $output .= $read;
@@ -340,10 +344,10 @@ function readMpdResponse($sock)
 
 function sendMpdIdle($sock)
 {
-    //sendMpdCommand($sock,"idle player,playlist");
+    //sendMpdCommand($sock, 'idle player,playlist');
     sendMpdCommand($sock,'idle');
     $response = readMpdResponse($sock);
-    $response = array_map('trim', explode(":", $response));
+    $response = array_map('trim', explode(':', $response));
     return $response;
 }
 
@@ -705,62 +709,63 @@ function deleteBookmark($redis, $id)
     return $return;
 }
 
-function browseDB($sock,$browsemode,$query='') {
+function browseDB($sock, $browsemode, $query='')
+{
     switch ($browsemode) {
         case 'file':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock,'lsinfo "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'lsinfo "'.html_entity_decode($query).'"');
             } else {
-                sendMpdCommand($sock,'lsinfo');
+                sendMpdCommand($sock, 'lsinfo');
             }
             break;
         case 'album':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock,'find "album" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "album" "'.html_entity_decode($query).'"');
             } else {
-                sendMpdCommand($sock,'list "album"');
+                sendMpdCommand($sock, 'list "album"');
             }
             break;
         case 'artist':
             if (isset($query) && !empty($query)){
                 if ($query === 'Various Artists') {
-                    sendMpdCommand($sock,'list artist albumartist "Various Artists"');
+                    sendMpdCommand($sock, 'list artist albumartist "Various Artists"');
                 } else {
-                    sendMpdCommand($sock,'list "album" "'.html_entity_decode($query).'"');
+                    sendMpdCommand($sock, 'list "album" "'.html_entity_decode($query).'"');
                 }
             } else {
-                sendMpdCommand($sock,'list "albumartist"');
+                sendMpdCommand($sock, 'list "albumartist"');
             }
             break;
         case 'composer':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock,'find "composer" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "composer" "'.html_entity_decode($query).'"');
             } else {
-                sendMpdCommand($sock,'list "composer"');
+                sendMpdCommand($sock, 'list "composer"');
             }
             break;
         case 'genre':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock,'list "albumartist" "genre" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'list "albumartist" "genre" "'.html_entity_decode($query).'"');
             } else {
-                sendMpdCommand($sock,'list "genre"');
+                sendMpdCommand($sock, 'list "genre"');
             }
             break;
         case 'albumfilter':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock,'find "albumartist" "'.html_entity_decode($query).'" "album" ""');
+                sendMpdCommand($sock, 'find "albumartist" "'.html_entity_decode($query).'" "album" ""');
             }
             break;
         case 'globalrandom':
-            sendMpdCommand($sock,'listall');
+            sendMpdCommand($sock, 'listall');
             break;
     }
     $response = readMpdResponse($sock);
     return _parseFileListResponse($response);
 }
 
-function searchDB($sock,$querytype,$query) {
-    sendMpdCommand($sock,"search ".$querytype." \"".html_entity_decode($query)."\"");
+function searchDB($sock, $querytype, $query) {
+    sendMpdCommand($sock, "search ".$querytype." \"".html_entity_decode($query)."\"");
     $response = readMpdResponse($sock);
     return _parseFileListResponse($response);
 }

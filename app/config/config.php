@@ -63,14 +63,14 @@ while ($redisError) {
     }
     catch (Throwable $t)
     {
-        // Executed only in PHP 7, will not match in PHP 5
+        // Executed only in PHP 7 and higher, will not match in PHP 5
         $redisError = true;
         sleep(2);
         $redisErrorCount--;
     }
     catch (Exception $e)
     {
-        // Executed only in PHP 5, will not be reached in PHP 7
+        // Executed only in PHP 5, will not be reached in PHP 7 and higher
         $redisError = true;
         sleep(2);
         $redisErrorCount--;
