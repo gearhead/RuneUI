@@ -32,9 +32,15 @@
  *
  */
 // load configuration
-require_once($_SERVER['HOME'].'/app/config/config.php');
-// main include
-require_once($_SERVER['HOME'].'/app/libs/vendor/autoload.php');
+if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
+    require_once($_SERVER['HOME'].'/app/config/config.php');
+    // main include
+    require_once($_SERVER['HOME'].'/app/libs/vendor/autoload.php');
+} else {
+    require_once('/var/www/app/config/config.php');
+    // main include
+    require_once('/var/www/app/libs/vendor/autoload.php');
+}
 // open session
 session_start();
 

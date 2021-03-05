@@ -321,7 +321,7 @@ while (1) {
                         $status['currentsong'] = 'Radio';
                     }
                 }
-                if ($status['changed'] === 'mixer') {
+                if (strpos(' '.$status['changed'], 'mixer')) {
                     //$redis->set('current_volume', $status['volume']);
                     if ($redis->get('ao') === 'PianoDACPlus' && $redis->hget('mpdconf', 'mixer_type') === 'hardware') {
                         sysCmd('amixer -D '.json_decode($redis->hget('acards', 'PianoDACPlus'))->mixer_device.' set Subwoofer '.$status['volume'].'%');
@@ -350,18 +350,18 @@ while (1) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
-                // if ($debugTrue) {
-                    if (isset($socket['sockVarName']) && isset($socket['description'])) {
-                        $sockVarName = $socket['sockVarName'];
-                        global $$sockVarName;
-                        $errorcode = socket_last_error($$sockVarName);
-                        runelog('MPD last socket error for '.$socket['description'].' = ', $errorcode.' '.socket_strerror($errorcode));
-                    } else {
-                        runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
-                    }
-                // }
+                if (isset($socket['sockVarName']) && isset($socket['description'])) {
+                    $sockVarName = $socket['sockVarName'];
+                    global $$sockVarName;
+                    $errorcode = socket_last_error($$sockVarName);
+                    // when no error $errorcode = 0 (false)
+                    runelog('MPD last socket error for '.$socket['description'].' = ', $errorcode.' ('.socket_strerror($errorcode).')');
+                } else {
+                    $errorcode = true;
+                    runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
+                }
                 wrk_clean_music_metadata($redis);
-            } while (($errorcode === 0) && ($redis->get('activePlayer') === 'MPD'));
+            } while ((!$errorcode) && ($redis->get('activePlayer') === 'MPD'));
 
             // close Redis connection
             //$redis->close();

@@ -300,7 +300,7 @@ function readMpdResponse($sock)
         // runelog('END timestamp:', $elapsed);
         // runelog('RESPONSE length:', strlen($output));
         // runelog('EXEC TIME:', $elapsed - $starttime);
-        return $output;
+        return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
     } else {
         // handle normal mode (blocking) socket session
         $read_monitor = array($$sockVarName);
@@ -338,25 +338,52 @@ function readMpdResponse($sock)
         // runelog('END timestamp:', $elapsed);
         // runelog('RESPONSE length:', strlen($output));
         // runelog('EXEC TIME:', $elapsed - $starttime);
-        return $output;
+        return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
     }
 }
 
 function sendMpdIdle($sock)
 {
-    //sendMpdCommand($sock, 'idle player,playlist');
-    sendMpdCommand($sock,'idle');
-    $response = readMpdResponse($sock);
-    $response = array_map('trim', explode(':', $response));
-    return $response;
+    sendMpdCommand($sock, 'idle');
+    $resp = readMpdResponse($sock);
+    if (strpos(' '.$resp, 'OK')) {
+        // the response is 'changed:<value>', multiple lines can be returned, followed by 'OK'
+        // convert it to a string delimited by colons, no duplicates, e.g. 'player:playlist:mixer:OK'
+        $plistArray = array();
+        $plistLine = strtok($resp, "\n\r");
+        while ($plistLine) {
+            $element = '';
+            $value = '';
+            if (strpos(' '.$plistLine, ':')) {
+                list ($element, $value) = explode(':', $plistLine, 2);
+                $element = trim($element);
+                if (isset($value)) {
+                    $value = trim($value);
+                } else {
+                    $value = '';
+                }
+            }
+            if ($element) {
+                $plistArray[] = $value;
+            }
+            $plistLine = strtok("\n\r");
+        }
+        $plistArray = array_unique($plistArray);
+        $resp = implode(':',$plistArray).':OK';
+        return $resp;
+    } else {
+        return false;
+    }
 }
 
 function monitorMpdState($redis, $sock)
 {
-    if ($change = sendMpdIdle($sock)) {
+    $change = sendMpdIdle($sock);
+    if (isset($change) && $change) {
         $status = _parseStatusResponse($redis, MpdStatus($sock));
-        if (isset($change[1]) && isset($status) && is_array($status)) {
-            $status['changed'] = substr($change[1], 0, -3);
+        if (isset($status) && is_array($status)) {
+            // $change is a string delimited by colons, e.g. 'player:playlist:mixer:OK'
+            $status['changed'] = $change;
             // runelog('monitorMpdState()', $status);
             return $status;
         } else {
@@ -922,20 +949,23 @@ function _parseFileListResponse($resp)
         $browseMode = TRUE;
         while ($plistLine) {
             // runelog('_parseFileListResponse plistLine', $plistLine);
+            $element = '';
+            $value = '';
+            // $blacklist = ['@eaDir', '.Trash'];
             if (!strpos(' '.$plistLine,'@eaDir') && !strpos(' '.$plistLine,'.Trash')) {
                 if (strpos(' '.$plistLine, ': ')) {
                     list ($element, $value) = explode(': ', $plistLine, 2);
-                } else {
-                    $element = '';
-                    $value = '';
+                    $element = trim($element);
+                    if (isset($value)) {
+                        $value = trim($value);
+                    } else {
+                        $value = '';
+                    }
                 }
-            } else {
-                $element = '';
-                $value = '';
             }
-            // $blacklist = ['@eaDir', '.Trash'];
-            // if (!strposa($plistLine, $blacklist)) list ($element, $value) = explode(': ', $plistLine, 2);
-            if ($element === 'file' OR $element === 'playlist') {
+            if (!$element) {
+                // do nothing
+            } elseif ($element === 'file' OR $element === 'playlist') {
                 $plCounter++;
                 $browseMode = FALSE;
                 // $plistFile = $value;
@@ -969,9 +999,7 @@ function _parseFileListResponse($resp)
                 // runelog('_parseFileListResponse Value', $value);
                 // runelog('_parseFileListResponse plistArray [ plCounter ]', $plistArray[$plCounter]);
                 if ( $plCounter > -1 ) {
-                    if (($element != '')) {
-                        $plistArray[$plCounter][$element] = $value;
-                    }
+                    $plistArray[$plCounter][$element] = $value;
                     if ( $element === 'Time' ) {
                         $plistArray[$plCounter]['Time2'] = songTime($plistArray[$plCounter]['Time']);
                     }
@@ -1002,12 +1030,19 @@ function _parseStatusResponse($redis, $resp)
     } else {
         $plistArray = array();
         $plistLine = strtok($resp, "\n");
-        $plistFile = "";
-        $plCounter = -1;
         while ($plistLine) {
-            // runelog('_parseStatusResponse plistLine', $plistLine);
-            if (strpos(' '.$plistLine,': ')) {
+            $element = '';
+            $value = '';
+            if (strpos(' '.$plistLine, ': ')) {
                 list ($element, $value) = explode(': ', $plistLine, 2);
+                $element = trim($element);
+                if (isset($value)) {
+                    $value = trim($value);
+                } else {
+                    $value = '';
+                }
+            }
+            if ($element) {
                 $plistArray[$element] = $value;
             }
             $plistLine = strtok("\n");
@@ -1147,42 +1182,47 @@ if (is_null($resp)) {
         return null;
     } else {
         $status = array();
-        $resp = json_decode($resp);
-        if ($resp->status === "playing") $status['state'] = "play";
-        if ($resp->status === "stopped") $status['state'] = "stop";
-        if ($resp->status === "paused") $status['state'] = "pause";
-        if ($resp->repeat === false) {
+        $resp = json_decode($resp, true);
+        if ($resp['status'] === 'playing') {
+            $status['state'] = 'play';
+        } else if ($resp['status'] === 'stopped') {
+            $status['state'] = 'stop';
+        } else if ($resp['status'] === 'paused') {
+            $status['state'] = 'pause';
+        }
+        if ($resp['repeat'] === false) {
             $status['repeat'] = '0';
         } else {
             $status['repeat'] = '1';
         }
-        if ($resp->shuffle === false) {
+        if ($resp['shuffle'] === false) {
             $status['random'] = '0';
         } else {
             $status['random'] = '1';
         }
-        $status['playlistlength'] = $resp->total_tracks;
-        $status['currentartist'] = $resp->artist;
-        $status['currentalbum'] = $resp->album;
-        $status['currentsong'] = $resp->title;
-        $status['song'] = $resp->current_track -1;
-        if (isset($resp->position)) {
-            $status['elapsed'] = $resp->position;
+        $status['playlistlength'] = $resp['total_tracks'];
+        $status['currentartist'] = $resp['artist'];
+        $status['currentalbum'] = $resp['album'];
+        $status['currentsong'] = $resp['title'];
+        $status['song'] = $resp['current_track'] -1;
+        if (isset($res['position'])) {
+            $status['elapsed'] = $resp['position'];
         } else {
             $status['elapsed'] = 0;
         }
-        $status['time'] = $resp->duration / 1000;
+        $status['time'] = $resp['duration'] / 1000;
         $status['volume'] = 100;
-        if ($resp->status === "stopped") {
+        if ($resp['status'] === 'stopped') {
             $status['song_percent'] = 0;
         } else {
             $status['song_percent'] = round(100 - (($status['time'] - $status['elapsed']) * 100 / $status['time']));
         }
-        $status['uri'] = $resp->uri;
-        $status['popularity'] = $resp->popularity;
+        $status['uri'] = $resp['uri'];
+        $status['popularity'] = $resp['popularity'];
         return $status;
     }
 }
+
 // function to structure an MPD response into an array indexed by the information elements
 function _parseMpdresponse($input)
 // $input is the output from MPD
@@ -1204,12 +1244,20 @@ function _parseMpdresponse($input)
         $plistLine = strtok($input, "\n\t\r\0");
         while ($plistLine) {
             // runelog('_parseMpdResponse plistLine', $plistLine);
-            if (strpos(' '.$plistLine,'OK')) {
-                $isOk = true;
-            }
-            if (strpos(' '.$plistLine,': ')) {
+
+            $element = '';
+            $value = '';
+            if (strpos(' '.$plistLine, ': ')) {
                 list ($element, $value) = explode(': ', $plistLine, 2);
-                $plistArray[trim($element)] = trim($value);
+                $element = trim($element);
+                if (isset($value)) {
+                    $value = trim($value);
+                } else {
+                    $value = '';
+                }
+            }
+            if ($element) {
+                $plistArray[$element] = $value;
             }
             $plistLine = strtok("\n\t\r");
         }
