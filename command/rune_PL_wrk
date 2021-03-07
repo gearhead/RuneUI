@@ -229,7 +229,6 @@ while (1) {
                     } else {
                         // new song, replace status
                         $status = $newStatus;
-                        $saveCurrentartist = $newStatus['currentartist'];
                         $mpdChangeSong = true;
                     }
                 } else {
@@ -248,12 +247,12 @@ while (1) {
                     } else {
                         // new song, replace status
                         $status = $newStatus;
-                        $saveFile = $newStatus['file'];
                         $mpdChangeSong = true;
                     }
                 }
                 $newStatus = array();
-
+                $saveCurrentsong = $newStatus['currentsong'];
+                $saveFile = $newStatus['file'];
 
                 // decode radio song name and determine the metadata and albumart
                 // $rts = 0;

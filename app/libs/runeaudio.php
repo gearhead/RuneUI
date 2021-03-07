@@ -5149,27 +5149,38 @@ function ui_status($mpd, $status)
         // $status['currentsong'] = htmlentities($curTrack[0]['Title'], ENT_XML1, 'UTF-8');
         // $status['currentalbum'] = htmlentities($curTrack[0]['Album'], ENT_XML1, 'UTF-8');
         // $status['currentcomposer'] = htmlentities($curTrack[0]['Composer'], ENT_XML1, 'UTF-8');
-        $status['currentalbumartist'] = $curTrack[0]['AlbumArtist'];
-        $status['currentartist'] = $curTrack[0]['Artist'];
-        $status['currentsong'] = $curTrack[0]['Title'];
-        $status['currentalbum'] = $curTrack[0]['Album'];
-        $status['currentcomposer'] = $curTrack[0]['Composer'];
-        $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
+        if (isset($curTrack[0]['AlbumArtist']) && $curTrack[0]['AlbumArtist']) {
+            $status['currentalbumartist'] = $curTrack[0]['AlbumArtist'];
+        }
+        if (isset($curTrack[0]['Artist']) && $curTrack[0]['Artist']) {
+            $status['currentartist'] = $curTrack[0]['Artist'];
+        }
+        if (isset($curTrack[0]['Title']) && $curTrack[0]['Title']) {
+            $status['currentsong'] = $curTrack[0]['Title'];
+        }
+        if (isset($curTrack[0]['Album']) && $curTrack[0]['Album']) {
+            $status['currentalbum'] = $curTrack[0]['Album'];
+        }
+        if (isset($curTrack[0]['Composer']) && $curTrack[0]['Composer']) {
+            $status['currentcomposer'] = $curTrack[0]['Composer'];
+        }
     } else if (isset($curTrack) && is_array($curTrack)) {
-        $path = parseFileStr($curTrack[0]['file'], '/');
-        $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
-        $status['currentartist'] = "";
-        // $status['currentsong'] = $song;
-        if (!empty($path)) {
-            $status['currentalbum'] = $path;
+        $status['currentartist'] = '';
+        if (isset($curTrack[0]['file']) && $curTrack[0]['file']) {
+            $status['currentalbum'] = parseFileStr($curTrack[0]['file'], '/');
         } else {
             $status['currentalbum'] = '';
         }
     } else {
         return false;
     }
-    $status['file'] = $curTrack[0]['file'];
-    $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1, 'UTF-8');
+    if (isset($curTrack[0]['file']) && $curTrack[0]['file']) {
+        $status['file'] = $curTrack[0]['file'];
+        $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
+    }
+    if (isset($curTrack[0]['Name']) && $curTrack[0]['Name']) {
+        $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1, 'UTF-8');
+    }
     return $status;
 }
 
