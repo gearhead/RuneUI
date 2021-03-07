@@ -1636,8 +1636,8 @@ function wrk_xorgconfig($redis, $action, $args)
             fclose($fp);
             // remove the next lines after the next image is produced, this is a one-time action which is included in the image reset script
             clearstatcache(true, '/srv/http/.config/chromium-flags.conf');
-            if (!file_exists('/srv/http/.config/chromium-flags.conf') {
-                sysCmd('cp "/srv/http/app/config/defaults/srv/./http/.config/chromium-flags.conf" "/srv/http/.config/chromium-flags.conf"; chmod 644 "/srv/http/.config/chromium-flags.conf"');
+            if (!file_exists('/srv/http/.config/chromium-flags.conf')) {
+                sysCmd('cp "/srv/http/app/config/defults/srv/./http/.config/chromium-flags.conf" "/srv/http/.config/chromium-flags.conf"; chmod 644 "/srv/http/.config/chromium-flags.conf"');
             }
             // up to here
             break;
