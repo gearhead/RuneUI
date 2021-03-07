@@ -1,10 +1,11 @@
 #!/bin/bash
+# File: /etc/X11/xinit/xinitrc 
 export XDG_CACHE_HOME="/tmp/.cache" &
 export DISPLAY=":0" &
 
 # start the touchscreen calibration utility
 # needed for some screens (Pollin 7" tft)
-# for this to work you have to disable loading midori
+# for this to work you have to disable loading midori/chromium
 #xinput_calibrator &
 
 # set power management options
@@ -26,4 +27,5 @@ sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 # sudo -u http midori -p -e Fullscreen -a http://localhost --display=:0
 # midori -p -e Fullscreen http://localhost
 # use chromium instead because it scales whereas Midori no longer does
-sudo -u http /usr/bin/chromium --kiosk --incognito --force-device-scale-factor=1 -e http://localhost/
+# the chomium config file for the user http is: /srv/http/.config/chromium-flags.conf it's contents are additional to the command line below
+sudo -u http /usr/bin/chromium http://localhost/ --force-device-scale-factor=1 

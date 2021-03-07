@@ -1,10 +1,10 @@
 test/
 sync.ffs_db
 node_modules
-.alsaequal.bin
-.cache/
-.config/
+/.alsaequal.bin
+/.cache/
+/.config/
 .pki/
-.xbindkeysrc
-amixer/__pycache__/
+/.xbindkeysrc
+/amixer/__pycache__/
 tmp/

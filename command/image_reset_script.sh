@@ -280,7 +280,7 @@ rm -f /etc/samba/*.conf
 cp -RTv /srv/http/app/config/defaults/etc/. /etc
 cp -RTv /srv/http/app/config/defaults/usr/. /usr
 cp -RTv /srv/http/app/config/defaults/var/. /var
-# copy config files for xbindkeys (& midori)
+# copy config files for xbindkeys & chromium
 cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot

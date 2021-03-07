@@ -1629,11 +1629,17 @@ function wrk_xorgconfig($redis, $action, $args)
             // modify the zoom factor in /etc/X11/xinit/start_chromium.sh
             $file = '/etc/X11/xinit/xinitrc';
             // replace the line with 'force-device-scale-factor='
-            $newArray = wrk_replaceTextLine($file, '', 'force-device-scale-factor', 'sudo -u http /usr/bin/chromium --kiosk --incognito -e http://localhost/ --force-device-scale-factor='.$args);
+            $newArray = wrk_replaceTextLine($file, '', 'force-device-scale-factor', 'sudo -u http /usr/bin/chromium http://localhost/ --force-device-scale-factor='.$args);
             // Commit changes to /etc/X11/xinit/start_chromium.sh
             $fp = fopen($file, 'w');
             $return = fwrite($fp, implode("", $newArray));
             fclose($fp);
+            // remove the next lines after the next image is produced, this is a one-time action which is included in the image reset script
+            clearstatcache(true, '/srv/http/.config/chromium-flags.conf');
+            if (!file_exists('/srv/http/.config/chromium-flags.conf') {
+                sysCmd('cp "/srv/http/app/config/defaults/srv/./http/.config/chromium-flags.conf" "/srv/http/.config/chromium-flags.conf"; chmod 644 "/srv/http/.config/chromium-flags.conf"');
+            }
+            // up to here
             break;
         case 'rotate':
             sysCmd('/srv/http/command/raspi-rotate-screen.sh '.$args);
