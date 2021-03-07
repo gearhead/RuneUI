@@ -1,5 +1,5 @@
 #!/bin/bash
-# File: /etc/X11/xinit/xinitrc 
+# File: /etc/X11/xinit/xinitrc
 export XDG_CACHE_HOME="/tmp/.cache" &
 export DISPLAY=":0" &
 
@@ -28,4 +28,4 @@ sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 # midori -p -e Fullscreen http://localhost
 # use chromium instead because it scales whereas Midori no longer does
 # the chomium config file for the user http is: /srv/http/.config/chromium-flags.conf it's contents are additional to the command line below
-sudo -u http /usr/bin/chromium http://localhost/ --force-device-scale-factor=1 
+sudo -u http /usr/bin/chromium http://localhost/ --force-device-scale-factor=1
