@@ -15,7 +15,7 @@
  * @category   Zend
  * @package    Zend_Media
  * @subpackage MPEG
- * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com) 
+ * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  * @version    $Id: VbriHeader.php 234 2011-05-25 14:49:36Z svollbehr $
  */
@@ -34,7 +34,7 @@ require_once 'Zend/Media/Mpeg/Abs/Object.php';
  * @subpackage MPEG
  * @author     Ryan Butterfield <buttza@gmail.com>
  * @author     Sven Vollbehr <sven@vollbehr.eu>
- * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com) 
+ * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  * @version    $Id: VbriHeader.php 234 2011-05-25 14:49:36Z svollbehr $
  */
@@ -74,7 +74,7 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
     public function __construct($reader, &$options = array())
     {
         parent::__construct($reader, $options);
-        
+
         $offset = $this->_reader->getOffset();
         $this->_version = $this->_reader->readUInt16BE();
         $this->_delay = $this->_reader->readUInt16BE();
@@ -86,7 +86,7 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
         $tocEntrySize = $this->_reader->readUInt16BE();
         $this->_tocFramesPerEntry = $this->_reader->readUInt16BE();
         $this->_toc = array_merge(unpack(($tocEntrySize == 1) ? 'C*' :
-            ($tocEntrySize == 2) ? 'n*' : 'N*',
+            (($tocEntrySize == 2) ? 'n*' : 'N*'),
             $this->_reader->read($tocCount * $tocEntrySize)));
         foreach ($this->_toc as $key => $value) {
             $this->_toc[$key] = $tocEntryScale * $value;
@@ -99,9 +99,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getVersion() 
+    public function getVersion()
     {
-        return $this->_version; 
+        return $this->_version;
     }
 
     /**
@@ -109,9 +109,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getDelay() 
+    public function getDelay()
     {
-        return $this->_delay; 
+        return $this->_delay;
     }
 
     /**
@@ -120,9 +120,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getQualityIndicator() 
+    public function getQualityIndicator()
     {
-        return $this->_qualityIndicator; 
+        return $this->_qualityIndicator;
     }
 
     /**
@@ -130,9 +130,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getBytes() 
+    public function getBytes()
     {
-        return $this->_bytes; 
+        return $this->_bytes;
     }
 
     /**
@@ -140,9 +140,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getFrames() 
+    public function getFrames()
     {
-        return $this->_frames; 
+        return $this->_frames;
     }
 
     /**
@@ -150,9 +150,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return Array
      */
-    public function getToc() 
+    public function getToc()
     {
-        return $this->_toc; 
+        return $this->_toc;
     }
 
     /**
@@ -160,9 +160,9 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getTocFramesPerEntry() 
+    public function getTocFramesPerEntry()
     {
-        return $this->_tocFramesPerEntry; 
+        return $this->_tocFramesPerEntry;
     }
 
     /**
@@ -170,8 +170,8 @@ class Zend_Media_Mpeg_Abs_VbriHeader extends Zend_Media_Mpeg_Abs_Object
      *
      * @return integer
      */
-    public function getLength() 
+    public function getLength()
     {
-        return $this->_length; 
+        return $this->_length;
     }
 }

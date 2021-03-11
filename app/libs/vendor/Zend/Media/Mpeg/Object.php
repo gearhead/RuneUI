@@ -15,7 +15,7 @@
  * @category   Zend
  * @package    Zend_Media
  * @subpackage MPEG
- * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com) 
+ * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  * @version    $Id: Object.php 177 2010-03-09 13:13:34Z svollbehr $
  */
@@ -31,7 +31,7 @@ require_once 'Zend/Io/Reader.php';
  * @package    Zend_Media
  * @subpackage MPEG
  * @author     Sven Vollbehr <sven@vollbehr.eu>
- * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com) 
+ * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  * @version    $Id: Object.php 177 2010-03-09 13:13:34Z svollbehr $
  */
@@ -141,18 +141,18 @@ abstract class Zend_Media_Mpeg_Object
             $limit = strlen($buffer);
             $pos = 0;
             while ($pos < $limit - 3) {
-                if (ord($buffer{$pos++}) == 0) {
+                if (ord($buffer[$pos++]) == 0) {
                     list(, $int) = unpack('n*', substr($buffer, $pos, 2));
                     if ($int == 1) {
                         if (($pos += 2) < $limit - 2) {
                             list(, $int) =
                                 unpack('n*', substr($buffer, $pos, 2));
-                            if ($int == 0 && ord($buffer{$pos + 2}) == 1) {
+                            if ($int == 0 && ord($buffer[$pos + 2]) == 1) {
                                 continue;
                             }
                         }
                         $this->_reader->setOffset($start + $pos - 3);
-                        return ord($buffer{$pos++}) & 0xff | 0x100;
+                        return ord($buffer[$pos++]) & 0xff | 0x100;
                     }
                 }
             }
@@ -191,15 +191,15 @@ abstract class Zend_Media_Mpeg_Object
             $pos = 512 - 8;
             while ($pos  > 3) {
                 list(, $int) = unpack('n*', substr($buffer, $pos + 1, 2));
-                if (ord($buffer{$pos}) == 0 && $int == 1) {
+                if (ord($buffer[$pos]) == 0 && $int == 1) {
                     list(, $int) = unpack('n*', substr($buffer, $pos + 3, 2));
                     if ($pos + 2 < 512 && $int == 0 &&
-                            ord($buffer{$pos + 5}) == 1) {
+                            ord($buffer[$pos + 5]) == 1) {
                         $pos--;
                         continue;
                     }
                     $this->_reader->setOffset($position + $pos);
-                    return ord($buffer{$pos + 3}) & 0xff | 0x100;
+                    return ord($buffer[$pos + 3]) & 0xff | 0x100;
                 }
                 $pos--;
             }
