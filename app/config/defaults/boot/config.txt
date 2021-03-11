@@ -88,6 +88,13 @@ dtparam=krnbt=on
 lcd_rotate=0
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
+# next 2 lines hardware graphics accelerators
+#dtoverlay=vc4-kms-v3d
+#dtoverlay=vc4-kms-v3d-pi4
+# next 3 lines for XPT2046 or ADS7846 tft touchscreens
+#dtparam=i2c_arm=on
+#dtparam=spi=on
+#dtoverlay=ads7846,penirq=25,speed=10000,penirq_pull=2,xohms=150
 
 # Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1
@@ -129,8 +136,17 @@ lcd_rotate=0
 # setting the max usb current to 1200mA
 max_usb_current=1
 
-# memory options
+# memory options, see:https://www.raspberrypi.org/documentation/configuration/config-txt/memory.md
+# default, it can be overridden by subsequent conditional entries, the last entry set is used
+gpu_mem=64
+[pi1]
+# Conditional for Model A, Model B, Compute Module
 gpu_mem=16
+[pi0]
+# Conditional for Zero, Zero W, Zero WH
+gpu_mem=16
+[all]
+# Conditional end
 
 ## Some overclocking settings, in RuneAudio  the governor is set to Turbo as default (see below)
 ## The values below are valid for the B+ model
