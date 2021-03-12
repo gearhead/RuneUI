@@ -72,7 +72,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             sendMpdCommand($mpd, $_GET['cmd']);
             // debug
             // runelog('--- [command/index.php] --- CLOSE MPD SOCKET <<< (1) ---','');
-            if (!$response) $response = readMpdResponse($mpd);
+            if (!isset($response) || !$response) $response = readMpdResponse($mpd);
             if (strpos(' '.$_GET['cmd'], 'setvol')) {
                 // volume has been set via the UI, save the resulting volume in redis
                 // request the MPD status
