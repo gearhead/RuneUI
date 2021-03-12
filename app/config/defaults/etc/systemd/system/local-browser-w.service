@@ -1,0 +1,25 @@
+[Unit]
+Description=Weston Local Browser Kiosk mode
+After=network.target
+
+[Service]
+Type=simple
+RuntimeDirectory=weston
+RuntimeDirectoryMode=0700
+WorkingDirectory=/srv/http
+Environment="HOME=/srv/http"
+Environment="XDG_RUNTIME_DIR=/run/weston"
+Environment="WAYLAND_DISPLAY=wayland-0"
+Environment="DISPLAY=:1"
+# next line needs to be changed to point to proper tty
+ExecStart=/usr/bin/weston --tty=0
+ExecStartPost=/usr/bin/sleep 2s ; /usr/bin/luakit
+ExecStop=/usr/bin/pkill -15 weston
+IgnoreSIGPIPE=no
+#Restart=always
+#RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
