@@ -1,2 +1,0 @@
-ACTION=="add", SUBSYSTEM=="bluetooth", RUN+="/srv/http/command/bt-info.php start"
-ACTION=="remove", SUBSYSTEM=="bluetooth", RUN+="/srv/http/command/bt-info.php stop"
