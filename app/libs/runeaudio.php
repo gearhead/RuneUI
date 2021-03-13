@@ -5257,8 +5257,6 @@ function ui_status($mpd, $status)
         } else {
             $status['currentalbum'] = '';
         }
-    } else {
-        return false;
     }
     if (isset($curTrack[0]['file']) && $curTrack[0]['file']) {
         $status['file'] = $curTrack[0]['file'];
@@ -5266,6 +5264,30 @@ function ui_status($mpd, $status)
     }
     if (isset($curTrack[0]['Name']) && $curTrack[0]['Name']) {
         $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1, 'UTF-8');
+    }
+    if (!isset($status['currentalbumartist'])) {
+        $status['currentalbumartist'] = '';
+    }
+    if (!isset($status['currentartist'])) {
+        $status['currentartist'] = '';
+    }
+    if (!isset($status['currentsong'])) {
+        $status['currentsong'] = '';
+    }
+    if (!isset($status['currentalbum'])) {
+        $status['currentalbum'] = '';
+    }
+    if (!isset($status['currentcomposer'])) {
+        $status['currentcomposer'] = '';
+    }
+    if (!isset($status['file'])) {
+        $status['file'] = '';
+    }
+    if (!isset($status['fileext'])) {
+        $status['fileext'] = '';
+    }
+    if (!isset($status['radioname'])) {
+        $status['radioname'] = '';
     }
     return $status;
 }

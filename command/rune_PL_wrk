@@ -58,11 +58,6 @@ while (1) {
     } else {
         $bigartIsAlbum = false;
     }
-    if ($redis->get('debug')) {
-        $debugTrue = true;
-    } else {
-        $debugTrue = false;
-    }
     $activePlayer = $redis->get('activePlayer');
     $proxy = $redis->hGetall('proxy');
     $lastfm_apikey = $redis->get('lastfm_apikey');
@@ -106,7 +101,7 @@ while (1) {
                 $status = array();
             }
             // store next songid
-            if (!isset($status['nextsongid'])) {
+            if (!isset($status['nextsongid']) || !$status['nextsongid']) {
                 $status['nextsongid'] = 0;
             }
             $redis->set('nextsongid', $status['nextsongid']);
@@ -153,7 +148,7 @@ while (1) {
                 // $status['currentsong'] = '';
                 // $status = array_merge($newStatus, $monArray);
                 // store next songid
-                if (!isset($newStatus['nextsongid'])) {
+                if (!isset($newStatus['nextsongid']) || !$newStatus['nextsongid']) {
                     $newStatus['nextsongid'] = 0;
                 }
                 $redis->set('nextsongid', $newStatus['nextsongid']);
@@ -316,7 +311,7 @@ while (1) {
                 $redis->set('act_player_info', json_encode($status));
 
                 // Global Random
-                if ($redis->hGet('globalrandom', 'enable') && ($status['state'] === 'stop') && ($redis->get('lock_globalrandom') === '1')) {
+                if ($redis->hGet('globalrandom', 'enable') && isset($status['state']) && ($status['state'] === 'stop') && ($redis->get('lock_globalrandom') === '1')) {
                     // MPD now stopped, the last track was the last in the queue, ashuffle will start a new track in this status
                     // to avoid displaying the first track in the queue force a UI update and skip the UI render step
                     ui_update($redis, $socket, 0);
@@ -328,7 +323,7 @@ while (1) {
                     runelog('rune_PL_wrk: ui_render() response', json_encode($status));
                     ui_render('playback', json_encode($status));
                 }
-                If ($redis->hGet('globalrandom', 'enable') && ($status['state'] === 'play') && ($redis->get('nextsongid') === '')) {
+                If ($redis->hGet('globalrandom', 'enable') && (!isset($status['state']) || ($status['state'] === 'play')) && ($status['nextsongid'] === 0)) {
                     // now playing the last track in the queue
                     $redis->set('lock_globalrandom', 1);
                 } else {
