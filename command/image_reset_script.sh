@@ -333,6 +333,9 @@ if [ "$1" == "full" ]; then
     # pacman -Scc --noconfirm
     # rank mirrors and refresh repo's
     /srv/http/command/rank_mirrors.sh
+    # remove composer saved files and composer.phar
+    rm /srv/http/app/libs/composer.phar
+    rm /srv/http/app/libs/*.save
 fi
 #
 # reset systemd services so that any cached files are replaced by the latest ones
