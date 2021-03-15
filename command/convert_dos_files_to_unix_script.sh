@@ -69,9 +69,12 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     # all files in /srv/http/app/templates
     cd /srv/http/app/templates
     dos2unix -k -s -o *
-    # all files in /srv/http/app/libs
+    # all files in /srv/http/app/libs except the composer files
+    mkdir /tmp/composer
+    cp /srv/http/app/libs/composer.* /tmp/composer
     cd /srv/http/app/libs
     dos2unix -k -s -o *
+    cp /tmp/composer/* /srv/http/app/libs
     # all files in /srv/http/command
     cd /srv/http/command
     dos2unix -k -s -o *
@@ -101,6 +104,9 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     do
         if [ -d "$f" ] ; then
             continue # its a directory not a file
+        fi
+        if [[ $string == *"composer"* ]] ; then
+            continue #skip composer files
         fi
         numltabs=$(grep -Pc "^\t" "$f")
         numlspacetabs=$(grep -Pc "^ *.\t" "$f")

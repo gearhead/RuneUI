@@ -9,3 +9,4 @@ node_modules
 /amixer/__pycache__/
 tmp/
 /app/libs/composer.phar
+*.save
