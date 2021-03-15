@@ -6,7 +6,5 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'React\\Promise' => array($vendorDir . '/react/promise/src'),
-    'Guzzle\\Parser' => array($vendorDir . '/guzzle/parser'),
     'Evenement' => array($vendorDir . '/evenement/evenement/src'),
 );
