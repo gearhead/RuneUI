@@ -285,8 +285,9 @@ cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # make appropriate links
-ln -s /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
-ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf
+ln -sf /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
+ln -sf /etc/samba/smb-prod.conf /etc/samba/smb.conf
+ln -sf /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
@@ -333,6 +334,9 @@ if [ "$1" == "full" ]; then
     # pacman -Scc --noconfirm
     # rank mirrors and refresh repo's
     /srv/http/command/rank_mirrors.sh
+    # remove composer saved files and composer.phar
+    rm /srv/http/app/libs/composer.phar
+    rm /srv/http/app/libs/*.save
 fi
 #
 # reset systemd services so that any cached files are replaced by the latest ones

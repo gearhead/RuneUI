@@ -8,3 +8,5 @@ node_modules
 /.xbindkeysrc
 /amixer/__pycache__/
 tmp/
+/app/libs/composer.phar
+*.save
