@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 # Copyright 2018 Collabora, Ltd.
 # Copyright 2018 General Electric Company
