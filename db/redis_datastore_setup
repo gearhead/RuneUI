@@ -68,7 +68,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hSet('mpdconf', 'version', '0.21.25');
+            $redis->hSet('mpdconf', 'version', '0.22.3');
             $redis->hSet('mpdconf', 'webstreaming', 0);
             $redis->hSet('mpdconf', 'brutefir', 0);
             $redis->hSet('mpdconf', 'snapcast', 0);
@@ -102,7 +102,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'curl') || $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hExists('mpdconf', 'ffmpeg') || $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hExists('mpdconf', 'log_file') || $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hExists('mpdconf', 'version') || $redis->hSet('mpdconf', 'version', '0.21.25');
+            $redis->hExists('mpdconf', 'version') || $redis->hSet('mpdconf', 'version', '0.22.3');
             $redis->hExists('mpdconf', 'webstreaming') || $redis->hSet('mpdconf', 'webstreaming', 0);
             $redis->hExists('mpdconf', 'brutefir') || $redis->hSet('mpdconf', 'brutefir', 0);
             $redis->hExists('mpdconf', 'snapcast') || $redis->hSet('mpdconf', 'snapcast', 0);
