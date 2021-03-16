@@ -34,17 +34,25 @@
 # To use this script, one needs to edit weston.ini, in section [libinput], add:
 #   calibration_helper=/srv/http/command/weston-calibrate.sh
 
-#RUNE: to run this script start weston.service *and* then set the 
-#environment variables:
+#RUNE: 
+# first uncomment the 2 lines in the .config/weston.ini file
+#touchscreen_calibrator=true
+#calibration_helper=/srv/http/command/weston-calibrate.sh
+# 
+#Then start weston_c.service *and* then from an SSH session, 
+# set the environment variables:
 # export WAYLAND_DISPLAY=wayland-0
 # export XDG_RUNTIME_DIR=/run/weston
 # then run the calibrator to get the input devices:
+# 
 # weston-touch-calibrator -v
 # Available touch devices:
 # device "/sys/devices/platform/soc/3f204000.spi/spi_master/spi0/spi0.1/stmpe-ts/input/input1/event1" - head "fbdev"
-# then copy the device name and run the calibrator again:
+#
+# then copy the device name given and run the calibrator again:
 # i.e: weston-touch-calibrator -v "/sys/devices/platform/soc/3f204000.spi/spi_master/spi0/spi0.1/stmpe-ts/input/input1/event1"
 # the script will then create a udev calibration which will be available at next boot. If needed, you can reload the rules as shown 
+# once calibrated, you can comment back the lines in the weston.ini file. 
 
 # exit immediately if any command fails
 set -e
@@ -52,7 +60,7 @@ set -e
 # The arguments Weston gives us:
 SYSPATH="$1"
 MATRIX="$2 $3 $4 $5 $6 $7"
-LOCATION="/etc/udev/rules.d/90-touchscreen.rules"
+RULE="/etc/udev/rules.d/90-touchscreen.rules"
 
 # Pick something to recognize the right touch device with.
 # Usually one would use something like a serial.
@@ -63,7 +71,7 @@ SERIAL=$(udevadm info "$SYSPATH" --query=property | \
 [ -z "$SERIAL" ] && exit 1
 
 # You'd have this write a file instead.
-echo "ACTION==\"add|change\",SUBSYSTEM==\"input\",ENV{ID_SERIAL}==\"$SERIAL\",ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\"" > "$LOCATION"
+echo "ACTION==\"add|change\",SUBSYSTEM==\"input\",ENV{ID_INPUT}==\"$SERIAL\",ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\"" > "$RULE"
 # Then you'd tell udev to reload the rules:
 #udevadm control --reload
 # This lets Weston get the new calibration if you unplug and replug the input
