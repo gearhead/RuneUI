@@ -27,5 +27,5 @@ sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 # sudo -u http midori -p -e Fullscreen -a http://localhost --display=:0
 # midori -p -e Fullscreen http://localhost
 # use chromium instead because it scales whereas Midori no longer does
-# the chomium config file for the user http is: /srv/http/.config/chromium-flags.conf it's contents are additional to the command line below
-sudo -u http /usr/bin/chromium http://localhost/ --force-device-scale-factor=1
+# the chromium configuration/parameter file for the user http is: /srv/http/.config/chromium-flags.conf
+sudo -u http /usr/bin/chromium http://localhost/
