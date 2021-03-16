@@ -1629,8 +1629,8 @@ function wrk_xorgconfig($redis, $action, $args)
             // remove the next lines after the next image is produced
             // modify the zoom factor in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';
-            // replace the line with '/usr/bin/chromium' (the slashes in the search string need to be escaped, so '/' is '\/')
-            sysCmd('sed -i "/\/usr\/bin\/chromium/c\sudo -u http /usr/bin/chromium http://localhost/" "'.$filePathName.'"');
+            // replace the line with '/usr/bin/chromium' without a zoom factor parameter
+            sysCmd('sed -i "\|/usr/bin/chromium|c\sudo -u http /usr/bin/chromium http://localhost/" "'.$filePathName.'"');
             // remove up to here
             // modify the zoom factor for the chromium browser in /srv/http/.config/chromium-flags.conf
             // chromium scale factor is a decimal 1 = 100% ( we store it as a decimal)
@@ -1639,7 +1639,7 @@ function wrk_xorgconfig($redis, $action, $args)
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
                 sysCmd('mkdir "'.$filePath.'"; chown http.http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defults/srv/http/.config/chromium-flags.conf" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic force-device-scale-factor "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -1656,7 +1656,7 @@ function wrk_xorgconfig($redis, $action, $args)
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
                 sysCmd('mkdir "'.$filePath.'"; chown http.http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defults/srv/http/.config/luakit/userconf.lua" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic settings.webview.zoom_level "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -1676,13 +1676,9 @@ function wrk_xorgconfig($redis, $action, $args)
                 $usecursorno = '-use_cursor no ';
             }
             // modify the mouse on/off setting in /etc/X11/xinit/xinitrc
-            $file = '/etc/X11/xinit/xinitrc';
+            $filePathName = '/etc/X11/xinit/xinitrc';
             // replace the line with 'matchbox-window-manager'
-            $newArray = wrk_replaceTextLine($file, '', 'matchbox-window-manager', 'matchbox-window-manager -use_titlebar no '.$usecursorno.'&');
-            // Commit changes to /etc/X11/xinit/xinitrc
-            $fp = fopen($file, 'w');
-            $return = fwrite($fp, implode("", $newArray));
-            fclose($fp);
+            sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
             break;
     }
 }
