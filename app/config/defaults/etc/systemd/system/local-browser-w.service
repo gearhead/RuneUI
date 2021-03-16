@@ -5,7 +5,7 @@ Wants=weston.service
 
 [Service]
 Type=simple
-#User=http
+User=http
 Group=http
 WorkingDirectory=/srv/http
 Environment="HOME=/srv/http"
