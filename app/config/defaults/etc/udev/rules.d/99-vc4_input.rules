@@ -1,0 +1,4 @@
+ # this disables the vc4 pointer which interferes with touch screen 
+ # operation on fbdev. May or may not be needed for hdmi use
+ KERNEL=="input*",ATTRS{name}=="vc4",ENV{LIBINPUT_IGNORE_DEVICE}="1"
+ KERNEL=="event0",ENV{LIBINPUT_IGNORE_DEVICE}="1"
