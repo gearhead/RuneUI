@@ -64,14 +64,17 @@ RULE="/etc/udev/rules.d/90-touchscreen.rules"
 
 # Pick something to recognize the right touch device with.
 # Usually one would use something like a serial.
-SERIAL=$(udevadm info "$SYSPATH" --query=property | \
-	awk -- 'BEGIN { FS="=" } { if ($1 == "ID_INPUT") { print $2; exit } }')
-
+#SERIAL=$(udevadm info "$SYSPATH" --query=property | \
+#	awk -- 'BEGIN { FS="=" } { if ($1 == "ID_INPUT") { print $2; exit } }')
+DEVICE=$(udevadm info --attribute-walk "$SYSPATH" | grep 'name' | tr -d '[:space:]')
+IS_INPUT=$(udevadm info --attribute-walk "$SYSPATH" | grep 'input')
 # If cannot find a serial, tell the server to not use the new calibration.
-[ -z "$SERIAL" ] && exit 1
+#[ -z "$SERIAL" ] && exit 1
+[ -z "$IS_INPUT" ] && exit 1
 
 # You'd have this write a file instead.
-echo "ACTION==\"add|change\",SUBSYSTEM==\"input\",ENV{ID_INPUT}==\"$SERIAL\",ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\"" > "$RULE"
+#echo "ACTION==\"add|change\",SUBSYSTEM==\"input\",ENV{ID_INPUT}==\"$SERIAL\",ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\"" > "$RULE"
+echo "ACTION!=\"remove\",KERNEL==\"event[0-9]*\",SUBSYSTEM==\"input\",$DEVICE,ENV{LIBINPUT_CALIBRATION_MATRIX}=\"$MATRIX\"" > "$RULE"
 # Then you'd tell udev to reload the rules:
 #udevadm control --reload
 # This lets Weston get the new calibration if you unplug and replug the input
