@@ -1529,6 +1529,13 @@ while (1) {
                     }
                     $redis->sRem('w_lock', $jobID);
                     break;
+                case 'kill_weston':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+                    sysCmd('pkill -15 weston');
+                    // ui_notify('Kill weston', '');
+                    $redis->sRem('w_lock', $jobID);
+                    break;
             } // end switch
             // delete processed job from the w_queue
             $redis->hDel('w_queue', $jobID);
