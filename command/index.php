@@ -69,36 +69,35 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
         $response = ui_update($redis, $socket, $_GET['clientUUID']);
     } else {
         if ($activePlayer === 'MPD') {
-            sendMpdCommand($mpd, $_GET['cmd']);
+            $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);
             // debug
             // runelog('--- [command/index.php] --- CLOSE MPD SOCKET <<< (1) ---','');
             if (!isset($response) || !$response) $response = readMpdResponse($mpd);
-            if (strpos(' '.$_GET['cmd'], 'setvol')) {
-                // volume has been set via the UI, save the resulting volume in redis
-                // request the MPD status
-                sendMpdCommand($mpd, 'status');
-                // get the response from MPD as an array of response lines
-                $statusLines = explode("\n", readMpdResponse($mpd));
-                // walk through the array to find the element containing the volume
-                foreach ($statusLines as $status) {
-                    // clean up the status line, replace whitespace with singe space and trim
-                    $status = trim(preg_replace('!\s+!', ' ', $status));
-                    if (strpos(' '.$status, 'volume:')) {
-                        // found the volume, extract it from the line
-                        $volume = explode(':', $status);
-                        if (isset($volume[1]) && trim($volume[1])) {
-                            // the volume level has a value, make it an integer
-                            $volume = trim(preg_replace('/[^0-9]/', '', $volume[1]));
-                            if ($volume && ($volume >= 0) && ($volume <= 100)) {
-                                // set the redis variable
-                                $redis->set('lastmpdvolume', $volume);
-                            }
-                        }
-                        // exit the loop after the volume has been found
-                        break;
+            if (strpos(' '.$_GET['cmd'], 'setvol') && $mpdSendResponse && strpos(' '.$response, 'OK')) {
+                // 'setvol <999>' is the command, the command was successfully sent and the response was OK, save the value
+                // remove all non-numeric values from the command
+                $volume = trim(preg_replace('/[^0-9]/', '', $_GET['cmd']));
+                $sign = substr(trim(preg_replace('/[^+-]/', '', $_GET['cmd'])), 0, 1);
+                if ($volume && ($volume >= 0) && ($volume <= 100)) {
+                    // $volume is set and it has a value between 0 and 100 inclusive, thus valid
+                    if (!$sign) {
+                        // no sign set, just set the volume
+                        $redis->set('lastmpdvolume', $volume);
+                    } else if ($sign === '+') {
+                        // delta volume set increase the saved volume with the value
+                        // currently not used in Runeaudio
+                        $lastvolume = $redis->get('lastmpdvolume');
+                        $volume = $lastvolume + $volume;
+                        $redis->set('lastmpdvolume', $volume);
+                    } else if ($sign === '-') {
+                        // delta volume set decrease the saved volume with the value
+                        // currently not used in Runeaudio
+                        $lastvolume = $redis->get('lastmpdvolume');
+                        $volume = $lastvolume - $volume;
+                        $redis->set('lastmpdvolume', $volume);
                     }
                 }
-                unset($statusLines, $status, $volume);
+                unset($mpdSendResponse, $volume, $sign);
             }
         } else if ($activePlayer === 'Spotify') {
             // MPD -> SPOP command conversion

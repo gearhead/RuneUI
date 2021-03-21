@@ -35,7 +35,7 @@
 // common include
 require_once('/srv/http/app/config/config.php');
 // ini_set('display_errors',1);
-// error_reporting('E_ALL');
+// error_reporting(E_ALL);
 function redisDatastore($redis,$action) {
     switch ($action) {
         case 'mpdreset':
@@ -433,7 +433,6 @@ function redisDatastore($redis,$action) {
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/getid3.lib.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.flac.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.lyrics3.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/react/promise/src/React/Promise/functions.php');
             // RuneAudio Commands
             $transaction->sAdd('php_opcache_prime', '/srv/http/command/debug_collector');
             $transaction->sAdd('php_opcache_prime', '/srv/http/command/info.php');

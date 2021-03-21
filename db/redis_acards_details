@@ -35,7 +35,7 @@
 // common include
 require_once('/srv/http/app/config/config.php');
 // ini_set('display_errors',1);
-// error_reporting('E_ALL');
+// error_reporting(E_ALL);
 // acards_details database
 $redis->Del('acards_details');
 $redis->hSet('acards_details', 'AML-M8AUDIO', '{"sysname":"AML-M8AUDIO","extlabel":"ODROID HDMI","card_option":"buffer_time\t\"0\"","mixer_numid":"1","hwplatformid":"09","type":"integrated"}');

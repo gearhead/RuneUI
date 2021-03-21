@@ -973,9 +973,6 @@ function _parseFileListResponse($resp)
                 $plistArray[$plCounter]['fileext'] = parseFileStr($value, '.');
             } elseif ($element === 'directory') {
                 $plCounter++;
-                // record directory index for further processing
-                $dirCounter++;
-                // $plistFile = $value;
                 $plistArray[$plCounter]['directory'] = $value;
             } elseif ($browseMode) {
                 if ( $element === 'Album' ) {

@@ -37,7 +37,7 @@
 // common include
 require_once('/srv/http/app/config/config.php');
 // ini_set('display_errors',1);
-// error_reporting('E_ALL');
+// error_reporting(E_ALL);
 $errorMessages = array(
     0 => 'There is no error, the file uploaded with success.',
     1 => 'The uploaded file exceeds the upload_max_filesize directive in php.ini.',

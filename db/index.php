@@ -41,7 +41,7 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
 //require_once($_SERVER['HOME'].'/app/config/config.php');
 //require_once('/var/www/app/config/config.php');
 ini_set('display_errors', -1);
-error_reporting('E_ALL');
+error_reporting(E_ALL);
 // check current player backend
 $activePlayer = $redis->get('activePlayer');
 if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
