@@ -1,5 +1,5 @@
 [Unit]
-Description=launch Local Browser Kiosk mode
+Description=launch Local Browser Kiosk Weston
 After=network.target weston.service
 Wants=weston.service
 
@@ -13,7 +13,6 @@ Environment="XDG_RUNTIME_DIR=/run/weston"
 Environment="WAYLAND_DISPLAY=wayland-0"
 Environment="XDG_SESSION_TYPE=wayland"
 Environment="GDK_BACKEND=wayland"
-#ExecStart=/usr/bin/luakit --config=/srv/http/.config/luakit/userconf.lua
 ExecStart=/usr/bin/luakit
 ExecStop=/usr/bin/pkill -15 luakit
 ExecStopPost=/usr/bin/pkill -15 weston
@@ -21,4 +20,3 @@ TimeoutSec=infinity
 
 [Install]
 WantedBy=multi-user.target
-
