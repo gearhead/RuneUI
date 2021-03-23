@@ -169,6 +169,9 @@ rm -rf "$dirName"
 rm /etc/systemd/system/macfix_*.service
 rm /etc/systemd/system/multi-user.target.wants/macfix_*.service
 #
+# remove a problem looping symlink in the vendor files if it exists (created erroneously in a previous version)
+rm /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/getid3
+#
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
 ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
