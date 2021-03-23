@@ -120,7 +120,7 @@ rmdir /mnt/MPD/USB/*
 # delete the file/link at /etc/resolv.conf
 rm -f /etc/resolv.conf
 # link it to connman's dynamically created resolv.conf
-ln -s /run/connman/resolv.conf /etc/resolv.conf
+ln -sfT /run/connman/resolv.conf /etc/resolv.conf
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons cronie
@@ -171,7 +171,7 @@ rm /etc/systemd/system/multi-user.target.wants/macfix_*.service
 #
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
-ln -sf /dev/null /etc/udev/rules.d/80-net-setup-link.rules
+ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # update local git and clean up any stashes
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
@@ -285,9 +285,9 @@ cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # make appropriate links
-ln -sf /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
-ln -sf /etc/samba/smb-prod.conf /etc/samba/smb.conf
-ln -sf /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
+ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
+ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
+ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
