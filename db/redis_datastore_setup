@@ -285,7 +285,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('spotify', 'clientid', 'c236e0f5a84e48a3a7f6c730f684f255');
             $redis->hSet('jamendo', 'clientid', '5f3ed86c');
             $redis->hSet('jamendo', 'secret', '1afcdcb13eb5ce8f6e534ac4566a3ab9');
-            $redis->hSet('TimezoneAPI', 'apikey', 'aihkKxaZJzrYUGvyWmnK');
+            $redis->hSet('TimezoneAPI', 'apikey', '');
             $redis->hSet('dirble', 'apikey', '134aabbce2878ce0dbfdb23fb3b46265eded085b');
             $redis->hSet('dirble', 'baseurl', 'http://api.dirble.com/v1/');
             $redis->hSet('discogs', 'token', 'KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI');
@@ -627,7 +627,7 @@ function redisDatastore($redis,$action) {
             // plugins api-keys
             $redis->exists('lastfm_apikey') || $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hExists('lastfm', 'apikey') || $redis->hSet('lastfm', 'apikey', 'ba8ad00468a50732a3860832eaed0882');
-            $redis->hExists('TimezoneAPI', 'apikey') || $redis->hSet('TimezoneAPI', 'apikey', 'aihkKxaZJzrYUGvyWmnK');
+            $redis->hExists('TimezoneAPI', 'apikey') || $redis->hSet('TimezoneAPI', 'apikey', '');
             $redis->hExists('jamendo', 'clientid') || $redis->hSet('jamendo', 'clientid', '5f3ed86c');
             $redis->hExists('jamendo', 'secret') || $redis->hSet('jamendo', 'secret', '1afcdcb13eb5ce8f6e534ac4566a3ab9');
             $redis->hExists('dirble', 'apikey') || $redis->hSet('dirble', 'apikey', '134aabbce2878ce0dbfdb23fb3b46265eded085b');
