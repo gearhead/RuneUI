@@ -1201,7 +1201,7 @@ while (1) {
                     ui_notify('Shutdown', 'system shutdown in progress...');
                     sysCmd('/var/www/command/rune_shutdown poweroff');
                     sleep(2);
-                    sysCmdAsync('poweroff');
+                    sysCmdAsync('shutdown now --poweroff --no-wall');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'reboot':
