@@ -31,57 +31,59 @@
                         <input id="accesspoint" name="settings[enable]" type="checkbox" value="1"<?php if((isset($this->enable)) && ($this->enable)): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">Toggle starting a wireless AccessPoint on start<br>
-                        <i>Note: The Access Point will start only when a normal Wi-Fi network cannot be connected</i></span>
+                    <span class="help-block">Toggle starting a wireless AccessPoint on startup.<br>
+                        <i>Note: The Access Point will start only when a normal Wi-Fi network cannot be connected.<br>
+                        The Access Point is designed for setting up the RuneAudio Wi-Fi network configuration when no wired connection is available.<br>
+                        If you do not intend to use it, you should <strong>switch it off</strong> or <strong>change the passphrase</strong> (password)</i></span>
                 </div>
                 <div class="<?php if(!$this->enable): ?>hide<?php endif ?>" id="accesspointSettings">
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[ssid]">SSID</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="ssid" name="settings[ssid]" <?php if (isset($this->accesspoint['ssid'])): ?>value="<?=$this->accesspoint['ssid'] ?>" placeholder="Your SSID" data-parsley-trigger="change"<?php else: ?>value="RuneAudioAP" placeholder="Your SSID" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the SSID.</span>
+                            <span class="help-block">Set the SSID</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[passphrase]">Passphrase</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="passphrase" name="settings[passphrase]" <?php if (isset($this->accesspoint['passphrase'])): ?>value="<?=$this->accesspoint['passphrase'] ?>" placeholder="Passphrase" data-parsley-trigger="change"<?php else: ?>value="RuneAudio" placeholder="Passphrase" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the Passphrase.</span>
+                            <span class="help-block">Set the Passphrase (password)</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[ip-address]">IP Address</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ip-address" name="settings[ip-address]" <?php if (isset($this->accesspoint['ip-address'])): ?>value="<?=$this->accesspoint['ip-address'] ?>" placeholder="192.168.0.1" data-parsley-trigger="change"<?php else: ?>value="192.168.1.1" placeholder="192.168.0.1" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the IP-Address.</span>
+                            <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ip-address" name="settings[ip-address]" <?php if (isset($this->accesspoint['ip-address'])): ?>value="<?=$this->accesspoint['ip-address'] ?>" placeholder="192.168.5.1" data-parsley-trigger="change"<?php else: ?>value="192.168.5.1" placeholder="192.168.5.1" data-parsley-trigger="change"<?php endif; ?> required />
+                            <span class="help-block">Set the IP-Address</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[broadcast]">Broadcast</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="broadcast" name="settings[broadcast]" <?php if (isset($this->accesspoint['broadcast'])): ?>value="<?=$this->accesspoint['broadcast'] ?>" placeholder="192.168.0.255" data-parsley-trigger="change"<?php else: ?>value="192.168.1.255" placeholder="192.168.0.255" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the Broadcast Address.</span>
+                            <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="broadcast" name="settings[broadcast]" <?php if (isset($this->accesspoint['broadcast'])): ?>value="<?=$this->accesspoint['broadcast'] ?>" placeholder="192.168.5.255" data-parsley-trigger="change"<?php else: ?>value="192.168.5.255" placeholder="192.168.5.255" data-parsley-trigger="change"<?php endif; ?> required />
+                            <span class="help-block">Set the Broadcast Address</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[dhcp-range]">DHCP range</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-range" name="settings[dhcp-range]" <?php if (isset($this->accesspoint['dhcp-range'])): ?>value="<?=$this->accesspoint['dhcp-range'] ?>" placeholder="192.168.1.2,192.168.1.254,24h" data-parsley-trigger="change"<?php else: ?>value="192.168.1.2,192.168.1.254,24h" placeholder="192.168.1.2,192.168.1.254,24h" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the DHCP range.</span>
+                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-range" name="settings[dhcp-range]" <?php if (isset($this->accesspoint['dhcp-range'])): ?>value="<?=$this->accesspoint['dhcp-range'] ?>" placeholder="192.168.5.2,192.168.5.254,24h" data-parsley-trigger="change"<?php else: ?>value="192.168.5.2,192.168.5.254,24h" placeholder="192.168.5.2,192.168.5.254,24h" data-parsley-trigger="change"<?php endif; ?> required />
+                            <span class="help-block">Set the DHCP range</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[dhc-option-dns]">DNS server</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-option-dns" name="settings[dhcp-option-dns]" <?php if (isset($this->accesspoint['dhcp-option-dns'])): ?>value="<?=$this->accesspoint['dhcp-option-dns'] ?>" placeholder="192.168.1.1" data-parsley-trigger="change"<?php else: ?>value="192.168.1.1" placeholder="192.168.1.1" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the DHCP option DNS server.</span>
+                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-option-dns" name="settings[dhcp-option-dns]" <?php if (isset($this->accesspoint['dhcp-option-dns'])): ?>value="<?=$this->accesspoint['dhcp-option-dns'] ?>" placeholder="192.168.5.1" data-parsley-trigger="change"<?php else: ?>value="192.168.5.1" placeholder="192.168.5.1" data-parsley-trigger="change"<?php endif; ?> required />
+                            <span class="help-block">Set the DHCP option DNS server</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="settings[dhc-option-router]">DNS router</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-option-router" name="settings[dhcp-option-router]" <?php if (isset($this->accesspoint['dhcp-option-router'])): ?>value="<?=$this->accesspoint['dhcp-option-router'] ?>" placeholder="192.168.1.1" data-parsley-trigger="change"<?php else: ?>value="192.168.1.1" placeholder="192.168.1.1" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the DHCP option DNS router.</span>
+                            <input class="form-control osk-trigger input-lg" type="text" id="dhcp-option-router" name="settings[dhcp-option-router]" <?php if (isset($this->accesspoint['dhcp-option-router'])): ?>value="<?=$this->accesspoint['dhcp-option-router'] ?>" placeholder="192.168.5.1" data-parsley-trigger="change"<?php else: ?>value="192.168.5.1" placeholder="192.168.5.1" data-parsley-trigger="change"<?php endif; ?> required />
+                            <span class="help-block">Set the DHCP option DNS router</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -90,8 +92,10 @@
                             <label class="switch-light well" onclick="">
                                 <input id="enable-NAT" name="settings[enable-NAT]" type="checkbox" value="1"<?php if($this->accesspoint['enable-NAT']): ?> checked="checked" <?php endif ?>>
                                     <span><span>NO</span><span>YES</span></span><a class="btn btn-primary"></a>
-                                </label>
-                            <span class="help-block">If you like to share your ethernet connection over wifi set this to <strong>YES</strong>.</span>
+                            </label>
+                            <span class="help-block">If you like to share your ethernet connection over this Wi-Fi Access Point set this to <strong>YES</strong>.<br>
+                                <i>Note: If you switch this on, <strong>change the passphrase</strong> (password)!<br>
+                                This requires a wired network connection</i></span>
                         </div>
                     </div>
                 </div>
@@ -104,11 +108,12 @@
                     <div class="checkbox">
                         <br>
                         <label>
-                            <input class="sx" type="checkbox" name="settings[restart]" value="1"> Restart Accesspoint
+                            <input class="sx" type="checkbox" name="settings[restart]" value="1"> Restart Access Point after saving settings
                         </label>
                         <label>
-                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Save settings and reboot
+                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Reboot after saving settings
                         </label>
+                        <span class="help-block">A reboot is often required to activate the settings</span>
                     </div>
                 </div>
             </div>
@@ -128,7 +133,7 @@
                     <tr><th>DNS server:</th><td><?=$this->accesspoint['dhcp-option-dns'] ?></td></tr>
                     <tr><th>DNS router:</th><td><?=$this->accesspoint['dhcp-option-router'] ?></td></tr>
                     <tr><th>Enable-NAT:</th><td><?php if($this->accesspoint['enable-NAT']): ?>Yes<?php else: ?>No<?php endif; ?></td></tr>
-                    <tr><th>Wi-Fi is available:</th><td><?php if($this->wifiavailable): ?>Yes<?php else: ?>No<?php endif; ?></td></tr>
+                    <tr><th>Wi-Fi capable:</th><td><?php if($this->wifiavailable): ?>Yes<?php else: ?>No<?php endif; ?></td></tr>
                     <tr><th>Wi-Fi is AP capable:</th><td><?php if($this->wififeatureAP): ?>Yes<?php else: ?>No<?php endif; ?></td></tr>
                     <tr><th>AP has full function:</th><td><?php if($this->wififullfunction): ?>Yes<?php else: ?>No<?php endif; ?></td></tr>
                     <?php if ($this->accesspoint['ip-address'] === '192.168.5.1'):?>

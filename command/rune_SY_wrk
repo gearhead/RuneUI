@@ -1105,6 +1105,7 @@ while (1) {
                     //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
                     if (isset($job->args)) {
                         foreach ($job->args as $key => $value) {
+                            // convert the sudo-object to a normal array
                             $param[$key] = $value;
                         }
                         wrk_netconfig($redis, $job->action, '', $param);
@@ -1117,28 +1118,31 @@ while (1) {
                 case 'apcfg':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    // reset accesspoint configuration to default
+                    if (isset($job->args)) {
+                        foreach ($job->args as $key => $value) {
+                            // convert the sudo-object to a normal array
+                            $param[$key] = $value;
+                        }
+                    }
+                    // reset accesspoint configuration to default settings
                     if ($job->action === 'reset') {
-                        // Need to test the following
-                        $redis->Del('AccessPoint');
-                        sysCmd('/srv/http/db/redis_datastore_setup check');
+                        $retval = wrk_apconfig($redis, 'reset', $param);
                         //ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings', $jobID);
                         // noid ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings');
-                        ui_notify('AccessPoint', 'Configuration reset, a reboot is required to activate the settings');
+                        ui_notify('AccessPoint', 'Configuration reset');
                     }
-                    // write network configuration
+                    // write accesspoint configuration
                     if ($job->action === 'config') {
-                        // send notfy to UI
-                        $retval = wrk_apconfig($redis, 'writecfg', $job->args);
+                        $retval = wrk_apconfig($redis, 'writecfg', $param);
                         //ui_notify_async('AccessPoint', 'Configuration changed', $jobID);
                         // noid ui_notify_async('AccessPoint', 'Configuration changed');
                         ui_notify('AccessPoint', 'Configuration changed');
-                        // reboot if needed !!!
-                        if ($retval === 'reboot') {
-                            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
-                        }
-                        unset($retval);
                     }
+                    // check if reboot is needed !!!
+                    if ($retval === 'reboot') {
+                        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+                    }
+                    unset($key, $value, $param, $retval);
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'ntpserver':

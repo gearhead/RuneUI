@@ -1766,10 +1766,10 @@ function wrk_replaceTextLine($file, $inputArray, $strfind, $strrepl, $linelabel 
                 }
             }
         } else {
-          if (preg_match('/'.$strfind.'/', $line)) {
-            $line = $strrepl."\n";
-            runelog('replaceall $line', $line);
-          }
+            if (preg_match('/'.$strfind.'/', $line)) {
+                $line = $strrepl."\n";
+                runelog('replaceall $line', $line);
+            }
         }
       $newArray[] = $line;
     }
@@ -1926,8 +1926,8 @@ function net_CidrToNetmask($cidr) {
 
 function wrk_apconfig($redis, $action, $args = null)
 {
-    $return = array();
     runelog('wrk_apconfig args = ', $args);
+    $return = '';
     switch ($action) {
         case 'writecfg':
             if (isset($args['enable'])) {
@@ -1942,65 +1942,96 @@ function wrk_apconfig($redis, $action, $args = null)
             $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
             $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
             $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
-            if ($args['enable-NAT'] === '1') {
+            if (isset($args['enable-NAT'])) {
                 $redis->hSet('AccessPoint', 'enable-NAT', $args['enable-NAT']);
             } else {
                 $redis->hSet('AccessPoint', 'enable-NAT', 0);
             }
-            if ($args['reboot'] === '1') {
-                runelog('**** AP reboot requested ****', $args);
-                $return = 'reboot';
-            } elseif ($args['restart'] === '1') {
-                runelog('**** AP restart requested ****', $args);
-                // change AP name
-                $file = '/etc/hostapd/hostapd.conf';
-                $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args['ssid']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode("", $newArray));
-                fclose($fp);
-                // change passphrase
-                $file = '/etc/hostapd/hostapd.conf';
-                $newArray = wrk_replaceTextLine($file, '', 'wpa_passphrase=', 'wpa_passphrase='.$args['passphrase']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode("", $newArray));
-                fclose($fp);
-                sysCmd('systemctl start hostapd');
-                // change dhcp-range
-                $file = '/etc/dnsmasq.conf';
-                $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args['dhcp-range']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode("", $newArray));
-                fclose($fp);
-                // change dhcp-option
-                $file = '/etc/dnsmasq.conf';
-                $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args['dhcp-option-dns']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode("", $newArray));
-                fclose($fp);
-                $file = '/etc/dnsmasq.conf';
-                $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args['dhcp-option-router']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode("", $newArray));
-                fclose($fp);
-                sysCmd('ip addr flush dev wlan0');
-                sysCmd('ip addr add '.$args['ip-address'].'/24 broadcast '.$args['broadcast'].' dev wlan0');
-                sysCmd('systemctl reload-or-restart hostapd');
-                sysCmd('systemctl reload-or-restart dnsmasq');
-                if ($args['enable-NAT'] === '1') {
-                    sysCmd('iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
-                    sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-                    sysCmd('iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT');
-                    sysCmd('sysctl net.ipv4.ip_forward=1');
-                } else {
-                    sysCmd('sysctl net.ipv4.ip_forward=0');
-                }
-                $return = '';
-            }
-            sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioAP.png "WIFI:S:'.$args->ssid.';T:WPA2;P:'.$args->passphrase.';;"');
-            sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
+            $args = array_merge($args, $redis->hgetall('AccessPoint'));
             break;
         case 'reset':
+            $redis->Del('AccessPoint');
+            sysCmd('/srv/http/db/redis_datastore_setup check');
+            $args = array_merge($args, $redis->hgetall('AccessPoint'));
             break;
+    }
+    if ($args['enable']) {
+        if ($args['reboot']) {
+            runelog('**** AP reboot requested ****', $args);
+            $return = 'reboot';
+        } elseif ($args['restart']) {
+            $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
+            // $procCount has value 2 when both hostapd and dnsmasq are running, cannot restart if these are not running
+            if ($procCount === 2) {
+                runelog('**** AP restart requested ****', $args);
+                $file = '/etc/hostapd/hostapd.conf';
+                // change AP name
+                $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args['ssid']);
+                // change passphrase
+                $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$args['passphrase']);
+                $fp = fopen($file, 'w');
+                $return = fwrite($fp, implode('', $newArray));
+                fclose($fp);
+                $file = '/etc/dnsmasq.conf';
+                // change dhcp-range
+                $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args['dhcp-range']);
+                // change dhcp-option dns-server
+                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args['dhcp-option-dns']);
+                // change dhcp-option router
+                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args['dhcp-option-router']);
+                $fp = fopen($file, 'w');
+                $return = fwrite($fp, implode('', $newArray));
+                fclose($fp);
+                $dnsmasqLines = sysCmd('grep -i interface /etc/dnsmasq.conf');
+                foreach ($dnsmasqLines as $dnsmasqLine) {
+                    list($id, $value) = explode('=', $dnsmasqLine, 2);
+                    if ($id === 'interface') {
+                        $wlanNic = $value;
+                    }
+                    if ($id === 'no-dhcp-interface') {
+                        $ethNic = $value;
+                    }
+                }
+                if (isset($wlanNic)) {
+                    // flush the wlan nic then take it down and bring it up, this will turn the AP off
+                    sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
+                    sysCmd('systemctl restart hostapd');
+                    sysCmd('systemctl restart dnsmasq');
+                    // enable the AP by switching braodcast on
+                    sysCmd('ip addr add '.$args['ip-address'].'/24 broadcast '.$args['broadcast'].' dev '.$wlanNic);
+                    if (isset($ethNic)) {
+                        $ethNicConnected = sysCmd('ip address | grep -ic '.$ethNic)[0];
+                    } else {
+                        $ethNicConnected = false;
+                    }
+                    if (($args['enable-NAT'] === '1') && $ethNicConnected) {
+                        // enable NAT if enabled and there is a wired nic available
+                        sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
+                        sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
+                        sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
+                        sysCmd('sysctl net.ipv4.ip_forward=1');
+                    } else {
+                        sysCmd('sysctl net.ipv4.ip_forward=0');
+                    }
+                }
+            }
+        }
+        // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
+        //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
+        //  currently disabled, the UI will only display QR-codes for the default settings
+        // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
+        // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
+    } else {
+        // now disabled
+        $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
+        // $procCount has value 2 when both hostapd and dnsmasq are running and 1 when one is running
+        if ($procCount) {
+            // one of the processes is running, so turn it off
+            sysCmd('pgrep -x hostapd && systemctl stop hostapd');
+            sysCmd('pgrep -x dnsmasq && systemctl stop dnsmasq');
+            // flush the wlan nic then take it down and bring it up, this will turn the AP off
+            sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
+        }
     }
     return $return;
 }

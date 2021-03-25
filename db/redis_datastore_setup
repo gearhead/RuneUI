@@ -139,7 +139,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
             $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
             $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
-            $redis->hSet('AccessPoint', 'enable-NAT', 1);
+            $redis->hSet('AccessPoint', 'enable-NAT', 0);
             // Internet services
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
@@ -492,7 +492,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('AccessPoint', 'dhcp-range') || $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
             $redis->hExists('AccessPoint', 'dhcp-option-dns') || $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
             $redis->hExists('AccessPoint', 'dhcp-option-router') || $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
-            $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 1);
+            $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
             // Internet services
             $redis->hExists('service', 'internet') || $redis->hSet('service', 'internet', 0);
             $redis->hExists('service', 'webradio') || $redis->hSet('service', 'webradio', 0);

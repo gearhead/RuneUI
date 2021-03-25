@@ -131,8 +131,10 @@ if ($redis->hGet('AccessPoint', 'enable') && ((is_firstTime($redis, 'AP-start'))
         $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
         // change dhcp-option router
         $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
-        // change interface nic
-        $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic);
+        // change Wi-Fi nic
+        $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic, 'WIFI-Interface', 1);
+        // change ethernet nic
+        $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$ethNic, 'ethernet', 1);
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode('', $newArray));
         fclose($fp);
