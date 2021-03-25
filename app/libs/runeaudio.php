@@ -6858,80 +6858,32 @@ function wrk_check_MPD_outputs($redis)
 
 // function which cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata and local cached album art
 function wrk_clean_music_metadata($redis, $clearAll=null)
-// When $clearAll is set to a true value all cached information will be cleared
+// when $clearAll is set to a true value all cached information will be cleared
 {
-    //
-    // clean up the redis cache
-    //
     // initialise variables
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
-    // set up the redis variables to be cleaned
-    $hashes = array('radiostring', 'artist_song', 'artist_album', 'artist');
-    // set the delete before date to the date 30 days ago (in seconds)
-    $delDate = time() - (30 * 24 * 60 * 60);
-    // set maximum number of entries to 100
-    $maxEntries = 100;
-    // clear all content if $clearAll is set to 1, "1", "true", "on" and "yes" (true), anything else is false
-    if (isset($clearAll) && filter_var(strtolower($clearAll), FILTER_VALIDATE_BOOLEAN)) {
-        // walk through the redis hash names
-        foreach ($hashes as $hash) {
-            $redis->del($hash);
-        }
-        return;
+    // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
+    if ($clearAll) {
+        $fileToSave = 0;
+    } else {
+        $fileToSave = 10;
     }
-    // walk through the redis hash names
-    foreach ($hashes as $hash) {
-        // get a list of keys in the hash
-        $keys = $redis->hkeys($hash);
-        // get the number of keys in the hash
-        $cnt = $redis->hlen($hash);
-        if ($cnt >= $maxEntries) {
-            // too many keys, so sort the keys on date order
-            $date = array();
-            foreach ($keys as $key) {
-                $content = json_decode($redis->hGet($hash, $key), true);
-                if (isset($content['date']) && $content['date']) {
-                    $date[] = $content['date'];
-                } else {
-                    $date[] = 0;
-                }
-            }
-            array_multisort($date, $keys);
-            // reduce $maxEnrties by 10% so that 10% space is created
-            $maxEntries = intval($maxEntries - ($maxEntries/10));
-        }
-        foreach ($keys as $key) {
-            // the keys are in ascending order, just delete the first ones when there are too many
-            if ($cnt >= $maxEntries) {
-                $redis->hDel($hash, $key);
-            } else {
-                // and also delete entries older than the delete date
-                $content = json_decode($redis->hGet($hash, $key), true);
-                if (!isset($content['date']) || ($content['date'] <= $delDate)) {
-                    $redis->hDel($hash, $key);
-                } else if (isset($date[0])) {
-                    // sorted in ascending order, the rest are all newer, so terminate the loop
-                    break;
-                }
-            }
-            $cnt -= 1;
-        }
-    }
-    //
     // clean up the album art files
     //
-    // always remove files which over 3 months (90 days) old
-    // first touch the files which are always required, this resets the modification and access date to now
+    // files in the $requiredFiles array are never deleted
     $requiredFiles = array('none.png', 'black.png', 'airplay.png', 'spotify-connect.png', 'radio.png');
+    // touch the required files this will ensure that they have a timestamp of now, these are then last in the directory listing for deletion
     foreach ($requiredFiles as $requiredFile) {
         touch($artDir.'/'.$requiredFile);
     }
+    // always remove files which over 3 months (90 days) old
     // the following command removes all files from the art directory which are older than 90 days
     sysCmd('find "'.$artDir.'" -type f -mtime +90 -exec rm {} \;');
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // if the art is using tmpfs get the physical memory information
     // tmpfs uses the main memory, ensure that enough physical stays available for system buffers and caching
+    //  generally we will run out of allocated filespace before needing to free memory
     if ($redis->get('albumart_image_tmpfs')) {
         $memInfoLines = sysCmd("grep -iE 'MemTotal|MemAvailable' /proc/meminfo");
         $mem = array();
@@ -6945,7 +6897,8 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $percFreeMem = ($mem['available'] / $mem['total']) * 100;
         // memory to recover in kB
         if ($percFreeMem < 20) {
-            $recoverKB = intval(((20 - $percFreeMem) * $mem['total'])/100);
+        // less than 20% available, recover to make 35% available
+            $recoverKB = intval(((35 - $percFreeMem) * $mem['total'])/100);
         }
     }
     // allow the file system to fill to 80% (20% free), it is probably a tmpfs, but could
@@ -6956,56 +6909,53 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     $percFreeDisk = ($freeSpaceKB / $totalSpaceKB) * 100;
     // diskspace to recover in kB
     if ($percFreeDisk < 20) {
-        $recoverKB = intval(max(((20 - $percFreeMem) * $mem['total'])/100, $recoverKB));
+        // less than 20% available, recover to make 35% available
+        $recoverKB = intval(max(((35 - $percFreeDisk) * $totalSpaceKB)/100, $recoverKB));
     }
     if (!$recoverKB) {
         // no need to recover diskspace just return
         return;
     }
-    // first get the number of files in the directory, we will always leave between 10 and
-    //  15 files regardless of the memory which we want to recover
+    // first get the number of files in the directory
     $filesInArtDir = sysCmd('ls -q1 "'.$artDir.'" | wc -l | xargs')[0];
-    // we will delete the files in blocks of 5, calculate the maximum number of delete cycles
-    $deleteCycles = intval(($filesInArtDir - 10 ) / 5);
-    while (($recoverKB > 0) && ($deleteCycles-- > 0)) {
-        // get the oldest 5 file names, the first line is the total allocated blocks
-        $files = sysCmd('ls -w0 -t1 -sGghr "'.$artDir.'" | head -qn 6');
-        foreach ($files as $file) {
-            $file = trim($file);
-            if (strpos(' '.$file, 'total') === 1) {
-                // total line
-                $file = preg_replace('!\s+!', ' ', $file);
-                list($null, $totalAllocated) = explode(' ', $file, 2);
-            } else {
-                // file lines
-                // the file string contains tabs and double spaces, these must be removed, but not in the file name
-                // the file name is the last part of the string after a timestamp containing a ':'
-                $fileSplit = explode(':', $file, 2);
-                if (isset($fileSplit[1])) {
-                    // this should never happen!
-                    continue;
-                }
-                $file = preg_replace('!\s+!', ' ', $fileSplit[0]).$fileSplit[1];
-                list($allocated, $null, $null, $null, $null, $null, $null, $fileName) = explode(' ', $file, 8);
-                $fileName = trim($fileName);
-                if (!$fileName) {
-                    // empty file name, should never happen
-                    continue;
-                } else if (in_array($fileName, $requiredFiles)) {
-                    // this file must always be present, skip it (should never happen)
-                    continue;
-                }
-                $allocatedKB = intval(convertToBytes($allocated)/1024);
-                $recoverKB -= $allocatedKB;
-                unlink($artDir.'/'.$fileName);
+    // get the file names in date order, oldest first, the first line is the total allocated blocks
+    $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$artDir.'"');
+    foreach ($files as $file) {
+        $file = trim($file);
+        if (strpos(' '.$file, 'total') === 1) {
+            // total line
+            $file = preg_replace('!\s+!', ' ', $file);
+            list($null, $totalAllocated) = explode(' ', $file, 2);
+        } else {
+            // file lines
+            // the file string contains tabs and double spaces, these must be removed, but not in the file name
+            // the file name is the last part of the string after a timestamp containing a ':'
+            $fileSplit = explode(':', $file, 2);
+            if (!isset($fileSplit[1])) {
+                // this should never happen!
+                continue;
             }
-            if ($recoverKB <= 0) {
-                break;
+            $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
+            list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
+            $fileName = trim($fileName);
+            if (!$fileName) {
+                // empty file name, should never happen
+                continue;
+            } else if (in_array($fileName, $requiredFiles)) {
+                // this file must always be present, skip it (should never happen)
+                continue;
             }
+            $allocatedKB = intval(convertToBytes($allocated)/1024);
+            $recoverKB -= $allocatedKB;
+            unlink($artDir.'/'.$fileName);
+            echo 'Deleted : '.$fileName."\n";
+        }
+        if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
+            break;
         }
     }
     // test commands
-    // ls -w0 -t1 -sGghr /srv/http/tmp/art | head -qn 6
+    // s -w0 -t1 -sGghr --time-style=iso /srv/http/tmp/art
     // du /srv/http/tmp/art | xargs
     // ls -q1 /srv/http/tmp/art | wc -l | xargs
 }
