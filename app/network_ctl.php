@@ -199,8 +199,12 @@ if ($template->action === 'wifi_scan') {
     if ($template->profile['manual']) {
         // set the ipv4 address to a default based on the Default Gateway, replacing the last segment with 200
         $ipv4Address = explode('.', $template->profile['defaultGateway']);
-        $ipv4Address[3] = '200';
-        $template->profile['ipv4Address'] = join('.', $ipv4Address);
+        if (count($ipv4Address) === 4) {
+            $ipv4Address[3] = '200';
+            $template->profile['ipv4Address'] = join('.', $ipv4Address);
+        } else {
+            $template->profile['ipv4Address'] = '192.168.1.200';
+        }
     }
     // never pass the passphrase the the UI
     $template->profile['passphrase'] = '';
