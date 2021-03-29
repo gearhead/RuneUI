@@ -328,9 +328,9 @@ fi
 # for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
 if [ "$1" == "full" ]; then
     # remove uglify-js if required
-    pacman -Q uglify-js && pacman -Rs uglify-js --noconfirm
+    pacman -Q uglify-js && pacman -Rcsn uglify-js --noconfirm
     # removing dos2unix if required
-    pacman -Q dos2unix && pacman -Rs dos2unix --noconfirm
+    pacman -Q dos2unix && pacman -Rcsn dos2unix --noconfirm
     # remove pacman history and no longer installed packages from the package database
     pacman -Sc --noconfirm
     # remove ALL files from the package cache
