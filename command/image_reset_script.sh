@@ -150,8 +150,8 @@ rm -rf /var/lib/bluetooth/*
 rm -f /var/lib/connman/*.service
 rm -rf /var/lib/connman/ethernet_*
 rm -rf /var/lib/connman/wifi_*
-rm -rf /var/lib/iwd/*
 rm -rf /var/lib/connman/bluetooth_*
+find /var/lib/iwd/ -type f -exec rm -f {} \;
 #
 # remove the art directory
 dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
