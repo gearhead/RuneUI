@@ -67,6 +67,11 @@ if ($template->action === 'wifi_scan') {
     //
     $template->networks = array();
     $template->networksFound = false;
+    // sort the network array into strength descending order
+    usort($networks, function($b, $a) {
+        return $a['strength'] <=> $b['strength'];
+    });
+    //
     foreach ($networks as $key => $network) {
         if ($network['nic'] != $template->arg) {
             continue;
