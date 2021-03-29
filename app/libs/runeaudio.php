@@ -2516,10 +2516,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 unset($storedProfiles[$ssidHexKey]);
                 unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
                 sysCmd('rmdir --ignore-fail-on-non-empty \'/var/lib/connman/wifi_*'.$args['ssidHex'].'*\'');
+                sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
             }
             // ethernet
-            if (isset($args['macAddress']) && isset($storedProfiles[macAddressKey])) {
-                unset($storedProfiles[macAddressKey]);
+            if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
+                unset($storedProfiles[$macAddressKey]);
                 unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
                 sysCmd('rmdir --ignore-fail-on-non-empty \'/var/lib/connman/ethernet_'.$args['macAddress'].'*\'');
             }
