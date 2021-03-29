@@ -179,7 +179,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('spotifyconnect', 'last_track_id', '');
             $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
             $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-            $redis->hDel('airplay', 'enable');
+            // $redis->hDel('airplay', 'enable');
+            $redis->hSet('airplay', 'enable', 0);
             $redis->hSet('airplay', 'name', 'RuneAudio');
             $redis->hSet('airplay', 'interpolation', 'soxr');
             $redis->hSet('airplay', 'output_backend', 'alsa');
@@ -530,6 +531,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('spotifyconnect', 'last_track_id') || $redis->hSet('spotifyconnect', 'last_track_id', '');
             $redis->hExists('spotifyconnect', 'last_time_stamp') || $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
             $redis->hExists('spotifyconnect', 'event_time_stamp') || $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
+            $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
             $redis->hExists('airplay', 'name') || $redis->hSet('airplay', 'name', 'RuneAudio');
             $redis->hExists('airplay', 'interpolation') || $redis->hSet('airplay', 'interpolation', 'soxr');
             $redis->hExists('airplay', 'output_backend') || $redis->hSet('airplay', 'output_backend', 'alsa');
