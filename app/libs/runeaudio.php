@@ -1671,16 +1671,16 @@ function wrk_xorgconfig($redis, $action, $args)
                 // switch mouse cursor on
                 $usecursorno = '';
                 // modify the udev rules for vc4 screens
-                sysCmd("sed -i '/KERNEL/s/^KERNEL==/#KERNEL==/g' '/etc/udev/rules.d/99-vc4_input.rules'");
+                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"0\"/\=\"1\"/g' '/etc/udev/rules.d/99-vc4_input.rules'");
             } else {
                 // switch mouse cursor off
                 $usecursorno = '-use_cursor no ';
                 // modify the udev rules for vc4 screens
-                sysCmd("sed -i '/KERNEL/s/^#KERNEL==/KERNEL==/g' '/etc/udev/rules.d/99-vc4_input.rules'");
+                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"1\"/\=\"0\"/g' '/etc/udev/rules.d/99-vc4_input.rules'");
             }
             // modify the mouse on/off setting in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';
-            // replace the line with 'matchbox-window-manager'
+            // replace the line with 'matchbox-window-manager' adding or removing the '-use cursor no' clause
             sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
             break;
     }
