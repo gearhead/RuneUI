@@ -62,7 +62,7 @@ else
 fi
 # dirble
 # determine if we can see dirble.com, this command will give up after +/-20 seconds (= timeout x retries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.dirble.com/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://www.dirble.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # dirble is available
     redis-cli hset service dirble 1
@@ -122,7 +122,7 @@ else
 fi
 # azlyrics
 # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x retries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://search.azlyrics.com/search.php > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # azlyrics is available
     redis-cli hset service azlyrics 1
