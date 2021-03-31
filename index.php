@@ -45,10 +45,10 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
 session_start();
 
 // password prodection
-if (FALSE === $redis->get('password')) {
+if (!$redis->exists('password')) {
     $redis->set('password', '$2y$12$k3zKY3VANC3f90AHZyj/DOWmQ56hczAXZ/UOmxMmeP8kGNDnRelfm');
 }
-if (FALSE === $redis->get('pwd_protection')) {
+if (!$redis->exists('pwd_protection')) {
     $redis->set('pwd_protection', '0');
 }
 if (!is_localhost() && !isset($_SESSION["login"]) && $redis->get('pwd_protection')) {

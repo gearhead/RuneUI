@@ -47,7 +47,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $switchOK = 0;
         }
     }
-    if ($switchOK === 1 OR $_GET['switchplayer'] === 'MPD') {
+    if ($switchOK === 1 || $_GET['switchplayer'] === 'MPD') {
         // switch player engine
         $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'switchplayer', 'args' => $_GET['switchplayer']));
         $notification = new stdClass();

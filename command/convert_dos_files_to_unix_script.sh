@@ -87,10 +87,10 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     # the file /srv/http/assets/css/runeui.css
     dos2unix -k -s -o /srv/http/assets/css/runeui.css
     #
-    # Convert leading tabs to 4 spaces is the files
+    # Convert leading tabs to 4 spaces in the files
     #
     set +x # echo no commands to cli
-    echo "Convert leading tabs to 4 spaces is the files"
+    echo "Convert leading tabs to 4 spaces in the files"
     FILES="/srv/http/assets/js/*
     /srv/http/db/*
     /srv/http/app/*

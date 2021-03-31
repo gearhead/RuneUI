@@ -72,7 +72,7 @@ sleep 1
 export DISPLAY=:0
 xset dpms force off
 sleep 1
-# unmount the local an network devices
+# unmount the local and network devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
