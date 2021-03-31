@@ -1668,9 +1668,15 @@ function wrk_xorgconfig($redis, $action, $args)
             break;
         case 'mouse_cursor':
             if ($args){
+                // switch mouse cursor on
                 $usecursorno = '';
+                // modify the udev rules for vc4 screens
+                sysCmd("sed -i '/KERNEL/s/^KERNEL==/#KERNEL==/g' '/etc/udev/rules.d/99-vc4_input.rules'");
             } else {
+                // switch mouse cursor off
                 $usecursorno = '-use_cursor no ';
+                // modify the udev rules for vc4 screens
+                sysCmd("sed -i '/KERNEL/s/^#KERNEL==/KERNEL==/g' '/etc/udev/rules.d/99-vc4_input.rules'");
             }
             // modify the mouse on/off setting in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';
