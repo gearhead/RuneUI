@@ -240,6 +240,7 @@ function readMpdResponse($sock)
                     break;
                 }
             } else {
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ INVALID SOCKET: ',$sock['description']);
                 break;
             }
             if (checkEOR($read)) {
@@ -278,6 +279,7 @@ function readMpdResponse($sock)
             if ((($phpVersion < 8) && is_resource($$sockVarName)) || (($phpVersion > 7) && is_object($$sockVarName))) {
                 $read = socket_read($$sockVarName, $buff);
             } else {
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ INVALID SOCKET: ',$sock['description']);
                 break;
             }
             // debug
@@ -692,21 +694,37 @@ function spopDB($sock, $plid = null)
 
 function getMpdOutputs($mpd)
 {
-    sendMpdCommand($mpd, 'outputs');
-    $outputs= readMpdResponse($mpd);
-    return $outputs;
+    if (sendMpdCommand($mpd, 'outputs')) {
+        $outputs= readMpdResponse($mpd);
+        if ($outputs) {
+            return $outputs;
+        } else {
+            runelog('[getMpdOutputs] READ RESPONSE ERROR', '');
+            return false;
+        }
+    } else {
+        runelog('[getMpdOutputs] SEND COMMAND ERROR', '');
+        return false;
+    }
 }
 
 function getMpdCurrentsongInfo($mpd, $raw=false)
 // returns the current song information unaltered (as returned by MPD) or as an array of information elements
 // by default an array is returned, by specifying a non-false value for $raw the the data from MPD is returned unaltered
 {
-    sendMpdCommand($mpd, 'currentsong');
-    $songinfo= readMpdResponse($mpd);
-    if ($raw) {
-        return $songinfo;
+    if (sendMpdCommand($mpd, 'currentsong')) {
+        $songinfo= readMpdResponse($mpd);
+        if (!$songinfo) {
+            runelog('[getMpdCurrentsongInfo] READ RESPONSE ERROR', '');
+            return false;
+        } else if ($raw) {
+            return $songinfo;
+        } else {
+            return _parseMpdresponse($songinfo);
+        }
     } else {
-        return _parseMpdresponse($songinfo);
+        runelog('[getMpdCurrentsongInfo] SEND COMMAND ERROR', '');
+        return false;
     }
 }
 
