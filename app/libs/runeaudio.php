@@ -5704,11 +5704,31 @@ function netmask($bitcount)
 }
 
 // sort multi-dimensional array by key
-function osort(&$array, $key)
+function osort(&$array, $key, $descending=false)
+// $array is passed by reference, nothing needs to be returned
 {
-    usort($array, function($a, $b) use ($key) {
-        return $a->$key > $b->$key ? 1 : -1;
-    });
+    if (!is_array($array)) {
+        // not an array
+        runelog('osort error:', 'no array passed');
+        return false;
+    }
+    if (!isset($key)) {
+        // no key specified
+        runelog('osort error:', 'no key specified');
+        return false;
+    }
+    if ($descending) {
+        // descending  sort
+        usort($array, function($b, $a) use ($key) {
+            return $a[$key] <=> $b[$key];
+        });
+    } else {
+        // ascending sort
+        usort($array, function($a, $b) use ($key) {
+            return $a[$key] <=> $b[$key];
+        });
+    }
+    return true;
 }
 
 /**

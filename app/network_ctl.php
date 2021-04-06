@@ -67,10 +67,6 @@ if ($template->action === 'wifi_scan') {
     //
     $template->networks = array();
     $template->networksFound = false;
-    // sort the network array into strength descending order
-    usort($networks, function($b, $a) {
-        return $a['strength'] <=> $b['strength'];
-    });
     //
     foreach ($networks as $key => $network) {
         if ($network['nic'] != $template->arg) {
@@ -82,7 +78,7 @@ if ($template->action === 'wifi_scan') {
         $template->networksFound = true;
         $template->macAddress = $network['macAddress'];
         foreach ($network as $entry => $value) {
-            if (strpos('|technology|nic|macAddress|ssidHex|connected|configured|security|ssid|strengthStars|ready|online|', $entry)) {
+            if (strpos('|technology|nic|macAddress|ssidHex|connected|configured|security|ssid|strength|strengthStars|ready|online|', '|'.$entry.'|')) {
                 $template->networks[$key][$entry] = $value;
             }
         }
@@ -120,6 +116,8 @@ if ($template->action === 'wifi_scan') {
             }
         }
     }
+    // sort the network array into strength descending order
+    osort($template->networks, 'strength', true);
     // clean up
     $template->profile = array();
     unset($networks, $storedProfiles);
