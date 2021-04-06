@@ -7952,6 +7952,8 @@ function get_artistInfo($redis, $info=array())
             // e.g.: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
             $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid='.$info['artist_mbid'].'&api_key='.$lastfmApikey.'&format=json&limit=1';
             $retval = get_lastFm($redis, $url);
+        } else {
+            $retval = false;
         }
         if (!$retval) {
             // error returned, retrieve the info using artist name

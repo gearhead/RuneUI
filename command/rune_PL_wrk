@@ -227,13 +227,13 @@ while (1) {
                     $status = array_merge($status, $newStatus);
                     $mpdChangeSong = false;
                 } else {
-                    // new song, replace status
+                    // not radio or new radio song, replace status
                     $status = $newStatus;
                     $mpdChangeSong = true;
+                    $saveCurrentsong = $newStatus['currentsong'];
+                    $saveFile = $newStatus['file'];
                 }
                 $newStatus = array();
-                $saveCurrentsong = $newStatus['currentsong'];
-                $saveFile = $newStatus['file'];
 
                 // decode radio song name and determine the metadata and albumart
                 // $rts = 0;
