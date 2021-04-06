@@ -123,6 +123,7 @@ while (1) {
                 'currentalbum' => '',
                 'currentsong' => '',
                 'file' => ''));
+            $saveRadio = 'x';
             $saveCurrentsong = '';
             $saveFile = '';
             $status['mainArtURL'] = $artUrl.'/none.png';
@@ -214,7 +215,7 @@ while (1) {
                 // the current $status will be filled with extra information for each new song, this information is not delivered by MPD,
                 //  and it should not be lost, the routines which create this extra information are time consuming and should only be run
                 //  when when a new song is detected
-                if (($newStatus['radio'] && ($newStatus['currentsong'] === $saveCurrentsong)) || ($newStatus['radio'] && ($newStatus['file'] === $saveFile))) {
+                if ((($newStatus['radio'] === $saveRadio) && ($newStatus['currentsong'] === $saveCurrentsong)) && ($newStatus['file'] === $saveFile)) {
                     // same song, just replace specific parts of $status
                     unset($newStatus['currentartist'],
                         $newStatus['currentalbumartist'],
@@ -230,6 +231,7 @@ while (1) {
                     // not radio or new radio song, replace status
                     $status = $newStatus;
                     $mpdChangeSong = true;
+                    $saveRadio = $newStatus['radio'];
                     $saveCurrentsong = $newStatus['currentsong'];
                     $saveFile = $newStatus['file'];
                 }
