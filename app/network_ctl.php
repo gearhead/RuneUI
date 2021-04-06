@@ -78,7 +78,7 @@ if ($template->action === 'wifi_scan') {
         $template->networksFound = true;
         $template->macAddress = $network['macAddress'];
         foreach ($network as $entry => $value) {
-            if (strpos('|technology|nic|macAddress|ssidHex|connected|configured|security|ssid|strength|strengthStars|ready|online|', '|'.$entry.'|')) {
+            if (strpos(' |technology|nic|macAddress|ssidHex|connected|configured|security|ssid|strength|strengthStars|ready|online|', '|'.$entry.'|')) {
                 $template->networks[$key][$entry] = $value;
             }
         }
