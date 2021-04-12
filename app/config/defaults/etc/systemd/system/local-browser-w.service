@@ -13,6 +13,7 @@ Environment="XDG_RUNTIME_DIR=/run/weston"
 Environment="WAYLAND_DISPLAY=wayland-0"
 Environment="XDG_SESSION_TYPE=wayland"
 Environment="GDK_BACKEND=wayland"
+ExecStartPre=/bin/sleep 2
 ExecStart=/usr/bin/luakit
 ExecStop=/usr/bin/pkill -15 luakit
 ExecStopPost=/usr/bin/pkill -15 weston
