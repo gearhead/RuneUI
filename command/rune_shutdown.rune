@@ -68,4 +68,5 @@ umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
+udevil clean
 return 0
