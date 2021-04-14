@@ -113,6 +113,7 @@ $template->hostname = $redis->get('hostname');
 $crossfade = explode(": ", sysCmd('mpc crossfade')[0]);
 $template->mpd['crossfade'] = $crossfade[1];
 $playlist = $redis->hGet('globalrandom', 'playlist');
+$audio_cards = array();
 if ($playlist != '') {
     $template->ramdomsource = "Playlist '".$playlist."' is selected as random source";
 } else {
@@ -133,7 +134,7 @@ if(!hashCFG('check_mpd', $redis)) {
     // debug
     // print_r($acards);
     foreach ($acards as $card => $data) {
-        $acard_data = json_decode($data);
+        $acard_data = json_decode($data, true);
         // debug
         // echo $card."\n";
         // print_r($acard_data);
@@ -156,7 +157,9 @@ if(!hashCFG('check_mpd', $redis)) {
                         $audio_cards[] = $sub_int_details;
                     }
                 }
-                if ($details->extlabel !== 'none') $acard_data->extlabel = $details->extlabel;
+                if ($details->extlabel !== 'none') {
+                    $acard_data['extlabel'] = $details->extlabel;
+                }
             }
         }
         $audio_cards[] = $acard_data;

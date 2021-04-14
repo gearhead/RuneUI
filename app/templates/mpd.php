@@ -10,7 +10,7 @@
                     <div class="col-sm-10">
                         <select id="audio-output-interface" name="conf[audio_output_interface]" class="selectpicker" data-style="btn-default btn-lg">
                             <?php foreach($this->acards as $card): ?>
-                                <option value="<?=$card->name ?>" <?php if($this->ao === $card->name): ?> selected <?php endif ?>><?php if(isset($card->extlabel)):?><?=$card->extlabel ?><?php else:?><?=$card->name ?><?php endif; ?></option>
+                                <option value="<?=$card['name'] ?>" <?php if($this->ao === $card['name']): ?> selected <?php endif ?>><?php if(isset($card['extlabel'])):?><?=$card['extlabel'] ?><?php else:?><?=$card['name'] ?><?php endif; ?></option>
                             <?php endforeach; ?>
                         </select>
                         <span class="help-block">This switches output between audio interfaces</span>
