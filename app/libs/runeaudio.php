@@ -5735,6 +5735,7 @@ function osort(&$array, $key, $descending=false)
         runelog('osort error:', 'no key specified');
         return false;
     }
+
     if ($descending) {
         // descending  sort
         usort($array, function($b, $a) use ($key) {

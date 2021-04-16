@@ -301,6 +301,7 @@ if ($playerid_db === '') {
     //
     $kernel = $redis->get('kernel');
     // load i2smodule
+    $loadi2s = false;
     if ($redis->get('i2smodule') !== 'none') {
         switch($arch_db) {
             case '01':
