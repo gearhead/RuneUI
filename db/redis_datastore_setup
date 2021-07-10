@@ -67,7 +67,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hSet('mpdconf', 'version', '0.20.20');
+            $command = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4- -d' '");
+            $redis->hSet('mpdconf', 'version', trim(reset($command)));
 			break;
 		case 'mpdcheck':
             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
@@ -211,6 +212,7 @@ function redisDatastore($redis,$action) {
 			$redis->set('mpd_playback_laststate', '');
 			$redis->set('mpd_playback_lastnumber', '');
 			$redis->set('last_pl_randomfile', 'exists');
+			$redis->hSet('snapserver', 'enable', 0);
 			$redis->hSet('local_browser', 'enable', 0);
 			$redis->hSet('local_browser', 'zoomfactor', '1.8');
 			$redis->hSet('local_browser', 'rotate', 'NORMAL');
@@ -466,6 +468,7 @@ function redisDatastore($redis,$action) {
 			$redis->hExists('local_browser', 'rotate') || $redis->hSet('local_browser', 'rotate', 'NORMAL');
 			$redis->hExists('local_browser', 'mouse_cursor') || $redis->hSet('local_browser', 'mouse_cursor', 0);
 			$redis->hExists('local_browser', 'disable-splash') || $redis->hSet('local_browser', 'disable-splash', 1);
+			$redis->hExists('snapserver', 'enable') || $redis->hSet('snapserver', 'enable', 0);
 			$redis->exists('restoreact') || $redis->set('restoreact', 0);
 			$redis->exists('playernamemenu') || $redis->set('playernamemenu', 0);
 			$redis->exists('dynVolumeKnob') || $redis->set('dynVolumeKnob', 0);

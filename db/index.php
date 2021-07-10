@@ -163,6 +163,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 }
             }
             break;
+        case 'snapcast':
+            echo sysCmd("sh /var/www/command/snapservers.sh")[0];
+            break;
         case 'dirble':
             if ($activePlayer === 'MPD') {
                 $proxy = $redis->hGetall('proxy');

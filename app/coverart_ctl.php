@@ -223,6 +223,19 @@ if ((substr($request_coverfile, 0, 2) === '?v' OR $current_mpd_folder ===  $requ
 	header('Content-Length: '.filesize($imgfilename));
 	readfile($imgfilename);
 	$output = 1;
+} else if ($activePlayer === 'Snapcast') {
+	// clear the cache before testing for the existence of a file
+	clearstatcache();
+    $imgfilename = $_SERVER['HOME'].'/tmp/snapcast/snapcast.png';
+	// debug
+	runelog('Snapcast coverart match: ', $imgfilename);
+	header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.
+	header('Pragma: no-cache'); // HTTP 1.0.
+	header('Expires: 0'); // Proxies, pre-expired content
+	header('Content-Type: '.mime_content_type($imgfilename));
+	header('Content-Length: '.filesize($imgfilename));
+	readfile($imgfilename);
+	$output = 1;
 } else {
 	// redirect to /covers NGiNX location
 	$local_cover_url =  'http://'.$_SERVER["SERVER_ADDR"].'/covers/'.$request_folder.'/'.$request_coverfile;
