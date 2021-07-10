@@ -54,3 +54,4 @@
 <script src="<?=$this->asset('/js/vendor/openwebapp.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/jquery-ui.js')?>"></script>
 <script src="<?=$this->asset('/js/restore.js')?>"></script>
+<script src="<?=$this->asset('/js/slidernav.js')?>"></script>
