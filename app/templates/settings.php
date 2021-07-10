@@ -324,6 +324,16 @@
                     </div>
                 </div>
             </div>
+            <div class="form-group">
+                <label for="coverart" class="control-label col-sm-2">Dirble</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="features[enable_dirble]" type="checkbox" value="1"<?php if($this->enable_dirble == 1): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Enable Dirble internet radio stations directory</span>
+                </div>
+            </div>
             <div <?php if($this->dlna['enable'] === '1'): ?>class="boxed-group"<?php endif ?> id="dlnaBox">
                 <div class="form-group">
                     <label for="dlna" class="control-label col-sm-2">UPnP / DLNA</label>

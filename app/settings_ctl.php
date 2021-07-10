@@ -168,6 +168,11 @@ if (isset($_POST)) {
         } else {
             $redis->get('coverart') == 0 || $redis->set('coverart', 0);
         }
+        if ($_POST['features']['enable_dirble'] == 1) {
+            $redis->get('enable_dirble') == 1 || $redis->set('enable_dirble', 1);
+        } else {
+            $redis->get('enable_dirble') == 0 || $redis->set('enable_dirble', 0);
+        }
         if ($_POST['features']['lastfm']['enable'] == 1) {
             // create worker job (start lastfm)
             if (($_POST['features']['lastfm']['user'] != $redis->hGet('lastfm', 'user') OR $_POST['features']['lastfm']['pass'] != $redis->hGet('lastfm', 'pass')) OR $redis->hGet('lastfm', 'enable') != $_POST['features']['lastfm']['enable']) {
@@ -232,6 +237,7 @@ $template->localSStime = $redis->get('localSStime');
 $template->remoteSStime = $redis->get('remoteSStime');
 $template->udevil = $redis->get('udevil');
 $template->coverart = $redis->get('coverart');
+$template->enable_dirble = $redis->get('enable_dirble');
 $template->lastfm = $redis->hGetAll('lastfm');
 $template->proxy = $redis->hGetAll('proxy');
 $template->spotify = $redis->hGetAll('spotify');
