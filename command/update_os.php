@@ -142,7 +142,7 @@ function updateOS($redis) {
 				$redis->del('local_browser');
 				$redis->hSet('local_browser', 'enable', $local_browser);
 				if (file_exists('/usr/bin/xinit')) {
-					$zoomfactor = sysCmd("grep -i 'force-device-scale-factor=' /etc/X11/xinit/start_chromium.sh | cut -d'=' -f3");
+					$zoomfactor = sysCmd("grep -i 'force-device-scale-factor=' /etc/X11/xinit/start_chromium.sh | cut -d'=' -f3 | cut -d' ' -f1");
 					$redis->hSet('local_browser', 'zoomfactor', $zoomfactor[0]);
 					unset($zoomfactor);
 				}

@@ -1392,6 +1392,7 @@ function wrk_xorgconfig($redis, $action, $args)
 			$file = '/etc/X11/xinit/start_chromium.sh';
 			// replace the line with 'force-device-scale-factor='
 			$newArray = wrk_replaceTextLine($file, '', 'force-device-scale-factor', 'chromium --app=http://localhost --start-fullscreen --force-device-scale-factor='.$args);
+			$newArray = wrk_replaceTextLine($file, '', 'force-device-scale-factor', 'chromium --app=http://localhost --start-fullscreen --force-device-scale-factor='.$args.' --kiosk --disable-pinch --disable-translate --disable-crash-reporter --disable-infobars --check-for-update-interval=8640000');
 			// Commit changes to /etc/X11/xinit/start_chromium.sh
 			$fp = fopen($file, 'w');
 			$return = fwrite($fp, implode("", $newArray));
