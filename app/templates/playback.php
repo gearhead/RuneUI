@@ -48,13 +48,12 @@
     <!-- PLAYBACK PANEL -->
     <div id="playback" class="tab-pane active">
         <div class="container-fluid">
-			<span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
-			<div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
-				<span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
-				<span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
-			</div>
+            <div id="currentinfos">
+	        <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
+                -
+                <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
+                <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
+            </div>
             <div class="knobs row">
                 <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
                     <input id="time" value="0" data-width="230" data-height="230" data-bgColor="#34495E" data-fgcolor="#0095D8" data-thickness="0.30" data-min="0" data-max="1000" data-displayInput="false" data-displayPrevious="true">
@@ -86,6 +85,10 @@
                     </div>
                 </div>
             </div>
+			<div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
+				<span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
+				<span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
+			</div>
         </div>
     </div>
     <!-- LIBRARY PANEL -->
