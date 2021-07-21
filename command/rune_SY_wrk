@@ -357,6 +357,8 @@ if ($playerid_db === '') {
         }
     }
     unset($retval);
+    // sometimes on the armv6 image nginx fails to start automatically, if it is not running start it
+    sysCmd('pgrep nginx || systemctl start nginx');
     //
     // PHP 5.5 OPCache
     if (!$redis->get('dev')) {
@@ -1604,6 +1606,10 @@ while (1) {
             if (sysCmd('find /boot/webradios -name *.pls | wc -l | xargs')[0]) {
                 sysCmdAsync('nice --adjustment=2 /var/www/command/webradiodb.sh');
             }
+            $savecpuOneTimeActions = 5 + rand(0, 10);
+        } else if (is_firstTime($redis, 'haveged-restart')) {
+            // restart haveged entropy, it normally starts before time is set, this causes similar 'random' results
+            sysCmd('systemctl restart haveged');
             $savecpuOneTimeActions = 5 + rand(0, 10);
         } else {
             $savecpuOneTimeActions = 10000000;
