@@ -180,6 +180,7 @@ ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5beforeRotate=$( md5sum /var/www/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5beforeSpotifyd=$( md5sum /var/www/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
+md5beforeGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
 rm -f /var/www/command/mpd-watchdog
 cd /srv/http/
 git config --global core.editor "nano"
@@ -206,7 +207,8 @@ cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /var/www/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5afterSpotifyd=$( md5sum /var/www/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
-if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ]; then
+md5afterGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
+if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
     set +x
     echo "########################################################################"
     echo "## This or another script has been changed during the git pull update ##"
