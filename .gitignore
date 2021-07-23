@@ -1,13 +1,12 @@
-test/
+test/**
 sync.ffs_db
 node_modules
 /.alsaequal.bin
 /.cache/
-/.config/
-.config/
-.pki/
+/.config/**
+.pki/**
 /.xbindkeysrc
 /amixer/__pycache__/
-tmp/
+tmp/**
 /app/libs/composer.phar
 *.save
