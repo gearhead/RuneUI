@@ -210,11 +210,11 @@ md5afterSpotifyd=$( md5sum /var/www/command/spotifyd-install.sh | xargs | cut -f
 md5afterGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
 if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
     set +x
-    echo "########################################################################"
-    echo "## This or another script has been changed during the git pull update ##"
-    echo "##         Exiting! - You need to run this script again!!             ##"
-    echo "##                    -----------------------------------             ##"
-    echo "########################################################################"
+    echo "#######################################################################################"
+    echo "## This script or another essential file has been changed during the git pull update ##"
+    echo "##                  Exiting! - You need to run this script again!!                   ##"
+    echo "##                             -----------------------------------                   ##"
+    echo "#######################################################################################"
     exit
 fi
 #
