@@ -2,10 +2,10 @@
 
 # Variables
 CONF_DIR="/srv/http/command"
-HOOKS_DIR="$CONF_DIR"
-HOOKS_SPLASH_FILE="$HOOKS_DIR/01-bootsplash.sh"
+# HOOKS_DIR="$CONF_DIR"
+# HOOKS_SPLASH_FILE="$HOOKS_DIR/01-bootsplash.sh"
 XORG_TEMPLATE="/srv/http/app/config/defaults/99-raspi-rotate.conf.tmpl"
-XORG_CONF_DIR="/etc/X11/xorg.conf.d"
+XORG_CONF_DIR="/usr/share/X11/xorg.conf.d"
 XORG_CONF_FILE="$XORG_CONF_DIR/99-raspi-rotate.conf"
 
 function usage
@@ -49,18 +49,18 @@ fi
 # Build the config file
 TMP_FILE=$(mktemp /tmp/rotate.XXXXXX)
 
-if [ "$ROTATE" = "NORMAL" ]; then
-    grep -v "Option.*rotate.*ROTATION_SETTING" $XORG_TEMPLATE > $TMP_FILE
-else
-    sed "s/ROTATION_SETTING/$ROTATE/" $XORG_TEMPLATE > $TMP_FILE
+if [ f $XORG_TEMPLATE ]; then
+    sed "s/ROTATION_SETTING/$ROTATE/" "$XORG_TEMPLATE" > "$TMP_FILE"
+    if [ "$ROTATE" = "NORMAL" ]; then
+        sed -i '/Option.*rotate/s/^ .*Option \"rotate\"/#       Option \"rotate\"/' "$TMP_FILE"
+    fi
+    sed -i "s/MATRIX_SETTING/$MATRIX/" "$TMP_FILE"
+
+    # Install the config file
+    mkdir -p "$XORG_CONF_DIR"
+    chmod 644 "$TMP_FILE"
+    mv "$TMP_FILE" "$XORG_CONF_FILE"
 fi
-
-sed -i "s/MATRIX_SETTING/$MATRIX/" $TMP_FILE
-
-# Install the config file
-mkdir -p "$XORG_CONF_DIR"
-chmod 644 "$TMP_FILE"
-mv "$TMP_FILE" "$XORG_CONF_FILE"
 
 # Run hooks
 # if [ -d "$HOOKS_DIR" ] ; then
@@ -69,6 +69,6 @@ mv "$TMP_FILE" "$XORG_CONF_FILE"
     # done
     # unset f
 # fi
-eval $HOOKS_SPLASH_FILE $1
+# eval $HOOKS_SPLASH_FILE $1
 
 echo "Rotation set to $ROTATE"
