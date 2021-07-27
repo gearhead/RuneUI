@@ -101,12 +101,7 @@ dtparam=krnbt=on
 #lcd_rotate=3
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
-# XPT2046 or ADS7846 tft touchscreens, this is an old configuration, probably no longer valid, see waveshare configuration below
-#   uncomment the next 3 lines
-#dtparam=i2c_arm=on
-#dtparam=spi=on
-#dtoverlay=ads7846,penirq=25,speed=10000,penirq_pull=2,xohms=150
-# waveshare LCD cards (these are XPT2046 or ADS7846 tft touch-screens)
+# waveshare LCD cards (these are XPT2046 / ADS7846 tft touch-screens)
 #   waveshare: uncomment all the following hdmi flags
 #hdmi_force_hotplug=1
 #hdmi_group=2
