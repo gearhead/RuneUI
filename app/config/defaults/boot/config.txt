@@ -81,26 +81,56 @@ dtparam=krnbt=on
 #dtparam=gpio_in_pin=18
 #dtparam=gpio_in_pull=down
 
+
+# enable hardware graphics accelerators (not normally required)
+# Pi model Zero, 1, 2 & 3
+#dtoverlay=vc4-kms-v3d,noaudio
+# Pi model 4
+#dtoverlay=vc4-kms-v3d-pi4,noaudio
+
 # LCD settings
-# 180 degrees
+# next 3 lines for the AdaFruit PiTFT Plus - 3.5" Resistive touch-screen
+#dtparam=i2c_arm=on
+#dtparam=spi=on
+#dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=20
+# RPi FT5406 LCD card
+#   rotation 0 (normal), 90, 180 or 270 degrees
+#lcd_rotate=0
+#lcd_rotate=1
 #lcd_rotate=2
-# Normal
-lcd_rotate=0
+#lcd_rotate=3
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
-# next 2 lines hardware graphics accelerators
-#dtoverlay=vc4-kms-v3d
-#dtoverlay=vc4-kms-v3d-pi4
-# next 3 lines for XPT2046 or ADS7846 tft touchscreens
+# XPT2046 or ADS7846 tft touchscreens, this is an old configuration, probably no longer valid, see waveshare configuration below
+#   uncomment the next 3 lines
 #dtparam=i2c_arm=on
 #dtparam=spi=on
 #dtoverlay=ads7846,penirq=25,speed=10000,penirq_pull=2,xohms=150
+# waveshare LCD cards (these are XPT2046 or ADS7846 tft touch-screens)
+#   waveshare: uncomment all the following hdmi flags
+#hdmi_force_hotplug=1
+#hdmi_group=2
+#hdmi_mode=1
+#hdmi_mode=87
+#hdmi_cvt 480 320 60 6 0 0 0
+#hdmi_drive=2
+# waveshare: choose one of the following pre-installed overlays, see: https://www.waveshare.com/w/upload/1/1e/RPi_LCD_User_Manual_EN.pdf
+#   see instructions in the file /srv/http/command/waveshare_install.sh to change the calibration setup (default is for a 3,5 inch screen)
+#   the overlays have 2 optional parameters: rotate (value: 0, 90, 180 or 270) and swapxy (value: 0 or 1)
+#   see: https://github.com/swkim01/waveshare-dtoverlays
+#dtoverlay=waveshare32b:rotate=0,swapxy=0
+#dtoverlay=waveshare32c:rotate=0,swapxy=0
+#dtoverlay=waveshare35a:rotate=0,swapxy=0
+#dtoverlay=waveshare35b:rotate=0,swapxy=0
+#dtoverlay=waveshare35b-v2:rotate=0,swapxy=0
+#dtoverlay=waveshare35c:rotate=0,swapxy=0
+#dtoverlay=waveshare4c:rotate=0,swapxy=0
 
 # Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1
 
 # Uncomment this if your display has a black border of unused pixels visible
-# and your display can output without overscan
+# and your display can output without overscan (uncomment this for small LCD screens)
 #disable_overscan=1
 
 # Uncomment the following to adjust overscan. Use positive numbers if console

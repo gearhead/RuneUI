@@ -301,6 +301,9 @@ ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 #
+# add waveshare LDC touchscreen overlays
+/srv/http/command/waveshare_install.sh
+#
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
 chgmod 644 /usr/share/upmpdcli/runeaudio.png
