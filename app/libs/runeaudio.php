@@ -130,7 +130,8 @@ function closeMpdSocket($sock)
         runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>','');
     }
     // tell MPD to close the connection
-    sendMpdCommand($sock, 'close');
+    // testing then next line 24-05-2021 the manual says just close the socket, don't send a close command
+    //sendMpdCommand($sock, 'close');
     // code to force the socket to close
     $linger = array ('l_linger' => 0, 'l_onoff' => 1);
     socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
