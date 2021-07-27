@@ -509,6 +509,17 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label class="control-label col-sm-2" for="overscan">Overscan (display border)</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="overscan" name="features[local_browser][overscan]" type="checkbox" value="1"<?php if((isset($this->local_browser['overscan'])) && ($this->local_browser['overscan'])): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Overscan is the black border around the active display area. This can be switched OFF for most LCD and HDMI displays. A <strong>reboot is required</strong> to activate the setting.<br>
+                            <i>When overscan is required, it's size can be adjusted in the file: /boot/config.txt</i></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="control-label col-sm-2" for="mouse_cursor">Mouse-cursor visible</label>
                         <div class="col-sm-10">
                             <label class="switch-light well" onclick="">

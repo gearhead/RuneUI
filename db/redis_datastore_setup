@@ -275,6 +275,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'zoomfactor', 1);
             $redis->hSet('local_browser', 'rotate', 'NORMAL');
+            $redis->hSet('local_browser', 'overscan', 1);
             $redis->hSet('local_browser', 'mouse_cursor', 0);
             $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hSet('local_browser', 'smallScreenSaver', 0);
@@ -614,6 +615,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
             $redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', 1);
             $redis->hExists('local_browser', 'rotate') || $redis->hSet('local_browser', 'rotate', 'NORMAL');
+            $redis->hExists('local_browser', 'overscan') || $redis->hSet('local_browser', 'overscan', 1);
             $redis->hExists('local_browser', 'mouse_cursor') || $redis->hSet('local_browser', 'mouse_cursor', 0);
             $redis->hExists('local_browser', 'enable-splash') || $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hExists('local_browser', 'smallScreenSaver') || $redis->hSet('local_browser', 'smallScreenSaver', 0);

@@ -504,22 +504,7 @@ while (1) {
                 case 'xorgserver':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'start') {
-                        // save the local browser values
-                        $redis->hSet('local_browser', 'enable', $job->args);
-                        // enable the boot splash
-                        wrk_xorgconfig($redis, $job->action, $job->args);
-                        // start the local browser
-                        sysCmd('systemctl start local-browser');
-                        sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
-                    } else if ($job->action === 'stop') {
-                        // save the local browser values
-                        $redis->hSet('local_browser', 'enable', $job->args);
-                        // disable the boot splash
-                        wrk_xorgconfig($redis, $job->action, $job->args);
-                        // stop the local browser
-                        sysCmd('systemctl stop local-browser');
-                    } else if ($job->action === 'zoomfactor') {
+                    if ($job->action === 'zoomfactor') {
                         // zoomfactor
                         // reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points
                         $zoomfactor = floatval(preg_replace("/[^0-9.]/", "", $job->args));
@@ -527,34 +512,13 @@ while (1) {
                         if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
                             // strip any leading & trailing zero's
                             $zoomfactor = trim($zoomfactor, '0');
-                            // save the localbrowser zoomfactor value
-                            $redis->hSet('local_browser', $job->action, $zoomfactor);
-                            // set the parameter file
                             wrk_xorgconfig($redis, $job->action, $zoomfactor);
-                            // retart local browser if enabled
-                            if ($redis->hGet('local_browser', 'enable')) {
-                                sysCmd('systemctl stop local-browser');
-                                sysCmd('systemctl daemon-reload');
-                                sysCmd('systemctl start local-browser');
-                                sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
-                            }
                         } else {
                             ui_notifyError('Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
                             sleep(3);
                         }
                     } else {
-                        // localSStime, rotate, mouse_cursor, enable-splash or smallScreenSaver
-                        // save the local browser rotate, enable-splash or mouse_cursor values
-                        $redis->hSet('local_browser', $job->action, $job->args);
-                        // set the parameter file
                         wrk_xorgconfig($redis, $job->action, $job->args);
-                        // retart local browser if enabled and action is not not enable-splash
-                        if ($redis->hGet('local_browser', 'enable') && ($job->action != 'enable-splash')) {
-                            sysCmd('systemctl stop local-browser');
-                            sysCmd('systemctl daemon-reload');
-                            sysCmd('systemctl start local-browser');
-                            sysCmd('/srv/http/command/rune_prio nice');
-                        }
                     }
                     $redis->sRem('w_lock', $jobID);
                     break;

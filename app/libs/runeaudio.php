@@ -1622,10 +1622,33 @@ function wrk_xorgconfig($redis, $action, $args)
 {
     switch ($action) {
         case 'start':
-            // no break
+            // start the local browser
+            $redis->hSet('local_browser', 'enable', $args);
+            sysCmd('systemctl start local-browser');
+            wrk_xorgconfig($redis, 'enable-splash', 1);
+            if (sysCmd("grep -ic '#disable_overscan=1' '/boot/config.txt'")[0]) {
+                wrk_xorgconfig($redis, 'overscan', 1);
+            } else {
+                wrk_xorgconfig($redis, 'overscan', 0);
+            }
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            break;
         case 'stop':
-            // no break
+            // stop the local browser
+            $redis->hSet('local_browser', 'enable', $args);
+            sysCmd('systemctl stop local-browser');
+            wrk_xorgconfig($redis, 'enable-splash', 0);
+            break;
+        case 'restart':
+            if ($redis->hGet('local_browser', 'enable')) {
+                sysCmd('systemctl stop local-browser');
+                sysCmd('systemctl daemon-reload');
+                sysCmd('systemctl start local-browser');
+                sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            }
+            break;
         case 'enable-splash':
+            $redis->hSet('local_browser', $action, $args);
             if ($args) {
                 // spash on
                 // enable the systemd boot splash unit
@@ -1641,6 +1664,7 @@ function wrk_xorgconfig($redis, $action, $args)
             }
             break;
         case 'zoomfactor':
+            $redis->hSet('local_browser', $action, $args);
             // remove the next lines after the next image is produced
             // modify the zoom factor in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';
@@ -1680,11 +1704,28 @@ function wrk_xorgconfig($redis, $action, $args)
                 // scale factor line is missing, add it
                 sysCmd('echo "settings.webview.zoom_level = '.round($args*100).'" >> "'.$filePathName.'"');
             }
+            wrk_xorgconfig($redis, 'restart', 1);
             break;
         case 'rotate':
+            $redis->hSet('local_browser', $action, $args);
             sysCmd('/srv/http/command/raspi-rotate-screen.sh '.$args);
+            wrk_xorgconfig($redis, 'restart', 1);
+            break;
+        case 'overscan':
+            $redis->hSet('local_browser', $action, $args);
+            if ($args){
+                // switch overscan on
+                sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '/boot/config.txt'");
+                $redis->hSet('local_browser', 'overscan', 1);
+            } else {
+                // switch overscan off
+                // modify /boot/config.txt
+                sysCmd("sed -i '/disable_overscan/c\disable_overscan=1' '/boot/config.txt'");
+                $redis->hSet('local_browser', 'overscan', 0);
+            }
             break;
         case 'mouse_cursor':
+            $redis->hSet('local_browser', $action, $args);
             if ($args){
                 // switch mouse cursor on
                 $usecursorno = '';
@@ -1700,6 +1741,7 @@ function wrk_xorgconfig($redis, $action, $args)
             $filePathName = '/etc/X11/xinit/xinitrc';
             // replace the line with 'matchbox-window-manager' adding or removing the '-use cursor no' clause
             sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
+            wrk_xorgconfig($redis, 'restart', 1);
             break;
     }
 }

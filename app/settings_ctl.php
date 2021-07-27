@@ -150,6 +150,11 @@ if (isset($_POST)) {
             if ((isset($_POST['features']['local_browser']['rotate'])) && ($_POST['features']['local_browser']['rotate'] != $redis->hGet('local_browser', 'rotate'))) {
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'rotate', 'args' => $_POST['features']['local_browser']['rotate']));
             }
+            if ((isset($_POST['features']['local_browser']['overscan'])) && ($_POST['features']['local_browser']['overscan'])) {
+                $redis->hGet('local_browser', 'overscan') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'overscan', 'args' => 1));
+            } else {
+                $redis->hGet('local_browser', 'overscan') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'overscan', 'args' => 0));
+            }
             if ((isset($_POST['features']['local_browser']['mouse_cursor'])) && ($_POST['features']['local_browser']['mouse_cursor'])) {
                 $redis->hGet('local_browser', 'mouse_cursor') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'mouse_cursor', 'args' => 1));
             } else {
