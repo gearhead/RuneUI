@@ -49,7 +49,7 @@ fi
 # Build the config file
 TMP_FILE=$(mktemp /tmp/rotate.XXXXXX)
 
-if [ f $XORG_TEMPLATE ]; then
+if [ -f "$XORG_TEMPLATE" ]; then
     sed "s/ROTATION_SETTING/$ROTATE/" "$XORG_TEMPLATE" > "$TMP_FILE"
     if [ "$ROTATE" = "NORMAL" ]; then
         sed -i '/Option.*rotate/s/^ .*Option \"rotate\"/#       Option \"rotate\"/' "$TMP_FILE"

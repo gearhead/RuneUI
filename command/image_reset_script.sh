@@ -153,12 +153,11 @@ rm -rf /var/lib/connman/wifi_*
 rm -rf /var/lib/connman/bluetooth_*
 find /var/lib/iwd/ -type f -exec rm -f {} \;
 #
-# create a symlink in /usr/share called X11 pointing to directory /etc/X11
-# there are two locations for the X11 files, /usr/share/X11/xorg.conf.d/* and /etc/X11/* for the rest
-# I expect these to be combined at some time, for Rune there is no advantage in splitting these locations
-# so a symlink is used to emulate the two locations
-mkdir /usr/share
-ln -s /etc/X11 /usr/share/X11
+# the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
+# copy any existing files to the new location and delete the old location
+mkdir -p /usr/share/X11/xorg.conf.d
+cp /etc/X11/xorg.conf.d/* /usr/share/X11/xorg.conf.d/
+rm -rf /etc/X11/xorg.conf.d
 #
 # remove the art directory
 dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
