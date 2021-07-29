@@ -221,7 +221,7 @@ force_turbo=1
 #force_turbo=0
 # Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set
 # If the max temp is reached the cpu will automatically be throttled back
-# Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4 
+# Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
 temp_limit=75
 # Boot delay sometimes needs to be set to higher values when overclocking is enabled
 # Default boot delay is 1 second, 3B+ needs a delay of 2
