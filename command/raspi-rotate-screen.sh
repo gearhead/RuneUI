@@ -2,8 +2,8 @@
 
 # Variables
 CONF_DIR="/srv/http/command"
-# HOOKS_DIR="$CONF_DIR"
-# HOOKS_SPLASH_FILE="$HOOKS_DIR/01-bootsplash.sh"
+HOOKS_DIR="$CONF_DIR"
+HOOKS_SPLASH_FILE="$HOOKS_DIR/01-bootsplash.sh"
 XORG_TEMPLATE="/srv/http/app/config/defaults/99-raspi-rotate.conf.tmpl"
 XORG_CONF_DIR="/usr/share/X11/xorg.conf.d"
 XORG_CONF_FILE="$XORG_CONF_DIR/99-raspi-rotate.conf"
@@ -69,6 +69,6 @@ fi
     # done
     # unset f
 # fi
-# eval $HOOKS_SPLASH_FILE $1
+eval $HOOKS_SPLASH_FILE $1
 
 echo "Rotation set to $ROTATE"
