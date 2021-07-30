@@ -113,13 +113,13 @@ dtparam=krnbt=on
 #   see instructions in the file /srv/http/command/waveshare_install.sh to change the calibration setup (default is for a 3,5 inch screen)
 #   the overlays have 2 optional parameters: rotate (value: 0, 90, 180 or 270) and swapxy (value: 0 or 1)
 #   see: https://github.com/swkim01/waveshare-dtoverlays
-#dtoverlay=waveshare32b:rotate=0,swapxy=0
-#dtoverlay=waveshare32c:rotate=0,swapxy=0
-#dtoverlay=waveshare35a:rotate=0,swapxy=0
-#dtoverlay=waveshare35b:rotate=0,swapxy=0
-#dtoverlay=waveshare35b-v2:rotate=0,swapxy=0
-#dtoverlay=waveshare35c:rotate=0,swapxy=0
-#dtoverlay=waveshare4c:rotate=0,swapxy=0
+#dtoverlay=waveshare32b
+#dtoverlay=waveshare32c
+#dtoverlay=waveshare35a
+#dtoverlay=waveshare35b
+#dtoverlay=waveshare35b-v2
+#dtoverlay=waveshare35c
+#dtoverlay=waveshare4c
 
 # Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1
