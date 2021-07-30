@@ -48,11 +48,13 @@ if [ -f "/dev/fb1" ]; then
     # frame buffer 1 exists
     for FILE in $FB_FILES ; do
         # remove comment character (leading #)
-        sed -i '/Option.*fbdev.*\/dev\/fb1/s/^[#]*.[ ]*/ /' "$FILE"
+        sed -i '/Option.*fbdev.*\/dev\/fb1/s/^.*Option/ Option/' "$FILE"
     done
 else
     # no frame buffer 1
     for FILE in $FB_FILES ; do
+        # remove comment character (leading #) to prevent adding the comment character twice
+        sed -i '/Option.*fbdev.*\/dev\/fb1/s/^.*Option/ Option/' "$FILE"
         # add comment character (leading #)
         sed -i '/Option.*fbdev.*\/dev\/fb1/s/^/# /' "$FILE"
     done
