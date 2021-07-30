@@ -1626,7 +1626,7 @@ function wrk_xorgconfig($redis, $action, $args)
             // start the local browser
             $redis->hSet('local_browser', 'enable', $args);
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
-            sysCmd('/srv/command/add-screen-rotate.sh');
+            sysCmd('/srv/http/command/add-screen-rotate.sh');
             sysCmd('systemctl start local-browser');
             wrk_xorgconfig($redis, 'enable-splash', 1);
             if (sysCmd("grep -ic '#disable_overscan=1' '/boot/config.txt'")[0]) {
@@ -1639,6 +1639,7 @@ function wrk_xorgconfig($redis, $action, $args)
         case 'stop':
             // stop the local browser
             $redis->hSet('local_browser', 'enable', $args);
+            // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
             sysCmd('export DISPLAY=:0; xset dpms force off; systemctl stop local-browser');
             wrk_xorgconfig($redis, 'enable-splash', 0);
             break;
