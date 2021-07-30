@@ -1639,7 +1639,7 @@ function wrk_xorgconfig($redis, $action, $args)
         case 'stop':
             // stop the local browser
             $redis->hSet('local_browser', 'enable', $args);
-            sysCmd('systemctl stop local-browser');
+            sysCmd('export DISPLAY=:0; xset dpms force off; systemctl stop local-browser');
             wrk_xorgconfig($redis, 'enable-splash', 0);
             break;
         case 'restart':
