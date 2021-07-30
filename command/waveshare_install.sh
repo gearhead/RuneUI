@@ -49,6 +49,7 @@ cd /home/LCD-show/
 #   the build scripts are set up for rasbian and will not work on RuneAudio
 #
 # the next section strips the build parts of the scripts out while leaving the required copy commands
+set +x # No echo of commands to cli
 FILES="/home/LCD-show/LCD*show*"
 shopt -s nullglob
 # replace ##sudo (###sudo or ####sudo) with #sudo
@@ -110,6 +111,7 @@ done
 # any commands replacing /boot/config.txt, /boot/cmdline.txt and /etc/inittab are also commented out
 #
 # now run the install scripts
+set -x # echo all commands to cli
 cd /home/LCD-show
 sudo ./LCD28-show
 sudo ./LCD32-show

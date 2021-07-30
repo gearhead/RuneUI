@@ -1,4 +1,43 @@
 #!/bin/bash
+#
+# Reworking of raspi-rotate-screen.sh
+# Originally created by colinleroy, December 2018.
+# See https://github.com/colinleroy/raspi-rotate
+#
+#  If and where applicable, not infringing on any original copyright:
+#  Copyright (C) 2013-2014 RuneAudio Team
+#  http://www.runeaudio.com
+#
+#  RuneUI
+#  copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+#  RuneOS
+#  copyright (C) 2013-2014 – Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+#  RuneAudio website and logo
+#  copyright (C) 2013-2014 – ACX webdesign (Andrea Coiutti)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with RuneAudio; see the file COPYING. If not, see
+#  <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: command/raspi-rotate-screen.sh-screen.sh
+#  version: 1.3
+#  coder: janui
+#  date: April 2021
+#
+#
+#
 
 # Variables
 CONF_DIR="/srv/http/command"
@@ -51,9 +90,6 @@ TMP_FILE=$(mktemp /tmp/rotate.XXXXXX)
 
 if [ -f "$XORG_TEMPLATE" ]; then
     sed "s/ROTATION_SETTING/$ROTATE/" "$XORG_TEMPLATE" > "$TMP_FILE"
-    if [ "$ROTATE" = "NORMAL" ]; then
-        sed -i '/Option.*rotate/s/^ .*Option \"rotate\"/#       Option \"rotate\"/' "$TMP_FILE"
-    fi
     sed -i "s/MATRIX_SETTING/$MATRIX/" "$TMP_FILE"
 
     # Install the config file
@@ -61,6 +97,16 @@ if [ -f "$XORG_TEMPLATE" ]; then
     chmod 644 "$TMP_FILE"
     mv "$TMP_FILE" "$XORG_CONF_FILE"
 fi
+
+# Apply the rotate to all files containing the rotate option
+FILES=$( grep -Ril "Option.*rotate" "$XORG_CONF_DIR" )
+for FILE in $FILES ; do
+    sed -i '/Option.*rotate/s/^.*Option.*\"rotate\"/       Option \"rotate\" \"$ROTATE\"/' "$FILE"
+    # There is no valid value for the rotate option when 0' rotate is specified
+    if [ "$ROTATE" = "NORMAL" ]; then
+        sed -i '/Option.*rotate/s/^ .*Option.*\"rotate\"/#       Option \"rotate\"/' "$FILE"
+    fi
+done
 
 # Run hooks
 # if [ -d "$HOOKS_DIR" ] ; then
@@ -72,3 +118,5 @@ fi
 eval $HOOKS_SPLASH_FILE $1
 
 echo "Rotation set to $ROTATE"
+#---
+#End script

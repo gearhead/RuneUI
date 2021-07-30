@@ -7,3 +7,5 @@ if [ "$1" != "" ]; then
         ln -s "/usr/share/bootsplash-$1" /usr/share/bootsplash
     fi
 fi
+#---
+#End script
