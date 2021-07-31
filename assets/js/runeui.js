@@ -525,12 +525,30 @@ function setPlaybackSource() {
         $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
         $('#volume-knob').addClass('nomixer');
         $('#volume-knob button').prop('disabled', true);
+        $('#repeat').addClass('disabled');
+        $('#random').addClass('disabled');
         $('#single').addClass('disabled');
+        $('#volumedn').addClass('disabled');
+        $('#volumemute').addClass('disabled');
+        $('#volumeup').addClass('disabled');
+        $('#previous').addClass('disabled');
+        $('#stop').addClass('disabled');
+        $('#play').addClass('disabled');
+        $('#next').addClass('disabled');
     } else {
         $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
         $('#volume-knob').removeClass('nomixer');
         $('#volume-knob button').prop('disabled', false);
+        $('#repeat').removeClass('disabled');
+        $('#random').removeClass('disabled');
         $('#single').removeClass('disabled');
+        $('#volumedn').removeClass('disabled');
+        $('#volumemute').removeClass('disabled');
+        $('#volumeup').removeClass('disabled');
+        $('#previous').removeClass('disabled');
+        $('#stop').removeClass('disabled');
+        $('#play').removeClass('disabled');
+        $('#next').removeClass('disabled');
     }
     // style the queue
     $('#playlist-entries').removeClass(function(index, css) {
