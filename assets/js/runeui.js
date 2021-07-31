@@ -1883,16 +1883,20 @@ function commandButton(el) {
     else if (el.hasClass('btn-volume')) {
         var vol;
         var knobvol = parseInt($('#volume').val());
-        if (dataCmd === 'volumedn' && parseInt(GUI.volume) > 0) {
-            vol = parseInt(GUI.volume) - 1;
+        if (typeof GUI.volume !== 'number') {
+            GUI.volume = knobvol;
+        }
+        GUI.volume = parseInt(GUI.volume);
+        if (dataCmd === 'volumedn') {
+            vol = Math.max(GUI.volume - 1, 0);
             GUI.volume = vol;
             $('#volumemute').removeClass('btn-primary');
-        } else if (dataCmd === 'volumeup' && parseInt(GUI.volume) < 100) {
-            vol = parseInt(GUI.volume) + 1;
+        } else if (dataCmd === 'volumeup') {
+            vol = Math.min(GUI.volume + 1, 100);
             GUI.volume = vol;
             $('#volumemute').removeClass('btn-primary');
         } else if (dataCmd === 'volumemute') {
-            if (knobvol !== 0 ) {
+            if (knobvol !== 0) {
                 GUI.volume = knobvol;
                 el.addClass('btn-primary');
                 vol = 0;
