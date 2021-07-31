@@ -101,7 +101,7 @@ fi
 # Apply the rotate to all files containing the rotate option
 FILES=$( grep -Ril "Option.*rotate" "$XORG_CONF_DIR" )
 for FILE in $FILES ; do
-    sed -i '/Option.*rotate/s/^.*Option.*\"rotate\"/       Option \"rotate\" \"$ROTATE\"/' "$FILE"
+    sed -i "/Option.*rotate/s/^.*Option.*\"rotate\".*/       Option \"rotate\" \"$ROTATE\"/" "$FILE"
     # There is no valid value for the rotate option when 0' rotate is specified
     if [ "$ROTATE" = "NORMAL" ]; then
         sed -i '/Option.*rotate/s/^ .*Option.*\"rotate\"/#       Option \"rotate\"/' "$FILE"

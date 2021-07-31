@@ -44,7 +44,7 @@ XORG_CONF_DIR="/usr/share/X11/xorg.conf.d"
 #
 # get a list of files with a specified frame buffer 1
 FB_FILES=$( grep -Ril "Option.*fbdev.*/dev/fb1" "$XORG_CONF_DIR" )
-if [ -f "/dev/fb1" ]; then
+if [ -e "/dev/fb1" ]; then
     # frame buffer 1 exists
     for FILE in $FB_FILES ; do
         # remove comment character (leading #)
