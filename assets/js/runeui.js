@@ -2417,7 +2417,7 @@ if ($('#section-index').length) {
                     this.g.lineWidth = 2;
                     this.g.beginPath();
                     this.g.strokeStyle = this.o.fgColor;
-                    this.g.arc( this.xy, this.xy, this.radius - this.lineWidth + 13 + this.lineWidth, 0, 2 * Math.PI, false);
+                    this.g.arc(this.xy, this.xy, this.radius - this.lineWidth + ( this.radius / 5 ) + ( this.lineWidth * 2 / 3 ), 0, 2 * Math.PI, false);
                     this.g.stroke();
                     return false;
                 }
