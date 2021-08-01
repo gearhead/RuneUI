@@ -3021,11 +3021,15 @@ if ($('#section-index').length) {
             $.scrollTo(0 , 500);
         });
         $('#db-prevPage').click(function(){
-            var scrolloffset = '-=' + $(window).height() + 'px';
+            // 160 pixels in header and footer, subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 160;
+            var scrolloffset = '-=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#db-nextPage').click(function(){
-            var scrolloffset = '+=' + $(window).height() + 'px';
+            // 160 pixels in header and footer, subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 160;
+            var scrolloffset = '+=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#db-lastPage').click(function(){
