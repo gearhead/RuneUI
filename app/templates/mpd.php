@@ -64,7 +64,7 @@
                 <button type="submit" class="btn btn-primary btn-lg" name="save" value="save">Save and apply</button>
             </div>
         </div>
-        <fieldset>
+        <fieldset id="general-options">
             <legend>General Music Daemon Options</legend>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="port">Port</label>
@@ -158,7 +158,7 @@
                         <option value="track" <?php if($this->conf['replaygain'] == 'track'): ?> selected <?php endif ?>>track</option>
                         <option value="auto" <?php if($this->conf['replaygain'] == 'auto'): ?> selected <?php endif ?>>auto</option>
                     </select>
-                    <span class="help-block">If specified, mpd will adjust the volume of songs played using ReplayGain tags (see <a href="http://www.replaygain.org/" target="_blank">http://www.replaygain.org/</a>).
+                    <span class="help-block">If specified, mpd will adjust the volume of songs played using ReplayGain tags (see <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a>).
                     Setting this to "album" will adjust volume using the album's ReplayGain tags, while setting it to "track" will adjust it using the track ReplayGain tags.
                     "auto" uses the track ReplayGain tags if random play is activated otherwise the album ReplayGain tags.
                     Currently only FLAC, Ogg Vorbis, Musepack, and MP3 (through ID3v2 ReplayGain tags, not APEv2) are supported</span>

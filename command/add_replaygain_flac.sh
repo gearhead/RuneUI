@@ -43,7 +43,7 @@
 # Usage <path_to_script>replaygain_flac.sh <directory> <mode> <mode> <mode>
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
-# <mode> can optionally be defined as 'scan' to process specified directory and subdirectories
+# <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
 # <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have replay gain set
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
@@ -56,8 +56,13 @@ ARGUMENT_NOT_DIRECTORY=20 # 20 ENOTDIR Not a directory
 INVALID_ARGUMENT=22 # 22 EINVAL Invalid argument
 #
 if [ ! -d "$1" ]; then
-    echo "Argument $1 is NOT a directory!"
-    exit $ARGUMENT_NOT_DIRECTORY
+    mountpoint -q "$1"
+    if [ $? -eq 0 ]; then
+        echo "Argument 1 $1 is a mount point, continuing..."
+    else
+        echo "Argument 1 $1 is NOT a directory!"
+        exit $ARGUMENT_NOT_DIRECTORY
+    fi
 fi
 #
 if [ ! -w "$1" ]; then
@@ -83,7 +88,7 @@ else
         scan=1
         skip=0
     else
-        echo "Argument $2 invalid!"
+        echo "Argument 2 $2 invalid!"
         exit $INVALID_ARGUMENT
     fi
     if [ ! -z "$3" ]; then
@@ -94,7 +99,7 @@ else
         elif [ "skip" = "$3" ]; then
             skip=0
         else
-            echo "Argument $3 invalid!"
+            echo "Argument 3 $3 invalid!"
             exit $INVALID_ARGUMENT
         fi
     fi
@@ -106,7 +111,7 @@ else
         elif [ "skip" = "$4" ]; then
             skip=0
         else
-            echo "Argument $4 invalid!"
+            echo "Argument 4 $4 invalid!"
             exit $INVALID_ARGUMENT
         fi
     fi

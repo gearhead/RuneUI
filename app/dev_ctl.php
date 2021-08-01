@@ -49,7 +49,7 @@ if (isset($_POST)) {
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambarestart'));
             }
         }
-    // ----- DEBUG -----
+        // ----- DEBUG -----
         if ((isset($_POST['mode']['debug']['enable'])) && ($_POST['mode']['debug']['enable'])) {
             // set debug on
             $redis->get('debug') == 1 || $redis->set('debug', 1);
@@ -57,7 +57,7 @@ if (isset($_POST)) {
             // set debug off
             $redis->get('debug') == 0 || $redis->set('debug', 0);
         }
-    // ----- SoXr MPD -----
+        // ----- SoXr MPD -----
         if ((isset($_POST['mode']['soxrmpdonoff']['enable'])) && ($_POST['mode']['soxrmpdonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->get('soxrmpdonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrmpd', 'action' => 1));
@@ -65,7 +65,7 @@ if (isset($_POST)) {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->get('soxrmpdonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrmpd', 'action' => 0));
         }
-    // ----- SoXr Airplay -----
+        // ----- SoXr Airplay -----
         if ((isset($_POST['mode']['soxrairplayonoff']['enable'])) && ($_POST['mode']['soxrairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'soxronoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrairplay', 'action' => 1));
@@ -73,7 +73,7 @@ if (isset($_POST)) {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'soxronoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrairplay', 'action' => 0));
         }
-    // ----- Airplay Metadata -----
+        // ----- Airplay Metadata -----
         if ((isset($_POST['mode']['metadataairplayonoff']['enable'])) && ($_POST['mode']['metadataairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'metadataonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'metadataairplay', 'action' => 1));
@@ -81,7 +81,7 @@ if (isset($_POST)) {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'metadataonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'metadataairplay', 'action' => 0));
         }
-    // ----- Airplay Artwork -----
+        // ----- Airplay Artwork -----
         if ((isset($_POST['mode']['artworkairplayonoff']['enable'])) && ($_POST['mode']['artworkairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'artworkonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkairplay', 'action' => 1));
@@ -89,7 +89,7 @@ if (isset($_POST)) {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'artworkonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkairplay', 'action' => 0));
         }
-    // ----- Airplay output format -----
+        // ----- Airplay output format -----
         if ((isset($_POST['mode']['airplayof'])) && ($_POST['mode']['airplayof'] != $redis->hget('airplay', 'alsa_output_format'))) {
             // create worker job (set value and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputformat', 'args' => $_POST['mode']['airplayof']));
@@ -99,7 +99,7 @@ if (isset($_POST)) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputrate', 'args' => $_POST['mode']['airplayor']));
         }
-    // ----- Player name Menu -----
+        // ----- Player name Menu -----
         if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
             // create worker job (set on)
             $redis->get('playernamemenu') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 1));
@@ -107,13 +107,13 @@ if (isset($_POST)) {
             // create worker job (set off)
             $redis->get('playernamemenu') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 0));
         }
-    // ----- Automatic Wi-Fi Optimisation-----
+        // ----- Automatic Wi-Fi Optimisation-----
         if ((isset($_POST['mode']['optwifionof']['enable'])) && ($_POST['mode']['optwifionof']['enable'])) {
             $redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
         } else {
             !$redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 0);
         }
-    // ----- Underclocking -----
+        // ----- Underclocking -----
         if ((isset($_POST['mode']['underclocking']['enable'])) && ($_POST['mode']['underclocking']['enable'])) {
             // create worker job (set on)
             $redis->get('underclocking') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'underclocking', 'action' => 1));
@@ -168,6 +168,12 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'sambaconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaconfreset'));
         // ----- REBUILD WEBRADIO DATABASE -----
         if ($_POST['syscmd'] === 'webradiorebuild') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'webradio', 'action' => 'rebuild'));
+        // ----- ADD REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'addRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'addRGtagsFlac'));
+        // ----- UPDATE REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'updateRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'updateRGtagsFlac'));
+        // ----- REMOVE REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'delRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'delRGtagsFlac'));
     }
 }
 if (isset($jobID)) {

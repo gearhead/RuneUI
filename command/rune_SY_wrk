@@ -1508,6 +1508,28 @@ while (1) {
                     // ui_notify('Kill weston', '');
                     $redis->sRem('w_lock', $jobID);
                     break;
+                case 'replaygain':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+                    if ($job->action === 'addRGtagsFlac') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/add_replaygain_flac_to_local.sh silent > /dev/null 2>&1');
+                        //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                        ui_notify("Add ReplayGain tags for Flac files", 'Job started');
+                    } else if ($job->action === 'updateRGtagsFlac') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/add_replaygain_flac_to_local.sh silent skip > /dev/null 2>&1');
+                        //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                        ui_notify("Update ReplayGain tags for Flac files", 'Job started');
+                    } else if ($job->action === 'delRGtagsFlac') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/remove_replaygain_flac_from_local.sh silent > /dev/null 2>&1');
+                        //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                        ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
+                    }
+                    sleep(3);
+                    $redis->sRem('w_lock', $jobID);
+                    break;
             } // end switch
             // delete processed job from the w_queue
             $redis->hDel('w_queue', $jobID);

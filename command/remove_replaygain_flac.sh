@@ -43,7 +43,7 @@
 # Usage <path_to_script>replaygain_flac.sh <directory> <mode> <mode>
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
-# <mode> can optionally be defined as 'scan' to process specified directory and subdirectories
+# <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
 #

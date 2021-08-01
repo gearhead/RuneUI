@@ -390,10 +390,39 @@
                     <label class="col-sm-2 control-label">Extend the Linux Partition</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="extendpartition" id="syscmd-extendpartition" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">This RuneAudio image is designed to fit on a 4Gb Micro-SD card even though most SD-cards are now 16Gb or greater.
+                        <span class="help-block">This RuneAudio image is designed to fit on a 8Gb Micro-SD card even though most SD-cards are now 16Gb or greater.
                         In most cases RuneAudio will work fine without extending the Linux Partition.
                         If you want to utilise the extra available space on the Micro-SD card you can use this option to extend the Linux Partition to its maximum size.
                         This is useful if you wish add extra Arch Linux packages or to make use the local storage option. Music files in local storage can easily be managed with the Samba options via your PC.</span>
+                    </div>
+                </div>
+            </div>
+            <legend>Replay Gain tags</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain metadata tags will be added to all Flac files on you locally mounted USB-drives.</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Update ReplayGain tags for Flac files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain metadata tags will be added to Flac files on you locally mounted USB-drives when these tags not present.</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Remove ReplayGain tags from Flac files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain metadata tags will be removed from all Flac files on you locally mounted USB-drives.<br>
+                        <br>
+                        All these options take a very long time to run. There is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
+                        The audio part of your audio files is not modified. Adding ReplayGain metadata tags does not change the the audio quality in any way, the process just adds/removes metadata tags.
+                        ReplayGain metadata tags can be added to your audio files. However, some audio file formats do not support ReplayGain tags. MPD can read ReplayGain tags and adjust the audio volume based on their settings. For details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
+                        Please check if the MPD <a href="/mpd/#general-options">Replay Gain</a> option is enabled.</span>
                     </div>
                 </div>
             </div>
