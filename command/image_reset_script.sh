@@ -273,7 +273,7 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 echo -e "rune\nrune" | passwd root
 #
 # make sure that specific users are member of the audio group
-declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli)
+declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -ic audio )
     if [ "$audiocnt" == "0" ] ; then
