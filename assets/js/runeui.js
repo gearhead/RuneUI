@@ -3021,14 +3021,14 @@ if ($('#section-index').length) {
             $.scrollTo(0 , 500);
         });
         $('#db-prevPage').click(function(){
-            // 160 pixels in header and footer, subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 160;
+            // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 184;
             var scrolloffset = '-=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#db-nextPage').click(function(){
-            // 160 pixels in header and footer, subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 160;
+            // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 184;
             var scrolloffset = '+=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
@@ -3040,13 +3040,15 @@ if ($('#section-index').length) {
             $.scrollTo(0 , 500);
         });
         $('#pl-prevPage').click(function(){
-            var scrollTop = $(window).scrollTop();
-            var scrolloffset = scrollTop - $(window).height();
+            // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '-=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#pl-nextPage').click(function(){
-            var scrollTop = $(window).scrollTop();
-            var scrolloffset = scrollTop + $(window).height();
+            // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
+            var schrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '+=' + schrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#pl-lastPage').click(function(){
