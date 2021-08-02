@@ -102,7 +102,7 @@
                         <option value="yes" <?php if(isset($this->conf['state_file'])): ?> selected <?php endif ?>>enabled</option>
                         <option value="no" <?php if(!isset($this->conf['state_file'])): ?> selected <?php endif ?>>disabled</option>
                     </select>
-                    <span class="help-block">This setting specifies if a state file is used. If the state file is active, the state of mpd will be saved when mpd is terminated by a TERM signal or by the "kill" command. When mpd is restarted, it will read the state file and restore the state of mpd (including the playlist)</span>
+                    <span class="help-block">This setting specifies if a state file is used. If the state file is active, the state of MPD will be saved when MPD is terminated by a TERM signal or by the "kill" command. When MPD is restarted, it will read the state file and restore the state of MPD (including the playlist)</span>
                 </div>
             </div>
             <div class="form-group">
@@ -150,7 +150,7 @@
                 <?php endif;?>
             </div>
             <div class="form-group">
-                <label class="col-sm-2 control-label" for="replaygain">Replay Gain</label>
+                <label class="col-sm-2 control-label" for="replaygain">ReplayGain</label>
                 <div class="col-sm-10">
                     <select id="replaygain" name="conf[replaygain]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="off" <?php if($this->conf['replaygain'] == 'off'): ?> selected <?php endif ?>>off</option>
@@ -158,7 +158,7 @@
                         <option value="track" <?php if($this->conf['replaygain'] == 'track'): ?> selected <?php endif ?>>track</option>
                         <option value="auto" <?php if($this->conf['replaygain'] == 'auto'): ?> selected <?php endif ?>>auto</option>
                     </select>
-                    <span class="help-block">If specified, mpd will adjust the volume of songs played using ReplayGain tags (see <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a>).
+                    <span class="help-block">If specified, MPD will adjust the volume of songs played using ReplayGain tags (see <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a>).
                     Setting this to "album" will adjust volume using the album's ReplayGain tags, while setting it to "track" will adjust it using the track ReplayGain tags.
                     "auto" uses the track ReplayGain tags if random play is activated otherwise the album ReplayGain tags.
                     Currently only FLAC, Ogg Vorbis, Musepack, and MP3 (through ID3v2 ReplayGain tags, not APEv2) are supported</span>
@@ -171,7 +171,7 @@
                         <option value="yes" <?php if($this->conf['volume_normalization'] == 'yes'): ?> selected <?php endif ?>>enabled</option>
                         <option value="no" <?php if($this->conf['volume_normalization'] == 'no'): ?> selected <?php endif ?>>disabled</option>
                     </select>
-                    <span class="help-block">If yes, mpd will normalize the volume of songs as they play. The default is no. <i>Note: Enabling this feature means your audio will no longer be bit perfect</i></span>
+                    <span class="help-block">If yes, MPD will normalize the volume of songs as they play. The default is no. <i>Note: Enabling this feature means your audio will no longer be bit perfect</i></span>
                 </div>
             </div>
             <div class="form-group">

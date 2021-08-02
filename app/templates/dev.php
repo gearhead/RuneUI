@@ -137,7 +137,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">RuneAudio Shairport-Sync Metadata decoder worker (rune_SSM_wrk)</label>
+                    <label class="col-sm-2 control-label">RuneAudio Shairport-Sync Meta-data decoder worker (rune_SSM_wrk)</label>
                     <div class="col-sm-10">
                         <button class="btn btn-default btn-lg" value="rune_SSM_wrk" name="syscmd[wrkrestart]" type="submit">Restart rune_SSM_wrk</button>
                         <span class="help-block">&nbsp;</span>
@@ -280,13 +280,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Airplay Metadata</label>
+                    <label class="col-sm-2 control-label">Airplay Meta-data</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="metadataairplayonoff" name="mode[metadataairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->metadataairplayonoff)) && ($this->metadataairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">Metadata for Airplay is set ON or OFF depending on processor type.
+                        <span class="help-block">Meta-data for Airplay is set ON or OFF depending on processor type.
                         It imposes a medium CPU and memory overhead when Airplay is active.
                         You can can override the default setting here</span>
                     </div>
@@ -397,31 +397,31 @@
                     </div>
                 </div>
             </div>
-            <legend>Replay Gain tags</legend>
+            <legend>ReplayGain tags</legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain metadata tags will be added to all Flac files on you locally mounted USB-drives.</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to all Flac files on you locally mounted USB-drives.</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain metadata tags will be added to Flac files on you locally mounted USB-drives when these tags not present.</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to Flac files on you locally mounted USB-drives when these tags not present.</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain metadata tags will be removed from all Flac files on you locally mounted USB-drives.<br>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from all Flac files on you locally mounted USB-drives.<br>
                         <br>
                         All these options take a very long time to run. There is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
-                        The audio part of your audio files is not modified. Adding ReplayGain metadata tags does not change the the audio quality in any way, the process just adds/removes metadata tags.
-                        ReplayGain metadata tags can be added to your audio files. However, some audio file formats do not support ReplayGain tags. MPD can read ReplayGain tags and adjust the audio volume based on their settings. For details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
+                        The audio part of your audio files is not modified. Adding ReplayGain meta-data tags does not change the the audio quality in any way, the process just adds/removes meta-data tags.
+                        ReplayGain meta-data tags can be added to your audio files. However, some audio file formats do not support ReplayGain tags. MPD can read ReplayGain tags and adjust the audio volume based on their settings. For details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
                         Please check if the MPD <a href="/mpd/#general-options">Replay Gain</a> option is enabled.</span>
                     </div>
                 </div>

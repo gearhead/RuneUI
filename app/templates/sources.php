@@ -9,7 +9,7 @@
         </form>
     </div>
     <legend>Network Mounts</legend>
-    <p>List of configured network mounts. Click an existing entry to edit it, or add a new one.</p>
+    <p>List of configured network mounts. Click an existing entry to edit it, or add a new one</p>
     <form id="mount-list" class="button-list" action="" method="post">
         <?php if( !empty($this->mounts) ): ?>
         <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="mountall" value="1" id="mountall"><i class="fa fa-refresh sx"></i> Retry mounting unmounted sources</button></p>
@@ -23,7 +23,7 @@
     </form>
     <legend>USB Mounts</legend>
     <p>List of mounted USB drives. To safe unmount a drive, click on it and confirm at the dialog prompt.<br>
-    If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled.</p>
+    If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled</p>
     <div id="usb-mount-list" class="button-list">
     <?php if( $this->usbmounts !== null ): foreach($this->usbmounts as $usbmount): ?>
         <p><a class="btn btn-lg btn-default btn-block" href="#umount-modal" data-toggle="modal" data-mount="<?=$usbmount->device ?>"><i class="fa fa-check green sx"></i><?=$usbmount->device ?>&nbsp;&nbsp;&nbsp;&nbsp;<?=$usbmount->name ?>&nbsp;&nbsp;&nbsp;&nbsp;<?php if (!empty($usbmount->size)): ?><span>(size:&nbsp;<?=$usbmount->size ?>B,&nbsp&nbsp;<?=$usbmount->use ?>&nbsp;in use)</span><?php endif; ?></a></p>
@@ -66,7 +66,7 @@
                     </label>
                     <span class="help-block">Auto rebuild the MPD library for USB devices on startup and when a USB device is plugged in.<br>
                         <i>Note: The MPD library for network mounts is automatically (re)built on mounting, but never on startup.
-                        Automatic updates can be set in the <a href="/mpd">MPD</a> settings (see: General Music Daemon Options > Auto Update)</i></span>
+                        Automatic updates can be set in the <a href="/mpd#general-options">MPD Auto Update</a> setting</i></span>
                 </div>
             </div>
         </fieldset>
