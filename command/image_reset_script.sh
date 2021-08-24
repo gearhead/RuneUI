@@ -247,8 +247,8 @@ redis-cli del spotify
 redis-cli del spotifyconnect
 redis-cli del webradios
 # remove the redis variables used for:
-#   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle)
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle' | xargs )
+#   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle), lyrics (unused variables)
+redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done

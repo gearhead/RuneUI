@@ -62,12 +62,12 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'follow_inside_symlinks', 'yes');
             $redis->hSet('mpdconf', 'auto_update', 'no');
             $redis->hSet('mpdconf', 'filesystem_charset', 'UTF-8');
-            $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
+            // $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
             $redis->hSet('mpdconf', 'volume_normalization', 'no');
             $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
-            $redis->hSet('mpdconf', 'buffer_before_play', '10%');
-            $redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
-            $redis->hSet('mpdconf', 'mixer_type', 'software');
+            // $redis->hSet('mpdconf', 'buffer_before_play', '10%');
+            // $redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
+            $redis->hSet('mpdconf', 'mixer_type', 'hardware');
             $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
@@ -96,12 +96,12 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'follow_inside_symlinks') || $redis->hSet('mpdconf', 'follow_inside_symlinks', 'yes');
             $redis->hExists('mpdconf', 'auto_update') || $redis->hSet('mpdconf', 'auto_update', 'no');
             $redis->hExists('mpdconf', 'filesystem_charset') || $redis->hSet('mpdconf', 'filesystem_charset', 'UTF-8');
-            $redis->hExists('mpdconf', 'id3v1_encoding') || $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
+            // $redis->hExists('mpdconf', 'id3v1_encoding') || $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
             $redis->hExists('mpdconf', 'volume_normalization') || $redis->hSet('mpdconf', 'volume_normalization', 'no');
             $redis->hExists('mpdconf', 'audio_buffer_size') || $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
-            $redis->hExists('mpdconf', 'buffer_before_play') || $redis->hSet('mpdconf', 'buffer_before_play', '10%');
-            $redis->hExists('mpdconf', 'gapless_mp3_playback') ||$redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
-            $redis->hExists('mpdconf', 'mixer_type') || $redis->hSet('mpdconf', 'mixer_type', 'software');
+            // $redis->hExists('mpdconf', 'buffer_before_play') || $redis->hSet('mpdconf', 'buffer_before_play', '10%');
+            // $redis->hExists('mpdconf', 'gapless_mp3_playback') ||$redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
+            $redis->hExists('mpdconf', 'mixer_type') || $redis->hSet('mpdconf', 'mixer_type', 'hardware');
             $redis->hExists('mpdconf', 'curl') || $redis->hSet('mpdconf', 'curl', 'yes');
             $redis->hExists('mpdconf', 'ffmpeg') || $redis->hSet('mpdconf', 'ffmpeg', 'yes');
             $redis->hExists('mpdconf', 'log_file') || $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
@@ -230,6 +230,7 @@ function redisDatastore($redis,$action) {
             $redis->set('lyric', 1);
             $redis->set('playmod', 0);
             $redis->set('ramplay', 0);
+            // last.fm
             $redis->hSet('lastfm', 'enable', 0);
             $redis->hSet('lastfm', 'user', 'user');
             $redis->hSet('lastfm', 'pass', 'pass');
@@ -254,17 +255,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hSet('globalrandom', 'random_album', 0);
             $redis->hSet('globalrandom', 'suspend_timeout', '1s');
-            // default lyrics and info
-            $redis->hSet('lyrics', 'currentartist', '');
-            $redis->hSet('lyrics', 'currentsong', '');
-            $redis->hSet('lyrics', 'currentalbum', '');
-            $redis->hSet('lyrics', 'art', '');
-            $redis->hSet('lyrics', 'arturl', '');
-            $redis->hSet('lyrics', 'audio', '');
-            $redis->hSet('lyrics', 'time', '');
-            $redis->hSet('lyrics', 'artist', '');
-            $redis->hSet('lyrics', 'album', '');
-            $redis->hSet('lyrics', 'song', '');
+            // info
             $redis->del('soxrmpdonoff');
             $redis->set('remoteSStime', -1);
             // album and artist art
@@ -319,7 +310,7 @@ function redisDatastore($redis,$action) {
             // $redis->set('hwplatformid', '');
             // player control
             if (($redis->get('hwplatformid') === '01') OR ($redis->get('hwplatformid') === '08')) {
-                $redis->set('ao', 'bcm2835 ALSA_1');
+                $redis->set('ao', 'bcm2835 Headphones');
             } else {
                 $redis->set('ao', '');
             }
@@ -583,23 +574,14 @@ function redisDatastore($redis,$action) {
             $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'random_album') || $redis->hSet('globalrandom', 'random_album', 0);
             $redis->hExists('globalrandom', 'suspend_timeout') || $redis->hSet('globalrandom', 'suspend_timeout', '1s');
-            // default lyrics and info
-            $redis->hExists('lyrics', 'currentartist') || $redis->hSet('lyrics', 'currentartist', '');
-            $redis->hExists('lyrics', 'currentsong') || $redis->hSet('lyrics', 'currentsong', '');
-            $redis->hExists('lyrics', 'currentalbum') || $redis->hSet('lyrics', 'currentalbum', '');
-            $redis->hExists('lyrics', 'art') || $redis->hSet('lyrics', 'art', '');
-            $redis->hExists('lyrics', 'arturl') || $redis->hSet('lyrics', 'arturl', '');
-            $redis->hExists('lyrics', 'audio') || $redis->hSet('lyrics', 'audio', '');
-            $redis->hExists('lyrics', 'time') || $redis->hSet('lyrics', 'time', '');
-            $redis->hExists('lyrics', 'artist') || $redis->hSet('lyrics', 'artist', '');
-            $redis->hExists('lyrics', 'album') || $redis->hSet('lyrics', 'album', '');
-            $redis->hExists('lyrics', 'song') || $redis->hSet('lyrics', 'song', '');
+            //  info
             $redis->exists('udevil') || $redis->set('udevil', 1);
             $redis->exists('coverart') || $redis->set('coverart', 1);
             $redis->exists('artist-info') || $redis->set('artist-info', 1);
             $redis->exists('lyric') || $redis->set('lyric', 1);
             $redis->exists('playmod') || $redis->set('playmod', 0);
             $redis->exists('ramplay') || $redis->set('ramplay', 0);
+            // last.fm
             $redis->hExists('lastfm', 'enable') || $redis->hSet('lastfm', 'enable', 0);
             $redis->hExists('lastfm', 'username') || $redis->hSet('lastfm', 'username', '');
             $redis->hExists('lastfm', 'password') || $redis->hSet('lastfm', 'password', '');
@@ -720,11 +702,9 @@ if (isset($argv[1])) {
             redisDatastore($redis,'mpdcheck');
             break;
         default:
-            echo "RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck}\n";
             trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck}\n", E_USER_ERROR);
             break;
     }
 } else {
-    echo "RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck}\n";
     trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck}\n", E_USER_ERROR);
 }
