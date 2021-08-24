@@ -314,7 +314,7 @@ $template->samba = $redis->hGetAll('samba');
 $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
 $template->i2smodule_select = $redis->get('i2smodule_select');
-// maybe implement the following code to for a manually edited /boot/config.txt
+// maybe implement the following code for a manually edited /boot/config.txt
 // if ($template->i2smodule == 'none') {
     // $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/## RuneAudio I2S-Settings/,/#/p' | grep dtoverlay | cut -d '=' -f2");
     // if (isset($retval[0])) {

@@ -1555,6 +1555,9 @@ while (1) {
             runelog('(loop) delete job_queue', $jobID);
         } // end foreach loop
     } // end if loop
+    //
+    // extra tasks to be carried out based on a timer
+    //
     // mount all sources
     if ((!$allmounted) && is_firstTime($redis, 'mount_all_shares')) {
         runelog('wrk_SY: try to mount all shares! - First time');
@@ -1575,15 +1578,17 @@ while (1) {
         // you can change the number of retries here
         $retriesmounting = 100;
     }
-    $allmounted = $redis->get('allmounted');
     // If mounting is unsuccessful retry mounting the first time on the 1st cycle, then every +/-1800th cycle (= every +/-15 minutes), first time it is set to zero
-    if ((!$allmounted) && ($savecpuMnt-- <= 0)) {
-        if ($retriesmounting-- >= 0) {
-            runelog('wrk_SY: error mounting shares, trying it again! Count: '.$retriesmounting);
-            // run asynchronous mount script
-            sysCmdAsync('nice --adjustment=2 php -f /var/www/command/mount_async.php');
+    if ($savecpuMnt-- <= 0) {
+        $allmounted = $redis->get('allmounted');
+        if (!$allmounted) {
+            if ($retriesmounting-- >= 0) {
+                runelog('wrk_SY: error mounting shares, trying it again! Count: '.$retriesmounting);
+                // run asynchronous mount script
+                sysCmdAsync('nice --adjustment=2 php -f /var/www/command/mount_async.php');
+            }
+            $savecpuMnt = 1750 + rand(0, 100);
         }
-        $savecpuMnt = 1750 + rand(0, 100);
     }
     // Run refresh_nics periodically, run it first after 10 cycles (+/-5 seconds), and increase the repeat cycle time by 50%
     // it should run at least once per hour

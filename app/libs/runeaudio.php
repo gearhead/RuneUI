@@ -110,6 +110,8 @@ function openMpdSocket($path, $type = 0)
         socket_set_block($$sockVarName);
         runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<','');
     }
+    // socket_connect(<socket>, <host>, <port>);
+    // <port> is not used for AF_UNIX sockets, see the socket_create() usage above
     $connection = socket_connect($$sockVarName, $path);
     if ($connection) {
         // Expected MPD Open Response messages
@@ -181,12 +183,12 @@ function sendMpdCommand($sock, $cmd)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
+        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
         return false;
     }
     $cmd = trim($cmd)."\n";
     if (socket_write($$sockVarName, $cmd, strlen($cmd))) {
-        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET SEND : ', $cmd);
+        runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
         return true;
     } else {
         runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
@@ -217,7 +219,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[read]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
+        runelog('[read]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
         return false;
     }
     // define the socket variable name as global
@@ -227,7 +229,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
+        runelog('[read]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
         return false;
     }
     // initialize vars
@@ -312,6 +314,8 @@ function readMpdResponse($sock)
                 // debug
                 runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED: ',$output);
                 break;
+            } else {
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SUCCESS : ','');
             }
             $output .= $read;
             // usleep(200);
@@ -350,6 +354,8 @@ function readMpdResponse($sock)
                 // debug
                 runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED : ',$output);
                 break;
+            } else {
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SUCCESS : ','');
             }
             $output .= $read;
             // usleep(200);
