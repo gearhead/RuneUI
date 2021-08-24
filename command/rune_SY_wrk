@@ -268,7 +268,7 @@ if ($playerid_db === '') {
             // do nothing
         } else {
             // Start and refresh MPD (audio hardware status - soundcards and MPD config)
-            wrk_mpdconf($redis, 'refresh');
+            wrk_mpdconf($redis, 'refreshsoundcards');
         }
         unset($retval);
         // ashuffle gets started automatically
@@ -292,7 +292,7 @@ if ($playerid_db === '') {
             // do nothing
         } else {
             // Start and refresh MPD (audio hardware status - soundcards and MPD config)
-            wrk_mpdconf($redis,'refresh');
+            wrk_mpdconf($redis,'refreshsoundcards');
         }
         unset($retval);
         // ashuffle gets started automatically
@@ -1787,7 +1787,13 @@ while (1) {
             sysCmdAsync('nice --adjustment=2 /srv/http/command/dnssec_fix.sh');
         }
     }
-    // unload CPU: 0,5 second sleep
+    // Check the usb_db_autorebuild_retry variable, when set update the MPD USB library
+    if ($redis->get('usb_db_autorebuild_retry')) {
+        sysCmd('mpc update USB');
+        // unset the variable
+        $redis->set('usb_db_autorebuild_retry', 0);
+    }
+    // unload CPU: 0.5 second sleep
     usleep(500000);
 } // end while loop
 // --- WORKER MAIN LOOP //

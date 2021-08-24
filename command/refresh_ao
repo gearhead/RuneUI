@@ -40,19 +40,25 @@ ini_set('error_log', '/var/log/runeaudio/refresh_ao.log');
 require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend include
 require_once('/srv/http/app/libs/openredis.php');
+// get the lock status
 $lock = $redis->get('lock_refresh_ao');
 runelog('lock status ', $lock);
 // startup
 runelog('--------------------------- start Audio Outputs refresh ---------------------------');
 // refesh audio hardware status (soundcards and MPD config)
-if ($lock === '0') {
+if ($lock === '0' || $lock === '9') {
+    // set the lock
     $redis->set('lock_refresh_ao', '1');
-    wrk_mpdconf($redis, 'refresh');
+    wrk_mpdconf($redis, 'refreshsoundcards');
     ui_notify('Audio Output', 'configuration changed.');
-    sleep(1);
+    // unlock
     $redis->set('lock_refresh_ao', '0');
 } else {
     echo "LOCKED!";
+    // just in case something goes wrong increment the lock value by 1
+    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+    $lock += 1;
+    $redis->set('lock_refresh_ao', $lock);
 }
 // startup
 runelog('-------------------------- #finish Audio Outputs refresh# --------------------------');

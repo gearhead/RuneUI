@@ -3391,6 +3391,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // mpd will not be restarted if it was not stopped
             wrk_mpdconf($redis, 'start');
             break;
+        case 'refreshsoundcards':
+            $retval = wrk_audioOutput($redis, 'refresh');
+            if ($retval === 'changed') {
+                wrk_mpdconf($redis, 'writecfg');
+                if ($redis->get('mpdconfchange')) {
+                    // mpd.conf has changed so stop the mpd jobs
+                    wrk_mpdconf($redis, 'stop');
+                }
+                // always run start to make sure the mpd jobs are running
+                // mpd will not be restarted if it was not stopped
+                wrk_mpdconf($redis, 'start');
+            }
+            break;
         case 'start':
             $activePlayer = $redis->get('activePlayer');
             if ($activePlayer === 'MPD') {
