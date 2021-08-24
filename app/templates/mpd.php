@@ -10,7 +10,7 @@
                     <div class="col-sm-10">
                         <select id="audio-output-interface" name="conf[audio_output_interface]" class="selectpicker" data-style="btn-default btn-lg">
                             <?php foreach($this->acards as $card): ?>
-                                <option value="<?=$card['name'] ?>" <?php if($this->ao === $card['name']): ?> selected <?php endif ?>><?php if(isset($card['extlabel'])):?><?=$card['extlabel'] ?><?php else:?><?=$card['name'] ?><?php endif; ?></option>
+                                <option value="<?=$card['name'] ?>" <?php if($this->ao === $card['name']): ?> selected <?php endif ?>><?php if(isset($card['description'])):?><?=$card['description'] ?><?php else:?><?=$card['name'] ?><?php endif; ?></option>
                             <?php endforeach; ?>
                         </select>
                         <span class="help-block">This switches output between audio interfaces</span>
@@ -25,7 +25,7 @@
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="mixer-type">Volume control</label>
                 <div class="col-sm-10">
-                    <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
+                    <!-- <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
                         <option value="software" <?php if($this->conf['mixer_type'] == 'software'): ?> selected <?php endif ?>>enabled - software</option>
                         <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled - hardware</option>
@@ -35,7 +35,16 @@
                         <strong>software</strong> - Volume knob enabled, controlled by <strong>software mixer</strong>. This option <strong>reduces the overall sound quality</strong>.<br>
                         <strong>hardware</strong> - Volume knob enabled, controlled by <strong>hardware mixer</strong>. This option enables the volume control and let you achieve <strong>very good overall sound quality</strong>.<br>
                         <i>Note: hardware mixer must be supported directly from your sound card hardware</i>
-                    </span>
+                    </span> -->
+                    <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
+                        <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
+                        <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled</option>
+                    </select>
+                    <span class="help-block">
+                        <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
+                        <strong>enabled</strong> - A hardware mixer is automatically selected if supported, otherwise a software mixer is used.<br>
+                        <i>Regardless of the mixer type, at 100% volume there is no reduction in sound quality. A hardware mixer has better sound 
+                        quality performance than a software mixer, but it must be supported from your sound card</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -134,18 +143,18 @@
                 <div class="col-sm-10">
                     <select id="dsd-usb" name="conf[dsd_usb]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="DSDNATIVE" <?php if($this->conf['dsd_usb'] == 'DSDNATIVE'): ?> selected <?php endif ?>>DSD (native)</option>
-                        <option value="DSDDOP" <?php if($this->conf['dsd_usb'] == 'DSDDOP'): ?> selected <?php endif ?>>DSD (DOP)</option>
-                        <option value="no" <?php if($this->conf['dsd_usb'] == 'no'): ?> selected <?php endif ?>>disabled</option>
+                        <option value="DSDDOP" <?php if($this->conf['dsd_usb'] == 'DSDDOP'): ?> selected <?php endif ?>>DSD over PCM</option>
+                        <option value="no" <?php if($this->conf['dsd_usb'] == 'no'): ?> selected <?php endif ?>>default</option>
                     </select>
-                    <span class="help-block">Enable DSD audio support</span>
+                    <span class="help-block">Enable special DSD audio support (only effective for USB DAC's)</span>
                 </div>
                 <?php else:?>
                 <div class="col-sm-10">
                     <select id="dsd-usb" name="conf[dsd_usb]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="yes" <?php if($this->conf['dsd_usb'] == 'yes'): ?> selected <?php endif ?>>enabled</option>
-                        <option value="no" <?php if($this->conf['dsd_usb'] == 'no'): ?> selected <?php endif ?>>disabled</option>
+                        <option value="yes" <?php if($this->conf['dsd_usb'] == 'yes'): ?> selected <?php endif ?>>DSD over PCM</option>
+                        <option value="no" <?php if($this->conf['dsd_usb'] == 'no'): ?> selected <?php endif ?>>default</option>
                     </select>
-                    <span class="help-block">Enable DSD audio support</span>
+                    <span class="help-block">Enable special DSD audio support (only effective for USB DAC's)</span>
                 </div>
                 <?php endif;?>
             </div>
