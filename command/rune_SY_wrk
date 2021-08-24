@@ -1614,6 +1614,9 @@ while (1) {
             // restart haveged entropy, it normally starts before time is set, this causes similar 'random' results
             sysCmd('systemctl restart haveged');
             $savecpuOneTimeActions = 5 + rand(0, 10);
+        } else if (is_firstTime($redis, 'changewindow')) {
+            // change the window for ahuffle, this helps improve the randomisation
+            wrk_ashuffle($redis, 'changewindow');
         } else {
             $savecpuOneTimeActions = 10000000;
         }
