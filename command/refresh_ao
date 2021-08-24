@@ -36,10 +36,10 @@
 ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log', '/var/log/runeaudio/refresh_ao.log');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
-require_once('/var/www/app/libs/runeaudio.php');
+// RuneAudio Library include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 $lock = $redis->get('lock_refresh_ao');
 runelog('lock status ', $lock);
 // startup

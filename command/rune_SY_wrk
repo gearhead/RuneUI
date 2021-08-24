@@ -32,8 +32,6 @@
  *  coder: Simone De Gregori
  *
  */
-// common include
-require_once('/srv/http/app/libs/runeaudio.php');
 $start = microtime(true);
 $savecpuRp = 12;
 $savecpuMnt = 1;
@@ -54,12 +52,11 @@ ini_set('display_errors', '1');
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('error_log', '/var/log/runeaudio/rune_SY_wrk.log');
 define('APP', '/srv/http/app/');
-// setup /run dir
-sysCmd('chmod 777 /run');
 
-// Connect to Redis backend
-$redis = new Redis();
-$redis->pconnect('/run/redis/socket');
+// common include
+require_once(APP.'libs/runeaudio.php');
+// Connect to Redis backend include
+require_once(APP.'libs/openredis.php');
 
 // clear the cache otherwise file_exists() returns incorrect values
 clearstatcache(true, '/srv/http/command/update_os.php');

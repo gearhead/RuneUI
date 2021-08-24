@@ -35,7 +35,10 @@
  *
  */
 // common include
-require_once('/srv/http/app/config/config.php');
+// RuneAudio Library include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 // ini_set('display_errors',1);
 // error_reporting(E_ALL);
 $errorMessages = array(

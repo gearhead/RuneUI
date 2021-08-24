@@ -37,10 +37,10 @@ ini_set('display_errors', '1');
 error_reporting(E_ALL);
 ini_set('error_log', '/var/log/runeaudio/ui_update_async.log');
 define('APP', '/srv/http/app/');
+// RuneAudio Library include
 require_once('/srv/http/app/libs/runeaudio.php');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 $activePlayer = $redis->get('activePlayer');
 if ($activePlayer === 'MPD') {
     $socket = openMpdSocket('/run/mpd/socket', 0);

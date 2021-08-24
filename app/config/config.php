@@ -42,50 +42,8 @@ $libs = APP.'libs/vendor';
 set_include_path(get_include_path() . PATH_SEPARATOR . $libs);
 // RuneAudio Library include
 require_once(APP.'libs/runeaudio.php');
-// Connect to Redis backend
-// in the backup function redis is stopped and restarted, it is possible that
-// redis is still starting when this code executes, so trap any errors
-$redisError = true;
-$redisErrorCount =10;
-while ($redisError) {
-    try
-    {
-        // Code that may throw an Exception or Error.
-        $redis = new Redis();
-        //$redis->pconnect('127.0.0.1');
-        if ($redis->pconnect('/run/redis/socket')) {
-            $redisError = false;
-        } else {
-            $redisError = true;
-            sleep(2);
-            $redisErrorCount--;
-        }
-    }
-    catch (Throwable $t)
-    {
-        // Executed only in PHP 7 and higher, will not match in PHP 5
-        $redisError = true;
-        sleep(2);
-        $redisErrorCount--;
-    }
-    catch (Exception $e)
-    {
-        // Executed only in PHP 5, will not be reached in PHP 7 and higher
-        $redisError = true;
-        sleep(2);
-        $redisErrorCount--;
-    }
-    if ($redisErrorCount <= 0) {
-        // exit the loop
-        $redisError = false;
-        // try again but don't trap the error
-        $redis = new Redis();
-        //$redis->pconnect('127.0.0.1');
-        $redis->pconnect('/run/redis/socket');
-    }
-}
-$devmode = $redis->get('dev');
-$activePlayer = $redis->get('activePlayer');
+// Connect to Redis backend include
+require_once(APP.'libs/openredis.php');
 // LogSettings
 if ($redis->get('debug')) {
     $activeLog = '1';
