@@ -2862,7 +2862,8 @@ function wrk_i2smodule($redis, $args)
         fclose($fp);
     } else {
         if (wrk_mpdPlaybackStatus($redis) === 'playing') {
-            $mpd = openMpdSocket('/run/mpd/socket', 0);
+            //$mpd = openMpdSocket('/run/mpd/socket', 0);
+            $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
             sendMpdCommand($mpd, 'kill');
             closeMpdSocket($mpd);
         }
