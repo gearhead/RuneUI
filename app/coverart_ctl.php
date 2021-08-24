@@ -57,7 +57,8 @@ if ($activePlayer === 'MPD') {
     // get HTTP proxy settings
     $proxy = $redis->hGetall('proxy');
     // connect to MPD daemon
-    $mpd2 = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd2 = openMpdSocket('/run/mpd/socket', 0);
+    $mpd2 = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     // fetch MPD status
     $status = _parseStatusResponse($redis, MpdStatus($mpd2));
     $curTrack = getTrackInfo($mpd2, $status['song']);

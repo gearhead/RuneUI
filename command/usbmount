@@ -74,22 +74,19 @@ sysCmd('chmod 777 /mnt/MPD/USB/*');
 // remove 'ghost' usb mounts
 // use udevil clean to remove any ghost entries
 sysCmd('udevil clean');
-// connect to MPD daemon
 // check if usb autorebuild is set
 if ($redis->get('usb_db_autorebuild')) {
-    //$mpd = openMpdSocket('/run/mpd/socket');
-    // next two lines should eventually be removed, at the moment mpd seems to have problems when requested to do an update too quickly
-    sysCmd('sync ; mpc status');
-    sleep(5);
-    sysCmd('mpc update USB');
+    // update MPD database
+    $retval = sysCmd('mpc update USB');
+    if (isset($retval) && is_array($retval) && strpos(' '.$retval[0], 'error')) {
+        // mpc has returned an error, mpd is probably starting up
+        //  set redis variable 'usb_db_autorebuild_retry' which will be acted on by rune_SY_wrk
+        $redis->set('usb_db_autorebuild_retry', 1);
+    }
 }
-// update MPD database
-//sendMpdCommand($mpd, 'update USB');
-// update library panel
+// update library panel to display the new mount
 ui_libraryHome($redis);
-// close MPD connection
-//closeMpdSocket($mpd);
-// restart Samba
+// restart Samba in order to pick up the new USB mount
 wrk_restartSamba($redis);
 // close Redis connection
 $redis->close();

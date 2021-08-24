@@ -43,7 +43,8 @@ require_once('/srv/http/app/libs/runeaudio.php');
 require_once('/srv/http/app/libs/openredis.php');
 $activePlayer = $redis->get('activePlayer');
 if ($activePlayer === 'MPD') {
-    $socket = openMpdSocket('/run/mpd/socket', 0);
+    //$socket = openMpdSocket('/run/mpd/socket', 0);
+    $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
 } elseif ($activePlayer === 'Spotify') {
     $socket = openSpopSocket('localhost', 6602, 1);
 } else {

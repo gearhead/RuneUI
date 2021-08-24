@@ -53,43 +53,19 @@ if ($redis->get('debug')) {
 ini_set('log_errors', $activeLog);
 ini_set('error_log', '/var/log/runeaudio/runeui.log');
 ini_set('display_errors', $activeLog);
-$socketError = true;
-$socketErrorCount = 10;
+//
+$devmode = $redis->get('dev');
+$activePlayer = $redis->get('activePlayer');
 // connect to MPD daemon
+$repeat = 15;
 if ((isset($_SERVER["SCRIPT_FILENAME"])) && ($activePlayer === 'MPD') && (($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');
-    while ($socketError) {
-        $mpd = openMpdSocket('/run/mpd/socket', 0);
-        if (isset($mpd) && $mpd) {
-            $socketError = false;
-        } else {
-            $socketError = true;
-            sleep(2);
-            $socketErrorCount--;
-        }
-        if ($socketErrorCount <= 0) {
-            // exit the loop
-            $socketError = false;
-        }
-    }
+    $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
 } else if ($activePlayer === 'MPD') {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [BURST MODE [1] (blocking)] <<<','');
-    while ($socketError) {
-        $mpd = openMpdSocket('/run/mpd/socket', 1);
-        if (isset($mpd) && $mpd) {
-            $socketError = false;
-        } else {
-            $socketError = true;
-            sleep(2);
-            $socketErrorCount--;
-        }
-        if ($socketErrorCount <= 0) {
-            // exit the loop
-            $socketError = false;
-        }
-    }
+    $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 1, $repeat);
 } else if (($redis->hGet('spotify', 'enable')) && ($activePlayer === 'Spotify')) {
     runelog('[config.php] >>> OPEN SPOTIFY SOCKET [BURST MODE [1] (blocking)] <<<','');
     $spop = openSpopSocket('localhost', 6602, 1);

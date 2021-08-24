@@ -58,6 +58,8 @@ require_once(APP.'libs/runeaudio.php');
 // Connect to Redis backend include
 require_once(APP.'libs/openredis.php');
 
+// setup /run dir
+sysCmd('chmod 777 /run');
 // clear the cache otherwise file_exists() returns incorrect values
 clearstatcache(true, '/srv/http/command/update_os.php');
 // if os updates are needed
@@ -155,6 +157,7 @@ if ($playerid_db === '') {
     // reconnect to new instance of MPD
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd, 'update');
     sysCmd('mpc update');
     // system ENV files check and replace
@@ -213,6 +216,7 @@ if ($playerid_db === '') {
     // ashuffle gets started automatically
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd,'update');
     sysCmd('mpc update');
     sleep(1);
@@ -1396,7 +1400,8 @@ while (1) {
                 case 'webradio':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    $mpd = openMpdSocket('/run/mpd/socket');
+                    //$mpd = openMpdSocket('/run/mpd/socket');
+                    $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'));
                     if ($job->action === 'add') {
                         runelog('service: WEBRADIO add', $job->args);
                         if (addRadio($mpd, $redis, $job->args)) {

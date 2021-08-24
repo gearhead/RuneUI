@@ -66,6 +66,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'playlist':
             // open non blocking socket with mpd daemon
             // $mpd2 = openMpdSocket('/run/mpd/socket', 2);
+            // $mpd2 = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 2);
             // getPlayQueue($mpd2);
             // closeMpdSocket($mpd2);
             if ($activePlayer === 'MPD') {

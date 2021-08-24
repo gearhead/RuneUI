@@ -43,6 +43,28 @@ function is_localhost() {
         return true;
 }
 
+function openMpdSocketRepeat($path, $type = 0, $retries = 1, $wait = 2)
+// this calls function openMpdSocket $retries times, pausing $wait seconds on each error iteration
+{
+    $socketError = true;
+    $socketErrorCount = $retries;
+    while ($socketError) {
+        $sock = openMpdSocket($path, $type);
+        if (isset($sock) && $sock) {
+            $socketError = false;
+        } else {
+            $socketError = true;
+            sleep($wait);
+            $socketErrorCount--;
+        }
+        if ($socketErrorCount <= 0) {
+            // exit the loop
+            $socketError = false;
+        }
+    }
+    return $sock;
+}
+
 function openMpdSocket($path, $type = 0)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
 // normal (blocking) is default when type is not specified
