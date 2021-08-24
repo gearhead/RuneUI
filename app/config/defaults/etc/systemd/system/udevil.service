@@ -1,8 +1,8 @@
 [Unit]
 Description=Usb Automount (udevil)
-After=sound.target
+#After=sound.target
 #Requires=mpd.service
-After=mpd.service
+#After=mpd.service
 
 [Service]
 User=mpd
