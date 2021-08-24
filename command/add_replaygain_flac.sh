@@ -37,14 +37,14 @@
 #  date: June 2021
 #
 # Purpose:
-# This script will add song and album replaygain tags to all flac files in the specified directory
+# This script will add song and album ReplayGain tags to all flac files in the specified directory
 #   (including subdirectories when 'scan' parameter is specified.
 #
 # Usage <path_to_script>replaygain_flac.sh <directory> <mode> <mode> <mode>
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
 # <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
-# <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have replay gain set
+# <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have ReplayGain set
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
 #
@@ -128,11 +128,11 @@ if [ $scan -eq 0 ]; then
         find "$dir" -type d -exec /srv/http/command/add_replaygain_flac.sh '{}' \;
     fi
 else
-#   count the number of FLAC and flac files in this directory.
+    # count the number of FLAC and flac files in this directory.
     flacnuml=$(ls "$1" | grep -c \\.flac)
     flacnumu=$(ls "$1" | grep -c \\.FLAC)
     flacnum=$(( $flacnuml + $flacnumu ))
-#   when no FLAC files are found in this directory, then exit without error.
+    # when no FLAC files are found in this directory, then exit without error.
     if [ $flacnum -lt 1 ]; then
         if [ $silent -eq 1 ]; then
             echo "$1 (No FLAC files)"
@@ -143,9 +143,9 @@ else
             echo "$1 ($flacnum FLAC files)"
         fi
     fi
-#
+    #
     cd "$1"
-#
+    #
     if [ $skip -eq 1 ]; then
         skipSw=1
         if [ $flacnuml -gt 0 ]; then
@@ -175,14 +175,16 @@ else
         fi
         if [ $skipSw = 1 ]; then
             if [ $silent -eq 1 ]; then
-                echo "$1 (All files already have Replay Gain)"
+                echo "$1 (All files already have ReplayGain)"
             fi
             exit 0
         fi
     fi
-#
-    echo "Calculating Replay Gain values for FLAC files..."
-#
+    #
+    if [ $silent -eq 1 ]; then
+        echo "Calculating ReplayGain values for FLAC files..."
+    fi
+    #
     if [ $flacnuml -gt 0 ]; then
         if [ $flacnumu -gt 0 ]; then
             FILES="*.flac
@@ -199,29 +201,29 @@ else
         fi
     fi
 
-#   error condition handling process the files one by one
+    # error condition handling process the files one by one
     if [ "$?" != "0" ]; then
-#       metaflac command failed for some reason
-#       e.g. the flac files in a directory have different bit-rates
-#       or one of the files is not a flac file, etc.
+    # metaflac command failed for some reason
+    # e.g. the flac files in a directory have different bit-rates
+    # or one of the files is not a flac file, etc.
         if [ $silent -eq 1 ]; then
             echo "Error, album gain replay failed, running on individual files"
         fi
         for file in $FILES
         do
-#           for each file with an upper of lower case flac file extension
+        # for each file with an upper of lower case flac file extension
             if [ -d "$file" ] ; then
                 continue # its a directory not a file
             fi
             metaflac --add-replay-gain "$file"
-#           on errors just continue with the next one
+            # on errors just continue with the next one
         done
     fi
-#
+    #
     if [ $silent -eq 1 ]; then
-#       output the newly-created Replay Gain values for the FLAC
-#       files in this directory.
-        echo "Newly-calculated Replay Gain values:"
+        # output the newly-created ReplayGain values for the FLAC
+        # files in this directory.
+        echo "Newly-calculated ReplayGain values:"
         for file in $FILES
         do
             if [ -d "$file" ] ; then
@@ -237,9 +239,9 @@ else
         done
     fi
 fi
-
+#
 cd /home
-
+#
 exit 0
 #---
 #End script

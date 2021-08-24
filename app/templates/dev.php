@@ -393,36 +393,59 @@
                         <span class="help-block">This RuneAudio image is designed to fit on a 8Gb Micro-SD card even though most SD-cards are now 16Gb or greater.
                         In most cases RuneAudio will work fine without extending the Linux Partition.
                         If you want to utilise the extra available space on the Micro-SD card you can use this option to extend the Linux Partition to its maximum size.
-                        This is useful if you wish add extra Arch Linux packages or to make use the local storage option. Music files in local storage can easily be managed with the Samba options via your PC.</span>
+                        This is useful if you wish add extra Arch Linux packages or to make use the local storage option. Music files in local storage can easily be managed with the Samba options via your PC</span>
                     </div>
                 </div>
             </div>
-            <legend>ReplayGain tags</legend>
+            <legend>ReplayGain tags (experimental, use with care)</legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to all Flac files on you locally mounted USB-drives.</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to Flac files on you locally mounted USB-drives when these tags not present.</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to Flac files on your locally mounted USB-drives when these tags not present (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from Flac files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be removed from all Flac files on you locally mounted USB-drives.<br>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Add ReplayGain tags to all music files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain)</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Update ReplayGain tags for all music files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain)</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain)<br>
                         <br>
-                        All these options take a very long time to run. There is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
-                        The audio part of your audio files is not modified. Adding ReplayGain meta-data tags does not change the the audio quality in any way, the process just adds/removes meta-data tags.
-                        ReplayGain meta-data tags can be added to your audio files. However, some audio file formats do not support ReplayGain tags. MPD can read ReplayGain tags and adjust the audio volume based on their settings. For details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
-                        Please check if the MPD <a href="/mpd/#general-options">Replay Gain</a> option is enabled.</span>
+                        MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags does not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
+                        Please note that some audio file formats do not support ReplayGain tags, for details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
+                        Check that the MPD <a href="/mpd/#general-options">ReplayGain</a> option is enabled for ReplayGain playback.<br>
+                        The programs <a href="https://man.archlinux.org/man/extra/flac/metaflac.1.en" target="_blank">metaflac</a> and <a href="https://github.com/Moonbase59/loudgain" target="_blank">loudgain</a> use different algorithms to calculate ReplayGain settings, the results will differ.<br>
+                        All these actions take a very long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
+                        <i>Indicative performance, average time for adding tags: Pi1B: 2 albums/hour, Pi4B: 40 albums/hour</i></span>
                     </div>
                 </div>
             </div>

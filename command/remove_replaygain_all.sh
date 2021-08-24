@@ -31,16 +31,16 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: command/remove_replaygain_flac.sh
+#  file: command/remove_replaygain_all.sh
 #  version: 1.3
 #  coder: janui
 #  date: June 2021
 #
 # Purpose:
-# This script will remove song and album ReplayGain tags to all flac files in the specified directory
+# This script will remove song and album ReplayGain tags to all music files in the specified directory
 #   (including subdirectories when 'scan' parameter is specified.
 #
-# Usage <path_to_script>replaygain_flac.sh <directory> <mode> <mode>
+# Usage <path_to_script>replaygain_all.sh <directory> <mode> <mode>
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
 # <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
@@ -94,85 +94,77 @@ if [ $scan -eq 0 ]; then
     dir=$(echo "$1" | tr -s /)
     dir=${dir%/}
     if [ $silent -eq 0 ]; then
-        find "$dir" -type d -exec /srv/http/command/remove_replaygain_flac.sh '{}' silent \;
+        find "$dir" -type d -exec /srv/http/command/remove_replaygain_all.sh '{}' silent \;
     else
         echo "********************************************************"
         echo "Using root directory : $1"
-        find "$dir" -type d -exec /srv/http/command/remove_replaygain_flac.sh '{}' \;
+        find "$dir" -type d -exec /srv/http/command/remove_replaygain_all.sh '{}' \;
     fi
 else
-    # count the number of flac and FLAC files in this directory.
-    flacnuml=$(ls "$1" | grep -c \\.flac)
-    flacnumu=$(ls "$1" | grep -c \\.FLAC)
-    flacnum=$(( $flacnuml + $flacnumu ))
-    # when no FLAC files are found in this directory, then exit without error.
-    if [ $flacnum -lt 1 ]; then
+    # count the number of files per file type in this directory.
+    cd "$1"
+    unset filetypes
+    declare -a filetypes=(flac ogg oga spx opus mp2 mp3 mp4 m4a asf wma wv ape wav aiff aif)
+    unset filenum
+    declare -A filenum
+    dirfiletypes=$( ls -1 . | grep '\.' | sed 's/^.*\.//' )
+    for filetype in $dirfiletypes
+    do
+        # echo $filetype
+        ((filenum[$filetype]++))
+    done
+    loudgainfile
+    for filetype in "${filetypes[@]}"
+    do
+        if [ "" != "${filenum[$filetype]}" ]; then
+            filenum[totalfiles]=$(( ${filenum[totalfiles]} +  ${filenum[$filetype]} ))
+            loudgainfile="$loudgainfile *.$filetype"
+        fi
+        filetype=${filetype^^}
+        if [ "" != "${filenum[$filetype]}" ]; then
+            filenum[totalfiles]=$(( ${filenum[totalfiles]} +  ${filenum[$filetype]} ))
+            loudgainfile="$loudgainfile *.$filetype"
+        fi
+    done
+    # when no music files are found in this directory, then exit without error.
+    if [ "" == "${filenum[totalfiles]}" ]; then
         if [ $silent -eq 1 ]; then
-            echo "$1 (No FLAC files)"
+            echo "$1 (No music files)"
         fi
         exit 0
-    else
         if [ $silent -eq 1 ]; then
-            echo "$1 ($flacnum FLAC files)"
+            echo "$1 (${filenum[totalfiles]} music files:$loudgainfile)"
         fi
     fi
+    #
     if [ $silent -eq 1 ]; then
-        echo "Removing ReplayGain values for FLAC files..."
+        echo "Removing ReplayGain values from music files..."
     fi
     #
-    cd "$1"
-    #
-    if [ $flacnuml -gt 0 ]; then
-        if [ $flacnumu -gt 0 ]; then
-            FILES="*.flac
-            *.FLAC"
-            metaflac --remove-replay-gain *.flac *.FLAC
-        else
-            FILES="*.flac"
-            metaflac --remove-replay-gain *.flac
-        fi
+    if [ $silent -eq 1 ]; then
+        loudgain -as $loudgainfile
     else
-        if [ $flacnumu -gt 0 ]; then
-            FILES="*.FLAC"
-            metaflac --remove-replay-gain *.FLAC
-        fi
+        loudgain -aqs $loudgainfile
     fi
     #
-    # metaflac error condition, process the files one by one
+    # loudgain error condition, process the files one by one
     if [ "$?" != "0" ]; then
-        # metaflac command failed for some reason
-        # e.g. the flac files in a directory have different bit-rates
-        # or one of the files is not a flac file, etc.
+        # loudgain command failed for some reason
         if [ $silent -eq 1 ]; then
-            echo "Error, album gain replay failed, running on individual files"
+            echo "Error, album ReplayGain removal failed, running on individual files"
         fi
-        for file in $FILES
+        for file in $loudgainfile
         do
             # for each file with an upper of lower case flac file extension
             if [ -d "$file" ] ; then
                 continue # its a directory not a file
             fi
-            metaflac --remove-replay-gain "$file"
+            if [ $silent -eq 1 ]; then
+                loudgain -as "$file"
+            else
+                loudgain -aqs "$file"
+            fi
             # on errors just continue with the next one
-        done
-    fi
-    #
-    if [ $silent -eq 1 ]; then
-        # output the newly-created ReplayGain values for the FLAC
-        # files in this directory.
-        echo "Newly-calculated ReplayGain values:"
-        for file in $FILES
-        do
-            if [ -d "$file" ] ; then
-                continue # its a directory not a file
-            fi
-            if [ ! -e "$file" ]; then
-                # This should not happen.
-                echo "Error: file $file not found."
-                exit $FILE_NOT_FOUND
-            fi
-            echo "File : "$file
-            metaflac --show-tag=REPLAYGAIN_TRACK_GAIN --show-tag=REPLAYGAIN_ALBUM_GAIN "$file"
         done
     fi
 fi

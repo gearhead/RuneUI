@@ -26,16 +26,16 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: command/add_replaygain_flac_to_local.sh
+#  file: command/add_replaygain_all_to_local.sh
 #  version: 1.3
 #  coder: janui
 #  date: August 2021
 #
 # Purpose:
 # This script will search for local mounted drives. It will remount them in Write mode if required. Then call
-#   command/add_replaygain_flac.sh for each drive which will add ReplayGain tags to the flac files.
+#   command/add_replaygain_all.sh for each drive which will add ReplayGain tags to the all valid music files.
 #
-# Usage <path_to_script>replaygain_flac_to_local.sh <mode> <mode>
+# Usage <path_to_script>replaygain_all_to_local.sh <mode> <mode>
 # Where:
 # <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have ReplayGain set
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
@@ -88,7 +88,7 @@ do
             continue
         fi
     fi
-    /srv/http/command/add_replaygain_flac.sh "$FILE" scan $skip $silent
+    /srv/http/command/add_replaygain_all.sh "$FILE" scan $skip $silent
 done
 #
 exit 0

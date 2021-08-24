@@ -1528,6 +1528,21 @@ while (1) {
                         //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
                         //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
                         ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
+                    } else if ($job->action === 'addRGtagsAll') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/add_replaygain_all_to_local.sh silent > /dev/null 2>&1');
+                        //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                        ui_notify("Add ReplayGain tags for Flac files", 'Job started');
+                    } else if ($job->action === 'updateRGtagsAll') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/add_replaygain_all_to_local.sh silent skip > /dev/null 2>&1');
+                        //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                        ui_notify("Update ReplayGain tags for Flac files", 'Job started');
+                    } else if ($job->action === 'delRGtagsAll') {
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/remove_replaygain_all_from_local.sh silent > /dev/null 2>&1');
+                        //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                        //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                        ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
                     }
                     sleep(3);
                     $redis->sRem('w_lock', $jobID);

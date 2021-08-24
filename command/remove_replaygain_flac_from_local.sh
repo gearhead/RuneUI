@@ -33,7 +33,7 @@
 #
 # Purpose:
 # This script will search for local mounted drives. It will remount them in Write mode if required. Then call
-#   command/remove_replaygain_flac.sh for each drive which will remove replaygain tags from the flac files.
+#   command/remove_replaygain_flac.sh for each drive which will remove ReplayGain tags from the flac files.
 #
 # Usage <path_to_script>replaygain_flac_to_local.sh <mode>
 # Where:
@@ -74,7 +74,7 @@ do
     fi
     /srv/http/command/remove_replaygain_flac.sh "$FILE" scan $silent
 done
-
+#
 exit 0
 #---
 #End script

@@ -26,20 +26,19 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: command/add_replaygain_flac_to_local.sh
+#  file: command/remove_replaygain_all_from_local.sh
 #  version: 1.3
 #  coder: janui
 #  date: August 2021
 #
 # Purpose:
 # This script will search for local mounted drives. It will remount them in Write mode if required. Then call
-#   command/add_replaygain_flac.sh for each drive which will add ReplayGain tags to the flac files.
+#   command/remove_replaygain_all.sh for each drive which will remove ReplayGain tags from all music files files.
 #
-# Usage <path_to_script>replaygain_flac_to_local.sh <mode> <mode>
+# Usage <path_to_script>replaygain_all_to_local.sh <mode>
 # Where:
-# <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have ReplayGain set
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
-# the <mode> parameters can be given in any order after the directory, they must be in lower case
+# the <mode> parameters must be in lower case
 #
 #
 # Error codes
@@ -48,27 +47,12 @@ INVALID_ARGUMENT=22 # 22 EINVAL Invalid argument
 # validate the parameters
 if [ -z "$1" ]; then
     silent=""
-    skip=""
 else
     if [ "silent" = "$1" ]; then
         silent="silent"
-        skip=""
-    elif [ "skip" = "$1" ]; then
-        silent=""
-        skip="skip"
     else
         echo "Argument 1 $1 invalid!"
         exit $INVALID_ARGUMENT
-    fi
-    if [ ! -z "$2" ]; then
-        if [ "silent" = "$2" ]; then
-            silent="silent"
-        elif [ "skip" = "$2" ]; then
-            skip="skip"
-        else
-            echo "Argument 2 $2 invalid!"
-            exit $INVALID_ARGUMENT
-        fi
     fi
 fi
 #
@@ -88,7 +72,7 @@ do
             continue
         fi
     fi
-    /srv/http/command/add_replaygain_flac.sh "$FILE" scan $skip $silent
+    /srv/http/command/remove_replaygain_all.sh "$FILE" scan $silent
 done
 #
 exit 0

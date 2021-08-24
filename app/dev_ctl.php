@@ -174,6 +174,12 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'updateRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'updateRGtagsFlac'));
         // ----- REMOVE REPLAYGAIN TAGS TO ALL FLAC FILES -----
         if ($_POST['syscmd'] === 'delRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'delRGtagsFlac'));
+        // ----- ADD REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'addRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'addRGtagsAll'));
+        // ----- UPDATE REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'updateRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'updateRGtagsAll'));
+        // ----- REMOVE REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'delRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'delRGtagsAll'));
     }
 }
 if (isset($jobID)) {
