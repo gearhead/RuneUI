@@ -570,6 +570,7 @@ while (1) {
                     if ($job->action === 'stop') {
                         runelog('service: UPMPDCLI stop');
                         $redis->hSet('dlna', 'enable', 0);
+                        sysCmd('systemctl stop upmpdcli');
                         // send notfy to UI
                         //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
                         // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled');
