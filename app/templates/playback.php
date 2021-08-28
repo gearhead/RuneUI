@@ -345,8 +345,9 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Clear current queue</h3>
             </div>
             <div class="modal-body">
-                This will clear the current playing queue.<br>
-                Are you sure?
+                This will clear the songs before the current song (<strong>Clear Played</strong>).<br>
+                Or clear the queue except the current song (<strong>Crop</strong>).<br>
+                Or clear all songs from queue (<strong>Clear</strong>).<br>
             </div>
             <div class="modal-footer">
                 <button id="pl-clear-played-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the songs before the current song" data-dismiss="modal">Clear Played</button><br><br>
@@ -365,7 +366,7 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Manage Global Random</h3>
             </div>
             <div class="modal-body">
-                The Global Random function randomly adds songs to the Queue when it is empty. Songs can be added from a saved Playlist or from your full song collection.<br>
+                The Global Random function randomly adds songs to the Queue when it is empty. Songs can be randomly added from a saved Playlist or from your full song collection.<br>
                 Here you can <strong>Start</strong> or <strong>Stop</strong> Global Random. You can also switch off adding songs from a previously selected playlist by <strong>adding songs from your full collection</strong>.<br>
                 In the MPD menu that are more options.
             </div>

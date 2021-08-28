@@ -84,8 +84,8 @@ $redis->hSet('acards_details', 'XMOS USB Audio 2.0', '{"sysname":"XMOS USB Audio
 //
 // Two alternative versions of the rpi-dac configuration specifically for the es9023 DAC - in principal this DAC will only work for bitrates up to 192k
 // The above line will provide bitrates up to 384k, these below are limited to 192k - if all your music is less than 192k then do nothing (most is 44.1k)
-// Test each for your personal preference - comment out the previous line and uncomment one of the following lines
-// $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","card_option":"allowed_formats\t\"8000:24:2 16000:24:2 11025:24:2 22050:24:2 32000:24:2 37800:24:2 44056:32:2 44100:24:2 47250:32:2 48000:24:2 50000:24:2 54000:24:2 64000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"","hwplatformid":"08","type":"i2s"}');
+// Test each for your personal preference - comment out the previous line containing 'snd_rpi_rpi_dac' and uncomment one of the following lines
+// $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","card_option":"allowed_formats\t\"8000:*:2 16000:*:2 11025:*:2 22050:*:2 32000:*:2 37800:*:2 44056:*:2 44100:*:2 47250:*:2 48000:*:2 50000:*:2 54000:*:2 64000:*:2 88200:*:2 96000:*:2 176400:*:2 192000:*:2\"","hwplatformid":"08","type":"i2s"}');
 // $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","card_option":"format\t\"192000:24:2\"","hwplatformid":"08","type":"i2s"}');
 //
 // The following lines are NOT TESTED but provide a best guess implementation of several newer audio overlay profiles

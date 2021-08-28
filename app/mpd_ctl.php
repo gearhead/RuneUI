@@ -164,7 +164,7 @@ if(!hashCFG($redis, 'check_mpd')) {
         }
         $audio_cards[] = $acard_data;
     }
-    osort($audio_cards, 'extlabel');
+    osort($audio_cards, 'device');
     // debug
     // print_r($audio_cards);
     $template->acards = $audio_cards;

@@ -187,7 +187,8 @@
                 <label class="col-sm-2 control-label" for="port">Audio Buffer Size</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="number" id="audio-buffer-size" name="conf[audio_buffer_size]" value="<?=$this->conf['audio_buffer_size'] ?>" data-trigger="change" min="512" />
-                    <span class="help-block">This specifies the size of the audio buffer in kibibytes. The default is 4096, large enough for nearly 24 seconds of CD-quality audio</span>
+                    <span class="help-block">This specifies the size of the audio buffer in kilobytes. The default is 4096, large enough for nearly 24 seconds of CD-quality audio.<br>
+                    <i>Increase the size if you have a very slow NAS or experience stuttering playback problems (e.g. with high-definition audio files)</i></span>
                 </div>
             </div>
             <?php if(!$this->mpdv21): ?>

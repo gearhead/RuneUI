@@ -2760,10 +2760,10 @@ function wrk_audioOutput($redis, $action, $args = null)
             // reformat the output of the card list
             foreach ($cardlist as $card) {
                 $cardNr=get_between_data($card, 'card', ':');
-                $acards[$cardNr]['number']=$cardNr;
-                $acards[$cardNr]['device']=get_between_data($card, ', device', ':');
-                $acards[$cardNr]['name']=get_between_data($card, '[', ']');
-                $acards[$cardNr]['sysdesc']=get_between_data($card, '[', ']', 2);
+                $acards[$cardNr]['number'] = $cardNr;
+                $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
+                $acards[$cardNr]['name'] = get_between_data($card, '[', ']');
+                $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
                 // check to see if the individual cards have changed
                 if (!$cardChange) {
                     if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
@@ -7749,7 +7749,7 @@ function get_songInfo($redis, $info=array())
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
         }
         $fileName = $artDir.'/'.$infoCache['song_filename'].'.song';
-        // dont worry if the file exists, just overwrite it
+        // don't worry if the file exists, just overwrite it
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
@@ -7848,7 +7848,7 @@ function get_songInfo($redis, $info=array())
         }
         if ($infoCache['song_filename']) {
             $fileName = $artDir.'/'.$infoCache['song_filename'].'.song';
-            // dont worry if the file exists, just overwrite it
+            // don't worry if the file exists, just overwrite it
             file_put_contents($fileName , json_encode($infoCache)."\n");
         }
     }
@@ -7905,7 +7905,7 @@ function get_albumInfo($redis, $info=array())
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
         }
         $fileName = $artDir.'/'.$infoCache['album_filename'].'.album';
-        // dont worry if the file exists, just overwrite it
+        // don't worry if the file exists, just overwrite it
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
@@ -8082,7 +8082,7 @@ function get_albumInfo($redis, $info=array())
         }
         if ($infoCache['album_filename']) {
             $fileName = $artDir.'/'.$infoCache['album_filename'].'.album';
-            // dont worry if the file exists, just overwrite it
+            // don't worry if the file exists, just overwrite it
             file_put_contents($fileName , json_encode($infoCache)."\n");
         }
     }
@@ -8140,7 +8140,7 @@ function get_artistInfo($redis, $info=array())
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
         }
         $fileName = $artDir.'/'.$infoCache['artist_filename'].'.artist';
-        // dont worry if the file exists, just overwrite it
+        // don't worry if the file exists, just overwrite it
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
@@ -8313,7 +8313,7 @@ function get_artistInfo($redis, $info=array())
         }
         if ($infoCache['artist_filename']) {
             $fileName = $artDir.'/'.$infoCache['artist_filename'].'.artist';
-            // dont worry if the file exists, just overwrite it
+            // don't worry if the file exists, just overwrite it
             file_put_contents($fileName , json_encode($infoCache)."\n");
         }
     }
