@@ -305,7 +305,7 @@ if ($playerid_db === '') {
     }
     //
     // start udevil (UPnP / DLNA)
-    if ($redis->get('udevil') === '1') {
+    if ($redis->get('udevil')) {
         runelog("service: UDEVIL start",'');
         sysCmd('pgrep -x udevil || systemctl start udevil');
         // clean up any invalid mount points
@@ -1357,6 +1357,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     if ($job->action === 'start') {
                         runelog('service: UDEVIL start');
+                        sysCmd('systemctl enable udevil');
                         sysCmd('systemctl start udevil');
                         $redis->set('udevil', 1);
                         //ui_notify_async('USB-Auto', 'USB-Automount feature enabled', $jobID);
@@ -1365,6 +1366,7 @@ while (1) {
                     }
                     if ($job->action === 'stop') {
                         runelog('service: UDEVIL stop');
+                        sysCmd('systemctl disable udevil');
                         sysCmd('systemctl stop udevil');
                         $redis->set('udevil', 0);
                         //ui_notify_async('USB-Auto', 'USB-Automount feature disabled', $jobID);
