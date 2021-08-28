@@ -50,7 +50,7 @@ function openMpdSocketRepeat($path, $type = 0, $retries = 1, $wait = 2)
     $socketErrorCount = $retries;
     while ($socketError) {
         $sock = openMpdSocket($path, $type);
-        if (isset($sock) && $sock) {
+        if (isset($sock) && is_array($sock) && isset($sock['description'])) {
             $socketError = false;
         } else {
             $socketError = true;

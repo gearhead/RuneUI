@@ -56,16 +56,36 @@ ini_set('display_errors', $activeLog);
 //
 $devmode = $redis->get('dev');
 $activePlayer = $redis->get('activePlayer');
-// connect to MPD daemon
+// connect to the MPD daemon, when it is starting up the open may need to be repeated
 $repeat = 15;
 if ((isset($_SERVER["SCRIPT_FILENAME"])) && ($activePlayer === 'MPD') && (($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');
-    $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+    if (isset($mpd) && is_array($mpd)) {
+        // socket is already open
+        if ($mpd['type'] != 0) {
+            // wrong type of socked, close and reopen
+            closeMpdSocket($mpd);
+            $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+        }
+    } else {
+        // no socket open
+        $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+    }
 } else if ($activePlayer === 'MPD') {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [BURST MODE [1] (blocking)] <<<','');
-    $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 1, $repeat);
+    if (isset($mpd) && is_array($mpd)) {
+        // socket is already open
+        if ($mpd['type'] != 1) {
+            // wrong type of socked, close and reopen
+            closeMpdSocket($mpd);
+            $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+        }
+    } else {
+        // no socket open
+        $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+    }
 } else if (($redis->hGet('spotify', 'enable')) && ($activePlayer === 'Spotify')) {
     runelog('[config.php] >>> OPEN SPOTIFY SOCKET [BURST MODE [1] (blocking)] <<<','');
     $spop = openSpopSocket('localhost', 6602, 1);
