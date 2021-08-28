@@ -1150,8 +1150,7 @@ while (1) {
                     // noid ui_notify_async('Shutdown', 'system shutdown in progress...');
                     ui_notify('Shutdown', 'system shutdown in progress...');
                     sysCmd('/var/www/command/rune_shutdown poweroff');
-                    sleep(2);
-                    sysCmdAsync('shutdown now --poweroff --no-wall');
+                    sysCmd('redis-cli shutdown save; shutdown now --poweroff --no-wall');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'reboot':
@@ -1165,13 +1164,13 @@ while (1) {
                     // noid ui_notify_async('Reboot', 'system reboot in progress...');
                     ui_notify('Reboot', 'system reboot in progress...');
                     sysCmd('/var/www/command/rune_shutdown reboot');
-                    sleep(2);
-                    sysCmdAsync('reboot');
+                    sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'display_off':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
+                    sysCmd('systemctl stop local-browser');
                     sysCmd('export DISPLAY=:0; xset dpms force off');
                     $redis->sRem('w_lock', $jobID);
                     break;

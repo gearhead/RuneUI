@@ -31,42 +31,50 @@
 #  coder: Simone De Gregori
 #
 
-if [[ $1 == "poweroff" ]] ; then
-  echo "power off RuneAudio"
-  splash="/usr/share/bootsplash/shutdown.png"
-else
-  echo "reboot RuneAudio"
-  splash="/usr/share/bootsplash/reboot.png"
-fi
-
+# continue on errors
 set +e
-
+echo "rune_shutdown started"
+#
 echo "Stop MPD, services and unmount shares..."
+# stop the player
 mpc stop
 sleep 1
+# stop MPD
+mpd --kill
+sleep 1
+# stop mpd related jobs
 systemctl stop ashuffle upmpdcli mpdscribble mpd
-systemctl stop ashuffle upmpdcli mpdscribble mpd
-systemctl stop nginx
-systemctl stop local-browser
+# stop webserver, php & local browser
+systemctl stop nginx local-browser
+# display the splash screen if applicable (local-browser must be stopped first)
 enablesplash=$( redis-cli hget local_browser enable-splash )
 if [[ "$enablesplash" != "0" ]] ; then
+    if [[ $1 == "poweroff" ]] ; then
+        echo "power off RuneAudio"
+        splash="/usr/share/bootsplash/shutdown.png"
+    else
+        echo "reboot RuneAudio"
+        splash="/usr/share/bootsplash/reboot.png"
+    fi
     ply-image "$splash"
 fi
-sleep 1
+# reset any lock's
 redis-cli set lock_globalrandom 0
 redis-cli set lock_refresh_ao 0
 redis-cli set lock_wifiscan 0
+# force redis to save all its variables to disk
 redis-cli save
+# stop most of the systemd units which can be stopped
 systemctl stop spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
-redis-cli shutdown save
-sleep 1
-export DISPLAY=:0
-xset dpms force off
-sleep 1
-# unmount the local and network devices
+# unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
+# udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
 udevil clean
-return 0
+# blank the local browser screen
+export DISPLAY=:0
+xset dpms force off
+# echo a message to clear any error status which could have been generated
+echo "rune_shutdown finished"
