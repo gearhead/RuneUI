@@ -78,7 +78,6 @@ $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac",
 $redis->hSet('acards_details', 'snd_rpi_wsp', '{"sysname":"snd_rpi_wsp","extlabel":"none","hwplatformid":"01","type":"integrated_sub"}');
 $redis->hSet('acards_details', 'UAC1 DAC', '{"sysname":"UAC1 DAC","extlabel":"ObjectiveDAC (ODAC)","mixer_numid":"3","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'USB Audio CODEC', '{"sysname":"USB Audio CODEC","extlabel":"Behringer U-CONTROL UCA202","mixer_numid":"3","mixer_control":"PCM","type":"usb"}');
-$redis->hSet('acards_details', 'USB PnP Sound Device', '{"sysname":"USB PnP Sound Device","extlabel":"USB PnP Sound Device","card_option":"allowed_formats\t\"48000:16:2 44100:16:2\"","mixer_numid":"6","mixer_control":"Speaker","hwplatformid":"08","type":"usb"}');
 $redis->hSet('acards_details', 'USB Sound Device', '{"sysname":"USB Sound Device","extlabel":"Cmedia CM2606","mixer_numid":"7","mixer_control":"Speaker","type":"usb"}');
 $redis->hSet('acards_details', 'wm8731-audio', '{"sysname":"wm8731-audio","extlabel":"Utilite Analog Out","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'XMOS USB Audio 2.0', '{"sysname":"XMOS USB Audio 2.0","extlabel":"XMOS AK4399 USB-Audio DAC","mixer_numid":"3","mixer_control":"XMOS Clock Selector","type":"usb"}');
