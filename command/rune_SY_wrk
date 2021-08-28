@@ -304,7 +304,7 @@ if ($playerid_db === '') {
         $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
     }
     //
-    // start udevil (UPnP / DLNA)
+    // start udevil
     if ($redis->get('udevil')) {
         runelog("service: UDEVIL start",'');
         sysCmd('pgrep -x udevil || systemctl start udevil');
@@ -592,9 +592,9 @@ while (1) {
                     $retval = sysCmd('cd /srv/http/ ; git pull --no-edit');
                     //sysCmd("curl -s -X GET 'http://localhost/clear'");
                     // send notfy to UI
-                        //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
-                        // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled');
-                        ui_notify('UPnP / DLNA', 'UPnP / DLNA feature disabled');
+                    //ui_notify_async('Git pull', $retval, $jobID);
+                    // noid ui_notify_async('Git pull', $retval);
+                    ui_notify('Git pull', $retval);
                     sysCmd('cd /srv/http/ && git stash; git stash');
                     $gitupdated = 1;
                     foreach($retval as $line) {
