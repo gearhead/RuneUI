@@ -143,7 +143,7 @@ if (isset($_POST)) {
         // ----- CHECK FS PERMISSIONS -----
         if ($_POST['syscmd'] === 'syschmod') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sysAcl'));
         // ----- RESTART MPD -----
-        if ($_POST['syscmd'] === 'mpdrestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdrestart'));
+        if ($_POST['syscmd'] === 'mpdrestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'forcempdrestart'));
         // ----- RESET NET CONFIG -----
         if ($_POST['syscmd'] === 'netconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'reset'));
         // ----- RESET MPD CONFIG -----

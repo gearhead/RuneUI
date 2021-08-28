@@ -146,13 +146,7 @@ if ($playerid_db === '') {
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
     // check that mpd is running
-    $retval = sysCmd('systemctl is-active mpd');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start mpd');
-    }
-    unset($retval);
+    wrk_mpdconf($redis, 'start');
     // ashuffle gets started automatically
     // reconnect to new instance of MPD
     // clear MPD database
@@ -205,14 +199,8 @@ if ($playerid_db === '') {
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_sourcecfg($redis,'reset');
-    // reconnect to new instance of MPD
-    $retval = sysCmd('systemctl is-active mpd');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start mpd');
-    }
-    unset($retval);
+    // check that MPD is running
+    wrk_mpdconf($redis,'start');
     // ashuffle gets started automatically
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
@@ -263,22 +251,10 @@ if ($playerid_db === '') {
         // stop spotify, if started
         sysCmd('pgrep -x spopd && systemctl stop spopd');
         // check MPD process, it can be stared earlier
-        $retval = sysCmd('systemctl is-active mpd');
-        if ($retval[0] === 'active') {
-            // do nothing
-        } else {
-            // Start and refresh MPD (audio hardware status - soundcards and MPD config)
-            wrk_mpdconf($redis, 'refreshsoundcards');
-        }
-        unset($retval);
+        wrk_mpdconf($redis, 'refreshsoundcards');
         // ashuffle gets started automatically
     } else if ($activePlayer === 'Spotify') {
-        // check MPD process, it can be started earlier
-        $retval = sysCmd('systemctl is-active mpd');
-        if ($retval[0] === 'active') {
-            // stop mpd with kill, this saves the state-file
-            sysCmd('mpd --kill');
-        }
+        wrk_mpdconf($redis,'stop');
         unset($retval);
         // start spotify, if not started
         sysCmd('pgrep -x spopd || systemctl start spopd');
@@ -287,14 +263,8 @@ if ($playerid_db === '') {
         sysCmd('pgrep -x spopd && systemctl stop spopd');
         // reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
         $redis->set('activePlayer', 'MPD');
-        $retval = sysCmd('systemctl is-active mpd');
-        if ($retval[0] === 'active') {
-            // do nothing
-        } else {
-            // Start and refresh MPD (audio hardware status - soundcards and MPD config)
-            wrk_mpdconf($redis,'refreshsoundcards');
-        }
-        unset($retval);
+        // Start and refresh MPD (audio hardware status - soundcards and MPD config)
+        wrk_mpdconf($redis,'refreshsoundcards');
         // ashuffle gets started automatically
     }
     //
@@ -824,19 +794,26 @@ while (1) {
                     //ui_notify_async('MPD', 'configuration updated', $jobID);
                     // noid ui_notify_async('MPD', 'configuration updated');
                     ui_notify('MPD', 'configuration updated');
-                    // stop MPD daemon
-                    wrk_mpdconf($redis, 'stop');
                     // write mpd.conf file
                     $fh = fopen('/etc/mpd.conf', 'w');
                     fwrite($fh, $job->args);
                     fclose($fh);
-                    wrk_mpdconf($redis, 'start');
+                    // set redis indicator showing mpd.conf has changed
+                    $redis->set('mpdconfchange', 1);
+                    // restart MPD daemon
+                    wrk_mpdconf($redis, 'restart');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'mpdrestart':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     wrk_mpdconf($redis, 'restart');
+                    $redis->sRem('w_lock', $jobID);
+                    break;
+                case 'forcempdrestart':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+                    wrk_mpdconf($redis, 'forcerestart');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'pl_rem_dup':

@@ -3518,24 +3518,26 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // mpd.conf has changed so stop the mpd jobs
                     wrk_mpdconf($redis, 'stop');
                 }
-                // always run start to make sure the mpd jobs are running
-                // mpd will not be restarted if it was not stopped
-                wrk_mpdconf($redis, 'start');
             }
+            // always run start to make sure the mpd jobs are running
+            // mpd will not be restarted if it was not stopped
+            wrk_mpdconf($redis, 'start');
             break;
         case 'start':
             $activePlayer = $redis->get('activePlayer');
             if ($activePlayer === 'MPD') {
-                // reload systemd daemon to activate any changed configuration files
-                sysCmd('systemctl daemon-reload');
                 $retval = sysCmd('systemctl is-active mpd');
                 if ($retval[0] === 'active') {
                     // do nothing
                 } else {
+                    // reload systemd daemon to activate any changed unit files
+                    sysCmd('systemctl daemon-reload');
+                    // start mpd
                     sysCmd('systemctl start mpd');
+                    // set mpdconfchange off
+                    $redis->set('mpdconfchange', 0);
                 }
-                unset($retval);
-                sleep(2);
+                sleep(1);
                 // ashuffle gets started automatically
                 // restore the player status
                 sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
@@ -3549,20 +3551,41 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
                 }
             }
-            // set mpdconfchange off
-            $redis->set('mpdconfchange', 0);
             // set process priority
             sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            unset($activePlayer, $retval);
             break;
-        case 'stop':
+        case 'forcestop':
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
             sysCmd('mpc stop');
             sysCmd('mpd --kill');
             sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
             break;
+        case 'stop':
+            // don't stop mpd if it is not running
+            $retval = sysCmd('systemctl is-active mpd');
+            if ($retval[0] === 'active') {
+                // mpd is running
+                // don't stop mpd if its configuration or unit file has not been changed
+                if ($redis->get('mpdconfchange')) {
+                    // the configuration file has changed
+                    $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
+                    sysCmd('mpc stop');
+                    sysCmd('mpd --kill');
+                    sleep(1);
+                    sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
+                    // set mpdconfchange off
+                    $redis->set('mpdconfchange', 0);
+                }
+            }
+            break;
         case 'restart':
             wrk_mpdconf($redis, 'stop');
+            wrk_mpdconf($redis, 'start');
+            break;
+        case 'forcerestart':
+            wrk_mpdconf($redis, 'forcestop');
             wrk_mpdconf($redis, 'start');
             break;
     }
@@ -4378,8 +4401,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             $return = $redis->del('mount_'.$args->id);
             break;
         case 'reset':
-            sysCmd('mpc stop');
-            sysCmd('systemctl stop mpd ashuffle');
+            wrk_mpdconf($redis,'forcestop');
             usleep(500000);
             $source = $redis->keys('mount_*');
             foreach ($source as $key) {
@@ -4391,14 +4413,13 @@ function wrk_sourcecfg($redis, $action, $args=null)
             }
             // reset mount index
             if ($return) $redis->del('mountidx');
-            sysCmd('systemctl start mpd');
+            wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
             sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
             break;
         case 'umountall':
-            sysCmd('mpc stop');
-            sysCmd('systemctl stop mpd ashuffle');
+            wrk_mpdconf($redis,'forcestop');
             usleep(500000);
             $source = $redis->keys('mount_*');
             foreach ($source as $key) {
@@ -4407,7 +4428,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
                 sysCmd("umount -f '/mnt/MPD/NAS/".$mp['name']."'");
                 sysCmd("rmdir '/mnt/MPD/NAS/".$mp['name']."'");
             }
-            sysCmd('systemctl start mpd');
+            wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
             sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
@@ -4786,10 +4807,7 @@ function wrk_startPlayer($redis, $newplayer)
                     sysCmd('systemctl start spopd');
                     usleep(500000);
                 }
-                if ($redis->hGet('lastfm','enable')) sysCmd('systemctl stop mpdscribble');
-                if ($redis->hGet('dlna','enable')) sysCmd('systemctl stop upmpdcli');
-                sysCmd('systemctl stop mpd');
-                sysCmd('systemctl stop ashuffle');
+                wrk_mpdconf($redis, 'forcestop');
                 $redis->set('mpd_playback_status', 'stop');
                 // set process priority
                 sysCmdAsync('rune_prio nice');
@@ -4811,17 +4829,9 @@ function wrk_startPlayer($redis, $newplayer)
             sendSpopCommand($sock, 'notify');
             closeSpopSocket($sock);
             if ($newplayer == 'MPD') {
-                $retval = sysCmd('systemctl is-active mpd');
-                if ($retval[0] === 'active') {
-                    // do nothing
-                } else {
-                    sysCmd('systemctl start mpd');
-                    usleep(500000);
-                }
-                unset($retval);
+                wrk_mpdconf($redis, 'start');
                 // ashuffle gets started automatically
-                if ($redis->hGet('lastfm','enable')) sysCmd('pgrep -x mpdscribble || systemctl start mpdscribble');
-                if ($redis->hGet('dlna','enable')) sysCmd('pgrep -x upmpdcli || systemctl start upmpdcli');
+                // stop spotify
                 sysCmd('systemctl stop spopd');
                 // set process priority
                 sysCmdAsync('rune_prio nice');
@@ -4894,17 +4904,9 @@ function wrk_stopPlayer($redis, $activePlayer=null)
             }
             runelog('wrk_stopPlayer stoppedPlayer = ', $stoppedPlayer);
             if ($stoppedPlayer === 'MPD') {
-                $retval = sysCmd('systemctl is-active mpd');
-                if ($retval[0] === 'active') {
-                    // do nothing
-                } else {
-                    sysCmd('systemctl start mpd');
-                    usleep(500000);
-                }
-                unset($retval);
+                wrk_mpdconf($redis, 'start');
                 // ashuffle gets started automatically
-                if ($redis->hGet('lastfm','enable')) sysCmd('pgrep -x mpdscribble || systemctl start mpdscribble');
-                if ($redis->hGet('dlna','enable')) sysCmd('pgrep -x upmpdcli || systemctl start upmpdcli');
+                // stop spotify
                 sysCmd('systemctl stop spopd');
                 // set process priority
                 sysCmdAsync('rune_prio nice');
@@ -4933,10 +4935,7 @@ function wrk_stopPlayer($redis, $activePlayer=null)
                     usleep(500000);
                 }
                 unset($retval);
-                if ($redis->hGet('lastfm','enable')) sysCmd('systemctl stop mpdscribble');
-                if ($redis->hGet('dlna','enable')) sysCmd('systemctl stop upmpdcli');
-                sysCmd('systemctl stop mpd');
-                sysCmd('systemctl stop ashuffle');
+                wrk_mpdconf($redis, 'forcestop');
                 $redis->set('mpd_playback_status', 'stop');
                 // set process priority
                 sysCmdAsync('rune_prio nice');

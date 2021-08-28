@@ -48,13 +48,7 @@ runelog('WORKER set_mpd_volume.php STARTING...');
 // and store a value of the last known mpd volume to be used when switching players
 if (($redis->get('activePlayer') == 'MPD') && ($redis->hGet('spotifyconnect', 'track_id') == '')) {
     // Start MPD (if  not started) in order to set the startup volume (if needed and if set) then kill MPD (if required)
-    $retval = sysCmd('systemctl is-active mpd');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start mpd');
-    }
-    unset($retval);
+    wrk_mpdconf($redis, 'start');
     $mpdstartvolume = $redis->get('mpd_start_volume');
     // sometimes mpd fails to start correctly (e.g. when the incorrect audio card overlay is specified)
     // then it will never return a volume value so limit the number of retries with a counter
