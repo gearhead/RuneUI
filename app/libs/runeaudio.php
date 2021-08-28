@@ -3225,9 +3225,17 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- user under which MPD must run ---
                         $output .= $param." \t\"".$value."\"\n";
                         // the MPD unit service file must also specify the same user
-                        sysCmd("sed -i '/^User/s/^User.*/User=".$value."/' /etc/systemd/system/mpd.service");
-                        // remove the MPD log file, this will have an incorrect file owner, otherwise MPD will fail to start
-                        sysCmd("rm '".$redis->hGet('mpdconf', 'log_file')."'");
+                        // check to see if a change is required
+                        $retval = sysCmd('grep -c "^User='.$value.'" /etc/systemd/system/mpd.service');
+                        if (!$retval[0]) {
+                            // the user has changed
+                            sysCmd("sed -i '/^User/s/^User.*/User=".$value."/' /etc/systemd/system/mpd.service");
+                            // remove the MPD log file, this will have an incorrect file owner, otherwise MPD will fail to start
+                            sysCmd("rm '".$redis->hGet('mpdconf', 'log_file')."'");
+                            // a restart is required so set the mpdconfchange redis variable
+                            $redis->set('mpdconfchange', 1);
+                        }
+                        unset($retval);
                         break;
                     case 'ffmpeg':
                         // --- ffmpeg decoder plugin ---
@@ -3311,6 +3319,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
             $sub_count = 0;
+            // sort the cards so that when acards has a different sequence but the same contents
+            //  the MPD config file will not be replaced and MPD not restarted
+            ksort($acards);
             foreach ($acards as $main_acard_name => $main_acard_details) {
                 // $card_decoded = new stdClass();
                 unset($card_decoded);
