@@ -493,14 +493,14 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'pl-clear-played':
             if ($activePlayer === 'MPD') {
                 $currSongInfo = getMpdCurrentsongInfo($mpd);
-                if ($currSongInfo && isset($currSongInfo[Pos])) {
+                if ($currSongInfo && isset($currSongInfo['Pos'])) {
                     // $currSongInfo[Pos] contains currently playing song position in the queue, 0 is the first position
                     // MPD delete format is: delete <from position>:<number to delete>
                     // 'delete 0:0' deletes nothing
                     // 'delete 0:1' deletes the first entry in the queue
                     // 'delete 0:5' deletes the first 5 entries in the queue
                     // 'delete 2:5' deletes the third to 8th entries in the queue
-                    sendMpdCommand($mpd, 'delete 0:'.$currSongInfo[Pos]);
+                    sendMpdCommand($mpd, 'delete 0:'.$currSongInfo['Pos']);
                     readMpdResponse($mpd);
                 }
                 unset($currSongInfo);

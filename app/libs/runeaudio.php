@@ -1301,6 +1301,7 @@ function _parseMpdresponse($input)
             }
             if ($element) {
                 $plistArray[$element] = $value;
+                $isOk = true;
             }
             $plistLine = strtok("\n\t\r");
         }
