@@ -2822,7 +2822,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                     $details['hwplatformid'] = '08';
                     if (substr($card['name'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
-                        $details['description'] = 'RaspberryPi '.trim(substr($card['name'], 8));
+                        $details['description'] = 'Raspberry Pi '.trim(substr($card['name'], 8));
                         $details['type'] = 'integrated';
                     } else {
                         $details['description'] = $card['name'];
@@ -2837,12 +2837,12 @@ function wrk_audioOutput($redis, $action, $args = null)
                             // save the name as defined in the UI when selecting this card
                             $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
                             if ($details['description'] === '') {
-                                // otherwise call set the description to default
-                                $details['description'] = 'Soundcard';
+                                // otherwise call set the description to default, could happen when manually configured
+                                $details['description'] = 'Soundcard: '.$card['sysdesc'];
                             }
                         } else if ($details['type'] == 'usb') {
                             // its a USB DAC
-                            $details['description'] = 'USB DAC';
+                            $details['description'] = 'USB: '.$card['sysdesc'];
                         } else {
                             // no idea what this card is, use its system description
                             $details['description'] = $card['sysdesc'];
@@ -2873,12 +2873,22 @@ function wrk_audioOutput($redis, $action, $args = null)
                 }
                 if (!isset($details['mixer_control']) || !$details['mixer_control']) {
                     // mixer control is missing
-                    $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -i "Simple mixer control"');
-                    if (isset($retval) && is_array($retval) && count($retval) == 1) {
-                        // one value returned, so use it
-                        $details['mixer_control'] = get_between_data($retval[0], "'", "'");
+                    $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume"');
+                    $pvolumeCnt = 0;
+                    foreach ($retval as $retline) {
+                        if (substr(strtolower($retline), 0, 6) === 'simple' ) {
+                            $mixerControl = get_between_data($retline, "'", "'");
+                        }
+                        if (strpos($retline, 'pvolume')) {
+                            $validMixerControl = $mixerControl;
+                            $pvolumeCnt++;
+                        }
                     }
-                    unset ($retval);
+                    if ($pvolumeCnt == 1) {
+                        // one value returned, so use it
+                        $details['mixer_control'] = $validMixerControl;
+                    }
+                    unset ($retval, $retline, $mixerControl, $validMixerControl, $pvolumeCnt);
                 } else {
                     // mixer control is specified, check that it is valid
                     $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -ic "'.$details['mixer_control'].'"');
