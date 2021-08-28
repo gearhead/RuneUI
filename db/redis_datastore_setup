@@ -299,7 +299,7 @@ function redisDatastore($redis,$action) {
             $redis->set('debug', 0);
             $redis->set('debugdata', '');
             $redis->set('opcache', 1);
-            $redis->set('buildversion', 'janui-20200912');
+            $redis->set('buildversion', 'janui-20210826');
             $redis->set('patchlevel', 0);
             $redis->set('release', '0.6b');
             // HW platform data
@@ -635,7 +635,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('debug') || $redis->set('debug', 0);
             $redis->exists('debugdata') || $redis->set('debugdata', '');
             $redis->exists('opcache') || $redis->set('opcache', 1);
-            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20200912');
+            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20210826');
             $redis->exists('patchlevel') || $redis->set('patchlevel', 0);
             $redis->exists('release') || $redis->set('release', '0.6b');
             // HW platform data
