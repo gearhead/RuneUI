@@ -292,8 +292,6 @@ function redisDatastore($redis,$action) {
             // $redis->set('netconfhash', '');
             $redis->set('mpdconfhash', '12eed229f02c52816ed997cbce4b9f32');
             // $redis->hSet('netconfhash', 'eth0', '643f8967af551f683b3cfd493950c550');
-            $redis->set('mpdconf_advanced', 0);
-            $redis->set('netconf_advanced', 0);
             // MPD parameters
             $redis->set('mpd_playback_status', '');
             // developer parameters
@@ -627,8 +625,6 @@ function redisDatastore($redis,$action) {
             // internal config hash control
             $redis->exists('mpdconfhash') || $redis->set('mpdconfhash', '12eed229f02c52816ed997cbce4b9f32');
             $redis->hExists('netconfhash', 'eth0') || $redis->hSet('netconfhash', 'eth0', '643f8967af551f683b3cfd493950c550');
-            $redis->exists('mpdconf_advanced') || $redis->set('mpdconf_advanced', 0);
-            $redis->exists('netconf_advanced') || $redis->set('netconf_advanced', 0);
             // MPD parameters
             $redis->exists('mpd_playback_status') || $redis->set('mpd_playback_status', '');
             $redis->exists('mpd_start_volume') || $redis->set('mpd_start_volume', -1);

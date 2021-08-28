@@ -121,7 +121,7 @@ if ($playlist != '') {
 }
 if ($redis->hGet('mpdconf', 'version') >= '0.21.00') $template->mpdv21 = true;
 // check integrity of /etc/network/interfaces
-if(!hashCFG('check_mpd', $redis)) {
+if(!hashCFG($redis, 'check_mpd')) {
     $template->mpdconf = file_get_contents('/etc/mpd.conf');
     // set manual config template
     $template->content = "mpd_manual";

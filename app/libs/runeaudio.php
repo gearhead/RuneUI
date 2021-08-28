@@ -1288,7 +1288,6 @@ function _parseMpdresponse($input)
         $plistLine = strtok($input, "\n\t\r\0");
         while ($plistLine) {
             // runelog('_parseMpdResponse plistLine', $plistLine);
-
             $element = '';
             $value = '';
             if (strpos(' '.$plistLine, ': ')) {
@@ -1558,29 +1557,23 @@ function pushFile($filepath)
 }
 
 // check if mpd.conf or interfaces was modified outside
-function hashCFG($action, $redis)
+function hashCFG($redis, $action='check_mpd')
 {
     switch ($action) {
-        case 'check_net':
-            // --- CODE REWORK NEEDED ---
-            //$hash = md5_file('/etc/netctl/eth0');
-            // have to find the settings file by MAC address in connman
-            $eth0MAC = sysCmd("ip link show dev eth0 | grep 'link/ether' | sed 's/^[ \t]*//' |cut -d ' ' -f 2 | tr -d ':'");
-            $hash = md5_file('/var/lib/connman/ethernet_'.$eth0MAC[0].'_cable/settings');
-            if ($redis->get('netconfhash') !== $hash) {
-                $redis->set('netconf_advanced', 1);
-                return false;
-            } else {
-                $redis->set('netconf_advanced', 0);
-            }
-            break;
+        // case 'check_net':
+            // // --- CODE REWORK NEEDED ---
+            // //$hash = md5_file('/etc/netctl/eth0');
+            // // have to find the settings file by MAC address in connman
+            // $eth0MAC = sysCmd("ip link show dev eth0 | grep 'link/ether' | sed 's/^[ \t]*//' |cut -d ' ' -f 2 | tr -d ':'");
+            // $hash = md5_file('/var/lib/connman/ethernet_'.$eth0MAC[0].'_cable/settings');
+            // if ($redis->get('netconfhash') !== $hash) {
+                // return false;
+            // }
+            // break;
         case 'check_mpd':
             $hash = md5_file('/etc/mpd.conf');
             if ($redis->get('mpdconfhash') !== $hash) {
-                $redis->set('mpdconf_advanced', 1);
                 return false;
-            } else {
-                $redis->set('mpdconf_advanced', 0);
             }
             break;
     }
@@ -3117,13 +3110,6 @@ function wrk_kernelswitch($redis, $args)
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
 {
-    // check if we are in "advanced mode" (manual edit mode)
-    if ($action === 'reset') {
-        $redis->set('mpdconf_advanced', 0);
-        $mpdconf_advanced = 0;
-    } else {
-        $mpdconf_advanced = $redis->get('mpdconf_advanced');
-    }
     // set mpd.conf file header
     $header =  "###################################\n";
     $header .= "#  Auto generated mpd.conf file   #\n";
@@ -3435,11 +3421,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\ttags \t\t\"yes\"\n";
                 $output .="}\n";
             }
-            // debug
-            // runelog('raw mpd.conf', $output, __FUNCTION__);
-            // check if mpd.conf was modified outside RuneUI (advanced mode)
-            runelog('mpd.conf advanced state', $mpdconf_advanced);
-            // many users need to add an extra parameters to the MPD configuration file
+            // some users need to add an extra parameters to the MPD configuration file
             // this can be specified in the file /home/your-extra-mpd.conf
             // see the example file: /var/www/app/config/defaults/your-extra-mpd.conf
             // clear the cache otherwise file_exists() returns incorrect values
@@ -8597,31 +8579,3 @@ function get_between_data($string, $start, $end, $occurence=1)
     }
     return $substr_data;
 }
-
-// // function to start MPD
-// function startMPD($wait = '')
-// {
-    // sysCmd('systemctl daemon-reload');
-    // if ($wait == 'wait' ) {
-        // sysCmd('pgrep -w mpd || systemctl start mpd');
-    // } else {
-        // sysCmdAsync('pgrep -w mpd || systemctl start mpd');
-    // }
-// }
-
-// // function to stop MPD
-// function stopMPD()
-// {
-    // sysCmd('mpd --kill');
-    // sleep(1);
-    // sysCmd('systemctl stop mpd');
-    // sleep(1);
-    // sysCmd('pgrep mpd && pkill mpd');
-// }
-
-// // function to restart MPD
-// function restartMPD()
-// {
-    // stopMPD();
-    // startMPD();
-// }
