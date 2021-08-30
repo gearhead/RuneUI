@@ -3460,22 +3460,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $fh = fopen('/tmp/mpd.conf', 'w');
             fwrite($fh, $output);
             fclose($fh);
-            // check whether the mpd.conf file has changed
-            if ($redis->get('mpdconfhash') === md5_file('/tmp/mpd.conf')) {
-                // nothing has changed, set mpdconfchange off
-                $redis->set('mpdconfchange', 0);
-                syscmd('rm -f /tmp/mpd.conf');
-            } else {
+            // check whether the /tmp/mpd.conf is not the same as /etc/mpd.conf and has not the same md5 as stored
+            if (($redis->get('mpdconfhash') !== md5_file('/tmp/mpd.conf')) || ($redis->get('mpdconfhash') !== md5_file('/etc/mpd.conf'))) {
                 // mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
                 $redis->set('mpdconfchange', 1);
                 syscmd('cp /tmp/mpd.conf /etc/mpd.conf');
                 syscmd('rm -f /tmp/mpd.conf');
                 // update hash
                 $redis->set('mpdconfhash', md5_file('/etc/mpd.conf'));
+            } else {
+                // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
+                syscmd('rm -f /tmp/mpd.conf');
             }
             // write the changes to the Airplay (shairport-sync) configuration file
-            wrk_shairport($redis, $ao);
-            wrk_spotifyd($redis, $ao);
             break;
         case 'update':
             foreach ($args as $param => $value) {
