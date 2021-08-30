@@ -3120,13 +3120,6 @@ function wrk_kernelswitch($redis, $args)
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
 {
-    // set mpd.conf file header
-    $header =  "###################################\n";
-    $header .= "#  Auto generated mpd.conf file   #\n";
-    $header .= "# please DO NOT edit it manually! #\n";
-    $header .= "#  Use RuneUI MPD config section  #\n";
-    $header .= "###################################\n";
-    $header .= "#\n";
     switch ($action) {
         case 'reset':
             // default MPD config
@@ -3173,22 +3166,27 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // sort the mpd configuration data into index key order
             ksort($mpdcfg);
             $output = null;
+            // set mpd.conf file header
+            $output =  "###################################\n";
+            $output .= "#  Auto generated mpd.conf file   #\n";
+            $output .= "# please DO NOT edit it manually! #\n";
+            $output .= "#  Use RuneUI MPD config section  #\n";
+            $output .= "###################################\n";
+            $output .= "#\n";
             // --- log settings ---
             if ($mpdcfg['log_level'] === 'none') {
                 $redis->hDel('mpdconf', 'log_file');
             } else {
                 $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
-                $output .= "log_file\t\"/var/log/runeaudio/mpd.log\"\n";
-                $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
+                $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
             }
             unset($mpdcfg['log_level']);
             unset($mpdcfg['log_file']);
             // --- state file ---
             if (!isset($mpdcfg['state_file']) || $mpdcfg['state_file'] === 'no') {
-                $redis->hDel('mpdconf', 'state_file');
+                // do nothing
             } else {
-                $output .= "state_file\t\"/var/lib/mpd/mpdstate\"\n";
-                $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
+                $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
             unset($mpdcfg['state_file']);
             // --- general settings ---
@@ -3231,6 +3229,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                             sysCmd("sed -i '/^User/s/^User.*/User=".$value."/' /etc/systemd/system/mpd.service");
                             // remove the MPD log file, this will have an incorrect file owner, otherwise MPD will fail to start
                             sysCmd("rm '".$redis->hGet('mpdconf', 'log_file')."'");
+                            // change the privilages for /run/mpd so that the new user can create a socket & pid file
+                            sysCmd("chmod 777 /run/mpd");
                             // a restart is required so set the mpdconfchange redis variable
                             $redis->set('mpdconfchange', 1);
                         }
@@ -3270,6 +3270,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- websteaming output ---
                         if ($value) {
                             // save the indicator, add the output after the normal output interfaces
+                            // a non zero value is the output bitrate
                             $websteaming = $value;
                         }
                         break;
@@ -3437,7 +3438,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\tencoder \t\t\"flac\"\n";
                 $output .="\tport \t\t\"8000\"\n";
                 $output .="\tquality \t\t\"6\"\n";
-                $output .="\tformat \t\t\"44100:16:2\"\n";
+                $output .="\tformat \t\t\"".$websteaming.":16:2\"\n";
                 $output .="\talways_on \t\t\"yes\"\n";
                 $output .="\ttags \t\t\"yes\"\n";
                 $output .="}\n";
@@ -3484,6 +3485,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             break;
         case 'switchao':
             // record current interface selection
+            $oldMpdout = $redis->get('ao');
             $redis->set('ao', $args);
             $mpdout = $args;
             // get interface details
@@ -3500,7 +3502,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             wrk_mpdconf($redis, 'writecfg');
             // toggle playback state
             if (wrk_mpdPlaybackStatus($redis) === 'playing') {
-                syscmd('mpc toggle');
+                syscmd('mpc pause');
                 $recover_state = 1;
                 // debug
                 runelog('switchao (set recover state):', $recover_state);
@@ -3508,14 +3510,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // switch interface
             // debug
             runelog('switchao (switch AO):', $mpdout);
-            syscmd('mpc enable only "'.$mpdout.'"');
+            syscmd('mpc enable "'.$mpdout.'"');
+            syscmd('mpc disable "'.$oldMpdout.'"');
             // restore playback state
             if (isset($recover_state)) {
                 // debug
                 runelog('switchao (RECOVER STATE!)');
-                syscmd('mpc toggle');
+                syscmd('mpc play');
             }
+            // check that MPD only has one output enabled and if not correct it
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
+            wrk_shairport($redis, $ao);
+            wrk_spotifyd($redis, $ao);
             if (isset($interface_details->extlabel)) { $interface_label = $interface_details->extlabel; } else { $interface_label = $args; }
             // notify UI
             ui_notify_async('Audio output switched', "Current active output:\n".$interface_label, $jobID);
@@ -3579,8 +3586,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'forcestop':
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
             sysCmd('mpc stop');
-            sysCmd('mpd --kill');
-            sleep(1);
+            //sysCmd('mpd --kill');
+            //sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
             break;
         case 'stop':
@@ -3593,8 +3600,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // the configuration file has changed
                     $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
                     sysCmd('mpc stop');
-                    sysCmd('mpd --kill');
-                    sleep(1);
+                    //sysCmd('mpd --kill');
+                    //sleep(1);
                     sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
