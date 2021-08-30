@@ -2822,7 +2822,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                     $details['hwplatformid'] = '08';
                     if (substr($card['name'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
-                        $details['description'] = 'Raspberry Pi '.trim(substr($card['name'], 8));
+                        $details['description'] = 'Raspberry Pi: '.trim(substr($card['name'], 8));
                         $details['type'] = 'integrated';
                     } else {
                         $details['description'] = $card['name'];
@@ -2836,7 +2836,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                         if ($details['type'] == 'i2s') {
                             // save the name as defined in the UI when selecting this card
                             $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
-                            if ($details['description'] === '') {
+                            if (($details['description'] === '') || ($redis->Get('i2smodule') === 'none')) {
                                 // otherwise call set the description to default, could happen when manually configured
                                 $details['description'] = 'Soundcard: '.$card['sysdesc'];
                             }
@@ -2986,7 +2986,6 @@ function wrk_audioOutput($redis, $action, $args = null)
 function wrk_i2smodule($redis, $args)
 {
     $redis->set('i2smodule', $args);
-
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
         ## RuneAudio enable HDMI & analog output
         $file = '/boot/config.txt';
