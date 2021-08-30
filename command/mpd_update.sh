@@ -20,9 +20,7 @@ cp /usr/lib/libicuuc.so.61.1 /home/mpdupdate/icu/libicuuc.so.61.1
 #
 # stop mpd and ashuffle
 mpc stop
-systemctl stop ashuffle mpdscribble upmpdcli
-mpd --kill
-systemctl stop mpd
+systemctl stop mpd ashuffle mpdscribble upmpdcli
 pacman -Syy
 #
 # update prerequisites (2.52 MiB & 0.01 MiB & 0.55 MiB)
