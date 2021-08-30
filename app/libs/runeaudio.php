@@ -3293,15 +3293,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         break;
                 }
             }
-            $output = $header.$output;
             $acards = $redis->hGetAll('acards');
             // debug
             // --- audio output ---
             $ao = $redis->Get('ao');
             // make sure we have at least one valid output
             if (!isset($acards) || !is_array($acards) || !reset($acards)) {
-                // no audio cards, enable the http output, so that mpd has one valid output
-                $websteaming = '1';
+                // no audio cards, enable the http output (bitrate = 44100), so that mpd has one valid output
+                $websteaming = '44100';
                 $ao = '';
                 runelog('detected ACARDS ', 'No audio cards', __FUNCTION__);
             } else if (count($acards) == 1) {
