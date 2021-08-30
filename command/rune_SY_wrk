@@ -250,10 +250,11 @@ if ($playerid_db === '') {
     if ($activePlayer === 'MPD') {
         // stop spotify, if started
         sysCmd('pgrep -x spopd && systemctl stop spopd');
-        // check MPD process, it can be stared earlier
-        wrk_mpdconf($redis, 'refreshsoundcards');
+        // Refresh the MPD config file and start/restart MPD
+        wrk_mpdconf($redis, 'refresh');
         // ashuffle gets started automatically
     } else if ($activePlayer === 'Spotify') {
+        // stop MPD
         wrk_mpdconf($redis,'stop');
         unset($retval);
         // start spotify, if not started
@@ -263,8 +264,8 @@ if ($playerid_db === '') {
         sysCmd('pgrep -x spopd && systemctl stop spopd');
         // reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
         $redis->set('activePlayer', 'MPD');
-        // Start and refresh MPD (audio hardware status - soundcards and MPD config)
-        wrk_mpdconf($redis,'refreshsoundcards');
+        // Refresh the MPD config file and start/restart MPD
+        wrk_mpdconf($redis,'refresh');
         // ashuffle gets started automatically
     }
     //
