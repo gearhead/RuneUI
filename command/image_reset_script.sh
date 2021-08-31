@@ -309,6 +309,13 @@ ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 #
+# modify the systemd journal configuration file to use volatile memory (Storage=volatile)
+volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
+if [ "$volitileFound" == "0" ]; then
+    # no uncommented line containing 'Storage=volatile' found
+    sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
+fi
+#
 # add waveshare LDC touchscreen overlays
 /srv/http/command/waveshare_install.sh
 #

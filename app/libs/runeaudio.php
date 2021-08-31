@@ -3163,8 +3163,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // get the mpd configuration data
             $mpdcfg = $redis->hGetAll('mpdconf');
-            // sort the mpd configuration data into index key order
-            ksort($mpdcfg);
             $output = null;
             // set mpd.conf file header
             $output =  "###################################\n";
@@ -3183,12 +3181,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             unset($mpdcfg['log_level']);
             unset($mpdcfg['log_file']);
             // --- state file ---
-            if (!isset($mpdcfg['state_file']) || $mpdcfg['state_file'] === 'no') {
+            if (!isset($mpdcfg['state_file_enable']) || $mpdcfg['state_file_enable'] === 'no') {
                 // do nothing
             } else {
                 $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
-            unset($mpdcfg['state_file']);
+            unset($mpdcfg['state_file'], $mpdcfg['state_file_enable']);
+            // sort the mpd configuration data into index key order
+            ksort($mpdcfg);
             // --- general settings ---
             foreach ($mpdcfg as $param => $value) {
                 switch ($param) {
@@ -3519,7 +3519,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // set notify label
             wrk_shairport($redis, $ao);
             wrk_spotifyd($redis, $ao);
-            if (isset($interface_details->extlabel)) { $interface_label = $interface_details->extlabel; } else { $interface_label = $args; }
+            if (isset($interface_details->description)) {
+                $interface_label = $interface_details->description;
+            } else if (isset($interface_details->extlabel)) {
+                $interface_label = $interface_details->extlabel;
+            } else {
+                $interface_label = $args;
+            }
             // notify UI
             ui_notify_async('Audio output switched', "Current active output:\n".$interface_label, $jobID);
             break;
@@ -3706,33 +3712,31 @@ function wrk_mpdRestorePlayerStatus($redis)
 
 function wrk_spotifyd($redis, $ao = null, $name = null)
 {
-    if (empty($name)) {
+    if (!isset($name) || empty($name)) {
         $name = $redis->hGet('spotifyconnect', 'device_name');
     }
     $name = trim($name);
     if ($name == '') {
+        $name = $redis->get('hostname');
+    }
+    if ($name == '') {
         $name = 'RuneAudio';
     }
     $redis->hSet('spotifyconnect', 'device_name', $name);
-    if (empty($ao)) {
+    if (!isset($ao) || empty($ao)) {
         $ao = $redis->get('ao');
     }
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
-    $acard = json_decode($redis->hGet('acards', $ao));
-    //$acard = json_decode($acard);
-    runelog('wrk_spotifyd acard details      : ', $acard);
-    runelog('wrk_spotifyd acard name         : ', $acard->name);
-    runelog('wrk_spotifyd acard type         : ', $acard->type);
-    runelog('wrk_spotifyd acard device       : ', $acard->device);
+    $acard = json_decode($redis->hGet('acards', $ao), true);
+    runelog('wrk_spotifyd acard name         : ', $acard['name']);
+    runelog('wrk_spotifyd acard type         : ', $acard['type']);
+    runelog('wrk_spotifyd acard device       : ', $acard['device']);
     //
-    !empty($acard->device) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard->device)[0]);
-    // !empty($acard->device) && $redis->hSet('spotifyconnect', 'device', 'plug'.preg_split('/[\s,]+/', $acard->device)[0]);
-    // !empty($acard->device) && $redis->hSet('spotifyconnect', 'device', $acard->device);
-    //!empty($acard->device) && $redis->hSet('spotifyconnect', 'device', 'plug'.$acard->device);
+    !empty($acard['device']) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
     //
-    if (!empty($acard->mixer_control)) {
-        $mixer = trim($acard->mixer_control);
+    if (!empty($acard['mixer_control'])) {
+        $mixer = trim($acard['mixer_control']);
         $volume_control = 'alsa';
     } else {
         $mixer = 'PCM';
@@ -3762,6 +3766,8 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $spotifyd_conf .= "[global]\n";
     $spotifyd_conf .= "#\n";
     $sccfg = $redis->hGetAll('spotifyconnect');
+    // redis randomises the order of elements in a hash, sort to improve give a consistent order in the conf file
+    ksort($sccfg);
     foreach ($sccfg as $param => $value) {
         $value = trim($value);
         switch ($param) {
@@ -3847,37 +3853,34 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
 
 function wrk_shairport($redis, $ao, $name = null)
 {
-    if (!isset($name)) {
-        $name = trim($redis->hGet('airplay', 'name'));
-    } else {
-        $name = trim($name);
-        if (!strlen($name)) {
-            $name = trim($redis->hGet('airplay', 'name'));
-        }
+    if (!isset($name) && empty($name)) {
+        $name = $redis->hGet('airplay', 'device_name');
+    }
+    $name = trim($name);
+    if ($name == '') {
+        $name = $redis->get('hostname');
+    }
+    if ($name == '') {
+        $name = 'RuneAudio';
+    }
+    $redis->hSet('airplay', 'device_name', $name);
+    if (!isset($name) && empty($ao)) {
+        $ao = $redis->get('ao');
     }
     $redis->hSet('airplay', 'ao', $ao);
+    //
     $acard = $redis->hGet('acards', $ao);
-    $acard = json_decode($acard);
-    //$acard = json_decode($redis->hGet('acards', $ao), true);
-    //$redis->hSet('airplay', 'acard', $acard);
-    runelog('wrk_shairport acard details      : ', $acard);
-    runelog('wrk_shairport acard name         : ', $acard->name);
-    runelog('wrk_shairport acard type         : ', $acard->type);
-    runelog('wrk_shairport acard device       : ', $acard->device);
+    $acard = json_decode($acard, true);
+    runelog('wrk_shairport acard name         : ', $acard['name']);
+    runelog('wrk_shairport acard type         : ', $acard['type']);
+    runelog('wrk_shairport acard device       : ', $acard['device']);
     // shairport-sync output device is specified without a subdevice if only one subdevice exists
     // determining the number of sub devices is done by counting the number of alsa info file for the device
-    // if (count(sysCmd('dir -l /proc/asound/card'.preg_split('/[\s,:]+/', $acard->device)[1].'/pcm?p/sub?/info')) > 1) {
-    //if (count(sysCmd('dir -l /proc/asound/card'.preg_split('/[\s,:]+/', $acard->device)[1].'/pcm?p/sub0/info')) > 1) {
-    //  $redis->hSet('airplay', 'alsa_output_device', $acard->device);
-    //} else {
-    //  $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard->device)[0]);
-    //}
-    //
     // shairport-sync output device is always specified without a subdevice! Possible that this will need extra work for USB DAC's
-    $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard->device)[0]);
+    $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
     //
-    if (!empty($acard->mixer_device)) {
-        $mixer_device = trim($acard->mixer_device);
+    if (!empty($acard['mixer_device'])) {
+        $mixer_device = trim($acard['mixer_device']);
     } else {
         $mixer_device = '';
     }
@@ -3886,9 +3889,10 @@ function wrk_shairport($redis, $ao, $name = null)
     }
     runelog('wrk_shairport acard mixer_device : ', $mixer_device);
     $redis->hSet('airplay', 'alsa_mixer_device', $mixer_device);
+    unset($mixer_device);
     //
-    if (!empty($acard->mixer_control)) {
-        $mixer_control = trim($acard->mixer_control);
+    if (!empty($acard['mixer_control'])) {
+        $mixer_control = trim($acard['mixer_control']);
     } else {
         $mixer_control = 'PCM';
     }
@@ -3900,14 +3904,16 @@ function wrk_shairport($redis, $ao, $name = null)
     }
     runelog('wrk_shairport acard mixer_control: ', $mixer_control);
     $redis->hSet('airplay', 'alsa_mixer_control', $mixer_control);
+    unset($mixer_control);
     //
-    if (!empty($acard->extlabel)) {
-        $extlabel = trim($acard->extlabel);
+    if (!empty($acard['description'])) {
+        $description = trim($acard['description']);
     } else {
-        $extlabel = '';
+        $description = '';
     }
-    runelog('wrk_shairport acard extlabel     : ', $extlabel);
-    $redis->hSet('airplay', 'extlabel', $extlabel);
+    runelog('wrk_shairport acard description     : ', $description);
+    $redis->hSet('airplay', 'description', $description);
+    unset($description);
     //
     if ($redis->hGet('airplay', 'soxronoff')) {
         if ($redis->hGet('airplay', 'interpolation') != '') {
@@ -3919,6 +3925,7 @@ function wrk_shairport($redis, $ao, $name = null)
         $interpolation = '';
     }
     $redis->hSet('airplay', 'interpolation', $interpolation);
+    unset($interpolation);
     //
     if ($redis->hGet('airplay', 'metadataonoff')) {
         if ($redis->hGet('airplay', 'metadata_enabled') != '') {
@@ -3930,6 +3937,7 @@ function wrk_shairport($redis, $ao, $name = null)
         $metadata_enabled = '';
     }
     $redis->hSet('airplay', 'metadata_enabled', $metadata_enabled);
+    unset($metadata_enabled);
     //
     if ($redis->hGet('airplay', 'artworkonoff')) {
         if ($redis->hGet('airplay', 'metadata_include_cover_art') != '') {
@@ -3941,45 +3949,47 @@ function wrk_shairport($redis, $ao, $name = null)
         $metadata_include_cover_art = '';
     }
     $redis->hSet('airplay', 'metadata_include_cover_art', $metadata_include_cover_art);
-    //
+    unset($metadata_include_cover_art);
+    //get all the airplay parameters
+    $airplay = $redis->hGetall('airplay');
     // update shairport-sync.conf
     $file = '/etc/shairport-sync.conf';
-    $newArray = wrk_replaceTextLine($file, '', ' general_name', 'name="'.$redis->hGet('airplay', 'name').'"; // general_name');
-    $newArray = wrk_replaceTextLine('', $newArray, ' general_output_backend', 'output_backend="'.$redis->hGet('airplay', 'output_backend').'"; // general_output_backend');
-    if ($interpolation === '') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' general_interpolation', '// interpolation="'.$interpolation.'"; // general_interpolation');
+    $newArray = wrk_replaceTextLine($file, '', ' general_name', 'name="'.$airplay['name'].'"; // general_name');
+    $newArray = wrk_replaceTextLine('', $newArray, ' general_output_backend', 'output_backend="'.$airplay['output_backend'].'"; // general_output_backend');
+    if ($airplay['interpolation'] === '') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' general_interpolation', '// interpolation="'.$airplay['interpolation'].'"; // general_interpolation');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' general_interpolation', 'interpolation="'.$interpolation.'"; // general_interpolation');
+        $newArray = wrk_replaceTextLine('', $newArray, ' general_interpolation', 'interpolation="'.$airplay['interpolation'].'"; // general_interpolation');
     }
-    $newArray = wrk_replaceTextLine('', $newArray, ' general_alac_decoder', 'alac_decoder="'.$redis->hGet('airplay', 'alac_decoder').'"; // general_alac_decoder');
-    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_before_play_begins', 'run_this_before_play_begins="'.$redis->hGet('airplay', 'run_this_before_play_begins').'"; // run_this_before_play_begins');
-    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$redis->hGet('airplay', 'run_this_after_play_ends').'"; // run_this_after_play_ends');
-    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$redis->hGet('airplay', 'run_this_wait_for_completion').'"; // run_this_wait_for_completion');
-    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_device', 'output_device="'.$redis->hGet('airplay', 'alsa_output_device').'"; // alsa_output_device');
-    if ($mixer_control === 'PCM') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$mixer_control.'"; // alsa_mixer_control_name');
+    $newArray = wrk_replaceTextLine('', $newArray, ' general_alac_decoder', 'alac_decoder="'.$airplay['alac_decoder'].'"; // general_alac_decoder');
+    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_before_play_begins', 'run_this_before_play_begins="'.$airplay['run_this_before_play_begins'].'"; // run_this_before_play_begins');
+    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$airplay['run_this_after_play_ends'].'"; // run_this_after_play_ends');
+    $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$airplay['run_this_wait_for_completion'].'"; // run_this_wait_for_completion');
+    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_device', 'output_device="'.$airplay['alsa_output_device'].'"; // alsa_output_device');
+    if ($airplay['mixer_control'] === 'PCM') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$airplay['mixer_control'].'"; // alsa_mixer_control_name');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$mixer_control.'"; // alsa_mixer_control_name');
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$airplay['mixer_control'].'"; // alsa_mixer_control_name');
     }
-    if ($mixer_device === '') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', '// mixer_device="'.$mixer_device.'"; // alsa_mixer_device');
+    if ($airplay['mixer_device'] === '') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', '// mixer_device="'.$airplay['mixer_device'].'"; // alsa_mixer_device');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', 'mixer_device="'.$mixer_device.'"; // alsa_mixer_device');
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', 'mixer_device="'.$airplay['mixer_device'].'"; // alsa_mixer_device');
     }
-    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_format', 'output_format="'.$redis->hGet('airplay', 'alsa_output_format').'"; // alsa_output_format');
-    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate='.$redis->hGet('airplay', 'alsa_output_rate').'; // alsa_output_rate');
-    $newArray = wrk_replaceTextLine('', $newArray, ' pipe_pipe_name', 'name="'.$redis->hGet('airplay', 'pipe_pipe_name').'"; // pipe_pipe_name');
-    if ($metadata_enabled === '') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', '// enabled="'.$metadata_enabled.'"; // metadata_enabled');
+    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_format', 'output_format="'.$airplay['alsa_output_format'].'"; // alsa_output_format');
+    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate='.$airplay['alsa_output_rate'].'; // alsa_output_rate');
+    $newArray = wrk_replaceTextLine('', $newArray, ' pipe_pipe_name', 'name="'.$airplay['pipe_pipe_name'].'"; // pipe_pipe_name');
+    if ($airplay['metadata_enabled'] === '') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', '// enabled="'.$airplay['metadata_enabled'].'"; // metadata_enabled');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', 'enabled="'.$metadata_enabled.'"; // metadata_enabled');
+        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', 'enabled="'.$airplay['metadata_enabled'].'"; // metadata_enabled');
     }
-    if (($metadata_include_cover_art === '') OR ($metadata_enabled === '')) {
-        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', '// include_cover_art="'.$metadata_include_cover_art.'"; // metadata_include_cover_art');
+    if (($airplay['metadata_include_cover_art'] === '') OR ($metadata_enabled === '')) {
+        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', '// include_cover_art="'.$airplay['metadata_include_cover_art'].'"; // metadata_include_cover_art');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', 'include_cover_art="'.$metadata_include_cover_art.'"; // metadata_include_cover_art');
+        $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', 'include_cover_art="'.$airplay['metadata_include_cover_art'].'"; // metadata_include_cover_art');
     }
-    $newArray = wrk_replaceTextLine('', $newArray, ' metadata_pipe_name', 'pipe_name="'.$redis->hGet('airplay', 'metadata_pipe_name').'"; // metadata_pipe_name');
+    $newArray = wrk_replaceTextLine('', $newArray, ' metadata_pipe_name', 'pipe_name="'.$airplay['metadata_pipe_name'].'"; // metadata_pipe_name');
     // Commit changes to /tmp/shairport-sync.conf
     $newfile = '/tmp/shairport-sync.conf';
     $fp = fopen($newfile, 'w');
@@ -3998,7 +4008,11 @@ function wrk_shairport($redis, $ao, $name = null)
     }
     // libio
     $file = '/etc/libao.conf';
-    $newArray = wrk_replaceTextLine($file, '', 'dev=', 'dev='.$acard->device);
+    if ($airplay['output_backend'] === 'alsa') {
+        $newArray = wrk_replaceTextLine($file, '', 'dev=', 'dev='.$airplay['alsa_output_device']);
+    } else {
+        $newArray = wrk_replaceTextLine($file, '', '#dev=', 'dev='.$airplay['alsa_output_device']);
+    }
     // Commit changes to /tmp/libao.conf
     $newfile = '/tmp/libao.conf';
     $fp = fopen($newfile, 'w');
@@ -4025,7 +4039,7 @@ function wrk_shairport($redis, $ao, $name = null)
         sysCmd('systemctl stop rune_SSM_wrk shairport-sync');
         // update systemd
         sysCmd('systemctl daemon-reload');
-        if ($redis->hGet('airplay', 'enable')) {
+        if ($airplay['enable']) {
             runelog('restart shairport-sync');
             sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
         }

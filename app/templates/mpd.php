@@ -105,13 +105,13 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="col-sm-2 control-label" for="state-file">State File</label>
+                <label class="col-sm-2 control-label" for="state_file_enable">State File</label>
                 <div class="col-sm-10">
-                    <select id="log-level" name="conf[state_file]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="yes" <?php if(isset($this->conf['state_file'])): ?> selected <?php endif ?>>enabled</option>
-                        <option value="no" <?php if(!isset($this->conf['state_file'])): ?> selected <?php endif ?>>disabled</option>
+                    <select id="state_file_enable" name="conf[state_file_enable]" class="selectpicker" data-style="btn-default btn-lg">
+                        <option value="yes" <?php if(isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'yes')): ?> selected <?php endif ?>>enabled</option>
+                        <option value="no" <?php if(!isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'no')): ?> selected <?php endif ?>>disabled</option>
                     </select>
-                    <span class="help-block">This setting specifies if a state file is used. If the state file is active, the state of MPD will be saved when MPD is terminated by a TERM signal or by the "kill" command. When MPD is restarted, it will read the state file and restore the state of MPD (including the playlist)</span>
+                    <span class="help-block">This setting specifies if a state file is used. If the state file is active, the state of MPD will be saved. When MPD is restarted, it will read the state file and restore the state of MPD (including the playlist)</span>
                 </div>
             </div>
             <div class="form-group">

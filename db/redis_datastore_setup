@@ -64,6 +64,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'port', '6600');
             $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
+            $redis->hSet('mpdconf', 'state_file_enable', 'yes');
             $redis->hSet('mpdconf', 'state_file_interval', '1');
             $redis->hSet('mpdconf', 'sticker_file', '/var/lib/mpd/sticker.sql');
             $redis->hSet('mpdconf', 'user', 'mpd');
@@ -98,6 +99,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'port') || $redis->hSet('mpdconf', 'port', '6600');
             $redis->hExists('mpdconf', 'snapcast') || $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hExists('mpdconf', 'state_file') || $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
+            $redis->hExists('mpdconf', 'state_file_enable') || $redis->hSet('mpdconf', 'state_file_enable', 'yes');
             $redis->hExists('mpdconf', 'state_file_interval') || $redis->hSet('mpdconf', 'state_file_interval', '1');
             $redis->hExists('mpdconf', 'sticker_file') || $redis->hSet('mpdconf', 'sticker_file', '/var/lib/mpd/sticker.sql');
             $redis->hExists('mpdconf', 'user') || $redis->hSet('mpdconf', 'user', 'mpd');
