@@ -3517,8 +3517,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // check that MPD only has one output enabled and if not correct it
             sysCmdAsync('nice --adjustment=2 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
-            wrk_shairport($redis, $ao);
-            wrk_spotifyd($redis, $ao);
+            wrk_shairport($redis, $args);
+            wrk_spotifyd($redis, $args);
             if (isset($interface_details->description)) {
                 $interface_label = $interface_details->description;
             } else if (isset($interface_details->extlabel)) {
@@ -3588,8 +3588,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'forcestop':
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
             sysCmd('mpc stop');
-            //sysCmd('mpd --kill');
-            //sleep(1);
+            sysCmd('mpd --kill');
+            sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
             break;
         case 'stop':
@@ -3602,8 +3602,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // the configuration file has changed
                     $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
                     sysCmd('mpc stop');
-                    //sysCmd('mpd --kill');
-                    //sleep(1);
+                    sysCmd('mpd --kill');
+                    sleep(1);
                     sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
@@ -3712,19 +3712,27 @@ function wrk_mpdRestorePlayerStatus($redis)
 
 function wrk_spotifyd($redis, $ao = null, $name = null)
 {
-    if (!isset($name) || empty($name)) {
-        $name = $redis->hGet('spotifyconnect', 'device_name');
-    }
-    $name = trim($name);
-    if ($name == '') {
-        $name = $redis->get('hostname');
-    }
-    if ($name == '') {
-        $name = 'RuneAudio';
+    if (!isset($name) || empty($name) || !$name) {
+        $name = trim($redis->hGet('spotifyconnect', 'device_name'));
+        if ($name == '') {
+            $name = trim($redis->get('hostname'));
+            if ($name == '') {
+                $name = 'RuneAudio';
+            }
+        }
+    } else {
+        $name = trim($name);
     }
     $redis->hSet('spotifyconnect', 'device_name', $name);
-    if (!isset($ao) || empty($ao)) {
-        $ao = $redis->get('ao');
+    //
+    if (!isset($ao) || empty($ao) || !$ao) {
+        $ao = trim($redis->get('ao'));
+        if ($ao == '') {
+            $ao = end($redis->hKeys('acards'));
+            $redis->set('ao', $ao);
+        }
+    } else {
+        $ao = trim($ao);
     }
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
@@ -3853,19 +3861,27 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
 
 function wrk_shairport($redis, $ao, $name = null)
 {
-    if (!isset($name) && empty($name)) {
-        $name = $redis->hGet('airplay', 'device_name');
-    }
-    $name = trim($name);
-    if ($name == '') {
-        $name = $redis->get('hostname');
-    }
-    if ($name == '') {
-        $name = 'RuneAudio';
+    if (!isset($name) || empty($name) || !$name) {
+        $name = trim($redis->hGet('airplay', 'device_name'));
+        if ($name == '') {
+            $name = trim($redis->get('hostname'));
+            if ($name == '') {
+                $name = 'RuneAudio';
+            }
+        }
+    } else {
+        $name = trim($name);
     }
     $redis->hSet('airplay', 'device_name', $name);
-    if (!isset($name) && empty($ao)) {
-        $ao = $redis->get('ao');
+    //
+    if (!isset($ao) || empty($ao) || !$ao) {
+        $ao = trim($redis->get('ao'));
+        if ($ao == '') {
+            $ao = end($redis->hKeys('acards'));
+            $redis->set('ao', $ao);
+        }
+    } else {
+        $ao = trim($ao);
     }
     $redis->hSet('airplay', 'ao', $ao);
     //
@@ -3880,31 +3896,31 @@ function wrk_shairport($redis, $ao, $name = null)
     $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
     //
     if (!empty($acard['mixer_device'])) {
-        $mixer_device = trim($acard['mixer_device']);
+        $alsa_mixer_device = trim($acard['mixer_device']);
     } else {
-        $mixer_device = '';
+        $alsa_mixer_device = '';
     }
     if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
-        $mixer_device = '';
+        $alsa_mixer_device = '';
     }
-    runelog('wrk_shairport acard mixer_device : ', $mixer_device);
-    $redis->hSet('airplay', 'alsa_mixer_device', $mixer_device);
-    unset($mixer_device);
+    runelog('wrk_shairport alsa_mixer_device : ', $alsa_mixer_device);
+    $redis->hSet('airplay', 'alsa_mixer_device', $alsa_mixer_device);
+    unset($alsa_mixer_device);
     //
     if (!empty($acard['mixer_control'])) {
-        $mixer_control = trim($acard['mixer_control']);
+        $alsa_mixer_control = trim($acard['mixer_control']);
     } else {
-        $mixer_control = 'PCM';
+        $alsa_mixer_control = 'PCM';
     }
-    if ($mixer_control === '') {
-        $mixer_control = 'PCM';
+    if ($alsa_mixer_control === '') {
+        $alsa_mixer_control = 'PCM';
     }
     if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
-        $mixer_control = 'PCM';
+        $alsa_mixer_control = 'PCM';
     }
-    runelog('wrk_shairport acard mixer_control: ', $mixer_control);
-    $redis->hSet('airplay', 'alsa_mixer_control', $mixer_control);
-    unset($mixer_control);
+    runelog('wrk_shairport acard alsa_mixer_control: ', $alsa_mixer_control);
+    $redis->hSet('airplay', 'alsa_mixer_control', $alsa_mixer_control);
+    unset($alsa_mixer_control);
     //
     if (!empty($acard['description'])) {
         $description = trim($acard['description']);
@@ -3966,15 +3982,15 @@ function wrk_shairport($redis, $ao, $name = null)
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$airplay['run_this_after_play_ends'].'"; // run_this_after_play_ends');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$airplay['run_this_wait_for_completion'].'"; // run_this_wait_for_completion');
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_device', 'output_device="'.$airplay['alsa_output_device'].'"; // alsa_output_device');
-    if ($airplay['mixer_control'] === 'PCM') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$airplay['mixer_control'].'"; // alsa_mixer_control_name');
+    if ($airplay['alsa_mixer_control'] === 'PCM') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$airplay['mixer_control'].'"; // alsa_mixer_control_name');
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
     }
-    if ($airplay['mixer_device'] === '') {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', '// mixer_device="'.$airplay['mixer_device'].'"; // alsa_mixer_device');
+    if ($airplay['alsa_mixer_device'] === '') {
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', '// mixer_device="'.$airplay['alsa_mixer_device'].'"; // alsa_mixer_device');
     } else {
-        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', 'mixer_device="'.$airplay['mixer_device'].'"; // alsa_mixer_device');
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', 'mixer_device="'.$airplay['alsa_mixer_device'].'"; // alsa_mixer_device');
     }
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_format', 'output_format="'.$airplay['alsa_output_format'].'"; // alsa_output_format');
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate='.$airplay['alsa_output_rate'].'; // alsa_output_rate');
@@ -3984,7 +4000,7 @@ function wrk_shairport($redis, $ao, $name = null)
     } else {
         $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', 'enabled="'.$airplay['metadata_enabled'].'"; // metadata_enabled');
     }
-    if (($airplay['metadata_include_cover_art'] === '') OR ($metadata_enabled === '')) {
+    if (($airplay['metadata_include_cover_art'] === '') || ($airplay['metadata_enabled'] === '')) {
         $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', '// include_cover_art="'.$airplay['metadata_include_cover_art'].'"; // metadata_include_cover_art');
     } else {
         $newArray = wrk_replaceTextLine('', $newArray, ' metadata_include_cover_art', 'include_cover_art="'.$airplay['metadata_include_cover_art'].'"; // metadata_include_cover_art');
