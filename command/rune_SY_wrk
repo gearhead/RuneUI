@@ -775,16 +775,14 @@ while (1) {
                         // send notfy to UI
                         //ui_notify_async('MPD', 'configuration updated', $jobID);
                         // noid ui_notify_async('MPD', 'configuration updated');
-                        ui_notify('MPD', 'configuration updated');
+                        ui_notify('MPD', 'configuration update started');
                         runelog('args',$job->args);
                         wrk_mpdconf($redis, 'update', $job->args, $jobID);
                         wrk_mpdconf($redis, 'restart');
-                    }
-                    if ($job->action === 'reset') {
+                    } else if ($job->action === 'reset') {
                         wrk_mpdconf($redis, 'reset');
                         wrk_mpdconf($redis, 'restart');
-                    }
-                    if ($job->action === 'switchao') {
+                    } else if ($job->action === 'switchao') {
                         wrk_mpdconf($redis, 'switchao', $job->args, $jobID);
                     }
                     $redis->sRem('w_lock', $jobID);

@@ -3204,6 +3204,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- DSD USB ---
                         // do nothing
                         break;
+                    case 'crossfade':
+                        // --- DSD USB ---
+                        // do nothing
+                        break;
+                    case 'consume':
+                        // --- DSD USB ---
+                        // do nothing
+                        break;
                     case 'mixer_type':
                         // --- Mixer type ---
                         $hwmixer = 0;
@@ -3293,6 +3301,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         break;
                 }
             }
+            // ui_notify('MPD', 'config file part one finished');
             $acards = $redis->hGetAll('acards');
             // debug
             // --- audio output ---
@@ -3397,9 +3406,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 $output .="}\n";
                 unset($sub_interface);
-            // debug
-            // runelog('conf output (in loop)', $output, __FUNCTION__);
+                // debug
+                // runelog('conf output (in loop)', $output, __FUNCTION__);
             }
+            // ui_notify('MPD', 'config file part two finished');
             // add the snapcast fifo output if requested
             if (isset($snapcastPath) && $snapcastPath) {
                 $output .="audio_output {\n";
@@ -3455,6 +3465,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .= "\n";
                 $output .= file_get_contents('/home/your-extra-mpd.conf');
             }
+            // ui_notify('MPD', 'config file part three finished');
             // write mpd.conf file to /tmp location
             $fh = fopen('/tmp/mpd.conf', 'w');
             fwrite($fh, $output);
@@ -3471,12 +3482,12 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
                 syscmd('rm -f /tmp/mpd.conf');
             }
-            // write the changes to the Airplay (shairport-sync) configuration file
             break;
         case 'update':
             foreach ($args as $param => $value) {
                 $redis->hSet('mpdconf', $param, $value);
             }
+            // ui_notify('MPD', 'redis database updated');
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'switchao':
@@ -3560,6 +3571,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if ($retval[0] === 'active') {
                     // do nothing
                 } else {
+                    ui_notify('MPD', 'restarting MPD, it takes a while');
                     // reload systemd daemon to activate any changed unit files
                     sysCmd('systemctl daemon-reload');
                     // start mpd

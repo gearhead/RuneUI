@@ -59,11 +59,23 @@
             $redis->get('mpd_start_volume') == $_POST['mpdvol']['start_volume'] || $redis->set('mpd_start_volume', $_POST['mpdvol']['start_volume']);
         }
     }
-    if (isset($_POST['mpd'])) {
-        if (isset($_POST['mpd']['crossfade'])) {
-            if ($_POST['mpd']['crossfade'] != explode(": ", sysCmd('mpc crossfade')[0])) {
+    if (isset($_POST['mpd']) && $_POST['mpd']) {
+        if (isset($_POST['mpd']['crossfade']) && (trim($_POST['mpd']['crossfade']) != '')) {
+            if ($_POST['mpd']['crossfade'] != $redis->hGet('mpdconf', 'crossfade')) {
                 sysCmd('mpc crossfade '.$_POST['mpd']['crossfade']);
+                $redis->hSet('mpdconf', 'crossfade', $_POST['mpd']['crossfade']);
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflecheckCF'));
+            }
+        }
+        if ((isset($_POST['mpd']['consume'])) && ($_POST['mpd']['consume'])) {
+            if ($redis->hGet('mpdconf', 'consume') != 1) {
+                $redis->hSet('mpdconf', 'consume', 1);
+                sysCmd('mpc crossfade on');
+            }
+        } else {
+            if ($redis->hGet('mpdconf', 'consume') != 0) {
+                $redis->hSet('mpdconf', 'consume', 0);
+                sysCmd('mpc crossfade off');
             }
         }
         if ((isset($_POST['mpd']['globalrandom'])) && ($_POST['mpd']['globalrandom'])) {
@@ -96,8 +108,10 @@
         }
     }
     // ----- RESET GLOBAL RANDOM -----
-    if ((isset($_POST['resetrp'])) && ($_POST['resetrp'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflereset'));
- }
+    if (isset($_POST['resetrp']) && $_POST['resetrp']) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflereset'));
+    }
+}
 if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
@@ -110,8 +124,29 @@ $template->mpd['globalrandom'] = $redis->hGet('globalrandom', 'enable');
 $template->mpd['random_album'] = $redis->hGet('globalrandom', 'random_album');
 $template->mpd['addrandom'] = $redis->hGet('globalrandom', 'addrandom');
 $template->hostname = $redis->get('hostname');
-$crossfade = explode(": ", sysCmd('mpc crossfade')[0]);
-$template->mpd['crossfade'] = $crossfade[1];
+$crossfade = sysCmd('mpc crossfade')[0];
+if (!isset($crossfade) || ($crossfade === '')) {
+    $template->mpd['crossfade'] = $redis->hGet('mpdconf', 'crossfade');
+} else {
+    $crossfade = trim(preg_replace('/[^0-9]/', '', sysCmd('mpc crossfade')[0]));
+    $template->mpd['crossfade'] = $crossfade;
+    $redis->hSet('mpdconf', 'crossfade', $crossfade);
+}
+unset($crossfade);
+$consume = sysCmd('mpc status | grep -i "consume:"')[0];
+if (!isset($consume) || ($consume === '')) {
+    $template->mpd['consume'] = $redis->hGet('mpdconf', 'consume');
+} else {
+    $consume = trim(preg_replace('/[^a-z0-9:]/', '', strtolower($consume)));
+    if (strpos($consume, 'consume:off')) {
+        $template->mpd['consume'] = 0;
+        $redis->hSet('mpdconf', 'consume', 0);
+    } else {
+        $template->mpd['crossfade'] = 1;
+        $redis->hSet('mpdconf', 'consume', 1);
+    }
+}
+unset($consume);
 $playlist = $redis->hGet('globalrandom', 'playlist');
 $audio_cards = array();
 if ($playlist != '') {
@@ -119,7 +154,10 @@ if ($playlist != '') {
 } else {
     $template->ramdomsource = 'Full MPD library is selected as random source';
 }
-if ($redis->hGet('mpdconf', 'version') >= '0.21.00') $template->mpdv21 = true;
+unset($playlist);
+if ($redis->hGet('mpdconf', 'version') >= '0.21.00') {
+    $template->mpdv21 = true;
+}
 // check integrity of /etc/network/interfaces
 if(!hashCFG($redis, 'check_mpd')) {
     $template->mpdconf = file_get_contents('/etc/mpd.conf');
@@ -144,21 +182,21 @@ if(!hashCFG($redis, 'check_mpd')) {
             $acards_details = $redis->hGet('acards_details', $card);
         }
         if (!empty($acards_details)) {
-            $details = json_decode($acards_details);
+            $details = json_decode($acards_details, true);
             // debug
             // echo "acards_details\n";
             // print_r($details);
-            if ($details->sysname === $card) {
-                if ($details->type === 'integrated_sub') {
+            if ($details['sysname'] === $card) {
+                if ($details['type'] === 'integrated_sub') {
                     $sub_interfaces = $redis->sMembers($card);
                     foreach ($sub_interfaces as $int) {
-                        $sub_int_details = json_decode($int);
+                        $sub_int_details = json_decode($int, true);
                         // TODO !!! check
                         $audio_cards[] = $sub_int_details;
                     }
                 }
-                if ($details->extlabel !== 'none') {
-                    $acard_data['extlabel'] = $details->extlabel;
+                if ($details['extlabel'] !== 'none') {
+                    $acard_data['extlabel'] = $details['extlabel'];
                 }
             }
         }
@@ -168,5 +206,6 @@ if(!hashCFG($redis, 'check_mpd')) {
     // debug
     // print_r($audio_cards);
     $template->acards = $audio_cards;
+    unset($i2smodule, $acards, $card, $data, $details);
     $template->ao = $redis->get('ao');
 }
