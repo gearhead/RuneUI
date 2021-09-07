@@ -5,8 +5,8 @@ After=network.target sound.target
 
 [Service]
 User=mpd
-#Type=notify
-Type=exec
+Type=notify
+#Type=exec
 RuntimeDirectory=mpd
 ExecStart=/usr/bin/mpd --no-daemon
 
