@@ -3178,8 +3178,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
                 $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
             }
-            unset($mpdcfg['log_level']);
-            unset($mpdcfg['log_file']);
+            unset($mpdcfg['log_level'], $mpdcfg['log_file']);
             // --- state file ---
             if (!isset($mpdcfg['state_file_enable']) || $mpdcfg['state_file_enable'] === 'no') {
                 // do nothing
@@ -3187,6 +3186,20 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
             unset($mpdcfg['state_file'], $mpdcfg['state_file_enable']);
+            // --- bind_to_address & port ---
+            if (!isset($mpdcfg['bind_to_address']) || $mpdcfg['bind_to_address'] === '') {
+                // not set
+                $output .= "bind_to_address\t\"localhost\"\n";
+                $output .= "port\t\t\"".$mpdcfg['port']."\"\n";
+            } else {
+                $output .= "bind_to_address\t\"".$mpdcfg['bind_to_address']."\"\n";
+                if (strpos(' '.$mpdcfg['bind_to_address'], '/')) {
+                    // its a file name add a bind_to_address line for localhost
+                    $output .= "bind_to_address\t\"localhost\"\n";
+                }
+                $output .= "port\t\t\"".$mpdcfg['port']."\"\n";
+            }
+            unset($mpdcfg['bind_to_address'], $mpdcfg['port']);
             // sort the mpd configuration data into index key order
             ksort($mpdcfg);
             // --- general settings ---
