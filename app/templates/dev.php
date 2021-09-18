@@ -315,7 +315,7 @@
                             <option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
                             <option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
                         </select>
-                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound by changing this setting.<br>
+                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound quality by changing this setting.<br>
                         However, some DAC cards and output devices have problems playing at 16bit depth. And if you use a Mac as source (not a iPhone or iPad) then 24bit can be supported (you need to manually switch this ON on the Mac).<br>
                         In these cases you can use this function change the bit depth to 16bit, 24bit or 32bit (S16, S24 or S32). Other values should only be set if you know what you are doing. Your sound card must be able to support your choice</span>
                     </div>
@@ -329,13 +329,13 @@
                             <option value="176400" <?php if($this->airplayor === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
                             <option value="352800" <?php if($this->airplayor === '352800'): ?> selected <?php endif ?>> 352.8kHz</option>
                         </select>
-                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound by changing this setting.<br>
+                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound quality by changing this setting.<br>
                         But if you use a Mac (not a iPhone or iPad) as source for your Airplay music stream it can support sample rates up to 96kHz (you need to manually switch this ON on the Mac).<br>
                         You can use this function to change the output sample rate to 44.1kHz, 88.2kHz, 176.4kHz or 352.8kHz. Your sound card must be able to support the chosen rate</span>
                     </div>
                 </div>
             </div>
-            <legend>Menu - Advanced settings</legend>
+            <legend>UI - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Player name in Menu</label>
@@ -347,6 +347,21 @@
                         <span class="help-block">With this option you can add your player name (hostname) before the word '<strong>Menu</strong>' at the top right of your UI.
                         It is useful when you are using several players.<br>
                         Default value is ON. You can can override the default setting here</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="UIorder">UI object order</label>
+                    <div class="col-sm-10">
+                        <select id="UIorder" class="selectpicker" name="mode[UIorder]" data-style="btn-default btn-lg">
+                            <option value="TAV" <?php if($this->UIorder === 'TAV'): ?> selected <?php endif ?>> Time - Album - Volume</option>
+                            <option value="TVA" <?php if($this->UIorder === 'TVA'): ?> selected <?php endif ?>> Time - Volume - Album</option>
+                            <option value="AVT" <?php if($this->UIorder === 'AVT'): ?> selected <?php endif ?>> Album - Volume - Time</option>
+                            <option value="ATV" <?php if($this->UIorder === 'ATV'): ?> selected <?php endif ?>> Album - Time - Volume</option>
+                            <option value="VAT" <?php if($this->UIorder === 'VAT'): ?> selected <?php endif ?>> Volume - Album - Time</option>
+                            <option value="VTA" <?php if($this->UIorder === 'VTA'): ?> selected <?php endif ?>> Volume - Time - Album</option>
+                        </select>
+                        <span class="help-block">In the main UI the main objects in the screen are arranged in <strong>Time - Album - Volume</strong> order by default.<br>
+                        These objects may be reordered into any way which you prefer. This is particularly useful when using vertically orientated local browser screens or you use a telephone as remote control</span>
                     </div>
                 </div>
             </div>
@@ -424,28 +439,28 @@
                     <label class="col-sm-2 control-label">Add ReplayGain tags to all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain)</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). There are potential issues with MP3 files, it is possible that the added tags can not be 100% reversed</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain)</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain). There are a couple of issues in this routine, it will tend to do more than required. There are potential issues with MP3 files, it is possible that the added tags can not be 100% reversed</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain)<br>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). See the note about MP3's above<br>
                         <br>
                         MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags does not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
                         Please note that some audio file formats do not support ReplayGain tags, for details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
                         Check that the MPD <a href="/mpd/#general-options">ReplayGain</a> option is enabled for ReplayGain playback.<br>
                         The programs <a href="https://man.archlinux.org/man/extra/flac/metaflac.1.en" target="_blank">metaflac</a> and <a href="https://github.com/Moonbase59/loudgain" target="_blank">loudgain</a> use different algorithms to calculate ReplayGain settings, the results will differ.<br>
-                        All these actions take a very long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
-                        <i>Indicative performance, average time for adding tags: Pi1B: 2 albums/hour, Pi4B: 40 albums/hour</i></span>
+                        All these actions take a long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
+                        <i>Indicative performance, average time for adding tags: Pi1B: 2 to 3 albums/hour, Pi4B: 40 to 70 albums/hour. Much depends on the speed of the storage and how it is connected</i></span>
                     </div>
                 </div>
             </div>

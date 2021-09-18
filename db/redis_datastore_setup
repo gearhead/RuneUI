@@ -232,6 +232,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('spotify', 'plversion', 1);
             $redis->hSet('spotify', 'lastcmd', '');
             $redis->set('coverart', 1);
+            $redis->set('UIorder', 'TAV');
             $redis->set('artist-info', 1);
             $redis->set('lyric', 1);
             $redis->set('playmod', 0);
@@ -581,6 +582,7 @@ function redisDatastore($redis,$action) {
             //  info
             $redis->exists('udevil') || $redis->set('udevil', 1);
             $redis->exists('coverart') || $redis->set('coverart', 1);
+            $redis->exists('UIorder') || $redis->set('UIorder', 'TAV');
             $redis->exists('artist-info') || $redis->set('artist-info', 1);
             $redis->exists('lyric') || $redis->set('lyric', 1);
             $redis->exists('playmod') || $redis->set('playmod', 0);

@@ -81,42 +81,48 @@
                 <span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
             </div>
             <div class="knobs row">
-                <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
-                    <input id="time" value="0" data-width="230" data-height="230" data-bgColor="#34495E" data-fgcolor="#0095D8" data-thickness="0.30" data-min="0" data-max="1000" data-displayInput="false" data-displayPrevious="true">
-                    <span id="countdown-display"><i class="fa fa-spinner fa-spin"></i></span>
-                    <span id="total"><i class="fa fa-spinner fa-spin"></i></span>
-                    <div class="btn-group">
-                        <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
-                        <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
-                        <button id="single" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Single" data-cmd="single"><i class="fa fa-refresh"></i></button>
-                        <!--<button type="button" id="consume" class="btn btn-default btn-lg btn-cmd btn-toggle" title="Consume Mode" data-cmd="consume"><i class="fa fa-compress"></i></button>-->
-                    </div>
-                </div>
-                <?php if ($this->coverart == 1): ?>
-                <div class="col-sm-<?=$this->colspan ?> coverart">
-                    <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
-                    <button id="overlay-social-open" class="btn btn-default" type="button" title="Share this track"><i class="fa fa-share"></i></button>
-                    <button id="songinfo-open" class="btn btn-default" type="button" title="Song Info" href="#songinfo-modal" data-toggle="modal"><i class="fa fa-info"></i></button>
-                </div>
-                <?php endif ?>
-                <div id="volume-knob" class="col-sm-<?=$this->colspan ?>">
-                    <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="false" data-fgColor="#0095D8" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
-                <!--
-                <div id="volume-knob" class="col-sm-<?=$this->colspan ?> <?=$this->volume['divclass'] ?>">
-                    <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
-                    <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?>>
-                    -->
-                    <div class="btn-group">
+                <?php for ($i = 0; $i <= 2; $i++): ?>
+                    <?php if ($this->UIorder[$i] === 'T'): ?>
+                        <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
+                            <input id="time" value="0" data-width="230" data-height="230" data-bgColor="#34495E" data-fgcolor="#0095D8" data-thickness="0.30" data-min="0" data-max="1000" data-displayInput="false" data-displayPrevious="true">
+                            <span id="countdown-display"><i class="fa fa-spinner fa-spin"></i></span>
+                            <span id="total"><i class="fa fa-spinner fa-spin"></i></span>
+                            <div class="btn-group">
+                                <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
+                                <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
+                                <button id="single" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Single" data-cmd="single"><i class="fa fa-refresh"></i></button>
+                                <!--<button type="button" id="consume" class="btn btn-default btn-lg btn-cmd btn-toggle" title="Consume Mode" data-cmd="consume"><i class="fa fa-compress"></i></button>-->
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($this->UIorder[$i] === 'A'): ?>
+                        <div class="<?php if ($this->coverart): ?>col-sm-<?=$this->colspan ?><?php else: ?>hide<?php endif; ?> coverart">
+                            <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
+                            <button id="overlay-social-open" class="btn btn-default" type="button" title="Share this track"><i class="fa fa-share"></i></button>
+                            <button id="songinfo-open" class="btn btn-default" type="button" title="Song Info" href="#songinfo-modal" data-toggle="modal"><i class="fa fa-info"></i></button>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($this->UIorder[$i] === 'V'): ?>
+                        <div id="volume-knob" class="<?php if ($this->volume['hide']): ?>hide<?php else: ?>col-sm-<?=$this->colspan ?><?php endif; ?>">
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?>>
                         <!--
-                        <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
-                        <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
-                        <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
-                        -->
-                        <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
-                        <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
-                        <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
-                    </div>
-                </div>
+                        <div id="volume-knob" class="col-sm-<?=$this->colspan ?> <?=$this->volume['divclass'] ?>">
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="false" data-fgColor="#0095D8" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
+                            -->
+                            <div class="btn-group">
+                                <!--
+                                <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
+                                <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
+                                <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
+                                -->
+                                <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
+                                <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
+                                <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endfor; ?>
             </div>
         </div>
     </div>

@@ -37,8 +37,9 @@
                         <i>Note: hardware mixer must be supported directly from your sound card hardware</i>
                     </span> -->
                     <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
                         <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled</option>
+                        <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
+                        <option value="hide" <?php if($this->conf['mixer_type'] == 'hide'): ?> selected <?php endif ?>>disabled & hide volume knob</option>
                     </select>
                     <span class="help-block">
                         <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>

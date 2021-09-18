@@ -99,13 +99,25 @@ if (isset($_POST)) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputrate', 'args' => $_POST['mode']['airplayor']));
         }
-        // ----- Player name Menu -----
+        // ----- UI Player name Menu -----
         if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
             // create worker job (set on)
             $redis->get('playernamemenu') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 1));
         } else {
             // create worker job (set off)
             $redis->get('playernamemenu') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 0));
+        }
+        // ----- UI Object Order -----
+        if ((isset($_POST['mode']['UIorder'])) && ($_POST['mode']['UIorder'])) {
+            // value is set
+            if ($redis->get('UIorder') != $_POST['mode']['UIorder']) {
+                // value has changed, save it
+                $redis->set('UIorder', $_POST['mode']['UIorder']);
+                if ($redis->hGet('local_browser', 'enable')) {
+                    // local browser is enabled, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                }
+            }
         }
         // ----- Automatic Wi-Fi Optimisation-----
         if ((isset($_POST['mode']['optwifionof']['enable'])) && ($_POST['mode']['optwifionof']['enable'])) {
@@ -195,6 +207,7 @@ $template->sambadevonoff = $redis->hGet('samba', 'devonoff');
 $template->sambaprodonoff = $redis->hGet('samba', 'prodonoff');
 $template->soxrmpdonoff = $redis->get('soxrmpdonoff');
 $template->playernamemenu = $redis->get('playernamemenu');
+$template->UIorder = $redis->get('UIorder');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
 $template->artworkairplayonoff = $redis->hGet('airplay', 'artworkonoff');

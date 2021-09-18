@@ -33,11 +33,25 @@
  */
 $template->activePlayer = $redis->get('activePlayer');
 if ($redis->get('coverart') == 1) {
-    $template->coverart = 1;
-    $template->colspan = 4;
+    if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
+        $template->coverart = 1;
+        $template->colspan = 4;
+        $template->volume['hide'] = 0;
+    } else {
+        $template->coverart = 1;
+        $template->colspan = 6;
+        $template->volume['hide'] = 1;
+    }
 } else {
-    $template->coverart = 0;
-    $template->colspan = 6;
+    if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
+        $template->coverart = 0;
+        $template->colspan = 6;
+        $template->volume['hide'] = 0;
+    } else {
+        $template->coverart = 0;
+        $template->colspan = 12;
+        $template->volume['hide'] = 1;
+    }
 }
 if ($redis->get('volume') == 1 && $template->activePlayer == 'MPD') {
     $template->volume['color'] = '#0095D8';
@@ -51,6 +65,7 @@ if ($redis->get('volume') == 1 && $template->activePlayer == 'MPD') {
     $template->volume['disabled'] = 1;
     $template->volume['divclass'] = 'nomixer';
 }
+$template->UIorder = str_split($redis->get('UIorder'));
 $template->volume['dynamic'] = $redis->get('dynVolumeKnob');
 $template->dev = $redis->get('dev');
 $template->spotify = $redis->hGet('spotify', 'enable');

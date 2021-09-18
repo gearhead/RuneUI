@@ -522,29 +522,41 @@ function setPlaybackSource() {
     $('#playsource-' + source).removeClass('inactive');
     // update volume knob and control buttons
     if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
+        // most UI knobs are only active for MPD
         $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
         $('#volume-knob').addClass('nomixer');
         $('#volume-knob button').prop('disabled', true);
-        $('#repeat').addClass('disabled');
-        $('#random').addClass('disabled');
-        $('#single').addClass('disabled');
         $('#volumedn').addClass('disabled');
         $('#volumemute').addClass('disabled');
         $('#volumeup').addClass('disabled');
+        $('#repeat').addClass('disabled');
+        $('#random').addClass('disabled');
+        $('#single').addClass('disabled');
         $('#previous').addClass('disabled');
         $('#stop').addClass('disabled');
         $('#play').addClass('disabled');
         $('#next').addClass('disabled');
     } else {
-        $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
-        $('#volume-knob').removeClass('nomixer');
-        $('#volume-knob button').prop('disabled', false);
+        if (typeof GUI.json.volume == 'undefined') {
+            // player is MPD but volume control is switched off
+            $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
+            $('#volume-knob').addClass('nomixer');
+            $('#volume-knob button').prop('disabled', true);
+            $('#volumedn').addClass('disabled');
+            $('#volumemute').addClass('disabled');
+            $('#volumeup').addClass('disabled');
+        } else {
+            // player is mpd and the volume control is switched on
+            $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
+            $('#volume-knob').removeClass('nomixer');
+            $('#volume-knob button').prop('disabled', false);
+            $('#volumedn').removeClass('disabled');
+            $('#volumemute').removeClass('disabled');
+            $('#volumeup').removeClass('disabled');
+        }
         $('#repeat').removeClass('disabled');
         $('#random').removeClass('disabled');
         $('#single').removeClass('disabled');
-        $('#volumedn').removeClass('disabled');
-        $('#volumemute').removeClass('disabled');
-        $('#volumeup').removeClass('disabled');
         $('#previous').removeClass('disabled');
         $('#stop').removeClass('disabled');
         $('#play').removeClass('disabled');
@@ -840,11 +852,11 @@ function refreshState() {
 
 // update the Playback UI
 function updateGUI() {
-    var volume = GUI.json.volume;
-    var radioname = GUI.json.radioname;
-    var currentartist = GUI.json.currentartist;
+    var volume = ((typeof GUI.json.volume == 'undefined') ? '0' : GUI.json.volume);
+    var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
+    var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
     var currentsong = ((typeof GUI.json.currentsong == 'undefined') ? '' : GUI.json.currentsong);
-    var currentalbum = GUI.json.currentalbum;
+    var currentalbum = ((typeof GUI.json.currentalbum == 'undefined') ? '' : GUI.json.currentalbum);
     var currentalbumartist = ((typeof GUI.json.currentalbumartist == 'undefined') ? '' : GUI.json.currentalbumartist);
     var currentcomposer = ((typeof GUI.json.currentcomposer == 'undefined') ? '' : GUI.json.currentcomposer);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
@@ -861,7 +873,7 @@ function updateGUI() {
     if ($('#section-index').length) {
         // check song update
         // console.log('A = ', GUI.json.currentsong); console.log('B = ', GUI.currentsong);
-        if (GUI.currentsong !== GUI.json.currentsong) {
+        if (GUI.currentsong !== currentsong) {
             countdownRestart(0);
             if ($('#panel-dx').hasClass('active')) {
                 var current = parseInt(GUI.json.song);
