@@ -225,7 +225,7 @@
         </div>
     </form>
     <form class="form-horizontal" action="" method="post" data-parsley-validate>
-        <legend>Autoplay and Random Play</legend>
+        <legend>Crossfade, Autoplay, Consume and Random Play</legend>
         <fieldset>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="crossfade">Crossfade</label>
@@ -241,7 +241,17 @@
                         <input name="mpd[mpd_autoplay]" type="checkbox" value="1"<?php if((isset($this->mpd['mpd_autoplay'])) && ($this->mpd['mpd_autoplay'])): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">If set to ON the player starts automatically after boot</span>
+                    <span class="help-block">When set to ON the player starts automatically after boot</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="consume">Consume</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="mpd[consume]" type="checkbox" value="1"<?php if((isset($this->mpd['consume'])) && ($this->mpd['consume'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">When set to ON the entries in the queue are removed after being played</span>
                 </div>
             </div>
             <div class="form-group">

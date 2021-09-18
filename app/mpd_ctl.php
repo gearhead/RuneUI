@@ -74,12 +74,12 @@
         if ((isset($_POST['mpd']['consume'])) && ($_POST['mpd']['consume'])) {
             if ($redis->hGet('mpdconf', 'consume') != 1) {
                 $redis->hSet('mpdconf', 'consume', 1);
-                sysCmd('mpc crossfade on');
+                sysCmd('mpc consume on');
             }
         } else {
             if ($redis->hGet('mpdconf', 'consume') != 0) {
                 $redis->hSet('mpdconf', 'consume', 0);
-                sysCmd('mpc crossfade off');
+                sysCmd('mpc consume off');
             }
         }
         if ((isset($_POST['mpd']['globalrandom'])) && ($_POST['mpd']['globalrandom'])) {
@@ -146,7 +146,7 @@ if (!isset($consume) || ($consume === '')) {
         $template->mpd['consume'] = 0;
         $redis->hSet('mpdconf', 'consume', 0);
     } else {
-        $template->mpd['crossfade'] = 1;
+        $template->mpd['consume'] = 1;
         $redis->hSet('mpdconf', 'consume', 1);
     }
 }

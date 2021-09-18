@@ -3218,11 +3218,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // do nothing
                         break;
                     case 'crossfade':
-                        // --- DSD USB ---
+                        // --- Crossfade ---
                         // do nothing
                         break;
                     case 'consume':
-                        // --- DSD USB ---
+                        // --- Consume ---
                         // do nothing
                         break;
                     case 'mixer_type':
