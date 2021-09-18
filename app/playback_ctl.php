@@ -53,7 +53,7 @@ if ($redis->get('coverart') == 1) {
         $template->volume['hide'] = 1;
     }
 }
-if ($redis->get('volume') == 1 && $template->activePlayer == 'MPD') {
+if (($redis->get('volume') == 1) && ($template->activePlayer == 'MPD')) {
     $template->volume['color'] = '#0095D8';
     $template->volume['readonly'] = 'false';
     $template->volume['disabled'] = 0;

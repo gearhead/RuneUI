@@ -520,15 +520,15 @@ function setPlaybackSource() {
     $('#overlay-playsource a').addClass('inactive');
     var source = activePlayer.toLowerCase();
     $('#playsource-' + source).removeClass('inactive');
-    // update volume knob and control buttons
+    // update (volume knob and) control buttons
     if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
         // most UI knobs are only active for MPD
-        $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
-        $('#volume-knob').addClass('nomixer');
-        $('#volume-knob button').prop('disabled', true);
-        $('#volumedn').addClass('disabled');
-        $('#volumemute').addClass('disabled');
-        $('#volumeup').addClass('disabled');
+        // $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
+        // $('#volume-knob').addClass('nomixer');
+        // $('#volume-knob button').prop('disabled', true);
+        // $('#volumedn').addClass('disabled');
+        // $('#volumemute').addClass('disabled');
+        // $('#volumeup').addClass('disabled');
         $('#repeat').addClass('disabled');
         $('#random').addClass('disabled');
         $('#single').addClass('disabled');
@@ -537,23 +537,23 @@ function setPlaybackSource() {
         $('#play').addClass('disabled');
         $('#next').addClass('disabled');
     } else {
-        if (typeof GUI.json.volume == 'undefined') {
+        // if (typeof GUI.json.volume == 'undefined') {
             // player is MPD but volume control is switched off
-            $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
-            $('#volume-knob').addClass('nomixer');
-            $('#volume-knob button').prop('disabled', true);
-            $('#volumedn').addClass('disabled');
-            $('#volumemute').addClass('disabled');
-            $('#volumeup').addClass('disabled');
-        } else {
+            // $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
+            // $('#volume-knob').addClass('nomixer');
+            // $('#volume-knob button').prop('disabled', true);
+            // $('#volumedn').addClass('disabled');
+            // $('#volumemute').addClass('disabled');
+            // $('#volumeup').addClass('disabled');
+        // } else {
             // player is mpd and the volume control is switched on
-            $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
-            $('#volume-knob').removeClass('nomixer');
-            $('#volume-knob button').prop('disabled', false);
-            $('#volumedn').removeClass('disabled');
-            $('#volumemute').removeClass('disabled');
-            $('#volumeup').removeClass('disabled');
-        }
+            // $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
+            // $('#volume-knob').removeClass('nomixer');
+            // $('#volume-knob button').prop('disabled', false);
+            // $('#volumedn').removeClass('disabled');
+            // $('#volumemute').removeClass('disabled');
+            // $('#volumeup').removeClass('disabled');
+        // }
         $('#repeat').removeClass('disabled');
         $('#random').removeClass('disabled');
         $('#single').removeClass('disabled');
