@@ -13,7 +13,7 @@ while IFS= read -r webradio; do
     if [ ! -f "$webradiodir/$webradio.pls" ]; then
         # file is not there create it
         url=$( redis-cli hget webradios "$webradio" )
-        echo -e "[playlist]\nNumberOfEntries=1\nFile1=$url\nTitle1=$webradio" > "$webradiodir/$webradio.pls"
+        echo -e "[playlist]\nNumberOfEntries=1\nFile1=$url\nTitle1=$webradio\n" > "$webradiodir/$webradio.pls"
     fi
 done < "/tmp/radios"
 rm /tmp/radios

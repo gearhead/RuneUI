@@ -868,6 +868,35 @@ function addToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
     }
 }
 
+function addNextToQueue($sock, $path)
+{
+    $fileext = parseFileStr($path,'.');
+    $status = _parseStatusResponse($redis, MpdStatus($sock));
+    if (!isset($status['playlistlength']) || !isset($status['nextsong'])) {
+        // failed to get a valid status so return with an error
+        return false;
+    }
+    if (($fileext == 'm3u') || ($fileext == 'pls') || ($fileext == 'cue')) {
+        // its a playlist or webradio
+        $cmdlist = "command_list_begin\n";
+        // load the first song in the playlist, it gets added to the end of the queue
+        $cmdlist .= "load \"".html_entity_decode($path)."\" 0:1\n";
+        // move the last entry in the queue to the next play position
+        $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+        $cmdlist .= "command_list_end";
+    } else {
+        // its a song file
+        $cmdlist = "command_list_begin\n";
+        // add the song in the playlist, it gets added to the end of the queue
+        $cmdlist .= "add \"".html_entity_decode($path)."\"\n";
+        // move the last entry in the queue to the next play position
+        $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+        $cmdlist .= "command_list_end";
+    }
+    sendMpdCommand($sock, $cmdlist);
+    return true;
+}
+
 function addAlbumToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
 {
     if (isset($addplay)) {
@@ -980,7 +1009,7 @@ function strposa($haystack, $needle, $offset=0)
     return false;
 }
 
-// format Output for "playlist"
+// format Output for the "library", no longer used for the "playlist"
 function _parseFileListResponse($resp)
 {
     if (is_null($resp)) {
@@ -1046,6 +1075,15 @@ function _parseFileListResponse($resp)
                     $plistArray[$plCounter][$element] = $value;
                     if ( $element === 'Time' ) {
                         $plistArray[$plCounter]['Time2'] = songTime($plistArray[$plCounter]['Time']);
+                    }
+                    if (isset($plistArray[$plCounter]['Title']) && isset($plistArray[$plCounter]['file']) && (strtolower(substr($plistArray[$plCounter]['file'], 0, 4)) === 'http') && !isset($plistArray[$plCounter]['Name'])) {
+                        // could be a webradio and the Name is not set
+                        $filename = '/mnt/MPD/Webradio/'.$plistArray[$plCounter]['Title'].'.pls';
+                        clearstatcache(true, $filename);
+                        if (file_exists($filename)) {
+                            // it is a webradio
+                            $plistArray[$plCounter]['Name'] = $plistArray[$plCounter]['Title'];
+                        }
                     }
                 }
             }
@@ -5398,7 +5436,7 @@ function addRadio($mpd, $redis, $data)
         $newpls = "[playlist]\n";
         $newpls .= "NumberOfEntries=1\n";
         $newpls .= "File1=".$data->url."\n";
-        $newpls .= "Title1=".$data->label;
+        $newpls .= "Title1=".$data->label."\n";
         // Commit changes to .pls file
         $fp = fopen($file, 'w');
         $return = fwrite($fp, $newpls);
@@ -7480,7 +7518,7 @@ function format_artist_file_name($artist)
 
 // function which checks if an URL is defined as a webradio station
 function is_radioUrl($redis, $url)
-// the function returns the name of the webradio station (true) or an empt string (false)
+// the function returns the name of the webradio station (true) or an empty string (false)
 {
     $radios = $redis->hGetall('webradios');
     foreach ($radios as $radioName => $radioUrl) {

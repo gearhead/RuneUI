@@ -1060,10 +1060,12 @@ function getPlaylistPlain(data) {
         }
         else if ('Id' === infos[0]) {
             songid = infos[1];
-            if (title === '' || album === '') {
-                path = parsePath(str);
+            if (title === '') {
                 filename = str.split('/').pop();
                 title = filename;
+            }
+            if (artist === '' || album === '') {
+                path = parsePath(str);
                 if (artist === '') {
                     bottomline = 'path: ' + path;
                 } else {

@@ -104,8 +104,11 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'addnext':
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
-                    sysCmd('mpc insert '."'".'/mnt/MPD/'.$_POST['path']."'");
-                    ui_notify('Inserted next in queue', $_POST['path']);
+                    if (addNextToQueue($mpd, $_POST['path'])) {
+                        ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
+                    } else {
+                        ui_notifyError('Failed to insert next in queue', $_POST['path']);
+                    }
                 }
             }
             break;
