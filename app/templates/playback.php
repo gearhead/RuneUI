@@ -285,8 +285,9 @@
             <li><a href="javascript:;" data-cmd="pl-add" title="Add this playlist to the queue"><i class="fa fa-plus-circle sx"></i> Add to queue</a></li>
             <li><a href="javascript:;" data-cmd="pl-replace" title="Replace the queue with this playlist"><i class="fa fa-undo sx"></i> Replace the queue</a></li>
             <li><a href="javascript:;" data-cmd="pl-addreplaceplay" title="Replace the queue with this playlist and play"><i class="fa fa-share-square-o sx"></i> Replace and play the queue</a></li>
-            <li><a href="javascript:;" data-cmd="pl-ashuffle" title="Randomly add songs from this playlist to the queue when it is empty"><i class="fa fa-random sx"></i> Randomly add songs to queue</a></li>
+            <li><a href="javascript:;" data-cmd="pl-ashuffle" title="Randomly add songs from this playlist to the queue after the last song is finished"><i class="fa fa-random sx"></i> Randomly add songs to queue</a></li>
             <li><a href="javascript:;" data-cmd="pl-rem-dup" title="Remove duplicate songs from this playlist"><i class="fa fa-tasks sx"></i> Remove duplicates</a></li>
+            <li><a href="javascript:;" data-cmd="pl-rem-invalid" title="Remove invalid songs from this playlist"><i class="fa fa-th-list sx"></i> Remove invalid</a></li>
             <li><a href="javascript:;" data-cmd="pl-rename" title="Rename this playlist"><i class="fa fa-edit sx"></i> Rename</a></li>
             <li><a href="javascript:;" data-cmd="pl-rm" title="Delete this playlist"><i class="fa fa-trash-o sx"></i> Delete</a></li>
         </ul>

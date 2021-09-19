@@ -2921,6 +2921,13 @@ if ($('#section-index').length) {
                         });
                     break;
 
+                case 'pl-rem-invalid':
+                    $.post('/db/?cmd=pl-rem-invalid',
+                        {
+                            'playlist' : path
+                        });
+                    break;
+
                 case 'pl-ashuffle':
                     $.post('/db/?cmd=pl-ashuffle',
                         {

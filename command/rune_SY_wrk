@@ -827,6 +827,17 @@ while (1) {
                     ui_notify('Remove duplicates started for playlist:', $job->args);
                     $redis->sRem('w_lock', $jobID);
                     break;
+                case 'pl_rem_invalid':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+                    // $job>args contains the playlist name
+                    // run the job async with a lower priority
+                    sysCmdAsync('nice --adjustment=2 /var/www/command/remove_playlist_invalid.sh '."'".$job->args."'");
+                    //ui_notify_async('Remove invalid entries started for playlist:', $job->args, $jobID);
+                    // noid ui_notify_async('Remove invalid entries started for playlist:', $job->args);
+                    ui_notify('Remove invalid entries started for playlist:', $job->args);
+                    $redis->sRem('w_lock', $jobID);
+                    break;
                 case 'ashufflecheckCF':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);

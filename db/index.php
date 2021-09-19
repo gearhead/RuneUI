@@ -585,6 +585,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 }
             }
             break;
+        case 'pl-rem-invalid':
+            if ($activePlayer === 'MPD') {
+                if (isset($_POST['playlist'])) {
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'pl_rem_invalid', 'args' => $_POST['playlist']));
+                }
+            }
+            break;
         case 'pl-ashuffle-start':
             if ($activePlayer === 'MPD') {
                 $redis->hSet('globalrandom', 'enable', 1);
