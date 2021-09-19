@@ -94,7 +94,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
                     $status = _parseStatusResponse($redis, MpdStatus($mpd));
-                    $pos = $status['playlistlength'] ;
+                    $pos = $status['playlistlength'];
                     addToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
                     ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));

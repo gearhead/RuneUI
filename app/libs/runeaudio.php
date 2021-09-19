@@ -855,7 +855,7 @@ function remTrackQueue($sock, $songpos)
 function addToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
 {
     $fileext = parseFileStr($path,'.');
-    $cmd = ($fileext == 'm3u' OR $fileext == 'pls' OR $fileext == 'cue') ? "load" : "add";
+    $cmd = (($fileext == 'm3u') || ($fileext == 'pls') || ($fileext == 'cue')) ? "load" : "add";
     if (isset($addplay) || isset($clear)) {
         $cmdlist = "command_list_begin\n";
         $cmdlist .= (isset($clear)) ? "clear\n" : "";               // add clear call if needed
