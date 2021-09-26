@@ -134,7 +134,7 @@
                     <input class="form-control osk-trigger input-lg" type="text" id="hostname" name="hostname" value="<?php echo $this->hostname; ?>" placeholder="runeaudio" autocomplete="off">
                     <span class="help-block">Set the player hostname. This will change the address used to reach the RuneUI.<br>
                     No <strong>spaces</strong> or <strong>special charecters</strong> allowed in the name<br>
-                    <i>No change is normally necessary, useful when you have more than one RuneAudio music player</span>
+                    <i>No change is normally necessary, useful when you have more than one RuneAudio music player</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -477,7 +477,7 @@
                         <input id="smallScreenSaver" name="features[local_browser][enable-splash]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable-splash'])) && ($this->local_browser['enable-splash'])): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">Optionally switch the Splash screens ON/OFF <i>(these are the console messages: RuneAudio starting,restarting and shutting down</i></span>
+                    <span class="help-block">Optionally switch the Splash screens ON/OFF. <i>These are the console messages: RuneAudio starting, restarting and shutting down</i></span>
                 </div>
             </div>
             <div class="form-group">
