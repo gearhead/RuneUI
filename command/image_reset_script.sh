@@ -260,8 +260,10 @@ php -f /srv/http/db/redis_acards_details
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
 #
-# install raspi-rotate
-/var/www/command/raspi-rotate-install.sh
+# install raspi-rotate, only when chromium is installed
+if [ -f "/bin/chromium" ]; then
+    /var/www/command/raspi-rotate-install.sh
+fi
 #
 # install spotifyd
 /var/www/command/spotifyd-install.sh
@@ -316,8 +318,10 @@ if [ "$volitileFound" == "0" ]; then
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
-# add waveshare LDC touchscreen overlays
-/srv/http/command/waveshare_install.sh
+# add waveshare LDC touchscreen overlays, when chromium is installed
+if [ -f "/bin/chromium" ]; then
+    /srv/http/command/waveshare_install.sh
+fi
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
