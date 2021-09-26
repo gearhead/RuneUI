@@ -1,89 +1,10 @@
 <div class="container">
     <h1>Settings</h1>
-    <form class="form-horizontal" action="" method="post" role="form">
-        <fieldset>
-            <legend>Environment</legend>
-            <div class="form-group" id="systemstatus">
-                <label class="control-label col-sm-2">Check system status</label>
-                <div class="col-sm-10">
-                    <a class="btn btn-default btn-lg" href="#modal-sysinfo" data-toggle="modal"><i class="fa fa-info-circle sx"></i>show status</a>
-                    <span class="help-block">See information regarding the system and its status</span>
-                </div>
-            </div>
-            <div class="form-group" id="environment">
-                <label class="control-label col-sm-2" for="hostname">Player hostname</label>
-                <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="hostname" name="hostname" value="<?php echo $this->hostname; ?>" placeholder="runeaudio" autocomplete="off">
-                    <span class="help-block">Set the player hostname. This will change the address used to reach the RuneUI.<br>
-                    No <strong>spaces</strong> or <strong>special charecters</strong> allowed in the name</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="control-label col-sm-2" for="ntpserver">NTP server</label>
-                <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="ntpserver" name="ntpserver" value="<?php echo $this->ntpserver; ?>" placeholder="pool.ntp.org" autocomplete="off">
-                    <span class="help-block">Set your reference time sync server <i>(NTP server)</i></span>
-                </div>
-            </div>
-            <div class="form-group">
-            <label class="control-label col-sm-2" for="timezone">Timezone</label>
-                <div class="col-sm-10">
-                    <select class="selectpicker" name="timezone" data-style="btn-default btn-lg">
-                    <?php foreach(ui_timezone() as $t): ?>
-                      <option value="<?=$t['zone'] ?>" <?php if($this->timezone === $t['zone']): ?> selected <?php endif; ?>>
-                        <?=$t['zone'].' - '.$t['diff_from_GMT'] ?>
-                      </option>
-                    <?php endforeach; ?>
-                    </select>
-                    <span class="help-block">Set the system timezone</span>
-                </div>
-            </div>
-            <!-- <div <?php if($this->proxy['enable'] === 1): ?>class="boxed-group"<?php endif ?> id="proxyBox">
-                <div class="form-group">
-                    <label for="proxy" class="control-label col-sm-2">HTTP Proxy server</label>
-                    <div class="col-sm-10">
-                        <label class="switch-light well" onclick="">
-                            <input id="proxy" name="features[proxy]" type="checkbox" value="1"<?php if((isset($this->proxy['enable'])) && ($this->proxy['enable'])): ?> checked="checked" <?php endif ?>>
-                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                        </label>
-                    </div>
-                </div>
-                <div class="<?php if($this->proxy['enable'] != 1): ?>hide<?php endif ?>" id="proxyAuth">
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="proxy-user">Host</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="proxy_host" name="features[proxy][host]" value="<?php echo $this->proxy['host']; ?>" data-trigger="change" placeholder="<host IP or FQDN>:<port>">
-                            <span class="help-block">Insert HTTP Proxy host<i> (format: proxy_address:port)</i></span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="proxy-user">Username</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="proxy_user" name="features[proxy][user]" value="<?php echo $this->proxy['user']; ?>" data-trigger="change" placeholder="user">
-                            <span class="help-block">Insert your HTTP Proxy <i>username</i> (leave blank for anonymous authentication)</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="proxy-pass">Password</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="password" id="proxy_pass" name="features[proxy][pass]" value="<?php echo $this->proxy['pass']; ?>" placeholder="pass" autocomplete="off">
-                            <span class="help-block">Insert your HTTP Proxy <i>password</i> (case sensitive) (leave blank for anonymous authentication)<br>
-                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
-            <div class="form-group form-actions">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button class="btn btn-primary btn-lg" value="save" name="save" type="submit">Apply settings</button>
-                </div>
-            </div>
-        </fieldset>
-    </form>
     <form class="form-horizontal" method="post" role="form">
         <fieldset>
-            <legend>RuneOS kernel settings</legend>
+            <legend>Sound output & sound processing</legend>
             <?php if($this->hwplatformid === '08' OR $this->hwplatformid === '01'): ?>
+            <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="kernel">Linux Kernel</label>
                 <div class="col-sm-10">
@@ -93,7 +14,6 @@
                     <span class="help-block">No other kernels available</span>
                 </div>
             </div>
-            <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="i2smodule">Linux Kernel</label>
                 <div class="col-sm-10">
@@ -107,137 +27,18 @@
                 </div>
             -->
             <div class="form-group">
-                <label class="control-label col-sm-2" for="i2smodule_select">I&#178;S kernel modules</label>
+                <label class="control-label col-sm-2" for="i2smodule_select">I&#178;S sound-cards</label>
                 <div class="col-sm-10">
                     <select class="selectpicker" name="i2smodule_select" data-style="btn-default btn-lg">
-                        <option value="none|I&#178;S disabled (default)" <?php if($this->i2smodule_select === 'none|I&#178;S disabled (default)'): ?> selected <?php endif ?>>I&#178;S disabled (default)</option>
-                        <option value="allo-boss-dac-pcm512x-audio|Allo Boss DAC" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio|Allo Boss DAC'): ?> selected <?php endif ?>>Allo Boss DAC</option>
-                        <option value="allo-boss-dac-pcm512x-audio,slave|Allo Boss DAC in slave mode" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio,slave|Allo Boss DAC in slave mode'): ?> selected <?php endif ?>>Allo Boss DAC in slave mode</option>
-                        <option value="allo-digione|Allo DigiOne" <?php if($this->i2smodule_select === 'allo-digione|Allo DigiOne'): ?> selected <?php endif ?>>Allo DigiOne</option>
-                        <option value="allo-digione|Allo DigiOne Signature" <?php if($this->i2smodule_select === 'allo-digione|Allo DigiOne Signature'): ?> selected <?php endif ?>>Allo DigiOne Signature</option>
-                        <option value="allo-katana-dac-audio|Allo Katana DAC" <?php if($this->i2smodule_select === 'allo-katana-dac-audio|Allo Katana DAC'): ?> selected <?php endif ?>>Allo Katana DAC</option>
-                        <option value="allo-boss-dac-pcm512x-audio|Allo MiniBoss for RPI Zero" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio|Allo MiniBoss for RPI Zero'): ?> selected <?php endif ?>>Allo MiniBoss for RPI Zero</option>
-                        <option value="allo-boss-dac-pcm512x-audio|Allo Piano 2.0" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio|Allo Piano 2.0'): ?> selected <?php endif ?>>Allo Piano 2.0</option>
-                        <option value="allo-piano-dac-plus-pcm512x-audio|Allo Piano 2.1 DAC Plus" <?php if($this->i2smodule_select === 'allo-piano-dac-plus-pcm512x-audio|Allo Piano 2.1 DAC Plus'): ?> selected <?php endif ?>>Allo Piano 2.1 DAC Plus</option>
-                        <option value="allo-piano-dac-plus-pcm512x-audio,glb_mclk|Allo Piano 2.1 DAC Plus with Kali Reclocker" <?php if($this->i2smodule_select === 'allo-piano-dac-plus-pcm512x-audio,glb_mclk|Allo Piano 2.1 DAC Plus with Kali Reclocker'): ?> selected <?php endif ?>>Allo Piano 2.1 DAC Plus with Kali Reclocker</option>
-                        <option value="allo-piano-dac-pcm512x-audio|Allo Piano DAC" <?php if($this->i2smodule_select === 'allo-piano-dac-pcm512x-audio|Allo Piano DAC'): ?> selected <?php endif ?>>Allo Piano DAC</option>
-                        <option value="i-sabre-k2m|AOIDE DAC II ESS ES9018K2M I2S DAC" <?php if($this->i2smodule_select === 'i-sabre-k2m|AOIDE DAC II ESS ES9018K2M I2S DAC'): ?> selected <?php endif ?>>AOIDE DAC II ESS ES9018K2M I2S DAC</option>
-                        <option value="hifiberry-dacplus|AOIDE Zero DAC+" <?php if($this->i2smodule_select === 'hifiberry-dacplus|AOIDE Zero DAC+'): ?> selected <?php endif ?>>AOIDE Zero DAC+</option>
-                        <option value="hifiberry-dacplus|AOIDE ZPOD DAC" <?php if($this->i2smodule_select === 'hifiberry-dacplus|AOIDE ZPOD DAC'): ?> selected <?php endif ?>>AOIDE ZPOD DAC</option>
-                        <option value="applepi-dac|Apple PecanPi DAC" <?php if($this->i2smodule_select === 'applepi-dac|Apple PecanPi DAC'): ?> selected <?php endif ?>>Apple PecanPi DAC</option>
-                        <option value="applepi-dac|Apple Pi DAC" <?php if($this->i2smodule_select === 'applepi-dac|Apple Pi DAC'): ?> selected <?php endif ?>>Apple Pi DAC</option>
-                        <option value="audioinjector-addons|Audioinjector Addons" <?php if($this->i2smodule_select === 'audioinjector-addons|Audioinjector Addons'): ?> selected <?php endif ?>>Audioinjector Addons</option>
-                        <option value="audioinjector-isolated-soundcard|Audioinjector audioinjector.net isolated soundcard" <?php if($this->i2smodule_select === 'audioinjector-isolated-soundcard|Audioinjector audioinjector.net isolated soundcard'): ?> selected <?php endif ?>>Audioinjector audioinjector.net isolated soundcard</option>
-                        <option value="audioinjector-addons|Audioinjector Octo soundcard" <?php if($this->i2smodule_select === 'audioinjector-addons|Audioinjector Octo soundcard'): ?> selected <?php endif ?>>Audioinjector Octo soundcard</option>
-                        <option value="audioinjector-wm8731-audio|Audioinjector Stereo soundcard" <?php if($this->i2smodule_select === 'audioinjector-wm8731-audio|Audioinjector Stereo soundcard'): ?> selected <?php endif ?>>Audioinjector Stereo soundcard</option>
-                        <option value="audioinjector-ultra|Audioinjector Ultra 2 sound card" <?php if($this->i2smodule_select === 'audioinjector-ultra|Audioinjector Ultra 2 sound card'): ?> selected <?php endif ?>>Audioinjector Ultra 2 sound card</option>
-                        <option value="audioinjector-wm8731-audio|Audioinjector WM8731 Audio" <?php if($this->i2smodule_select === 'audioinjector-wm8731-audio|Audioinjector WM8731 Audio'): ?> selected <?php endif ?>>Audioinjector WM8731 Audio</option>
-                        <option value="audioinjector-wm8731-audio|Audioinjector Zero soundcard" <?php if($this->i2smodule_select === 'audioinjector-wm8731-audio|Audioinjector Zero soundcard'): ?> selected <?php endif ?>>Audioinjector Zero soundcard</option>
-                        <option value="i-sabre-k2m|AUDIOPHONICS I-Sabre DAC ES9018K2M" <?php if($this->i2smodule_select === 'i-sabre-k2m|AUDIOPHONICS I-Sabre DAC ES9018K2M'): ?> selected <?php endif ?>>AUDIOPHONICS I-Sabre DAC ES9018K2M</option>
-                        <option value="rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023" <?php if($this->i2smodule_select === 'rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023'): ?> selected <?php endif ?>>AUDIOPHONICS I-Sabre DAC ES9023</option>
-                        <option value="rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023 / AMP" <?php if($this->i2smodule_select === 'rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023 / AMP'): ?> selected <?php endif ?>>AUDIOPHONICS I-Sabre DAC ES9023 / AMP</option>
-                        <option value="i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9028Q2M" <?php if($this->i2smodule_select === 'i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9028Q2M'): ?> selected <?php endif ?>>AUDIOPHONICS I-Sabre DAC ES9028Q2M</option>
-                        <option value="i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9038Q2M" <?php if($this->i2smodule_select === 'i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9038Q2M'): ?> selected <?php endif ?>>AUDIOPHONICS I-Sabre DAC ES9038Q2M</option>
-                        <option value="hifiberry-dac|AUDIOPHONICS I-TDA1387 TCXO DAC" <?php if($this->i2smodule_select === 'hifiberry-dac|AUDIOPHONICS I-TDA1387 TCXO DAC'): ?> selected <?php endif ?>>AUDIOPHONICS I-TDA1387 TCXO DAC</option>
-                        <option value="audiosense-pi|AudioSense-Pi add-on soundcard" <?php if($this->i2smodule_select === 'audiosense-pi|AudioSense-Pi add-on soundcard'): ?> selected <?php endif ?>>AudioSense-Pi add-on soundcard</option>
-                        <option value="pisound|Blokas Labs pisound card" <?php if($this->i2smodule_select === 'pisound|Blokas Labs pisound card'): ?> selected <?php endif ?>>Blokas Labs pisound card</option>
-                        <option value="akkordion-iqdacplus|Digital Dreamtime Akkordion" <?php if($this->i2smodule_select === 'akkordion-iqdacplus|Digital Dreamtime Akkordion'): ?> selected <?php endif ?>>Digital Dreamtime Akkordion</option>
-                        <option value="dionaudio-loco|Dionaudio Loco DAC-AMP" <?php if($this->i2smodule_select === 'dionaudio-loco|Dionaudio Loco DAC-AMP'): ?> selected <?php endif ?>>Dionaudio Loco DAC-AMP</option>
-                        <option value="dionaudio-loco-v2|Dionaudio Loco V2 DAC-AMP" <?php if($this->i2smodule_select === 'dionaudio-loco-v2|Dionaudio Loco V2 DAC-AMP'): ?> selected <?php endif ?>>Dionaudio Loco V2 DAC-AMP</option>
-                        <option value="fe-pi-audio|Fe-Pi Audio Sound Card" <?php if($this->i2smodule_select === 'fe-pi-audio|Fe-Pi Audio Sound Card'): ?> selected <?php endif ?>>Fe-Pi Audio Sound Card</option>
-                        <option value="hifiberry-amp|HiFiBerry Amp" <?php if($this->i2smodule_select === 'hifiberry-amp|HiFiBerry Amp'): ?> selected <?php endif ?>>HiFiBerry Amp</option>
-                        <option value="hifiberry-amp|HiFiBerry Amp+" <?php if($this->i2smodule_select === 'hifiberry-amp|HiFiBerry Amp+'): ?> selected <?php endif ?>>HiFiBerry Amp+</option>
-                        <option value="hifiberry-dacplus|HiFiBerry Amp2" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry Amp2'): ?> selected <?php endif ?>>HiFiBerry Amp2</option>
-                        <option value="hifiberry-dac,384k|HiFiBerry DAC" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|HiFiBerry DAC'): ?> selected <?php endif ?>>HiFiBerry DAC</option>
-                        <option value="hifiberry-dacplus|HiFiBerry DAC Plus" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry DAC Plus'): ?> selected <?php endif ?>>HiFiBerry DAC Plus</option>
-                        <option value="hifiberry-dacplusadc|HiFiBerry DAC Plus ADC" <?php if($this->i2smodule_select === 'hifiberry-dacplusadc|HiFiBerry DAC Plus ADC'): ?> selected <?php endif ?>>HiFiBerry DAC Plus ADC</option>
-                        <option value="rpi-dac|HiFiBerry DAC Plus Lite" <?php if($this->i2smodule_select === 'rpi-dac|HiFiBerry DAC Plus Lite'): ?> selected <?php endif ?>>HiFiBerry DAC Plus Lite</option>
-                        <option value="hifiberry-dacplus|HiFiBerry DAC Plus Pro" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry DAC Plus Pro'): ?> selected <?php endif ?>>HiFiBerry DAC Plus Pro</option>
-                        <option value="hifiberry-dacplus|HiFiBerry DAC Plus Pro XLR" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry DAC Plus Pro XLR'): ?> selected <?php endif ?>>HiFiBerry DAC Plus Pro XLR</option>
-                        <option value="hifiberry-dacplus|HiFiBerry DAC Plus RTC" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry DAC Plus RTC'): ?> selected <?php endif ?>>HiFiBerry DAC Plus RTC</option>
-                        <option value="hifiberry-dacplus|HiFiBerry DAC Plus Standard" <?php if($this->i2smodule_select === 'hifiberry-dacplus|HiFiBerry DAC Plus Standard'): ?> selected <?php endif ?>>HiFiBerry DAC Plus Standard</option>
-                        <option value="hifiberry-dac,384k|HiFiBerry DAC Plus Zero" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|HiFiBerry DAC Plus Zero'): ?> selected <?php endif ?>>HiFiBerry DAC Plus Zero</option>
-                        <option value="hifiberry-dacplushd|HifiBerry DAC+ HD audio card" <?php if($this->i2smodule_select === 'hifiberry-dacplushd|HifiBerry DAC+ HD audio card'): ?> selected <?php endif ?>>HifiBerry DAC+ HD audio card</option>
-                        <option value="hifiberry-dacplusadcpro|HifiBerry DAC+ADC PRO audio card" <?php if($this->i2smodule_select === 'hifiberry-dacplusadcpro|HifiBerry DAC+ADC PRO audio card'): ?> selected <?php endif ?>>HifiBerry DAC+ADC PRO audio card</option>
-                        <option value="hifiberry-dacplusdsp|HifiBerry DAC+DSP audio card" <?php if($this->i2smodule_select === 'hifiberry-dacplusdsp|HifiBerry DAC+DSP audio card'): ?> selected <?php endif ?>>HifiBerry DAC+DSP audio card</option>
-                        <option value="hifiberry-digi|HiFiBerry Digi" <?php if($this->i2smodule_select === 'hifiberry-digi|HiFiBerry Digi'): ?> selected <?php endif ?>>HiFiBerry Digi</option>
-                        <option value="hifiberry-digi|HiFiBerry Digi Plus" <?php if($this->i2smodule_select === 'hifiberry-digi|HiFiBerry Digi Plus'): ?> selected <?php endif ?>>HiFiBerry Digi Plus</option>
-                        <option value="hifiberry-digi-pro|HiFiBerry Digi Plus Pro" <?php if($this->i2smodule_select === 'hifiberry-digi-pro|HiFiBerry Digi Plus Pro'): ?> selected <?php endif ?>>HiFiBerry Digi Plus Pro</option>
-                        <option value="hifiberry-digi-pro|HiFiBerry Digi Pro" <?php if($this->i2smodule_select === 'hifiberry-digi-pro|HiFiBerry Digi Pro'): ?> selected <?php endif ?>>HiFiBerry Digi Pro</option>
-                        <option value="merus-amp|Infineon MERUS merus-amp audio card" <?php if($this->i2smodule_select === 'merus-amp|Infineon MERUS merus-amp audio card'): ?> selected <?php endif ?>>Infineon MERUS merus-amp audio card</option>
-                        <option value="hifiberry-amp|Inno-Maker Raspberry Pi HiFi AMP HAT TAS5713" <?php if($this->i2smodule_select === 'hifiberry-amp|Inno-Maker Raspberry Pi HiFi AMP HAT TAS5713'): ?> selected <?php endif ?>>Inno-Maker Raspberry Pi HiFi AMP HAT TAS5713</option>
-                        <option value="allo-boss-dac-pcm512x-audio|Inno-Maker Raspberry Pi HiFi DAC HAT PCM5122" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio|Inno-Maker Raspberry Pi HiFi DAC HAT PCM5122'): ?> selected <?php endif ?>>Inno-Maker Raspberry Pi HiFi DAC HAT PCM5122</option>
-                        <option value="iqaudio-dacplus|IQaudIO Amp" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Amp'): ?> selected <?php endif ?>>IQaudIO Amp</option>
-                        <option value="iqaudio-dacplus,auto_mute_amp|IQaudIO Amp - with auto mute" <?php if($this->i2smodule_select === 'iqaudio-dacplus,auto_mute_amp|IQaudIO Amp - with auto mute'): ?> selected <?php endif ?>>IQaudIO Amp - with auto mute</option>
-                        <option value="iqaudio-dacplus,unmute_amp|IQaudIO Amp - with unmute" <?php if($this->i2smodule_select === 'iqaudio-dacplus,unmute_amp|IQaudIO Amp - with unmute'): ?> selected <?php endif ?>>IQaudIO Amp - with unmute</option>
-                        <option value="iqaudio-dac|IQaudIO DAC" <?php if($this->i2smodule_select === 'iqaudio-dac|IQaudIO DAC'): ?> selected <?php endif ?>>IQaudIO DAC</option>
-                        <option value="iqaudio-dacplus|IQaudIO DAC Plus" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO DAC Plus'): ?> selected <?php endif ?>>IQaudIO DAC Plus</option>
-                        <option value="iqaudio-dacplus|IQaudIO DAC Pro" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO DAC Pro'): ?> selected <?php endif ?>>IQaudIO DAC Pro</option>
-                        <option value="iqaudio-digi-wm8804-audio|IQaudIO Digi wm8804 audio" <?php if($this->i2smodule_select === 'iqaudio-digi-wm8804-audio|IQaudIO Digi wm8804 audio'): ?> selected <?php endif ?>>IQaudIO Digi wm8804 audio</option>
-                        <option value="iqaudio-codec|IQaudIO Pi-Codec+ sound card" <?php if($this->i2smodule_select === 'iqaudio-codec|IQaudIO Pi-Codec+ sound card'): ?> selected <?php endif ?>>IQaudIO Pi-Codec+ sound card</option>
-                        <option value="iqaudio-codec|IQaudIO Pi-CodecZero sound card" <?php if($this->i2smodule_select === 'iqaudio-codec|IQaudIO Pi-CodecZero sound card'): ?> selected <?php endif ?>>IQaudIO Pi-CodecZero sound card</option>
-                        <option value="iqaudio-dacplus|IQaudIO Pi-DAC PRO" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DAC PRO'): ?> selected <?php endif ?>>IQaudIO Pi-DAC PRO</option>
-                        <option value="iqaudio-dacplus|IQaudIO Pi-DAC+" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DAC+'): ?> selected <?php endif ?>>IQaudIO Pi-DAC+</option>
-                        <option value="iqaudio-dacplus|IQaudIO Pi-DACZero" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DACZero'): ?> selected <?php endif ?>>IQaudIO Pi-DACZero</option>
-                        <option value="iqaudio-digi-wm8804-audio|IQaudIO Pi-Digi+" <?php if($this->i2smodule_select === 'iqaudio-digi-wm8804-audio|IQaudIO Pi-Digi+'): ?> selected <?php endif ?>>IQaudIO Pi-Digi+</option>
-                        <option value="iqaudio-dacplus|IQaudIO Pi-DigiAMP+" <?php if($this->i2smodule_select === 'iqaudio-dacplus|IQaudIO Pi-DigiAMP+'): ?> selected <?php endif ?>>IQaudIO Pi-DigiAMP+</option>
-                        <option value="iqaudio-dacplus,auto_mute_amp|IQaudIO Pi-DigiAMP+ - with auto mute" <?php if($this->i2smodule_select === 'iqaudio-dacplus,auto_mute_amp|IQaudIO Pi-DigiAMP+ - with auto mute'): ?> selected <?php endif ?>>IQaudIO Pi-DigiAMP+ - with auto mute</option>
-                        <option value="iqaudio-dacplus,unmute_amp|IQaudIO Pi-DigiAMP+ - with unmute" <?php if($this->i2smodule_select === 'iqaudio-dacplus,unmute_amp|IQaudIO Pi-DigiAMP+ - with unmute'): ?> selected <?php endif ?>>IQaudIO Pi-DigiAMP+ - with unmute</option>
-                        <option value="justboom-dac|JustBoom Amp HAT" <?php if($this->i2smodule_select === 'justboom-dac|JustBoom Amp HAT'): ?> selected <?php endif ?>>JustBoom Amp HAT</option>
-                        <option value="justboom-dac|JustBoom Amp Zero" <?php if($this->i2smodule_select === 'justboom-dac|JustBoom Amp Zero'): ?> selected <?php endif ?>>JustBoom Amp Zero</option>
-                        <option value="justboom-dac|JustBoom DAC" <?php if($this->i2smodule_select === 'justboom-dac|JustBoom DAC'): ?> selected <?php endif ?>>JustBoom DAC</option>
-                        <option value="justboom-dac|JustBoom DAC HAT" <?php if($this->i2smodule_select === 'justboom-dac|JustBoom DAC HAT'): ?> selected <?php endif ?>>JustBoom DAC HAT</option>
-                        <option value="justboom-dac|JustBoom DAC Zero" <?php if($this->i2smodule_select === 'justboom-dac|JustBoom DAC Zero'): ?> selected <?php endif ?>>JustBoom DAC Zero</option>
-                        <option value="justboom-digi|JustBoom Digi" <?php if($this->i2smodule_select === 'justboom-digi|JustBoom Digi'): ?> selected <?php endif ?>>JustBoom Digi</option>
-                        <option value="justboom-both|JustBoom simultaneous justboom-dac and justboom-digi cards" <?php if($this->i2smodule_select === 'justboom-both|JustBoom simultaneous justboom-dac and justboom-digi cards'): ?> selected <?php endif ?>>JustBoom simultaneous justboom-dac and justboom-digi cards</option>
-                        <option value="allo-piano-dac-plus-pcm512x-audio,glb_mclk|Kali Reclocker with Allo Piano 2.1 DAC Plus" <?php if($this->i2smodule_select === 'allo-piano-dac-plus-pcm512x-audio,glb_mclk|Kali Reclocker with Allo Piano 2.1 DAC Plus'): ?> selected <?php endif ?>>Kali Reclocker with Allo Piano 2.1 DAC Plus</option>
-                        <option value="max98357a|Maxim MAX98357A I2S DAC" <?php if($this->i2smodule_select === 'max98357a|Maxim MAX98357A I2S DAC'): ?> selected <?php endif ?>>Maxim MAX98357A I2S DAC</option>
-                        <option value="hifiberry-dacplus|NanoSound HiFi DAC Pro" <?php if($this->i2smodule_select === 'hifiberry-dacplus|NanoSound HiFi DAC Pro'): ?> selected <?php endif ?>>NanoSound HiFi DAC Pro</option>
-                        <option value="hifiberry-dacplus|NanoSound ONE" <?php if($this->i2smodule_select === 'hifiberry-dacplus|NanoSound ONE'): ?> selected <?php endif ?>>NanoSound ONE</option>
-                        <option value="hifiberry-dac,384k|pHAT DAC for Raspberry Pi Zero" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|pHAT DAC for Raspberry Pi Zero'): ?> selected <?php endif ?>>pHAT DAC for Raspberry Pi Zero</option>
-                        <option value="hifiberry-dacplus|PiFi DAC Plus" <?php if($this->i2smodule_select === 'hifiberry-dacplus|PiFi DAC Plus'): ?> selected <?php endif ?>>PiFi DAC Plus</option>
-                        <option value="hifiberry-dac,384k|Pirate Audio, all models, no screen support" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|Pirate Audio, all models, no screen support'): ?> selected <?php endif ?>>Pirate Audio, all models, no screen support</option>
-                        <option value="hifiberry-dacplus|RaspiDAC3" <?php if($this->i2smodule_select === 'hifiberry-dacplus|RaspiDAC3'): ?> selected <?php endif ?>>RaspiDAC3</option>
-                        <option value="hifiberry-dacplus|RaspyPlay4" <?php if($this->i2smodule_select === 'hifiberry-dacplus|RaspyPlay4'): ?> selected <?php endif ?>>RaspyPlay4</option>
-                        <option value="rra-digidac1-wm8741-audio|Red Rocks Audio DigiDAC1 soundcard" <?php if($this->i2smodule_select === 'rra-digidac1-wm8741-audio|Red Rocks Audio DigiDAC1 soundcard'): ?> selected <?php endif ?>>Red Rocks Audio DigiDAC1 soundcard</option>
-                        <option value="rpi-cirrus-wm5102|RPi Cirrus WM5102" <?php if($this->i2smodule_select === 'rpi-cirrus-wm5102|RPi Cirrus WM5102'): ?> selected <?php endif ?>>RPi Cirrus WM5102</option>
-                        <option value="rpi-dac|RPi DAC" <?php if($this->i2smodule_select === 'rpi-dac|RPi DAC'): ?> selected <?php endif ?>>RPi DAC</option>
-                        <option value="rpi-proto|RPi Proto audio card" <?php if($this->i2smodule_select === 'rpi-proto|RPi Proto audio card'): ?> selected <?php endif ?>>RPi Proto audio card</option>
-                        <option value="i-sabre-k2m|Sabre DAC  (Alternative 1)" <?php if($this->i2smodule_select === 'i-sabre-k2m|Sabre DAC  (Alternative 1)'): ?> selected <?php endif ?>>Sabre DAC  (Alternative 1)</option>
-                        <option value="i-sabre-q2m|Sabre DAC  (Alternative 2)" <?php if($this->i2smodule_select === 'i-sabre-q2m|Sabre DAC  (Alternative 2)'): ?> selected <?php endif ?>>Sabre DAC  (Alternative 2)</option>
-                        <option value="rpi-dac|Sabre DAC  (Alternative 3)" <?php if($this->i2smodule_select === 'rpi-dac|Sabre DAC  (Alternative 3)'): ?> selected <?php endif ?>>Sabre DAC  (Alternative 3)</option>
-                        <option value="superaudioboard|SuperAudioBoard sound card" <?php if($this->i2smodule_select === 'superaudioboard|SuperAudioBoard sound card'): ?> selected <?php endif ?>>SuperAudioBoard sound card</option>
-                        <option value="rpi-dac|X10-DAC BOARD" <?php if($this->i2smodule_select === 'rpi-dac|X10-DAC BOARD'): ?> selected <?php endif ?>>X10-DAC BOARD</option>
-                        <option value="hifiberry-dacplus|X400 V3.0 DAC+AMP Expansion Board" <?php if($this->i2smodule_select === 'hifiberry-dacplus|X400 V3.0 DAC+AMP Expansion Board'): ?> selected <?php endif ?>>X400 V3.0 DAC+AMP Expansion Board</option>
-                        <option value="rpi-dac|Generic AK4399 (Alternative 1)" <?php if($this->i2smodule_select === 'rpi-dac|Generic AK4399 (Alternative 1)'): ?> selected <?php endif ?>>Generic AK4399 (Alternative 1)</option>
-                        <option value="hifiberry-dac,384k|Generic AK4399 (Alternative 2)" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|Generic AK4399 (Alternative 2)'): ?> selected <?php endif ?>>Generic AK4399 (Alternative 2)</option>
-                        <option value="rpi-dac|Generic AK4452 (Alternative 1)" <?php if($this->i2smodule_select === 'rpi-dac|Generic AK4452 (Alternative 1)'): ?> selected <?php endif ?>>Generic AK4452 (Alternative 1)</option>
-                        <option value="hifiberry-dac,384k|Generic AK4452 (Alternative 2)" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|Generic AK4452 (Alternative 2)'): ?> selected <?php endif ?>>Generic AK4452 (Alternative 2)</option>
-                        <option value="rpi-dac|Generic AK449x (Alternative 1)" <?php if($this->i2smodule_select === 'rpi-dac|Generic AK449x (Alternative 1)'): ?> selected <?php endif ?>>Generic AK449x (Alternative 1)</option>
-                        <option value="hifiberry-dac,384k|Generic AK449x (Alternative 2)" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|Generic AK449x (Alternative 2)'): ?> selected <?php endif ?>>Generic AK449x (Alternative 2)</option>
-                        <option value="i-sabre-k2m|Generic ES9018" <?php if($this->i2smodule_select === 'i-sabre-k2m|Generic ES9018'): ?> selected <?php endif ?>>Generic ES9018</option>
-                        <option value="rpi-dac|Generic ES9023" <?php if($this->i2smodule_select === 'rpi-dac|Generic ES9023'): ?> selected <?php endif ?>>Generic ES9023</option>
-                        <option value="i-sabre-q2m|Generic ES9028" <?php if($this->i2smodule_select === 'i-sabre-q2m|Generic ES9028'): ?> selected <?php endif ?>>Generic ES9028</option>
-                        <option value="i-sabre-q2m|Generic ES9038" <?php if($this->i2smodule_select === 'i-sabre-q2m|Generic ES9038'): ?> selected <?php endif ?>>Generic ES9038</option>
-                        <option value="i-sabre-k2m|Generic ES90x8  (Alternative 1)" <?php if($this->i2smodule_select === 'i-sabre-k2m|Generic ES90x8  (Alternative 1)'): ?> selected <?php endif ?>>Generic ES90x8  (Alternative 1)</option>
-                        <option value="i-sabre-q2m|Generic ES90x8  (Alternative 2)" <?php if($this->i2smodule_select === 'i-sabre-q2m|Generic ES90x8  (Alternative 2)'): ?> selected <?php endif ?>>Generic ES90x8  (Alternative 2)</option>
-                        <option value="rpi-dac|Generic ES90x8  (Alternative 3)" <?php if($this->i2smodule_select === 'rpi-dac|Generic ES90x8  (Alternative 3)'): ?> selected <?php endif ?>>Generic ES90x8  (Alternative 3)</option>
-                        <option value="rpi-dac|Generic PCM1794" <?php if($this->i2smodule_select === 'rpi-dac|Generic PCM1794'): ?> selected <?php endif ?>>Generic PCM1794</option>
-                        <option value="hifiberry-dac,384k|Generic PCM510x" <?php if($this->i2smodule_select === 'hifiberry-dac,384k|Generic PCM510x'): ?> selected <?php endif ?>>Generic PCM510x</option>
-                        <option value="hifiberry-dacplus|Generic PCM512x (Alternative 1)" <?php if($this->i2smodule_select === 'hifiberry-dacplus|Generic PCM512x (Alternative 1)'): ?> selected <?php endif ?>>Generic PCM512x (Alternative 1)</option>
-                        <option value="allo-boss-dac-pcm512x-audio|Generic PCM512x (Alternative 2)" <?php if($this->i2smodule_select === 'allo-boss-dac-pcm512x-audio|Generic PCM512x (Alternative 2)'): ?> selected <?php endif ?>>Generic PCM512x (Alternative 2)</option>
-                        <option value="hifiberry-amp|Generic TAS5713" <?php if($this->i2smodule_select === 'hifiberry-amp|Generic TAS5713'): ?> selected <?php endif ?>>Generic TAS5713</option>
-                        <option value="hifiberry-dacplus|Generic TAS5756M (Alternative 1)" <?php if($this->i2smodule_select === 'hifiberry-dacplus|Generic TAS5756M (Alternative 1)'): ?> selected <?php endif ?>>Generic TAS5756M (Alternative 1)</option>
-                        <option value="justboom-dac|Generic TAS5756M (Alternative 2)" <?php if($this->i2smodule_select === 'justboom-dac|Generic TAS5756M (Alternative 2)'): ?> selected <?php endif ?>>Generic TAS5756M (Alternative 2)</option>
-                        <option value="iqaudio-dacplus|Generic TAS5756M (Alternative 3)" <?php if($this->i2smodule_select === 'iqaudio-dacplus|Generic TAS5756M (Alternative 3)'): ?> selected <?php endif ?>>Generic TAS5756M (Alternative 3)</option>
-                        <option value="hifiberry-dac|Generic TDA1387" <?php if($this->i2smodule_select === 'hifiberry-dac|Generic TDA1387'): ?> selected <?php endif ?>>Generic TDA1387</option>
-                        <option value="hifiberry-dac|Generic TDA1541" <?php if($this->i2smodule_select === 'hifiberry-dac|Generic TDA1541'): ?> selected <?php endif ?>>Generic TDA1541</option>
-                        <option value="hifiberry-dac|Generic TDA1543" <?php if($this->i2smodule_select === 'hifiberry-dac|Generic TDA1543'): ?> selected <?php endif ?>>Generic TDA1543</option>
+                        <?php $i2smodules = file('.config/i2s_table.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES); foreach ($i2smodules as $i2smodule):?>
+                            <?php $modulename = substr($i2smodule, strpos($i2smodule, '|')+1); if ($this->i2smodule_select === $i2smodule): $selected = 'selected'; else: $selected = ''; endif;?>
+                            <option value="<?=$i2smodule ?>" <?=$selected ?>><?=$modulename ?></option>
+                        <?php endforeach; ?>
                     </select>
                     <input class="form-control input-lg" type="text" id="overlay" name="overlay" value="<?php echo $this->i2smodule; ?>" disabled autocomplete="off">
-                    <span class="help-block">Enable I&#178;S output selecting one of the available drivers, specific for each hardware.<br>
+                    <span class="help-block">Enable I&#178;S sound-card output by selecting one of the available drivers.<br>
                     <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">MPD configuration select menu</a>, where you will need to select the output interface to make it work.<br>
-                    After selecting your hardware the 'best choice' overlay driver will be selected and displayed</span>
+                    <i>After applying the settings for your hardware the 'best choice' overlay driver will be selected and displayed</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -247,7 +48,9 @@
                         <input name="audio_on_off" type="checkbox" value="1"<?php if((isset($this->audio_on_off)) && ($this->audio_on_off)): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">Set "ON" to enable or "OFF" to disable the on-board ALSA audio interface(s). <i><strong>Reboot</strong> to activate</i></span>
+                    <span class="help-block">Set "ON" to enable or "OFF" to disable the on-board ALSA audio interface(s). <i><strong>Reboot</strong> to activate<br><br>
+                    HDMI connections are automatically detected when connected at startup and USB DACS are automatically detected when plugged in.<br>
+                    It is advised to only connect sound-cards, HDMI devices and USB DAC's when RuneAudio is powered off</i></span>
                 </div>
             </div>
             <?php endif;?>
@@ -315,6 +118,91 @@
             </div>
         </fieldset>
     </form>
+    <form class="form-horizontal" action="" method="post" role="form">
+        <fieldset>
+            <legend>Environment</legend>
+            <div class="form-group" id="systemstatus">
+                <label class="control-label col-sm-2">Check system status</label>
+                <div class="col-sm-10">
+                    <a class="btn btn-default btn-lg" href="#modal-sysinfo" data-toggle="modal"><i class="fa fa-info-circle sx"></i>show status</a>
+                    <span class="help-block">See information regarding the system and its status</span>
+                </div>
+            </div>
+            <div class="form-group" id="environment">
+                <label class="control-label col-sm-2" for="hostname">Player hostname</label>
+                <div class="col-sm-10">
+                    <input class="form-control osk-trigger input-lg" type="text" id="hostname" name="hostname" value="<?php echo $this->hostname; ?>" placeholder="runeaudio" autocomplete="off">
+                    <span class="help-block">Set the player hostname. This will change the address used to reach the RuneUI.<br>
+                    No <strong>spaces</strong> or <strong>special charecters</strong> allowed in the name<br>
+                    <i>No change is normally necessary, useful when you have more than one RuneAudio music player</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="ntpserver">NTP server</label>
+                <div class="col-sm-10">
+                    <input class="form-control osk-trigger input-lg" type="text" id="ntpserver" name="ntpserver" value="<?php echo $this->ntpserver; ?>" placeholder="pool.ntp.org" autocomplete="off">
+                    <span class="help-block">Set your reference time sync server <i>(NTP server)<br>
+                    No change is normally necessary, the default generally works fine</i></span>
+                </div>
+            </div>
+            <div class="form-group">
+            <label class="control-label col-sm-2" for="timezone">Timezone</label>
+                <div class="col-sm-10">
+                    <select class="selectpicker" name="timezone" data-style="btn-default btn-lg">
+                    <?php foreach(ui_timezone() as $t): ?>
+                      <option value="<?=$t['zone'] ?>" <?php if($this->timezone === $t['zone']): ?> selected <?php endif; ?>>
+                        <?=$t['zone'].' - '.$t['diff_from_GMT'] ?>
+                      </option>
+                    <?php endforeach; ?>
+                    </select>
+                    <span class="help-block">Set the system timezone<br>
+                    <i>Automatic selection is normally correct</i></span>
+                </div>
+            </div>
+            <!--
+            <div <?php if($this->proxy['enable'] === 1): ?>class="boxed-group"<?php endif ?> id="proxyBox">
+                <div class="form-group">
+                    <label for="proxy" class="control-label col-sm-2">HTTP Proxy server</label>
+                    <div class="col-sm-10">
+                        <label class="switch-light well" onclick="">
+                            <input id="proxy" name="features[proxy]" type="checkbox" value="1"<?php if((isset($this->proxy['enable'])) && ($this->proxy['enable'])): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                    </div>
+                </div>
+                <div class="<?php if($this->proxy['enable'] != 1): ?>hide<?php endif ?>" id="proxyAuth">
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="proxy-user">Host</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="text" id="proxy_host" name="features[proxy][host]" value="<?php echo $this->proxy['host']; ?>" data-trigger="change" placeholder="<host IP or FQDN>:<port>">
+                            <span class="help-block">Insert HTTP Proxy host<i> (format: proxy_address:port)</i></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="proxy-user">Username</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="text" id="proxy_user" name="features[proxy][user]" value="<?php echo $this->proxy['user']; ?>" data-trigger="change" placeholder="user">
+                            <span class="help-block">Insert your HTTP Proxy <i>username</i> (leave blank for anonymous authentication)</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="proxy-pass">Password</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="password" id="proxy_pass" name="features[proxy][pass]" value="<?php echo $this->proxy['pass']; ?>" placeholder="pass" autocomplete="off">
+                            <span class="help-block">Insert your HTTP Proxy <i>password</i> (case sensitive) (leave blank for anonymous authentication)<br>
+                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            -->
+            <div class="form-group form-actions">
+                <div class="col-sm-offset-2 col-sm-10">
+                    <button class="btn btn-primary btn-lg" value="save" name="save" type="submit">Apply settings</button>
+                </div>
+            </div>
+        </fieldset>
+    </form>
     <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
         <fieldset id="features-management">
             <legend>Features management</legend>
@@ -338,8 +226,15 @@
                             <span class="help-block">AirPlay broadcast name</span>
                         </div>
                     </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
                 </div>
             </div>
+            <!--
             <div <?php if((isset($this->spotify['enable'])) && ($this->spotify['enable'])): ?>class="boxed-group"<?php endif ?> id="spotifyBox">
                 <div class="form-group">
                     <label for="spotify" class="control-label col-sm-2">Spotify</label>
@@ -371,6 +266,7 @@
                     </div>
                 </div>
             </div>
+            -->
             <div <?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?>class="boxed-group"<?php endif ?> id="dlnaBox">
                 <div class="form-group">
                     <label for="dlna" class="control-label col-sm-2">UPnP / DLNA</label>
@@ -398,6 +294,12 @@
                             </label>
                             <span class="help-block">When ON: a UPnP / DLNA broadcast will clear the MPD queue and then add and play the song, clearing the queue with each successive song<br>
                             When OFF: UPnP / DLNA will add songs of the MPD queue (before the current play position) but MPD will continue to play the current song</span>
+                        </div>
+                    </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
                         </div>
                     </div>
                 </div>
@@ -473,6 +375,12 @@
                             <span class="help-block">Enter a value between <strong>15</strong> and <strong>120</strong>. This is the number of seconds of stopped or paused play after which Spotify Connect will assume that the play stream has finished. After the time-out the stream will be terminated</span>
                         </div>
                     </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div <?php if((isset($this->local_browser['enable'])) && ($this->local_browser['enable'])): ?>class="boxed-group"<?php endif ?> id="local_browserBox">
@@ -546,6 +454,12 @@
                             <span class="help-block">Optionally switch this ON if you use a very small local browser screen with the screensaver</span>
                         </div>
                     </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
                 </div>
                 <?php else: ?>
                 <div class="form-group">
@@ -567,40 +481,10 @@
                 </div>
             </div>
             <div class="form-group">
-                <label for="pwd-protection" class="control-label col-sm-2">Password protection</label>
-                <div class="col-sm-10">
-                    <label class="switch-light well" onclick="">
-                        <input name="features[pwd_protection]" type="checkbox" value="1"<?php if($this->pwd_protection == 1): ?> checked="checked" <?php endif ?>>
-                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                    </label>
-                    <span class="help-block">Protect the UI with a password (standard is "rune" can be changed on login screen)</span>
-                </div>
-            </div>
-            <div class="form-group">
                 <label class="col-sm-2 control-label" for="remoteSStime">Remote ScreenSaver time</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="number" id="remoteSStime" name="features[remoteSStime]" value="<?=$this->remoteSStime ?>" data-trigger="change" min="-1" max="100" placeholder="-1" />
                     <span class="help-block">Sets the activation time for the remote screensaver (0-100 seconds, -1 disables the feature)</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="udevil" class="control-label col-sm-2">USB Automount</label>
-                <div class="col-sm-10">
-                    <label class="switch-light well" onclick="">
-                        <input name="features[udevil]" type="checkbox" value="1"<?php if((isset($this->udevil)) && ($this->udevil)): ?> checked="checked" <?php endif ?>>
-                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                    </label>
-                    <span class="help-block">Toggle automount for USB drives</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="coverart" class="control-label col-sm-2">Display album cover</label>
-                <div class="col-sm-10">
-                    <label class="switch-light well" onclick="">
-                        <input name="features[coverart]" type="checkbox" value="1"<?php if((isset($this->coverart)) && ($this->coverart)): ?> checked="checked" <?php endif ?>>
-                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                    </label>
-                    <span class="help-block">Toggle the display of album art on the Playback main screen</span>
                 </div>
             </div>
             <div <?php if((isset($this->lastfm['enable'])) && ($this->lastfm['enable'])): ?>class="boxed-group"<?php endif ?> id="lastfmBox">
@@ -630,6 +514,12 @@
                             <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
                         </div>
                     </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div <?php if((isset($this->samba['enable'])) && ($this->samba['enable'])): ?>class="boxed-group"<?php endif ?> id="sambaBox">
@@ -657,6 +547,42 @@
                             You can modify the Samba configuration via your PC after setting Samba read/write access ON. Some instructions are included in the files</span>
                         </div>
                     </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="pwd-protection" class="control-label col-sm-2">Password protection</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="features[pwd_protection]" type="checkbox" value="1"<?php if($this->pwd_protection == 1): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Protect the UI with a password (standard is "rune" can be changed on login screen)</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="udevil" class="control-label col-sm-2">USB Automount</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="features[udevil]" type="checkbox" value="1"<?php if((isset($this->udevil)) && ($this->udevil)): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle automount for USB drives</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="coverart" class="control-label col-sm-2">Display album cover</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="features[coverart]" type="checkbox" value="1"<?php if((isset($this->coverart)) && ($this->coverart)): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle the display of album art on the Playback main screen</span>
                 </div>
             </div>
             <div class="form-group form-actions">
