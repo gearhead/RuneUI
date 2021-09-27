@@ -318,6 +318,11 @@ if [ "$volitileFound" == "0" ]; then
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
+# modify the /etc/php/php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
+if [ -f "/etc/php/php.ini" ]; then
+    sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=32' /etc/php/php.ini
+fi
+#
 # add waveshare LDC touchscreen overlays, when chromium is installed
 if [ -f "/bin/chromium" ]; then
     /srv/http/command/waveshare_install.sh
