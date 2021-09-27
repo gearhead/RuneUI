@@ -57,7 +57,10 @@ ini_set('display_errors', $activeLog);
 $devmode = $redis->get('dev');
 $activePlayer = $redis->get('activePlayer');
 // connect to the MPD daemon, when it is starting up the open may need to be repeated
-$repeat = 15;
+// a massive repeat value for looping is specified, it should work on the first try
+//  but, if no MPD connection can be made the rest will fail, so keep trying
+//  should only be a problem during start up or after restarting MPD
+$repeat = 30;
 if ((isset($_SERVER["SCRIPT_FILENAME"])) && ($activePlayer === 'MPD') && (($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');

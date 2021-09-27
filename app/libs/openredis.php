@@ -36,11 +36,13 @@
 // in the backup and other functions redis is stopped and restarted, it is possible that
 // redis is still starting when this code executes, so trap any errors
 $redisError = true;
-$redisErrorCount = 10;
+// a massive repeat value for looping, it should work on the first try
+//  but, if no redis is connected is made the rest will fail, so keep trying
+//  should only be a problem during start up
+$redisErrorCount = 30;
 $redisSleepTime = 2;
 while ($redisError) {
-    try
-    {
+    try {
         // Code that may throw an Exception or Error.
         $redis = new Redis();
         if ($redis->pconnect('/run/redis/socket')) {
@@ -51,16 +53,14 @@ while ($redisError) {
             $redisErrorCount--;
         }
     }
-    catch (Throwable $t)
-    {
-        // Executed only in PHP 7 and higher, will not match in PHP 5
+    catch (Throwable $t) {
+        // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
         $redisError = true;
         sleep($redisSleepTime);
         $redisErrorCount--;
     }
-    catch (Exception $e)
-    {
-        // Executed only in PHP 5, will not be reached in PHP 7 and higher
+    catch (Exception $e) {
+        // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
         $redisError = true;
         sleep($redisSleepTime);
         $redisErrorCount--;
