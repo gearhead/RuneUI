@@ -182,7 +182,7 @@ else
 fi
 # jamendo
 # determine if the warning message on the jamendo website has been removed, currently the stream links provided do not work
-count=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://developer.jamendo.com/v3.0/radios/stream" | grep -c "WARNING: actually the stream link returned doesn't work" )
+count=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://developer.jamendo.com/v3.0/radios/stream" | grep -c "WARNING: The stream link returned is not more working, and it could be never fixed" )
 if [ $count -eq 0 ]; then
     # the warning has gone so assume that jamendo is available
     redis-cli hset service jamendo 1
