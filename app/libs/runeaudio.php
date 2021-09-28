@@ -1986,7 +1986,7 @@ function wrk_restore($redis, $backupfile)
     return;
 }
 
-function wrk_opcache($action, $redis)
+function wrk_opcache($redis, $action)
 {
     // debug
     runelog('wrk_opcache ', $action);
@@ -2005,26 +2005,94 @@ function wrk_opcache($action, $redis)
             OpCacheCtl('reset', '/srv/http/');
             opcache_reset();
             break;
+        case 'reload':
+            sysCmd('systemctl reload php-fpm');
+            break;
         case 'enable':
-            // opcache.ini
-            $file = '/etc/php/conf.d/opcache.ini';
-            $newArray = wrk_replaceTextLine($file, '', 'opcache.enable', 'opcache.enable=1', 'zend_extension', 1);
-            // Commit changes to /etc/php/conf.d/opcache.ini
-            $fp = fopen($file, 'w');
-            fwrite($fp, implode("", $newArray));
-            fclose($fp);
+            $fileName = '/etc/php/conf.d/opcache.ini';
+            // clear the file cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, $fileName);
+            if (!file_exists($fileName)) {
+                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=1\n" > "'.$fileName.'"');
+            } else {
+                sysCmd("sed -i '/^pcache.enable=/c\pcache.enable=1' '".$fileName."'");
+            }
             $redis->set('opcache', 1);
             break;
         case 'disable':
-            // opcache.ini
-            // -- REWORK NEEDED --
-            $file = '/etc/php/conf.d/opcache.ini';
-            $newArray = wrk_replaceTextLine($file, '', 'opcache.enable', 'opcache.enable=0', 'zend_extension', 1);
-            // Commit changes to /etc/php/conf.d/opcache.ini
-            $fp = fopen($file, 'w');
-            fwrite($fp, implode("", $newArray));
-            fclose($fp);
+            $fileName = '/etc/php/conf.d/opcache.ini';
+            // clear the file cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, $fileName);
+            if (!file_exists($fileName)) {
+                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=0\n" > "'.$fileName.'"');
+            } else {
+                sysCmd("sed -i '/^pcache.enable=/c\pcache.enable=0' '".$fileName."'");
+            }
             $redis->set('opcache', 0);
+            break;
+        case 'isfull':
+            $opCacheStatus = opcache_get_status();
+            if (isset($opCacheStatus) && is_array($opCacheStatus)) {
+                if (isset($opCacheStatus['opcache_enabled']) && $opCacheStatus['opcache_enabled']) {
+                    if (isset($opCacheStatus['cache_full']) && $opCacheStatus['cache_full']) {
+                        return true;
+                    } else {
+                        if (isset($opCacheStatus['memory_usage']['used_memory'])) {
+                            // do nothing
+                        } else {
+                            return false;
+                        }
+                        if (isset($opCacheStatus['memory_usage']['free_memory'])) {
+                            // do nothing
+                        } else {
+                            return false;
+                        }
+                        $memoryUsage = $opCacheStatus['memory_usage']['used_memory'] / ($opCacheStatus['memory_usage']['used_memory'] + $opCacheStatus['memory_usage']['free_memory']);
+                        if ($memoryUsage >= 0.9 ) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+            break;
+        case 'add8mb':
+            $opCacheConfiguration = opcache_get_configuration();
+            if (isset($opCacheConfiguration) && is_array($opCacheConfiguration)) {
+                if (isset($opCacheConfiguration['directives']['opcache.enable']) && $opCacheConfiguration['directives']['opcache.enable']) {
+                    if (isset($opCacheConfiguration['directives']['opcache.memory_consumption'])) {
+                        // do nothing
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+            // convert total memory from B to MB
+            $memory = $opCacheConfiguration['directives']['opcache.memory_consumption'] * (9.5367431640625*10**-7);
+            // total memory rounded to units of 8MB, plus 8MB
+            $memory = (round($memory/8)*8) + 8;
+            //
+            $fileName = '/etc/php/conf.d/opcache.ini';
+            // clear the file cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, $fileName);
+            if (!file_exists($fileName)) {
+                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=1\nopcache.memory_consumption='.$memory.'\n" > "'.$fileName.'"');
+            } else {
+                if (sysCmd('grep -ic "opcache.memory_consumption=" "'.$fileName.'"')[0]) {
+                    sysCmd("sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=".$memory."' '".$fileName."'");
+                } else {
+                    sysCmd('echo -en "opcache.memory_consumption='.$memory.'\n" >> "'.$fileName.'"');
+                }
+            }
             break;
     }
 }
@@ -3676,10 +3744,68 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'restart':
             wrk_mpdconf($redis, 'stop');
             wrk_mpdconf($redis, 'start');
+            // code below is experimental
+            // $activePlayer = $redis->get('activePlayer');
+            // if ($activePlayer === 'MPD') {
+                // $retval = sysCmd('systemctl is-active mpd');
+                // if ($redis->get('mpdconfchange')) {
+                    // ui_notify('MPD', 'restarting MPD, it takes a while');
+                    // // reload systemd daemon to activate any changed unit files
+                    // sysCmd('systemctl daemon-reload');
+                    // // restart mpd
+                    // sysCmd('systemctl restart mpd');
+                    // // set mpdconfchange off
+                    // $redis->set('mpdconfchange', 0);
+                // }
+                // sleep(1);
+                // // ashuffle gets started automatically
+                // // restore the player status
+                // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                // wrk_mpdRestorePlayerStatus($redis);
+                // // restart mpdscribble
+                // if ($redis->hGet('lastfm', 'enable') === '1') {
+                    // sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
+                // }
+                // // restart upmpdcli
+                // if ($redis->hGet('dlna', 'enable') === '1') {
+                    // sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
+                // }
+            // }
+            // // set process priority
+            // sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            // unset($activePlayer, $retval);
             break;
         case 'forcerestart':
             wrk_mpdconf($redis, 'forcestop');
             wrk_mpdconf($redis, 'start');
+            // code below is experimental
+            // $activePlayer = $redis->get('activePlayer');
+            // if ($activePlayer === 'MPD') {
+                // $retval = sysCmd('systemctl is-active mpd');
+                // ui_notify('MPD', 'restarting MPD, it takes a while');
+                // // reload systemd daemon to activate any changed unit files
+                // sysCmd('systemctl daemon-reload');
+                // // restart mpd
+                // sysCmd('systemctl restart mpd');
+                // // set mpdconfchange off
+                // $redis->set('mpdconfchange', 0);
+                // sleep(1);
+                // // ashuffle gets started automatically
+                // // restore the player status
+                // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                // wrk_mpdRestorePlayerStatus($redis);
+                // // restart mpdscribble
+                // if ($redis->hGet('lastfm', 'enable') === '1') {
+                    // sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
+                // }
+                // // restart upmpdcli
+                // if ($redis->hGet('dlna', 'enable') === '1') {
+                    // sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
+                // }
+            // }
+            // // set process priority
+            // sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            // unset($activePlayer, $retval);
             break;
     }
 }
@@ -8694,4 +8820,18 @@ function get_between_data($string, $start, $end, $occurence=1)
         $substr_data = trim(substr($substr_data, 0, $pos_end));
     }
     return $substr_data;
+}
+
+// function to restart and resize opcache when full
+function check_opcache($redis)
+{
+    if (wrk_opcache($redis, 'isfull')) {
+        // opcache is full (or more the 90% full), try to add 8MB
+        if (is_firstTime($redis, 'opcachefull')) {
+            // this is the first time since reboot, add 8Mb to the opcache
+            wrk_opcache($redis, 'add8mb');
+        }
+        // and do a reload, this will activate the extra memory (if applicable) and clear the cache
+        wrk_opcache($redis, 'reload');
+    }
 }

@@ -46,6 +46,7 @@ $savecpuRefreshNicsPrev = $savecpuRefreshNics;
 $savecpuOneTimeActions = 30;
 $savecpuMpdLog = 600;
 $savecpuTimezone = 60;
+$savecpuOpCache = 7200;
 $allmounted = 0;
 $retriesmounting = 100;
 ini_set('display_errors', '1');
@@ -537,7 +538,7 @@ while (1) {
                     // noid ui_notify_async('Clean IMG', 'Started, this can take a while to complete');
                     ui_notify('Clean IMG', 'Started, this can take a while to complete');
                     // enable OPcache
-                    wrk_opcache('enable');
+                    wrk_opcache($redis, 'enable');
                     wrk_cleanDistro();
                     $redis->sRem('w_lock', $jobID);
                     break;
@@ -1113,16 +1114,16 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     // Restart PHP service
                     if ($job->action === 'enable') {
-                        wrk_opcache('enable', $redis);
+                        wrk_opcache($redis, 'enable');
                         runelog('PHP 5.5 OPcache enabled');
                         sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
-                        // wrk_opcache('forceprime');
+                        // wrk_opcache($redis, 'forceprime');
                         // send notfy to UI
                         //ui_notify_async('PHP OpCache', 'cache enabled', $jobID);
                         // noid ui_notify_async('PHP OpCache', 'cache enabled');
                         ui_notify('PHP OpCache', 'cache enabled');
                     } else {
-                        wrk_opcache('disable', $redis);
+                        wrk_opcache($redis, 'disable');
                         runelog('PHP 5.5 OPcache disabled');
                         sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
                         // send notfy to UI
@@ -1764,6 +1765,13 @@ while (1) {
         $savecpuAvd = 86300 + rand(0, 200);
         // restart avahi-daemon
         sysCmd('systemctl restart avahi-daemon');
+    }
+    // Check opcache every 1 hour (every 7200 cycles)
+    // This will add memory to the opcache if required
+    if ($savecpuOpCache-- <= 0) {
+        $savecpuOpCache = 7100 + rand(0, 200);
+        // run the script async
+        sysCmdAsync('nice --adjustment=2 /srv/http/command/check_opcache_async.php');
     }
     // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
     // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
