@@ -333,7 +333,7 @@ if ($playerid_db === '') {
     // sometimes on the armv6 image nginx fails to start automatically, if it is not running start it
     sysCmd('pgrep nginx || systemctl start nginx');
     //
-    // PHP 5.5 OPCache
+    // PHP OPCache
     if (!$redis->get('dev')) {
         // prime PHP OPCache
         runelog('prime PHP OPCache');

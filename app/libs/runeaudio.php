@@ -2048,7 +2048,8 @@ function wrk_opcache($redis, $action)
                             return false;
                         }
                         $memoryUsage = $opCacheStatus['memory_usage']['used_memory'] / ($opCacheStatus['memory_usage']['used_memory'] + $opCacheStatus['memory_usage']['free_memory']);
-                        if ($memoryUsage >= 0.9 ) {
+                        if ($memoryUsage >= 0.8 ) {
+                            // treat 80% full as full
                             return true;
                         } else {
                             return false;
