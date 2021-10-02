@@ -363,12 +363,12 @@ while (1) {
             do {
                 $status = monitorSpopState($socket);
                 $status['playlist'] = $redis->hGet('spotify', 'plversion');
-                ui_render('playback', json_encode($status));
                 runelog('rune_PL_wrk: UI JSON', $status);
                 runelog('rune_PL_wrk: close SPOP socket');
                 // save JSON response for extensions
                 $status['actPlayer'] = "Spotify";
                 $redis->set('act_player_info', json_encode($status));
+                ui_render('playback', json_encode($status));
                 $errorcode = socket_last_error($socket);
                 runelog('Spotify last socket error = ', $errorcode);
             } while  (($errorcode === 0) && ($redis->get('activePlayer') === 'Spotify'));

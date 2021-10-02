@@ -38,7 +38,7 @@ if [ "$available" != 1 ] ; then
     exit
 fi
 
-artist_name=$( redis-cli hget lyrics currentartist )
+artist_name="$1"
 if [ -z "$artist_name" ]; then
     artist_name=`mpc -f %name% | head -n 1`
 fi
@@ -59,6 +59,10 @@ else
     artist_name=${artist_name//$spaceampersand/$colon}
     ampersand="&"
     artist_name=${artist_name//$ampersand/$colon}
+    spacesemicolon=" ;"
+    artist_name=${artist_name//$spacesemicolon/$colon}
+    semicolon=";"
+    artist_name=${artist_name//$semicolon/$colon}
     spacedash=" -"
     artist_name=${artist_name//$spacedash/$colon}
     dash="-"
