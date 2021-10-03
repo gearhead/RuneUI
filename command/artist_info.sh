@@ -34,7 +34,7 @@
 
 available=$( redis-cli hget service lastfm )
 if [ "$available" != 1 ] ; then
-    echo "{"error":0,"message":"The artist-information server is not available","links":[]}"
+    echo '{"error":0,"message":"The artist-information server is not available","links":[]}'
     exit
 fi
 
@@ -51,30 +51,22 @@ artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscr
 
 if [[ $artistinfo == *"png"* ]]; then
     echo $artistinfo
+    exit
+fi
+
+colon=":"
+substituteArray=(" :" " &" "&" " ;" ";" " -" "-" " (" "(" " [" "[" " {" "{" " <" "<" " /" "/")
+for i in "${substituteArray[@]}"; do
+    artist_name=${artist_name//$i/$colon}
+done
+artist=$(echo $artist_name  | cut -d ':' -f 1 )
+if [ "$artist" == "$artist_name" ]; then
+    if [ "$artistinfo" != "" ]; then
+        echo $artistinfo
+    else
+        echo '{"error":0,"message":"Unknown error","links":[]}'
+    fi
 else
-    colon=":"
-    spacecolon=" :"
-    artist_name=${artist_name//$spacecolon/$colon}
-    spaceampersand=" &"
-    artist_name=${artist_name//$spaceampersand/$colon}
-    ampersand="&"
-    artist_name=${artist_name//$ampersand/$colon}
-    spacesemicolon=" ;"
-    artist_name=${artist_name//$spacesemicolon/$colon}
-    semicolon=";"
-    artist_name=${artist_name//$semicolon/$colon}
-    spacedash=" -"
-    artist_name=${artist_name//$spacedash/$colon}
-    dash="-"
-    artist_name=${artist_name//$dash/$colon}
-    case $artist_name in
-        *:*)
-            artist_name=$( echo "$artist_name" | cut -d ":" -f 1 )
-            artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist_name"`
-            curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0
-            ;;
-        *)
-            echo $artistinfo
-            ;;
-    esac
+    artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
+    curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0
 fi
