@@ -415,7 +415,7 @@ function redisDatastore($redis,$action) {
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
             // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv | grep -vi "vendor" | grep -v ":" | grep -v git');
+            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -v git | grep -v .zip | grep -v .phar');
             foreach ($scripts as $script) {
                 $transaction->sAdd('php_opcache_prime', $script);
             }
@@ -488,7 +488,7 @@ function redisDatastore($redis,$action) {
             break;
         case 'opcachecheck':
             // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv | grep -vi "vendor" | grep -v ":" | grep -v git');
+            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -v git | grep -v .zip | grep -v .phar');
             foreach ($scripts as $script) {
                 if (!$redis->exists('php_opcache_prime', $script)) {
                     $redis->sAdd('php_opcache_prime', $script);
@@ -734,6 +734,7 @@ if (isset($argv[1])) {
         case 'check':
             redisDatastore($redis,'mpdcheck');
             redisDatastore($redis,'check');
+            redisDatastore($redis,'opcachecheck');
             break;
         case 'mpdreset':
             redisDatastore($redis,'mpdreset');
@@ -743,7 +744,7 @@ if (isset($argv[1])) {
             redisDatastore($redis,'mpdcheck');
             break;
         case 'opcachecheck':
-            redisDatastore($redis,'mpdcheck');
+            redisDatastore($redis,'opcachecheck');
             break;
         default:
             trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|opcachecheck}\n", E_USER_ERROR);

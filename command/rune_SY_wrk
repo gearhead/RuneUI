@@ -236,7 +236,7 @@ if ($playerid_db === '') {
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
     // then refresh nics, check redis datastore status, check if an active internet connection is available
     // mostly these commands should do nothing or very little, they are also not essential for the startup sequence
-    sysCmdAsync('nice --adjustment=2 /srv/http/command/create_work_dirs.sh ; php -f /srv/http/db/redis_datastore_setup check ; /srv/http/command/internet_available_async.sh ; php -f /var/www/command/refresh_nics');
+    sysCmdAsync('nice --adjustment=2 /srv/http/command/create_work_dirs.sh ; /srv/http/command/internet_available_async.sh ; php -f /srv/http/db/redis_datastore_setup check ; php -f /var/www/command/refresh_nics');
     //
     // check HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
     $retval = sysCmd('hostname');
