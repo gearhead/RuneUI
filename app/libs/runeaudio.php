@@ -5351,11 +5351,16 @@ function wrk_NTPsync($ntpserver)
     if ($return === 'active') {
         // systemd-timesyncd is running
         // with systemd-timesyncd the new ntp server can not be validated
-        // add the server name to timesyncd.conf
-        $file = '/etc/systemd/timesyncd.conf';
+        // add the server name to /etc/systemd/timesyncd.conf.d/runeaudio.conf
+        // this file also contains a series of failover ntp servers
+        $file = '/etc/systemd/timesyncd.conf.d/runeaudio.conf';
         // replace the line with 'NTP=' in the line 1 line after a line containing '# Next line is set in RuneAudio Settings'
         // but add the valid pool.ntp.org ntp server to the line in case the new server is invalid
-        $newArray = wrk_replaceTextLine($file, '', 'NTP=', 'NTP='.$ntpserver.' pool.ntp.org', '# Next line is set in RuneAudio Settings', 1);
+        if ($ntpserver === 'pool.ntp.org') {
+            $newArray = wrk_replaceTextLine($file, '', 'NTP=', 'NTP=pool.ntp.org', '# Next line is set in RuneAudio Settings', 1);
+        } else {
+            $newArray = wrk_replaceTextLine($file, '', 'NTP=', 'NTP='.$ntpserver.' pool.ntp.org', '# Next line is set in RuneAudio Settings', 1);
+        }
         // Commit changes to /etc/systemd/timesyncd.conf
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
