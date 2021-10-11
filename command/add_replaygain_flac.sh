@@ -116,17 +116,23 @@ else
         fi
     fi
 fi
+if [ $skip -eq 0 ]; then
+    param="skip"
+else
+    param=""
+fi
+if [ $silent -eq 0 ]; then
+    param="$param silent"
+fi
 #
 if [ $scan -eq 0 ]; then
     dir=$(echo "$1" | tr -s /)
     dir=${dir%/}
-    if [ $silent -eq 0 ]; then
-        find "$dir" -type d -exec /srv/http/command/add_replaygain_flac.sh '{}' silent \;
-    else
+    if [ $silent -eq 1 ]; then
         echo "********************************************************"
         echo "Using root directory : $1"
-        find "$dir" -type d -exec /srv/http/command/add_replaygain_flac.sh '{}' \;
     fi
+    find "$dir" -type d -exec /srv/http/command/add_replaygain_flac.sh '{}' $param \;
 else
     # count the number of FLAC and flac files in this directory.
     flacnuml=$(ls "$1" | grep -c \\.flac)
@@ -146,7 +152,7 @@ else
     #
     cd "$1"
     #
-    if [ $skip -eq 1 ]; then
+    if [ $skip -eq 0 ]; then
         skipSw=1
         if [ $flacnuml -gt 0 ]; then
             FILES="*.flac"
@@ -217,6 +223,7 @@ else
             fi
             metaflac --add-replay-gain "$file"
             # on errors just continue with the next one
+            unset ?
         done
     fi
     #

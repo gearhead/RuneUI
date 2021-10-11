@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Reworking of tag-flac-with-rg.sh and tfwrg.sh
-# Originally created by Bobulous, October 2008.
+# Originally created by Bobulous, October 2008
 # See www.bobulous.org.uk/misc/Replay-Gain-in-Linux.html
 #
 #  If and where applicable, not infringing on any original copyright:
@@ -117,16 +117,23 @@ else
     fi
 fi
 #
+if [ $skip -eq 0 ]; then
+    param="skip"
+else
+    param=""
+fi
+if [ $silent -eq 0 ]; then
+    param="$param silent"
+fi
+#
 if [ $scan -eq 0 ]; then
     dir=$(echo "$1" | tr -s /)
     dir=${dir%/}
-    if [ $silent -eq 0 ]; then
-        find "$dir" -type d -exec /srv/http/command/add_replaygain_all.sh '{}' silent \;
-    else
+    if [ $silent -eq 1 ]; then
         echo "********************************************************"
         echo "Using root directory : $1"
-        find "$dir" -type d -exec /srv/http/command/add_replaygain_all.sh '{}' \;
     fi
+    find "$dir" -type d -exec /srv/http/command/add_replaygain_all.sh '{}' $param \;
 else
     # count the number of files per file type in this directory.
     cd "$1"
@@ -152,7 +159,7 @@ else
     done
     #   when no music files are found in this directory, then exit without error.
     if [ "" == "${filenum[totalfiles]}" ]; then
-        if [ $silent -eq 0 ]; then
+        if [ $silent -eq 1 ]; then
             echo "$1 (No music files)"
         fi
         exit 0
@@ -195,10 +202,15 @@ else
                 echo "$1 ($filecount $key music files:${loudgainfiles[$filetypes]})"
             fi
             if [ $skip -eq 0 ]; then
-                tagcnt=$( mediainfo ${loudgainfiles[$filetypes]} | grep -ic 'replay gain' )
-                # tagcnt=$( mediainfo ${loudgainfiles[$filetypes]} | grep -icE 'replay gain|replaygain' )
-                # there should be 4 reported lines per file for filly tagged music files
-                tagcntl=$(( $filecount * 4 ))
+                if [ "$key" == "flac-type" ]; then
+                    tagcnt=$( mediainfo ${loudgainfiles[$filetypes]} | grep -ic 'replay gain' )
+                    # there should be 4 reported lines per file for fully tagged music files (this only works for flac-type)
+                    tagcntl=$(( $filecount * 4 ))
+                else
+                    tagcnt=$( mediainfo ${loudgainfiles[$filetypes]} | grep -icE 'replaygain_album_gain|replaygain_track_gain' )
+                    # there should be 2 reported lines per file for fully tagged music files (this works for mp3-type & mp4-type, others unknown)
+                    tagcntl=$(( $filecount * 2 ))
+                fi
                 if [ $tagcnt -eq $tagcntl ]; then
                     # all files alredy have tags
                     if [ $silent -eq 1 ]; then
@@ -236,11 +248,12 @@ else
                     continue # its a directory not a file
                 fi
                 if [ $silent -eq 1 ]; then
-                    loudgain -a "$file"
+                    loudgain -a -s e "$file"
                 else
-                    loudgain -aq "$file"
+                    loudgain -a -q -s e "$file"
                 fi
                 # on errors just continue with the next one
+                unset ?
             done
         fi
     done
