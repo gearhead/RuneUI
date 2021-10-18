@@ -1007,6 +1007,10 @@ function updateGUI() {
                             $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
                             $('#artist-bio-overlay').html(info.artist.bio.summary);
                             $('#artist-bio-full-overlay').html(info.artist.bio.content);
+                        } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
+                            $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
+                            $('#artist-bio-overlay').html(info.artist.bio.summary);
+                            $('#artist-bio-full-overlay').html(info.artist.bio.summary);
                         } else {
                             $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
                             $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
