@@ -415,7 +415,7 @@ function redisDatastore($redis,$action) {
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
             // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -v git | grep -v .zip | grep -v .phar');
+            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -vi git | grep -vi .zip | grep -vi .phar');
             foreach ($scripts as $script) {
                 $transaction->sAdd('php_opcache_prime', $script);
             }
@@ -488,7 +488,7 @@ function redisDatastore($redis,$action) {
             break;
         case 'opcachecheck':
             // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -v git | grep -v .zip | grep -v .phar');
+            $scripts = sysCmd('grep -Ril "<?php" /srv 2> nul | grep -vi "vendor" | grep -v ":" | grep -vi git | grep -vi .zip | grep -vi .phar');
             foreach ($scripts as $script) {
                 if (!$redis->exists('php_opcache_prime', $script)) {
                     $redis->sAdd('php_opcache_prime', $script);
