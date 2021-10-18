@@ -14,15 +14,21 @@ if (!$redis->Exists('act_player_info')) {
     echo '';
 } else {
     $info = json_decode($redis->Get('act_player_info'), true);
-    if (isset($info['currentalbumartist']) && $info['currentalbumartist']) {
-        if ((strtolower($info['currentalbumartist']) == 'various artists') && isset($info['currentartist']) && $info['currentartist']) {
-            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh '".trim(preg_replace('![\s]+!', ' ',$info['currentartist']))."'")[1]));
-        } else {
+    if (isset($info['currentartist']) && $info['currentartist']) {
+        if ((strtolower(trim($info['currentartist'])) == 'various artists') && isset($info['currentalbumartist']) && $info['currentalbumartist']) {
             echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh '".trim(preg_replace('![\s]+!', ' ',$info['currentalbumartist']))."'")[1]));
+        } else {
+            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh '".trim(preg_replace('![\s]+!', ' ',$info['currentartist']))."'")[1]));
         }
+    } else if (isset($info['currentalbumartist']) && $info['currentalbumartist']) {
+        echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh '".trim(preg_replace('![\s]+!', ' ',$info['currentalbumartist']))."'")[1]));
     } else {
-        echo '';
+        $fail = array();
+        $fail['error'] = "0";
+        $fail['message'] = "Empty artist name";
+        $fail['links']= array();
+        echo json_encode($fail);
     }
 }
-unset($info);
+unset($info, $fail);
 runelog("\n--------------------- artist info (end) ---------------------");

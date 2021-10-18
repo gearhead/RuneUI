@@ -49,13 +49,17 @@ echo $artist
 
 artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
 
-if [[ $artistinfo == *"png"* ]]; then
+noContent=$( echo $artistinfo | grep -c '"content":""' )
+bio=$( echo $artistinfo | grep -c '"bio":{' )
+if [ $bio -eq 1 ] && [ $noContent -eq 0 ]; then
+    # biography information is available and biography content has a value
     echo $artistinfo
     exit
 fi
 
+# the artist has not been found, maybe 2 artist names with some sort of connecting character or string
 colon=":"
-substituteArray=(" :" " &" "&" " ;" ";" " -" "-" " (" "(" " [" "[" " {" "{" " <" "<" " /" "/")
+substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat" " :" " :")
 for i in "${substituteArray[@]}"; do
     artist_name=${artist_name//$i/$colon}
 done
@@ -68,5 +72,10 @@ if [ "$artist" == "$artist_name" ]; then
     fi
 else
     artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
-    curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0
+    artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
+    if [ "$artistinfo" != "" ]; then
+        echo $artistinfo
+    else
+        echo '{"error":0,"message":"Unknown error","links":[]}'
+    fi
 fi

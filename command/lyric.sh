@@ -58,7 +58,7 @@ if [ "$lyric" != "" ] && [[ $lyric != *"don't have lyrics"* ]]; then
 fi
 
 colon=":"
-substituteArray=(" :" " &" "&" " ;" ";" " -" "-" " (" "(" " [" "[" " {" "{" " <" "<" " /" "/")
+substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat" " :" " :")
 for i in "${substituteArray[@]}"
 do
     artist_name=${artist_name//$i/$colon}
@@ -75,5 +75,10 @@ if [ "$artist" == "$artist_name" ] && [ "$title" == "$title_name" ]; then
 else
     artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
     title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title"`
-    curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0
+    lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
+    if [ "$lyric" != "" ]; then
+        echo $lyric
+    else
+        echo "No lyrics available"
+    fi
 fi
