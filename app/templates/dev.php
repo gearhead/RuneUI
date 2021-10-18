@@ -439,27 +439,30 @@
                     <label class="col-sm-2 control-label">Add ReplayGain tags to all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). There are potential issues with MP3 files, it is possible that the added tags can not be 100% reversed</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). There are potential issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain). There are a couple of issues in this routine, it will tend to do more than required. There are potential issues with MP3 files, it is possible that the added tags can not be 100% reversed</span>
+                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain). There are potential issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). See the note about MP3's above<br>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). See the notes about adding and removing tags above<br>
                         <br>
-                        MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags does not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
+                        MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags should not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
                         Please note that some audio file formats do not support ReplayGain tags, for details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
                         Check that the MPD <a href="/mpd/#general-options">ReplayGain</a> option is enabled for ReplayGain playback.<br>
                         The programs <a href="https://man.archlinux.org/man/extra/flac/metaflac.1.en" target="_blank">metaflac</a> and <a href="https://github.com/Moonbase59/loudgain" target="_blank">loudgain</a> use different algorithms to calculate ReplayGain settings, the results will differ.<br>
-                        All these actions take a long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI. Reboot before running a second job or when you think the current job has finished. <strong>You should have a backup of your music before running these options.</strong><br>
+                        All these actions take a long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI.
+                        Reboot before running a second job or when you think the current job has finished.<br>
+                        <strong>You should have a backup of your music before running these options.</strong><br>
+                        The program metaflac for flac files appears to be very reliable, loudgain has various problems.<br>
                         <i>Indicative performance, average time for adding tags: Pi1B: 2 to 3 albums/hour, Pi4B: 40 to 70 albums/hour. Much depends on the speed of the storage and how it is connected</i></span>
                     </div>
                 </div>
