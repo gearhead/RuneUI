@@ -44,6 +44,7 @@
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
 # <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
+# <mode> can optionally be defined as 'continue', which causes the script to continue on errors
 # <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have ReplayGain set
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
@@ -65,28 +66,19 @@ if [ ! -d "$1" ]; then
     fi
 fi
 #
-if [ ! -w "$1" ]; then
-    echo "Directory $1 is is not writeable!"
-    exit $ERROR_WRITE_PROTECT
-fi
-#
-if [ -z "$2" ]; then
-    silent=1
-    scan=1
-    skip=1
-else
+silent=1
+scan=1
+skip=1
+continue=1
+if [ ! -z "$2" ]; then
     if [ "silent" = "$2" ]; then
         silent=0
-        scan=1
-        skip=1
     elif [ "scan" = "$2" ]; then
-        silent=1
         scan=0
-        skip=1
     elif [ "skip" = "$2" ]; then
-        silent=1
-        scan=1
         skip=0
+    elif [ "continue" = "$2" ]; then
+        continue=0
     else
         echo "Argument 2 $2 invalid!"
         exit $INVALID_ARGUMENT
@@ -98,6 +90,8 @@ else
             scan=0
         elif [ "skip" = "$3" ]; then
             skip=0
+        elif [ "continue" = "$3" ]; then
+            continue=0
         else
             echo "Argument 3 $3 invalid!"
             exit $INVALID_ARGUMENT
@@ -110,10 +104,36 @@ else
             scan=0
         elif [ "skip" = "$4" ]; then
             skip=0
+        elif [ "continue" = "$4" ]; then
+            continue=0
         else
             echo "Argument 4 $4 invalid!"
             exit $INVALID_ARGUMENT
         fi
+    fi
+    if [ ! -z "$5" ]; then
+        if [ "silent" = "$5" ]; then
+            silent=0
+        elif [ "scan" = "$5" ]; then
+            scan=0
+        elif [ "skip" = "$5" ]; then
+            skip=0
+        elif [ "continue" = "$5" ]; then
+            continue=0
+        else
+            echo "Argument 5 $5 invalid!"
+            exit $INVALID_ARGUMENT
+        fi
+    fi
+fi
+#
+if [ ! -w "$1" ]; then
+    if [ $continue -eq 0 ]; then
+        echo "Directory $1 is is not writeable, skipping"
+        exit 0
+    else
+        echo "Directory $1 is is not writeable!"
+        exit $ERROR_WRITE_PROTECT
     fi
 fi
 #
@@ -124,6 +144,9 @@ else
 fi
 if [ $silent -eq 0 ]; then
     param="$param silent"
+fi
+if [ $continue -eq 0 ]; then
+    param="$param continue"
 fi
 #
 if [ $scan -eq 0 ]; then
@@ -217,6 +240,7 @@ else
                         echo "$1 (All files already have ReplayGain:${loudgainfiles[$filetypes]})"
                     fi
                     # clear the variable so they will not be processed
+                    loudgainfiles[$filetypes]=""
                     unset loudgainfiles[$filetypes]
                 fi
             fi
@@ -229,6 +253,9 @@ else
     #
     for loudgainfile in "${loudgainfiles[@]}"
     do
+        if [ "$loudgainfile" = "" ]; then
+            continue
+        fi
         if [ $silent -eq 1 ]; then
             loudgain -a -s e  $loudgainfile
         else

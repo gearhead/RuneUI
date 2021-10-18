@@ -38,24 +38,26 @@
 # Usage <path_to_script>replaygain_flac_to_local.sh <mode> <mode>
 # Where:
 # <mode> can optionally be defined as 'skip', which causes the script to skip the files which already have ReplayGain set
+# <mode> can optionally be defined as 'continue', which causes the script to continue on errors
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
 #
 #
 # Error codes
 INVALID_ARGUMENT=22 # 22 EINVAL Invalid argument
+ERROR_WRITE_PROTECT=13 # 13 EACCES Permission denied (is Windows code 19)
 #
 # validate the parameters
-if [ -z "$1" ]; then
-    silent=""
-    skip=""
-else
+silent=""
+skip=""
+continue=""
+if [ ! -z "$1" ]; then
     if [ "silent" = "$1" ]; then
         silent="silent"
-        skip=""
     elif [ "skip" = "$1" ]; then
-        silent=""
         skip="skip"
+    elif [ "continue" = "$1" ]; then
+        continue="continue"
     else
         echo "Argument 1 $1 invalid!"
         exit $INVALID_ARGUMENT
@@ -65,8 +67,22 @@ else
             silent="silent"
         elif [ "skip" = "$2" ]; then
             skip="skip"
+        elif [ "continue" = "$2" ]; then
+            continue="continue"
         else
             echo "Argument 2 $2 invalid!"
+            exit $INVALID_ARGUMENT
+        fi
+    fi
+    if [ ! -z "$3" ]; then
+        if [ "silent" = "$3" ]; then
+            silent="silent"
+        elif [ "skip" = "$3" ]; then
+            skip="skip"
+        elif [ "continue" = "$3" ]; then
+            continue="continue"
+        else
+            echo "Argument 3 $3 invalid!"
             exit $INVALID_ARGUMENT
         fi
     fi
@@ -84,11 +100,16 @@ do
         if [ -w "$FILE" ]; then
             echo "Mount $FILE is writable"
         else
-            echo "Mount $FILE cannot be remounted for write access, skipping"
-            continue
+            if [ "$continue" = "continue" }; then
+                echo "Mount $FILE cannot be remounted for write access, skipping"
+                continue
+            else
+                echo "Mount $FILE cannot be remounted for write access, terminating"
+                exit $ERROR_WRITE_PROTECT
+            fi
         fi
     fi
-    /srv/http/command/add_replaygain_flac.sh "$FILE" scan $skip $silent
+    /srv/http/command/add_replaygain_flac.sh "$FILE" scan $skip $silent $continue
 done
 #
 exit 0

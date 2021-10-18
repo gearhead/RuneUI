@@ -38,21 +38,35 @@
 # Usage <path_to_script>replaygain_all_to_local.sh <mode>
 # Where:
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
+# <mode> can optionally be defined as 'continue', which causes the script to continue on errors
 # the <mode> parameters must be in lower case
 #
 #
 # Error codes
 INVALID_ARGUMENT=22 # 22 EINVAL Invalid argument
+ERROR_WRITE_PROTECT=13 # 13 EACCES Permission denied (is Windows code 19)
 #
 # validate the parameters
-if [ -z "$1" ]; then
-    silent=""
-else
+silent=""
+continue=""
+if [ ! -z "$1" ]; then
     if [ "silent" = "$1" ]; then
         silent="silent"
+    elif [ "continue" = "$1" ]; then
+        continue="continue"
     else
         echo "Argument 1 $1 invalid!"
         exit $INVALID_ARGUMENT
+    fi
+    if [ ! -z "$2" ]; then
+        if [ "silent" = "$2" ]; then
+            silent="silent"
+        elif [ "continue" = "$2" ]; then
+            continue="continue"
+        else
+            echo "Argument 2 $2 invalid!"
+            exit $INVALID_ARGUMENT
+        fi
     fi
 fi
 #
@@ -68,11 +82,16 @@ do
         if [ -w "$FILE" ]; then
             echo "Mount $FILE is writable"
         else
-            echo "Mount $FILE cannot be remounted for write access, skipping"
-            continue
+            if [ "$continue" = "continue" }; then
+                echo "Mount $FILE cannot be remounted for write access, skipping"
+                continue
+            else
+                echo "Mount $FILE cannot be remounted for write access, terminating"
+                exit $ERROR_WRITE_PROTECT
+            fi
         fi
     fi
-    /srv/http/command/remove_replaygain_all.sh "$FILE" scan $silent
+    /srv/http/command/remove_replaygain_all.sh "$FILE" scan $silent $continue
 done
 #
 exit 0

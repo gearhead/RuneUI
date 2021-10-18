@@ -44,6 +44,7 @@
 # Where:
 # <directory> must be a valid directory, this is the directory to be processed (use quotes it there are spaces in the file name)
 # <mode> can optionally be defined as 'scan' to process specified directory and its subdirectories
+# <mode> can optionally be defined as 'continue', which causes the script to continue on errors
 # <mode> can optionally be defined as 'silent', which causes the script to run silently unless an error condition arises
 # the <mode> parameters can be given in any order after the directory, they must be in lower case
 #
@@ -59,23 +60,18 @@ if [ ! -d "$1" ]; then
     exit $ARGUMENT_NOT_DIRECTORY
 fi
 #
-if [ ! -w "$1" ]; then
-    echo "Directory $1 is is not writeable!"
-    exit $ERROR_WRITE_PROTECT
-fi
-#
-if [ -z "$2" ]; then
-    silent=1
-    scan=1
-else
+silent=1
+scan=1
+continue=1
+if [ ! -z "$2" ]; then
     if [ "silent" = "$2" ]; then
         silent=0
-        scan=1
     elif [ "scan" = "$2" ]; then
-        silent=1
         scan=0
+    elif [ "continue" = "$2" ]; then
+        continue=0
     else
-        echo "Argument $2 invalid!"
+        echo "Argument 2 $2 invalid!"
         exit $INVALID_ARGUMENT
     fi
     if [ ! -z "$3" ]; then
@@ -83,23 +79,54 @@ else
             silent=0
         elif [ "scan" = "$3" ]; then
             scan=0
+        elif [ "continue" = "$3" ]; then
+            continue=0
         else
-            echo "Argument $3 invalid!"
+            echo "Argument 3 $3 invalid!"
+            exit $INVALID_ARGUMENT
+        fi
+    fi
+    if [ ! -z "$4" ]; then
+        if [ "silent" = "$4" ]; then
+            silent=0
+        elif [ "scan" = "$4" ]; then
+            scan=0
+        elif [ "continue" = "$4" ]; then
+            continue=0
+        else
+            echo "Argument 4 $4 invalid!"
             exit $INVALID_ARGUMENT
         fi
     fi
 fi
 #
+if [ ! -w "$1" ]; then
+    if [ $continue -eq 0 ]; then
+        echo "Directory $1 is is not writeable, skipping"
+        exit 0
+    else
+        echo "Directory $1 is is not writeable!"
+        exit $ERROR_WRITE_PROTECT
+    fi
+fi
+#
+if [ $silent -eq 0 ]; then
+    param="$param silent"
+else
+    param=""
+fi
+if [ $continue -eq 0 ]; then
+    param="$param continue"
+fi
+#
 if [ $scan -eq 0 ]; then
     dir=$(echo "$1" | tr -s /)
     dir=${dir%/}
-    if [ $silent -eq 0 ]; then
-        find "$dir" -type d -exec /srv/http/command/remove_replaygain_flac.sh '{}' silent \;
-    else
+    if [ $silent -eq 1 ]; then
         echo "********************************************************"
         echo "Using root directory : $1"
-        find "$dir" -type d -exec /srv/http/command/remove_replaygain_flac.sh '{}' \;
     fi
+    find "$dir" -type d -exec /srv/http/command/remove_replaygain_flac.sh '{}' $param \;
 else
     # count the number of flac and FLAC files in this directory.
     flacnuml=$(ls "$1" | grep -c \\.flac)
@@ -153,6 +180,7 @@ else
                 continue # its a directory not a file
             fi
             metaflac --remove-replay-gain "$file"
+            unset ?
             # on errors just continue with the next one
         done
     fi
