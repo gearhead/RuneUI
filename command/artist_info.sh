@@ -40,17 +40,23 @@ fi
 
 artist_name="$1"
 if [ -z "$artist_name" ]; then
-    artist_name=`mpc -f %name% | head -n 1`
+    artist_name=$( mpc current | cut -s -d "-" -f 1 )
+    artist_name=$( echo $artist_name | tr -s " " )
+fi
+if [ -z "$artist_name" ]; then
+    echo '{"error":0,"message":"Invalid artist name","links":[]}'
+    exit
 fi
 
 artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist_name"`
 
 echo $artist
 
-artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
+artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<br>/g' | xargs -0 )
 
 noContent=$( echo $artistinfo | grep -c '"content":""' )
 bio=$( echo $artistinfo | grep -c '"bio":{' )
+noSummary=$( echo $artistinfo | grep -c '"summary":""' )
 if [ $bio -eq 1 ] && [ $noContent -eq 0 ]; then
     # biography information is available and biography content has a value
     echo $artistinfo
@@ -58,24 +64,38 @@ if [ $bio -eq 1 ] && [ $noContent -eq 0 ]; then
 fi
 
 # the artist has not been found, maybe 2 artist names with some sort of connecting character or string
+artist=${artist_name//\\/}
 colon=":"
-substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat" " :" " :")
+substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat")
 for i in "${substituteArray[@]}"; do
-    artist_name=${artist_name//$i/$colon}
+    artist=${artist//$i/$colon}
 done
-artist=$(echo $artist_name  | cut -d ':' -f 1 )
+artist=$( echo $artist | cut -d ':' -f 1 )
+artist=$( echo $artist | tr -s " " )
+
 if [ "$artist" == "$artist_name" ]; then
-    if [ "$artistinfo" != "" ]; then
+    substituteArray=("\?" "#" "@" "!" "$" "\*" "+" "," "=")
+    space=" "
+    for i in "${substituteArray[@]}"; do
+        artist=${artist//$i/$space}
+    done
+    artist=$( echo $artist | tr -s " " )
+fi
+
+if [ "$artist" == "$artist_name" ]; then
+    if [ $bio -eq 1 ] && [ $noSummary -eq 0 ]; then
         echo $artistinfo
     else
         echo '{"error":0,"message":"Unknown error","links":[]}'
     fi
+    exit
+fi
+
+artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
+artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<br>/g' | xargs -0 )
+bio=$( echo $artistinfo | grep -c '"bio":{' )
+if [ $bio -eq 1 ]; then
+    echo $artistinfo
 else
-    artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
-    artistinfo=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
-    if [ "$artistinfo" != "" ]; then
-        echo $artistinfo
-    else
-        echo '{"error":0,"message":"Unknown error","links":[]}'
-    fi
+    echo '{"error":0,"message":"Unknown error","links":[]}'
 fi

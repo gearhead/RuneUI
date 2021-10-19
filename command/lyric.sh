@@ -37,48 +37,87 @@ if [ "$available" != 1 ] ; then
     echo "No lyrics server available"
     exit
 fi
+
 artist_name="$1"
+if [ -z "$artist_name" ]; then
+    artist_name=$( mpc current | cut -s -d "-" -f 1 )
+    artist_name=$( echo $artist_name | tr -s " " )
+fi
+if [ -z "$artist_name" ]; then
+    echo "Invalid artist name"
+    exit
+fi
 title_name="$2"
+if [ -z "$title_name" ]; then
+    title_name=$( mpc current | cut -s -d "-" -f 2 )
+    title_name=$( echo $title_name | tr -s " " )
+fi
+if [ -z "$title_name" ]; then
+    echo "Invalid song title"
+    exit
+fi
+
 artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist_name"`
 title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title_name"`
 
 echo $artist
 echo $title
 
-lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
+lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<br>/g' | xargs -0 )
+lyric=$( echo $lyric | tr -s " " )
+lenLyric=${#lyric}
 
 if [[ $lyric == *"something went wrong"* ]]; then
     echo "No lyrics server available"
     exit
 fi
 
-if [ "$lyric" != "" ] && [[ $lyric != *"don't have lyrics"* ]]; then
+if [ $lenLyric -gt 5 ] && [[ $lyric != *"don't have lyrics"* ]]; then
     echo $lyric
     exit
 fi
 
+artist=${artist_name//\\/}
+title=${title_name//\\/}
 colon=":"
-substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat" " :" " :")
+substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat")
 for i in "${substituteArray[@]}"
 do
-    artist_name=${artist_name//$i/$colon}
-    title_name=${title_name//$i/$colon}
+    artist=${artist//$i/$colon}
+    title=${title//$i/$colon}
 done
-artist=$(echo $artist_name  | cut -d ':' -f 1 )
-title=$(echo $title_name  | cut -d ':' -f 1 )
+artist=$( echo $artist | cut -d ':' -f 1 )
+title=$( echo $title | cut -d ':' -f 1 )
+artist=$( echo $artist | tr -s " " )
+title=$( echo $title | tr -s " " )
+
 if [ "$artist" == "$artist_name" ] && [ "$title" == "$title_name" ]; then
-    if [ "$lyric" != "" ]; then
+    substituteArray=("\?" "#" "@" "!" "$" "\*" "+" "," "=")
+    space=" "
+    for i in "${substituteArray[@]}"; do
+        artist=${artist//$i/$space}
+        title=${title//$i/$space}
+    done
+    artist=$( echo $artist | tr -s " " )
+    title=$( echo $title | tr -s " " )
+fi
+
+if [ "$artist" == "$artist_name" ] && [ "$title" == "$title_name" ]; then
+    if [ $lenLyric -gt 5 ]; then
         echo $lyric
     else
         echo "No lyrics available"
     fi
+    exit
+fi
+
+artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
+title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title"`
+lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<br>/g' | xargs -0 )
+lyric=$( echo $lyric | tr -s " " )
+lenLyric=${#lyric}
+if [ $lenLyric -gt 5 ]; then
+    echo $lyric
 else
-    artist=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$artist"`
-    title=`perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$title"`
-    lyric=$( curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://makeitpersonal.co/lyrics?artist=$artist&title=$title" | sed ':a;N;$!ba;s/\n/<\/br>/g' | xargs -0 )
-    if [ "$lyric" != "" ]; then
-        echo $lyric
-    else
-        echo "No lyrics available"
-    fi
+    echo "No lyrics available"
 fi
