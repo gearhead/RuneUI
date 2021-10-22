@@ -77,10 +77,11 @@ if [ $lenLyric -gt 5 ] && [[ $lyric != *"don't have lyrics"* ]]; then
     exit
 fi
 
+# the artist/title has not been found, maybe 2 artist names with some sort of connecting character or string
 artist=${artist_name//\\/}
 title=${title_name//\\/}
 colon=":"
-substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" "Feat." "feat." "Feat" "feat")
+substituteArray=("&" ";" "-" "(" "[" "{" "<" "/" " Feat. " " feat. " " Feat " " feat " " ft " " ft. " " Ft " " Ft. " " featuring " " Featuring " " vs. " " vs " " Vs. " " Vs ")
 for i in "${substituteArray[@]}"
 do
     artist=${artist//$i/$colon}
