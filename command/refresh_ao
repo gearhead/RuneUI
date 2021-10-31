@@ -32,21 +32,29 @@
  *  coder: Simone De Gregori
  *
  */
-// common include
+// initialisation
+// report errors by setting display_errors to true (=1)
 ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
 ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/refresh_ao.log');
-// RuneAudio Library include
+// common include
 require_once('/srv/http/app/libs/runeaudio.php');
-// Connect to Redis backend include
+// Connect to Redis backend
 require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: refresh_ao ---------------" > /var/log/runeaudio/refresh_ao.log');
+// logging starting message
+runelog('WORKER refresh_ao STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
 // get the lock status
 $lock = $redis->get('lock_refresh_ao');
 runelog('lock status ', $lock);
-// startup
-runelog('--------------------------- start Audio Outputs refresh ---------------------------');
 // refesh audio hardware status (soundcards and MPD config)
-if ($lock === '0' || $lock === '9') {
+if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     // set the lock
     $redis->set('lock_refresh_ao', '1');
     wrk_mpdconf($redis, 'refreshsoundcards');
@@ -60,8 +68,8 @@ if ($lock === '0' || $lock === '9') {
     $lock += 1;
     $redis->set('lock_refresh_ao', $lock);
 }
-// startup
-runelog('-------------------------- #finish Audio Outputs refresh# --------------------------');
 runelog('lock status ', $redis->get('lock_refresh_ao'));
 // close Redis connection
 $redis->close();
+
+runelog('WORKER refresh_ao END...');
