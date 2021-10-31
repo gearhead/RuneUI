@@ -977,9 +977,9 @@ function sysCmd($syscmd)
 
 function sysCmdAsync($syscmd, $waitsec = null) {
     if (isset($waitsec)) {
-        $cmdstr = "/var/www/command/cmd_async ".base64_encode($syscmd);
+        $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd);
     } else {
-        $cmdstr = "/var/www/command/cmd_async ".base64_encode($syscmd);
+        $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd);
     }
     exec($cmdstr." > /dev/null 2>&1 &", $output);
     runelog('sysCmdAsync($cmdstr) decoded', $syscmd, __FUNCTION__);
@@ -1816,7 +1816,7 @@ function wrk_avahiconfig($redis, $hostname)
     clearstatcache(true, '/etc/avahi/services/runeaudio.service');
     if (!file_exists('/etc/avahi/services/runeaudio.service')) {
         runelog('avahi service descriptor not present, initializing...');
-        sysCmd('/usr/bin/cp /var/www/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
+        sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
     }
     $file = '/etc/avahi/services/runeaudio.service';
     $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
@@ -1940,12 +1940,12 @@ function wrk_backup($redis, $bktype = null)
             "";
     }
     // add the names of the distribution files
-    $extraFiles = sysCmd('find /var/www/app/config/defaults/ -type f');
+    $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
     foreach ($extraFiles as $extraFile) {
         // convert the names of the distribution files to the location of production version (the one being used)
-        $fileName = str_replace('/var/www/app/config/defaults', '', $extraFile);
-        if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/var/www/') || (substr($fileName, 0, 5) === '/etc/'))) {
-            // skip any files in /var/www/ and /etc/ for a dev backup, they are already included
+        $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
+        if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
+            // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
             continue;
         }
         // clear the cache otherwise file_exists() returns incorrect values
@@ -2218,8 +2218,8 @@ function wrk_apconfig($redis, $action, $args = null)
         // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
         //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
         //  currently disabled, the UI will only display QR-codes for the default settings
-        // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
-        // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
+        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
+        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
     } else {
         // now disabled
         $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
@@ -2306,8 +2306,8 @@ function wrk_apconfig($redis, $action, $args = null)
                 // }
                 // $return = '';
             // }
-            // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioAP.png "WIFI:S:'.$args->ssid.';T:WPA2;P:'.$args->passphrase.';;"');
-            // sysCmd('qrencode -l H -t PNG -o /var/www/assets/img/RuneAudioURL.png http://'.$args->{'ip-address'});
+            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args->ssid.';T:WPA2;P:'.$args->passphrase.';;"');
+            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args->{'ip-address'});
             // break;
         // case 'reset':
             // break;
@@ -3574,7 +3574,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // some users need to add an extra parameters to the MPD configuration file
             // this can be specified in the file /home/your-extra-mpd.conf
-            // see the example file: /var/www/app/config/defaults/your-extra-mpd.conf
+            // see the example file: /srv/http/app/config/defaults/your-extra-mpd.conf
             // clear the cache otherwise file_exists() returns incorrect values
             clearstatcache(true, '/home/your-extra-mpd.conf');
             if (file_exists('/home/your-extra-mpd.conf')) {
@@ -3714,7 +3714,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
             }
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
             unset($activePlayer, $retval);
             break;
         case 'forcestop':
@@ -3773,7 +3773,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            // sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
         case 'forcerestart':
@@ -3805,7 +3805,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            // sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
     }
@@ -3958,7 +3958,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $spotifyd_conf .= "# Configuration File for Spotifyd\n";
     $spotifyd_conf .= "# A spotify playing daemon - Spotify Connect Receiver\n";
     $spotifyd_conf .= '# See: https://github.com/Spotifyd/spotifyd#configuration'."\n";
-    $spotifyd_conf .= '# Also see: /var/www/app/config/defaults/spotifyd.conf'."\n";
+    $spotifyd_conf .= '# Also see: /srv/http/app/config/defaults/spotifyd.conf'."\n";
     $spotifyd_conf .= "############################################################\n";
     $spotifyd_conf .= "#\n";
     $spotifyd_conf .= "[global]\n";
@@ -4660,7 +4660,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
             break;
         case 'umountall':
             wrk_mpdconf($redis,'forcestop');
@@ -4675,7 +4675,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
             break;
         case 'mountall':
             // Note: wrk_sourcemount() will not do anything for existing mounts
@@ -5223,7 +5223,7 @@ function wrk_SpotifyConnectMetadata($redis, $event, $track_id)
             // no break;
         case 'stop':
             // run asynchronous metadata script
-            sysCmdAsync('nice --adjustment=2 /var/www/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
+            sysCmdAsync('nice --adjustment=2 /srv/http/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
             break;
         default:
             runelog('wrk_SpotifyConnectMetadata error:', 'Unknown event');
@@ -5509,7 +5509,7 @@ function wrk_changeHostname($redis, $newhostname)
     }
     $redis->set('avahiconfchange', 0);
     // set process priority
-    sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+    sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
 }
 
 function wrk_upmpdcli($redis, $name = null, $queueowner = null)
@@ -5541,7 +5541,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null)
         sysCmd('systemctl reload-or-restart upmpdcli');
     }
     // set process priority
-    sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+    sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
 }
 
 function alsa_findHwMixerControl($cardID)
@@ -5673,9 +5673,9 @@ function ui_notify_async($title, $text, $type = null, $permanotice = null)
     $output = json_encode($output);
     runelog('notify (async) JSON string: ', $output);
     if (!strpos(' '.$output,"'")) {
-        sysCmdAsync('/var/www/command/ui_notify.php \''.$output.'\'');
+        sysCmdAsync('/srv/http/command/ui_notify.php \''.$output.'\'');
     } else {
-        sysCmdAsync('/var/www/command/ui_notify.php "'.$output.'"');
+        sysCmdAsync('/srv/http/command/ui_notify.php "'.$output.'"');
     }
 }
 
@@ -7246,7 +7246,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
                             sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
-                            sysCmdAsync('nice --adjustment=2 /var/www/command/rune_prio nice');
+                            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
                         }
                     }
                 }
