@@ -1956,8 +1956,6 @@ function wrk_backup($redis, $bktype = null)
         }
     }
     ui_notify('Diagnosics', $cmdstring);
-    // remove debug data from redis
-    $redis->set('debugdata', '');
     // save the redis database
     $redis->save();
     // run the backup
