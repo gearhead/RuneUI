@@ -140,7 +140,7 @@ redis-cli del addo
 rm -f /var/lib/mpd/mpd.db
 rm -f /var/lib/mpd/mpdstate
 rm -rf /root/.*
-rm -rf /var/www/test
+rm -rf /srv/http/test
 rm -rf /mnt/MPD/LocalStorage/*
 rm -rf /mnt/MPD/Webradio/*
 rm -rf /var/lib/mpd/playlists/*
@@ -184,10 +184,10 @@ ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # update local git and clean up any stashes
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
-md5beforeRotate=$( md5sum /var/www/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
-md5beforeSpotifyd=$( md5sum /var/www/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
+md5beforeRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
+md5beforeSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5beforeGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
-rm -f /var/www/command/mpd-watchdog
+rm -f /srv/http/command/mpd-watchdog
 cd /srv/http/
 git config --global core.editor "nano"
 git config user.email "any@body.com"
@@ -211,8 +211,8 @@ if [ "$1" == "full" ]; then
 fi
 cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
-md5afterRotate=$( md5sum /var/www/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
-md5afterSpotifyd=$( md5sum /var/www/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
+md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
+md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5afterGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
 if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
     set +x
@@ -262,11 +262,11 @@ redis-cli set hwplatformid ""
 #
 # install raspi-rotate, only when chromium is installed
 if [ -f "/bin/chromium" ]; then
-    /var/www/command/raspi-rotate-install.sh
+    /srv/http/command/raspi-rotate-install.sh
 fi
 #
 # install spotifyd
-/var/www/command/spotifyd-install.sh
+/srv/http/command/spotifyd-install.sh
 #
 # remove any samba passwords
 pdbedit -L | grep -o ^[^:]* | smbpasswd -x

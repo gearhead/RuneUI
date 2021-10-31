@@ -37,12 +37,12 @@ if (!$redis->Exists('act_player_info')) {
     }
     if (isset($info['currentartist']) && $info['currentartist'] && isset($info['currentsong']) && $info['currentsong']) {
         if ((strtolower(trim($info['currentartist'])) == 'various artists') && isset($info['currentalbumartist']) && $info['currentalbumartist']) {
-            echo sysCmd("sh /var/www/command/lyric.sh ".$currentalbumartist." ".$currentsong)[2];
+            echo sysCmd("sh /srv/http/command/lyric.sh ".$currentalbumartist." ".$currentsong)[2];
         } else {
-            echo sysCmd("sh /var/www/command/lyric.sh ".$currentartist." ".$currentsong)[2];
+            echo sysCmd("sh /srv/http/command/lyric.sh ".$currentartist." ".$currentsong)[2];
         }
     } else if (isset($info['currentalbumartist']) && $info['currentalbumartist'] && isset($info['currentsong']) && $info['currentsong']) {
-        echo sysCmd("sh /var/www/command/lyric.sh ".$currentalbumartist." ".$currentsong)[2];
+        echo sysCmd("sh /srv/http/command/lyric.sh ".$currentalbumartist." ".$currentsong)[2];
     } else {
         echo 'Invalid Artist and/or Song - No lyrics available';
     }

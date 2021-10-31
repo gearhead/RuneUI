@@ -45,16 +45,16 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     # Dos2Unix conversion
     # exclude binary files, keep the date, keep the old file name
     #
-    # all files in the directory /var/www/app/config/defaults/ inclusive subdirectories
+    # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
     # exceptions are /boot/config.txt and /boot/wifi/* these stay in ms-dos format
-    cp /var/www/app/config/defaults/boot/config.txt /tmp/config.txt
-    cp /var/www/app/config/defaults/boot/archimago_underclocking.txt /tmp/archimago_underclocking.txt
-    cp -r /var/www/app/config/defaults/boot/wifi /tmp
-    cd /var/www/app/config/defaults
-    find /var/www/app/config/defaults/ -type f -exec dos2unix -k -s -o {} \;
-    cp /tmp/config.txt /var/www/app/config/defaults/boot/config.txt
-    cp /tmp/archimago_underclocking.txt /var/www/app/config/defaults/boot/archimago_underclocking.txt
-    cp -r /tmp/wifi /var/www/app/config/defaults/boot
+    cp /srv/http/app/config/defaults/boot/config.txt /tmp/config.txt
+    cp /srv/http/app/config/defaults/boot/archimago_underclocking.txt /tmp/archimago_underclocking.txt
+    cp -r /srv/http/app/config/defaults/boot/wifi /tmp
+    cd /srv/http/app/config/defaults
+    find /srv/http/app/config/defaults/ -type f -exec dos2unix -k -s -o {} \;
+    cp /tmp/config.txt /srv/http/app/config/defaults/boot/config.txt
+    cp /tmp/archimago_underclocking.txt /srv/http/app/config/defaults/boot/archimago_underclocking.txt
+    cp -r /tmp/wifi /srv/http/app/config/defaults/boot
     rm /tmp/config.txt
     rm -r /tmp/wifi
     # all files in /srv/http/assets/js

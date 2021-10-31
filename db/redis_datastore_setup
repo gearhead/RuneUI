@@ -195,8 +195,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('airplay', 'interpolation', 'soxr');
             $redis->hSet('airplay', 'output_backend', 'alsa');
             $redis->hSet('airplay', 'alac_decoder', 'apple');
-            $redis->hSet('airplay', 'run_this_before_play_begins', '/var/www/command/airplay_toggle on');
-            $redis->hSet('airplay', 'run_this_after_play_ends', '/var/www/command/airplay_toggle off');
+            $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
+            $redis->hSet('airplay', 'run_this_after_play_ends', '/srv/http/command/airplay_toggle off');
             $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
             $redis->hSet('airplay', 'alsa_output_device', 'default');
             $redis->hSet('airplay', 'alsa_mixer_device', 'default');
@@ -583,8 +583,8 @@ function redisDatastore($redis,$action) {
             $redis->hExists('airplay', 'pipe_pipe_name') || $redis->hSet('airplay', 'pipe_pipe_name', '/tmp/shairport-sync-output-pipe');
             $redis->hExists('airplay', 'metadata_include_cover_art') || $redis->hSet('airplay', 'metadata_include_cover_art', 'yes');
             $redis->hExists('airplay', 'metadata_pipe_name') || $redis->hSet('airplay', 'metadata_pipe_name', '/tmp/shairport-sync-metadata');
-            $redis->hExists('airplay', 'run_this_before_play_begins') || $redis->hSet('airplay', 'run_this_before_play_begins', '/var/www/command/airplay_toggle on');
-            $redis->hExists('airplay', 'run_this_after_play_ends') || $redis->hSet('airplay', 'run_this_after_play_ends', '/var/www/command/airplay_toggle off');
+            $redis->hExists('airplay', 'run_this_before_play_begins') || $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
+            $redis->hExists('airplay', 'run_this_after_play_ends') || $redis->hSet('airplay', 'run_this_after_play_ends', '/srv/http/command/airplay_toggle off');
             $redis->hExists('airplay', 'run_this_wait_for_completion') || $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
             $redis->hExists('airplay', 'extlabel') || $redis->hSet('airplay', 'extlabel', 'none');
             $redis->hExists('airplay', 'source_ip_number') || $redis->hSet('airplay', 'source_ip_number', '');

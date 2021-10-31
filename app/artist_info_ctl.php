@@ -30,12 +30,12 @@ if (!$redis->Exists('act_player_info')) {
     }
     if (isset($info['currentartist']) && $info['currentartist']) {
         if ((strtolower(trim($info['currentartist'])) == 'various artists') && isset($info['currentalbumartist']) && $info['currentalbumartist']) {
-            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh ".$currentalbumartist)[1]));
+            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /srv/http/command/artist_info.sh ".$currentalbumartist)[1]));
         } else {
-            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh ".$currentartist)[1]));
+            echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /srv/http/command/artist_info.sh ".$currentartist)[1]));
         }
     } else if (isset($info['currentalbumartist']) && $info['currentalbumartist']) {
-        echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /var/www/command/artist_info.sh ".$currentalbumartist)[1]));
+        echo str_replace('">Read more on Last.fm', '/+wiki\" target=\"_blank\" rel=\"nofollow\">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',sysCmd("sh /srv/http/command/artist_info.sh ".$currentalbumartist)[1]));
     } else {
         $fail = array();
         $fail['error'] = "0";

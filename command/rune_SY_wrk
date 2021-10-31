@@ -113,7 +113,7 @@ if ($arch_db !== $arch) {
 }
 
 // check git branch
-$gitbranch = sysCmd("cd /var/www/ ; git branch | grep \"*\" | cut -d ' ' -f 2");
+$gitbranch = sysCmd("cd /srv/http/ ; git branch | grep \"*\" | cut -d ' ' -f 2");
 runelog('GIT BRANCH: ', $gitbranch[0]);
 $redis->hSet('git', 'branch', $gitbranch[0]);
 
@@ -125,7 +125,7 @@ if ($playerid_db === '') {
     wrk_sysAcl();
     // reset Redis Player Datastore
     runelog('invoke Redis player datastore reset');
-    sysCmd('/var/www/db/redis_datastore_setup reset');
+    sysCmd('/srv/http/db/redis_datastore_setup reset');
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
     wrk_setHwPlatform($redis);
@@ -169,16 +169,16 @@ if ($playerid_db === '') {
     wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        sysCmd('/var/www/command/bluetooth_on.sh');
+        sysCmd('/srv/http/command/bluetooth_on.sh');
     } else {
-        sysCmd('/var/www/command/bluetooth_off.sh');
+        sysCmd('/srv/http/command/bluetooth_off.sh');
     }
     sysCmd('systemctl daemon-reload');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
-    sysCmd('/var/www/command/rune_shutdown reboot');
+    sysCmd('/srv/http/command/rune_shutdown reboot');
     sysCmd('reboot');
     // should never get here
     // invoke rune_SY_wrk respawn
@@ -191,7 +191,7 @@ if ($playerid_db === '') {
     wrk_sysAcl();
     // check Redis Player Datastore
     runelog('invoke Redis player datastore check');
-    sysCmd('/var/www/db/redis_datastore_setup check');
+    sysCmd('/srv/http/db/redis_datastore_setup check');
     // stop MPD and associated services
     wrk_mpdconf($redis,'stop');
     // reset mpdconf to defaults (also restarts mpd)
@@ -236,7 +236,7 @@ if ($playerid_db === '') {
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
     // then refresh nics, check redis datastore status, check if an active internet connection is available
     // mostly these commands should do nothing or very little, they are also not essential for the startup sequence
-    sysCmdAsync('nice --adjustment=2 /srv/http/command/create_work_dirs.sh ; /srv/http/command/internet_available_async.sh ; php -f /srv/http/db/redis_datastore_setup check ; php -f /var/www/command/refresh_nics');
+    sysCmdAsync('nice --adjustment=2 /srv/http/command/create_work_dirs.sh ; /srv/http/command/internet_available_async.sh ; php -f /srv/http/db/redis_datastore_setup check ; php -f /srv/http/command/refresh_nics');
     //
     // check HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
     $retval = sysCmd('hostname');
@@ -316,7 +316,7 @@ if ($playerid_db === '') {
     //
     // initialize OrionProfile
     runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
-    sysCmd("/var/www/command/orion_optimize.sh ".$redis->get('orionprofile')." ".$redis->get('hwplatformid'));
+    sysCmd("/srv/http/command/orion_optimize.sh ".$redis->get('orionprofile')." ".$redis->get('hwplatformid'));
     //
     // start php-fpm if required
     $retval = sysCmd('systemctl is-active php-fpm');
@@ -355,7 +355,7 @@ if ($playerid_db === '') {
     // turn wifi power saving off
     sysCmd('iwconfig wlan0 power off');
     // reset usb storage (also starts samba), set the mpd volume, collect debug data, set process priority (to nice)
-    sysCmdAsync('nice --adjustment=1 /var/www/command/usbmount ; php -f /var/www/command/set_mpd_volume.php ; php -f /var/www/command/debug_collector ; /srv/http/command/rune_prio nice');
+    sysCmdAsync('nice --adjustment=2 /srv/http/command/usbmount ; php -f /srv/http/command/set_mpd_volume.php ; php -f /srv/http/command/debug_collector ; /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
         // display the first boot message
         sysCmd("ply-image '/usr/share/bootsplash/runeaudio_first_time.png'");
@@ -822,7 +822,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     // $job>args contains the playlist name
                     // run the job async with a lower priority
-                    sysCmdAsync('nice --adjustment=2 /var/www/command/remove_playlist_duplicates.sh '."'".$job->args."'");
+                    sysCmdAsync('nice --adjustment=2 /srv/http/command/remove_playlist_duplicates.sh '."'".$job->args."'");
                     //ui_notify_async('Remove duplicates started for playlist:', $job->args, $jobID);
                     // noid ui_notify_async('Remove duplicates started for playlist:', $job->args);
                     ui_notify('Remove duplicates started for playlist:', $job->args);
@@ -833,7 +833,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     // $job>args contains the playlist name
                     // run the job async with a lower priority
-                    sysCmdAsync('nice --adjustment=2 /var/www/command/remove_playlist_invalid.sh '."'".$job->args."'");
+                    sysCmdAsync('nice --adjustment=2 /srv/http/command/remove_playlist_invalid.sh '."'".$job->args."'");
                     //ui_notify_async('Remove invalid entries started for playlist:', $job->args, $jobID);
                     // noid ui_notify_async('Remove invalid entries started for playlist:', $job->args);
                     ui_notify('Remove invalid entries started for playlist:', $job->args);
@@ -970,13 +970,13 @@ while (1) {
                 case 'airplayconfreset':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    sysCmd('cp /var/www/app/config/defaults/shairport-sync.service /usr/lib/systemd/system/shairport-sync.service');
-                    sysCmd('cp /var/www/app/config/defaults/shairport-sync.conf /etc/shairport-sync.conf');
+                    sysCmd('cp /srv/http/app/config/defaults/shairport-sync.service /usr/lib/systemd/system/shairport-sync.service');
+                    sysCmd('cp /srv/http/app/config/defaults/shairport-sync.conf /etc/shairport-sync.conf');
                     wrk_sysAcl();
                     $airplay_name = $redis->hGet('airplay', 'name');
                     $airplay_enable = $redis->hGet('airplay', 'enable');
                     $redis->del('airplay');
-                    sysCmd('/var/www/db/redis_datastore_setup check');
+                    sysCmd('/srv/http/db/redis_datastore_setup check');
                     $redis->hSet('airplay', 'name', $airplay_name);
                     $redis->hSet('airplay', 'enable', $airplay_enable);
                     wrk_getHwPlatform($redis);
@@ -991,13 +991,13 @@ while (1) {
                     sysCmd('systemctl disable smbd smb nmbd nmb');
                     // reset the config files
                     sysCmd('rm -f /etc/samba/*.conf');
-                    sysCmd('cp /var/www/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
-                    sysCmd('cp /var/www/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
+                    sysCmd('cp /srv/http/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
+                    sysCmd('cp /srv/http/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
                     sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
                     sysCmd('find /etc/samba -name *.conf -exec chmod 644 {} \;');
                     // reset the redis varables for samba (set to OFF and Read-Only)
                     $redis->del('samba');
-                    sysCmd('/var/www/db/redis_datastore_setup check');
+                    sysCmd('/srv/http/db/redis_datastore_setup check');
                     // remove any samba usernames and passwords
                     sysCmd('pdbedit -L | grep -o ^[^:]* | smbpasswd -x');
                     // restart samba if required (e.g. when in dev mode)
@@ -1138,7 +1138,7 @@ while (1) {
                     $redis->sAdd('w_lock', $jobID);
                     $profile = $job->args." ".$redis->get('hwplatformid');
                     runelog("env: SET KERNEL PROFILE", $job->args);
-                    sysCmd("/var/www/command/orion_optimize.sh ".$profile);
+                    sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
                     $redis->set('orionprofile', $job->args);
                     //ui_notify_async('SoundSignature', 'Profile '.$profile.' applied', $jobID);
                     // noid ui_notify_async('SoundSignature', 'Profile '.$profile.' applied');
@@ -1161,7 +1161,7 @@ while (1) {
                     //ui_notify_async('Shutdown', 'system shutdown in progress...', $jobID);
                     // noid ui_notify_async('Shutdown', 'system shutdown in progress...');
                     ui_notify('Shutdown', 'system shutdown in progress...');
-                    sysCmd('/var/www/command/rune_shutdown poweroff');
+                    sysCmd('/srv/http/command/rune_shutdown poweroff');
                     sysCmd('redis-cli shutdown save; shutdown now --poweroff --no-wall');
                     $redis->sRem('w_lock', $jobID);
                     break;
@@ -1175,7 +1175,7 @@ while (1) {
                     //ui_notify_async('Reboot', 'system reboot in progress...', $jobID);
                     // noid ui_notify_async('Reboot', 'system reboot in progress...');
                     ui_notify('Reboot', 'system reboot in progress...');
-                    sysCmd('/var/www/command/rune_shutdown reboot');
+                    sysCmd('/srv/http/command/rune_shutdown reboot');
                     sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
                     $redis->sRem('w_lock', $jobID);
                     break;
@@ -1418,7 +1418,7 @@ while (1) {
                     }
                     if ($job->action === 'rebuild') {
                         runelog('service: WEBRADIO rebuild', $job->args);
-                        sysCmd('/var/www/command/webradiodb.sh');
+                        sysCmd('/srv/http/command/webradiodb.sh');
                         //ui_notify_async('Webradio', 'Library rebuilt', $jobID);
                         // noid ui_notify_async('Webradio', 'Library rebuilt');
                         ui_notify('Webradio', 'Library rebuilt');
@@ -1437,7 +1437,7 @@ while (1) {
                 case 'ui_notify':
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
-                    // TODO: rework needed (fix bug in /var/www/index.php)
+                    // TODO: rework needed (fix bug in /srv/http/index.php)
                     if (!isset($job->delay_us)) {
                         $job->delay_us = 650000;
                     }
@@ -1481,12 +1481,12 @@ while (1) {
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     if ($job->action === 1) {
-                        sysCmd('/var/www/command/bluetooth_on.sh');
+                        sysCmd('/srv/http/command/bluetooth_on.sh');
                         //ui_notify_async('Bluetooth', 'Enabled.', $jobID);
                         // noid ui_notify_async('Bluetooth', 'Enabled.');
                         ui_notify('Bluetooth', 'Enabled.');
                     } else {
-                        sysCmd('/var/www/command/bluetooth_on.sh');
+                        sysCmd('/srv/http/command/bluetooth_on.sh');
                         //ui_notify_async('Bluetooth', 'Disabled.', $jobID);
                         // noid ui_notify_async('Bluetooth', 'Disabled.');
                         ui_notify('Bluetooth', 'Disabled.');
@@ -1575,7 +1575,7 @@ while (1) {
             if ($retriesmounting-- >= 0) {
                 runelog('wrk_SY: error mounting shares, trying it again! Count: '.$retriesmounting);
                 // run asynchronous mount script
-                sysCmdAsync('nice --adjustment=2 php -f /var/www/command/mount_async.php');
+                sysCmdAsync('nice --adjustment=2 php -f /srv/http/command/mount_async.php');
             }
             $savecpuMnt = 1750 + rand(0, 100);
         }
@@ -1602,7 +1602,7 @@ while (1) {
             $savecpuOneTimeActions = 5 + rand(0, 10);
         } else if (is_firstTime($redis, 'Webradio-boot-import')) {
             if (sysCmd('find /boot/webradios -name *.pls | wc -l | xargs')[0]) {
-                sysCmdAsync('nice --adjustment=2 /var/www/command/webradiodb.sh');
+                sysCmdAsync('nice --adjustment=2 /srv/http/command/webradiodb.sh');
             }
             $savecpuOneTimeActions = 5 + rand(0, 10);
         } else if (is_firstTime($redis, 'haveged-restart')) {
