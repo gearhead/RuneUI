@@ -137,6 +137,7 @@ redis-cli del addons
 redis-cli del addo
 #
 # remove user files
+rm -f /srv/http/.config/debug.*
 rm -f /var/lib/mpd/mpd.db
 rm -f /var/lib/mpd/mpdstate
 rm -rf /root/.*

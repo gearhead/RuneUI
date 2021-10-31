@@ -544,8 +544,29 @@ while (1) {
                     break;
                 case 'debug':
                     runelog('wrk_SY: ', $job->wrkcmd);
-                    sysCmd('/var/www/command/debug_collector');
-                    // $redis->sRem('w_lock', $jobID);???
+                    $redis->sAdd('w_lock', $jobID);
+                    sysCmdAsync('nice --adjustment=2 /srv/http/command/debug_collector');
+                    $redis->sRem('w_lock', $jobID);
+                    break;
+                case 'debug-refresh':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
+                    // this just waits for the debug collector to complete then allows the UI to refresh
+                    // the debug collector takes between 3 and 8 seconds to run
+                    if ($redis->get('lock_debug_collector')) {
+                        $cnt = 5;
+                        while ($redis->get('lock_debug_collector') && ($cnt-- > 0)) {
+                            sleep(2);
+                        }
+                        if ($cnt <= 0) {
+                            // this should not happen, run the debug collector again when we get here
+                            sysCmdAsync('nice --adjustment=2 /srv/http/command/debug_collector');
+                        }
+                    } else {
+                        // debug collector had already finished, run it again for the next time
+                        sysCmdAsync('nice --adjustment=2 /srv/http/command/debug_collector');
+                    }
+                    $redis->sRem('w_lock', $jobID);
                     break;
                 case 'dlna':
                     runelog('wrk_SY: ', $job->wrkcmd);

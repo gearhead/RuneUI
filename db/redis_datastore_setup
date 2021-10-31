@@ -304,7 +304,6 @@ function redisDatastore($redis,$action) {
             // developer parameters
             $redis->set('dev', 0);
             $redis->set('debug', 0);
-            $redis->set('debugdata', '');
             $redis->set('opcache', 1);
             $redis->set('buildversion', 'janui-20210826');
             $redis->set('patchlevel', 0);
@@ -344,9 +343,11 @@ function redisDatastore($redis,$action) {
             $redis->hSet('proxy', 'user', '');
             $redis->hSet('proxy', 'pass', '');
             // lock keys
+            $redis->set('lock_debug_collector', 0);
+            $redis->set('lock_globalrandom', 0);
+            $redis->set('lock_radio_metadata', 0);
             $redis->set('lock_refresh_ao', 0);
             $redis->set('lock_wifiscan', 0);
-            $redis->set('lock_globalrandom', 0);
             // env settings
             $mounted = $redis->keys('mount_*');
             foreach ($mounted as $key) {
@@ -678,7 +679,6 @@ function redisDatastore($redis,$action) {
             // developer parameters
             $redis->exists('dev') || $redis->set('dev', 0);
             $redis->exists('debug') || $redis->set('debug', 0);
-            $redis->exists('debugdata') || $redis->set('debugdata', '');
             $redis->exists('opcache') || $redis->set('opcache', 1);
             $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20210826');
             $redis->exists('patchlevel') || $redis->set('patchlevel', 0);
@@ -706,9 +706,11 @@ function redisDatastore($redis,$action) {
             $redis->exists('network_storedProfiles') || $redis->set('network_storedProfiles', json_encode(array()));
             $redis->exists('network_mac_spoof') || $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
             // lock keys
+            $redis->exists('lock_debug_collector') || $redis->set('lock_debug_collector', 0);
+            $redis->exists('lock_globalrandom') || $redis->set('lock_globalrandom', 0);
+            $redis->exists('lock_radio_metadata') || $redis->set('lock_radio_metadata', 0);
             $redis->exists('lock_refresh_ao') || $redis->set('lock_refresh_ao', 0);
             $redis->exists('lock_wifiscan') || $redis->set('lock_wifiscan', 0);
-            $redis->exists('lock_globalrandom') || $redis->set('lock_globalrandom', 0);
             // env settings
             $redis->exists('wlans') || $redis->set('wlans', '');
             $redis->exists('mountidx') || $redis->set('mountidx', 1);
