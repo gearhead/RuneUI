@@ -4818,8 +4818,11 @@ function wrk_getHwPlatform($redis)
                     case "11":
                         // 0d = Pi4B+
                         // no break;
+                    case "12":
+                        // 12 = PiZero 2 W
+                        // no break;
                         $arch = '08';
-                        // single and multi processor models with on-board Wi-Fi or Bluetooth
+                        // single and multi processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
