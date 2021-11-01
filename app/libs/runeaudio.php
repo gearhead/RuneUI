@@ -2846,10 +2846,11 @@ function wrk_audioOutput($redis, $action, $args = null)
             //}
             //runelog('/proc/asound/cards', $acards);
             // get a list of the hardware audio cards
+            $cardlist = array();
             $cardlist = sysCmd('aplay -l -v | grep card');
             // if there are no cards defined, enable the built in bcm2835 cards for the following boot
             //  and since there is nothing to process return
-            if ((!isset($cardlist)) || !is_array($cardlist) || !$cardlist[0]) {
+            if (!isset($cardlist) || !is_array($cardlist) || !isset($cardlist[0]) || !$cardlist[0]) {
                 // cartlist is not set, it is not an array or the first array value is empty
                 $redis->set('audio_on_off', 1);
                 wrk_audio_on_off($redis, 1);
