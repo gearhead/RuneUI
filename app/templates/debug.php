@@ -13,6 +13,6 @@
         <?PHP readgzfile('/srv/http/.config/debug.txt') ?>
     </pre>
     <textarea id="text2copy" name="text2copy" contenteditable="false" class=hide>
-        <?PHP readgzfile('/srv/http/.config/debug.txt') ?>
+        .
     </textarea>
 </div>

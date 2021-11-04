@@ -3625,6 +3625,7 @@ if ($('#section-index').length) {
             // });
 
             $('#copyText').click(function(){
+                $('#text2copy').html(document.getElementById("text2display").innerText);
                 $('#text2copy').removeClass('hide');
                 $('#text2copy').select();
                 document.execCommand("copy");
