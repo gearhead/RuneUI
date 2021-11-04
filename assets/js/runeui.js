@@ -859,7 +859,6 @@ function updateGUI() {
     var currentalbum = ((typeof GUI.json.currentalbum == 'undefined') ? '' : GUI.json.currentalbum);
     var currentalbumartist = ((typeof GUI.json.currentalbumartist == 'undefined') ? '' : GUI.json.currentalbumartist);
     var currentcomposer = ((typeof GUI.json.currentcomposer == 'undefined') ? '' : GUI.json.currentcomposer);
-    var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var mainArtURL = ((typeof GUI.json.mainArtURL == 'undefined') ? '' : GUI.json.mainArtURL);
     var bigArtURL = ((typeof GUI.json.bigArtURL == 'undefined') ? '' : GUI.json.bigArtURL);
     var smallArtURL = ((typeof GUI.json.smallArtURL == 'undefined') ? '' : GUI.json.smallArtURL);
@@ -1085,7 +1084,10 @@ function getPlaylistPlain(data) {
                 filename = str.split('/').pop();
                 title = filename;
             }
-            if (artist === '' || album === '') {
+            if ((str.substring(0, 4).toLowerCase() === 'http') && (artist === '') && (album === '') && (name === '')) {
+                name = title;
+            }
+            if ((artist === '') || (album === '')) {
                 path = parsePath(str);
                 if (artist === '') {
                     bottomline = 'path: ' + path;
@@ -1096,15 +1098,19 @@ function getPlaylistPlain(data) {
                 bottomline = artist + ' - ' + album;
             }
             if (name !== '') {
-                title = '<i class="fa fa-microphone"></i>' + name;
-                bottomline = 'URL: ' + (path === '') ? str : path;
+                if ((name !== title) && (title !== '')) {
+                    title = '<i class="fa fa-microphone"></i>' + name + ' : ' + title;
+                } else {
+                    title = '<i class="fa fa-microphone"></i>' + name;
+                }
+                bottomline = 'URL: ' +  str;
                 totaltime = '';
             } else {
                 totaltime = '<span>' + timeConvert2(time) + '</span>';
                 playlisttime += time;
             }
             pos++;
-            content += '<li id="pl-' + songid + '"' + (state !== 'stop' && pos === current ? ' class="active"' : '') + '><i class="fa fa-times-circle pl-action" title="Remove song from playlist"></i><span class="sn">' + title + totaltime + '</span><span class="bl">' + bottomline + '</span></li>';
+            content += '<li id="pl-' + songid + '"' + ((state !== 'stop') && (pos === current) ? ' class="active"' : '') + '><i class="fa fa-times-circle pl-action" title="Remove song from playlist"></i><span class="sn">' + title + totaltime + '</span><span class="bl">' + bottomline + '</span></li>';
             time = ''; artist = ''; album = ''; title = ''; name = '';
         }
     }
