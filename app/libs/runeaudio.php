@@ -6536,6 +6536,19 @@ function refresh_nics($redis)
                 }
             }
         }
+        // set Wi-Fi nic power management off and save its state
+        $retval = sysCmd('iw dev '.$nic.' get power_save | cut -d ":" -f 2 | xargs');
+        if (isset($retval[0])) {
+            $networkInterfaces[$nic]['power_management'] = $retval[0];
+        }
+        if (!isset($retval[0]) || ($retval[0] != 'off')) {
+            sysCmd('iw dev '.$nic.' set power_save off');
+            $retval = sysCmd('iw dev '.$nic.' get power_save | cut -d ":" -f 2 | xargs');
+            if (isset($retval[0])) {
+                $networkInterfaces[$nic]['power_management'] = $retval[0];
+            }
+        }
+        unset($retval);
     }
     // determine AP capability with iw
     // add the wifi technology to array $networkInterfaces with iw

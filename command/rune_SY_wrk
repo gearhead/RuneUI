@@ -352,8 +352,6 @@ if ($playerid_db === '') {
         sysCmdAsync('systemctl stop local-browser');
     }
     //
-    // turn wifi power saving off
-    sysCmd('iwconfig wlan0 power off');
     // reset usb storage (also starts samba), set the mpd volume, collect debug data, set process priority (to nice)
     sysCmdAsync('nice --adjustment=2 /srv/http/command/usbmount ; php -f /srv/http/command/set_mpd_volume.php ; php -f /srv/http/command/debug_collector ; /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
