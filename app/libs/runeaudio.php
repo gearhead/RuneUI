@@ -6944,7 +6944,7 @@ function fix_mac($redis, $nic)
         $redis->hSet('fix_mac', $nic, $macNew);
     }
     // change the MAC address
-    sysCmd('ip link set dev '.$nic.' address '.$macNew);
+    sysCmd('ip link set dev '.$nic.' address '.$macNew.' ; ip link set dev '.$nic.' down ; ip link set dev '.$nic.' up');
     // construct a systemd unit file to automatically change the MAC address on boot
     $file = '/etc/systemd/system/macfix_'.$nic.'.service';
     // clear the cache otherwise file_exists() returns incorrect values
@@ -6962,7 +6962,7 @@ function fix_mac($redis, $nic)
             .'After=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
             .'[Service]'."\n"
             .'Type=oneshot'."\n"
-            .'ExecStart=/usr/bin/ip link show '.$nic.' | /usr/bin/grep -ci 00:e0:4c:53:44:58 && /usr/bin/ip link set dev '.$nic.' address '.$macNew."\n"
+            ."ExecStart=/bin/bash -c '/usr/bin/ip link show ".$nic.' | /usr/bin/grep -ci 00:e0:4c:53:44:58 && /usr/bin/ip link set dev '.$nic.' address '.$macNew."'\n"
             .'[Install]'."\n"
             .'WantedBy=multi-user.target'."\n";
         // write the file
