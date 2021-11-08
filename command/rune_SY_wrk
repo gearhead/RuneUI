@@ -550,9 +550,9 @@ while (1) {
                     runelog('wrk_SY: ', $job->wrkcmd);
                     $redis->sAdd('w_lock', $jobID);
                     // this just waits for the debug collector to complete then allows the UI to refresh
-                    // the debug collector takes between 3 and 8 seconds to run
+                    // the debug collector takes between 3 and 15 seconds to run
                     if ($redis->get('lock_debug_collector')) {
-                        $cnt = 5;
+                        $cnt = 10;
                         while ($redis->get('lock_debug_collector') && ($cnt-- > 0)) {
                             sleep(2);
                         }
