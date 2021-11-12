@@ -61,26 +61,25 @@ dtparam=audio=on
 ## onboard Bluetooth if available
 dtparam=krnbt=on
 
-# Uncomment to enable the lirc-rpi module
-# Params: gpio_out_pin             GPIO pin for output (default "17")
-#         gpio_in_pin              GPIO pin for input (default "18")
-#         gpio_in_pull             Pull up/down/off on the input pin
-#                                  (default "down")
-#         sense                    Override the IR receive auto-detection logic:
-#                                    "1" = force active high
-#                                    "0" = force active low
-#                                    "-1" = use auto-detection
-#                                  (default "-1")
-#         softcarrier              Turn the software carrier "on" or "off"
-#                                  (default "on")
-#         invert                   "on" = invert the output pin (default "off")
-#         debug                    "on" = enable additional debug messages
-#                                  (default "off")
-#dtoverlay=lirc-rpi
-#dtparam=gpio_out_pin=17
-#dtparam=gpio_in_pin=18
-#dtparam=gpio_in_pull=down
-
+# Uncomment to enable the gpio-ir module
+#Info:   Use GPIO pin as rc-core style infrared receiver input. The rc-core-
+#        based gpio_ir_recv driver maps received keys directly to a
+#        /dev/input/event* device, all decoding is done by the kernel - LIRC is
+#        not required! The key mapping and other decoding parameters can be
+#        configured by "ir-keytable" tool.
+#Load:   dtoverlay=gpio-ir,<param>=<val>
+#Params: gpio_pin                Input pin number. Default is 18.
+#        gpio_pull               Desired pull-up/down state (off, down, up)
+#                                Default is "up".
+#        invert                  "1" = invert the input (active-low signalling).
+#                                "0" = non-inverted input (active-high
+#                                signalling). Default is "1".
+#
+#        rc-map-name             Default rc keymap (can also be changed by
+#                                ir-keytable), defaults to "rc-rc6-mce"
+#dtoverlay=gpio-ir
+#dtoverlay=gpio-ir,gpio_pin=18
+#dtoverlay=gpio-ir,gpio_pin=18,gpio_pull=down
 
 # enable hardware graphics accelerators (not normally required)
 # Pi model Zero, 1, 2 & 3
