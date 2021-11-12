@@ -167,7 +167,10 @@ gpu_mem=64
 # Conditional for Model A, Model B, Compute Module
 gpu_mem=16
 [pi0]
-# Conditional for Zero, Zero W, Zero WH
+# Conditional for Zero, Zero W, Zero WH, Zero 2 W
+gpu_mem=16
+[pi02]
+# Conditional for Zero 2 W
 gpu_mem=16
 [all]
 # Conditional end
