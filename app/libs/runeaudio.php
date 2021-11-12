@@ -6669,6 +6669,13 @@ function refresh_nics($redis)
             continue;
         }
         $macAddress = trim($connmanStringParts[1]);
+        // clean up any invalid connman config files
+        if (in_array(implode(':', str_split($macAddress, 2)), $networkSpoofArray)) {
+            // remove nic with tho old MAC address from the connman cache and restart connman
+            $connmanConfDir = '/var/lib/connman/*'.$macAddress.'*';
+            sysCmd('rm -fr '.$connmanConfDir.' ; systemctl restart connman');
+            continue;
+        }
         if (isset($translateMacNic[$macAddress.'_'])) {
             $nic = $translateMacNic[$macAddress.'_'];
             if (($accessPointEnabled) && ($accessPoint === $ssid)) {
@@ -6926,11 +6933,17 @@ function fix_mac($redis, $nic)
     // first check that the MAC address needs to be changed "ip -o -br link | sed 's,[ ]\+, ,g'"
     $response = sysCmd('ip -br link show '.$nic." | sed 's,[ ]\+, ,g'");
     $macCurrent = trim(explode(' ', $response[0])[2]);
-    if ($macCurrent != '00:e0:4c:53:44:58') {
+    // get the array containing any mac addresses which need to be spoofed
+    if ($redis->Exists('network_mac_spoof')) {
+        $networkSpoofArray = json_decode($redis->Get('network_mac_spoof'), true);
+    } else {
+        $networkSpoofArray = array();
+    } 
+    if (!in_array($macCurrent , $networkSpoofArray)) {
         // MAC address does not need to be changed
         return $macCurrent;
     }
-    // the MAC address does needs to be changed
+    // the MAC address needs to be changed
     // determine the new MAC address
     if ($redis->hExists('fix_mac', $nic)) {
         // the MAC address was changed in the past so use the same one
@@ -6943,8 +6956,11 @@ function fix_mac($redis, $nic)
         // save the new MAC address so that the same one will be used in the future
         $redis->hSet('fix_mac', $nic, $macNew);
     }
-    // change the MAC address
-    sysCmd('ip link set dev '.$nic.' address '.$macNew.' ; ip link set dev '.$nic.' down ; ip link set dev '.$nic.' up');
+    // change the MAC address, the nic needs to be brought down and up to activate the change
+    sysCmd('ip link set dev '.$nic.' down ; ip link set dev '.$nic.' address '.$macNew.' ; ip link set dev '.$nic.' up');
+    // remove nic with tho old MAC address from the connman cache and restart connman
+    $connmanConfDir = '/var/lib/connman/*'.str_replace(':','',$macCurrent).'*';
+    sysCmd('rm -fr '.$connmanConfDir.' ; systemctl restart connman');
     // construct a systemd unit file to automatically change the MAC address on boot
     $file = '/etc/systemd/system/macfix_'.$nic.'.service';
     // clear the cache otherwise file_exists() returns incorrect values
@@ -6952,7 +6968,7 @@ function fix_mac($redis, $nic)
     if ((!file_exists($file)) || (!sysCmd('grep -ihc '.$macNew.' '.$file)[0])) {
         // create the systemd unit file only when it needs to be created
         $fileContent = '# file '.$file."\n"
-            .'# some cheap network cards have an identical MAC address for all cards (00:e0:4c:53:44:58)'."\n"
+            .'# some cheap network cards have an identical MAC address for all cards (e.g. 00:e0:4c:53:44:58)'."\n"
             .'# change it to a fixed (previouly ranomised) address'."\n\n"
             .'[Unit]'."\n"
             .'Description=MAC Address Fix for '.$nic."\n"
@@ -6962,7 +6978,7 @@ function fix_mac($redis, $nic)
             .'After=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
             .'[Service]'."\n"
             .'Type=oneshot'."\n"
-            ."ExecStart=/bin/bash -c '/usr/bin/ip link show ".$nic.' | /usr/bin/grep -ci 00:e0:4c:53:44:58 && /usr/bin/ip link set dev '.$nic.' address '.$macNew."'\n"
+            ."ExecStart=/bin/bash -c '/usr/bin/ip link show ".$nic.' | /usr/bin/grep -ci '.$macCurrent.' && /usr/bin/ip link set dev '.$nic.' down ; /usr/bin/ip link set dev '.$nic.' address '.$macNew.' ; /usr/bin/ip link set dev '.$nic.' up'."'\n"
             .'[Install]'."\n"
             .'WantedBy=multi-user.target'."\n";
         // write the file
