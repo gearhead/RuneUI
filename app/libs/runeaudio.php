@@ -6938,7 +6938,7 @@ function fix_mac($redis, $nic)
         $networkSpoofArray = json_decode($redis->Get('network_mac_spoof'), true);
     } else {
         $networkSpoofArray = array();
-    } 
+    }
     if (!in_array($macCurrent , $networkSpoofArray)) {
         // MAC address does not need to be changed
         return $macCurrent;
