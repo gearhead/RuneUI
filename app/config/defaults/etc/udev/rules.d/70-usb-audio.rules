@@ -1,2 +1,0 @@
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao"
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao"

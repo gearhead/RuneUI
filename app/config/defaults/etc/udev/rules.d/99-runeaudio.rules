@@ -1,0 +1,29 @@
+# RuneAudio udev rules file contains various rules entries
+# filename: /etc/udev/rules.d/99-runeaudio.rules
+#
+#
+# the following lines were previously in the file 99-vc4_input.rules
+#
+# this disables the vc4 pointer which interferes with touch screen
+# operation on fbdev. May or may not be needed for hdmi use
+# environment variable ENV{LIBINPUT_IGNORE_DEVICE} is toggled between 1 and 0 when cursor is set on/off in the UI
+KERNEL=="input*",ATTRS{name}=="vc4",ENV{LIBINPUT_IGNORE_DEVICE}="1"
+# if the pointer will not go away, uncomment the following and reboot
+# it disables the first event device - this is a big hammer!
+#KERNEL=="event0",ENV{LIBINPUT_IGNORE_DEVICE}="1"
+#
+#
+# the following lines were previously in the file 70-usb-audio.rules
+#
+# adding or removing audio card ('card0' to 'card9') will trigger running /srv/http/command/refresh_ao
+# provides plug & play audio card functionality (e.g. usb, bluetooth)
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao"
+#
+#
+# the following lines were previously in the file 80-net-setup-link.rules
+#
+# adding or removing network interface will trigger running /srv/http/command/refresh_nics
+# provides plug & play network dongle functionality
+SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics"
+SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics"

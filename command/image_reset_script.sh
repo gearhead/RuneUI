@@ -154,6 +154,16 @@ rm -rf /var/lib/connman/wifi_*
 rm -rf /var/lib/connman/bluetooth_*
 find /var/lib/iwd/ -type f -exec rm -f {} \;
 #
+# remove current and historical RuneAudio specific udev rules
+# remove the lines for 99-vc4_input.rules and 70-usb-audio.rules after the a couple of image build's
+rm -f /etc/udev/rules.d/99-vc4_input.rules
+rm -f /etc/udev/rules.d/70-usb-audio.rules
+rm -f /etc/udev/rules.d/99-runeaudio.rules
+#
+# keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
+# remove this symlink to enable the new 'predictable' format
+ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
+#
 # the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
 # copy any existing files to the new location and delete the old location
 mkdir -p /usr/share/X11/xorg.conf.d
