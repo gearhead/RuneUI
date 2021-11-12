@@ -39,6 +39,13 @@
 set -x # echo all commands to cli
 set +e # continue on errors
 #
+# do nothing if the waveshare overlays are present
+wsoc=$( ls -1 /boot/overlays/waveshare*.dtbo | wc -l )
+if [ $wsoc -ge 5 ]; then
+    echo 'Waveshare overlays preinstalled'
+    exit
+fi
+#
 # get the latest waveshare software
 cd /home
 rm -r /home/LCD-show
