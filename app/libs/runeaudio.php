@@ -1794,12 +1794,12 @@ function wrk_xorgconfig($redis, $action, $args)
                 // switch mouse cursor on
                 $usecursorno = '';
                 // modify the udev rules for vc4 screens
-                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"0\"/\=\"1\"/g' '/etc/udev/rules.d/99-vc4_input.rules'");
+                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"0\"/\=\"1\"/g' '/etc/udev/rules.d/99-runeaudio.rules'");
             } else {
                 // switch mouse cursor off
                 $usecursorno = '-use_cursor no ';
                 // modify the udev rules for vc4 screens
-                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"1\"/\=\"0\"/g' '/etc/udev/rules.d/99-vc4_input.rules'");
+                sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"1\"/\=\"0\"/g' '/etc/udev/rules.d/99-runeaudio.rules'");
             }
             // modify the mouse on/off setting in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';
