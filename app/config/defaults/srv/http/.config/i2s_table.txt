@@ -1,6 +1,7 @@
 none|I&#178;S disabled (default)
 allo-boss-dac-pcm512x-audio|Allo Boss DAC
 allo-boss-dac-pcm512x-audio,slave|Allo Boss DAC in slave mode
+allo-boss2-dac-audio|Allo Boss2 DAC audio card
 allo-digione|Allo DigiOne
 allo-digione|Allo DigiOne Signature
 allo-katana-dac-audio|Allo Katana DAC
@@ -29,12 +30,16 @@ i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9038Q2M
 hifiberry-dac|AUDIOPHONICS I-TDA1387 TCXO DAC
 audiosense-pi|AudioSense-Pi add-on soundcard
 pisound|Blokas Labs pisound card
+chipdip-dac|Chip Dip audio card
 akkordion-iqdacplus|Digital Dreamtime Akkordion
 dionaudio-loco|Dionaudio Loco DAC-AMP
 dionaudio-loco-v2|Dionaudio Loco V2 DAC-AMP
 fe-pi-audio|Fe-Pi Audio Sound Card
+ghost-amp|Ghost amplifier
 hifiberry-amp|HiFiBerry Amp
 hifiberry-amp|HiFiBerry Amp+
+hifiberry-amp100|HifiBerry AMP100 audio card
+hifiberry-amp100,slave|HifiBerry AMP100 audio card in slave mode
 hifiberry-dacplus|HiFiBerry Amp2
 hifiberry-dac,384k|HiFiBerry DAC
 hifiberry-dacplus|HiFiBerry DAC Plus
@@ -83,7 +88,11 @@ max98357a|Maxim MAX98357A I2S DAC
 hifiberry-dacplus|NanoSound HiFi DAC Pro
 hifiberry-dacplus|NanoSound ONE
 hifiberry-dac,384k|pHAT DAC for Raspberry Pi Zero
+pifi-40|PiFi 40W stereo amplifier
+pifi-dac-hd|PiFi DAC HD
 hifiberry-dacplus|PiFi DAC Plus
+pifi-dac-zero|PiFi DAC Zero
+pifi-mini-210|PiFi Mini stereo amplifier
 hifiberry-dac,384k|Pirate Audio, all models, no screen support
 hifiberry-dacplus|RaspiDAC3
 hifiberry-dacplus|RaspyPlay4
@@ -95,6 +104,7 @@ i-sabre-k2m|Sabre DAC  (Alternative 1)
 i-sabre-q2m|Sabre DAC  (Alternative 2)
 rpi-dac|Sabre DAC  (Alternative 3)
 superaudioboard|SuperAudioBoard sound card
+wm8960-soundcard|Waveshare wm8960 soundcard
 rpi-dac|X10-DAC BOARD
 hifiberry-dacplus|X400 V3.0 DAC+AMP Expansion Board
 rpi-dac|Generic AK4399 (Alternative 1)
@@ -107,9 +117,9 @@ i-sabre-k2m|Generic ES9018
 rpi-dac|Generic ES9023
 i-sabre-q2m|Generic ES9028
 i-sabre-q2m|Generic ES9038
+rpi-dac|Generic ES90x8
 i-sabre-k2m|Generic ES90x8  (Alternative 1)
 i-sabre-q2m|Generic ES90x8  (Alternative 2)
-rpi-dac|Generic ES90x8  (Alternative 3)
 rpi-dac|Generic PCM1794
 hifiberry-dac,384k|Generic PCM510x
 hifiberry-dacplus|Generic PCM512x (Alternative 1)
