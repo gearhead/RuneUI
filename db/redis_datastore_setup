@@ -326,8 +326,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('samba', 'enable', 0);
             $redis->hSet('samba', 'readwrite', 0);
             // network parameters
-            $redis->hSet('resolvconf', 'timeout', '0.3');
-            $redis->hSet('resolvconf', 'attempts', 1);
             $redis->set('network_autoOptimiseWifi', 1);
             $redis->set('network_info', json_encode(array()));
             $redis->set('translate_mac_nic', json_encode(array()));
@@ -697,8 +695,6 @@ function redisDatastore($redis,$action) {
             $redis->hExists('samba', 'enable') || $redis->hSet('samba', 'enable', 0);
             $redis->hExists('samba', 'readwrite') || $redis->hSet('samba', 'readwrite', 0);
             // network parameters
-            $redis->hExists('resolvconf', 'timeout') || $redis->hSet('resolvconf', 'timeout', '0.3');
-            $redis->hExists('resolvconf', 'attempts') || $redis->hSet('resolvconf', 'attempts', 1);
             $redis->exists('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
             $redis->exists('network_info') || $redis->set('network_info', json_encode(array()));
             $redis->exists('translate_mac_nic') || $redis->set('translate_mac_nic', json_encode(array()));
