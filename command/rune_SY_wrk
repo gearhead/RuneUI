@@ -39,7 +39,7 @@ $savecpuSmt = 480;
 $savecpuInc = 18;
 $savecpuIncPrev = $savecpuInc;
 $savecpuSps = 43200;
-$savecpuAvd = 86400;
+$savecpuAvd = 10800;
 $savecpuFixdnssec = 20;
 $savecpuRefreshNics = 10;
 $savecpuRefreshNicsPrev = $savecpuRefreshNics;
@@ -1776,12 +1776,12 @@ while (1) {
             sysCmd('systemctl start shairport-sync');
         }
     }
-    // Restart avahi-daemon every 12 hours
+    // Restart avahi-daemon every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
-    // It will normally run correctly for at least 24 hours
-    // Restart every +/-86400 cycles (= every +/-12 hours)
+    // It looks like it is related to renewing the DHCP lease on the router
+    // Restart every +/-10800 cycles (= every +/-2 hours)
     if ($savecpuAvd-- <= 0) {
-        $savecpuAvd = 86300 + rand(0, 200);
+        $savecpuAvd = 10700 + rand(0, 200);
         // restart avahi-daemon
         sysCmd('systemctl restart avahi-daemon');
     }
