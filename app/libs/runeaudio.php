@@ -6628,25 +6628,32 @@ function refresh_nics($redis)
             $redis->Set('network_info_time', $nowSeconds);
         }
     }
-    // subtract 3 from all network strength values and remove values which go negative
+    // delete networks for invalid nics from the network info array
+    // also subtract 3 from all network strength values and remove values which go negative
     // all networks which are (re)detected will reset their strength to the actual value
     // the networks which are successively not detected will be shown as weak and eventually be deleted
     foreach ($networkInfo as $key => $network) {
+        if (!isset($networkInterfaces[$network['nic']])) {
+            unset($networkInfo[$key]);
+            continue;
+        }
         if (isset($networkInfo[$key]['strength'])) {
             $networkInfo[$key]['strength'] = $networkInfo[$key]['strength'] - 3;
-            if ($network['strength'] <= 0) {
+            if ($networkInfo[$key]['strength'] <= 0) {
                 unset($networkInfo[$key]);
             } else {
                 $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($networkInfo[$key]['strength']/10)));
             }
         }
     }
+    //
     // always clear the optimise wifi array
     $optimiseWifi = array();
     $accessPoint = $redis->hGet('AccessPoint', 'ssid');
     $accessPointEnabled = $redis->hGet('AccessPoint', 'enable');
     $hiddenCount = 0;
     $networkInterfacesModified = false;
+    $avahiNic = '';
     // get the services
     $services = sysCmd('connmanctl services');
     foreach ($services as $service) {
@@ -6872,6 +6879,35 @@ function refresh_nics($redis)
                 , 'ssidHex' => $ssidHex
                 );
         }
+        // select the nic to use for avahi
+        if (($networkInfo[$macAddress.'_'.$ssidHex]['technology'] === 'ethernet') &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['configured']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['autoconnect']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['online']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['ipStatus'] === 'UP')) {
+            // use this nic for avahi
+            // $avahiNic will contain the last detected wired (ethernet) interface which is:
+            //  configured, autoconnect (on), online and has an 'UP' ipStatus
+            //  the value is left unset when only Wi-Fi networks are detected
+            $avahiNic = $networkInfo[$macAddress.'_'.$ssidHex]['nic'];
+        }
+    }
+    //
+    // set the selected nic for avahi
+    // allowing more than one interface to be active will cause problems with Microsoft Windows clients
+    // the last detected wired (ethernet) interface will be used
+    // when only Wi-Fi networks are detected no interfaces are specifically selected
+    //
+    if ($redis->get('avahi_nic') != $avahiNic) {
+        // the nic assigned to avahi need to be changed
+        if ($avahiNic === '') {
+            $avahiLine = '#allow-interfaces=eth0';
+        } else {
+            $avahiLine = 'allow-interfaces='.$avahiNic;
+        }
+        sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
+        sysCmd('systemctl daemon-reload; systemctl restart avahi-daemon');
+        $redis->set('avahi_nic', $avahiNic);
     }
     //
     // optimise wifi for the next reboot and the first time after setting up a Wi-Fi network
