@@ -145,17 +145,16 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Boot configuration (cat /boot/config.txt) ######\n";
-    $command = sysCmd("grep -v -e '^[[:space:]]*$' /boot/config.txt | grep -v '#.*='");
-    $output .= implode("\n", $command)."\n";
+    $output .= "###### Memory statistics (free -l) ######\n";
+    $command = sysCmd('free -l');
+    $output .= implode("\n", $command)."\n\n\n";
     unset($command);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "##################################################\n\n\n";
-    $output .= "###### System load statistics (procinfo -H) ######\n";
-    $command = sysCmd('procinfo -H');
+    $output .= "###### System load statistics (procinfo -r) ######\n";
+    $command = sysCmd('procinfo -r');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
     if ($fp) {
@@ -170,6 +169,15 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
+    $output .= "###### Boot configuration (cat /boot/config.txt) ######\n";
+    $command = sysCmd("grep -v -e '^[[:space:]]*$' /boot/config.txt | grep -v '#.*='");
+    $output .= implode("\n", $command)."\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "##################################################\n\n\n";
     $output .= "###### Audio backend ######\n";
     $output .=  file_get_contents('/proc/asound/version');
     $output .= "\n";
