@@ -2486,6 +2486,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('mkdir -p /boot/wifi/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            // restart connman to pick up the new config files
+            sysCmd('systemctl restart connman');
             // run refresh_nics to finish off
             wrk_netconfig($redis, 'refreshAsync');
             break;
