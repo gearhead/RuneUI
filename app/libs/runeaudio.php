@@ -1864,7 +1864,7 @@ function wrk_control($redis, $action, $data)
     return $jobID;
 }
 
-// search a string in a file and for each occurrence replace the whole line with another string 
+// search a string in a file and for each occurrence replace the whole line with another string
 // when $linelabel and $lineoffset are present, the replacement will only take place on the $lineoffset'th line following a line containing $linelabel
 //  example: wrk_replaceTextLine($file, '', 'findstring', 'replaceline', 'findlabel', 2)
 //  >> in file $file replace line containing 'findstring' with 'replaceline' on the 2nd line after each line containing 'findlabel'
