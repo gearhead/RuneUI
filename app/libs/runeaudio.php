@@ -1864,7 +1864,10 @@ function wrk_control($redis, $action, $data)
     return $jobID;
 }
 
-// search a string in a file and replace with another string the whole line.
+// search a string in a file and for each occurrence replace the whole line with another string 
+// when $linelabel and $lineoffset are present, the replacement will only take place on the $lineoffset'th line following a line containing $linelabel
+//  example: wrk_replaceTextLine($file, '', 'findstring', 'replaceline', 'findlabel', 2)
+//  >> in file $file replace line containing 'findstring' with 'replaceline' on the 2nd line after each line containing 'findlabel'
 function wrk_replaceTextLine($file, $inputArray, $strfind, $strrepl, $linelabel = null, $lineoffset = null)
 {
     runelog('wrk_replaceTextLine($file, $inputArray, $strfind, $strrepl, $linelabel, $lineoffset)','');
@@ -1879,9 +1882,7 @@ function wrk_replaceTextLine($file, $inputArray, $strfind, $strrepl, $linelabel 
         $fileData = $inputArray;
     }
     $newArray = array();
-    if (isset($linelabel) && isset($lineoffset)) {
-        $linenum = 0;
-    }
+    $linenum = 0;
     foreach($fileData as $line) {
         if (isset($linelabel) && isset($lineoffset)) {
             $linenum++;
@@ -1889,10 +1890,11 @@ function wrk_replaceTextLine($file, $inputArray, $strfind, $strrepl, $linelabel 
                 $lineindex = $linenum;
                 runelog('line index match! $line', $lineindex);
             }
-            if ((($lineindex+$lineoffset)-$linenum)==0) {
+            if (isset($lineindex) && (($lineindex+$lineoffset)-$linenum)==0) {
                 if (preg_match('/'.$strfind.'/', $line)) {
                     $line = $strrepl."\n";
                     runelog('internal loop $line', $line);
+                    unset($lineindex);
                 }
             }
         } else {
