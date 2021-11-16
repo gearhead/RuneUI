@@ -7254,7 +7254,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     if (!strpos($mpcStatus, 'playing')) {
                         // not playing
                         $retval = sysCmd('mpc move '.$moveNr.' '.$moveNr.' || echo 1');
-                        if (!isset($retval) || !is_array($retval) || !$retval[0]) {
+                        if (!isset($retval) || !is_array($retval) || !isset($retval[0]) || !$retval[0]) {
                             $queueEmpty = 0;
                         } else {
                             $queueEmpty = 1;
