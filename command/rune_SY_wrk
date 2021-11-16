@@ -147,25 +147,27 @@ if ($playerid_db === '') {
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
     // check that mpd is running
-    wrk_mpdconf($redis, 'start');
+    // wrk_mpdconf($redis, 'start');
     // ashuffle gets started automatically
     // reconnect to new instance of MPD
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
     //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd, 'update');
-    sysCmd('mpc update');
+    // sysCmd('mpc update');
     // system ENV files check and replace
         // runelog("system ENV files check and replace",'');
         // wrk_sysEnvCheck($arch,1);
     // set HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
     // check that MPD only has one output enabled
-    $count = sysCmd('mpc outputs | grep -c -i enabled');
-    $countMpdEnabled = $count[0];
-    unset($count);
-    if ($countMpdEnabled != 1) {
-        sysCmd("mpc enable only 1");
-    }
+    // $count = sysCmd('mpc outputs | grep -c -i enabled');
+    // $countMpdEnabled = $count[0];
+    // unset($count);
+    // if ($countMpdEnabled != 1) {
+        // sysCmd("mpc enable only 1");
+    // }
+    // refresh nics & set up avahi
+    refresh_nics($redis);
     wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
@@ -208,11 +210,8 @@ if ($playerid_db === '') {
     //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd,'update');
     sysCmd('mpc update');
-    sleep(1);
     // check that MPD only has one output enabled
-    $count = sysCmd('mpc outputs | grep -c -i enabled');
-    $countMpdEnabled = $count[0];
-    unset($count);
+    $countMpdEnabled = sysCmd('mpc outputs | grep -c -i enabled')[0];
     if ($countMpdEnabled != 1) {
         sysCmd("mpc enable only 1");
     }
@@ -360,9 +359,10 @@ if ($playerid_db === '') {
         $redis->set('first_time_boot', 0);
     }
     //
-    // close startup Redis connection
+    // save the redis databace to disk
     $redis->bgsave();
-    $redis->close();
+    // don't close redis, it has been opened with a $redis->pconnect() which reuses connections.
+    // $redis->close();
     //
     $start4 = microtime(true);
     $starttime = ($start4-$start3)+$firstlap;
