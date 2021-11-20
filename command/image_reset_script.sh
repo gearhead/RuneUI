@@ -119,7 +119,7 @@ rmdir /mnt/MPD/USB/*
 # set up connman
 # delete the file/link at /etc/resolv.conf
 rm -f /etc/resolv.conf
-# link it to connman's dynamically created resolv.conf
+# symlink it to connman's dynamically created resolv.conf
 ln -sfT /run/connman/resolv.conf /etc/resolv.conf
 #
 # remove rerns addons menu (if installed)
