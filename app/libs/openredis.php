@@ -71,15 +71,16 @@ while ($redisError) {
     }
     if ($redisErrorCount <= 0) {
         if (isset($redisOpenOneTime) && $redisOpenOneTime) {
-            // exit the script if $redisOpenOneTime is set and true
-            // exit() will be interpreted as a successful completion in bash
-            exit();
+            // exit the script when $redisOpenOneTime is set and true
+            // exit(0) will be interpreted as a successful (non-error) completion in bash
+            exit(0);
+        } else {
+            // since nothing will work without redis just exit
+            // Use '111 ECONNREFUSED Connection refused' as exit code
+            // exit(111) will be interpreted as a failure (error) completion in bash
+            echo "Error: [app/libs/openredis.php] Failed to connect to Redis aborting";
+            exit(110);
         }
-        // exit the loop
-        $redisError = false;
-        // try again but don't trap the error
-        $redis = new Redis();
-        $redis->pconnect('/run/redis/socket');
     } else if ($redisError) {
         // loop again, so sleep first
         sleep($redisSleepTime);
