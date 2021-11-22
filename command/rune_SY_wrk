@@ -185,7 +185,7 @@ if ($playerid_db === '') {
     sysCmd('systemctl daemon-reload');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
-    runelog('--- RUNEAUDIO FIRST RUN PROCESS');
+    runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
     sysCmd('/srv/http/command/rune_shutdown reboot');
     sysCmd('reboot');
