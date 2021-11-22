@@ -65,9 +65,11 @@ function openMpdSocketRepeat($path, $type = 0, $retries = 1, $wait = 2)
     return $sock;
 }
 
-function openMpdSocket($path, $type = 0)
+function openMpdSocket($path, $type = 0, $sockVarName = null)
 // connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
 // normal (blocking) is default when type is not specified
+// when the value of $sockVarName is specified it indicates that it will be reused, instead of searching for a free socket
+//  this is used for reopening a timed out socket with the same socket name
 // the success return value is an array containing 'resource' = the socket resource or object (previously a resource,
 //  from php v8 socket is an object), 'sockVarName' = the socket variable name, 'type' = connection type and
 //  'description' = a description of the socket object derives van a var_dump of the resource
@@ -79,15 +81,17 @@ function openMpdSocket($path, $type = 0)
 //  are: $mpdsock_0_0, $mpdsock_2_9
 // the globally defined resource or object variables are removed when the socket is closed
 {
-    // find a free socket variable name
-    for ($i = 0; $i <= 10; $i++) {
-        if ($i === 10) {
-            runelog("[open]\t>>>>>> OPEN MPD SOCKET ERROR - **All sockets used for type = ".$type."** <<<<<<",'');
-            return false;
-        }
-        $sockVarName = 'mpdsock_'.$type.'_'.$i;
-        if (!isset($GLOBALS[$sockVarName])) {
-            break;
+    if (!isset($sockVarName) && !$sockVarName) {
+        // find a free socket variable name
+        for ($i = 0; $i <= 10; $i++) {
+            if ($i === 10) {
+                runelog("[open]\t>>>>>> OPEN MPD SOCKET ERROR - **All sockets used for type = ".$type."** <<<<<<",'');
+                return false;
+            }
+            $sockVarName = 'mpdsock_'.$type.'_'.$i;
+            if (!isset($GLOBALS[$sockVarName])) {
+                break;
+            }
         }
     }
     // define the socket variable name as global
@@ -95,7 +99,7 @@ function openMpdSocket($path, $type = 0)
     // create the socket
     $$sockVarName = socket_create(AF_UNIX, SOCK_STREAM, 0);
     // create a description of the socket
-    ob_start();
+    ob_start(null, 0, PHP_OUTPUT_HANDLER_CLEANABLE | PHP_OUTPUT_HANDLER_REMOVABLE);
     var_dump($$sockVarName);
     $sockDesc = trim(preg_replace('/[\t\n\r\s]+/',' ', ob_get_clean()));
     // create socket connection array
@@ -136,7 +140,9 @@ function openMpdSocket($path, $type = 0)
     }
 }
 
-function closeMpdSocket($sock)
+function closeMpdSocket($sock, $retainSockVarName = false)
+// when $retainSockVarName is set to true the socket variable name will not be unset
+//  this is used when reopening a timed out socket with the same name
 {
     if (!is_array($sock) || !isset($sock['sockVarName'])) {
         if (!isset($sock['description'])) {
@@ -162,12 +168,17 @@ function closeMpdSocket($sock)
     // close the socket
     socket_close($$sockVarName);
     runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET CLOSE >>>>>>', '');
-    // remove the global variable containing the socket resource or object
-    unset($$sockVarName);
-    unset($GLOBALS[$sockVarName]);
+    if ($retainSockVarName) {
+        // remove the global variable containing the socket resource or object
+        unset($$sockVarName);
+        unset($GLOBALS[$sockVarName]);
+    } else {
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET NAME RETAINED ON CLOSE >>>>>>', '');
+    }
 }
 
-function sendMpdCommand($sock, $cmd)
+function sendMpdCommand(&$sock, $cmd)
+// note that &$sock is passed by reference, it can be reset to new values
 {
     if (!is_array($sock) || !isset($sock['sockVarName'])) {
         if (!isset($sock['description'])) {
@@ -187,7 +198,17 @@ function sendMpdCommand($sock, $cmd)
         return false;
     }
     $cmd = trim($cmd)."\n";
-    if (socket_write($$sockVarName, $cmd, strlen($cmd))) {
+    $socReadCnt = 2;
+    while (!socket_write($$sockVarName, $cmd, strlen($cmd)) && $socReadCnt-- >= 0) {
+        // try reopening the socket if it has timed out
+        if (socket_last_error($$sockVarName) == 104) {
+            closeMpdSocket($sock, true);
+            $sock = openMpdSocket($sock['path'], $sock['type'], $sockVarName);
+        } else {
+            $socReadCnt = 0;
+        }
+    }
+    if ($socReadCnt-- >= 0) {
         runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
         return true;
     } else {
