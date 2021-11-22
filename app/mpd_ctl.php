@@ -175,6 +175,7 @@ if(!hashCFG($redis, 'check_mpd')) {
     $acards = $redis->hGetAll('acards');
     // debug
     // print_r($acards);
+    $template->count_cards = count($acards);
     foreach ($acards as $card => $data) {
         $acard_data = json_decode($data, true);
         // debug

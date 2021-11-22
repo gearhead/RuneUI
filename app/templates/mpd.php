@@ -7,6 +7,7 @@
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="audio-output-interface">Audio Output Interface</label>
+                    <?php if ($this->count_cards != 0): ?>
                     <div class="col-sm-10">
                         <select id="audio-output-interface" name="conf[audio_output_interface]" class="selectpicker" data-style="btn-default btn-lg">
                             <?php foreach($this->acards as $card): ?>
@@ -15,6 +16,15 @@
                         </select>
                         <span class="help-block">This switches output between audio interfaces</span>
                     </div>
+                    <?php else: ?>
+                    <div class="col-sm-10">
+                        <span class="help-block"><br>No audio interfaces detected.<br>
+                            RuneAudio has automatically set up http web-streaming service as an audio output. You can listen to this using another device, to tune in use the URL <strong>http:/<?=$this->hostname ?>.local:8000</strong><br>
+                            If you have an audio card installed, you need to select an I&#178;S sound card driver in the <a href="/settings/">Settings Sound output & sound processing menu</a>. A reboot is required to activate the selected card.<br>
+                            If you intend to use the HDMI audio output, it needs to plugged in and the device switched on before RuneAudio is powered up.<br>
+                            USB audio devices will be detected when plugged in</span>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </fieldset>
@@ -44,8 +54,7 @@
                     <span class="help-block">
                         <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
                         <strong>enabled</strong> - A hardware mixer is automatically selected if supported, otherwise a software mixer is used.<br>
-                        <i>Regardless of the mixer type, at 100% volume there is no reduction in sound quality. A hardware mixer has better sound
-                        quality performance than a software mixer, but it must be supported from your sound card</i></span>
+                        <i>A hardware mixer has better sound quality performance than a software mixer, but it must be supported from your sound card. Regardless of the mixer type, at 100% volume there is no loss in sound quality</i></span>
                 </div>
             </div>
             <div class="form-group">

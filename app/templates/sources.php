@@ -22,7 +22,7 @@
         <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="reset" value="1" id="reset"><i class="fa fa-refresh sx"></i> Remove all sources</button></p> -->
     </form>
     <legend>USB Mounts</legend>
-    <p>List of mounted USB drives. To safe unmount a drive, click on it and confirm at the dialog prompt.<br>
+    <p>List of mounted USB drives. To safe unmount a drive, click on it and confirm at the dialog prompt. <i>Note: Drives which are in use will not be removed!</i><br>
     If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled</p>
     <div id="usb-mount-list" class="button-list">
     <?php if( $this->usbmounts !== null ): foreach($this->usbmounts as $usbmount): ?>
