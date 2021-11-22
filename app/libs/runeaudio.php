@@ -3698,7 +3698,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // reload systemd daemon to activate any changed unit files
                     sysCmd('systemctl daemon-reload');
                     // start mpd
-                    sysCmd('systemctl start mpd');
+                    sysCmd('systemctl start mpd.socket');
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
                 }
