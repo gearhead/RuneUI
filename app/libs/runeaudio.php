@@ -3768,7 +3768,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             break;
         case 'forcestop':
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
-            sysCmd('mpc stop');
+            // sysCmd('mpc stop');
             sysCmd('mpd --kill');
             sleep(1);
             sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
@@ -3782,7 +3782,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if ($redis->get('mpdconfchange')) {
                     // the configuration file has changed
                     $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
-                    sysCmd('mpc stop');
+                    // sysCmd('mpc stop');
                     sysCmd('mpd --kill');
                     sleep(1);
                     sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
