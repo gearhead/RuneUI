@@ -3590,7 +3590,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\ttype \t\t\"httpd\"\n";
                 $output .="\tencoder \t\t\"flac\"\n";
                 $output .="\tport \t\t\"8000\"\n";
-                $output .="\tquality \t\t\"6\"\n";
+                $output .="\tcompression \t\t\"0\"\n";
                 $output .="\tformat \t\t\"".$websteaming.":16:2\"\n";
                 $output .="\talways_on \t\t\"yes\"\n";
                 $output .="\ttags \t\t\"yes\"\n";
