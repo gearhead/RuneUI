@@ -179,7 +179,9 @@ if ($playerid_db === '') {
     }
     //
     // enable mpd to start automatically on boot
-    sysCmd('systemctl enable mpd');
+    sysCmd('systemctl enable mpd.socket');
+    sysCmd('systemctl enable nginx');
+    sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
