@@ -2873,15 +2873,17 @@ function wrk_audioOutput($redis, $action, $args = null)
             // get a list of the hardware audio cards
             $cardlist = array();
             $cardlist = sysCmd('aplay -l -v | grep card');
-            // if there are no cards defined, enable the built in bcm2835 cards for the following boot
-            //  and since there is nothing to process return
-            if (!isset($cardlist) || !is_array($cardlist) || !isset($cardlist[0]) || !$cardlist[0]) {
-                // cartlist is not set, it is not an array or the first array value is empty
-                $redis->set('audio_on_off', 1);
-                wrk_audio_on_off($redis, 1);
-                return 'empty';
-            }
-            // determine if the nomber of cards has changed
+            // // if there are no cards defined, enable the built in bcm2835 cards for the following boot
+            // //  and since there is nothing to process return
+            // if (!isset($cardlist) || !is_array($cardlist) || !isset($cardlist[0]) || !$cardlist[0]) {
+                // // cardlist is not set, it is not an array or the first array value is empty, so no audio cards
+                // $redis->set('audio_on_off', 1);
+                // wrk_audio_on_off($redis, 1);
+                // // remove all audio card entries in the redis database
+                // $redis->Del('acards');
+                // return 'empty';
+            // }
+            // determine if the number of cards has changed
             if ($redis->hlen('acards') != count($cardlist)) {
                 $cardChange = 1;
             } else {
