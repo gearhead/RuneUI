@@ -346,8 +346,8 @@ if (file_exists('/usr/bin/xinit')) {
     $retval = preg_replace('/[^0-9]/', '', $retval[0]);
     if ($retval < 700000) {
         // local browser (x-windows) needs +/-1 MB of memory to operate
-        // the Pi 3A model has the cpu power and has x-windows installed, but has not enough memory
-        $template->local_browseronoff = false;
+        // the Pi 3A & Pi Zero 2W models has the cpu power and has x-windows installed, but little memory
+        $template->local_browseronoff = 'memory';
     }
     unset($retval);
 } else {

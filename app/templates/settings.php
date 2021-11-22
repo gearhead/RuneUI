@@ -392,7 +392,13 @@
                             <input id="local_browser" name="features[local_browser][enable]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable'])) && ($this->local_browser['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Start a local browser on HDMI or TFT</span>
+                        <span class="help-block">Start a local browser on HDMI or TFT screen.<br>
+                            <i>Note: HDMI screens need to be plugged in and switched on before starting RuneAudio
+                        <?php if($this->local_browseronoff == 'memory'): ?>
+                            .<br>This model has insufficient memory to guarantee that a local browser will work correctly.
+                                You can try it, switching off other features off may help
+                        <?php endif ?>
+                        </i></span>
                     </div>
                 </div>
                 <div class="<?php if($this->local_browser['enable'] != 1): ?>hide<?php endif ?>" id="local_browserName">
