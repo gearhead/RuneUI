@@ -3426,6 +3426,20 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                             // save the indicator, add the output after the normal output interfaces
                             // a non zero value is the output bitrate
                             $websteaming = $value;
+                            if (!isset($websteaming_encoder)) {
+                                $websteaming_encoder = 'lame';
+                            }
+                        }
+                        break;
+                    case 'webstreaming_encoder':
+                        // --- websteaming output encoder---
+                        if ($value) {
+                            // save the indicator, add the output after the normal output interfaces
+                            // a non zero value is the output bitrate
+                            $websteaming_encoder = $value;
+                            if (!isset($websteaming)) {
+                                $websteaming_encoder = '44100';
+                            }
                         }
                         break;
                     case 'brutefir':
@@ -3455,7 +3469,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // make sure we have at least one valid output
             if (!isset($acards) || !is_array($acards) || !reset($acards)) {
                 // no audio cards, enable the http output (bitrate = 44100), so that mpd has one valid output
-                $websteaming = '44100';
+                if (!isset($websteaming)) {
+                    // use these defaults when not set 44.1K, MP3 - this should always work
+                    $websteaming = '44100';
+                    $websteaming_encoder = 'lame';
+                }
                 $ao = '';
                 runelog('detected ACARDS ', 'No audio cards', __FUNCTION__);
             } else if (count($acards) == 1) {
@@ -3590,10 +3608,15 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="audio_output {\n";
                 $output .="\tname \t\t\"".$redis->get('hostname')."_stream\"\n";
                 $output .="\ttype \t\t\"httpd\"\n";
-                $output .="\tencoder \t\t\"flac\"\n";
                 $output .="\tport \t\t\"8000\"\n";
-                $output .="\tcompression \t\t\"0\"\n";
                 $output .="\tformat \t\t\"".$websteaming.":16:2\"\n";
+                if ($websteaming_encoder === 'flac') {
+                    $output .="\tencoder \t\t\"flac\"\n";
+                    $output .="\tcompression \t\t\"0\"\n";
+                } else {
+                    $output .="\tencoder \t\t\"lame\"\n";
+                    $output .="\tquality \t\t\"0\"\n";
+                }
                 $output .="\talways_on \t\t\"yes\"\n";
                 $output .="\ttags \t\t\"yes\"\n";
                 $output .="}\n";
