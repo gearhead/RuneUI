@@ -1426,10 +1426,25 @@ function OpCacheCtl($action, $basepath, $redis = null)
 {
     if ($action === 'prime' OR $action === 'primeall') $cmd = 'opcache_compile_file';
     if ($action === 'reset') $cmd = 'opcache_invalidate';
+    $blacklist = array('/srv/http/app/libs/runeaudio.php');
     if ($action === 'prime') {
         $files = $redis->sMembers('php_opcache_prime');
         foreach ($files as $file) {
-            opcache_compile_file($file);
+            if (in_array($file, $blacklist)) {
+                continue;
+            }
+            try {
+                // Code that may throw an Exception or Error
+                opcache_compile_file($file);
+            }
+            catch (Throwable $t) {
+                // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+                continue;
+            }
+            catch (Exception $e) {
+                // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+                continue;
+            }
         }
     }
     if ($action === 'primeall' OR $action === 'reset') {
