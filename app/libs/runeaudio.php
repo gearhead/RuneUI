@@ -3941,9 +3941,9 @@ function wrk_mpdRestorePlayerStatus($redis)
         // seems to be a bug somewhere in MPD
         // if play is requested too quickly after start it goes into pause or does nothing
         // solve by repeat play commands (no effect if already playing)
-        for ($mpd_play_count = 0; $mpd_play_count < 12; $mpd_play_count++) {
+        for ($mpd_play_count = 0; $mpd_play_count < 24; $mpd_play_count++) {
             // wait before looping
-            sleep(4);
+            sleep(2);
             switch (wrk_mpdPlaybackStatus($redis)) {
                 case 'paused':
                     // it was playing, now paused, so set to play
@@ -3956,7 +3956,7 @@ function wrk_mpdRestorePlayerStatus($redis)
                 default:
                     // it was playing, now not paused or playing, so start the track which was last playing
                     sysCmd('mpc play '.$mpd_playback_lastnumber.' || mpc play '.$mpd_playback_lastnumber);
-                    if ($mpd_play_count == 11) {
+                    if ($mpd_play_count >= 11) {
                         // one more loop to go, so next time play the first track in the playlist, no effect if the playlist is empty
                         $mpd_playback_lastnumber = '1';
                     }
@@ -7296,7 +7296,6 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             if (!strlen($queuedSongs)) {
                 $queuedSongs = 0;
             }
-            $moveNr = $queuedSongs + 1;
             // start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons
             // stop Global Random if disabled - there are also other conditions when ashuffle must be stopped
             // ashuffle also seems to be a little bit unstable, it occasionally unpredictably crashes
@@ -7319,14 +7318,14 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     $mpcStatus = ' '.trim(preg_replace('!\s+!', ' ', strtolower(sysCmd('mpc status | xargs')[0])));
                     if (!strpos($mpcStatus, 'playing')) {
                         // not playing
-                        $retval = sysCmd('mpc move '.$moveNr.' '.$moveNr.' || echo 1');
+                        $retval = sysCmd('mpc move 1 1 || echo 1');
                         if (!isset($retval) || !is_array($retval) || !isset($retval[0]) || !$retval[0]) {
                             $queueEmpty = 0;
                         } else {
                             $queueEmpty = 1;
                         }
                         // note: 'mpc move 1 1 || echo 1' (or 'mpc move 2 2 || echo 1') will do nothing and will also return
-                        // nothing when the first/second position in the queue contains a song, so:
+                        // nothing when the first (or second) position in the queue contains a song, so:
                         //  returning nothing is false >> songs in the queue
                         //  otherwise true >> queue empty
                         if ($queueEmpty) {
