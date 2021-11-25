@@ -1795,11 +1795,11 @@ while (1) {
     // Restart avahi-daemon every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
     // It looks like it is related to renewing the DHCP lease on the router
-    // Restart every +/-10800 cycles (= every +/-2 hours)
+    // Reload or restart every +/-10800 cycles (= every +/-1,5 hours)
     if ($savecpuAvd-- <= 0) {
         $savecpuAvd = 10700 + rand(0, 200);
-        // restart avahi-daemon
-        sysCmd('systemctl restart avahi-daemon');
+        // reload or restart avahi-daemon
+        sysCmd('systemctl reload-or-restart avahi-daemon');
     }
     // Check opcache every 1 hour (every 7200 cycles)
     // This will add memory to the opcache if required

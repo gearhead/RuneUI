@@ -5564,7 +5564,7 @@ function wrk_changeHostname($redis, $newhostname)
     wrk_avahiconfig($redis, strtolower($newhostname));
     // activate when a change has been made
     if ($redis->get('avahiconfchange')) {
-        // restart avahi-daemon if it is running (active), some users switch it off
+        // reload or restart avahi-daemon if it is running (active), some users switch it off
         // it is also started automatically when shairport-sync starts
         $retval = sysCmd('systemctl is-active avahi-daemon');
         if ($retval[0] === 'active') {
@@ -6976,7 +6976,7 @@ function refresh_nics($redis)
             $avahiLine = 'allow-interfaces='.$avahiNic;
         }
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
-        sysCmd('systemctl daemon-reload; systemctl restart avahi-daemon');
+        sysCmd('systemctl daemon-reload; systemctl reload-or-restart avahi-daemon');
         $redis->set('avahi_nic', $avahiNic);
     }
     //
