@@ -3439,7 +3439,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- websteaming output ---
                         if ($value) {
                             // save the indicator, add the output after the normal output interfaces
-                            // a non zero value is the output bitrate
+                            // a non zero value is the output samplerate
                             $websteaming = $value;
                             if (!isset($websteaming_encoder)) {
                                 $websteaming_encoder = 'lame';
@@ -3450,7 +3450,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- websteaming output encoder---
                         if ($value) {
                             // save the indicator, add the output after the normal output interfaces
-                            // a non zero value is the output bitrate
+                            // a non zero value is the output samplerate
                             $websteaming_encoder = $value;
                             if (!isset($websteaming)) {
                                 $websteaming_encoder = '44100';
