@@ -2426,6 +2426,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $counter = -1;
             $directory = '/boot/wifi';
             $fileNames = array_diff(scandir($directory), array('..', '.', 'readme', 'examples'));
+            if (count($fileNames) == 0) {
+                // no files found, exit the switch case
+                break;
+            }
             foreach ($fileNames as $fileName) {
                 // clear the cache otherwise is_dir() returns incorrect values
                 clearstatcache(true, $directory.DIRECTORY_SEPARATOR.$fileName);
