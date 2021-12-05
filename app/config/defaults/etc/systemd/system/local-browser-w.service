@@ -15,7 +15,7 @@ Environment="XDG_SESSION_TYPE=wayland"
 Environment="GDK_BACKEND=wayland"
 ExecStartPre=/bin/sleep 2
 ExecStart=/usr/bin/luakit
-ExecStop=/usr/bin/pkill -15 luakit
+ExecStop=/usr/bin/pkill -15 luakit localhost
 ExecStopPost=/usr/bin/pkill -15 weston
 TimeoutSec=infinity
 
