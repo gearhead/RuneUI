@@ -4855,8 +4855,12 @@ function wrk_getHwPlatform($redis)
                         // no break;
                     case "10":
                         // 10 = PiCompute Module 3+
-                        $arch = '08';
+                        // no break;
+                    case "14":
+                        // 14 = PiCompute Module 4
+                        // no break;
                         // single and multi processor models no on-board Wi-Fi or Bluetooth
+                        $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
@@ -4893,6 +4897,9 @@ function wrk_getHwPlatform($redis)
                         // no break;
                     case "12":
                         // 12 = PiZero 2 W
+                        // no break;
+                    case "13":
+                        // 13 = Pi400
                         // no break;
                         $arch = '08';
                         // single and multi processor models with on-board Wi-Fi and/or Bluetooth
