@@ -37,14 +37,15 @@ echo "rune_shutdown started"
 #
 echo "Stop MPD, services and unmount shares..."
 # stop the player
-mpc stop
-sleep 1
-# stop MPD
-mpd --kill
-sleep 1
-# stop mpd related jobs
+# mpc stop
+# sleep 1
+# stop MPD, don't wait for completion
+mpd --kill &
+# allow MPD 2 seconds to stop
+sleep 2
+# stop mpd & related jobs
 systemctl stop ashuffle upmpdcli mpdscribble mpd
-# stop webserver, php & local browser
+# stop webserver & local browser
 systemctl stop nginx local-browser
 # display the splash screen if applicable (local-browser must be stopped first)
 enablesplash=$( redis-cli hget local_browser enable-splash )
@@ -66,7 +67,7 @@ done
 # force redis to save all its variables to disk
 redis-cli save
 # stop most of the systemd units which can be stopped
-systemctl stop spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
+systemctl stop spotifyd shairport-sync spopd samba smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk udevil systemd-udevd bluealsa avahi-daemon llmnrd
 # unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
@@ -74,6 +75,10 @@ rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
 # udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
 udevil clean
+# remove any specified nic from the avahi config file
+sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
+# flush the filesystem buffers
+sync
 # blank the local browser screen
 export DISPLAY=:0
 xset dpms force off
