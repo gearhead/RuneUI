@@ -1,0 +1,1 @@
+root=/dev/mmcblk0p2 rw rootwait console=tty3 selinux=0 plymouth.enable=0 fsck.repair=yes smsc95xx.turbo_mode=N dwc_otg.lpm_enable=0 kgdboc=ttyAMA0,115200 quiet loglevel=3 rd.systemd.show_status=auto rd.udev.log_priority=3 vt.global_cursor_default=0 audit=0 snd_bcm2835.enable_compat_alsa=0

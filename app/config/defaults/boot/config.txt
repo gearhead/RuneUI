@@ -37,7 +37,7 @@
 #         and overlays.
 #
 # Conditional filters in config.txt
-#         See: https://www.raspberrypi.org/documentation/configuration/config-txt/conditional.md
+#         See: https://www.raspberrypi.com/documentation/computers/config_txt.html#conditional-filters
 #
 
 #dtparam=i2c_arm=on
@@ -82,9 +82,10 @@ dtparam=krnbt=on
 #dtoverlay=gpio-ir,gpio_pin=18,gpio_pull=down
 
 # enable hardware graphics accelerators (not normally required)
-# Pi model Zero, 1, 2 & 3
+# these drivers screw up many things in RuneAudio, you are advised not to use them
+# Pi model Zero, 1, 2 & 3 (gpu_mem=28 minimum, gpu_mem=64 advised for models with 1GB memory)
 #dtoverlay=vc4-kms-v3d,noaudio
-# Pi model 4
+# Pi model 4 (gpu_mem=28 minimum, gpu_mem=64 advised)
 #dtoverlay=vc4-kms-v3d-pi4,noaudio
 
 # LCD settings
@@ -170,8 +171,14 @@ gpu_mem=16
 # Conditional for Zero, Zero W, Zero WH, Zero 2 W
 gpu_mem=16
 [pi02]
-# Conditional for Zero 2 W
-gpu_mem=16
+# Conditional for Zero 2 W (minimum 16, may not exceed 32)
+gpu_mem=24
+[board-type=0x0e]
+# Conditional for Zero 3A+ (minimum 16, may not exceed 32) - boad type is '0xe' or 'ox0e'
+gpu_mem=24
+[board-type=0xe]
+# Conditional for Zero 3A+ (minimum 16, may not exceed 32) - boad type is '0xe' or 'ox0e'
+gpu_mem=24
 [all]
 # Conditional end
 
