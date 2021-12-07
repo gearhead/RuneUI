@@ -6990,7 +6990,8 @@ function refresh_nics($redis)
             $avahiLine = 'allow-interfaces='.$avahiNic;
         }
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
-        sysCmd('systemctl daemon-reload; systemctl reload-or-restart avahi-daemon');
+        // avahi needs to be restarted to activate the new entry in the config file
+        sysCmd('systemctl daemon-reload; systemctl restart avahi-daemon');
         $redis->set('avahi_nic', $avahiNic);
     }
     //
