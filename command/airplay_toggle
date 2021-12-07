@@ -38,10 +38,8 @@ error_reporting(E_ALL);
 ini_set('error_log', '/var/log/runeaudio/airplay_toggle.log');
 define('APP', '/srv/http/app/');
 require_once('/srv/http/app/libs/runeaudio.php');
-
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 
 // read status from /usr/lib/systemd/system/shairport.service
 $status = $argv[1]; // "on" or "off"

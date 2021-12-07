@@ -36,9 +36,8 @@
 ini_set('error_log', '/var/log/runeaudio/mount_async.log');
 define('APP', '/srv/http/app/');
 require_once('/srv/http/app/libs/runeaudio.php');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 
 // reset logfile
 sysCmd('echo "--------------- start: mount_async.php ---------------" > /var/log/runeaudio/mount_async.log');

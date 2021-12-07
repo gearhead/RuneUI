@@ -38,15 +38,14 @@ ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log', '/var/log/runeaudio/spotify_connect_metadata_async.log');
 require_once('/var/www/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/var/www/app/libs/openredis.php');
 error_reporting(E_ALL & ~E_NOTICE);
 
 // reset logfile
 sysCmd('echo "--------------- start: spotify_connect_metadata_async.php ---------------" > /var/log/runeaudio/spotify_connect_metadata_async.log');
 runelog('spotify_connect_metadata_async START');
 
-// Connect to Redis backend
-$redis = new Redis();
-$redis->pconnect('/run/redis/socket');
 // get the album art directory and url dir
 $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
 $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");

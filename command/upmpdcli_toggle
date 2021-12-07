@@ -38,10 +38,8 @@ error_reporting(E_ALL);
 ini_set('error_log', '/var/log/runeaudio/upmpdcli_toggle.log');
 define('APP', '/srv/http/app/');
 require_once('/srv/http/app/libs/runeaudio.php');
-
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 
 // clear the log file
 sysCmd('echo "--------------- start: airplay_toggle ---------------" > /var/log/runeaudio/upmpdcli_toggle.log');
