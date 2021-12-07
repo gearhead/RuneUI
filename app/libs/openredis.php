@@ -48,10 +48,14 @@ if (isset($redisOpenOneTime) && $redisOpenOneTime) {
     $redisErrorCount = 30;
 }
 $redisSleepTime = 2;
+
+// initialise the redis object
+$redis = new Redis();
+
 while ($redisError) {
     try {
         // Code that may throw an Exception or Error.
-        $redis = new Redis();
+        // Connect to redis
         if ($redis->pconnect('/run/redis/socket')) {
             $redisError = false;
         } else {
