@@ -46,9 +46,8 @@ runelog('WORKER rune_PL_wrk START');
 $forceupdate = 1;
 
 // --- WORKER MAIN LOOP --- //
-while (1) {
-    // Connect to Redis backend
-    $redis = new Redis();
+while (true) {
+    // connect to redis backend (pconnect reuses existing connections)
     $redis->pconnect('/run/redis/socket');
     // initialise variables
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');

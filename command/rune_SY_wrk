@@ -138,7 +138,7 @@ if ($playerid_db === '') {
     sysCmd('/srv/http/command/usbmount');
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
-    wrk_mpdconf($redis,'stop');
+    wrk_mpdconf($redis, 'stop');
     wrk_sourcecfg($redis,'reset');
     // reset Webradios
     $redis->del('webradios');
@@ -180,6 +180,7 @@ if ($playerid_db === '') {
     //
     // enable mpd to start automatically on boot
     sysCmd('systemctl enable mpd.socket');
+    // enable nginx and php-fpm to start automatically on boot
     sysCmd('systemctl enable nginx');
     sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
@@ -383,7 +384,7 @@ if ($playerid_db === '') {
 runelog('WORKER MAIN LOOP ---');
 //
 // WORKER MAIN LOOP --- //
-while (1) {
+while (true) {
     // Connect to Redis backend
     $redis->pconnect('/run/redis/socket');
     // runelog('[wrk] loop marker ',microtime(true));

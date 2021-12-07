@@ -116,7 +116,7 @@ ui_render('playback', json_encode($status));
 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
 sysCmdAsync('/var/www/command/ui_update_async');
 // --- WORKER MAIN LOOP --- //
-while (1) {
+while (true) {
     if ($activePlayer !== "Airplay") {
         sleep(3);
     } else {
