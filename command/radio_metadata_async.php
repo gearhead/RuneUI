@@ -60,7 +60,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     $saveCurrentsong = '';
     $saveArtist = '';
     $saveFile = '';
-    $status = json_decode($redis->get('act_player_info'); true);
+    $status = json_decode($redis->get('act_player_info'), true);
     while ($status['radio'] && (($status['currentsong'] != $saveCurrentsong) || ($status['artist'] != $saveArtist) || ($status['file'] != $saveFile))) {
         $saveCurrentsong = $status['currentsong'];
         $saveArtist = $status['artist'];
@@ -69,9 +69,9 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
         // processing
 
 
-        $status = json_decode($redis->get('act_player_info'); true);
+        $status = json_decode($redis->get('act_player_info'), true);
     }
-    if ($status['radio']  {
+    if ($status['radio'])  {
         $redis->set('act_player_info', json_encode($newStatus));
         ui_render('playback', json_encode($newStatus));
     }
