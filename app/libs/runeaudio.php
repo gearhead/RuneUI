@@ -1664,7 +1664,6 @@ function runelog($title, $data = null, $function_name = null)
 {
 // Connect to Redis backend
     $store = new Redis();
-//    $store->connect('127.0.0.1', 6379);
     $store->pconnect('/run/redis/socket');
     $debug_level = $store->get('debug');
     if (isset($function_name)) {
@@ -4731,7 +4730,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             }
             // reset mount index
             if ($return) $redis->del('mountidx');
-            wrk_mpdconf($redis,'start');
+            wrk_mpdconf($redis, 'start');
             // ashuffle gets started automatically
             // set process priority
             sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
