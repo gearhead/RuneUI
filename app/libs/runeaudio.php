@@ -6164,14 +6164,16 @@ function ui_update($redis, $sock, $clientUUID=null)
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
         case 'MPD':
-            if ($redis->get('pl_length') !== '0') {
-                sendMpdCommand($sock, 'swap 0 0');
-            } else {
-                sendMpdCommand($sock, 'clear');
-            }
-            // return MPD response
-            return readMpdResponse($sock);
+            return sysCmd('mpc status && mpc move 1 1 || mpc clear');
             break;
+            // if ($redis->get('pl_length') !== '0') {
+                // sendMpdCommand($sock, 'swap 0 0');
+            // } else {
+                // sendMpdCommand($sock, 'clear');
+            // }
+            // // return MPD response
+            // return readMpdResponse($sock);
+            // break;
         case 'Spotify':
             sendSpopCommand($sock, 'repeat');
             sendSpopCommand($sock, 'repeat');
