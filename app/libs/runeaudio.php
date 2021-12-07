@@ -48,16 +48,19 @@ function openMpdSocketRepeat($path, $type = 0, $retries = 1, $wait = 2)
 {
     $socketError = true;
     $socketErrorCount = $retries;
+    $waitSec = intval($wait);
     while ($socketError) {
         $sock = openMpdSocket($path, $type);
         if (isset($sock) && is_array($sock) && isset($sock['description'])) {
             $socketError = false;
         } else {
+            $sock = false;
             $socketError = true;
-            sleep($wait);
+            sleep($waitSec);
             $socketErrorCount--;
         }
         if ($socketErrorCount <= 0) {
+            $sock = false;
             // exit the loop
             $socketError = false;
         }
@@ -160,10 +163,11 @@ function closeMpdSocket($sock, $retainSockVarName = false)
         runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>','');
     }
     // tell MPD to close the connection
-    // testing then next line 24-05-2021 the manual says just close the socket, don't send a close command
+    // testing then next line 24-05-2021, the MPD manual says just close the socket, don't send a close command
     //sendMpdCommand($sock, 'close');
     // code to force the socket to close
     $linger = array ('l_linger' => 0, 'l_onoff' => 1);
+    socket_set_block($$sockVarName);
     socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
     // close the socket
     socket_close($$sockVarName);
@@ -200,7 +204,7 @@ function sendMpdCommand(&$sock, $cmd)
     $cmd = trim($cmd)."\n";
     $socReadCnt = 2;
     while (!socket_write($$sockVarName, $cmd, strlen($cmd)) && $socReadCnt-- >= 0) {
-        // try reopening the socket if it has timed out
+        // try reopening the socket with the same socket name if it has timed out (error code = 104)
         if (socket_last_error($$sockVarName) == 104) {
             closeMpdSocket($sock, true);
             $sock = openMpdSocket($sock['path'], $sock['type'], $sockVarName);
