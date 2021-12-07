@@ -1607,13 +1607,13 @@ while (true) {
             $savecpuMnt = 1750 + rand(0, 100);
         }
     }
-    // Run refresh_nics periodically, run it first after 10 cycles (+/-5 seconds), and increase the repeat cycle time by 50%
+    // Run refresh_nics periodically, run it first after 10 cycles (+/-5 seconds), and increase the repeat cycle time by 100%
     // it should run at least once per hour
     // connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuRefreshNics-- <= 0) {
         wrk_netconfig($redis, 'refreshAsync');
-        // increase the repeat cycle time by 50% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
-        $savecpuRefreshNics = min(7200, intval($savecpuRefreshNicsPrev*1.5));
+        // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
+        $savecpuRefreshNics = min(7200, intval($savecpuRefreshNicsPrev*2));
         // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
         $random = min(100,max(2, intval($savecpuRefreshNics/20)));
         $savecpuRefreshNics = $savecpuRefreshNics - $random + rand(0, $random*2);
