@@ -32,25 +32,54 @@
  *  coder: Simone De Gregori
  *
  */
-// common include
+ // initialisation
+// report errors: set display_errors to true (=1)
 ini_set('display_errors', '1');
-error_reporting(E_ALL);
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/ui_update_async.log');
-define('APP', '/srv/http/app/');
-// RuneAudio Library include
+// common include
 require_once('/srv/http/app/libs/runeaudio.php');
-// Connect to Redis backend include
-require_once('/srv/http/app/libs/openredis.php');
-$activePlayer = $redis->get('activePlayer');
-if ($activePlayer === 'MPD') {
-    //$socket = openMpdSocket('/run/mpd/socket', 0);
-    $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-} elseif ($activePlayer === 'Spotify') {
-    $socket = openSpopSocket('localhost', 6602, 1);
-} else {
-    exit(1);
-}
+// // Connect to Redis backend
+// require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: ui_update_async ---------------" > /var/log/runeaudio/radio_metadata_async.log');
+// logging starting message
+runelog('WORKER ui_update_async STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+// delay for the number of microseconds given in the 1st parameter (default is 500000 - this is 0.5 seconds)
 if (isset($argv[1])) {
     usleep($argv[1]);
+} else {
+    usleep(500000);
 }
-ui_update($redis, $socket);
+
+sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+
+// // determine the player type
+// $activePlayer = $redis->get('activePlayer');
+// // open the socket
+// if ($activePlayer === 'MPD') {
+    // //$socket = openMpdSocket('/run/mpd/socket', 0);
+    // $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+// } elseif ($activePlayer === 'Spotify') {
+    // $socket = openSpopSocket('localhost', 6602, 1);
+// } else {
+    // echo "Error: [ui_update_async] Player '".$activePlayer."' not supported\n"
+    // exit(1);
+// }
+// // if the socket is valid update the UI
+// if ($socket) {
+    // ui_update($redis, $socket);
+// } else {
+    // echo "Error: [ui_update_async] Can't open socket for player '".$activePlayer."'\n"
+    // exit(1);
+// }
+// // close Redis connection
+// $redis->close();
+
+runelog('WORKER ui_update_async END...');
+
