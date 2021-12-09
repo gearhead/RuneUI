@@ -31,7 +31,15 @@
  *  coder: Simone De Gregori
  *
  */
+ //
+ // run ui_render in the background after the absolute time in seconds has past
+$nowSeconds = microtime(true);
+// delay 2 second, so add 2 to the value
+$startAfterSeconds = $nowSconds + 2;
+wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterMicroseconds));
 $template->activePlayer = $redis->get('activePlayer');
+//
+// setup the display variables
 if ($redis->get('coverart') == 1) {
     if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
         $template->coverart = 1;

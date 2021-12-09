@@ -37,6 +37,8 @@ ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log', '/var/log/runeaudio/rune_PL_wrk.log');
 require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 error_reporting(E_ALL & ~E_NOTICE);
 
 // reset worker logfile
@@ -88,18 +90,22 @@ while (true) {
     } else {
         // MPD playback engine
         if ($activePlayer === 'MPD') {
-            if ($forceupdate !== 0) {
-                $forceupdate = 0;
-                runelog('----------------------------------- FORCE UPDATE -----------------------------------');
-                ui_update($redis, $socket, 0);
-                sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-            }
             $status = array();
             $newStatus = array();
-            $status = _parseStatusResponse($redis, MpdStatus($socket));
-            if (!isset($status) || !is_array($status)) {
-                $status = array();
+            if ($forceupdate !== 0) {
+                $forceupdate = 0;
+                runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
+                sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
+                sysCmdAsync('/srv/http/command/ui_update_async 0');
             }
+            $newStatus = _parseStatusResponse($redis, MpdStatus($socket));
+            if (isset($newStatus) || is_array($newStatus)) {
+                $status = array_merge($status, $newStatus);
+            }
+            $newStatus = array();
+            $redis->set('act_player_info', json_encode($status));
+            ui_render('playback', json_encode($status));
             // store next songid
             if (!isset($status['nextsongid']) || !$status['nextsongid']) {
                 $status['nextsongid'] = 0;
@@ -129,13 +135,17 @@ while (true) {
             $status['mainArtURL'] = $artUrl.'/none.png';
             $status['smallArtURL'] = $artUrl.'/mpd/black.png';
             $status['bigArtURL'] = $artUrl.'/mpd/black.png';
+            sysCmdAsync('/srv/http/command/ui_update_async');
             do {
+                //
                 // idle LOOP
+                //
                 runelog('rune_PL_wrk: enter idle loop');
                 $newStatus = monitorMpdState($redis, $socket);
                 // if we have lost the connection to mpd then break the loop
                 if (!$newStatus || !is_array($newStatus)) {
-                // if (!$newStatus) {
+                    // call close MPSD socket to clean up the socket
+                    closeMpdSocket($socket);
                     break;
                 }
                 // $monArray = monitorMpdState($redis, $socket);
@@ -156,6 +166,11 @@ while (true) {
                 // store "lastsongid"
                 if (!isset($newStatus['songid'])) {
                     $newStatus['songid'] = 0;
+                }
+                if (isset($newStatus['song'])) {
+                    $redis->set('mpd_playback_lastnumber', $newStatus['song']+1);
+                } else if (!$redis->get('mpd_playback_lastnumber')) {
+                    $redis->set('mpd_playback_lastnumber', 1);
                 }
                 $redis->set('lastsongid', $newStatus['songid']);
                 // store playlist length
@@ -353,8 +368,9 @@ while (true) {
         } elseif ($activePlayer === 'Spotify') {
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
-                runelog('----------------------------------- FORCE UPDATE -----------------------------------');
+                runelog('----------------------------------- FORCE UPDATE Spotify -----------------------------------');
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                $status = array_merge($status, initialise_playback_array($redis, 'Spotify'));
                 sysCmdAsync('/srv/http/command/ui_update_async');
             }
             $status['radio'] = false;
@@ -374,86 +390,26 @@ while (true) {
             closeSpopSocket($socket);
             $forceupdate = 1;
         } else if ($activePlayer === 'Airplay') {
-            $status['radio'] = false;
+            //
+            // Airplay
+            //
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
                 runelog('---------------------------- FORCE UPDATE Airplay ----------------------------------');
-//				$status = array();
-                if (!empty($redis->get('lastmpdvolume'))) {
-                    $status['volume'] = $redis->get('lastmpdvolume');
-                }
-                $status['audio'] = "44100:16:2";
-                $status['audio_sample_rate'] = "44.1";
-                $status['audio_sample_depth'] = "16";
-                $status['bitrate'] = "1411";
-                $status['audio_channels'] = "Stereo";
-                $status['random'] = "0";
-                $status['single'] = "0";
-                $status['consume'] = "0";
-                $status['playlist'] = "";
-                $status['playlistlength'] = "";
-                $status['state'] = "play";
-                $status['time'] = "0";
-                $status['elapsed'] = "0";
-                $status['song_percent'] = "100";
-                $status['currentalbumartist'] = "Airplay";
-                $status['currentartist'] = "Airplay";
-                $status['currentalbum'] = "-----";
-                $status['currentsong'] = "-----";
-                $status['actPlayer'] = "Airplay";
-                $status['radioname'] = null;
-                $status['OK'] = null;
-                $status['mainArtURL'] = $artUrl.'/airplay.png';
-                $status['smallArtURL'] = $artUrl.'/black.png';
-                $status['bigArtURL'] = $artUrl.'/black.png';
-                // save JSON response for extensions
-                $redis->set('act_player_info', json_encode($status));
-                ui_render('playback', json_encode($status));
-                sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-                sysCmdAsync('/srv/http/command/ui_update_async');
+                $status = array_merge($status, initialise_playback_array($redis, 'Airplay'));
             }
             do {
                 sleep(2);
             } while ($redis->get('activePlayer') === 'Airplay');
             sleep(1);
         } else if ($activePlayer === 'SpotifyConnect') {
-            $status['radio'] = false;
+            //
+            // Spotify Connect
+            //
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
                 runelog('---------------------------- FORCE UPDATE SpotifyConnect ----------------------------------');
-//				$status = array();
-                if (!empty($redis->get('lastmpdvolume'))) {
-                    $status['volume'] = $redis->get('lastmpdvolume');
-                }
-                $status['audio'] = "44100:16:2";
-                $status['audio_sample_rate'] = "44.1";
-                $status['audio_sample_depth'] = "16";
-                $status['bitrate'] = "1411";
-                $status['audio_channels'] = "Stereo";
-                $status['random'] = "0";
-                $status['single'] = "0";
-                $status['consume'] = "0";
-                $status['playlist'] = "";
-                $status['playlistlength'] = "";
-                $status['state'] = "stop";
-                $status['time'] = "0";
-                $status['elapsed'] = "0";
-                $status['song_percent'] = "100";
-                $status['currentalbumartist'] = "SpotifyConnect";
-                $status['currentartist'] = "SpotifyConnect";
-                $status['currentalbum'] = "-----";
-                $status['currentsong'] = "-----";
-                $status['actPlayer'] = "SpotifyConnect";
-                $status['radioname'] = null;
-                $status['OK'] = null;
-                $status['mainArtURL'] = $artUrl.'/spotify-connect.png';
-                $status['smallArtURL'] = $artUrl.'/black.png';
-                $status['bigArtURL'] = $artUrl.'/black.png';
-                // save JSON response for extensions
-                $redis->set('act_player_info', json_encode($status));
-                ui_render('playback', json_encode($status));
-                sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-                sysCmdAsync('/srv/http/command/ui_update_async');
+                $status = array_merge($status, initialise_playback_array($redis, 'Spotify connect'));
             }
             $spotify_connect_timeout = $redis->hGet('spotifyconnect', 'timeout');
             $spotify_connect_timeout_count = $spotify_connect_timeout;

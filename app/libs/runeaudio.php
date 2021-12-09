@@ -6161,6 +6161,10 @@ function wrk_setTimezone($redis, $timeZone) {
 
 function ui_update($redis, $sock, $clientUUID=null)
 {
+    $activePlayerInfo = $redis->get('act_player_info');
+    if (strlen($activePlayerInfo) > 5) {
+        ui_render('playback', $activePlayerInfo);
+    }
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
         case 'MPD':
@@ -8994,4 +8998,71 @@ function check_opcache($redis)
         // and do a reload, this will activate the extra memory (if applicable) and clear the cache
         wrk_opcache($redis, 'reload');
     }
+}
+
+// function to initialise the playback array
+function initialise_playback_array($redis, $playerType = 'MPD')
+{
+    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+    $playerTypeLower = strtolower($playerType);
+    $status = array();
+    $status['OK'] = null;
+    $status['actPlayer'] = $playerType;
+    $status['audio'] = '44100:16:2';
+    $status['audio_channels'] = 'Stereo';
+    $status['audio_sample_depth'] = '16';
+    $status['audio_sample_rate'] = '44.1';
+    $status['bigArtURL'] = $artUrl.'/black.png';
+    $status['bitrate'] = '320';
+    $status['changed'] = '';
+    $status['consume'] = '0';
+    $status['currentalbum'] = '-----';
+    $status['currentalbumartist'] = $playerType;
+    $status['currentartist'] = $playerType;
+    $status['currentcomposer'] = '';
+    $status['currentsong'] = '-----';
+    $status['duration'] = '';
+    $status['elapsed'] = '0';
+    $status['file'] = '';
+    $status['fileext'] = '';
+    if ($playerTypeLower === 'mpd') {
+        $status['mainArtURL'] = $artUrl.'/none.png';
+    } else if ($playerTypeLower === 'spotify') {
+        $status['mainArtURL'] = $artUrl.'/none.png';
+    } else {
+        $status['mainArtURL'] = $artUrl.'/'.str_replace(' ', '-', $playerTypeLower).'.png';
+    }
+    $status['mixrampdb'] = '0';
+    $status['nextsong'] = '0';
+    $status['nextsongid'] = '0';
+    $status['partition'] = 'default';
+    $status['playlist'] = '';
+    $status['playlistlength'] = '';
+    $status['radio'] = false;
+    $status['radioname'] = '';
+    $status['random'] = '0';
+    $status['repeat'] = '0';
+    $status['single'] = '0';
+    $status['smallArtURL'] = $artUrl.'/black.png';
+    $status['song'] = '0';
+    $status['song_percent'] = '0';
+    $status['songid'] = '0';
+    $status['state'] = 'stop';
+    $status['time'] = '0';
+    if (!empty($redis->get('lastmpdvolume'))) {
+        $status['volume'] = $redis->get('lastmpdvolume');
+    } else {
+        $status['volume'] = '0';
+    }
+    if (!empty($redis->hGet('mpdconf', 'crossfade'))) {
+        $status['xfade'] = $redis->hGet('mpdconf', 'crossfade');
+    } else {
+        $status['xfade'] = '0';
+    }
+    // save JSON response for extensions
+    $redis->set('act_player_info', json_encode($status));
+    ui_render('playback', json_encode($status));
+    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    sysCmdAsync('/srv/http/command/ui_update_async');
+    return $status;
 }

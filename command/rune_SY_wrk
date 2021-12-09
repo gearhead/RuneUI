@@ -347,6 +347,10 @@ if ($playerid_db === '') {
         sysCmdAsync("curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
     }
     //
+    // clear the current song data on the first pass after startup
+    if (is_firstTime($redis, 'clear_act_player_info')) {
+        $redis->set('act_player_info', json_encode(array()));
+    }
     // start rune_PL_wrk
     sysCmd('pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk');
     //
@@ -354,7 +358,7 @@ if ($playerid_db === '') {
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, '/usr/bin/xinit');
     if (($redis->hGet('local_browser', 'enable')) && (file_exists('/usr/bin/xinit'))) {
-        sysCmdAsync('systemctl start local-browser');
+        sysCmdAsync('systemctl start local-browser; /srv/http/command/ui_update_async 5000000');
     } else {
         sysCmdAsync('systemctl stop local-browser');
     }
@@ -1562,6 +1566,24 @@ while (true) {
                         ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
                     }
                     sleep(3);
+                    $redis->sRem('w_lock', $jobID);
+                    break;
+                case 'ui_render':
+                    runelog('wrk_SY: ', $job->wrkcmd);
+                    runelog('wrk_SY action: ', $job->action);
+                    runelog('wrk_SY args: ', $job->args);
+                    $redis->sAdd('w_lock', $jobID);
+                    // when $job->action is set to 'seconds', $job->args contains a timestamp which is the requested start time
+                    if (($job->action = 'seconds') && is_numeric($job->args)) {
+                        $delayMicroseconds = intval($job->args - microtime(true) * 1000000);
+                        if ($delayMicroseconds < 0 ) {
+                            $delayMicroseconds = 0;
+                        }
+                    } else {
+                        $delayMicroseconds = 0;
+                    }
+                    sysCmdAsync('/srv/http/command/ui_update_async '.$delayMicroseconds);
+                    unset($delayMicroseconds);
                     $redis->sRem('w_lock', $jobID);
                     break;
             } // end switch
