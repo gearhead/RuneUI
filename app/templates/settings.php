@@ -396,7 +396,7 @@
                             <i>Note: HDMI screens need to be plugged in and switched on before starting RuneAudio
                         <?php if($this->local_browseronoff == 'memory'): ?>
                             .<br>This model has insufficient memory to guarantee that a local browser will work correctly.
-                                You can try it, switching off other features off may help
+                                You can try it, it has been set-up with low graphics resolution. Switching off other features off may help with performance issues
                         <?php endif ?>
                         </i></span>
                     </div>

@@ -233,11 +233,8 @@ if ($playerid_db === '') {
     // --- INITIALIZE ENVIRONMENT //
     // NORMAL STARTUP --- //
     runelog('NORMAL STARTUP ---');
-    // NTP sync
     $start2 = microtime(true);
     $firstlap = $start2-$start;
-    //runelog('NTP sync', $redis->get('ntpserver'));
-    //wrk_NTPsync($redis->get('ntpserver'));
     $start3 = microtime(true);
     //
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
