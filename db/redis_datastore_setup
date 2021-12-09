@@ -73,8 +73,11 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'version', '0.22.6');
             $redis->hSet('mpdconf', 'volume_normalization', 'no');
             $redis->hSet('mpdconf', 'webstreaming', 0);
+            $redis->hSet('mpdconf', 'webstreaming_encoder', 'lame');
             $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
             $redis->hSet('mpdconf', 'zeroconf_name', 'RuneAudio');
+            $redis->hSet('websreaming', 'encoder', 'lame');
+            $redis->hSet('websreaming', 'samplerate', '44100');
             // $redis->hSet('mpdconf', 'buffer_before_play', '10%');
             // $redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
             // $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
@@ -110,8 +113,11 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'version') || $redis->hSet('mpdconf', 'version', '0.22.6');
             $redis->hExists('mpdconf', 'volume_normalization') || $redis->hSet('mpdconf', 'volume_normalization', 'no');
             $redis->hExists('mpdconf', 'webstreaming') || $redis->hSet('mpdconf', 'webstreaming', 0);
+            $redis->hExists('mpdconf', 'webstreaming_encoder') || $redis->hSet('mpdconf', 'webstreaming_encoder', 'lame');
             $redis->hExists('mpdconf', 'zeroconf_enabled') || $redis->hSet('mpdconf', 'zeroconf_enabled', 'yes');
             $redis->hExists('mpdconf', 'zeroconf_name') || $redis->hSet('mpdconf', 'zeroconf_name', 'RuneAudio');
+            $redis->hExists('websreaming', 'encoder') || $redis->hSet('websreaming', 'encoder', 'lame');
+            $redis->hExists('websreaming', 'samplerate') || $redis->hSet('websreaming', 'samplerate', '44100');
             // $redis->hExists('mpdconf', 'buffer_before_play') || $redis->hSet('mpdconf', 'buffer_before_play', '10%');
             // $redis->hExists('mpdconf', 'gapless_mp3_playback') ||$redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
             // $redis->hExists('mpdconf', 'id3v1_encoding') || $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');

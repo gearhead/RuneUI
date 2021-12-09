@@ -263,6 +263,31 @@
                         A higher CPU overhead is imposed by SoxR than when using the built-in MPD sample-rate converter. You can can override the default setting here</span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Plugin for MPD Websreaming encoder (file encoding type)</label>
+                    <div class="col-sm-10">
+                        <select id="WSencoder" class="selectpicker" name="mode[WSencoder]" data-style="btn-default btn-lg">
+                            <option value="flac" <?php if($this->WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
+                            <option value="lame" <?php if($this->WSencoder === 'lame'): ?> selected <?php endif ?>> Lame encoder for MP3</option>
+                        </select>
+                        <span class="help-block">Default is Lame (MP3) output which always works. Flac format is not supported in all browsers on all devices.<br>
+                            The flac encoder can support higher bitrates. Reboot to activate the changes</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Sample rate for MPD Websreaming encoder</label>
+                    <div class="col-sm-10">
+                        <select id="WSsamplerate" class="selectpicker" name="mode[WSsamplerate]" data-style="btn-default btn-lg">
+                            <option value="44100" <?php if(($this->WSencoder === 'lame') || ($this->WSsamplerate === '44100')): ?> selected <?php endif ?>> 44100</option>
+                            <?php if ($this->WSencoder === 'flac'): ?>
+                            <option value="48000" <?php if($this->WSsamplerate === '48000'): ?> selected <?php endif ?>> 48000</option>
+                            <option value="96000" <?php if($this->WSsamplerate === '96000'): ?> selected <?php endif ?>> 96000</option>
+                            <?php endif; ?>
+                        </select>
+                        <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. Higher rates are valid for Flac encoding, which could be
+                            useful if your music collection is primarily high definition recordings. Reboot to activate the changes</span>
+                    </div>
+                </div>
             </div>
             <legend>Airplay - Advanced settings</legend>
             <div class="boxed-group">

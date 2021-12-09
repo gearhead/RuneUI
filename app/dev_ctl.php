@@ -119,6 +119,42 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Webstreaming encoder and bitrate -----
+        if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
+            // value is set
+            if ($redis->get('WSencoder') != $_POST['mode']['WSencoder']) {
+                // value has changed, save it
+                $redis->hSet('websreaming', 'encoder', $_POST['mode']['WSencoder']);
+                if ($_POST['mode']['WSencoder'] === 'lame') {
+                    $redis->hSet('websreaming', 'samplerate', '44100');
+                }
+                if ($redis->hGet('mpdconf', 'webstreaming')) {
+                    // this redis variable ('mpdconf', 'webstreaming') is a switch, 0 = off, any other value is on
+                    // it has a value so replace it
+                    $redis->hSet('mpdconf', 'webstreaming', $redis->hGet('websreaming', 'samplerate'));
+                }
+                // always save the encoder
+                $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('websreaming', 'encoder'));
+            }
+        }
+        if ((isset($_POST['mode']['WSsamplerate'])) && ($_POST['mode']['WSsamplerate'])) {
+            // value is set
+            if ($redis->get('WSsamplerate') != $_POST['mode']['WSsamplerate']) {
+                // value has changed, save it
+                if ($redis->hGet('websreaming', 'encoder') === 'lame') {
+                    $redis->hSet('websreaming', 'samplerate', '44100');
+                } else {
+                    $redis->hSet('websreaming', 'samplerate', $_POST['mode']['WSsamplerate']);
+                }
+                if ($redis->hGet('mpdconf', 'webstreaming')) {
+                    // this redis variable ('mpdconf', 'webstreaming') is a switch, 0 = off, any other value is on
+                    // it has a value so replace it and the encoder
+                    $redis->hSet('mpdconf', 'webstreaming', $redis->hGet('websreaming', 'samplerate'));
+                }
+                // always save the encoder
+                $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('websreaming', 'encoder'));
+            }
+        }
         // ----- Automatic Wi-Fi Optimisation-----
         if ((isset($_POST['mode']['optwifionof']['enable'])) && ($_POST['mode']['optwifionof']['enable'])) {
             $redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
@@ -216,6 +252,9 @@ $template->airplayof = $redis->hGet('airplay', 'alsa_output_format');
 $template->airplayor = $redis->hGet('airplay', 'alsa_output_rate');
 $template->optwifionof = $redis->get('network_autoOptimiseWifi');
 $template->underclocking = $redis->get('underclocking');
+$template->WSencoder = $redis->hGet('websreaming', 'encoder');
+$template->WSsamplerate = $redis->hGet('websreaming', 'samplerate');
+
 // debug
 // var_dump($template->dev);
 // var_dump($template->debug);
