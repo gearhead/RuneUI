@@ -5578,13 +5578,11 @@ function wrk_changeHostname($redis, $newhostname)
     if ($redis->get('avahiconfchange')) {
         // reload or restart avahi-daemon if it is running (active), some users switch it off
         // it is also started automatically when shairport-sync starts
-        $retval = sysCmd('systemctl is-active avahi-daemon');
-        if ($retval[0] === 'active') {
-            sysCmd('systemctl stop avahi-daemon');
-            sysCmd('systemctl daemon-reload');
-            sysCmd('systemctl start avahi-daemon || systemctl reload-or-restart avahi-daemon');
-        }
-        unset($retval);
+        sysCmd('pgrep avahi-daemon && systemctl stop avahi-daemon');
+        sysCmd('systemctl daemon-reload');
+        sysCmd('pgrep avahi-daemon || systemctl start avahi-daemon');
+        // connman also needs to be restarted, otherwise connected wifi will fail
+        sysCmd('systemctl restart connman');
         // reconfigure MPD
         //wrk_mpdPlaybackStatus($redis);
         wrk_mpdRestorePlayerStatus($redis);
