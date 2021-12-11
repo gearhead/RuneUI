@@ -60,6 +60,12 @@ declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shair
 declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved getty@tty1)
 declare -a unmask_arr=(systemd-journald)
 #
+# unmask masked services, do this first otherwise other settings are ignored for masked services
+alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
+for i in $alreadymasked
+do
+   systemctl unmask "$i"
+done
 # disable specified services
 for i in "${disable_arr[@]}"
 do
@@ -70,12 +76,6 @@ done
 for i in "${enable_arr[@]}"
 do
    systemctl enable "$i"
-done
-# unmask masked services
-alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
-for i in $alreadymasked
-do
-   systemctl unmask "$i"
 done
 # mask specified services
 for i in "${mask_arr[@]}"

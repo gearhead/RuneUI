@@ -3144,7 +3144,7 @@ function wrk_i2smodule($redis, $args)
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
         ## RuneAudio enable HDMI & analog output
         $file = '/boot/config.txt';
-        $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', 'dtoverlay='.$args, '## RuneAudio I2S-Settings', 1);
+        $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', 'dtoverlay='.$args, 'RuneAudio I2S-Settings', 1);
         // Commit changes to /boot/config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
@@ -3237,9 +3237,9 @@ function wrk_audio_on_off($redis, $args)
 {
     if($redis->get('hwplatformid') === '08') {
         if ($args == 1) {
-            sysCmd('sed -i '."'".'s/dtparam=audio=.*/dtparam=audio=on/'."'".' /boot/config.txt');
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' /boot/config.txt");
         } else {
-            sysCmd('sed -i '."'".'s/dtparam=audio=.*/dtparam=audio=off/'."'".' /boot/config.txt');
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' /boot/config.txt");
         }
         // ## RuneAudio enable HDMI & analog output
         // $file = '/boot/config.txt';
@@ -4814,6 +4814,8 @@ function wrk_getHwPlatform($redis)
                 $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                 $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                 $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 0);
+                // Temporary fix for 'dtparam=audio=on' failures
+                $redis->set('audio_on_off', -1);
             }
             else {
                 $model = trim(substr($revision, -3, 2));
@@ -4831,6 +4833,8 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 0);
+                        // Temporary fix for 'dtparam=audio=on' failures
+                        $redis->set('audio_on_off', -1);
                         break;
                     case "01":
                         // 01 = PiB+, PiA+ or PiCompute module 1
@@ -4841,6 +4845,8 @@ function wrk_getHwPlatform($redis)
                     case "03":
                         // 03 = PiB+,
                         // no break;
+                        // Temporary fix for 'dtparam=audio=on' failures
+                        $redis->set('audio_on_off', -1);
                     case "04":
                         // 04 = Pi2B,
                         // no break;

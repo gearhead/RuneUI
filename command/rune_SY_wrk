@@ -129,6 +129,8 @@ if ($playerid_db === '') {
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
     wrk_setHwPlatform($redis);
+    // Temporary fix for 'dtparam=audio=on' failures
+    wrk_audio_on_off($redis, $redis->get('audio_on_off'));
     // reset netconf to defaults
     runelog('reset netconf to defaults');
     // read system network interfaces details

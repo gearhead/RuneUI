@@ -44,13 +44,19 @@
             <div class="form-group">
                 <label for="audio_on_off" class="control-label col-sm-2">HDMI & 3,5mm jack</label>
                 <div class="col-sm-10">
+                    <?php if ($this->audio_on_off < 0): ?>
+                    <span class="help-block">The latest version of Linux has broken the HDMI & 3.5mm jack support for this hardware model.
+                        <strong>Audio output for HDMI & 3,5mm jack is disabled.</strong>
+                        This will be corrected as soon as possible</span>
+                    <?php else: ?>
                     <label class="switch-light well" onclick="">
                         <input name="audio_on_off" type="checkbox" value="1"<?php if((isset($this->audio_on_off)) && ($this->audio_on_off)): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Set "ON" to enable or "OFF" to disable the on-board ALSA audio interface(s). <i><strong>Reboot</strong> to activate<br><br>
-                    HDMI connections are automatically detected when connected at startup and USB DACS are automatically detected when plugged in.<br>
-                    It is advised to only connect sound-cards, HDMI devices and USB DAC's when RuneAudio is powered off</i></span>
+                        HDMI connections are automatically detected when connected at startup and USB DACS are automatically detected when plugged in.<br>
+                        It is advised to only connect sound-cards, HDMI devices and USB DAC's when RuneAudio is powered off</i></span>
+                    <?php endif ?>
                 </div>
             </div>
             <?php endif;?>
