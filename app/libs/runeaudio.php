@@ -4804,6 +4804,7 @@ function wrk_getHwPlatform($redis)
             if (intval("0x".$revision, 16) < 16) {
                 // RaspberryPi1
                 $arch = '08';
+                $model = "00";
                 // old single processor models no on-board Wi-Fi or Bluetooth
                 $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                 $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -4818,7 +4819,7 @@ function wrk_getHwPlatform($redis)
                 $redis->set('audio_on_off', -1);
             }
             else {
-                $model = trim(substr($revision, -3, 2));
+                $model = strtolower(trim(substr($revision, -3, 2)));
                 switch($model) {
                     case "00":
                         // 00 = PiA or PiB
@@ -4886,20 +4887,11 @@ function wrk_getHwPlatform($redis)
                     case "0c":
                         // 0c = PiZero W
                         // no break;
-                    case "0C":
-                        // 0C = PiZero W
-                        // no break;
                     case "0d":
                         // 0d = Pi3B+
                         // no break;
-                    case "0D":
-                        // 0D = Pi3B+
-                        // no break;
                     case "0e":
                         // 0d = Pi3A+
-                        // no break;
-                    case "0E":
-                        // 0D = Pi3A+
                         // no break;
                     case "11":
                         // 0d = Pi4B+
@@ -4931,17 +4923,11 @@ function wrk_getHwPlatform($redis)
                     case "0b":
                         // 0b = unknown,
                         // no break;
-                    case "0B":
-                        // 0B = unknown,
-                        // no break;
                     case "0f":
                         // 0f = internal use only,
                         // no break;
-                    case "0F":
-                        // 0F = internal use only,
-                        // no break;
                     default:
-                        $arch = '--';
+                        $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
@@ -5001,15 +4987,7 @@ function wrk_getHwPlatform($redis)
             $arch = '--';
             break;
     }
-
-    $arch = '08';
-    if (!isset($arch)) {
-        $arch = '--';
-    }
-
-    if (!isset($arch)) {
-        $arch = '--';
-    }
+    $redis->set('pi_model', $model);
     return $arch;
 }
 

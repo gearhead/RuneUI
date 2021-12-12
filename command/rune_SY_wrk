@@ -191,11 +191,22 @@ if ($playerid_db === '') {
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
     sysCmd('/srv/http/command/rune_shutdown reboot');
-    sysCmd('reboot');
+    // Temporary fix for Zero reboot failures
+    $model = strtolower($redis->get('pi_model'));
+    if (($model === '09') || ($model === '0c') || ($model === '12')) {
+        // its a zero
+        // create a file to indicate indicate reboot not possible
+        touch('/srv/http/.config/noreboot');
+        // use the emergency boot
+        sysCmd('/srv/http/command/emergency_reboot.sh');
+    } else {
+        sysCmd('rm /srv/http/.config/noreboot');
+        sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
+    }
     // should never get here
     // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
-    // --- RUNEAUDIO FIRST RUN PROCESS //
+    // --- RUNEAUDIO FIRST RUN PROCESS END --- //
 } else if ($redis->hGet('mpdconf', 'version') != $mpdversion) {
     // MPD VERSION HAS CHANGED PROCES--- //
     runelog('>>>>>>MPD VERSION HAS CHANGED PROCESS ---');
