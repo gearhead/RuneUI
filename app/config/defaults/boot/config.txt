@@ -128,6 +128,9 @@ gpu_mem=64
 [pi1]
 gpu_mem=32
 [pi0]
+gpu_mem=32
+[all]
+[pi0w]
 gpu_mem=28
 [pi02]
 gpu_mem=28
