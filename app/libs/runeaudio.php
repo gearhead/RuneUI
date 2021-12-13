@@ -2692,9 +2692,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         // omit some of the values
                         continue;
                     }
-                    $storedProfiles[macAddressKey][$key] = $value;
+                    $storedProfiles[$macAddressKey][$key] = $value;
                 }
-                $storedProfiles[macAddressKey]['technology'] = 'ethernet';
+                $storedProfiles[$macAddressKey]['technology'] = 'ethernet';
                 // create the config file in '/var/lib/connman/', the name is 'ethernet_<macAddress>.config'
                 $profileFileName = '/var/lib/connman/ethernet_'.$args['macAddress'].'.config';
                 $tmpFileName = '/tmp/ethernet_'.$args['macAddress'].'.config';
@@ -2722,7 +2722,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 fwrite($fp, $profileFileContent);
                 fclose($fp);
                 // don't replace the existing connman configuration file if the new file is identical
-                if (md5_file($profileFileName) != md5_file($tmpFileName)) {
+                clearstatcache(true, $profileFileName);
+                if (!file_exists($profileFileName) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
                     rename($tmpFileName, $profileFileName);
                 } else {
                     unlink($tmpFileName);
