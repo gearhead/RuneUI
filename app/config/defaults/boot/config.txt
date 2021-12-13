@@ -147,7 +147,7 @@ dtparam=krnbt=on
 #
 ##  Audio settings ##
 #   RuneAudio HDMI & 3,5mm jack
-dtparam=audio=off
+#dtparam=audio=off
 #   RuneAudio I2S-Settings
 #dtoverlay=none
 #
