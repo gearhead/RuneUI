@@ -435,8 +435,7 @@
                                 <input id="overscan" name="features[local_browser][overscan]" type="checkbox" value="1"<?php if((isset($this->local_browser['overscan'])) && ($this->local_browser['overscan'])): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">Overscan is the black border around the active display area. This can be switched OFF for most LCD and HDMI displays. A <strong>reboot is required</strong> to activate the setting.<br>
-                            <i>When overscan is required, it's size can be adjusted in the file: /boot/config.txt</i></span>
+                            <span class="help-block">Overscan is the black border around the active display area. This can be switched OFF for most LCD and HDMI displays. A <strong>reboot is required</strong> to activate the setting</span>
                         </div>
                     </div>
                     <div class="form-group">
