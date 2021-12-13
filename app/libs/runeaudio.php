@@ -7105,7 +7105,9 @@ function fix_mac($redis, $nic)
         // create the systemd unit file only when it needs to be created
         $fileContent = '# file '.$file."\n"
             .'# some cheap network cards have an identical MAC address for all cards (e.g. 00:e0:4c:53:44:58)'."\n"
-            .'# change it to a fixed (previouly ranomised) address'."\n\n"
+            .'# change it to a fixed (previouly ranomised) address'."\n"
+            .'# this service is for nic:'.$nic.', spoofing to the Mac Address:'.$macNew."\n"
+            .'# once activated the spoofed address will remain for the nic, regardless of the need'."\n\n"
             .'[Unit]'."\n"
             .'Description=MAC Address Fix for '.$nic.' when it has the MAC address: '.$macCurrent."\n"
             // .'Wants=network-pre.target'."\n"
@@ -7114,8 +7116,8 @@ function fix_mac($redis, $nic)
             // .'After=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
             .'PartOf=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
             .'[Service]'."\n"
-            .'Type=oneshot'."\n"
-            ."ExecStart=/bin/bash -c '/usr/bin/ip link show ".$nic.' | /usr/bin/grep -ci '.$macCurrent.' && /usr/bin/ip link set dev '.$nic.' down ; /usr/bin/ip link set dev '.$nic.' address '.$macNew.' ; /usr/bin/ip link set dev '.$nic.' up'."'\n"
+            // .'Type=oneshot'."\n"
+            ."ExecStart=/bin/bash -c '/usr/bin/ip link set dev ".$nic.' address '.$macNew.' ; /usr/bin/ip link set dev '.$nic.' down ; /usr/bin/ip link set dev '.$nic.' up'."'\n"
             .'[Install]'."\n"
             .'WantedBy=multi-user.target'."\n";
         // write the file
