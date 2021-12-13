@@ -45,8 +45,8 @@
                 <label for="audio_on_off" class="control-label col-sm-2">HDMI & 3,5mm jack</label>
                 <div class="col-sm-10">
                     <?php if ($this->audio_on_off < 0): ?>
-                    <span class="help-block">The latest version of Linux has broken the HDMI & 3.5mm jack support for this hardware model.
-                        <strong>Audio output for HDMI & 3,5mm jack is disabled.</strong>
+                    <span class="help-block"><strong>Audio output for HDMI & 3,5mm jack is disabled.</strong>
+                        The latest version of Linux has broken the HDMI & 3.5mm jack support for this hardware model.<br>
                         This will be corrected as soon as possible</span>
                     <?php else: ?>
                     <label class="switch-light well" onclick="">

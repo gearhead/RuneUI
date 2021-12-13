@@ -4846,16 +4846,31 @@ function wrk_getHwPlatform($redis)
                     case "03":
                         // 03 = PiB+,
                         // no break;
+                    case "06":
+                        // 06 = PiCompute Module 1
+                        // no break;
+                    case "09":
+                        // 09 = PiZero,
+                        // single processor (armv6) models no on-board Wi-Fi or Bluetooth
                         // Temporary fix for 'dtparam=audio=on' failures
                         $redis->set('audio_on_off', -1);
+                        // End temporary fix
+                        $arch = '08';
+                        $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
+                        $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+                        $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
+                        $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
+                        $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
+                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 1);
+                        $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'yes');
+                        $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
+                        $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 0);
+                        break;
                     case "04":
                         // 04 = Pi2B,
                         // no break;
                     case "06":
                         // 06 = PiCompute Module
-                        // no break;
-                    case "09":
-                        // 09 = PiZero,
                         // no break;
                     case "0a":
                         // 0a = PiCompute Module 3
@@ -4868,8 +4883,7 @@ function wrk_getHwPlatform($redis)
                         // no break;
                     case "14":
                         // 14 = PiCompute Module 4
-                        // no break;
-                        // single and multi processor models no on-board Wi-Fi or Bluetooth
+                        // multi processor (armv7 or 64bit) models no on-board Wi-Fi or Bluetooth
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -4881,11 +4895,25 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 0);
                         break;
-                    case "08":
-                        // 08 = Pi3B,
-                        // no break;
                     case "0c":
                         // 0c = PiZero W
+                        $arch = '08';
+                        // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
+                        // Temporary fix for 'dtparam=audio=on' failures
+                        $redis->set('audio_on_off', -1);
+                        // End temporary fix
+                        $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
+                        $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
+                        $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
+                        $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
+                        $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
+                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 1);
+                        $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'yes');
+                        $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
+                        $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
+                        break;
+                    case "08":
+                        // 08 = Pi3B,
                         // no break;
                     case "0d":
                         // 0d = Pi3B+
@@ -4903,7 +4931,7 @@ function wrk_getHwPlatform($redis)
                         // 13 = Pi400
                         // no break;
                         $arch = '08';
-                        // single and multi processor models with on-board Wi-Fi and/or Bluetooth
+                        // multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);

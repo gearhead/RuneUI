@@ -31,6 +31,9 @@
 #  coder: janui
 #  date: December 2021
 #
+systemctl stop amixer-webui.service udevil.service nginx.service php-fpm.service haveged.service
+systemctl stop bluealsa-aplay.service bluealsa.service bluetooth.service
+systemctl stop llmnrd.service avahi-daemon.service connman.service getty@.service iwd.service sshd.service
 redis-cli shutdown save
 sync
 echo 1 > /proc/sys/kernel/sysrq
