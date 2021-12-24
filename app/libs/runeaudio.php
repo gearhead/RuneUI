@@ -1802,7 +1802,7 @@ function wrk_xorgconfig($redis, $action, $args)
             }
             if (sysCmd('grep -ic settings.webview.zoom_level "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
-                sysCmd('sed -i "/settings.webview.zoom_level/c\settings.webview.zoom_level = '.round($args*100).'" "'.$filePathName.'"');
+                sysCmd('sed -i "/^settings.webview.zoom_level/c\settings.webview.zoom_level = '.round($args*100).'" "'.$filePathName.'"');
             } else {
                 // scale factor line is missing, add it
                 sysCmd('echo "settings.webview.zoom_level = '.round($args*100).'" >> "'.$filePathName.'"');
