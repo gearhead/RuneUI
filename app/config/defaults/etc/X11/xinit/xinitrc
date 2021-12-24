@@ -23,9 +23,9 @@ matchbox-window-manager -use_titlebar no -use_cursor no &
 # install multimedia keyboard shortcuts
 sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 
-# start midori in private mode with fullscreen display
-# sudo -u http midori -p -e Fullscreen -a http://localhost --display=:0
-# midori -p -e Fullscreen http://localhost
-# use chromium instead because it scales whereas Midori no longer does
+# optional use of luakit for local browser which also scales <100%
+#sudo -u http /usr/bin/luakit
+
+# use chromium as default
 # the chromium configuration/parameter file for the user http is: /srv/http/.config/chromium-flags.conf
 sudo -u http /usr/bin/chromium http://localhost/
