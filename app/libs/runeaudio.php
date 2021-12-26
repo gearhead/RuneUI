@@ -212,7 +212,7 @@ function sendMpdCommand(&$sock, $cmd)
             $socReadCnt = 0;
         }
     }
-    if ($socReadCnt-- >= 0) {
+    if ($socReadCnt >= 0) {
         runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
         return true;
     } else {
