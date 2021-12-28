@@ -45,7 +45,7 @@ ini_set('error_log', '/var/log/runeaudio/refresh_nics.log');
 require_once('/srv/http/app/libs/runeaudio.php');
 // only run after reaching multi-user.target
 if (!is_systemd_target('multi-user.target')) {
-    exit 0;
+    exit(0);
 }
 // Connect to Redis backend, but do not loop trying to open it, this will prevent this script running too early from udev in the start-up sequence
 $redisOpenOneTime = true;
