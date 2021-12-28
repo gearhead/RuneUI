@@ -77,24 +77,25 @@ if ($networkInterfaces) {
 }
 //
 // start AP if configured and there is a AP capable Wi-Fi nic with no IP-address assigned
-//     only start AP if it is the first time that this routine runs or later when no internet connection is available
-//     AP will start on boot if no Wi-Fi network is connected
-//     AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
-//     only after a full loss of internet (and after some delays) will the AP start as an emergency connection
-// (it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now)
-if ($redis->hGet('AccessPoint', 'enable') && ((is_firstTime($redis, 'AP-start')) || (!$redis->hGet('service', 'internet')))) {
+//  only start AP if it is the first time that a suitable nic is (or becomes) available or later when 
+//  no internet connection is available
+//  AP will start on boot if no Wi-Fi network is connected
+//  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
+//  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
+// note: it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now
+if ($redis->hGet('AccessPoint', 'enable')) {
     // access point enabled and it is the first time this point in the code has been processed since reboot/boot or there is no internet available
     runelog('------------------ try to start AP if no IP is assigned ---------------------');
     $apWifiNicFound = false;
     $ethNicConnected = false;
     // walk through the array $networkInterfaces, this contains all wireless nics plus the connected wired nics
     foreach($networkInterfaces as $nic) {
-        // check if it is the first time this code is executed since reboot/boot or there is no internet available
-        //     and the nic is not connected, no suitable nic has been found previously, technology is 'wifi' and it supports AP
-        //     then wait for 20 seconds to allow connman to complete any reconnection activities
-        //     finally double check to see if the nic is still not connected!
-        //     (connman may not have initiated a reconnection process when the nics array was created)
-        //         use this to check the actual connection status: 'ip -o  address | sed 's,[ ]\+, ,g' | grep -i 'inet ' | grep -ic wlan0'
+        // check if accesspoint is enabled and the Wi-Fi nic is not connected, technology is 'wifi' and it supports AP
+        //  also look for a connected Ethernet nic which is a prerequisite for NAT
+        //  then wait for 20 seconds to allow connman to complete any reconnection activities
+        //  finally double check to see if the nic is still not connected!
+        //  (connman may not have initiated a reconnection process when the nics array was created)
+        //  use this to check the actual connection status: 'ip -o  address | sed 's,[ ]\+, ,g' | grep -i 'inet ' | grep -ic wlan0'
         if (
                 (!$nic['connected']) &&
                 // the nic was not connected when the nics array was created
@@ -110,7 +111,7 @@ if ($redis->hGet('AccessPoint', 'enable') && ((is_firstTime($redis, 'AP-start'))
             sleep(20);
             // double-check that the nic is still not connected
             if (!sysCmd('ip -o  address | sed '."'".'s,[ ]\+, ,g'."'".' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'])[0]) {
-                // the nic is still not connected
+                // the nic is still not connected, use it and skip the rest
                 runelog('########### got a nic for AP: '.$nic['nic']);
                 $wlanNic = $nic['nic'];
                 $apWifiNicFound = true;
@@ -118,7 +119,7 @@ if ($redis->hGet('AccessPoint', 'enable') && ((is_firstTime($redis, 'AP-start'))
         }
         // check if the nic technology is 'ehernet' and it has an allocated IP address
         if ((!$ethNicConnected) && ($nic['technology'] === 'ethernet') && ($nic['connected'])) {
-            // allways use the first one found for NAT, skip the rest
+            // always use the first one found for NAT, skip the rest
             runelog('########### got a nic for AP NAT: '.$nic['nic']);
             $ethNic = $nic['nic'];
             $ethNicConnected = true;
@@ -126,45 +127,49 @@ if ($redis->hGet('AccessPoint', 'enable') && ((is_firstTime($redis, 'AP-start'))
     }
     //
     if ($apWifiNicFound) {
-        runelog('########### no IP => start AP on '.$wlanNic);
-        $file = '/etc/hostapd/hostapd.conf';
-        // change AP name
-        $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
-        // change passphrase
-        $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
-        // change interface nic
-        $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic);
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode('', $newArray));
-        fclose($fp);
-        sysCmd('systemctl start hostapd');
-        //
-        $file = '/etc/dnsmasq.conf';
-        // change dhcp-range
-        $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
-        // change dhcp-option dns-server
-        $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
-        // change dhcp-option router
-        $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
-        // change Wi-Fi nic
-        $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic, 'WIFI-Interface', 1);
-        // change ethernet nic
-        $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$ethNic, 'ethernet', 1);
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode('', $newArray));
-        fclose($fp);
-        sysCmd('systemctl start dnsmasq');
-        //
-        // enable the AP by switching braodcast on
-        sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
-        //
-        // NAT configuration
-        if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
-            // enable NAT if enabled and there is a wired nic available
-            sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
-            sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-            sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
-            sysCmd('sysctl net.ipv4.ip_forward=1');
+        // we found a suitable Wi-Fi nic
+        if ((is_firstTime($redis, 'AP-start')) || (!$redis->hGet('service', 'internet'))) {
+            // it is the first time we have detected a suitable Wi-Fi nic or there is no internet available
+            runelog('########### no IP => start AP on '.$wlanNic);
+            $file = '/etc/hostapd/hostapd.conf';
+            // change AP name
+            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
+            // change passphrase
+            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
+            // change interface nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            sysCmd('systemctl start hostapd');
+            //
+            $file = '/etc/dnsmasq.conf';
+            // change dhcp-range
+            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
+            // change dhcp-option dns-server
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            // change dhcp-option router
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            // change Wi-Fi nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic, 'WIFI-Interface', 1);
+            // change ethernet nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$ethNic, 'ethernet', 1);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            sysCmd('systemctl start dnsmasq');
+            //
+            // enable the AP by switching braodcast on
+            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
+            //
+            // NAT configuration
+            if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
+                // enable NAT if enabled and there is a wired nic available
+                sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
+                sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
+                sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
+                sysCmd('sysctl net.ipv4.ip_forward=1');
+            }
         }
     }
 }
