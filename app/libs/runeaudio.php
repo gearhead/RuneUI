@@ -9079,3 +9079,13 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     sysCmdAsync('/srv/http/command/ui_update_async');
     return $status;
 }
+
+// function to check that a systemd target has been reached
+function is_systemd_target($target = 'multi-user.target')
+{
+    if (substr($target, -7) != '.target') {
+        // invalid parameter
+        return 0;
+    }
+    return sysCmd('systemctl list-units --type target | grep -i '.$target.' | grep -i loaded | grep -ic active')[0];
+}
