@@ -315,6 +315,8 @@ cp -RTv /srv/http/app/config/defaults/var/. /var
 cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
+# create required directories
+mkdir /root/.ssh
 # make appropriate links
 ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
