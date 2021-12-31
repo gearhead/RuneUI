@@ -4779,6 +4779,11 @@ function wrk_sourcecfg($redis, $action, $args=null)
 
 function wrk_getHwPlatform($redis)
 {
+    if ($redis->exists('pi_model')) {
+        $previousModel = $redis->get('pi_model');
+    } else {
+        $previousModel = '';
+    }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
     foreach($fileData as $line) {
@@ -4817,7 +4822,10 @@ function wrk_getHwPlatform($redis)
                 $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                 $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
                 // Temporary fix for 'dtparam=audio=on' failures
-                $redis->set('audio_on_off', -1);
+                if ($previousModel != $model) {
+                    $redis->set('audio_on_off', -1);
+                }
+                // End temporary fix
             }
             else {
                 $model = strtolower(trim(substr($revision, -3, 2)));
@@ -4836,7 +4844,10 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
                         // Temporary fix for 'dtparam=audio=on' failures
-                        $redis->set('audio_on_off', -1);
+                        if ($previousModel != $model) {
+                            $redis->set('audio_on_off', -1);
+                        }
+                        // End temporary fix
                         break;
                     case "01":
                         // 01 = PiB+, PiA+ or PiCompute module 1
@@ -4854,7 +4865,9 @@ function wrk_getHwPlatform($redis)
                         // 09 = PiZero,
                         // single processor (armv6) models no on-board Wi-Fi or Bluetooth
                         // Temporary fix for 'dtparam=audio=on' failures
-                        $redis->set('audio_on_off', -1);
+                        if ($previousModel != $model) {
+                            $redis->set('audio_on_off', -1);
+                        }
                         // End temporary fix
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
@@ -4901,7 +4914,9 @@ function wrk_getHwPlatform($redis)
                         $arch = '08';
                         // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
                         // Temporary fix for 'dtparam=audio=on' failures
-                        $redis->set('audio_on_off', -1);
+                        if ($previousModel != $model) {
+                            $redis->set('audio_on_off', -1);
+                        }
                         // End temporary fix
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
