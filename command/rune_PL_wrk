@@ -357,7 +357,8 @@ while (true) {
                     $errorcode = true;
                     runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
                 }
-                wrk_clean_music_metadata($redis);
+                // clean up the metadata, async and at low priority
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/clean_music_metadata_async.php');
             } while ((!$errorcode) && ($redis->get('activePlayer') === 'MPD'));
 
             // close Redis connection

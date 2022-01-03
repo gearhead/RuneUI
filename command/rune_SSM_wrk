@@ -483,9 +483,11 @@ while (true) {
                                 $status['elapsed'] = "0";
                                 $status['song_percent'] = "100";
                             }
-                            $status['currentsong'] = trim($status['currentsong']);
-                            ui_render('playback', json_encode($status));
                             $redis->set('act_player_info', json_encode($status));
+                            ui_render('playback', json_encode($status));
+                            // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                            // clean up the metadata, async and at low priority
+                            sysCmdAsync('nice --adjustment=4 /srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
                             //$status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
                             //$time_last_elapsed = microtime(true);

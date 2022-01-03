@@ -348,6 +348,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('proxy', 'user', '');
             $redis->hSet('proxy', 'pass', '');
             // lock keys
+            $redis->set('lock_clean_music_metadata', 0);
             $redis->set('lock_debug_collector', 0);
             $redis->set('lock_globalrandom', 0);
             $redis->set('lock_radio_metadata', 0);
@@ -710,6 +711,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('network_mac_spoof') || $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
             $redis->exists('avahi_nic') || $redis->set('avahi_nic', '');
             // lock keys
+            $redis->exists('lock_clean_music_metadata') || $redis->set('lock_clean_music_metadata', 0);
             $redis->exists('lock_debug_collector') || $redis->set('lock_debug_collector', 0);
             $redis->exists('lock_globalrandom') || $redis->set('lock_globalrandom', 0);
             $redis->exists('lock_radio_metadata') || $redis->set('lock_radio_metadata', 0);
