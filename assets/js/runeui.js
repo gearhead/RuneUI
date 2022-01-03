@@ -43,7 +43,8 @@ var GUI = {
     checkvol: 0,
     currentDBpos: [0,0,0,0,0,0,0,0,0,0,0],
     currentDBpath: ['','','','','','','','','','',''],
-    currentalbum: null,
+    currentalbum: '',
+    currentalbum_and_artist: '',
     currentknob: null,
     currentpath: '',
     currentsong: null,
@@ -64,7 +65,11 @@ var GUI = {
     visibility: 'visible',
     vol_changed_local: 0,
     volume: null,
-    clientUUID: null
+    clientUUID: null,
+    mainArtURL: '',
+    smallArtURL: '',
+    bigArtURL: '',
+    song_lyrics: ''
 };
 
 
@@ -886,8 +891,9 @@ function updateGUI() {
     var artist_bio_summary = ((typeof GUI.json.artist_bio_summary == 'undefined') ? '' : GUI.json.artist_bio_summary);
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
     // set radio mode if stream is present
-    GUI.stream = ((radioname !== null && radioname !== undefined && radioname !== '') ? 'radio' : '');
-    // check MPD status and refresh the UI info
+    var stream = ((radioname !== null && radioname !== undefined && radioname !== '') ? 'radio' : '');
+    GUI.stream = stream;
+    var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
     if ((activePlayer !== GUI.activePlayer) || (volume !== GUI.volume)) {
         GUI.activePlayer = activePlayer;
         setUIbuttons(activePlayer);
@@ -979,92 +985,110 @@ function updateGUI() {
         } else {
             $('#single').removeClass('btn-primary');
         }
-        if (GUI.currentsong !== currentsong) {
-            $('#lyric-text-overlay').html('');
-            if (GUI.stream !== 'radio') {
-                $.ajax({
-                    url: '/lyric/',
-                    success: function(data){
-                       $('#lyric-text-overlay').html(data);
-                    },
-                    cache: false
-                });
-            } else {
-                $('#lyric-text-overlay').html(song_lyrics);
-            }
+        if ((song_lyrics !== '') && (GUI.song_lyrics !== song_lyrics)) {
+            $('#lyric-text-overlay').html(song_lyrics);
         }
-        GUI.currentsong = currentsong;
-        var currentalbumstring = currentartist + ' - ' + currentalbum;
-        if (GUI.old_state !== GUI.state || GUI.currentalbum !== currentalbumstring) {
-            GUI.old_state = GUI.state;
-            if (GUI.stream === 'radio') {
-                // $('#cover-art').css( "opacity", 0);
-                // $('#cover-art').fadeOut();
-                $('#artist-bio-ss').html(artist_bio_summary);
-                $('#artist-bio-overlay').html(artist_bio_summary);
-                // $('#artist-bio-full-overlay').html(artist_bio_summary);
-                $('#addinfo-text-ss').html(artist_similar);
-                $('#addinfo-text-overlay').html(artist_similar);
-                $('#artist-image-ss').css('background-image', 'url("' + smallArtURL + '")');
-                $('#artist-image-overlay').css('background-image', 'url("' + smallArtURL + '")');
-                $('#cover-art').css('background-image', 'url("' + mainArtURL + '")');
-                $('#cover-art-ss').css('background-image', 'url("' + bigArtURL + '")');
-                $('#cover-art-sss').css('background-image', 'url("' + mainArtURL + '")');
-                // $('#cover-art').fadeIn();
-            } else {
-                $('#artist-bio-ss').html('');
-                $('#artist-image-ss').css('background-image', '');
-                $('#addinfo-text-ss').html('');
-                $('#artist-bio-overlay').html('');
-                $('#artist-image-overlay').css('background-image', '');
-                $('#addinfo-text-overlay').html('');
-                var covercachenum = Math.floor(Math.random()*1001);
-                $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                $.ajax({
-                    url: '/artist_info/',
-                    success: function(data){
-                        var info = jQuery.parseJSON(data);
-                        if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
-                            $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
-                            $('#artist-bio-overlay').html(info.artist.bio.summary);
-                            $('#artist-bio-full-overlay').html(info.artist.bio.content);
-                        } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
-                            $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
-                            $('#artist-bio-overlay').html(info.artist.bio.summary);
-                            $('#artist-bio-full-overlay').html(info.artist.bio.summary);
-                        } else {
-                            $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
-                            $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
-                            $('#artist-bio-full-overlay').html(currentartist+" - Sorry, No extra information available.");
-                        }
-                        if (typeof info.artist !== 'undefined' && info.artist.similar.artist !== '') {
-                            let i = 0;
-                            let text = "";
-                            while (typeof info.artist.similar.artist[i] !== 'undefined') {
-                                if (typeof info.artist.similar.artist[i].name !== 'undefined' && info.artist.similar.artist[i].name !== '') {
-                                    if (text === '') {
-                                        text = "<strong>Similar artists</strong>";
-                                    }
-                                    text += "<br>"+info.artist.similar.artist[i].name;
-                                }
-                                i++;
+        if ((mainArtURL !== '') && (GUI.mainArtURL !== mainArtURL)) {
+            GUI.mainArtURL = mainArtURL;
+            // $('#cover-art').css( "opacity", 0);
+            // $('#cover-art').fadeOut();
+            // `url(${data}?random=${randomId}`);
+            var randomId = new Date().getTime();
+            $('#cover-art').css('background-image', 'url(' + mainArtURL + ')');
+            // $('#cover-art').fadeIn();
+            $('#cover-art-sss').css('background-image', 'url(' + mainArtURL + ')');
+        }
+        if ((smallArtURL !== '') && (GUI.smallArtURL !== smallArtURL)) {
+            GUI.smallArtURL = smallArtURL;
+            $('#artist-image-ss').css('background-image', 'url("' + smallArtURL + '")');
+            $('#artist-image-overlay').css('background-image', 'url("' + smallArtURL + '")');
+        }
+        if ((bigArtURL !== '') && (GUI.bigArtURL !== bigArtURL)) {
+            GUI.bigArtURL = bigArtURL;
+            $('#cover-art-ss').css('background-image', 'url("' + bigArtURL + '")');
+        }
+        if ((artist_bio_summary !== '') && (GUI.artist_bio_summary !== artist_bio_summary)) {
+            GUI.artist_bio_summary = artist_bio_summary;
+            $('#artist-bio-ss').html(artist_bio_summary);
+            $('#artist-bio-overlay').html(artist_bio_summary);
+            // $('#artist-bio-full-overlay').html(artist_bio_summary);
+        }
+        if ((artist_similar !== '') && (GUI.artist_similar !== artist_similar)) {
+            GUI.artist_similar = artist_similar;
+            $('#addinfo-text-ss').html(artist_similar);
+            $('#addinfo-text-overlay').html(artist_similar);
+        }
+        if ((GUI.activePlayer === 'MPD') && (GUI.stream !== 'radio')) {
+            var currentalbum_and_artist = currentalbum + '-' + currentartist;
+            if (GUI.old_state !== GUI.state || GUI.currentalbum_and_artist !== currentalbum_and_artist) {
+                GUI.currentalbum_and_artist = currentalbum_and_artist;
+                GUI.old_state = GUI.state;
+                if (mainArtURL === '') {
+                    var covercachenum = Math.floor(Math.random()*1001);
+                    $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    cache: false
+                }
+            }
+            if (GUI.currentsong !== currentsong) {
+                GUI.currentsong = currentsong;
+                $('#lyric-text-overlay').html('');
+                if (song_lyrics === '') {
+                    $.ajax({
+                        url: '/lyric/',
+                        success: function(data){
+                           $('#lyric-text-overlay').html(data);
+                        },
+                        cache: false
+                    });
+                }
+            }
+            if (GUI.currentartist !== currentartist) {
+                if ((artist_bio_summary === '') && (artist_similar === '')) {
+                    $.ajax({
+                        url: '/artist_info/',
+                        success: function(data){
+                            var info = jQuery.parseJSON(data);
+                            if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
+                                $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
+                                $('#artist-bio-overlay').html(info.artist.bio.summary);
+                                $('#artist-bio-full-overlay').html(info.artist.bio.content);
+                            } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
+                                $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
+                                $('#artist-bio-overlay').html(info.artist.bio.summary);
+                                $('#artist-bio-full-overlay').html(info.artist.bio.summary);
+                            } else {
+                                $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
+                                $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
+                                $('#artist-bio-full-overlay').html(currentartist+" - Sorry, No extra information available.");
                             }
-                            $('#addinfo-text-ss').html(text);
-                            $('#addinfo-text-overlay').html(text);
-                        } else {
-                            $('#addinfo-text-ss').html('');
-                            $('#addinfo-text-overlay').html('');
-                        }
-                        $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                        $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    },
-                    cache: false
-                });
+                            if (typeof info.artist !== 'undefined' && info.artist.similar.artist !== '') {
+                                let i = 0;
+                                let text = "";
+                                while (typeof info.artist.similar.artist[i] !== 'undefined') {
+                                    if (typeof info.artist.similar.artist[i].name !== 'undefined' && info.artist.similar.artist[i].name !== '') {
+                                        if (text === '') {
+                                            text = "<strong>Similar artists</strong>";
+                                        }
+                                        text += "<br>"+info.artist.similar.artist[i].name;
+                                    }
+                                    i++;
+                                }
+                                $('#addinfo-text-ss').html(text);
+                                $('#addinfo-text-overlay').html(text);
+                            } else {
+                                $('#addinfo-text-ss').html('');
+                                $('#addinfo-text-overlay').html('');
+                            }
+                            $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                            $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                        },
+                        cache: false
+                    });
+                }
             }
         }
-        GUI.currentalbum = currentalbumstring;
     }
 }
 
