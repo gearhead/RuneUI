@@ -590,14 +590,6 @@ function setUIbuttons(activePlayer) {
         $('#play').removeClass('disabled');
         $('#next').removeClass('disabled');
     }
-    // style the queue
-    $('#playlist-entries').removeClass(function(index, css) {
-        return (css.match (/(^|\s)playlist-\S+/g) || []).join(' ');
-    }).addClass('playlist-' + source);
-    // toggle queue buttons
-    $('#pl-manage').removeClass(function(index, css) {
-        return (css.match (/(^|\s)pl-manage-\S+/g) || []).join(' ');
-    }).addClass('pl-manage-' + source);
 }
 
 function chkKey(key) {
@@ -1067,13 +1059,6 @@ function updateGUI() {
                         }
                         $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
                         $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                        // if (typeof info.artist !== 'undefined' && info.artist.image[2] !== '') {
-                            // $('#artist-image-ss').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
-                            // $('#artist-image-overlay').css('background-image', 'url("' + info.artist.image[2]["#text"] + '")');
-                        // } else {
-                            // $('#artist-image-ss').css('background-image','url("assets/img/unkown.png")');
-                            // $('#artist-image-overlay').css('background-image','url("assets/img/unkown.png")');
-                        // }
                     },
                     cache: false
                 });
