@@ -5140,21 +5140,26 @@ function wrk_startPlayer($redis, $newplayer)
             // record  the mpd status
             wrk_mpdPlaybackStatus($redis);
             // connect to MPD daemon
-            $sock = openMpdSocket('/run/mpd.sock', 0);
-            $status = _parseStatusResponse($redis, MpdStatus($sock));
-            runelog('MPD status', $status);
-            if ($status['state'] === 'play') {
-                // pause playback
-                sendMpdCommand($sock, 'pause');
-                // debug
-                runelog('sendMpdCommand', 'pause');
+            // $sock = openMpdSocket('/run/mpd.sock', 0);
+            $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+            if ($sock) {
+                $status = _parseStatusResponse($redis, MpdStatus($sock));
+                runelog('MPD status', $status);
+                if ($status['state'] === 'play') {
+                    // pause playback
+                    if (sendMpdCommand($sock, 'pause')) {
+                        readMpdResponse($sock);
+                    }
+                    // debug
+                    runelog('sendMpdCommand', 'pause');
+                }
+                // set the new player
+                $redis->set('activePlayer', $newplayer);
+                // to get MPD out of its idle-loop we discribe to a channel
+                sendMpdCommand($sock, 'subscribe '.$newplayer);
+                sendMpdCommand($sock, 'unsubscribe '.$newplayer);
+                closeMpdSocket($sock);
             }
-            // set the new player
-            $redis->set('activePlayer', $newplayer);
-            // to get MPD out of its idle-loop we discribe to a channel
-            sendMpdCommand($sock, 'subscribe '.$newplayer);
-            sendMpdCommand($sock, 'unsubscribe '.$newplayer);
-            closeMpdSocket($sock);
             if ($newplayer == 'Spotify') {
                 $retval = sysCmd('systemctl is-active spopd');
                 if ($retval[0] === 'active') {
@@ -5269,17 +5274,20 @@ function wrk_stopPlayer($redis, $activePlayer=null)
                 // set the active player back to the one we stopped
                 $redis->set('activePlayer', $stoppedPlayer);
                 // connect to MPD daemon
-                $sock = openMpdSocket('/run/mpd.sock', 0);
-                $status = _parseStatusResponse($redis, MpdStatus($sock));
-                runelog('MPD status', $status);
-                if ($status['state'] === 'pause') {
-                    // clear the stopped player if we left MPD paused
-                    $redis->set('stoppedPlayer', '');
+                //$sock = openMpdSocket('/run/mpd.sock', 0);
+                $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+                if ($sock) {
+                    $status = _parseStatusResponse($redis, MpdStatus($sock));
+                    runelog('MPD status', $status);
+                    if ($status['state'] === 'pause') {
+                        // clear the stopped player if we left MPD paused
+                        $redis->set('stoppedPlayer', '');
+                    }
+                    // to get MPD out of its idle-loop we discribe to a channel
+                    sendMpdCommand($sock, 'subscribe '.$activePlayer);
+                    sendMpdCommand($sock, 'unsubscribe '.$activePlayer);
+                    closeMpdSocket($sock);
                 }
-                // to get MPD out of its idle-loop we discribe to a channel
-                sendMpdCommand($sock, 'subscribe '.$activePlayer);
-                sendMpdCommand($sock, 'unsubscribe '.$activePlayer);
-                closeMpdSocket($sock);
                 // continue playing mpd where it stopped when the stream started
                 wrk_mpdRestorePlayerStatus($redis);
             } elseif ($stoppedPlayer === 'Spotify') {
@@ -8131,7 +8139,7 @@ function get_songInfo($redis, $info=array())
 //  cache file names for song and album (artist_filename, song_filename and album_filename)
 // this function specifically retrieves and sets:
 //  the http-formatted song lyrics (song_lyrics),
-//  the name of the file containing the cached artist information (song_filename)
+//  the name of the file containing the cached song information (song_filename)
 // the function sets any empty values for which information is not available
 // a cache file of artist information is always created, and if this exists it will be used instead of retrieving the information from internet
 // the function will return 'unknown' values when nothing van be found
@@ -8172,9 +8180,13 @@ function get_songInfo($redis, $info=array())
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($info['song_filename'] == $infoCache['song_filename']) {
+            if ($fileName == $infoCache['song_filename']) {
                 touch($fileName);
-                $info = array_merge($info, $infoCache);
+                foreach ($infoCache as $key => $value) {
+                    if (trim($value) != '') {
+                        $info[$key] = trim($value);
+                    }
+                }
                 return $info;
             }
         }
@@ -8328,9 +8340,13 @@ function get_albumInfo($redis, $info=array())
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($info['album_filename'] == $infoCache['album_filename']) {
+            if ($fileName == $infoCache['album_filename']) {
                 touch($fileName);
-                $info = array_merge($info, $infoCache);
+                foreach ($infoCache as $key => $value) {
+                    if (trim($value) != '') {
+                        $info[$key] = trim($value);
+                    }
+                }
                 return $info;
             }
         }
@@ -8386,10 +8402,14 @@ function get_albumInfo($redis, $info=array())
             clearstatcache(true, $fileName);
             if (file_exists($fileName)) {
                 // found a cached file, update its timestamp, use it and return
-                touch($fileName);
                 $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-                if ($albumFilename == $infoCache['album_filename']) {
-                    $info = array_merge($info, $infoCache);
+                if ($fileName == $infoCache['album_filename']) {
+                    touch($fileName);
+                    foreach ($infoCache as $key => $value) {
+                        if (trim($value) != '') {
+                            $info[$key] = trim($value);
+                        }
+                    }
                     return $info;
                 }
             }
@@ -8563,9 +8583,13 @@ function get_artistInfo($redis, $info=array())
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($info['artist_filename'] == $infoCache['artist_filename']) {
+            if ($fileName == $infoCache['artist_filename']) {
                 touch($fileName);
-                $info = array_merge($info, $infoCache);
+                foreach ($infoCache as $key => $value) {
+                    if (trim($value) != '') {
+                        $info[$key] = trim($value);
+                    }
+                }
                 return $info;
             }
         }
@@ -8607,9 +8631,13 @@ function get_artistInfo($redis, $info=array())
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($artistFilename === $infoCache['artist_filename']) {
+            if ($fileName == $infoCache['artist_filename']) {
                 touch($fileName);
-                $info = array_merge($info, $infoCache);
+                foreach ($infoCache as $key => $value) {
+                    if (trim($value) != '') {
+                        $info[$key] = trim($value);
+                    }
+                }
                 return $info;
             }
         }
@@ -8762,7 +8790,7 @@ function wrk_get_webradio_art($redis, $radiostring)
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($infoCache['webradiostring_filename'] === $info['webradiostring_filename']) {
+            if ($fileName === $infoCache['webradiostring_filename']) {
                 // update the file time stamp and use it
                 touch($fileName);
                 $info  = $infoCache;
@@ -8942,10 +8970,14 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($infoCache['artist_album_song_filename'] === $info['artist_album_song_filename']) {
+            if ($fileName === $infoCache['artist_album_song_filename']) {
                 // update the file time stamp and use it
                 touch($fileName);
-                $info  = $infoCache;
+                foreach ($infoCache as $key => $value) {
+                    if (trim($value) != '') {
+                        $info[$key] = trim($value);
+                    }
+                }
             } else {
                 return 0;
             }
@@ -9077,10 +9109,15 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['songid'] = '0';
     $status['state'] = 'stop';
     $status['time'] = '0';
-    if (!empty($redis->get('lastmpdvolume'))) {
-        $status['volume'] = $redis->get('lastmpdvolume');
-    } else {
-        $status['volume'] = '0';
+    $status['song_lyrics'] = ' ';
+    $status['artist_bio_summary'] = ' ';
+    $status['artist_similar'] = ' ';
+    if ($redis->get('volume')) {
+        if (!empty($redis->get('lastmpdvolume'))) {
+            $status['volume'] = $redis->get('lastmpdvolume');
+        } else {
+            $status['volume'] = '0';
+        }
     }
     if (!empty($redis->hGet('mpdconf', 'crossfade'))) {
         $status['xfade'] = $redis->hGet('mpdconf', 'crossfade');

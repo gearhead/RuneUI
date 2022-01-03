@@ -476,22 +476,21 @@ while (true) {
                     break;
                 case 'airplaytoggle':
                     runelog('wrk_SY: ', $job->wrkcmd);
+                    $redis->sAdd('w_lock', $jobID);
                     if ($job->action === 'start') {
                         // switch the player to airplay
                         wrk_startPlayer($redis, 'Airplay');
                         // start rune_SSM_wrk if metadata is enabled
                         if ($redis->hGet('airplay', 'metadata_enabled') == 'yes') {
-                            sysCmd('systemctl start rune_SSM_wrk');
-                            sleep(2);
-                            sysCmd('renice 3 $(pgrep -w rune_SSM_wrk) || renice 3 $(pgrep -w rune_SSM_wrk)');
+                            sysCmd('systemctl restart rune_SSM_wrk');
                         }
                     } elseif ($job->action === 'stop') {
                         // switch the player from airplay
                         wrk_stopPlayer($redis, 'Airplay');
                         // stop rune_SSM_wrk
-                        sysCmd('systemctl stop rune_SSM_wrk');
+                        sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
                     }
-                    $redis->sAdd('w_lock', $jobID);
+                    sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
                     $redis->sRem('w_lock', $jobID);
                     break;
                 case 'xorgserver':

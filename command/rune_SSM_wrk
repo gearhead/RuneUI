@@ -85,11 +85,21 @@ if ($redis->get('remoteSSbigart') === 'album') {
 }
 $airplayMetadataPipeName =  $redis->hGet('airplay', 'metadata_pipe_name');
 $activePlayer = $redis->get('activePlayer');
+// get the actual playback information
+$sampleRate = trim($redis->hGet('airplay', 'alsa_output_rate'));
+$sampleRateK = round($sampleRate / 1000, 1);
+if (strlen($sampleRateK) > 4) {
+    $sampleRateK = round($sampleRate / 1000, 0);
+}
+$sampleDepth = preg_replace('/[^0-9]/', '', $redis->hGet('airplay', 'alsa_output_format'));
 // initialise the status array
 $status = array();
-$status['audio'] = "44100:16:2";
-$status['audio_sample_rate'] = "44.1";
-$status['audio_sample_depth'] = "16";
+// Example: "44100:16:2";
+$status['audio'] = $sampleRate.":".$sampleDepth.":2";
+// Example: "44.1";
+$status['audio_sample_rate'] = $sampleRateK;
+// Example: "16";
+$status['audio_sample_depth'] = $sampleDepth;
 $status['bitrate'] = "1411";
 $status['audio_channels'] = "Stereo";
 $status['random'] = "0";
@@ -108,13 +118,17 @@ $status['currentsong'] = "Switching";
 $status['actPlayer'] = "Airplay";
 $status['radioname'] = null;
 $status['OK'] = null;
+$status['song_lyrics'] = ' ';
+$status['artist_bio_summary'] = ' ';
+$status['artist_similar'] = ' ';
 $status['mainArtURL'] = $artUrl.'/airplay.png';
 $status['smallArtURL'] = $artUrl.'/black.png';
 $status['bigArtURL'] = $artUrl.'/black.png';
 // save JSON response for extensions
+$redis->set('act_player_info', json_encode($status));
 ui_render('playback', json_encode($status));
 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-sysCmdAsync('/var/www/command/ui_update_async');
+$lastBufLen = 0;
 // --- WORKER MAIN LOOP --- //
 while (true) {
     if ($activePlayer !== "Airplay") {
@@ -122,9 +136,10 @@ while (true) {
     } else {
         do {
             // Open the FiFo metadata file if closed
-            if ($airplay_handle == FALSE) {
+            if (!$airplay_handle) {
                 runelog('rune_SSM_wrk: Open Airplay metadata file: ', $airplayMetadataPipeName);
-                if ($airplay_handle = fopen($airplayMetadataPipeName, 'r')) {
+                $airplay_handle = fopen($airplayMetadataPipeName, 'r');
+                if ($airplay_handle) {
                     runelog('rune_SSM_wrk: Airplay metadata file opened: ', $airplayMetadataPipeName);
                     // set stream set blocking to true, fgets will now wait for data
                     stream_set_blocking($airplay_handle, TRUE);
@@ -140,9 +155,8 @@ while (true) {
             }
             // read the metadata file
             // fgets() will wait for data
-            if ($airplay_meta_line = fgets($airplay_handle)) {
-                // there is data to process - do nothing here
-            } else {
+            $airplay_meta_line = fgets($airplay_handle);
+            if (!$airplay_meta_line) {
                 // there is an error
                 // close the metadata file, wait, then loop
                 runelog('rune_SSM_wrk: Airplay metadata file read fail, closing the metadata file');
@@ -173,7 +187,7 @@ while (true) {
                     $data .= $airplay_meta_line;
                 }
             }
-            if (!isset($status['volume'])) {
+            if ($redis->get('volume') && !isset($status['volume'])) {
                 if (!empty($redis->get('lastmpdvolume'))) {
                     $status['volume'] = $redis->get('lastmpdvolume');
                     $redis->set('act_player_info', json_encode($status));
@@ -254,17 +268,26 @@ while (true) {
                     case 'ssnc mdst':
                         // metadata start
                         runelog('rune_SSM_wrk: Metadata start: ', $buf);
+                        $status['song_lyrics'] = ' ';
+                        $status['artist_bio_summary'] = ' ';
+                        $status['artist_similar'] = ' ';
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
                         break;
                     case 'ssnc mden':
                         // metadata end
                         runelog('rune_SSM_wrk: Metadata end: ', $buf);
+                        // get artist info, artist art & lyrics
+                        //
                         // save and post the playback data to the UI
                         $redis->set('act_player_info', json_encode($status));
-                        //ui_render('playback', json_encode($status));
+                        ui_render('playback', json_encode($status));
                         break;
                     case 'ssnc prsm':
                         // play stream resume, no arguments
                         runelog('rune_SSM_wrk: Play stream resume, no arguments');
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
                         break;
                     case 'ssnc clip':
                         // source IP number, can be ipv4 or ipv6
@@ -301,7 +324,6 @@ while (true) {
                         runelog('rune_SSM_wrk: Play stream end, no arguments - closing the metadata file');
                         // Set up the UI for switching
                         // close the pipe, wait and exit
-                        sysCmd('rm -f /srv/http/tmp/airplay/airplay-cover.*');
                         fclose($airplay_handle);
                         $airplay_handle = FALSE;
                         if ($status['time'] != 0) {
@@ -316,8 +338,8 @@ while (true) {
                         $status['currentartist'] = "Airplay";
                         $status['currentalbum'] = "-----";
                         $status['currentsong'] = "Switching";
-                        ui_render('playback', json_encode($status));
                         $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
                         break;
                     case 'ssnc flsr':
                         // flush request > pause
@@ -335,12 +357,15 @@ while (true) {
                         //sysCmd('chown -f http.http /srv/http/tmp/airplay/airplay-cover.*');
                         //sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-cover.*');
                         $status = array();
-                        if (!empty($redis->get('lastmpdvolume'))) {
+                        if ($redis->get('volume') && !empty($redis->get('lastmpdvolume'))) {
                             $status['volume'] = $redis->get('lastmpdvolume');
                         }
-                        $status['audio'] = "44100:16:2";
-                        $status['audio_sample_rate'] = "44.1";
-                        $status['audio_sample_depth'] = "16";
+                        // Example: "44100:16:2";
+                        $status['audio'] = $sampleRate.":".$sampleDepth.":2";
+                        // Example: "44.1";
+                        $status['audio_sample_rate'] = $sampleRateK;
+                        // Example: "16";
+                        $status['audio_sample_depth'] = $sampleDepth;
                         $status['bitrate'] = "1411";
                         $status['audio_channels'] = "Stereo";
                         $status['random'] = "0";
@@ -359,25 +384,23 @@ while (true) {
                         $status['actPlayer'] = "Airplay";
                         $status['radioname'] = null;
                         $status['OK'] = null;
+                        $status['song_lyrics'] = ' ';
+                        $status['artist_bio_summary'] = ' ';
+                        $status['artist_similar'] = ' ';
                         if ($metadataIncludeCoverArt) {
                             $status['mainArtURL'] = $artUrl.'/black.png';
                             $status['smallArtURL'] = $artUrl.'/black.png';
                             $status['bigArtURL'] = $artUrl.'/black.png';
                         }
                         // save JSON response for extensions
-                        ui_render('playback', json_encode($status));
                         $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
                         //sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                         sysCmdAsync('/var/www/command/ui_update_async');
                         break;
                     case 'ssnc pcst':
                         // start picture send, no arguments
                         runelog('rune_SSM_wrk: Start picture send, no arguments');
-                        sysCmd('rm -f /srv/http/tmp/airplay/airplay-cover.*');
-                        //sysCmd('cp /srv/http/assets/img/cover-black.png /srv/http/tmp/airplay/airplay-cover.png');
-                        //sysCmd('chown -f http.http /srv/http/tmp/airplay/airplay-cover.*');
-                        //sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-cover.*');
-                        //sysCmdAsync('/var/www/command/ui_update_async');
                         break;
                     case 'ssnc pcen':
                         // end picture send, no arguments
@@ -398,6 +421,15 @@ while (true) {
                         // and is from 0.00 down to -30.00, with -144.00 meaning "mute". This is linear on the
                         // volume control slider of iTunes or iOS AirPlay
                         //$status['volume'] = preg_split(',', $buf);
+                        // 'mpc volume' returns the correct volume as long as MPD is running (which it should be)
+                        if ($redis->get('volume')) {
+                            $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep volume: | xargs')[0]);
+                            if ($volume) {
+                                $status['volume'] = intval($volume);
+                            }
+                            $redis->set('act_player_info', json_encode($status));
+                            ui_render('playback', json_encode($status));
+                        }
                         runelog('rune_SSM_wrk: Volume: ', $buf);
                         break;
                     case 'ssnc prgr':
@@ -423,18 +455,38 @@ while (true) {
                         // save and post the playback data to the UI
                         // push the info to the UI if cover art is not set
                         $status['currentsong'] = ' '.$status['currentsong'].' ';
-                        ui_render('playback', json_encode($status));
                         $redis->set('act_player_info', json_encode($status));
-                        // if ($metadataIncludeCoverArt) {
-                            // sysCmdAsync('/var/www/command/ui_update_async');
-                            // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-                        // }
+                        ui_render('playback', json_encode($status));
                         break;
                     case 'ssnc PICT':
                         // artwork
-                        // skip this section if cover art is not set, should never get here
+                        // skip this section if cover art is not set
                         if ($metadataIncludeCoverArt) {
-                            if (strlen($buf)>128) {
+                            $bufLen = strlen($buf);
+                            if (($bufLen < 129) || (($bufLen > 8000) && ($bufLen < 9000))) {
+                                // a image smaller than 128b is not feasible just use the predefined black image file or
+                                // this is a sort of dummy image which airplay sends before sending the real image
+                                //  the image has a black background with a white music note on it
+                                //  instead of using the note image, just use the predefined black image file
+                                $artFileUrl = $artUrl.'/black.png';
+                                $status['mainArtURL'] = $artFileUrl;
+                                if ($albumBig) {
+                                    $status['bigArtURL'] = $artFileUrl;
+                                } else {
+                                    $status['smallArtURL'] = $artFileUrl;
+                                }
+                                $skip = false;
+                            } else {
+                                if ($lastBufLen === $bufLen) {
+                                    // already sent this file to the browser, skip it
+                                    $skip = true;
+                                } else {
+                                    // this is a new image
+                                    $skip = false;
+                                    $lastBufLen == $bufLen;
+                                }
+                            }
+                            if (!$skip) {
                                 // first determine the image file type
                                 $tmp = ' '.substr($buf, 0, 32);
                                 if (strpos($tmp, 'PNG') !== false) {
@@ -445,15 +497,20 @@ while (true) {
                                     $imgtype = 'jpg';
                                 }
                                 // create a new image file
-                                $formattedArtName = format_art_file_name($status['currentartist'], $status['currentalbum']);
+                                // the order of information supply (metadata > image or image > metadata) seems to be
+                                //  random and some images are sent more than once!
+                                //  therefore you never know which image belongs to which song, no way to optimise this
+                                //  just use a single file name which has a randomised tag to force a browser reload
+                                $random = mt_rand();
+                                $formattedArtName = 'Airplay_Image';
                                 $artFileName = $artDir.'/'.$formattedArtName.'.'.$imgtype;
-                                $artFileUrl = $artUrl.'/'.$formattedArtName.'.'.$imgtype;
+                                // note the randomiser tag which causes the browser to reload an image with the same name
+                                $artFileUrl = urlencode($artUrl.'/'.$formattedArtName.'.'.$imgtype).'?random='.$random;
                                 if (!file_put_contents($artFileName, $buf)) {
                                     runelog('rune_SSM_wrk: Image file create failed, name: ', $artFileName);
                                     runelog('rune_SSM_wrk: Image file create failed, buffer length: ', strlen($buf));
                                     break;
-                                }
-                                else {
+                                } else {
                                     runelog('rune_SSM_wrk: Image file create created, name: ', $artFileName);
                                     runelog('rune_SSM_wrk: Image file create created, buffer length: ', strlen($buf));
                                     // make sure the image file is readable for the UI (runs as user http)
@@ -465,16 +522,42 @@ while (true) {
                                         $status['smallArtURL'] = $artFileUrl;
                                     }
                                 }
-                            } else {
-                                // no image file
-                                runelog('rune_SSM_wrk: No image file, buffer length: ', strlen($buf));
-                                $status['mainArtURL'] = $artUrl.'/none.png';
-                                $status['smallArtURL'] = $artUrl.'/none.png';
-                                $status['bigArtURL'] = $artUrl.'/none.png';
                             }
                             // (save and) post the playback data to the UI
-                            sleep(1);
-                            $status['currentalbum'] = ' '.$status['currentalbum'].' ';
+                            if ($status['time'] != 0) {
+                                $status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
+                                $time_last_elapsed = microtime(true);
+                                $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
+                            } else {
+                                $status['elapsed'] = "0";
+                                $status['song_percent'] = "100";
+                            }
+                            $redis->set('act_player_info', json_encode($status));
+                            ui_render('playback', json_encode($status));
+                            // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                            //
+                            // now get the artist art and song information
+                            $info = array();
+                            $info['artist'] = $status['currentartist'];
+                            $info['albumartist'] = $status['currentalbumartist'];
+                            $info['song'] = $status['currentsong'];
+                            $retval = get_artistInfo($redis, $info);
+                            if ($retval) {
+                                $info = array_merge($info, $retval);
+                            }
+                            $retval = get_songInfo($redis, $info);
+                            if ($retval) {
+                                $info = array_merge($status, $retval);
+                            }
+                            $status['song_lyrics'] = $info['song_lyrics'];
+                            $status['artist_bio_summary'] = $info['artist_bio_summary'];
+                            $status['artist_similar'] = $info['artist_similar'];
+                            if ($albumBig) {
+                                $status['smallArtURL'] = $info['artist_arturl'];
+                            } else {
+                                $status['bigArtURL'] = $info['artist_arturl'];
+                            }
+                            // (save and) post the playback data to the UI
                             if ($status['time'] != 0) {
                                 $status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
                                 $time_last_elapsed = microtime(true);
@@ -502,6 +585,9 @@ while (true) {
                         runelog('rune_SSM_wrk: Undefined: ', substr($buf, 0, 32));
                         break;
                 }
+                $buf = '';
+                $type = '';
+                $code = '';
             }
         } while (($redis->get('activePlayer') === 'Airplay') && ($airplay_handle != FALSE));
         sleep(1);

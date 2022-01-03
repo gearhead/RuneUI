@@ -42,7 +42,7 @@ require_once('/srv/http/app/libs/runeaudio.php');
 require_once('/srv/http/app/libs/openredis.php');
 
 // read status from /usr/lib/systemd/system/shairport.service
-$status = $argv[1]; // "on" or "off"
+$status = trim(strtolower($argv[1])); // "on" or "off"
 
 switch($status) {
     case "on":
@@ -62,4 +62,4 @@ switch($status) {
 }
 
 // update player view
-ui_libraryHome($redis, 'Server');
+sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');

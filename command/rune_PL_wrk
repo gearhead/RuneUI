@@ -104,6 +104,7 @@ while (true) {
                 $status = array_merge($status, $newStatus);
             }
             $newStatus = array();
+            $status['actPlayer'] = $activePlayer;
             $redis->set('act_player_info', json_encode($status));
             ui_render('playback', json_encode($status));
             // store next songid
@@ -448,7 +449,6 @@ while (true) {
                 $playing = reset(sysCmd('cat /proc/asound/card*/pcm*p/sub*/hw_params | grep -c -i -v closed'));
                 // $playing contains 0 or false when nothing is playing, otherwise a positive number like 7 (=true)
                 runelog('rune_PL_wrk: $playing:', $playing);
-                // if (($redis->hGet('spotifyconnect', 'event') != 'stop') || $playing) {
                 if ($playing) {
                     runelog('rune_PL_wrk: Spotify Connect is playing');
                     $spotify_connect_timeout_count = $spotify_connect_timeout;
