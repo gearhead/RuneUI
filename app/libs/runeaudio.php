@@ -37,7 +37,8 @@
 // SPOP: "spop x.x.x\n" (11 bytes, as of version 0.0.1)
 // Where x is a numeric vanue (version number)
 
-function is_localhost() {
+function is_localhost()
+{
     $whitelist = array( '127.0.0.1', '::1' );
     if( in_array( $_SERVER['REMOTE_ADDR'], $whitelist) )
         return true;
@@ -5691,7 +5692,11 @@ function addRadio($mpd, $redis, $data)
         $fp = fopen($file, 'w');
         $return = fwrite($fp, $newpls);
         fclose($fp);
-        if ($return) sendMpdCommand($mpd, 'update Webradio');
+        if ($return) {
+            if (sendMpdCommand($mpd, 'update Webradio')) {
+                readMpdResponse($mpd);
+            }
+        }
     } else {
         $return = false;
     }
@@ -5721,7 +5726,11 @@ function editRadio($mpd,$redis,$data)
             $return = fwrite($fp, implode("", $newArray));
             fclose($fp);
         }
-        if ($return) sendMpdCommand($mpd, 'update Webradio');
+        if ($return) {
+            if (sendMpdCommand($mpd, 'update Webradio')) {
+                readMpdResponse($mpd);
+            }
+        }
     } else {
         $return = false;
     }
@@ -5741,7 +5750,9 @@ function deleteRadio($mpd,$redis,$data)
         if ($return) {
             // delete webradio record in redis
             $redis->hDel('webradios', $label);
-            sendMpdCommand($mpd, 'update Webradio');
+            if (sendMpdCommand($mpd, 'update Webradio')) {
+                readMpdResponse($mpd);
+            }
         }
     } else {
         $return = false;
@@ -6193,7 +6204,7 @@ function wrk_setTimezone($redis, $timeZone) {
     return $retval;
 }
 
-function ui_update($redis, $sock, $clientUUID=null)
+function ui_update($redis, $sock=null, $clientUUID=null)
 {
     $activePlayerInfo = $redis->get('act_player_info');
     if (strlen($activePlayerInfo) > 5) {
@@ -8988,7 +8999,6 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
     } else {
         return 0;
     }
-
     if ($info['artist_filename']) {
         // an artist cache filename is set
         $retval = get_artistInfo($redis, $info);

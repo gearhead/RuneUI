@@ -57,16 +57,22 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
     } else {
         ui_notify('Spotify not enabled', 'Enable and configure it under the Settings screen');
     }
-} elseif (isset($_GET['cmd']) && $_GET['cmd']) {
+} else if (isset($_GET['cmd']) && $_GET['cmd']) {
     // debug
     // runelog('MPD command: ',$_GET['cmd']);
     if ($_GET['cmd'] === 'renderui') {
         if ($activePlayer === 'MPD') {
             $socket = $mpd;
-        } elseif ($activePlayer === 'Spotify') {
+        } else if ($activePlayer === 'Spotify') {
             $socket = $spop;
+        } else {
+            $socket = null;
         }
-        $response = ui_update($redis, $socket, $_GET['clientUUID']);
+        if (isset($_GET['clientUUID'])) {
+            $response = ui_update($redis, $socket, $_GET['clientUUID']);
+        } else {
+            $response = ui_update($redis, $socket);
+        }
     } else {
         if ($activePlayer === 'MPD') {
             $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);

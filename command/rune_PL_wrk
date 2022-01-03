@@ -145,20 +145,10 @@ while (true) {
                 $newStatus = monitorMpdState($redis, $socket);
                 // if we have lost the connection to mpd then break the loop
                 if (!$newStatus || !is_array($newStatus)) {
-                    // call close MPSD socket to clean up the socket
+                    // call close MPD socket to clean up the socket
                     closeMpdSocket($socket);
                     break;
                 }
-                // $monArray = monitorMpdState($redis, $socket);
-                // // if we have lost the connection to mpd then break the loop
-                // if (!$monArray) {
-                    // break;
-                // }
-                // $status['currentartist'] = '';
-                // $status['currentalbumartist'] = '';
-                // $status['currentalbum'] = '';
-                // $status['currentsong'] = '';
-                // $status = array_merge($newStatus, $monArray);
                 // store next songid
                 if (!isset($newStatus['nextsongid']) || !$newStatus['nextsongid']) {
                     $newStatus['nextsongid'] = 0;
@@ -272,7 +262,7 @@ while (true) {
                     $status = array_merge($status, $newStatus);
                     $mpdChangeSong = false;
                 } else {
-                    // not radio or new radio song, replace status
+                    // it is not a radio or it is a new radio song, replace status
                     $status = $newStatus;
                     $mpdChangeSong = true;
                     $saveRadio = $newStatus['radio'];
@@ -347,13 +337,12 @@ while (true) {
                         $status['currentsong'] = 'Radio';
                     }
                 }
-                if (strpos(' '.$status['changed'], 'mixer')) {
-                    //$redis->set('current_volume', $status['volume']);
+                if (strpos(' '.$status['changed'], 'mixer') && $redis->get('volume')) {
                     if ($redis->get('ao') === 'PianoDACPlus' && $redis->hget('mpdconf', 'mixer_type') === 'hardware') {
                         sysCmd('amixer -D '.json_decode($redis->hget('acards', 'PianoDACPlus'))->mixer_device.' set Subwoofer '.$status['volume'].'%');
                     }
                 }
-                $status['actPlayer'] = "MPD";
+                $status['actPlayer'] = $activePlayer;
                 $redis->set('act_player_info', json_encode($status));
 
                 // Global Random
@@ -369,7 +358,7 @@ while (true) {
                     runelog('rune_PL_wrk: ui_render() response', json_encode($status));
                     ui_render('playback', json_encode($status));
                 }
-                If ($redis->hGet('globalrandom', 'enable') && (!isset($status['state']) || ($status['state'] === 'play')) && ($status['nextsongid'] === 0)) {
+                if ($redis->hGet('globalrandom', 'enable') && (!isset($status['state']) || ($status['state'] === 'play')) && ($status['nextsongid'] === 0)) {
                     // now playing the last track in the queue
                     $redis->set('lock_globalrandom', 1);
                 } else {
@@ -410,8 +399,15 @@ while (true) {
                 $status['playlist'] = $redis->hGet('spotify', 'plversion');
                 runelog('rune_PL_wrk: UI JSON', $status);
                 runelog('rune_PL_wrk: close SPOP socket');
+                // check the current player on each cycle
+                $activePlayer = $redis->get('activePlayer');
+                if ($activePlayer != 'Spotify') {
+                    // call close Spotify socket to clean up the socket
+                    closeSpopSocket($socket);
+                    break;
+                }
                 // save JSON response for extensions
-                $status['actPlayer'] = "Spotify";
+                $status['actPlayer'] = $activePlayer;
                 $redis->set('act_player_info', json_encode($status));
                 ui_render('playback', json_encode($status));
                 $errorcode = socket_last_error($socket);

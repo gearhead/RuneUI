@@ -72,7 +72,8 @@ chown -R http.http "$artDir"
 chmod 755 "$artDir"
 chmod -R 644 "$artDir/*"
 #
-# if the spotify connect cache is defined create the directory
+# if the Spotify Connect cache is defined create the directory, normally not set, it uses large amounts of space
+#   when set and instructed to use it, it contains the Spotify played music files. Note: it does not clean itself up
 #
 spotifyConnectCache=$( redis-cli hget spotifyconnect cache_path | tr -s / | xargs )
 if [ "$spotifyConnectCache" != "" ]; then
@@ -100,3 +101,6 @@ for tmpfs in $tmpfsAll ; do
         redis-cli set albumart_image_tmpfs 1
     fi
 done
+#
+#---
+#End script
