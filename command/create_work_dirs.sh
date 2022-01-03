@@ -56,7 +56,23 @@ chown -R http.http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR "$backupDir/*"
 #
-# create and initialise the albumart directory
+# depending on the total memory of the Pi expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
+#
+# get the total memory
+memory=$( grep -i MemTotal /proc/meminfo | xargs  | cut -d ' ' -f 2 )
+if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
+    # memory has a value and its numeric
+    if [ "$memory" -gt "1200000" ]; then
+        # more than 1GB, so it is probably 2, 4 or 8GB, increase the size to 40MB (up to 100MB will be OK)
+        mount -o remount,size=40M http-tmp
+    elif [ "$memory" -gt "600000" ]; then
+        # more than 512MB, so it is probably 1GB, increase the size to 10MB (up to 20Mb will probably be OK)
+        mount -o remount,size=10M http-tmp
+    fi
+    # for 512MB or less leave the default active
+fi
+#
+# create and initialise the albumart directory, used by MPD, Airplay & Spotify Connect
 #
 # get the directory name from redis
 artDir=$( redis-cli get albumart_image_dir | tr -s / | xargs )
