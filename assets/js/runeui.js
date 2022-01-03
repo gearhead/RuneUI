@@ -521,14 +521,34 @@ function setPlaybackSource() {
     var source = activePlayer.toLowerCase();
     $('#playsource-' + source).removeClass('inactive');
     // update (volume knob and) control buttons
+    setUIbuttons(activePlayer);
+    // style the queue
+    $('#playlist-entries').removeClass(function(index, css) {
+        return (css.match (/(^|\s)playlist-\S+/g) || []).join(' ');
+    }).addClass('playlist-' + source);
+    // toggle queue buttons
+    $('#pl-manage').removeClass(function(index, css) {
+        return (css.match (/(^|\s)pl-manage-\S+/g) || []).join(' ');
+    }).addClass('pl-manage-' + source);
+}
+
+function setUIbuttons(activePlayer) {
+    // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+    document.getElementById('volume').readOnly = true
+    // $('#volume').attr('readonly', true);
+    // update (volume knob and) control buttons
     if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
         // most UI knobs are only active for MPD
-        // $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
-        // $('#volume-knob').addClass('nomixer');
-        // $('#volume-knob button').prop('disabled', true);
-        // $('#volumedn').addClass('disabled');
-        // $('#volumemute').addClass('disabled');
-        // $('#volumeup').addClass('disabled');
+        //document.getElementById("volume").style.color = '#1A242F';
+        $('#volume-knob').addClass('disabled');
+        $('#volume-knob').addClass('nomixer');
+        $('#volume-knob button').prop('disabled', true);
+        $('#volume').addClass('disabled');
+        $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+        $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+        $('#volumedn').addClass('disabled');
+        $('#volumemute').addClass('disabled');
+        $('#volumeup').addClass('disabled');
         $('#repeat').addClass('disabled');
         $('#random').addClass('disabled');
         $('#single').addClass('disabled');
@@ -537,23 +557,31 @@ function setPlaybackSource() {
         $('#play').addClass('disabled');
         $('#next').addClass('disabled');
     } else {
-        // if (typeof GUI.json.volume == 'undefined') {
+        if (typeof GUI.json.volume == 'undefined') {
             // player is MPD but volume control is switched off
-            // $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F'});
-            // $('#volume-knob').addClass('nomixer');
-            // $('#volume-knob button').prop('disabled', true);
-            // $('#volumedn').addClass('disabled');
-            // $('#volumemute').addClass('disabled');
-            // $('#volumeup').addClass('disabled');
-        // } else {
+            //document.getElementById("volume").style.color = '#1A242F';
+            $('#volume-knob').addClass('disabled');
+            $('#volume-knob').addClass('nomixer');
+            $('#volume-knob button').prop('disabled', true);
+            $('#volume').addClass('disabled');
+            $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+            $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+            $('#volumedn').addClass('disabled');
+            $('#volumemute').addClass('disabled');
+            $('#volumeup').addClass('disabled');
+        } else {
             // player is mpd and the volume control is switched on
-            // $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8'});
-            // $('#volume-knob').removeClass('nomixer');
-            // $('#volume-knob button').prop('disabled', false);
-            // $('#volumedn').removeClass('disabled');
-            // $('#volumemute').removeClass('disabled');
-            // $('#volumeup').removeClass('disabled');
-        // }
+            //document.getElementById("volume").style.color = '#e0e7ee';
+            $('#volume-knob').removeClass('disabled');
+            $('#volume-knob').removeClass('nomixer');
+            $('#volume-knob button').prop('disabled', false);
+            $('#volume').removeClass('disabled');
+            $('#volume-knob').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+            $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+            $('#volumedn').removeClass('disabled');
+            $('#volumemute').removeClass('disabled');
+            $('#volumeup').removeClass('disabled');
+        }
         $('#repeat').removeClass('disabled');
         $('#random').removeClass('disabled');
         $('#single').removeClass('disabled');
@@ -852,7 +880,7 @@ function refreshState() {
 
 // update the Playback UI
 function updateGUI() {
-    var volume = ((typeof GUI.json.volume == 'undefined') ? '0' : GUI.json.volume);
+    var volume = ((typeof GUI.json.volume == 'undefined') ? 0 : GUI.json.volume);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
     var currentsong = ((typeof GUI.json.currentsong == 'undefined') ? '' : GUI.json.currentsong);
@@ -868,6 +896,10 @@ function updateGUI() {
     // set radio mode if stream is present
     GUI.stream = ((radioname !== null && radioname !== undefined && radioname !== '') ? 'radio' : '');
     // check MPD status and refresh the UI info
+    if ((activePlayer !== GUI.activePlayer) || (volume !== GUI.volume)) {
+        GUI.activePlayer = activePlayer;
+        setUIbuttons(activePlayer);
+    }
     refreshState();
     if ($('#section-index').length) {
         // check song update
@@ -2371,6 +2403,11 @@ if ($('#section-index').length) {
                 $('#volume').val(vol, false).trigger('update');
             }
         }
+
+        // mute/unmute when clicking volume display
+        $('#volume').click(function(){
+            $("#volumemute").click();
+        });
 
         // play/pause when clicking on the counter or total time inside the progress knob
         $('#countdown-display').click(function(){

@@ -6556,7 +6556,11 @@ body {
     margin-bottom: 30px
 }
 #volume-knob {
-    margin-top: 30px
+    margin-top: 30px;
+    color: #0095d8 !important
+}
+#volume-knob:disabled {
+    color: #1a242f !important
 }
 #countdown-display {
     position: absolute;
@@ -6591,8 +6595,18 @@ body {
 #volume {
     background: #000;
     border: none;
-    color: #000;
+    outline: 0;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    font-size: 42px !important;
+    color: #e0e7ee !important;
     font-family: inherit !important
+}
+#volume.disabled {
+    color: #1a242f !important;
+    pointer-events: none !important;
 }
 #time:hover,
 #volume:hover,
