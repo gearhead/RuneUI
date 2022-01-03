@@ -52,4 +52,5 @@ find /boot/webradios/* -type d -exec rmdir {} &> /dev/null \;
 
 # refresh list
 mpc update Webradio &> /dev/null
-
+#---
+#End script
