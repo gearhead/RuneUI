@@ -1734,7 +1734,7 @@ function wrk_xorgconfig($redis, $action, $args)
             } else {
                 wrk_xorgconfig($redis, 'overscan', 0);
             }
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             break;
         case 'stop':
             // stop the local browser
@@ -1748,7 +1748,7 @@ function wrk_xorgconfig($redis, $action, $args)
                 sysCmd('systemctl stop local-browser');
                 sysCmd('systemctl daemon-reload');
                 sysCmd('systemctl start local-browser');
-                sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             }
             break;
         case 'enable-splash':
@@ -2005,7 +2005,7 @@ function wrk_backup($redis, $bktype = null)
     // change the file privileges
     sysCmd('chown http.http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
     // regenerate the debug data for redis
-    sysCmdAsync('nice --adjustment=2 /srv/http/command/debug_collector');
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
     return $filepath;
 }
 
@@ -2568,7 +2568,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // run the refresh nics routine async don't wait until it finishes
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/refresh_nics');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/refresh_nics');
             break;
         case 'saveWifi':
             // is used to create/modify a wifi config file and stored profile
@@ -3719,7 +3719,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 syscmd('mpc play');
             }
             // check that MPD only has one output enabled and if not correct it
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/check_MPD_outputs_async.php');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
             wrk_shairport($redis, $args);
             wrk_spotifyd($redis, $args);
@@ -3787,7 +3787,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
             }
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             unset($activePlayer, $retval);
             break;
         case 'forcestop':
@@ -3846,7 +3846,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            // sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
         case 'forcerestart':
@@ -3878,7 +3878,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            // sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
     }
@@ -4735,7 +4735,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis, 'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             break;
         case 'umountall':
             wrk_mpdconf($redis,'forcestop');
@@ -4750,7 +4750,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             break;
         case 'mountall':
             // Note: wrk_sourcemount() will not do anything for existing mounts
@@ -5344,7 +5344,7 @@ function wrk_SpotifyConnectMetadata($redis, $event, $track_id)
             // no break;
         case 'stop':
             // run asynchronous metadata script
-            sysCmdAsync('nice --adjustment=2 /srv/http/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
+            sysCmdAsync('nice --adjustment=3 /srv/http/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
             break;
         default:
             runelog('wrk_SpotifyConnectMetadata error:', 'Unknown event');
@@ -5628,7 +5628,7 @@ function wrk_changeHostname($redis, $newhostname)
     }
     $redis->set('avahiconfchange', 0);
     // set process priority
-    sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
 }
 
 function wrk_upmpdcli($redis, $name = null, $queueowner = null)
@@ -5660,7 +5660,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null)
         sysCmd('systemctl reload-or-restart upmpdcli');
     }
     // set process priority
-    sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
 }
 
 function alsa_findHwMixerControl($cardID)
@@ -7451,7 +7451,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
                             sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
-                            sysCmdAsync('nice --adjustment=2 /srv/http/command/rune_prio nice');
+                            sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
                         }
                     }
                 }
