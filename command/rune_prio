@@ -51,6 +51,8 @@ do
 done;
 renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
 renice 10 $(pgrep -w chromium)
+renice 10 $(pgrep -w luakit)
+renice 10 $(pgrep -w WebKit)
 renice 3 $(pgrep -w ashuffle)
 renice 3 $(pgrep -w local-browser)
 renice 3 $(pgrep -w mpdscribble)
@@ -71,7 +73,7 @@ renice 6 $(pgrep -w upowerd)
 }
 
 prio_default () {
-# always leave chromium at a lower priority
+# always leave chromium & luakit/Webkit at a lower priority
 # always leave upowerd at a lower priority
 # always leave uwsgi at a lower priority
 for pid in $(pgrep -w mpd);
