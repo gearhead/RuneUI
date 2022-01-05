@@ -7671,40 +7671,44 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     }
     // first get the number of files in the directory
     $filesInArtDir = sysCmd('ls -q1 "'.$artDir.'" | wc -l | xargs')[0];
-    // get the file names in date order, oldest first, the first line is the total allocated blocks
-    $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$artDir.'"');
-    foreach ($files as $file) {
-        $file = trim($file);
-        if (strpos(' '.$file, 'total') === 1) {
-            // total line
-            $file = preg_replace('!\s+!', ' ', $file);
-            list($null, $totalAllocated) = explode(' ', $file, 2);
-        } else {
-            // file lines
-            // the file string contains tabs and double spaces, these must be removed, but not in the file name
-            // the file name is the last part of the string after a timestamp containing a ':'
-            $fileSplit = explode(':', $file, 2);
-            if (!isset($fileSplit[1])) {
-                // this should never happen!
-                continue;
+    // loop for processing files in blocks of 100, this will reduce memory use
+    while (($filesInArtDir > $fileToSave) && ($recoverKB > 0)) {
+        // get the file names in date order, oldest first, the first line is the total allocated blocks
+        //  get in blocks of the 100 oldest files
+        $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$artDir.'" | head -n 100');
+        foreach ($files as $file) {
+            $file = trim($file);
+            if (strpos(' '.$file, 'total') === 1) {
+                // total line
+                $file = preg_replace('!\s+!', ' ', $file);
+                list($null, $totalAllocated) = explode(' ', $file, 2);
+            } else {
+                // file lines
+                // the file string contains tabs and double spaces, these must be removed, but not in the file name
+                // the file name is the last part of the string after a timestamp containing a ':'
+                $fileSplit = explode(':', $file, 2);
+                if (!isset($fileSplit[1])) {
+                    // this should never happen!
+                    continue;
+                }
+                $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
+                list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
+                $fileName = trim($fileName);
+                if (!$fileName) {
+                    // empty file name, should never happen
+                    continue;
+                } else if (in_array($fileName, $requiredFiles)) {
+                    // this file must always be present, skip it (should never happen)
+                    continue;
+                }
+                $allocatedKB = intval(convertToBytes($allocated)/1024);
+                $recoverKB -= $allocatedKB;
+                unlink($artDir.'/'.$fileName);
+                echo 'Deleted : '.$fileName."\n";
             }
-            $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
-            list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
-            $fileName = trim($fileName);
-            if (!$fileName) {
-                // empty file name, should never happen
-                continue;
-            } else if (in_array($fileName, $requiredFiles)) {
-                // this file must always be present, skip it (should never happen)
-                continue;
+            if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
+                break;
             }
-            $allocatedKB = intval(convertToBytes($allocated)/1024);
-            $recoverKB -= $allocatedKB;
-            unlink($artDir.'/'.$fileName);
-            echo 'Deleted : '.$fileName."\n";
-        }
-        if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
-            break;
         }
     }
     // test commands
