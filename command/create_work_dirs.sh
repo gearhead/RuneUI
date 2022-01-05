@@ -26,7 +26,7 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: command/convert_dos_files_to_unix_script.sh
+#  file: command/create_work_dirs.sh
 #  version: 1.3
 #  coder: janui
 #  date: December 2020
@@ -56,20 +56,34 @@ chown -R http.http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR "$backupDir/*"
 #
-# depending on the total memory of the Pi expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
+# depending on the total memory and the PI model expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
 #
 # get the total memory
 memory=$( grep -i MemTotal /proc/meminfo | xargs  | cut -d ' ' -f 2 )
+# the size of the http-tmp is based on using luakit as local browser, for chromium these should be about 50% 
 if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
     # memory has a value and its numeric
     if [ "$memory" -gt "1200000" ]; then
-        # more than 1GB, so it is probably 2, 4 or 8GB, increase the size to 40MB (up to 100MB will be OK)
-        mount -o remount,size=40M http-tmp
+        # more than 1GB, so it is 2, 4 or 8GB, increase the size to 100MB (up to 200MB will probably be OK)
+        mount -o remount,size=100M http-tmp
     elif [ "$memory" -gt "600000" ]; then
-        # more than 512MB, so it is probably 1GB, increase the size to 10MB (up to 20Mb will probably be OK)
-        mount -o remount,size=10M http-tmp
+        # more than 512MB, so it is 1GB, increase the size to 50MB (up to 100Mb will probably be OK)
+        mount -o remount,size=50M http-tmp
+    elif [ "$memory" -gt "300000" ]; then
+        # more than 256MB, so it is 512GB
+        # get the model type
+        model=$( redis-cli get pi_model )
+        if [ "$model" == "0d" ] || [ "$model" == "12" ]; then
+            # its a Pi 3 A+Pi or a Zero 2W with 512MB, multiprocessor & local browser support
+            # increase the size to 20MB (up to 40Mb will probably be OK)
+            mount -o remount,size=20M http-tmp
+        else
+            # it's probably a Pi Zero, Zero W or Pi B+ with 512MB, single processor, no local browser
+            # increase the size to 30MB (up to 40Mb will probably be OK)
+            mount -o remount,size=30M http-tmp
+        fi
     fi
-    # for 512MB or less leave the default active
+    # for 256MB or less leave the default active
 fi
 #
 # create and initialise the albumart directory, used by MPD, Airplay & Spotify Connect
