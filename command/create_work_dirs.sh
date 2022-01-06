@@ -60,7 +60,7 @@ rm -fR "$backupDir/*"
 #
 # get the total memory
 memory=$( grep -i MemTotal /proc/meminfo | xargs  | cut -d ' ' -f 2 )
-# the size of the http-tmp is based on using luakit as local browser, for chromium these should be about 50% 
+# the size of the http-tmp is based on using luakit as local browser, for chromium these should be about 50%
 if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
     # memory has a value and its numeric
     if [ "$memory" -gt "1200000" ]; then
