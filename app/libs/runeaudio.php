@@ -4822,11 +4822,11 @@ function wrk_getHwPlatform($redis)
                 $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                 $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                 $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-                // Temporary fix for 'dtparam=audio=on' failures
-                if ($previousModel != $model) {
-                    $redis->set('audio_on_off', -1);
-                }
-                // End temporary fix
+                // // Temporary fix for 'dtparam=audio=on' failures
+                // if ($previousModel != $model) {
+                    // $redis->set('audio_on_off', -1);
+                // }
+                // // End temporary fix
             }
             else {
                 $model = strtolower(trim(substr($revision, -3, 2)));
@@ -4844,11 +4844,11 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-                        // Temporary fix for 'dtparam=audio=on' failures
-                        if ($previousModel != $model) {
-                            $redis->set('audio_on_off', -1);
-                        }
-                        // End temporary fix
+                        // // Temporary fix for 'dtparam=audio=on' failures
+                        // if ($previousModel != $model) {
+                            // $redis->set('audio_on_off', -1);
+                        // }
+                        // // End temporary fix
                         break;
                     case "01":
                         // 01 = PiB+, PiA+ or PiCompute module 1
@@ -4865,11 +4865,11 @@ function wrk_getHwPlatform($redis)
                     case "09":
                         // 09 = PiZero,
                         // single processor (armv6) models no on-board Wi-Fi or Bluetooth
-                        // Temporary fix for 'dtparam=audio=on' failures
-                        if ($previousModel != $model) {
-                            $redis->set('audio_on_off', -1);
-                        }
-                        // End temporary fix
+                        // // Temporary fix for 'dtparam=audio=on' failures
+                        // if ($previousModel != $model) {
+                            // $redis->set('audio_on_off', -1);
+                        // }
+                        // // End temporary fix
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -4914,11 +4914,11 @@ function wrk_getHwPlatform($redis)
                         // 0c = PiZero W
                         $arch = '08';
                         // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
-                        // Temporary fix for 'dtparam=audio=on' failures
-                        if ($previousModel != $model) {
-                            $redis->set('audio_on_off', -1);
-                        }
-                        // End temporary fix
+                        // // Temporary fix for 'dtparam=audio=on' failures
+                        // if ($previousModel != $model) {
+                            // $redis->set('audio_on_off', -1);
+                        // }
+                        // // End temporary fix
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
