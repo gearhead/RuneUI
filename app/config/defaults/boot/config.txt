@@ -123,7 +123,8 @@
 #   See: https://www.raspberrypi.com/documentation/computers/config_txt.html
 #
 #
-##  Memory settings - these are considered legacy settings and may become depreciated, check the documentation
+##  Memory settings ##
+#   These are considered legacy settings and may become depreciated, check the documentation
 gpu_mem=64
 [pi1]
 gpu_mem=16
@@ -168,7 +169,8 @@ display_auto_detect=1
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
 #   waveshare LCD cards (these are XPT2046 / ADS7846 tft touch-screens)
-#   waveshare: uncomment all the following hdmi flags
+#   waveshare: uncommenting one or more the following hdmi flags may be
+#       necessary, normally uncommenting the overlay below is enough
 #hdmi_force_hotplug=1
 #hdmi_group=2
 #hdmi_mode=1
@@ -176,9 +178,8 @@ display_auto_detect=1
 #hdmi_cvt 480 320 60 6 0 0 0
 #hdmi_drive=2
 #   waveshare: choose one of the following pre-installed overlays, see: https://www.waveshare.com/w/upload/1/1e/RPi_LCD_User_Manual_EN.pdf
-#   see instructions in the file /srv/http/command/waveshare_install.sh to change the calibration setup (default is for a 3,5 inch screen)
-#   the overlays have 2 optional parameters: rotate (value: 0, 90, 180 or 270) and swapxy (value: 0 or 1)
-#   see: https://github.com/swkim01/waveshare-dtoverlays
+#       the overlays have 2 optional parameters: rotate (value: 0, 90, 180 or 270) and swapxy (value: 0 or 1)
+#       see: https://github.com/swkim01/waveshare-dtoverlays
 #dtoverlay=waveshare32b
 #dtoverlay=waveshare32c
 #dtoverlay=waveshare35a
@@ -189,16 +190,16 @@ display_auto_detect=1
 #   Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1
 #   Uncomment this if your display has a black border of unused pixels visible
-#   and your display can output without overscan (uncomment this for small LCD screens)
+#       and your display can output without overscan (uncomment this for small LCD screens)
 #disable_overscan=1
 #   Uncomment the following to adjust overscan. Use positive numbers if console
-#   goes off screen, and negative if there is too much border
+#       goes off screen, and negative if there is too much border
 #overscan_left=16
 #overscan_right=16
 #overscan_top=16
 #overscan_bottom=16
 #   Uncomment to force a console size. By default it will be display's size minus
-#   overscan.
+#       overscan.
 #framebuffer_width=1280
 #framebuffer_height=720
 #   Uncomment if hdmi display is not detected and composite is being output
@@ -207,19 +208,19 @@ display_auto_detect=1
 #hdmi_group=1
 #hdmi_mode=1
 #   Uncomment to force a HDMI mode rather than DVI. This can make audio work in
-#   DMT (computer monitor) modes
+#       DMT (computer monitor) modes
 #hdmi_drive=2
 #   Uncomment to set monitor mode to DMT
 #hdmi_group=2
 #   Uncomment to increase signal to HDMI, if you have interference, blanking, or
-#   no display
+#       no display
 #config_hdmi_boost=4
 #
 ##  Some overclocking settings ##
-#   in RuneAudio the governor is set to Turbo as default (see below)
 #   The values below are valid for the B+ model
-#   Overclocking is not required for the 2B, 3B, 3B+, 4B and Zero 2W models
-#   See internet for documentation on overclocking options for A, B and Zero models, be careful, check 2 independent sources!
+#   Overclocking is not required for the Pi 2B, 3B, 3B+, 4B and Zero 2W models
+#   See internet for documentation on overclocking options for A, B and Zero
+#       models, be careful, check 2 independent sources!
 [pi1]
 # Conditional for Model A, Model B, Compute Module
 ## None
@@ -254,17 +255,18 @@ display_auto_detect=1
 #
 ##  General CPU settings ##
 #   Setting the governor to force turbo on (=1) can invalidates warranty in combination with some (higher)
-#   overclocking settings for some models. We do this to try to keep the clocks in the Pi running at a
-#   consistent speed, many audio cards use this clock.
+#       overclocking settings for some models. We do this to try to keep the clocks in the Pi running at a
+#       consistent speed, many audio cards use this clock. For higher speed Pi models with USB DAC's or master
+#       mode DAC's it is probably not a requirement. Switching it off will make the PI run cooler
 #   Alternative is turbo on demand (=0)
 force_turbo=1
 #force_turbo=0
-# Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set
-# If the max temp is reached the cpu will automatically be throttled back
-# Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
+#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set
+#   If the max temp is reached the cpu will automatically be throttled back
+#       Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
 temp_limit=75
-# Boot delay sometimes needs to be set to higher values when overclocking is enabled
-# Default boot delay is 1 second, 3B+ needs a delay of 2
+#   Boot delay sometimes needs to be set to higher values when overclocking is enabled
+#       Default boot delay is 1 second, 3B+ needs a delay of 2
 boot_delay=2
 #
 initramfs initramfs-linux.img followkernel
