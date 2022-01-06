@@ -169,15 +169,70 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Boot configuration (cat /boot/config.txt) ######\n";
-    $command = sysCmd("grep -v -e '^[[:space:]]*$' /boot/config.txt | grep -v '#.*='");
+    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' /boot/config.txt) ######\n";
+    $command = sysCmd("grep -ve '^\s*#' /boot/config.txt");
     $output .= implode("\n", $command)."\n";
+    $output .= "##################################################\n\n\n";
     unset($command);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
     }
+    $output .= "###### Boot configuration - cmdline.txt (cat /proc/cmdline) ######\n";
+    $command = sysCmd("fold -s -w 100 /proc/cmdline");
+    $output .= implode("\n", $command)."\n";
     $output .= "##################################################\n\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Filesystem mounts (cat /proc/mounts) ######\n";
+    $output .=  file_get_contents('/proc/mounts')."\n\n";
+    $output .= "###### Filesystem mounts - free space (df -h) ######\n";
+    $command = sysCmd('df -h');
+    $output .= implode("\n", $command)."\n\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, '/usr/bin/parted');
+    if (file_exists('/usr/bin/parted')) {
+        $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
+        $command = sysCmd("parted -ls | grep -v '^$' | sed -E ':a;N;$!ba;s/\\nModel/\\n\\nModel/g' ");
+        $output .= implode("\n", $command)."\n\n\n";
+        unset($command);
+        if ($fp) {
+            gzwrite($fp, $output);
+            $output = '';
+        }
+    }
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, '/usr/bin/smartctl');
+    if (file_exists('/usr/bin/smartctl')) {
+        $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
+        if (!empty($drive_list)) {
+            foreach($drive_list as $drive) {
+                $drive = trim($drive);
+                if ($drive != "") {
+                    $drive = "smartctl ".$drive." | grep -E 'Model:|Capacity:|-health self-|SMART support is'";
+                    $output .= "###### Hard Disk Drive - SMART Health Check (".$drive.") ######\n";
+                    $command = sysCmd($drive);
+                    $output .= implode("\n", $command)."\n\n";
+                    unset($command);
+                }
+            }
+            unset($drive);
+            unset($drive_list);
+            $output .= "\n";
+            if ($fp) {
+                gzwrite($fp, $output);
+                $output = '';
+            }
+        }
+    }
     $output .= "###### Audio backend ######\n";
     $output .=  file_get_contents('/proc/asound/version');
     $output .= "\n";
@@ -189,10 +244,10 @@ function debug_data($redis, $fp=null)
     $output .= "--------------------------------------------------\n";
     $output .= implode("\n", sysCmd('aplay -l'));
     $output .= "\n\n\n";
-    $output .= "PCM devices: (aplay -L)\n";
-    $output .= "--------------------------------------------------\n";
-    $output .= implode("\n", sysCmd('aplay -L'));
-    $output .= "\n\n\n";
+    // $output .= "PCM devices: (aplay -L)\n";
+    // $output .= "--------------------------------------------------\n";
+    // $output .= implode("\n", sysCmd('aplay -L'));
+    // $output .= "\n\n\n";
     $output .= "Simple mixer controls: (amixer scontrols)\n";
     $output .= "--------------------------------------------------\n";
     $acards = sysCmd("grep : /proc/asound/cards | cut -d ' ' -f 2");
@@ -205,9 +260,9 @@ function debug_data($redis, $fp=null)
             gzwrite($fp, $output);
             $output = '';
         }
-        $output .= "\n\n";
+        $output .= "\n";
     }
-    $output .= "\n";
+    $output .= "\n\n";
     $output .= "Mixer controls: (amixer controls)\n";
     $output .= "--------------------------------------------------\n";
     foreach ($acards as $card) {
@@ -219,9 +274,9 @@ function debug_data($redis, $fp=null)
             gzwrite($fp, $output);
             $output = '';
         }
-        $output .= "\n\n";
+        $output .= "\n";
     }
-    $output .= "\n";
+    $output .= "\n\n";
     unset($command, $acards, $card);
     if ($fp) {
         gzwrite($fp, $output);
@@ -229,7 +284,7 @@ function debug_data($redis, $fp=null)
     }
     $output .= "MPD audio outputs status: (mpc outputs)\n";
     $output .= "--------------------------------------------------\n";
-    $command = implode("\n", sysCmd('mpc outputs'));
+    $command = implode("\n", sysCmd("mpc outputs"));
     $output .= $command;
     unset($command);
     if ($fp) {
@@ -272,8 +327,8 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     $output .= "\n\n\n";
-    $command = implode("\n", sysCmd('mpd --version'));
     $output .= "###### mpd version (mpd --version) ######\n";
+    $command = implode("\n", sysCmd("mpd --version | grep -v '^$'"));
     $output .= $command;
     $output .= "\n\n\n";
     $output .= "###### MPD configuration (cat /etc/mpd.conf) ######\n";
@@ -312,52 +367,6 @@ function debug_data($redis, $fp=null)
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
-    }
-    $output .= "###### Filesystem mounts (cat /proc/mounts) ######\n";
-    $output .=  file_get_contents('/proc/mounts')."\n\n";
-    $output .= "###### Filesystem mounts - free space (df -h) ######\n";
-    $command = sysCmd('df -h');
-    $output .= implode("\n", $command)."\n\n\n";
-    unset($command);
-    if ($fp) {
-        gzwrite($fp, $output);
-        $output = '';
-    }
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/usr/bin/parted');
-    if (file_exists('/usr/bin/parted')) {
-        $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
-        $command = sysCmd('parted -ls');
-        $output .= implode("\n", $command)."\n";
-        unset($command);
-        if ($fp) {
-            gzwrite($fp, $output);
-            $output = '';
-        }
-    }
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/usr/bin/smartctl');
-    if (file_exists('/usr/bin/smartctl')) {
-        $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
-        if (!empty($drive_list)) {
-            foreach($drive_list as $drive) {
-                $drive = trim($drive);
-                if ($drive != "") {
-                    $drive = "smartctl ".$drive." | grep -E 'Model:|Capacity:|-health self-|SMART support is'";
-                    $output .= "###### Hard Disk Drive - SMART Health Check (".$drive.") ######\n";
-                    $command = sysCmd($drive);
-                    $output .= implode("\n", $command)."\n\n";
-                    unset($command);
-                    if ($fp) {
-                        gzwrite($fp, $output);
-                        $output = '';
-                    }
-                }
-            }
-            unset($drive);
-            unset($drive_list);
-            $output .= "\n";
-        }
     }
     $output .= "###### Loaded kernel modules (lsmod) ######\n";
     $command = sysCmd('lsmod');
