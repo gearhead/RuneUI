@@ -90,3 +90,5 @@ runelog('lock status ', $redis->get('lock_radio_metadata'));
 $redis->close();
 
 runelog('WORKER radio_metadata_async.php END...');
+#---
+#End script

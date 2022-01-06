@@ -129,7 +129,7 @@ if ($playerid_db === '') {
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
     wrk_setHwPlatform($redis);
-    // Temporary fix for 'dtparam=audio=on' failures
+    // Set audio on off to its redis value
     wrk_audio_on_off($redis, $redis->get('audio_on_off'));
     // reset netconf to defaults
     runelog('reset netconf to defaults');
@@ -191,18 +191,19 @@ if ($playerid_db === '') {
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
     sysCmd('/srv/http/command/rune_shutdown reboot');
-    // Temporary fix for Zero reboot failures
-    $model = strtolower($redis->get('pi_model'));
-    if (($model === '09') || ($model === '0c') || ($model === '12')) {
-        // its a zero
-        // create a file to indicate indicate reboot not possible
-        touch('/srv/http/.config/noreboot');
-        // use the emergency boot
-        sysCmd('/srv/http/command/emergency_reboot.sh');
-    } else {
-        sysCmd('rm /srv/http/.config/noreboot');
-        sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
-    }
+    // // Temporary fix for Zero reboot failures
+    // $model = strtolower($redis->get('pi_model'));
+    // if (($model === '09') || ($model === '0c') || ($model === '12')) {
+        // // its a zero
+        // // create a file to indicate indicate reboot not possible
+        // touch('/srv/http/.config/noreboot');
+        // // use the emergency boot
+        // sysCmd('/srv/http/command/emergency_reboot.sh');
+    // } else {
+        // sysCmd('rm /srv/http/.config/noreboot');
+        // sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
+    // }
+    sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
     // should never get here
     // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
@@ -274,7 +275,6 @@ if ($playerid_db === '') {
     } else if ($activePlayer === 'Spotify') {
         // stop MPD
         wrk_mpdconf($redis,'stop');
-        unset($retval);
         // start spotify, if not started
         sysCmd('pgrep -x spopd || systemctl start spopd');
     } else {

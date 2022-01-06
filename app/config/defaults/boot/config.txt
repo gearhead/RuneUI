@@ -126,17 +126,17 @@
 ##  Memory settings - these are considered legacy settings and may become depreciated, check the documentation
 gpu_mem=64
 [pi1]
-gpu_mem=32
+gpu_mem=16
 [pi0]
-gpu_mem=32
+gpu_mem=16
 [all]
-[pi0w]
-gpu_mem=28
+# Pi Zero 2 W (512MB)
 [pi02]
-gpu_mem=28
+gpu_mem=24
 [all]
+# Pi 3 A+ (512MB)
 [board-type=0x0e]
-gpu_mem=28
+gpu_mem=24
 [board-type=0xe]
 gpu_mem=28
 [all]
@@ -147,7 +147,7 @@ dtparam=krnbt=on
 #
 ##  Audio settings ##
 #   RuneAudio HDMI & 3,5mm jack
-#dtparam=audio=off
+dtparam=audio=on
 #   RuneAudio I2S-Settings
 #dtoverlay=none
 #
