@@ -213,7 +213,7 @@ chown -R mpd.audio /var/lib/mpd
 #
 if [ "$1" == "final" ] || [ "$2" == "final" ] || [ "$3" == "final" ]; then
     echo "Removing dos2unix package"
-    pacman -Q dos2unix && pacman -Rs dos2unix --noconfirm
+    pacman -Q dos2unix && pacman -Rsn dos2unix --noconfirm
 fi
 #---
 #End script
