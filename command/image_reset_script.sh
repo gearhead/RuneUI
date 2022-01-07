@@ -317,6 +317,8 @@ cp -RTv /srv/http/app/config/defaults/srv/. /srv
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # create required directories
 mkdir /root/.ssh
+# remove specific files
+rm /etc/udev/rules.d/99-runeaudio.rules
 # make appropriate links
 ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
