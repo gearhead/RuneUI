@@ -2773,7 +2773,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
             break;
         case 'reset':
-            // delete all stored profiles and configuration files and restore the  system defaults
+            // delete all stored profiles and configuration files and restore the system defaults
             // automatic reboot follows
             // first disconnect all the networks
             if ($redis->exists('network_info')) {
@@ -3144,9 +3144,15 @@ function wrk_i2smodule($redis, $args)
 {
     $redis->set('i2smodule', $args);
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
-        ## RuneAudio enable HDMI & analog output
+        // RuneAudio enable/disable/change i2s audio output overlays
+        if ($args == 'none') {
+            // dtoverlay=none disables all following dtoverlay commands in config.txt, so comment out the line
+            $newLine = '#dtoverlay='.$args;
+        } else {
+            $newLine = 'dtoverlay='.$args;
+        }
         $file = '/boot/config.txt';
-        $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', 'dtoverlay='.$args, 'RuneAudio I2S-Settings', 1);
+        $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', $newLine, 'RuneAudio I2S-Settings', 1);
         // Commit changes to /boot/config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
@@ -9186,7 +9192,7 @@ function is_systemd_target($target = 'multi-user.target')
 
 // function to add udev rules which which will become invalid on reboot
 function add_udev_rules($rulesFileName)
-// 
+//
 {
     clearstatcache(true, $rulesFileName);
     if (!file_exists($rulesFileName)) {
