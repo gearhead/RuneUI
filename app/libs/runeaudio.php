@@ -6172,6 +6172,7 @@ function autoset_timezone($redis) {
                     sysCmd("timedatectl set-timezone 'Pacific/Pago_Pago'");
                 } else {
                     $redis->set('timezone', $timeZone);
+                    $redis->set('regdom', $countryCode);
                     // set the Wi-Fi regulatory domain, the standard is 00 and is compatible with most countries
                     // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
                     // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
@@ -6183,25 +6184,47 @@ function autoset_timezone($redis) {
     }
 }
 
-function wrk_setTimezone($redis, $timeZone) {
-    // the timezone and the Wi-Fi regulatory domain from the UI
-    // return true when successful, false on error
+function wrk_setTimezone($redis, $timeZone)
+// set the timezone and the Wi-Fi regulatory domain from the UI
+// return true when successful, false on error
+{
     $result = sysCmd('timedatectl set-timezone '."'".$timeZone."'")[0];
     $result = ' '.strtolower($restult);
     if (strpos($result, 'failed') || strpos($result, 'invalid')) {
         $retval = false;
     } else {
+        // save the time zone in redis
         $redis->set('timezone', $timeZone);
-        // determine the country code from the timezone
-        $tz = new DateTimeZone($timeZone);
-        $countryCode = timezone_location_get($tz)['country_code'];
-        // set the Wi-Fi regulatory domain, the standard is 00 and is compatible with most countries
-        // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
-        // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
-        sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
+        if (!$redis->exists('regdom')) {
+            // it's not been set automatically, so set it to '00'
+            $redis->set('regdom', '00');
+        }
+        // set the Wi-Fi regulatory domain based on the current time zone
+        wrk_setRegDom($redis);
         $retval = true;
     }
     return $retval;
+}
+
+
+function wrk_setRegDom($redis)
+// set the Wi-Fi regulatory domain based on the current time zone
+// no parameters
+{
+    if (!$redis->exists('regdom')) {
+        // it's not been set automatically or manually yet, don't reset it
+        return false;
+    }
+    $timeZone = $redis->get('timezone');
+    // determine the country code from the timezone
+    $tz = new DateTimeZone($timeZone);
+    $countryCode = timezone_location_get($tz)['country_code'];
+    // set the Wi-Fi regulatory domain, the standard is 00 and is compatible with most countries
+    // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
+    // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
+    sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
+    $newCountryCode = trim(sysCmd('iw reg get')[0]);
+    $redis->set('regdom', $newCountryCode);
 }
 
 function ui_update($redis, $sock=null, $clientUUID=null)

@@ -264,6 +264,8 @@ if ($playerid_db === '') {
     }
     unset($retval);
     //
+    // set the Wi-Fi regulatory domain based on the current time zone
+    wrk_setRegDom($redis);
     //
     // activate rune udev rules
     add_udev_rules('/srv/http/app/config/defaults/etc/udev/rules.d/99-runeaudio.rules');
