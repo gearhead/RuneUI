@@ -9153,5 +9153,35 @@ function is_systemd_target($target = 'multi-user.target')
         // invalid parameter
         return 0;
     }
-    return sysCmd('systemctl list-units --type target | grep -i '.$target.' | grep -i loaded | grep -ic active')[0];
+    $retval = sysCmd('systemctl list-units --type target | grep -i '.$target.' | grep -i loaded | grep -ic active')[0];
+    if (isset($retval) && is_numeric($retval) && ($retval == 1)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+// function to add udev rules which which will become invalid on reboot
+function add_udev_rules($rulesFileName)
+// 
+{
+    clearstatcache(true, $rulesFileName);
+    if (!file_exists($rulesFileName)) {
+        // invalid parameter
+        return false;
+    }
+    $udevRulesFileName = '/etc/udev/rules.d/'.basename($rulesFileName);
+    clearstatcache(true, $udevRulesFileName);
+    if (file_exists($udevRulesFileName) || is_link($udevRulesFileName)) {
+        // delete the file of link
+        unlink($udevRulesFileName);
+    }
+    $tmpRulesFileName = '/tmp/'.basename($rulesFileName);
+    if (file_exists($tmpRulesFileName)) {
+        // delete the file of link
+        unlink($tmpRulesFileName);
+    }
+    copy($rulesFileName, $tmpRulesFileName);
+    symlink($tmpRulesFileName, $udevRulesFileName);
+    sysCmd('sync');
 }

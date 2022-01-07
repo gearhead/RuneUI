@@ -264,6 +264,10 @@ if ($playerid_db === '') {
     }
     unset($retval);
     //
+    //
+    // activate rune udev rules
+    add_udev_rules('/srv/http/app/config/defaults/etc/udev/rules.d/99-runeaudio.rules');
+    //
     // read activePlayer state
     $activePlayer = $redis->get('activePlayer');
     if ($activePlayer === 'MPD') {
