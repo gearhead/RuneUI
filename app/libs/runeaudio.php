@@ -6194,11 +6194,9 @@ function wrk_setTimezone($redis, $timeZone)
 // set the timezone and the Wi-Fi regulatory domain from the UI
 // return true when successful, false on error
 {
-    $result = sysCmd('timedatectl set-timezone '."'".$timeZone."'")[0];
-    $result = ' '.strtolower($restult);
-    if (strpos($result, 'failed') || strpos($result, 'invalid')) {
-        $retval = false;
-    } else {
+    $result = sysCmd('timedatectl set-timezone '."'".$timeZone."'".' ; echo $? | xargs')[0];
+    if (isset($retval) && is_numeric($retval) && ($retval == 0)) {
+        // returned 0 value is success
         // save the time zone in redis
         $redis->set('timezone', $timeZone);
         if (!$redis->exists('regdom')) {
@@ -6208,6 +6206,8 @@ function wrk_setTimezone($redis, $timeZone)
         // set the Wi-Fi regulatory domain based on the current time zone
         wrk_setRegDom($redis);
         $retval = true;
+    } else {
+        $retval = false;
     }
     return $retval;
 }

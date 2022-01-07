@@ -435,7 +435,6 @@ cat /etc/motd
 #
 # set timezone to -11 hours before GMT - any user adjustment will always go forward
 timedatectl set-timezone Pacific/Pago_Pago
-redis-cli set timezone 'Pacific/Pago_Pago'
 #
 # set the Wi-Fi regulatory domain to 00
 iw reg set 00
