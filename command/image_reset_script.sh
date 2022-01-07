@@ -319,6 +319,8 @@ cp -RTv /srv/http/app/config/defaults/boot/. /boot
 mkdir /root/.ssh
 # remove specific files
 rm /etc/udev/rules.d/99-runeaudio.rules
+rm /etc/udev/rules.d/70-bluealsa.rules
+rm /etc/udev/rules.d/90-touchscreen.rules
 # make appropriate links
 ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
