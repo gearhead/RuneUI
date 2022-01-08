@@ -343,6 +343,7 @@ while (true) {
                     }
                 }
                 $status['actPlayer'] = $activePlayer;
+                // always save the current $status
                 $redis->set('act_player_info', json_encode($status));
 
                 // Global Random
@@ -354,7 +355,7 @@ while (true) {
                     $redis->set('lock_globalrandom', 0);
                 } else {
                     // normal process render the UI
-                    // save JSON response for extensions
+                    // post $status to the UI
                     runelog('rune_PL_wrk: ui_render() response', json_encode($status));
                     ui_render('playback', json_encode($status));
                 }
@@ -365,6 +366,7 @@ while (true) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
+                // debug information
                 if (isset($socket['sockVarName']) && isset($socket['description'])) {
                     $sockVarName = $socket['sockVarName'];
                     global $$sockVarName;
