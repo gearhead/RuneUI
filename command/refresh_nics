@@ -117,7 +117,7 @@ if ($redis->hGet('AccessPoint', 'enable')) {
                 $apWifiNicFound = true;
             }
         }
-        // check if the nic technology is 'ehernet' and it has an allocated IP address
+        // check if the nic technology is 'ethernet' and it has an allocated IP address
         if ((!$ethNicConnected) && ($nic['technology'] === 'ethernet') && ($nic['connected'])) {
             // always use the first one found for NAT, skip the rest
             runelog('########### got a nic for AP NAT: '.$nic['nic']);
