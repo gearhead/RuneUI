@@ -1978,6 +1978,7 @@ function wrk_backup($redis, $bktype = null)
             " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
             // " '".$redis->hGet('mpdconf', 'state_file')."'".
             " '/var/lib/connman/wifi_*.config'".
+            " '/var/lib/connman/ethernet_*.config'".
             " '/etc/mpd.conf'".
             " '/etc/samba'".
             "";
@@ -2684,6 +2685,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // make sure that connman has the correct values
                 sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
                 sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
+                // take the nic down and bring it up to reset its ip-address
+                sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+                wrk_netconfig($redis, 'refreshAsync');
             } else {
                 // add a config file and stored profile
                 // set up the profile array
@@ -2725,6 +2729,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 clearstatcache(true, $profileFileName);
                 if (!file_exists($profileFileName) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
                     rename($tmpFileName, $profileFileName);
+                    // take the nic down and bring it up to reset its ip-address
+                    sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+                    wrk_netconfig($redis, 'refreshAsync');
                 } else {
                     unlink($tmpFileName);
                 }
@@ -6925,6 +6932,36 @@ function refresh_nics($redis)
                     }
                 }
             } else if (strpos($entry, 'ipv4')) {
+                // pick up the IP assignment (Static or DHCP)
+                if ($value && strpos(' '.$value, 'method')) {
+                    $method = substr($value, strpos($value, 'method'));
+                    $method = explode('=', $method, 2);
+                    if (isset($method[1])) {
+                        $method[1] = trim($method[1]);
+                        if ($method[1]) {
+                            $method = $method[1];
+                            if (strpos(' '.$method, ',')) {
+                                $method = substr($method, 0, strpos($method, ','));
+                            }
+                            if (strpos(' '.$method, '=')) {
+                                $method = substr($method, 0, strpos($method, '='));
+                            }
+                            if ($method && ($method == 'dhcp')) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['ipAssignment'] = 'DHCP';
+                                if (!isset($networkInterfaces[$nic]['ipAssignment']) || ($networkInterfaces[$nic]['ipAssignment'] != 'DHCP')) {
+                                    $networkInterfaces[$nic]['ipAssignment'] = 'DHCP';
+                                    $networkInterfacesModified = true;
+                                }
+                            } else if ($method && ($method == 'fixed')) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['ipAssignment'] = 'Static';
+                                if (!isset($networkInterfaces[$nic]['ipAssignment']) || ($networkInterfaces[$nic]['ipAssignment'] != 'Static')) {
+                                    $networkInterfaces[$nic]['ipAssignment'] = 'Static';
+                                    $networkInterfacesModified = true;
+                                }
+                            }
+                        }
+                    }
+                }
                 // pick up the device gateway
                 if ($value && strpos(' '.$value, 'gateway')) {
                     $gateway = substr($value, strpos($value, 'gateway'));
@@ -6941,8 +6978,10 @@ function refresh_nics($redis)
                             }
                             if ($gateway && ($gateway != $networkInterfaces[$nic]['defaultGateway'])) {
                                 $networkInfo[$macAddress.'_'.$ssidHex]['defaultGateway'] = $gateway;
-                                $networkInterfaces[$nic]['defaultGateway'] = $gateway;
-                                $networkInterfacesModified = true;
+                                if (!isset($networkInterfaces[$nic]['defaultGateway']) || ($networkInterfaces[$nic]['defaultGateway'] != $gateway)) {
+                                    $networkInterfaces[$nic]['defaultGateway'] = $gateway;
+                                    $networkInterfacesModified = true;
+                                }
                             }
                         }
                     }
@@ -6965,8 +7004,10 @@ function refresh_nics($redis)
                             }
                             if ($netmask && ($netmask != $networkInterfaces[$nic]['ipv4Mask'])) {
                                 $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Mask'] = $netmask;
-                                $networkInterfaces[$nic]['ipv4Mask'] = $netmask;
-                                $networkInterfacesModified = true;
+                                if (!isset($networkInterfaces[$nic]['ipv4Mask']) || ($networkInterfaces[$nic]['ipv4Mask'] != $netmask)) {
+                                    $networkInterfaces[$nic]['ipv4Mask'] = $netmask;
+                                    $networkInterfacesModified = true;
+                                }
                             }
                         }
                     }

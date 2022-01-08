@@ -82,8 +82,12 @@
                     <div class="col-sm-10">
                         <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="secondaryDns" name="profile[secondaryDns]" value="<?=$this->profile['secondaryDns']?>" placeholder="<?=$this->profile['secondaryDns']?>" data-parsley-trigger="change" />
                             <span class="help-block">Manually set the primary and secondary DNS (optional)<br><br>
-                                <i>Note: After setting a Static IP-Address your router may remember the old IP-Address until it's lease expires.<br>
-                                You may also need to reserve the Static IP-Address in your router configuration to avoid problems</i></span><br>
+                                <i>Notes: After setting a Static IP-Address your router may remember the old IP-Address and associate it to the player name
+                                until it's lease expires. So, the IP-Address may need to be used instead of the player name until the player is restarted.<br>
+                                You may need to reserve the Static IP-Address in your router configuration to avoid IP-address conflict problems.<br>
+                                After changing between DHCP and Static IP assignment it may be necessary to unplug your network cable for a couple of seconds
+                                then reconnect it in order to activate the changes, the reboot option below avoids this and is generally more reliable. Don't forget
+                                that after changing the IP-Address you then need to connect using the new address</i></span><br>
                     </div>
                 </div>
             </div>
