@@ -159,6 +159,7 @@ find /var/lib/iwd/ -type f -exec rm -f {} \;
 # remove the lines for 99-vc4_input.rules and 70-usb-audio.rules after the a couple of image build's
 rm -f /etc/udev/rules.d/99-vc4_input.rules
 rm -f /etc/udev/rules.d/70-usb-audio.rules
+rm -f /etc/udev/rules.d/99-a2dp.rules
 rm -f /etc/udev/rules.d/99-runeaudio.rules
 #
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
