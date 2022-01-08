@@ -34,7 +34,7 @@
 set -x # echo commands
 set +e # continue on errors
 
-/srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
 /srv/http/command/webradiodb.sh
 redis-cli shutdown save
 systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
@@ -44,15 +44,18 @@ systemctl start redis mpd
 /srv/http/command/convert_dos_files_to_unix_script.sh fast
 hostnm=$( redis-cli get hostname )
 hostnm=${hostnm,,}
-hostnamectl set-hostname $hostnm
-timezn=$( redis-cli get timezone )
-timedatectl set-timezone $timezn
+ohostnm=$( hostnamectl hostname )
+if [ "$hostnm" != "$ohostnm" ]; then
+    /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'simplemessage'
+fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
 rm -f $1
 /srv/http/db/redis_datastore_setup check
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 /srv/http/command/refresh_ao
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/post_restore_actions.php
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
 set +e
 count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
@@ -72,3 +75,5 @@ rm -r /var/lib/iwd/*
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 /srv/http/command/rune_shutdown
 reboot
+#---
+#End script

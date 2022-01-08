@@ -1963,9 +1963,9 @@ function wrk_backup($redis, $bktype = null)
             " '".$redis->hGet('mpdconf', 'sticker_file')."'".
             " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
             " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " /var/lib/connman".
-            " /var/www".
-            " /etc".
+            " '/var/lib/connman'".
+            " '/var/www'".
+            " '/etc'".
             "";
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
@@ -1976,36 +1976,35 @@ function wrk_backup($redis, $bktype = null)
             " '".$redis->hGet('mpdconf', 'db_file')."'".
             " '".$redis->hGet('mpdconf', 'sticker_file')."'".
             " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " /var/lib/connman".
-            " /etc/mpd.conf".
+            // " '".$redis->hGet('mpdconf', 'state_file')."'".
+            " '/var/lib/connman/wifi_*.config'".
+            " '/etc/mpd.conf'".
+            " '/etc/samba'".
             "";
     }
-    // add the names of the distribution files
-    $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
-    foreach ($extraFiles as $extraFile) {
-        // convert the names of the distribution files to the location of production version (the one being used)
-        $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
-        if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
-            // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
-            continue;
-        }
-        // clear the cache otherwise file_exists() returns incorrect values
-        clearstatcache(true, $fileName);
-        if (file_exists($fileName)) {
-            // add the files to the backup command if they exist
-            $cmdstring .= " '".$fileName."'";
-        }
-    }
-    ui_notify('Diagnosics', $cmdstring);
+    // // add the names of the distribution files
+    // $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
+    // foreach ($extraFiles as $extraFile) {
+        // // convert the names of the distribution files to the location of production version (the one being used)
+        // $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
+        // if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
+            // // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
+            // continue;
+        // }
+        // // clear the cache otherwise file_exists() returns incorrect values
+        // clearstatcache(true, $fileName);
+        // if (file_exists($fileName)) {
+            // // add the files to the backup command if they exist
+            // $cmdstring .= " '".$fileName."'";
+        // }
+    // }
+    ui_notify('Backup', $cmdstring);
     // save the redis database
     $redis->save();
     // run the backup
     sysCmd($cmdstring);
     // change the file privileges
     sysCmd('chown http.http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
-    // regenerate the debug data for redis
-    sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
     return $filepath;
 }
 
