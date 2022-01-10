@@ -4,6 +4,7 @@ node_modules
 /.alsaequal.bin
 /.cache/
 /.config/**
+/.local/**
 .pki/**
 /.xbindkeysrc
 /amixer/__pycache__/
