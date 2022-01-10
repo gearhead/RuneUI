@@ -605,7 +605,9 @@
                 <label class="control-label col-sm-2">Backup player config</label>
                 <div class="col-sm-10">
                     <input class="btn btn-primary btn-lg" type="submit" name="syscmd" value="backup" id="syscmd-backup">
-                    <span class="help-block">Export a compressed archive containing all the settings of this player</span>
+                    <span class="help-block">Export a compressed archive containing all the settings of this player.
+                        Almost everything set or modified in the UI will be saved, including the MPD music database (but not the music files themselves),
+                        playlists and webradio's</span>
                 </div>
             </div>
         </fieldset>
@@ -625,7 +627,7 @@
                         <span class="help-block">Restore a previously exported backup.<br>
                         <strong>The system will reboot</strong> after restoring the backup.<br>
                         <i><strong>Tip:</strong> Make a new backup after checking and correcting each restore and after updating/upgrading to a new version.
-                        Otherwise information concerning new features may be missing in the backup</i></span>
+                        Otherwise information concerning new features may be missing in the backup. <strong>Warning:</strong> Manually edited files will not be backed up or restored</i></span>
                     </p>
                     <button id="btn-backup-upload" type="submit" name="syscmd" value="restore" class="btn btn-primary btn-lg" disabled>Restore</button>
                 </div>
