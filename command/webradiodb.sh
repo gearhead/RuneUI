@@ -53,15 +53,23 @@ find "/boot/webradios" -type f -name *.pls -exec rm -- '{}' \;
 # nested directories could need several passes, this routine is run on each boot
 find "/boot/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
 # recreate the structure
-mkdir /boot/webradios
-cp /srv/app/http/config/defaults/boot/webradios/readme /boot/webradios/readme
+mkdir -p /boot/webradios
+cp /srv/http/app/config/defaults/boot/webradios/readme /boot/webradios/readme
 #
 # create webradio files when they are defined in redis but the file does not exist
 redis-cli hkeys webradios > /tmp/radios
 while IFS= read -r webradio; do
+    if [ -z "${webradio// }" ]; then
+        # empty, skip
+        continue
+    fi
     if [ ! -f "$webradiodir/$webradio.pls" ]; then
         # file is not there create it
         url=$( redis-cli hget webradios "$webradio" )
+        if [ -z "${url// }" ]; then
+            # empty, skip
+            continue
+        fi
         echo -e "[playlist]\nNumberOfEntries=1\nFile1=$url\nTitle1=$webradio\n" > "$webradiodir/$webradio.pls"
     fi
 done < "/tmp/radios"
