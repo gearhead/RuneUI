@@ -6250,10 +6250,7 @@ function ui_update($redis, $sock=null, $clientUUID=null)
 {
     $activePlayerInfo = $redis->get('act_player_info');
     if (strlen($activePlayerInfo) > 5) {
-        // elapsed time contains the wrong value, just remove it before sending it to the UI
-        $activePlayerInfo = json_decode($activePlayerInfo, true);
-        unset($activePlayerInfo['elapsed']);
-        ui_render('playback', json_encode($activePlayerInfo));
+        ui_render('playback', $activePlayerInfo);
     }
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
