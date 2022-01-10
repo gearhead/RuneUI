@@ -9215,24 +9215,12 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     return $status;
 }
 
-// function to check that a systemd target has been reached
-function is_systemd_target($target = 'multi-user.target')
-{
-    if (substr($target, -7) != '.target') {
-        // invalid parameter
-        return 0;
-    }
-    $retval = sysCmd('systemctl list-units --type target | grep -i '.$target.' | grep -i loaded | grep -ic active')[0];
-    if (isset($retval) && is_numeric($retval) && ($retval == 1)) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
 // function to add udev rules which which will become invalid on reboot
 function add_udev_rules($rulesFileName)
-//
+// this function will activate a udev rules file
+// after reboot the the udev rules file will become inactive
+// Parameter 1 is the full file path of the udev rules file to be activated, this
+//  file must not be located in /etc/udev/rules.d or /tmp
 {
     clearstatcache(true, $rulesFileName);
     if (!file_exists($rulesFileName)) {
