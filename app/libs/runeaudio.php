@@ -1952,23 +1952,27 @@ function wrk_backup($redis, $bktype = null)
 {
     // get the directory which is used for the backup
     $fileDestDir = '/'.trim($redis->get('backup_dir'), "/ \t\n\r\0\x0B").'/';
+    // create a diff file /home/config.txt.diff of /srv/http/app/config/defaults/boot/config.txt vs. /boot/config.txt
+    sysCmd('diff -Nau /srv/http/app/config/defaults/boot/config.txt /boot/config.txt >/home/config.txt.diff');
     // build up the backup command string
     if ($bktype === 'dev') {
-        $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
-        $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
-            " bsdtar -czpf '".$filepath."'".
-            " /mnt/MPD/Webradio".
-            " /var/lib/redis/rune.rdb".
-            " '".$redis->hGet('mpdconf', 'db_file')."'".
-            " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " '/var/lib/connman'".
-            " '/var/www'".
-            " '/etc'".
-            "";
+        // $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
+        // $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
+            // " bsdtar -czpf '".$filepath."'".
+            // " /mnt/MPD/Webradio".
+            // " /var/lib/redis/rune.rdb".
+            // " '".$redis->hGet('mpdconf', 'db_file')."'".
+            // " '".$redis->hGet('mpdconf', 'sticker_file')."'".
+            // " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
+            // " '".$redis->hGet('mpdconf', 'state_file')."'".
+            // " /var/lib/connman".
+            // " /var/www".
+            // " /etc".
+            // " /home/config.txt.diff".
+            // "";
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
+        // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
         $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null;".
             " bsdtar -czpf '".$filepath."'".
             " /mnt/MPD/Webradio".
@@ -1976,11 +1980,12 @@ function wrk_backup($redis, $bktype = null)
             " '".$redis->hGet('mpdconf', 'db_file')."'".
             " '".$redis->hGet('mpdconf', 'sticker_file')."'".
             " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            // " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " '/var/lib/connman/wifi_*.config'".
-            " '/var/lib/connman/ethernet_*.config'".
-            " '/etc/mpd.conf'".
-            " '/etc/samba'".
+            " '".$redis->hGet('mpdconf', 'state_file')."'".
+            " /var/lib/connman/wifi_*.config".
+            " /var/lib/connman/ethernet_*.config".
+            " /etc/mpd.conf".
+            " /etc/samba".
+            " /home/config.txt.diff".
             "";
     }
     // // add the names of the distribution files
@@ -2004,6 +2009,8 @@ function wrk_backup($redis, $bktype = null)
     $redis->save();
     // run the backup
     sysCmd($cmdstring);
+    // delete the diff file for /boot/config.txt
+    unlink('/home/config.txt.diff');
     // change the file privileges
     sysCmd('chown http.http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
     return $filepath;
@@ -6243,7 +6250,10 @@ function ui_update($redis, $sock=null, $clientUUID=null)
 {
     $activePlayerInfo = $redis->get('act_player_info');
     if (strlen($activePlayerInfo) > 5) {
-        ui_render('playback', $activePlayerInfo);
+        // elapsed time contains the wrong value, just remove it before sending it to the UI
+        $activePlayerInfo = json_decode($activePlayerInfo, true);
+        unset($activePlayerInfo['elapsed']);
+        ui_render('playback', json_encode($activePlayerInfo));
     }
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {

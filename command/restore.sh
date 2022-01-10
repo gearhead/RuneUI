@@ -38,10 +38,14 @@ set +e # continue on errors
 /srv/http/command/webradiodb.sh
 redis-cli shutdown save
 systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
-bsdtar -xpf $1 -C /
+## To-Do: make the backup and restore lines match, use some kind of dynamic list, not hard coded
+bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
 systemctl daemon-reload
-systemctl start redis mpd
-/srv/http/command/convert_dos_files_to_unix_script.sh fast
+systemctl start redis
+## try to recover changes in the /boot/config.txt
+patch -lN /boot/config.txt /home/config.txt.diff
+rm -f /home/config.txt.diff
+## /srv/http/command/convert_dos_files_to_unix_script.sh fast
 hostnm=$( redis-cli get hostname )
 hostnm=${hostnm,,}
 ohostnm=$( hostnamectl hostname )
@@ -50,6 +54,8 @@ if [ "$hostnm" != "$ohostnm" ]; then
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
 rm -f $1
+// delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
+redis-cli del lastmpdvolume
 /srv/http/db/redis_datastore_setup check
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
@@ -69,9 +75,11 @@ redis-cli set dev '0'
 redis-cli set debug '0'
 /srv/http/command/webradiodb.sh
 systemctl stop connman
-# clean up the connman files, these will be recreated with restart
+# clean up the connman cache files, these will be recreated with restart
 find /var/lib/connman/* -type d -exec rm -R '{}' \;
 rm -r /var/lib/iwd/*
+systemctl start connman
+/srv/http/command/refresh_nics
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 /srv/http/command/rune_shutdown
 reboot
