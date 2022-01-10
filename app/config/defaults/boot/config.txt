@@ -268,5 +268,7 @@ temp_limit=75
 #   Boot delay sometimes needs to be set to higher values when overclocking is enabled
 #       Default boot delay is 1 second, 3B+ needs a delay of 2
 boot_delay=2
+# set the max usb current to 1200mA (in theory this is depreciated and should not be required)
+max_usb_current=1
 #
 initramfs initramfs-linux.img followkernel
