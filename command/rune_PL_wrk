@@ -97,7 +97,7 @@ while (true) {
                 runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                 $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
-                sysCmdAsync('/srv/http/command/ui_update_async 0');
+                sysCmdAsync('/srv/http/command/ui_update_async 0', 0);
             }
             $newStatus = _parseStatusResponse($redis, MpdStatus($socket));
             if (isset($newStatus) || is_array($newStatus)) {
@@ -136,7 +136,7 @@ while (true) {
             $status['mainArtURL'] = $artUrl.'/none.png';
             $status['smallArtURL'] = $artUrl.'/mpd/black.png';
             $status['bigArtURL'] = $artUrl.'/mpd/black.png';
-            sysCmdAsync('/srv/http/command/ui_update_async');
+            sysCmdAsync('/srv/http/command/ui_update_async', 0);
             do {
                 //
                 // idle LOOP
@@ -392,7 +392,7 @@ while (true) {
                 runelog('----------------------------------- FORCE UPDATE Spotify -----------------------------------');
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                 $status = array_merge($status, initialise_playback_array($redis, 'Spotify'));
-                sysCmdAsync('/srv/http/command/ui_update_async');
+                sysCmdAsync('/srv/http/command/ui_update_async', 0);
             }
             $status['radio'] = false;
             $status = array();

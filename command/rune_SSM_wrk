@@ -396,7 +396,7 @@ while (true) {
                         $redis->set('act_player_info', json_encode($status));
                         ui_render('playback', json_encode($status));
                         //sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-                        sysCmdAsync('/var/www/command/ui_update_async');
+                        sysCmdAsync('/var/www/command/ui_update_async', 0);
                         break;
                     case 'ssnc pcst':
                         // start picture send, no arguments
@@ -407,7 +407,7 @@ while (true) {
                         runelog('rune_SSM_wrk: End picture send, no arguments');
                         // post the playback data to the UI
                         //ui_render('playback', json_encode($status));
-                        //sysCmdAsync('/var/www/command/ui_update_async');
+                        //sysCmdAsync('/var/www/command/ui_update_async', 0);
                         break;
                     case 'ssnc snam':
                         // name of user sending device
@@ -577,7 +577,7 @@ while (true) {
                             //$status['song_percent'] = round(100*$status['elapsed']/$status['time']);
                             //$redis->set('act_player_info', json_encode($status));
                             //sleep(2);
-                            //sysCmdAsync('/var/www/command/ui_update_async');
+                            //sysCmdAsync('/var/www/command/ui_update_async', 0);
                             //sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                         }
                         break;
