@@ -1702,11 +1702,11 @@ while (true) {
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
             // check that the redis database is up to date
-            sysCmdAsync('nice --adjustment=4 php -f /srv/http/db/redis_datastore_setup check');
+            sysCmdAsync('nice --adjustment=4 /srv/http/db/redis_datastore_setup check');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'debug_collector')) {
-            // run debug collector to initialise the database for today
-            sysCmdAsync('nice --adjustment=4 php -f /srv/http/command/debug_collector');
+            // run debug collector to initialise the datafile for today
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation
