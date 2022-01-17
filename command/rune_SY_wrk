@@ -265,6 +265,10 @@ if ($playerid_db === '') {
     }
     unset($retval);
     //
+    // store the memory and number of cores
+    $redis->set('cores', preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]));
+    $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo')[0]));
+    //
     // set the Wi-Fi regulatory domain based on the current time zone
     wrk_setRegDom($redis);
     //

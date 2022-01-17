@@ -342,14 +342,20 @@ $template->local_browseronoff = true;
 if (file_exists('/usr/bin/xinit')) {
     // the local browser needs a x-windows environment, check the existence of xinit
     // x-windows is not installed on the archv6 models (e.g. Pi Zero), these are too slow
-    $retval = sysCmd('cat /proc/meminfo | grep -i MemTotal:');
-    $retval = preg_replace('/[^0-9]/', '', $retval[0]);
-    if ($retval < 700000) {
-        // local browser (x-windows) needs +/-1 MB of memory to operate
+    $memory = $redis->get('memoryKb');
+    $cores = $redis->get('cores');
+    if ($memory < 700000) {
+        // local browser (x-windows) needs +/-1 GB of memory to operate
         // the Pi 3A & Pi Zero 2W models has the cpu power and has x-windows installed, but little memory
         $template->local_browseronoff = 'memory';
+    } else if ($memory < 400000) {
+        // old PI models with less than 512MB cannot run the local browser
+        $template->local_browseronoff = false;
+    } else if ($cores < 4) {
+        // for old models with 1 core and 512MB memory it is possible to run the local browser, but it is not advised
+        $template->local_browseronoff = 'cores';
     }
-    unset($retval);
+    unset($memory, $cores);
 } else {
     $template->local_browseronoff = false;
 }

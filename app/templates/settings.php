@@ -398,6 +398,11 @@
                             .<br>This model has insufficient memory to guarantee that a local browser will work correctly.
                                 You can try it, it has been set-up with low graphics resolution. Switching off other features off may help with performance issues
                         <?php endif ?>
+                        <?php if($this->local_browseronoff == 'cores'): ?>
+                            .<br>This model has insufficient memory and processing power to allow a local browser to work correctly.
+                                <strong>It is not recommended</strong> as it's processing load could influence music quality, but in theory it could still work.
+                                You can try it, it has been set-up with very low graphics resolution. Switching off other features off may help with performance issues
+                        <?php endif ?>
                         </i></span>
                     </div>
                 </div>
