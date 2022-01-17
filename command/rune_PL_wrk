@@ -218,10 +218,10 @@ while (true) {
                 }
                 //
                 // tweaks to only retrieve radio information after a second metadata record
-                // some radio stations only send one metadata record (repeatedly), so really there is no metadata supplied
+                // some radio stations only send one metadata record (repeatedly), so really there is actually no metadata supplied
                 if ($newStatus['radio']) {
-                    if ($newStatus['radioname'] != $status['radioname']) {
-                        // it is a radio and it is not the same as the last radio, this is the first information from the webradio
+                    if ($newStatus['file'] != $saveFile) {
+                        // it is a radio and it is not the same as the last radio, so this is the first information from the webradio
                         $status = $newStatus;
                         $mpdChangeSong = false;
                         $saveRadio = $newStatus['radio'];
@@ -239,7 +239,7 @@ while (true) {
                         $newStatus['bigArtURL'] = $artUrl.'/none.png';
                         $newStatus['smallArtURL'] = $artUrl.'/none.png';
                     } else if ($newStatus['currentsong'] === '') {
-                        // skip recods when no metadata is passed
+                        // skip records when no metadata is passed
                         $newStatus['currentsong'] = $saveCurrentsong;
                         $mpdChangeSong = false;
                     }

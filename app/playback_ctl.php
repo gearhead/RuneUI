@@ -36,7 +36,7 @@
 $nowSeconds = microtime(true);
 // delay 2 second, so add 2 to the value
 $startAfterSeconds = $nowSconds + 2;
-wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterMicroseconds));
+wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterSeconds));
 $template->activePlayer = $redis->get('activePlayer');
 //
 // setup the display variables
