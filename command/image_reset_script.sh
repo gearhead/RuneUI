@@ -317,6 +317,7 @@ cp -RTv /srv/http/app/config/defaults/var/. /var
 cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
+cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
 # create required directories
 mkdir /root/.ssh
 # remove specific files
