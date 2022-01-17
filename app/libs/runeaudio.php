@@ -1001,17 +1001,73 @@ function sysCmd($syscmd)
     return $output;
 }
 
-function sysCmdAsync($syscmd, $waitsec = null) {
-    if (isset($waitsec)) {
-        $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd);
+function sysCmdAsync($syscmd, $waitsec = null)
+// when called with the parameter $waitsec (a zero value is valid) the
+//  function will execute the command directly as a new job
+//  otherwise the command will be queued to be executed sequentially by a single job
+//  the job to process the sequential queue will be started if it is not running
+{
+    if (isset($waitsec) && is_numeric($waitsec)) {
+        // a $waitsec value is present and valid, so start a new job
+        $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd)." ".intval($waitsec);
+        exec($cmdstr." > /dev/null 2>&1 &", $output);
+        // debug
+        runelog('sysCmdAsync($waitsec) ', $waitsec, __FUNCTION__);
+        runelog('sysCmdAsync($cmdstr) decoded', $syscmd, __FUNCTION__);
+        runelog('sysCmdAsync($cmdstr) encoded', $cmdstr, __FUNCTION__);
+        runelog('sysCmdAsync() output:', $output, __FUNCTION__);
+        return $output;
     } else {
-        $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd);
+        // no $waitsec value is present, so queue the command in fifo 'cmd_queue'
+        global $redis;
+        //
+        // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
+        //  the commands are deflated, encrypted and then base64_encoded
+        //  the reverse is used to decode commands
+        //  its not really secure but should be enough to deter the casual burglar
+        // variables
+        // use the first cypher in the list of possibles
+        $cipher = openssl_get_cipher_methods()[0];
+        // the passphrase is a hash of the playerid
+        $passphrase = $redis->get('playerid');
+        // the initialization vector is calculated in the standard way, once per boot
+        if (is_firstTime($redis, 'cipher_iv')) {
+            // this is the standard way
+            $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length($cipher));
+            $redis->set('cipher_iv', $iv);
+        } else {
+            // it must be the same for encoding and decoding, save it
+            //  this means that encoding changes after each reboot
+            $iv = $redis->get('cipher_iv');
+        }
+        // encode
+        // $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
+        // decode
+        // $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+        //
+        // deflate, encrypt en base64 encode then put the command into the queue
+        $encoded = base64_encode(openssl_encrypt(gzdeflate($syscmd, 9), $cipher, $passphrase, 0, $iv));
+        $redis->lPush('cmd_queue', $encoded);
+        // get the lock value
+        $lock = $redis->get('lock_cmd_queue');
+        // debug
+        runelog('sysCmdAsync(lock status) ', $lock);
+        runelog('sysCmdAsync($syscmd) decoded', $syscmd);
+        runelog('sysCmdAsync($syscmd) encoded', $encoded);
+        if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+            // the job is not running
+            // set the lock, it will be unlocked when the command queue job completes
+            $redis->set('lock_cmd_queue', '1');
+            // start the command queue job by posting it with an explicit wait of 0 seconds
+            sysCmdAsync('nice --adjustment=1 /srv/http/command/cmd_async_queue', 0);
+        } else {
+            // locked
+            // just in case something goes wrong increment the lock value by 1
+            // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+            $lock += 1;
+            $redis->set('lock_cmd_queue', $lock);
+        }
     }
-    exec($cmdstr." > /dev/null 2>&1 &", $output);
-    runelog('sysCmdAsync($cmdstr) decoded', $syscmd, __FUNCTION__);
-    runelog('sysCmdAsync($cmdstr) encoded', $cmdstr, __FUNCTION__);
-    runelog('sysCmdAsync() output:', $output, __FUNCTION__);
-    return $output;
 }
 
 function getMpdDaemonDetalis()
@@ -5191,7 +5247,7 @@ function wrk_startPlayer($redis, $newplayer)
                 wrk_mpdconf($redis, 'forcestop');
                 $redis->set('mpd_playback_status', 'stop');
                 // set process priority
-                sysCmdAsync('rune_prio nice');
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
             }
         } elseif ($activePlayer === 'Spotify') {
             $redis->set('stoppedPlayer', $activePlayer);
@@ -9218,7 +9274,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $redis->set('act_player_info', json_encode($status));
     ui_render('playback', json_encode($status));
     sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-    sysCmdAsync('/srv/http/command/ui_update_async');
+    sysCmdAsync('/srv/http/command/ui_update_async', 0);
     return $status;
 }
 
