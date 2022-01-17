@@ -1952,6 +1952,8 @@ function wrk_control($redis, $action, $data)
                 'args' => (isset($data['args'])? $data['args'] : NULL)
             );
             $redis->hSet('w_queue', $jobID, json_encode($wjob));
+            // add the jobID to the fifo queue
+            $redis->lPush('w_queue_fifo', $jobID);
             runelog('wrk_control data:', $redis->hGet('w_queue', $jobID));
             break;
     }
