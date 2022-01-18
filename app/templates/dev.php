@@ -65,9 +65,9 @@
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="blankplayerid" id="syscmd-blankplayerid" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Reset playerID and hwplatformID. The player will perform configuration initialisation routines during the next reboot.<br>
-                        This function can be used as an alternative to re-flashing your Micro-SD card if Rune stops working correctly. In many cases it will fix the problems.<br>
+                        <i>This function can be used as an alternative to re-flashing your Micro-SD card if Rune stops working correctly. In many cases it will fix the problems.<br>
                         Always <strong>de-install</strong> Rern's Addons <strong>before</strong> choosing this option!<br>
-                        You will <strong>lose most of your settings</strong> after choosing this option!<br>
+                        You will <strong>lose most of your settings</strong> after choosing this option!</i><br>
                         </span>
                     </div>
                 </div>
@@ -76,8 +76,8 @@
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="clearimg" id="syscmd-clearimg" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Clear command history, logs, reset image parameters to default settings.<br>
-                        NOTE: (Dev team function) Use this function prior to publication of a RuneOS image.<br>
-                        WARNING: Automatic system shutdown and power-off after execution! Wait until it shuts down, it may take up to 5 minutes to complete!</span>
+                        <i>NOTE: (Dev team function) Use this function prior to publication of a RuneOS image.<br>
+                        WARNING: Automatic system shutdown and power-off after execution! Wait until it shuts down, it may take up to 5 minutes to complete!</i></span>
                     </div>
                 </div>
             </div>
@@ -121,7 +121,7 @@
             </div>
             <legend>Background WORKERS control</legend>
             <div class="boxed-group">
-                <p>Just some handy "tools" for Background WORKERS management</p>
+                <p>Some tools for Background WORKER management</p>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">RuneAudio SYstem worker (rune_SY_wrk)</label>
                     <div class="col-sm-10">
@@ -145,7 +145,7 @@
                 </div>
             </div>
             <legend>System commands</legend>
-            <p>Just some handy system commands, without the hassle of logging into SSH</p>
+            <p>Some system commands, without the hassle of logging into SSH</p>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update RuneUI</label>
@@ -244,8 +244,8 @@
                                 <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($this->optwifionof)) && ($this->optwifionof)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">Automatic Wi-Fi Optimisation is set <strong>ON</strong> by default. It should be left  <strong>ON</strong> unless you have more than one Wi-Fi
-                            adaptor and are having problems with the default network per adaptor</span>
+                        <span class="help-block">Automatic Wi-Fi Optimisation is set <strong>ON</strong> by default. <i>It should be left <strong>ON</strong> unless you have more than one Wi-Fi
+                            adaptor or are having problems with the default network settings</i></span>
                     </div>
                 </div>
             </div>
@@ -254,28 +254,28 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">SoXr for MPD</label>
                     <div class="col-sm-10">
-                            <label class="switch-light well" onclick="">
-                                <input id="soxrmpdonoff" name="mode[soxrmpdonoff][enable]" type="checkbox" value="1"<?php if((isset($this->soxrmpdonoff)) && ($this->soxrmpdonoff)): ?> checked="checked" <?php endif ?>>
-                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                            </label>
-                        <span class="help-block">SoXr for MPD is set ON or OFF depending on processor type. The MPD sample rate converter can not be switched off, it does nothing (and has no CPU overhead) unless sample rate conversion is required.
+                        <label class="switch-light well" onclick="">
+                            <input id="soxrmpdonoff" name="mode[soxrmpdonoff][enable]" type="checkbox" value="1"<?php if((isset($this->soxrmpdonoff)) && ($this->soxrmpdonoff)): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                        <span class="help-block">SoXr for MPD is set ON or OFF depending on processor type. <i>The MPD sample rate converter can not be switched off, it does nothing (and has no CPU overhead) unless sample rate conversion is required.
                         This happens only in special circumstances, MPD switches it on automatically when required. It always reduces quality when it operates, but SoXr is better than the built-in MPD sample-rate converter.
-                        A higher CPU overhead is imposed by SoxR than when using the built-in MPD sample-rate converter. You can can override the default setting here</span>
+                        A higher CPU overhead is imposed by SoxR than when using the built-in MPD sample-rate converter. You can can override the default setting here</i></span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Plugin for MPD Websreaming encoder (file encoding type)</label>
+                    <label class="col-sm-2 control-label"> HTTPd Websreaming encoder for MPD: Plugin(file encoding type)</label>
                     <div class="col-sm-10">
                         <select id="WSencoder" class="selectpicker" name="mode[WSencoder]" data-style="btn-default btn-lg">
                             <option value="flac" <?php if($this->WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
                             <option value="lame" <?php if($this->WSencoder === 'lame'): ?> selected <?php endif ?>> Lame encoder for MP3</option>
                         </select>
-                        <span class="help-block">Default is Lame (MP3) output which always works. Flac format is not supported in all browsers on all devices.<br>
-                            The flac encoder can support higher bitrates. Reboot to activate the changes</span>
+                        <span class="help-block">Default is Lame (MP3) output which always works. <i>Flac format is not supported in all browsers or on all devices.<br>
+                            The flac encoder can support higher bitrates</i></span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Sample rate for MPD Websreaming encoder</label>
+                    <label class="col-sm-2 control-label">HTTPd Websreaming encoder for MPD: Sample rate</label>
                     <div class="col-sm-10">
                         <select id="WSsamplerate" class="selectpicker" name="mode[WSsamplerate]" data-style="btn-default btn-lg">
                             <option value="44100" <?php if(($this->WSencoder === 'lame') || ($this->WSsamplerate === '44100')): ?> selected <?php endif ?>> 44100</option>
