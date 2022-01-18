@@ -41,7 +41,7 @@ $savecpuIncPrev = $savecpuInc;
 $savecpuSps = 43200;
 $savecpuAvd = 10800;
 $savecpuFixdnssec = 20;
-$savecpuRefreshNics = 10;
+$savecpuRefreshNics = 24;
 $savecpuRefreshNicsPrev = $savecpuRefreshNics;
 $savecpuOneTimeActions = 30;
 $savecpuMpdLog = 600;
@@ -1675,7 +1675,7 @@ while (true) {
             $savecpuMnt = 1750 + rand(0, 100);
         }
     }
-    // Run refresh_nics periodically, run it first after 10 cycles (+/-5 seconds), and increase the repeat cycle time by 100%
+    // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
     // it should run at least once per hour
     // connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuRefreshNics-- <= 0) {
