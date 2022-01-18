@@ -193,7 +193,7 @@ if (isset($_POST)) {
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'update', 'args' => $_POST['mode']['conf']));
         $mpdChange = false;
     }
-    
+
     // ----- OPCACHE -----
     if (isset($_POST['opcache'])) {
         if ($_POST['opcache']['enable']) {
