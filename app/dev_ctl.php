@@ -31,6 +31,8 @@
  *  coder: Simone De Gregori
  *
  */
+ // flag to determine mpd update
+$mpdChange = false;
 // inspect POST
 if (isset($_POST)) {
     // ----- DEV MODE -----
@@ -169,7 +171,22 @@ if (isset($_POST)) {
             // create worker job (set off)
             $redis->get('underclocking') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'underclocking', 'action' => 0));
         }
+        // ----- MPD configuration -----
+        if (isset($_POST['mode']['conf'])) {
+            if (
+            (isset($_POST['mode']['conf']['proxy_node']) && ($_POST['mode']['conf']['proxy_node'] != $redis->hGet('mpdconf', 'proxy_node'))) ||
+            (isset($_POST['mode']['conf']['proxy_port']) && ($_POST['mode']['conf']['proxy_port'] != $redis->hGet('mpdconf', 'proxy_port')))
+            ) {
+                $mpdChange = true;
+            }
+        }
     }
+    // update the MPD configuration if required
+    if ($mpdChange) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'update', 'args' => $_POST['mode']['conf']));
+        $mpdChange = false;
+    }
+    
     // ----- OPCACHE -----
     if (isset($_POST['opcache'])) {
         if ($_POST['opcache']['enable']) {
@@ -254,6 +271,7 @@ $template->optwifionof = $redis->get('network_autoOptimiseWifi');
 $template->underclocking = $redis->get('underclocking');
 $template->WSencoder = $redis->hGet('websreaming', 'encoder');
 $template->WSsamplerate = $redis->hGet('websreaming', 'samplerate');
+$template->conf = $redis->hGetAll('mpdconf');
 
 // debug
 // var_dump($template->dev);

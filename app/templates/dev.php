@@ -286,6 +286,21 @@
                         </select>
                         <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. Higher rates are valid for Flac encoding, which could be
                             useful if your music collection is primarily high definition recordings. Reboot to activate the changes</span>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="proxy_node">MPD Database Proxy Plugin: Node</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_node" name="mode[conf][proxy_node]" value="<?=$this->conf['proxy_node'] ?>" data-trigger="change">
+                        <span class="help-block">See the MPD Plugin <a href="#" onclick='window.open("https://mpd.readthedocs.io/en/latest/plugins.html#proxy", "MPD Documentation");return false;'>documentation</a>,
+                            change only when you know what you are doing. It is set to the url or IP-address of the remote (master) MPD player.
+                            Enabled when it has a value, disabled when empty</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="proxy_port">MPD Database Proxy Plugin: Port</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_port" name="mode[conf][proxy_port]" value="<?=$this->conf['proxy_port'] ?>" data-trigger="change">
+                        <span class="help-block">Only relevant when the 'MPD Database Proxy Plugin Node' is set, otherwise ignored.
+                            Specifies the MPD TCP port on the remote (master) MPD player (default = 6600)</span>
                     </div>
                 </div>
             </div>

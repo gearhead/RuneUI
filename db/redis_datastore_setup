@@ -64,6 +64,8 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'pid_file', '/run/mpd/pid');
             $redis->hSet('mpdconf', 'playlist_directory', '/var/lib/mpd/playlists');
             $redis->hSet('mpdconf', 'port', '6600');
+            $redis->hSet('mpdconf', 'proxy_node', '');
+            $redis->hSet('mpdconf', 'proxy_port', '6600');
             $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hSet('mpdconf', 'state_file_enable', 'yes');
@@ -104,6 +106,8 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'pid_file') || $redis->hSet('mpdconf', 'pid_file', '/run/mpd/pid');
             $redis->hExists('mpdconf', 'playlist_directory') || $redis->hSet('mpdconf', 'playlist_directory', '/var/lib/mpd/playlists');
             $redis->hExists('mpdconf', 'port') || $redis->hSet('mpdconf', 'port', '6600');
+            $redis->hExists('mpdconf', 'proxy_node') || $redis->hSet('mpdconf', 'proxy_node', '');
+            $redis->hExists('mpdconf', 'proxy_port') || $redis->hSet('mpdconf', 'proxy_port', '6600');
             $redis->hExists('mpdconf', 'snapcast') || $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hExists('mpdconf', 'state_file') || $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hExists('mpdconf', 'state_file_enable') || $redis->hSet('mpdconf', 'state_file_enable', 'yes');
