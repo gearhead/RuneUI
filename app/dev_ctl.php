@@ -137,6 +137,7 @@ if (isset($_POST)) {
                 }
                 // always save the encoder
                 $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('websreaming', 'encoder'));
+                $mpdChange = true;
             }
         }
         if ((isset($_POST['mode']['WSsamplerate'])) && ($_POST['mode']['WSsamplerate'])) {
@@ -155,6 +156,7 @@ if (isset($_POST)) {
                 }
                 // always save the encoder
                 $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('websreaming', 'encoder'));
+                $mpdChange = true;
             }
         }
         // ----- Automatic Wi-Fi Optimisation-----
@@ -174,6 +176,11 @@ if (isset($_POST)) {
         // ----- MPD configuration -----
         if (isset($_POST['mode']['conf'])) {
             if (
+            (isset($_POST['mode']['conf']['port']) && ($_POST['mode']['conf']['port'] != $redis->hGet('mpdconf', 'port'))) ||
+            (isset($_POST['mode']['conf']['user']) && ($_POST['mode']['conf']['user'] != $redis->hGet('mpdconf', 'user'))) ||
+            (isset($_POST['mode']['conf']['log_level']) && ($_POST['mode']['conf']['log_level'] != $redis->hGet('mpdconf', 'log_level'))) ||
+            (isset($_POST['mode']['conf']['state_file_enable']) && ($_POST['mode']['conf']['state_file_enable'] != $redis->hGet('mpdconf', 'state_file_enable'))) ||
+            (isset($_POST['mode']['conf']['ffmpeg']) && ($_POST['mode']['conf']['ffmpeg'] != $redis->hGet('mpdconf', 'ffmpeg'))) ||
             (isset($_POST['mode']['conf']['proxy_node']) && ($_POST['mode']['conf']['proxy_node'] != $redis->hGet('mpdconf', 'proxy_node'))) ||
             (isset($_POST['mode']['conf']['proxy_port']) && ($_POST['mode']['conf']['proxy_port'] != $redis->hGet('mpdconf', 'proxy_port')))
             ) {

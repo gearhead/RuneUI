@@ -35,7 +35,8 @@
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="mixer-type">Volume control</label>
                 <div class="col-sm-10">
-                    <!-- <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
+                    <!--
+                    <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
                         <option value="software" <?php if($this->conf['mixer_type'] == 'software'): ?> selected <?php endif ?>>enabled - software</option>
                         <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled - hardware</option>
@@ -45,7 +46,8 @@
                         <strong>software</strong> - Volume knob enabled, controlled by <strong>software mixer</strong>. This option <strong>reduces the overall sound quality</strong>.<br>
                         <strong>hardware</strong> - Volume knob enabled, controlled by <strong>hardware mixer</strong>. This option enables the volume control and let you achieve <strong>very good overall sound quality</strong>.<br>
                         <i>Note: hardware mixer must be supported directly from your sound card hardware</i>
-                    </span> -->
+                    </span>
+                    -->
                     <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled</option>
                         <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
@@ -85,6 +87,7 @@
         </div>
         <fieldset id="general-options">
             <legend>General Music Daemon Options</legend>
+            <!--
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="port">Port</label>
                 <div class="col-sm-10">
@@ -134,6 +137,7 @@
                     <span class="help-block">FFmpeg decoder plugin. Enable this setting if you need AAC / ALAC support. May slow down MPD database refresh</span>
                 </div>
             </div>
+             -->
             <?php if(!$this->mpdv21): ?>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="gapless-mp3-playback">Gapless mp3 Playback</label>

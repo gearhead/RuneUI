@@ -284,8 +284,66 @@
                             <option value="96000" <?php if($this->WSsamplerate === '96000'): ?> selected <?php endif ?>> 96000</option>
                             <?php endif; ?>
                         </select>
-                        <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. Higher rates are valid for Flac encoding, which could be
-                            useful if your music collection is primarily high definition recordings. Reboot to activate the changes</span>
+                        <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. <i>Higher rates are valid for Flac encoding, which could be
+                            useful if your music collection is primarily high definition recordings.
+                            However, higher transmission rates could cause packet losses on your network which would reduce audio quality</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="port">Local Port</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="text" id="port" name="mode[conf][port]" value="<?=$this->conf['port'] ?>" data-trigger="change">
+                        <span class="help-block">This setting is the TCP port that local MPD daemon will use (default 6600).
+                        <i>You should have a really good reason for changing this</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="daemon-user">Daemon user:group</label>
+                    <div class="col-sm-10">
+                        <select id="log-level" name="mode[conf][user]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="mpd" <?php if($this->conf['user'] == 'mpd'): ?> selected <?php endif ?>>mpd:audio (default)</option>
+                            <option value="root" <?php if($this->conf['user'] == 'root'): ?> selected <?php endif ?>>root:root</option>
+                        </select>
+                        <span class="help-block">This specifies the system user:group that MPD will run as.
+                        <i>Switching it to root:root may help when debugging NAS mount errors, normally this should not be required. <strong>Always switch it back to 'mpd:audio'</strong></i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="log-level">Log Level</label>
+                    <div class="col-sm-10">
+                        <select id="log-level" name="mode[conf][log_level]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="default" <?php if($this->conf['log_level'] == 'default'): ?> selected <?php endif ?>>default</option>
+                            <option value="secure" <?php if($this->conf['log_level'] == 'secure'): ?> selected <?php endif ?>>secure</option>
+                            <option value="verbose" <?php if($this->conf['log_level'] == 'verbose'): ?> selected <?php endif ?>>verbose</option>
+                        </select>
+                        <span class="help-block">This setting controls the type of information which is logged. Available settings are "default", "secure" or "verbose".
+                        <i>The "verbose" setting is recommended for troubleshooting, though this can quickly stretch available resources on limited hardware storage</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="state_file_enable">State File</label>
+                    <div class="col-sm-10">
+                        <select id="state_file_enable" name="mode[conf][state_file_enable]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="yes" <?php if(isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'yes')): ?> selected <?php endif ?>>enabled</option>
+                            <option value="no" <?php if(!isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'no')): ?> selected <?php endif ?>>disabled</option>
+                        </select>
+                        <span class="help-block">This setting specifies if a state file is used.
+                        If the state file is active, the state of MPD will be saved.
+                        When MPD is restarted, it will read the state file and restore the state of MPD (including the queue).
+                        <i>Can't think of a good reason why this should be switched off</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="ffmpeg">FFmpeg Decoder Plugin</label>
+                    <div class="col-sm-10">
+                        <select id="ffmpeg" name="mode[conf][ffmpeg]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="yes" <?php if($this->conf['ffmpeg'] === 'yes'): ?> selected <?php endif ?>>enabled</option>
+                            <option value="no" <?php if($this->conf['ffmpeg'] === 'no'): ?> selected <?php endif ?>>disabled</option>
+                        </select>
+                        <span class="help-block">FFmpeg decoder plugin. FFmpeg is used to decode most of the audio (and video) codec's, default is enabled.
+                        <i>Can't think of a good reason why this should be switched off</i></span>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="proxy_node">MPD Database Proxy Plugin: Node</label>
                     <div class="col-sm-10">
