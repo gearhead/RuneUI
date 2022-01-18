@@ -3420,19 +3420,35 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
             unset($mpdcfg['state_file'], $mpdcfg['state_file_enable']);
+            // --- proxy_node & proxy_port ---
+            if (isset($mpdcfg['proxy_node']) && $mpdcfg['proxy_node'] && isset($mpdcfg['proxy_port']) && $mpdcfg['proxy_port']) {
+                // set up a database proxy
+                $output .= "database {\n";
+                $output .= "\tplugin\t\t\"proxy\"\n";
+                $output .= "\thost\t\t\"".$mpdcfg['proxy_node']."\"\n";
+                $output .= "\tport\t\t\"".$mpdcfg['proxy_port']."\"\n";
+                $output .= "\tkeepalive\t\t\"yes\"\n";
+                $output .= "}\n";
+                // unset the database file name entry, this is invalid when the database proxy is used
+                unset($mpdcfg['db_file']);
+            }
+            unset($mpdcfg['proxy_node'], $mpdcfg['proxy_port']);
             // --- bind_to_address & port ---
             if (!isset($mpdcfg['bind_to_address']) || $mpdcfg['bind_to_address'] === '') {
-                // not set
+                // not set, add localhost
                 $output .= "bind_to_address\t\"localhost\"\n";
-                $output .= "port\t\t\"".$mpdcfg['port']."\"\n";
             } else {
                 $output .= "bind_to_address\t\"".$mpdcfg['bind_to_address']."\"\n";
                 if (strpos(' '.$mpdcfg['bind_to_address'], '/')) {
-                    // its a file name add a bind_to_address line for localhost
+                    // its a file name also add a bind_to_address line for localhost
                     $output .= "bind_to_address\t\"localhost\"\n";
                 }
-                $output .= "port\t\t\"".$mpdcfg['port']."\"\n";
             }
+            if (!isset($mpdcfg['port']) || ($mpdcfg['port'] == '')) {
+                // TCP port number is not set, use the default
+                $mpdcfg['port'] = '6600';
+            }
+            $output .= "port\t\t\"".$mpdcfg['port']."\"\n";
             unset($mpdcfg['bind_to_address'], $mpdcfg['port']);
             // sort the mpd configuration data into index key order
             ksort($mpdcfg);
