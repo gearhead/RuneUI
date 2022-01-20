@@ -472,6 +472,7 @@ while (true) {
     }
     // close Redis connection
     $redis->close();
+    sleep(1);
 // --- WORKER MAIN LOOP --- //
 }
 // These command never get executed!!!

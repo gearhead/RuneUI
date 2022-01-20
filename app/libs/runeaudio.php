@@ -163,15 +163,40 @@ function closeMpdSocket($sock, $retainSockVarName = false)
         }
         runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>','');
     }
-    // tell MPD to close the connection
-    // testing then next line 24-05-2021, the MPD manual says just close the socket, don't send a close command
-    //sendMpdCommand($sock, 'close');
-    // code to force the socket to close
-    $linger = array ('l_linger' => 0, 'l_onoff' => 1);
-    socket_set_block($$sockVarName);
-    socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
-    // close the socket
-    socket_close($$sockVarName);
+    //
+    // code to force the socket to close and close it
+    //  the status of non blocking sockets cannot be examined with stream_get_meta_data()
+    //  this means that its status cannot always be determined in advance and if the socket
+    //  is already closed for some reason (eg a timeout) the following lines will fail 
+    //  the solution is to trap any errors and continue
+    try {
+        // Code that may throw an Exception or Error.
+        // set values in the socket to force immediate closure
+        $linger = array ('l_linger' => 0, 'l_onoff' => 1);
+        socket_set_block($$sockVarName);
+        socket_set_option($$sockVarName, SOL_SOCKET, SO_LINGER, $linger);
+    }
+    catch (Throwable $t) {
+        // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
+    }
+    catch (Exception $e) {
+        // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
+    }
+    try {
+        // Code that may throw an Exception or Error.
+        // close the socket
+        socket_close($$sockVarName);
+    }
+    catch (Throwable $t) {
+        // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>', '');
+    }
+    catch (Exception $e) {
+        // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>', '');
+    }
     runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET CLOSE >>>>>>', '');
     if ($retainSockVarName) {
         // remove the global variable containing the socket resource or object
@@ -209,6 +234,10 @@ function sendMpdCommand(&$sock, $cmd)
         if (socket_last_error($$sockVarName) == 104) {
             closeMpdSocket($sock, true);
             $sock = openMpdSocket($sock['path'], $sock['type'], $sockVarName);
+            if (!$sock) {
+                // can't reopen it, reopen can only be tried once, just fail
+                $socReadCnt = 0;
+            }
         } else {
             $socReadCnt = 0;
         }
