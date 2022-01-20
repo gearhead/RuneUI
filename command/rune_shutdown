@@ -30,7 +30,7 @@
 #  version: 1.3
 #  coder: Simone De Gregori
 #
-
+{
 # continue on errors
 set +e
 echo "rune_shutdown started"
@@ -84,3 +84,4 @@ export DISPLAY=:0
 xset dpms force off
 # echo a message to clear any error status which could have been generated
 echo "rune_shutdown finished"
+} > /var/log/runeaudio/rune_shutdown.log 2>&1
