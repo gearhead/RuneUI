@@ -167,7 +167,7 @@ function closeMpdSocket($sock, $retainSockVarName = false)
     // code to force the socket to close and close it
     //  the status of non blocking sockets cannot be examined with stream_get_meta_data()
     //  this means that its status cannot always be determined in advance and if the socket
-    //  is already closed for some reason (eg a timeout) the following lines will fail 
+    //  is already closed for some reason (eg a timeout) the following lines will fail
     //  the solution is to trap any errors and continue
     try {
         // Code that may throw an Exception or Error.
