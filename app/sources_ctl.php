@@ -79,6 +79,9 @@ if($source !== true) {
         } else {
             $mp['status'] = 0;
         }
+        if ($mp['type'] == 'osx') {
+            $mp['type'] = 'cifs';
+        }
         $mounts[]=$mp;
     }
 }
@@ -90,6 +93,9 @@ foreach ($usbmounts as $usbmount) {
 if (isset($template->action)) {
     if (isset($template->arg)) {
         foreach ($source as $mp) {
+            if ($mp['type'] == 'osx') {
+                $mp['type'] = 'cifs';
+            }
             if ($mp['id'] == $template->arg) {
                 $template->mount = $mp;
             }

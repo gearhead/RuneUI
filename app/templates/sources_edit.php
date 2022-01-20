@@ -27,18 +27,16 @@
                 <div class="col-sm-10">
                     <?php if($this->action == 'edit'): ?>
                         <select id="mount-type" name="mount[type]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="cifs" <?php if($this->mount['type'] == 'cifs'): ?> selected <?php endif ?>>SMB/CIFS</option>
-                        <option value="osx" <?php if($this->mount['type'] == 'osx'): ?> selected <?php endif ?>>SMB/CIFS (OS X share)</option>
+                        <option value="cifs" <?php if(($this->mount['type'] == 'cifs') || ($this->mount['type'] == 'osx')): ?> selected <?php endif ?>>SMB/CIFS</option>
                         <option value="nfs" <?php if($this->mount['type'] == 'nfs'): ?> selected <?php endif ?>>NFS</option>
                         </select>
                     <?php else: ?>
                         <select id="mount-type" name="mount[type]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="cifs" selected >SMB/CIFS</option>
-                        <option value="osx">SMB/CIFS (OS X share)</option>
                         <option value="nfs">NFS</option>
                         </select>
                     <?php endif ?>
-                    <span class="help-block">Select SMB/CIFS for Windows, Samba or OS X file shares, NFS for unix file shares</span>
+                    <span class="help-block">Select SMB/CIFS for Windows, Samba or OS X file shares. NFS for unix file shares</span>
                 </div>
             </div>
             <div class="form-group">
