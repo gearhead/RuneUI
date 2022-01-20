@@ -852,13 +852,13 @@ function refreshState() {
     }
     if (GUI.json.playlistlength && GUI.json.playlistlength !== '0') {
         if (GUI.json.song) {
-            $('#playlist-position span').html('Playlist position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
-            $('#playlist-position-ss span').html('Playlist position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
-            $('#playlist-position-sss span').html('Playlist position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
+            $('#playlist-position span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
+            $('#playlist-position-ss span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
+            $('#playlist-position-sss span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
         } else {
-            $('#playlist-position span').html('Playlist position 1/' + GUI.json.playlistlength);
-            $('#playlist-position-ss span').html('Playlist position 1/' + GUI.json.playlistlength);
-            $('#playlist-position-sss span').html('Playlist position 1/' + GUI.json.playlistlength);
+            $('#playlist-position span').html('Queue position 1/' + GUI.json.playlistlength);
+            $('#playlist-position-ss span').html('Queue position 1/' + GUI.json.playlistlength);
+            $('#playlist-position-sss span').html('Queue position 1/' + GUI.json.playlistlength);
         }
     } else {
         $('#playlist-position span').html('Empty queue, add some music!');
