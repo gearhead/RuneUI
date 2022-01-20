@@ -69,7 +69,9 @@ var GUI = {
     mainArtURL: '',
     smallArtURL: '',
     bigArtURL: '',
-    song_lyrics: ''
+    song_lyrics: '',
+    time: 0,
+    elapsed: 0
 };
 
 
@@ -882,6 +884,8 @@ function refreshState() {
 // update the Playback UI
 function updateGUI() {
     var volume = ((typeof GUI.json.volume == 'undefined') ? 0 : GUI.json.volume);
+    var elapsed = ((typeof GUI.json.elapsed == 'undefined') ? 0 : GUI.json.elapsed);
+    var time = ((typeof GUI.json.time == 'undefined') ? 0 : GUI.json.time);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
     var currentsong = ((typeof GUI.json.currentsong == 'undefined') ? '' : GUI.json.currentsong);
@@ -901,6 +905,14 @@ function updateGUI() {
     if ((activePlayer !== GUI.activePlayer) || (volume !== GUI.volume)) {
         GUI.activePlayer = activePlayer;
         setUIbuttons(activePlayer);
+    }
+    if ((GUI.stream === 'radio')) {
+        time = 0;
+    }
+    if ((elapsed !== GUI.elapsed) || (time !== GUI.time)) {
+        GUI.elapsed = elapsed;
+        GUI.time = time;
+        refreshTimer(parseInt(elapsed), parseInt(time), GUI.json.state);
     }
     refreshState();
     if ($('#section-index').length) {
