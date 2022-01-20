@@ -7459,7 +7459,8 @@ fieldset[disabled] #pl-filter-results {
 .ui-pnotify {
     position: absolute;
     height: auto;
-    z-index: 9999
+    z-index: 9999;
+    cursor: pointer
 }
 .ui-pnotify .alert {
     background: #0095d8;

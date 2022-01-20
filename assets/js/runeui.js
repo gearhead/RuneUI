@@ -488,6 +488,10 @@ function renderMSG(text) {
     } else {
         new PNotify(noticeOptions);
     }
+    // close on click of notify/event pop-up when the text is clicked
+    $(".ui-pnotify").on('click', ".ui-pnotify-text", function() {
+        $(this).parent().parent().remove();
+    });
 }
 
 // sorting commands
