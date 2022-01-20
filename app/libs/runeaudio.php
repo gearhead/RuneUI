@@ -1337,9 +1337,11 @@ function _parseStatusResponse($redis, $resp)
             if (isset($fileName) && !is_radioUrl($redis, $fileName)) {
                 // it's not a radio stream, mediainfo should work on all other files and url's
                 $retval = sysCmd('mediainfo "'.trim($redis->hGet('mpdconf', 'music_directory')).'/'.$fileName.'" | grep "Overall bit rate  "');
-                $bitrate = trim(preg_replace('/[^0-9]/', '', $retval[0]));
-                If (!empty($bitrate)) {
-                    $plistArray['bitrate'] = intval($bitrate);
+                if (isset($retval[0])) {
+                    $bitrate = trim(preg_replace('/[^0-9]/', '', $retval[0]));
+                    If (!empty($bitrate)) {
+                        $plistArray['bitrate'] = intval($bitrate);
+                    }
                 }
                 unset($retval, $bitrate, $fileName);
             }
