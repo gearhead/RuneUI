@@ -4777,6 +4777,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
 function wrk_sourcecfg($redis, $action, $args=null)
 {
     runelog('function wrk_sourcecfg('.$action.')', $args);
+    $return = true;
     switch ($action) {
         case 'add':
             // unset($args->id);
