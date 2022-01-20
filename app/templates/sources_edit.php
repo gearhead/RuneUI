@@ -63,7 +63,7 @@
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">Log in with guest account (no user/password required) for CIFS mounts (not used for NFS)<br>
-                        <i>Note: The use of Guest access for mounting Windows shares is not supported by the latest versions of Windows, you must use a valid username and password</i></span>
+                        <i>Note: The use of Guest access for mounting Windows shares is not supported by the latest versions of Windows, you must use a valid user name and password</i></span>
                     </div>
                 </div>
                 <div id="mount-auth" class="optional disabled">
@@ -71,7 +71,7 @@
                         <label class="col-sm-2 control-label" for="nas-usr">Username</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="nas-usr" name="mount[username]" value="<?php if($this->action == 'edit'): ?><?=$this->mount['username']?><?php endif ?>" data-trigger="change" autocomplete="off" placeholder="user">
-                            <span class="help-block">If required, specify username to grant access to the NAS (case sensitive) with a CIFS mount (ignored for NFS)</span>
+                            <span class="help-block">If required, specify user name to grant access to the NAS (case sensitive) with a CIFS mount (ignored for NFS)</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -119,14 +119,14 @@
                 <label class="col-sm-2 control-label" for="nas-rsize">Rsize</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="text" id="nas-rsize" name="mount[rsize]" value="<?php if($this->action == 'edit'): ?><?=$this->mount['rsize']?><?php endif ?>" data-trigger="change" autocomplete="off" placeholder="8192">
-                    <span class="help-block">Change this settings if you experience problems with music playback (es: pops or clips)</span>
+                    <span class="help-block">Change this settings if you experience problems with music playback (e.g., pops or clips)</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="nas-wsize">Wsize</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="text" id="nas-wsize" name="mount[wsize]" value="<?php if($this->action == 'edit'): ?><?=$this->mount['wsize']?><?php endif ?>" data-trigger="change" autocomplete="off" placeholder="16384">
-                    <span class="help-block">Change this settings if you experience problems with music playback (es: pops or clips)</span>
+                    <span class="help-block">Change this settings if you experience problems with music playback (e.g., pops or clips)</span>
                 </div>
             </div>
             <div class="form-group">
@@ -134,7 +134,7 @@
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="text" id="options" name="mount[options]" value="<?php if($this->action == 'edit'): ?><?=$this->mount['options']?><?php endif ?>" data-trigger="change" autocomplete="off">
                     <input type="hidden" name="mount[error]" value="<?=$this->mount['error']?>">
-                    <span class="help-block">Advanced mount flags. Don't use this field if you don't know what you are doing.<br>
+                    <span class="help-block">Advanced mount flags. Only use this field if you know what you are doing!<br>
                     <i>Empty this field if you are experiencing mount problems to allow the automatic mount flag selection to take place.<br>
                     Automatic default for NFS: ro,nocto,noexec<br>
                     Automatic default for SMB/CIFS: cache=loose,noserverino,ro,sec=ntlmssp,noexec (automatic mount flag selection will be used when this fails)</i></span>
