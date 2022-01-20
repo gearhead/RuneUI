@@ -37,12 +37,12 @@ echo "rune_shutdown started"
 #
 echo "Stop MPD, services and unmount shares..."
 # stop the player
-# mpc stop
+mpc stop
 # sleep 1
 # stop MPD, don't wait for completion
-mpd --kill &
+#mpd --kill &
 # allow MPD 2 seconds to stop
-sleep 2
+#sleep 2
 # stop mpd & related jobs
 systemctl stop ashuffle upmpdcli mpdscribble mpd
 # stop webserver & local browser
