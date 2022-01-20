@@ -2009,7 +2009,6 @@ select[multiple].input-lg {
     font-size: 14px;
     line-height: 1.42857143;
     border-radius: 6px;
-    margin-bottom: 8px;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -3506,13 +3505,16 @@ button.close {
 }
 .modal-footer .btn+.btn {
     margin-left: 5px;
-    margin-bottom: 8px
 }
 .modal-footer .btn-group .btn+.btn {
     margin-left: -1px
 }
 .modal-footer .btn-block+.btn-block {
     margin-left: 0
+}
+.modal-footer>.btn{
+    /* wrapped lines of buttons in modial-footer have 8px between lines */
+    margin-bottom: 8px
 }
 .modal-scrollbar-measure {
     position: absolute;
