@@ -6,7 +6,9 @@
 # this is called by the bluetooth source rules in 99-runeaudio.rules
 case $1 in
 "start")
-   mpc stop ;;
+   mpc stop 
+   systemctl restart bluealsa-aplay ;;
 "stop")
+   systemctl stop bluealsa-aplay
    mpc play ;;
 esac
