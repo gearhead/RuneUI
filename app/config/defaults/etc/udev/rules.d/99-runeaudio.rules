@@ -27,3 +27,10 @@ KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/comma
 # provides plug & play network dongle functionality
 SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics"
 SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics"
+#
+#
+# following rules to connect a connected BT source to the alsa subsystem
+#
+#
+SUBSYSTEM=="input", GROUP="input", MODE="0660", ACTION=="add", KERNEL=="input[0-9]*", RUN+="/srv/http/command/bt-sink.sh start"
+SUBSYSTEM=="input", GROUP="input", MODE="0660", ACTION=="remove", KERNEL=="input[0-9]*", RUN+="/srv/http/command/bt-sink.sh stop"
