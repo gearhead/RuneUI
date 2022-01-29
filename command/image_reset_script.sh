@@ -241,25 +241,13 @@ git config user.email ""
 cd /home
 #
 # redis reset
-redis-cli del AccessPoint
-redis-cli del airplay
-redis-cli del debugdata
-redis-cli del dirble
-redis-cli del dlna
-redis-cli del first_time
-redis-cli del fix_mac
-redis-cli del jamendo
-redis-cli del local_browser
-redis-cli del lyrics
-redis-cli del mpdconf
-redis-cli del samba
-redis-cli del spotify
-redis-cli del spotifyconnect
-redis-cli del webradios
 # remove the redis variables used for:
-#   debug (wrk*), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
-#       lyrics (unused variables), resolv* (unused variables)
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv' | xargs )
+#   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
+#       lyrics (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
+#       airplay (airplay), samba (samba), debugdata (debugdata), locks (lock), first* (first), local* (local), access* (access)
+#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue),
+#   at some time in the future we should delete the whole redis database here
+redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
