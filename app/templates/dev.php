@@ -264,7 +264,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label"> HTTPd Websreaming encoder for MPD: Plugin(file encoding type)</label>
+                    <label class="col-sm-2 control-label"> HTTPd Webstreaming encoder for MPD: Plugin(file encoding type)</label>
                     <div class="col-sm-10">
                         <select id="WSencoder" class="selectpicker" name="mode[WSencoder]" data-style="btn-default btn-lg">
                             <option value="flac" <?php if($this->WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
@@ -275,7 +275,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">HTTPd Websreaming encoder for MPD: Sample rate</label>
+                    <label class="col-sm-2 control-label">HTTPd Webstreaming encoder for MPD: Sample rate</label>
                     <div class="col-sm-10">
                         <select id="WSsamplerate" class="selectpicker" name="mode[WSsamplerate]" data-style="btn-default btn-lg">
                             <option value="44100" <?php if(($this->WSencoder === 'lame') || ($this->WSsamplerate === '44100')): ?> selected <?php endif ?>> 44100</option>

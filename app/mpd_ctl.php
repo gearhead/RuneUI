@@ -128,7 +128,7 @@ $template->mpd['globalrandom'] = $redis->hGet('globalrandom', 'enable');
 $template->mpd['random_album'] = $redis->hGet('globalrandom', 'random_album');
 $template->mpd['addrandom'] = $redis->hGet('globalrandom', 'addrandom');
 $template->hostname = $redis->get('hostname');
-$template->samplerate = $redis->hget('websreaming', 'samplerate');
+$template->samplerate = $redis->hget('webstreaming', 'samplerate');
 $crossfade = sysCmd('mpc crossfade')[0];
 if (!isset($crossfade) || ($crossfade === '')) {
     $template->mpd['crossfade'] = $redis->hGet('mpdconf', 'crossfade');
@@ -169,7 +169,7 @@ if(!hashCFG($redis, 'check_mpd')) {
     // set manual config template
     $template->content = "mpd_manual";
 } else {
-    $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('websreaming', 'encoder'));
+    $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('webstreaming', 'encoder'));
     $template->conf = $redis->hGetAll('mpdconf');
     $i2smodule = $redis->get('i2smodule');
     // debug
