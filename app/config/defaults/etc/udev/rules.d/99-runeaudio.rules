@@ -32,5 +32,5 @@ SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics"
 # following rules to connect a connected BT device (phone, speaker, etc) to the alsa subsystem
 #
 #
-SUBSYSTEM=="bluetooth", DRIVERS=="hci_uart_bcm", ACTION=="add", KERNEL=="hci[0-9]*", RUN+="/srv/http/command/bt-connect.sh start"
-SUBSYSTEM=="bluetooth", DRIVERS=="hci_uart_bcm", ACTION=="remove", KERNEL=="hci[0-9]*", RUN+="/srv/http/command/bt-connect.sh stop"
+SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="add", RUN+="/srv/http/command/bt-connect.sh add"
+SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="remove", RUN+="/srv/http/command/bt-connect.sh remove"
