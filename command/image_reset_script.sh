@@ -471,6 +471,14 @@ mkdir /var/log/runeaudio
 chown root.root /var/log/runeaudio
 chmod 777 /var/log/runeaudio
 mount rune-logs
+# http-tmp > /var/log/runeaudio (again after logs, with remount)
+rm -r /srv/http/tmp/*
+umount http-tmp
+rm -r /srv/http/tmp
+mkdir /srv/http/tmp
+chown root.root /srv/http/tmp
+chmod 777 /srv/http/tmp
+mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the zipped distribution image will then be very small
