@@ -1,1 +1,0 @@
-KERNEL=="input[0-9]*", RUN+="/srv/http/command/a2dp-autoconnect"
