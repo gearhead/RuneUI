@@ -44,7 +44,7 @@ require_once('/srv/http/app/libs/runeaudio.php');
 // // Connect to Redis backend
 // require_once('/srv/http/app/libs/openredis.php');
 // reset logfile
-sysCmd('echo "--------------- start: ui_update_async ---------------" > /var/log/runeaudio/radio_metadata_async.log');
+sysCmd('echo "--------------- start: ui_update_async ---------------" > /var/log/runeaudio/ui_update_async.log');
 // logging starting message
 runelog('WORKER ui_update_async STARTING...');
 // define APP global
