@@ -305,7 +305,21 @@ cp -RTv /srv/http/app/config/defaults/var/. /var
 cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
+# first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
+# modify /boot/config.txt if this is a 'all platform version'
+if [ -f "/boot/initramfs-v7-linux.img" ]; then
+    # remove lines containing [pi02] before a line starting with initramfs
+    sed -i '/^\[pi02\]/{N;s/\[pi02\]\ninitramfs/initramfs/}' /boot/config.txt
+    # remove lines containing [pi0] before a line starting with initramfs
+    sed -i '/^\[pi0\]/{N;s/\[pi0\]\ninitramfs/initramfs/}' /boot/config.txt
+    # remove lines containing [pi1] before a line starting with initramfs
+    sed -i '/^\[pi1\]/{N;s/\[pi1\]\ninitramfs/initramfs/}' /boot/config.txt
+    # remove the first line beginning with initramfs and all following lines to end of file
+    sed -i '/^initramfs/,$d' /boot/config.txt
+    # append the special all platform initramfs lines
+    sed -i '$ a [pi02]\ninitramfs initramfs-v7-linux.img followkernel\n[pi0]\ninitramfs initramfs-linux.img followkernel\n[pi1]\ninitramfs initramfs-linux.img followkernel\n[all]\ninitramfs initramfs-v7-linux.img followkernel' /boot/config.txt
+fi
 # create required directories
 mkdir /root/.ssh
 # remove specific files
