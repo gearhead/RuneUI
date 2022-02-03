@@ -56,6 +56,9 @@ tar -xpf raspi-rotate-rune.tar -C /
 chmod  755 /usr/share/doc/raspi-rotate
 chmod  644 /usr/share/doc/raspi-rotate/*
 #
+# save a copy of the original bootsplash file set
+mv -n /usr/share/bootsplash /usr/share/bootsplash-save
+#
 # copy the current versions of the distribution back to their normal places
 cp /home/raspi-rotate/99-raspi-rotate.conf.* /var/www/app/config/defaults/
 cp /home/raspi-rotate/runeaudio-0.5-bootsplashes.tar.gz /var/www/app/config/defaults/runeaudio-0.5-bootsplashes.tar.gz
@@ -69,14 +72,15 @@ tar -xpf /srv/http/app/config/defaults/runeaudio-0.5-bootsplashes.tar.gz -C /
 cd /home
 rm -r /home/raspi-rotate
 #
+# remove redundant files in the bootsplashes and remove invalid symlinks
+find /usr/share -name *audiophonics*.png -exec rm -rf {} \;
+find /usr/share/*bootsplas* -xtype l -exec rm  -rf {} \;
+#
 # set the file attributes of the bootsplashes
-find /usr/share/boot* -type d -exec chown root.root {} \;
-find /usr/share/boot*/*.png -type f -exec chown root.root {} \;
+chown -Rh root.root /usr/share/bootsplas*
+chown -R root.root /usr/share/bootsplas*
 find /usr/share/boot* -type d -exec chmod 755 {} \;
 find /usr/share/boot*/*.png -type f -exec chmod 644 {} \;
-#
-# save a copy of the original bootsplash file set
-mv -n /usr/share/bootsplash /usr/share/bootsplash-save
 #
 # set the screen orientation
 /srv/http/command/01-bootsplash.sh NORMAL
