@@ -56,6 +56,8 @@
 
 # exit immediately if any command fails
 set -e
+export WAYLAND_DISPLAY=wayland-0
+export XDG_RUNTIME_DIR=/run/weston
 
 # The arguments Weston gives us:
 SYSPATH="$1"
