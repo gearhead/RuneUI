@@ -10,7 +10,7 @@ case "$1" in
 add)
 # wait for PCM(s) to be created, with absolute timeout of 5 seconds.
 timeout 5 stdbuf -oL bluealsa-cli -q monitor | grep -q -m 1 ^PCMAdded || exit 0
-    case "$(/usr/bin/bluealsa-cli -q list-pcms | grep -o -E '(sink|source)$')" in
+    case "$(/usr/bin/bluealsa-cli -q list-pcms | grep a2dp | grep -o -E '(sink|source)$')" in
     *sink*) # attached speaker(s)
         mpc stop
         systemctl stop mpd
