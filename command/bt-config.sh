@@ -10,7 +10,7 @@ systemctl stop mpd
         lines=$(aplay -L | wc -l )
         let lines='lines-1'
         if [ $lines -ne 0 ]; then
-            for i in $( eval echo {0..$lines..2});do
+            for i in $( eval echo {0..$lines});do
                 if echo "${bts[$i]}" | grep -q a2dp ; then
                     name=$(echo ${bts[$i+1]} | cut -d "," -f 1)
                     device=$(echo ${bts[$i]})
