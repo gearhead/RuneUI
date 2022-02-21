@@ -255,20 +255,27 @@ display_auto_detect=1
 #
 ##  General CPU settings ##
 #   Setting the governor to force turbo on (=1) can invalidates warranty in combination with some (higher)
-#       overclocking settings for some models. We do this to try to keep the clocks in the Pi running at a
+#       overclocking settings for some models. We set turbo on to try to keep the clocks in the Pi running at a
 #       consistent speed, many audio cards use this clock. For higher speed Pi models with USB DAC's or master
-#       mode DAC's it is probably not a requirement. Switching it off will make the PI run cooler
-#   Alternative is turbo on demand (=0)
+#       mode DAC's it is probably not a requirement. Switching it off will make the PI run cooler (with possibly
+#       less audio noise). Alternative is turbo on demand (force_turbo=0)
 force_turbo=1
-#force_turbo=0
-#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set
+#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set on
 #   If the max temp is reached the cpu will automatically be throttled back
 #       Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
 temp_limit=75
 #   Boot delay sometimes needs to be set to higher values when overclocking is enabled
-#       Default boot delay is 1 second, 3B+ needs a delay of 2
+#       Default boot delay is 1 second, the Pi 3B+ needs a delay of 2 seconds
 boot_delay=2
-# set the max usb current to 1200mA (in theory this is depreciated and should not be required)
+#   Set the max usb current to 1200mA (in theory this is depreciated and should not be required)
 max_usb_current=1
+#   For the Pi4 set the default turbo-mode clock to be set to 1.5GHz or 1.8GHz. As default we use 1.5GHz (this
+#       is very fast). The turbo-mode clock can be increased to to 1.8GHz (faster, hotter, possibly more audio
+#       noise) by setting arm_boost on (arm_boost=1)
+[pi4]
+# Conditional for Model 4
+arm_boost=0
+[all]
+# Conditional end
 #
 initramfs initramfs-linux.img followkernel
