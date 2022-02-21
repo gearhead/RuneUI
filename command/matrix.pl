@@ -24,21 +24,21 @@ my $device_desired = "";
 
 while(<DEVLIST>)
 {
-	if (/Device/)
-	{
-		if (/"(.*)"/)
-		{
-			$dev_idx++;            # pre-increment. To start from 1, and to detect "no devices".
-			my $devname = $1;
-			$devname =~ s/\s+$//;  # remove trailing blank space
-			print $dev_idx . ".) " . $devname . "\n";
-			$devices[$dev_idx] = $devname;
-		}
-		else
-		{
-			die "Device name not found...";
-		}
-	}
+    if (/Device/)
+    {
+        if (/"(.*)"/)
+        {
+            $dev_idx++;            # pre-increment. To start from 1, and to detect "no devices".
+            my $devname = $1;
+            $devname =~ s/\s+$//;  # remove trailing blank space
+            print $dev_idx . ".) " . $devname . "\n";
+            $devices[$dev_idx] = $devname;
+        }
+        else
+        {
+            die "Device name not found...";
+        }
+    }
 }
 
 close(DEVLIST);
@@ -47,36 +47,36 @@ close(DEVLIST);
 
 if ($dev_idx > 1)
 {
-	print "Which device do you want to calibrate? Type a number and press <enter>\n";
-	my $choice = <STDIN>;
-	chomp($choice);
+    print "Which device do you want to calibrate? Type a number and press <enter>\n";
+    my $choice = <STDIN>;
+    chomp($choice);
 
-	if ($choice =~ /^[0-9]+$/)
-	{
-		if ($choice == 0)
-		{
-			die "0 is not a valid choice here :-) Min = 1. Try again.";
-		}
+    if ($choice =~ /^[0-9]+$/)
+    {
+        if ($choice == 0)
+        {
+            die "0 is not a valid choice here :-) Min = 1. Try again.";
+        }
 
-		if ($choice > $dev_idx)
-		{
-			die "$choice is out of range here :-) Max = $dev_idx. Try again.";
-		}
+        if ($choice > $dev_idx)
+        {
+            die "$choice is out of range here :-) Max = $dev_idx. Try again.";
+        }
 
-		# by now we should have a valid choice.
-		$device_desired = $devices[$choice];
-		print "You chose $choice = device \"$device_desired\"\n";
-	}
-	else
-	{
-		die "\"$choice\" is not a valid choice here :-) Try again.";
-	}
+        # by now we should have a valid choice.
+        $device_desired = $devices[$choice];
+        print "You chose $choice = device \"$device_desired\"\n";
+    }
+    else
+    {
+        die "\"$choice\" is not a valid choice here :-) Try again.";
+    }
 }
 else
 {
-	# we have single choice only
-	$device_desired = $devices[1];
-	print "Using device \"$device_desired\"\n";
+    # we have single choice only
+    $device_desired = $devices[1];
+    print "Using device \"$device_desired\"\n";
 }
 
 
@@ -89,12 +89,12 @@ open(XRANDR, "xrandr |");
 
 while (<XRANDR>)
 {
-	if (/current ([0-9]+) x ([0-9]+)/)
-	{
-		$xres = $1;
-		$yres = $2;
-		print "Screen resolution: $xres x $yres\n";
-	}
+    if (/current ([0-9]+) x ([0-9]+)/)
+    {
+        $xres = $1;
+        $yres = $2;
+        print "Screen resolution: $xres x $yres\n";
+    }
 }
 
 close(XRANDR);
@@ -113,12 +113,12 @@ open(CALIBRATOR, "xinput_calibrator --verbose --device \"$device_desired\" |"); 
 
 while (<CALIBRATOR>)
 {
-	if (/^DEBUG: Adding click ([0-3]) \(X=([0-9]+), Y=([0-9]+)\)$/)
-	{
-		print "Click $1 : X=$2, Y=$3\n";
-		# Normalize X and Y to <0,1>
-		$clicks[$1] = { 'X' => $2 / $xres, 'Y' => $3 / $yres};
-	}
+    if (/^DEBUG: Adding click ([0-3]) \(X=([0-9]+), Y=([0-9]+)\)$/)
+    {
+        print "Click $1 : X=$2, Y=$3\n";
+        # Normalize X and Y to <0,1>
+        $clicks[$1] = { 'X' => $2 / $xres, 'Y' => $3 / $yres};
+    }
 }
 
 close(CALIBRATOR);
