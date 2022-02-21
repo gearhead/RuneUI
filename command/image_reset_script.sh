@@ -169,9 +169,23 @@ ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
 # copy any existing files to the new location and delete the old location
-mkdir -p /usr/share/X11/xorg.conf.d
-cp /etc/X11/xorg.conf.d/* /usr/share/X11/xorg.conf.d/
-rm -rf /etc/X11/xorg.conf.d
+if [ -d "/etc/X11/xorg.conf.d" ]; then
+    if [ ! -d "/usr/share/X11/xorg.conf.d" ]; then
+        mkdir -p /usr/share/X11/xorg.conf.d
+    fi
+    cp -n /etc/X11/xorg.conf.d/* /usr/share/X11/xorg.conf.d/
+    rm -rf /etc/X11/xorg.conf.d
+fi
+#
+# the standard location of /etc/php/fpm.d has moved to /etc/php/php-fpm.d
+# copy any existing files to the new location and delete the old location
+if [ -d "/etc/php/fpm.d" ]; then
+    if [ ! -d "/etc/php/php-fpm.d" ]; then
+        mkdir -p /etc/php/php-fpm.d
+    fi
+    cp -n /etc/php/fpm.d/* /etc/php/php-fpm.d/
+    rm -rf /etc/php/fpm.d
+fi
 #
 # remove the art directory
 dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )

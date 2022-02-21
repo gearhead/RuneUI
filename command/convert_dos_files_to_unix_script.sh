@@ -208,6 +208,8 @@ chown mpd.audio /mnt/MPD/USB/*
 chmod 777 /mnt/MPD/USB
 chmod 777 /mnt/MPD/USB/*
 chown -R mpd.audio /var/lib/mpd
+chmod 440 /etc/sudoers
+chmod -R 440 /etc/sudoers.d
 #
 # Remove dos2unix if requested
 #
