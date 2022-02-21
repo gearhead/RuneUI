@@ -1339,6 +1339,12 @@ while (true) {
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
                     $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
                     $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+                    // make sure that avahi allows other stacks
+                    if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf") > 0) {
+                        sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
+                        sysCmd('systemctl restart avahi-daemon');
+                    }
+                    unset($spotifyConnectCache);
                 }
                 // write Spotify Connect data to Redis datastore
                 isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);

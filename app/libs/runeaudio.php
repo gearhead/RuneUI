@@ -4185,6 +4185,8 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
                 $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
             }
             break;
+        case "use_mpris":
+            // no break;
         case "bitrate":
             if ($value) {
                 $spotifyd_conf .= $param." = ".$value."\n";
@@ -4195,12 +4197,12 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             break;
         case "volume_normalisation":
             if ($value == 'true') {
-                $spotifyd_conf .= "volume-normalisation = ".'"'.$value.'"'."\n";
+                $spotifyd_conf .= "volume-normalisation = ".$value."\n";
             }
             break;
         case "normalisation_pregain":
             if ($sccfg['volume_normalisation'] == 'true') {
-                $spotifyd_conf .= "normalisation-pregain = ".'"'.$value.'"'."\n";
+                $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
             }
             break;
         case "cache_path":

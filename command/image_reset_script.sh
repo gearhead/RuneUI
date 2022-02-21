@@ -273,16 +273,17 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 # reset root password
 echo -e "rune\nrune" | passwd root
 #
-# make sure that specific users are created
+# make sure that Rune-specific users are created
 declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "$i" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
-        useradd -U -c "$i systemd user" -d /dev/null -s /sbin/nologin "$i"
+        # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
+        useradd -L -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
     fi
 done
 #
-# make sure that specific users are member of the audio group
+# make sure that Audio-specific users are member of the audio group
 declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -c audio )
@@ -290,6 +291,10 @@ for i in "${audiousers[@]}" ; do
         usermod -a -G audio $i
     fi
 done
+#
+# the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
+# also disable logins by locking the account
+usermod -L -s /usr/bin/bash spotifyd
 
 #
 # reset the service and configuration files to the distribution standard
