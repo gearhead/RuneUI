@@ -63,6 +63,10 @@ redis-cli del lastmpdvolume
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 /srv/http/command/post_restore_actions.php
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
+# set various options off, setting them on will validate the new hardware environment, no data will be lost
+redis-cli hset spotifyconnect enable '0'
+redis-cli hset airplay enable '0'
+redis-cli hset dlna enable '0'
 set +e
 count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
 if [ $count -gt 2 ]

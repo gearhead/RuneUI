@@ -392,6 +392,7 @@ if ($playerid_db === '') {
         sysCmdAsync('systemctl start local-browser; /srv/http/command/ui_update_async 5000000');
     } else {
         sysCmdAsync('systemctl stop local-browser');
+        $redis->hGet('local_browser', 'enable', 0);
     }
     sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
