@@ -289,8 +289,7 @@
                     </label>
                     <span class="help-block">Toggles Global Random Play, when ON it adds a random song from your MPD library to the queue when the queue becomes empty.<br>
                     You can also select a playlist as source for random play, this option will then be switched on automatically.<br>
-                    <i>Notes:<br>UPnP / DLNA will not work when global random is enabled, it must be switched OFF.<br>
-                    When Crossfade is set, global random will always keep two entries in the queue to ensure that crossfading works correctly</i></span>
+                    <i>Note: When Crossfade is set, global random will always keep two entries in the queue to ensure that crossfading works correctly</i></span>
                 </div>
                 <div id="mpd-gr-fields" class="<?php if($this->mpd['globalrandom'] != 1): ?>hide<?php endif ?>">
                     <label class="control-label col-sm-2" for="globalrandom">Random Album/Song</label>
