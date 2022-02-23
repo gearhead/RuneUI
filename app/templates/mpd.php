@@ -19,10 +19,11 @@
                     <?php else: ?>
                     <div class="col-sm-10">
                         <span class="help-block"><br>No audio interfaces detected.<br>
-                            RuneAudio has automatically set up http web-streaming service as an audio output. You can listen to this using another device, to tune in use the URL <a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8000", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:8000</a><br>
+                            RuneAudio has automatically set up HTTPd web-streaming service as an audio output. You can listen to this using another device, to tune in use the URL <a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8000", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:8000</a><br>
                             If you have an audio card installed, you need to select an I&#178;S sound card driver in the <a href="/settings/">Settings Sound output & sound processing menu</a>. A reboot is required to activate the selected card.<br>
                             If you intend to use the HDMI audio output, it needs to plugged in and the device switched on before RuneAudio is powered up.<br>
-                            USB audio devices will be detected when plugged in</span>
+                            USB audio devices will be detected when plugged in.<br>
+                            <i>Note: HTTPd web-streaming works only for your own music collection, it cannot be used with streamed services like Spotify or AirPlay</i></span>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -237,7 +238,8 @@
                         <option value="0" <?php if(!$this->conf['webstreaming']): ?> selected <?php endif ?>>disabled</option>
                     </select>
                     <span class="help-block">This switches streaming of music to your local network on and off.
-                    When switched on, tune in with the URL <a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8000", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:8000</a></span>
+                    When switched on, tune in with the URL <a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8000", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:8000</a><br>
+                    <i>This option works only for your own music collection, it cannot be used with streamed services like Spotify or AirPlay</i></span>
                 </div>
             </div>
         </fieldset>

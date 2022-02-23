@@ -400,7 +400,7 @@ if ($playerid_db === '') {
         $redis->set('first_time_boot', 0);
     }
     //
-    // save the redis databace to disk
+    // save the redis database to disk
     $redis->bgsave();
     // don't close redis, it has been opened with a $redis->pconnect() which reuses connections.
     // $redis->close();
