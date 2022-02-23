@@ -6,7 +6,7 @@ After=mpd.service
 
 [Service]
 User=upmpdcli
-ExecStart=/usr/bin/upmpdcli -c /etc/upmpdcli.conf -q 1 -d /var/log/runeaudio/upmpdcli.log -l 2
+ExecStart=/usr/bin/upmpdcli -c /etc/upmpdcli.conf -q 0 -d /var/log/runeaudio/upmpdcli.log -l 2
 Restart=always
 
 

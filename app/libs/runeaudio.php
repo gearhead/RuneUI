@@ -5772,8 +5772,8 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null)
     }
     $logFile = $redis->hGet('dlna', 'logfile');
     $logLevel = $redis->hGet('dlna', 'loglevel');
-    $file = '/usr/lib/systemd/system/upmpdcli.service';
-    sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."'".' /usr/lib/systemd/system/upmpdcli.service');
+    $file = '/etc/systemd/system/upmpdcli.service';
+    sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."'".' /etc/systemd/system/upmpdcli.service');
     // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
     // modify them all
     sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."'".' /etc/upmpdcli.conf');

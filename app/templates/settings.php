@@ -269,31 +269,34 @@
             -->
             <div <?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?>class="boxed-group"<?php endif ?> id="dlnaBox">
                 <div class="form-group">
-                    <label for="dlna" class="control-label col-sm-2">UPnP / DLNA</label>
+                    <label for="dlna" class="control-label col-sm-2">UPnP/DLNA</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
                             <input id="dlna" name="features[dlna][enable]" type="checkbox" value="1"<?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP / DLNA protocol<br>
-                        This function will not work when Random Play is switched ON</span>
+                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA protocol.<br>
+                        <?php if ($this-cores < 4): ?>
+                        <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model, insufficient processing capacity available</i>
+                        <?php endif ?>
+                        </span>
                     </div>
                 </div>
                 <div class="<?php if($this->dlna['enable'] != 1): ?>hide<?php endif ?>" id="dlnaName">
                     <div class="form-group">
-                        <label class="control-label col-sm-2" for="dlna-name">UPnP / DLNA name</label>
+                        <label class="control-label col-sm-2" for="dlna-name">UPnP/DLNA name</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="dlna_name" name="features[dlna][name]" value="<?php echo $this->dlna['name']; ?>" data-trigger="change" placeholder="runeaudio">
-                            <span class="help-block">UPnP / DLNA broadcast name</span>
+                            <span class="help-block">UPnP/DLNA broadcast name</span>
                         </div>
-                        <label class="control-label col-sm-2" for="dlna-queueowner">UPnP / DLNA is MPD queue owner</label>
+                        <label class="control-label col-sm-2" for="dlna-queueowner">UPnP/DLNA is MPD queue owner</label>
                         <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="dlna_queueowner" name="features[dlna][queueowner]" type="checkbox" value="1"<?php if((isset($this->dlna['queueowner'])) && ($this->dlna['queueowner'])): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">When ON: a UPnP / DLNA broadcast will clear the MPD queue and then add and play the song, clearing the queue with each successive song<br>
-                            When OFF: UPnP / DLNA will add songs of the MPD queue (before the current play position) but MPD will continue to play the current song</span>
+                            <span class="help-block">When ON: a UPnP/DLNA broadcast will clear the MPD queue and then add and play the song, clearing the queue with each successive song<br>
+                            When OFF: UPnP/DLNA will add songs of the MPD queue (before the current play position) but MPD will continue to play the current song</span>
                         </div>
                     </div>
                     <div class="form-group form-actions">

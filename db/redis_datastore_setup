@@ -541,7 +541,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('airplay', 'ao') || $redis->hSet('airplay', 'ao', '');
             $redis->hExists('dlna', 'enable') || $redis->hSet('dlna', 'enable', 0);
             $redis->hExists('dlna', 'name') || $redis->hSet('dlna', 'name', 'RuneAudio');
-            $redis->hExists('dlna', 'queueowner') || $redis->hSet('dlna', 'queueowner', 1);
+            $redis->hExists('dlna', 'queueowner') || $redis->hSet('dlna', 'queueowner', 0);
             $redis->hExists('dlna', 'logfile') || $redis->hSet('dlna', 'logfile', '/var/log/runeaudio/upmpdcli.log');
             $redis->hExists('dlna', 'loglevel') || $redis->hSet('dlna', 'loglevel', 2);
             $redis->hExists('dlna', 'radioname') || $redis->hSet('dlna', 'radioname', '');
