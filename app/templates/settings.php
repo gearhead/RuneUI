@@ -276,7 +276,7 @@
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA protocol.<br>
-                        <?php if ($this-cores < 4): ?>
+                        <?php if ($this->cores < 4): ?>
                         <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model, insufficient processing capacity available</i>
                         <?php endif ?>
                         </span>
@@ -295,8 +295,8 @@
                                 <input id="dlna_queueowner" name="features[dlna][queueowner]" type="checkbox" value="1"<?php if((isset($this->dlna['queueowner'])) && ($this->dlna['queueowner'])): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">When ON: a UPnP/DLNA broadcast will clear the MPD queue and then add and play the song, clearing the queue with each successive song<br>
-                            When OFF: UPnP/DLNA will add songs of the MPD queue (before the current play position) but MPD will continue to play the current song</span>
+                            <span class="help-block">When OFF: sending an UPnP/DLNA streamed song will add next and play in the MPD queue,<br>
+                            When ON: sending an UPnP/DLNA streamed song will clear the MPD queue then add and play the song</span>
                         </div>
                     </div>
                     <div class="form-group form-actions">
