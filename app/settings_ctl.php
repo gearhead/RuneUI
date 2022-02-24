@@ -334,26 +334,17 @@ $template->kernel = trim(sysCmd('uname -sr')[0]).$bit;
 $redis->set('kernel', $template->kernel);
 unset($bit);
 $template->pwd_protection = $redis->get('pwd_protection');
-$template->memory = $redis->get('memoryKb');
-$template->cores = $redis->get('cores');
-// check if a local browser is supported
-$template->local_browseronoff = true;
-// (normally) clear the cache otherwise file_exists() returns incorrect values
-// not required here because the (non-)existance of '/usr/bin/xinit' never changes
-// clearstatcache(true, '/usr/bin/xinit');
+$memory = $redis->get('memoryKb');
+$template->memory = $memory;
+$cores = $redis->get('cores');
+$template->cores = $cores;
+// check if a local browser is supported, by checking that X11 is isntalled
+clearstatcache(true, '/usr/bin/xinit');
 if (file_exists('/usr/bin/xinit')) {
-    // the local browser needs a x-windows environment, check the existence of xinit
-    // x-windows is not installed on the archv6 models (e.g. Pi Zero), these are too slow
-    if ($template->memory < 700000) {
-        // local browser (x-windows) needs +/-1 GB of memory to operate
-        // the Pi 3A & Pi Zero 2W models has the cpu power and has x-windows installed, but little memory
-        $template->local_browseronoff = 'memory';
-    } else if ($template->memory < 400000) {
-        // old PI models with less than 512MB cannot run the local browser
+    $template->local_browseronoff = true;
+    if ($memory < 400000) {
+        // old PI models with less than 512MB cannot run the local browser even if X11 is installed
         $template->local_browseronoff = false;
-    } else if ($template->cores < 4) {
-        // for old models with 1 core and 512MB memory it is possible to run the local browser, but it is not advised
-        $template->local_browseronoff = 'cores';
     }
 } else {
     $template->local_browseronoff = false;
