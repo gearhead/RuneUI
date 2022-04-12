@@ -68,7 +68,7 @@ $redis->hSet('acards_details', 'raspyplay3', '{"sysname":"snd_rpi_hifiberry_dac"
 $redis->hSet('acards_details', 'raspyplay4', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'Rotel PC-USB', '{"sysname":"Rotel PC-USB","extlabel":"Rotel USB","type":"usb"}');
 $redis->hSet('acards_details', 'SA9023 USB Audio', '{"sysname":"SA9023 USB Audio","extlabel":"HiFimeDIY SABRE U2","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
-$redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp (I&#178;S)","card_option":"allowed_formats\t\"48000:24:2 44100:24:2 47250:32:2 44056:32:2 37800:24:2 32000:24:2 22050:24:2 16000:24:2 11025:24:2 8000:24:2\"","mixer_numid":"1","mixer_control":"Master","hwplatformid":"08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"08","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dac', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"HiFiBerry DAC (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplus', '{"sysname":"snd_rpi_hifiberry_dacplus","extlabel":"HiFiBerry DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_digi', '{"sysname":"snd_rpi_hifiberry_digi","extlabel":"HiFiBerry Digi (I&#178;S)","hwplatformid":"01","type":"i2s"}');
@@ -82,14 +82,9 @@ $redis->hSet('acards_details', 'USB Sound Device', '{"sysname":"USB Sound Device
 $redis->hSet('acards_details', 'wm8731-audio', '{"sysname":"wm8731-audio","extlabel":"Utilite Analog Out","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'XMOS USB Audio 2.0', '{"sysname":"XMOS USB Audio 2.0","extlabel":"XMOS AK4399 USB-Audio DAC","mixer_numid":"3","mixer_control":"XMOS Clock Selector","type":"usb"}');
 //
-// Two alternative versions of the rpi-dac configuration specifically for the es9023 DAC - in principal this DAC will only work for bitrates up to 192k
-// The above line will provide bitrates up to 384k, these below are limited to 192k - if all your music is less than 192k then do nothing (most is 44.1k)
-// Test each for your personal preference - comment out the previous line containing 'snd_rpi_rpi_dac' and uncomment one of the following lines
-// $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","card_option":"allowed_formats\t\"8000:*:2 16000:*:2 11025:*:2 22050:*:2 32000:*:2 37800:*:2 44056:*:2 44100:*:2 47250:*:2 48000:*:2 50000:*:2 54000:*:2 64000:*:2 88200:*:2 96000:*:2 176400:*:2 192000:*:2\"","hwplatformid":"08","type":"i2s"}');
-// $redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","card_option":"format\t\"192000:24:2\"","hwplatformid":"08","type":"i2s"}');
-//
-// The following lines are NOT TESTED but provide a best guess implementation of several newer audio overlay profiles
-// These lines should only be switched on if something does NOT work, it it actually fixes something then please post the results in the forum
+// The following lines are UNTESTED but provide a best guess implementation of several newer audio overlay profiles
+// The need for these lines has been reduced since RuneAudio v0.6, automatic detection and configuration has been introduced, which works in many cases
+// These lines should only be switched on if something does NOT work, if it actually fixes something then please post the results in the forum
 //$redis->hSet('acards_details', 'snd_rpi_audioinjector_octo_soundcard', '{"sysname":"snd_rpi_audioinjector_octo_soundcard","extlabel":"Audioinjector Addons (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 //$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_isolated_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_isolated_soundcard","extlabel":"Audioinjector isolated soundcard (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
 //$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_soundcard","extlabel":"Audioinjector WM8731 Audio (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
@@ -107,6 +102,7 @@ $redis->hSet('acards_details', 'XMOS USB Audio 2.0', '{"sysname":"XMOS USB Audio
 //$redis->hSet('acards_details', 'snd_rpi_rpi_cirrus', '{"sysname":"snd_rpi_rpi_cirrus","extlabel":"RPi Cirrus WM5102 (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
 //$redis->hSet('acards_details', 'snd_rpi_rra_digidac1_soundcard', '{"sysname":"snd_rpi_rra_digidac1_soundcard","extlabel":"Red Rocks Audio DigiDAC1 soundcard (I&#178;S)","hwplatformid":"01","type":"i2s"}');
 //
+// The lines below are probably no longer required, at the end of 2021 the way in which audio cards are defined in Linux changed
 $redis->sAdd('bcm2835 ALSA', '{"id":"1","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi Analog Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 1 > /dev/null"}');
 $redis->sAdd('bcm2835 ALSA', '{"id":"2","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 2 > /dev/null"}');
 $redis->sAdd('bcm2835 ALSA', '{"id":"3","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI1 Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 3 > /dev/null"}');

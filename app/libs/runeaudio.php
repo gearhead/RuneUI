@@ -2973,30 +2973,9 @@ function wrk_audioOutput($redis, $action, $args = null)
 {
     switch ($action) {
         case 'refresh':
-            // $redis->save();
-            // $acards = sysCmd("cat /proc/asound/cards | grep : | cut -d '[' -f 2 | cut -d ']' -f 1");
-            // $acards = sysCmd("cat /proc/asound/cards | grep : | cut -d '[' -f 2 | cut -d ':' -f 2");
-            // $acards = sysCmd("cat /proc/asound/cards | grep : | cut -b 1-3,21-");
-            //$acards = sysCmd('grep -h ":" /proc/asound/cards | cut -b 1-3,21-');
-            //$i2smodule = $redis->Get('i2smodule');
-            // check if i2smodule is enabled and read card details
-            //if ($i2smodule !== 'none') {
-                //$i2smodule_details = $redis->hGet('acards_details', $i2smodule);
-            //}
-            //runelog('/proc/asound/cards', $acards);
             // get a list of the hardware audio cards
             $cardlist = array();
             $cardlist = sysCmd('aplay -l -v | grep card');
-            // // if there are no cards defined, enable the built in bcm2835 cards for the following boot
-            // //  and since there is nothing to process return
-            // if (!isset($cardlist) || !is_array($cardlist) || !isset($cardlist[0]) || !$cardlist[0]) {
-                // // cardlist is not set, it is not an array or the first array value is empty, so no audio cards
-                // $redis->set('audio_on_off', 1);
-                // wrk_audio_on_off($redis, 1);
-                // // remove all audio card entries in the redis database
-                // $redis->Del('acards');
-                // return 'empty';
-            // }
             // determine if the number of cards has changed
             if ($redis->hlen('acards') != count($cardlist)) {
                 $cardChange = 1;
@@ -3030,6 +3009,28 @@ function wrk_audioOutput($redis, $action, $args = null)
                 // the cards are unchanged, just return
                 return 'unchanged';
             }
+            //
+            // load the table of allowed formats which are valid for specific combinations of overlays
+            $fileName = '/srv/http/db/audio_allowed_formats_table.txt';
+            $allowedFormats = array();
+            if (file_exists($fileName)) {
+                $fileContent = file_get_contents($fileName);
+                $fileContentLines = explode("\n", $fileContent);
+                foreach ($fileContentLines as $fileContentLine) {
+                    if ($fileContentLine) {
+                        list($overlay, $name, $sysname, $content) = explode('|', $fileContentLine, 4);
+                        if (isset($content) && $content) {
+                            $allowedFormats[$overlay.'|'.$name.'|'.$sysname] = $content;
+                        }
+                    }
+                    unset($overlay, $name, $sysname, $content);
+                }
+                unset($fileContent, $fileContentLines, $fileContentLine);
+            }
+            unset($filename);
+            // this is used as the first part of the index of $allowedFormats, the sysname needs to be added
+            $activeOverlayAndName = $redis->get('i2smodule_select').'|';
+            //
             foreach ($acards as $card) {
                 unset($sub_interfaces);
                 $sub_interfaces = array();
@@ -3207,6 +3208,11 @@ function wrk_audioOutput($redis, $action, $args = null)
                     if (isset($details['card_option']) && $details['card_option']) {
                         $data['card_option'] = $details['card_option'];
                     }
+                    // test if there is a set of allowed formats for this card
+                    // for example the ES9023 audio card expects 24 bit input
+                    if (isset($allowedFormats[$activeOverlayAndName.$card['name']]) && $allowedFormats[$activeOverlayAndName.$card['name']]) {
+                        $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['name']];
+                    }
                 }
                 if (!isset($sub_interfaces[0]) || (!$sub_interfaces[0])) {
                     $data['name'] = $card['name'];
@@ -3214,7 +3220,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                     $data['description'] = $details['description'];
                     //$data['system'] = trim($card['sysdesc']);
                     // debug
-                    runelog('::::::acard record array::::::', $data);
+                    // runelog('::::::acard record array::::::', $data);
                     $redis->hSet('acards', $card['name'], json_encode($data));
                 }
                 // acards loop
@@ -3601,7 +3607,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $acards = $redis->hGetAll('acards');
             // debug
             // --- audio output ---
-            $ao = $redis->Get('ao');
+            $lastAo = $redis->Get('ao');
             // make sure we have at least one valid output
             if (!isset($acards) || !is_array($acards) || !reset($acards)) {
                 // no audio cards, enable the http output (bitrate = 44100), so that mpd has one valid output
@@ -3615,15 +3621,21 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else if (count($acards) == 1) {
                 // there is only one output card, use it
                 $ao = array_key_first($acards);
-            } else if (!isset($ao) || !$ao) {
+            } else if (!isset($lastAo) || !$lastAo) {
                 // no active audio card specified, use the first in the array
                 $ao = array_key_first($acards);
-            } else if (!isset($acards[$ao])) {
+            } else if (!isset($acards[$lastAo])) {
                 // the specified audio output is no longer valid, use the first in the array
                 $ao = array_key_first($acards);
+            } else {
+                $ao = $lastAo;
             }
-            // save the audio output
-            $redis->Set('ao', $ao);
+            if ($lastAo != $ao) {
+                // save the audio output
+                $redis->Set('ao', $ao);
+                // set this card to the default alsa card
+                set_alsa_default_card($ao);
+            }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
             $sub_count = 0;
@@ -3685,10 +3697,15 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 } else {
                     $output .="\tmixer_type \t\"none\"\n";
                 }
-                // test if there is an option for mpd.conf set
+                // test if there is an option for mpd.conf is set
                 // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
                 if (isset($card_decoded['card_option'])) {
                     $output .= "\t".$card_decoded['card_option']."\n";
+                }
+                // test if there is an allowed_formats for mpd.conf is set
+                // for example the ES9023 audio card expects 24 bit input
+                if (isset($card_decoded['allowed_formats'])) {
+                    $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
                 }
                 if ($mpdcfg['dsd_usb'] != 'no') {
                     if ($mpdcfg['dsd_usb'] === 'DSDDOP') {
@@ -3798,7 +3815,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'switchao':
             // record current interface selection
             $oldMpdout = $redis->get('ao');
-            $redis->set('ao', $args);
+            if ($oldMpdout != $args) {
+                $redis->set('ao', $args);
+                // set this card to the default alsa card
+                set_alsa_default_card($args);
+            }
             $mpdout = $args;
             // get interface details
             $interface_details = $redis->hGet('acards', $args);
@@ -4106,7 +4127,11 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         $ao = trim($redis->get('ao'));
         if ($ao == '') {
             $ao = end($redis->hKeys('acards'));
-            $redis->set('ao', $ao);
+            if ($ao != '') {
+                $redis->set('ao', $ao);
+                // set this card to the default alsa card
+                set_alsa_default_card($ao);
+            }
         }
     } else {
         $ao = trim($ao);
@@ -4255,7 +4280,11 @@ function wrk_shairport($redis, $ao, $name = null)
         $ao = trim($redis->get('ao'));
         if ($ao == '') {
             $ao = end($redis->hKeys('acards'));
-            $redis->set('ao', $ao);
+            if ($ao != '') {
+                $redis->set('ao', $ao);
+                // set this card to the default alsa card
+                set_alsa_default_card($ao);
+            }
         }
     } else {
         $ao = trim($ao);
@@ -7825,6 +7854,8 @@ function wrk_check_MPD_outputs($redis)
                     $enabled = trim($retval[0]);
                     if ($enabled) {
                         $redis->set('ao', $enabled);
+                        // set this card to the default alsa card
+                        set_alsa_default_card($enabled);
                     }
                 }
             }
@@ -9918,4 +9949,46 @@ function search_array_keys($myArray, $search)
         }
     }
     return false;
+}
+
+// sets the default alsa card, based on the card name
+function set_alsa_default_card($cardName)
+{
+    $fileName = '/etc/asound.conf';
+    if (isset($cardName) && $cardName) {
+        $cardNummer = sysCmd("aplay -l | grep '".$cardName."'");
+        if (isset($cardNummer[0]) && $cardNummer[0]) {
+            $cardNummer = trim(get_between_data($cardNummer[0], 'card ', ': '));
+        }
+    } else {
+        return;
+    }
+    if (!isset($cardNummer) || !is_numeric($cardNummer)) {
+        // card number is not set, remove entries from /etc/asound.conf
+        clearstatcache(true, $fileName);
+        if (file_exists($fileName)) {
+            // file exists
+            sysCmd("sed -i '/defaults.pcm.card/d' '".$fileName."'");
+            sysCmd("sed -i '/defaults.ctl.card/d' '".$fileName."'");
+        } else {
+            return;
+        }
+    } else {
+        // card number is set modify/add entries to /etc/asound.conf
+        clearstatcache(true, $fileName);
+        if (file_exists($fileName)) {
+            // file exists, remove then add the default lines
+            sysCmd("sed -i '/defaults.pcm.card/d' '".$fileName."'");
+            sysCmd("sed -i '/defaults.ctl.card/d' '".$fileName."'");
+            sysCmd('echo defaults.pcm.card '.$cardNummer." >> '".$fileName."'");
+            sysCmd('echo defaults.ctl.card '.$cardNummer." >> '".$fileName."'");
+        } else {
+            // no file, create it an then add the lines
+            touch($fileName);
+            sysCmd('echo defaults.pcm.card '.$cardNummer." >> '".$fileName."'");
+            sysCmd('echo defaults.ctl.card '.$cardNummer." >> '".$fileName."'");
+        }
+    }
+    // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
+    sysCmd('alsactl kill rescan');
 }
