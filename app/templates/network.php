@@ -27,15 +27,20 @@
         </form>
     </div>
     <br>
+    <legend>Bluetooth</legend>
+    <div class="boxed">
+        <p>Configure Bluetooth</p>
+        <button class="btn btn-lg btn-primary" onclick="location.href='/bluetooth'">Bluetooth Configuration</button>
+        <span class="help-block">Use this option to connect to  a Bluetooth device.<br>
+        RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones)</span>
+    </div>
+    <br>
     <legend>Access Point</legend>
     <div class="boxed">
         <p>Configure an Access Point (AP)</p>
         <button class="btn btn-lg btn-primary" onclick="location.href='/accesspoint'">AP settings</button>
-        <span class="help-block">Use this option enable (default) or disable your device as an Access Point.<br>
-        Rune Audio tries to connect to configured Wi-Fi profiles first! The Access Point will start only when all configured Wi-Fi profiles fail to connect</span>
+        <span class="help-block">Use this option to enable (default) or disable your device as an Access Point.<br>
+        RuneAudio tries to connect to configured Wi-Fi profiles first. The Access Point will start only when all configured Wi-Fi profiles fail to connect</span>
     </div>
     <br>
-    <div class=" boxed">
-            <a href="/network" class="btn btn-lg btn-default">Cancel</a>
-    </div>
 </div>

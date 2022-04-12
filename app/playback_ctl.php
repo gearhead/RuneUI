@@ -80,6 +80,7 @@ $template->spotify = $redis->hGet('spotify', 'enable');
 $template->spotifyconnect = $redis->hGet('spotifyconnect', 'enable');
 $template->airplay = $redis->hGet('airplay', 'enable');
 $template->dlna = $redis->hGet('dlna', 'enable');
+$template->bluetooth = $redis->get('bluetooth_on');
 $template->localSStime = $redis->hGet('local_browser', 'localSStime');
 $template->remoteSStime = $redis->get('remoteSStime');
 $template->hostname = $redis->get('hostname');

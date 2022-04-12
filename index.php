@@ -74,19 +74,20 @@ $activePlayer = $redis->get('activePlayer');
 $template->activePlayer = $activePlayer;
 // allowed controllers
 $controllers = array(
+    'accesspoint',
     'alsamixer',
-    'lyric',
     'artist_info',
+    'bluetooth',
     'coverart',
     'credits',
-    'dev',
     'debug',
+    'dev',
     'help',
     'index',
     'login',
+    'lyric',
     'mpd',
     'network',
-    'accesspoint',
     'playback',
     'settings',
     'sources',

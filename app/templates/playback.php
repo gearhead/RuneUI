@@ -539,6 +539,9 @@
             <?php if ($this->dlna): ?>
             <li><a href="javascript:;" id="playsource-dlna" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-puzzle-piece sx"></i> <span>upmpdcli</span> DLNA</a></li>
             <?php endif; ?>
+            <?php if ($this->bluetooth): ?>
+            <li><a href="/bluetooth/" id="playsource-bluetooth" class="btn btn-default btn-lg btn-block"><i class="fa fa-bluetooth sx"></i> Bluetooth</a></li>
+            <?php endif; ?>
             <li><button id="overlay-playsource-close" class="btn btn-link" type="button"><i class="fa fa-times"></i> close this layer</button></li>
         </ul>
     </nav>
