@@ -1034,77 +1034,77 @@ function updateGUI() {
             $('#addinfo-text-ss').html(artist_similar);
             $('#addinfo-text-overlay').html(artist_similar);
         }
-        if ((GUI.activePlayer === 'MPD') && (GUI.stream !== 'radio')) {
-            var currentalbum_and_artist = currentalbum + '-' + currentartist;
-            if (GUI.old_state !== GUI.state || GUI.currentalbum_and_artist !== currentalbum_and_artist) {
-                GUI.currentalbum_and_artist = currentalbum_and_artist;
-                GUI.old_state = GUI.state;
-                if (mainArtURL === '') {
-                    var covercachenum = Math.floor(Math.random()*1001);
-                    $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    cache: false
-                }
-            }
-            if (GUI.currentsong !== currentsong) {
-                GUI.currentsong = currentsong;
-                $('#lyric-text-overlay').html('');
-                if (song_lyrics === '') {
-                    $.ajax({
-                        url: '/lyric/',
-                        success: function(data){
-                           $('#lyric-text-overlay').html(data);
-                        },
-                        cache: false
-                    });
-                }
-            }
-            if (GUI.currentartist !== currentartist) {
-                if ((artist_bio_summary === '') && (artist_similar === '')) {
-                    $.ajax({
-                        url: '/artist_info/',
-                        success: function(data){
-                            var info = jQuery.parseJSON(data);
-                            if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
-                                $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
-                                $('#artist-bio-overlay').html(info.artist.bio.summary);
-                                $('#artist-bio-full-overlay').html(info.artist.bio.content);
-                            } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
-                                $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
-                                $('#artist-bio-overlay').html(info.artist.bio.summary);
-                                $('#artist-bio-full-overlay').html(info.artist.bio.summary);
-                            } else {
-                                $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
-                                $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
-                                $('#artist-bio-full-overlay').html(currentartist+" - Sorry, No extra information available.");
-                            }
-                            if (typeof info.artist !== 'undefined' && info.artist.similar.artist !== '') {
-                                let i = 0;
-                                let text = "";
-                                while (typeof info.artist.similar.artist[i] !== 'undefined') {
-                                    if (typeof info.artist.similar.artist[i].name !== 'undefined' && info.artist.similar.artist[i].name !== '') {
-                                        if (text === '') {
-                                            text = "<strong>Similar artists</strong>";
-                                        }
-                                        text += "<br>"+info.artist.similar.artist[i].name;
-                                    }
-                                    i++;
-                                }
-                                $('#addinfo-text-ss').html(text);
-                                $('#addinfo-text-overlay').html(text);
-                            } else {
-                                $('#addinfo-text-ss').html('');
-                                $('#addinfo-text-overlay').html('');
-                            }
-                            $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                            $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                        },
-                        cache: false
-                    });
-                }
-            }
-        }
+        // if ((GUI.activePlayer === 'MPD') && (GUI.stream !== 'radio')) {
+            // var currentalbum_and_artist = currentalbum + '-' + currentartist;
+            // if (GUI.old_state !== GUI.state || GUI.currentalbum_and_artist !== currentalbum_and_artist) {
+                // GUI.currentalbum_and_artist = currentalbum_and_artist;
+                // GUI.old_state = GUI.state;
+                // if (mainArtURL === '') {
+                    // var covercachenum = Math.floor(Math.random()*1001);
+                    // $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    // $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    // $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                    // cache: false
+                // }
+            // }
+            // if (GUI.currentsong !== currentsong) {
+                // GUI.currentsong = currentsong;
+                // $('#lyric-text-overlay').html('');
+                // if (song_lyrics === '') {
+                    // $.ajax({
+                        // url: '/lyric/',
+                        // success: function(data){
+                           // $('#lyric-text-overlay').html(data);
+                        // },
+                        // cache: false
+                    // });
+                // }
+            // }
+            // if (GUI.currentartist !== currentartist) {
+                // if ((artist_bio_summary === '') && (artist_similar === '')) {
+                    // $.ajax({
+                        // url: '/artist_info/',
+                        // success: function(data){
+                            // var info = jQuery.parseJSON(data);
+                            // if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
+                                // $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
+                                // $('#artist-bio-overlay').html(info.artist.bio.summary);
+                                // $('#artist-bio-full-overlay').html(info.artist.bio.content);
+                            // } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
+                                // $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
+                                // $('#artist-bio-overlay').html(info.artist.bio.summary);
+                                // $('#artist-bio-full-overlay').html(info.artist.bio.summary);
+                            // } else {
+                                // $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
+                                // $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
+                                // $('#artist-bio-full-overlay').html(currentartist+" - Sorry, No extra information available.");
+                            // }
+                            // if (typeof info.artist !== 'undefined' && info.artist.similar.artist !== '') {
+                                // let i = 0;
+                                // let text = "";
+                                // while (typeof info.artist.similar.artist[i] !== 'undefined') {
+                                    // if (typeof info.artist.similar.artist[i].name !== 'undefined' && info.artist.similar.artist[i].name !== '') {
+                                        // if (text === '') {
+                                            // text = "<strong>Similar artists</strong>";
+                                        // }
+                                        // text += "<br>"+info.artist.similar.artist[i].name;
+                                    // }
+                                    // i++;
+                                // }
+                                // $('#addinfo-text-ss').html(text);
+                                // $('#addinfo-text-overlay').html(text);
+                            // } else {
+                                // $('#addinfo-text-ss').html('');
+                                // $('#addinfo-text-overlay').html('');
+                            // }
+                            // $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                            // $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
+                        // },
+                        // cache: false
+                    // });
+                // }
+            // }
+        // }
     }
 }
 

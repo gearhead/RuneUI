@@ -384,6 +384,20 @@ while (true) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
+                // start the job to retrieve extra metadata
+                // get the lock status
+                $lock = $redis->get('lock_mpd_extra_metadata');
+                runelog('lock status ', $lock);
+                if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+                    // start the job
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/mpd_extra_metadata_async.php', 0);
+                } else {
+                    // just in case something goes wrong increment the lock value by 1
+                    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+                    $lock += 1;
+                    $redis->set('lock_mpd_extra_metadata', $lock);
+                }
+
                 // debug information
                 if (isset($socket['sockVarName']) && isset($socket['description'])) {
                     $sockVarName = $socket['sockVarName'];

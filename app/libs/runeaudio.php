@@ -1269,33 +1269,34 @@ function _parseStatusResponse($redis, $resp)
                 case 'DSD1024':
                     if (trim($retval[0]) != '') {
                         $audio_format[2] = $audio_format[1];
-                        $audio_format[1] = 'dsd';
+                        $audio_format[1] = strtoupper($audio_format[0]).' 1';
                         $dsdRate = preg_replace('/[^0-9]/', '', $audio_format[0]);
                         $audio_format[0] = intval(explode(' ', $retval[0])[1]);
                         $plistArray['bitrate'] = intval(44100 * $dsdRate / 1000);
-                        $plistArray['audio_sample_rate'] = rtrim(number_format($audio_format[0], 0, ',', '.'),0);
+                        $plistArray['audio_sample_rate'] = round($audio_format[0]/1000, 1);
                         $plistArray['audio'] = $audio_format[0].':'.$audio_format[1].':'.$audio_format[2];
                     }
                     break;
-                case '48000':
+                // case '48000':
                     // no break
-                case '96000':
+                // case '96000':
                     // no break
-                case '192000':
+                // case '192000':
                     // no break
-                case '384000':
-                    $plistArray['audio_sample_rate'] = rtrim(rtrim(number_format($audio_format[0]), 0), ',');
-                    break;
-                case '44100':
-                    // no break
-                case '88200':
-                    // no break
-                case '176400':
-                    // no break
-                case '352800':
-                    // no break
+                // case '384000':
+                    // $plistArray['audio_sample_rate'] = rtrim(rtrim(number_format($audio_format[0]), 0), ',');
+                    // break;
+                // case '44100':
+                    // // no break
+                // case '88200':
+                    // // no break
+                // case '176400':
+                    // // no break
+                // case '352800':
+                    // $plistArray['audio_sample_rate'] = rtrim(number_format($audio_format[0], 0, ',', '.'),0);
+                    // break;
                 default:
-                    $plistArray['audio_sample_rate'] = rtrim(number_format($audio_format[0], 0, ',', '.'),0);
+                    $plistArray['audio_sample_rate'] = round($audio_format[0]/1000, 1);
                     break;
             }
         } else {
@@ -1325,47 +1326,34 @@ function _parseStatusResponse($redis, $resp)
             $plistArray['audio_channels'] = "Stereo";
         }
         //
-        // when bitrate still is empty use mediainfo to examine the file which is playing
-        // but only when the file-name is available and mediainfo is installed
-        // ignore any line returned by mpd status containing 'updating'
+        // mpd returns the actual bitrate of the music file at that moment, when a variable bit rate file (e.g. FLAC) is being played
+        //  the value is generally incorrect, replace it when possible with the average bitrate
+        //  we need the current music file name in order to retrieve an average bitrate value
+        //  when required also update sample rate and sample depth
+        // ignore any line returned by mpd status containing 'updating', 3 lines mean a file is playing
         $status = sysCmd('mpc status | grep -vi updating');
-        // bit rate
-        // clear the cache otherwise file_exists() returns incorrect values
-        clearstatcache(true, '/usr/bin/mediainfo');
-        if ((($plistArray['bitrate'] == '0') || ($plistArray['bitrate'] == '')) && (count($status) == 3) && (file_exists('/usr/bin/mediainfo'))) {
-            $fileName = trim(sysCmd('mpc -f "[%file%]"')[0]);
-            if (isset($fileName) && !is_radioUrl($redis, $fileName)) {
-                // it's not a radio stream, mediainfo should work on all other files and url's
-                $retval = sysCmd('mediainfo "'.trim($redis->hGet('mpdconf', 'music_directory')).'/'.$fileName.'" | grep "Overall bit rate  "');
-                if (isset($retval[0])) {
-                    $bitrate = trim(preg_replace('/[^0-9]/', '', $retval[0]));
-                    If (!empty($bitrate)) {
-                        $plistArray['bitrate'] = intval($bitrate);
-                    }
+        if ((count($status) == 3)) {
+            // we can determine the file name
+            $fileName = rtrim($redis->hGet('mpdconf', 'music_directory'), '/').'/'.trim(sysCmd('mpc -f "[%file%]"')[0]);
+            $metadata = getMusicFileMatadata($redis, $fileName);
+            // bit rate, always update it when a value is available
+            if ($metadata && isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
+                $plistArray['bitrate'] = intval($metadata['avg_bit_rate']/1000);
+            }
+            // sample rate, fix it if missing
+            if (!isset($plistArray['audio_sample_rate']) || !$plistArray['audio_sample_rate']) {
+                if ($metadata && isset($metadata['sample_rate']) && $metadata['sample_rate']) {
+                    $plistArray['audio_sample_rate'] = round($metadata['sample_rate']/1000, 1);
                 }
-                unset($retval, $bitrate, $fileName);
             }
-        }
-        // sample rate
-        if ((($plistArray['audio_sample_rate'] == '0') || ($plistArray['audio_sample_rate'] == '')) && (count($status) == 3)) {
-            $retval = sysCmd('mpc -f "[%file%]"');
-            $retval = sysCmd('ffprobe -v error -show_entries stream=sample_rate -of default=noprint_wrappers=1 "'.trim($redis->hGet('mpdconf', 'music_directory')).'/'.trim($retval[0]).'"');
-            $samplerate = trim(preg_replace('/[^0-9]/', '', $retval[0]));
-            If (!empty($samplerate)) {
-                $plistArray['audio_sample_rate'] = rtrim(number_format($samplerate, 0, ',', '.'),0);
+            // sample depth, fix it if missing
+            if (!isset($plistArray['audio_sample_depth']) || !$plistArray['audio_sample_depth']) {
+                if ($metadata && isset($metadata['bits_per_sample']) && $metadata['bits_per_sample']) {
+                    $plistArray['audio_sample_depth'] = $metadata['bits_per_sample'];
+                }
             }
-            unset($retval);
+            unset($fileName, $metadata);
         }
-        // sample format
-        // if ((($plistArray['??'] == '0') || ($plistArray['??'] == '')) && (count($status) === 3)) {
-            // $retval = sysCmd('mpc -f "[%file%]"');
-            // $retval = sysCmd('ffprobe -v error -show_entries stream=sample_fmt -of default=noprint_wrappers=1 "'.trim($redis->hGet('mpdconf', 'music_directory')).'/'.trim($retval[0]).'"');
-            // $sampleformat = trim(preg_replace('/[^0-9]/', '', $retval[0]));
-            // If (!empty($sampleformat)) {
-                // $plistArray['??'] = $sampleformat;
-            // }
-            // unset($retval);
-        // }
         unset($status);
     }
     return $plistArray;
@@ -4203,6 +4191,8 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         case "normalisation_pregain":
             if ($sccfg['volume_normalisation'] == 'true') {
                 $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
+            } else {
+                $spotifyd_conf .= "normalisation-pregain = 0\n";
             }
             break;
         case "cache_path":
@@ -6166,12 +6156,20 @@ function ui_lastFM_coverart($redis, $artist, $album, $lastfmApikey, $proxy)
 
     // key [3] == extralarge last.fm image
     // key [4] == mega last.fm image
-    if(isset($artist)) {
-        runelog('coverart lastfm query URL', $output['artist']['image'][3]['#text']);
-        return $output['artist']['image'][3]['#text'];
+    if (!empty($album)) {
+        if (isset($output['album']['image'][3]['#text'])) {
+            runelog('coverart lastfm query album URL:', $output['album']['image'][3]['#text']);
+            return $output['album']['image'][3]['#text'];
+        } else {
+            runelog('coverart lastfm query album URL:', '<no-output>');
+        }
     } else {
-        runelog('coverart lastfm query URL', $output['album']['image'][3]['#text']);
-        return $output['album']['image'][3]['#text'];
+        if (isset($output['artist']['image'][3]['#text'])) {
+            runelog('coverart lastfm query artist URL:', $output['artist']['image'][3]['#text']);
+            return $output['artist']['image'][3]['#text'];
+        } else {
+            runelog('coverart lastfm query artist URL:', '<no-output>');
+        }
     }
 }
 
@@ -6351,9 +6349,11 @@ function wrk_setRegDom($redis)
 
 function ui_update($redis, $sock=null, $clientUUID=null)
 {
-    $activePlayerInfo = $redis->get('act_player_info');
-    if (strlen($activePlayerInfo) > 5) {
-        ui_render('playback', $activePlayerInfo);
+    $activePlayerInfo = json_decode($redis->get('act_player_info'), true);
+    if (isset($activePlayerInfo['actPlayer']) && $activePlayerInfo['actPlayer']) {
+        // clear some act_player_info fields
+        unset ($activePlayerInfo['elapsed']);
+        ui_render('playback', json_encode($activePlayerInfo));
     }
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
@@ -6551,7 +6551,7 @@ function squashCharacters($str)
     return strtr($str, $normalizeChars);
 }
 
-// clean up webradio strings
+// clean up url strings
 function urlClean($string)
 //
 {
@@ -6579,6 +6579,50 @@ function webradioStringClean($string)
     // remove leading and trailing spaces, tabs, linefeeds, etc. after reducing all whitespace to a single space
     $string = trim(preg_replace('!\s+!', ' ', $string));
     return $string;
+}
+
+// remove consistent prefixes in the radio string
+function webradioStringRemovePrefix($redis, $string)
+// it works by stripping a prefix on and after the third time it is identical
+// when a different prefix is encountered it is reset
+{
+    $radionamePrefix = $redis->get('radioname_prefix');
+    $lastRadioString = $redis->get('last_radio_string');
+    if ($lastRadioString == $string) {
+        // identical radio strings are returned unchanged
+        $retval = $string;
+        $redis->set('radioname_prefix', '');
+    } else if ($radionamePrefix) {
+        // a prefix was determined
+        $radionamePrefixLen = strlen($radionamePrefix);
+        if ($radionamePrefix == substr($string, 0, $radionamePrefixLen)) {
+            // the stored prefix is still valid
+            $retval = substr($string, $radionamePrefixLen);
+        } else {
+            // the stored prefix is no longer valid
+            $redis->set('radioname_prefix', '');
+            $retval = $string;
+        }
+    } else {
+        // no prefix has been determined
+        for ($i = 1; $i <= max(strlen($string),strlen($lastRadioString)); $i++) {
+            if (substr($lastRadioString, 0, $i) != substr($string, 0, $i)) {
+                break;
+            }
+        }
+        if ($i == 1) {
+            $newPrefix = '';
+        } else {
+            $i--;
+            $newPrefix = substr($lastRadioString, 0, $i);
+        }
+        if ($radionamePrefix != $newPrefix) {
+            $redis->set('radioname_prefix', $newPrefix);
+        }
+        $retval = $string;
+    }
+    $redis->set('last_radio_string', $string);
+    return $retval;
 }
 
 // clean up strings for lyrics and artistinfo
@@ -8140,7 +8184,7 @@ function format_artist_song_file_name($artist, $song)
 function format_artist_file_name($artist)
 {
     $artist = metadataStringClean($artist, 'artist');
-    $filename = substr(str_replace(' ', '', strtolower($artist)), 0, 50);
+    $filename = substr(str_replace(' ', '', strtolower($artist)), 0, 100);
     return $filename;
 }
 
@@ -8331,12 +8375,18 @@ function get_makeitpersonal($redis, $url)
     }
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
     $retval = preg_replace('!\s+!', ' ', implode('<br>', $retval));
     if (!$retval) {
-        // nothing returned, disable makeitpersonal, it should always return something, disable makeitpersonal
+        // nothing returned, it should always return something, disable makeitpersonal
         $redis->hSet('service', 'makeitpersonal', 0);
         // this will be reset each 15 minutes, if the makeitpersonal site is up
+        return 0;
+    } else if (strpos(strtolower(' '.$retval), '>oh-noes<')) {
+        // 'oh-noes' returned, error condition in a web page, but not fatal
+        return 0;
+    } else if (strpos(strtolower(' '.$retval), '>oh noes!<')) {
+        // 'oh noes' returned, error condition in a web page, but not fatal
         return 0;
     } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
         // 'something went wrong' returned, error condition, disable makeitpersonal
@@ -8501,30 +8551,30 @@ function get_songInfo($redis, $info=array())
     }
     // build up an array of artist and album search strings based on album artist, (song) artist and album name
     //  no duplicates in the array,
-    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 50 chars
+    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
     $searchSongs = array();
-    $song = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['song']))),0, 50);
+    $song = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['song']))),0, 100);
     if ($song && !in_array($song, $searchSongs)) {
         $searchSongs[] = $song;
     }
-    $song = substr(metadataStringClean(strtolower($info['song']), 'song'), 0, 50);
+    $song = substr(metadataStringClean(strtolower($info['song']), 'song'), 0, 100);
     if ($song && !in_array($song, $searchSongs)) {
         $searchSongs[] = $song;
     }
@@ -8669,30 +8719,30 @@ function get_albumInfo($redis, $info=array())
     }
     // build up an array of artist and album search strings based on album artist, (song) artist and album name
     //  no duplicates in the array,
-    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 50 chars
+    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
     if ($artist && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
     if ($artist && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
     if ($artist && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
     if ($artist && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
     $searchAlbums = array();
-    $album = substr(metadataStringClean(strtolower($info['album']), 'album'), 0, 50);
+    $album = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['album']))),0, 100);
     if ($album && !in_array($album, $searchAlbums)) {
         $searchAlbums[] = $album;
     }
-    $album = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['album']))),0, 50);
+    $album = substr(metadataStringClean(strtolower($info['album']), 'album'), 0, 100);
     if ($album && !in_array($album, $searchAlbums)) {
         $searchAlbums[] = $album;
     }
@@ -8718,7 +8768,21 @@ function get_albumInfo($redis, $info=array())
         }
     }
     //
-    // album art is sourced from coverartarchive.org using album_mbid as key
+    // try once to retrieve the album art url from last.fm, it only occasionally returns a useful
+    //  value, mostly it returns an image of a star, but when it returns something it is accurate
+    $lastfmApikey = $redis->hGet('lastfm', 'apikey');
+    $proxy = $redis->hGetall('proxy');
+    if (!$info['album_arturl_large']) {
+        $cover_url = ui_lastFM_coverart($redis, $searchArtists[0], $searchAlbums[0], $lastfmApikey, $proxy);
+        if (isset($cover_url) && $cover_url && !strpos(' '.strtolower($cover_url), '2a96cbd8b46e442fc41c2b86b821562f')) {
+            // not a star image so use it
+            $info['album_arturl_small'] = $cover_url;
+            $info['album_arturl_medium'] = $cover_url;
+            $info['album_arturl_large'] = $cover_url;
+        }
+    }
+    //
+    // album art is normally sourced from coverartarchive.org using album_mbid as key
     if (!$info['album_arturl_large']) {
         // we need to determine at least one of the album art url's
         if (!$info['album_mbid']) {
@@ -8907,21 +8971,21 @@ function get_artistInfo($redis, $info=array())
     }
     // build up an array of artist search strings based on album artist and (song) artist
     //  no duplicates in the array,
-    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 50 chars
+    //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 50);
+    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 50);
+    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
     if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
         $searchArtists[] = $artist;
     }
@@ -9068,6 +9132,7 @@ function wrk_get_webradio_art($redis, $radiostring)
 // this function also manages cache files containing all the retrieved information for a given webradio string
 {
     $radiostring = webradioStringClean($radiostring);
+    $radiostring = webradioStringRemovePrefix($redis, $radiostring);
     $radiostringClean = strtolower($radiostring);
     // $radiostringClean = metadataStringClean(strtolower($radiostring), 'radiostring');
     if (strlen($radiostringClean) <= 6) {
@@ -9281,7 +9346,7 @@ function wrk_get_webradio_art($redis, $radiostring)
 
 // function which returns the artist image url artist information, the song lyrics and the album image URL as an array for a MPD song
 function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
-// this retrieves the formation form cache files containing the previously retrieved information
+// this retrieves the formation from cache files containing the previously retrieved information
 {
     $info = array();
     $info['artist_album_song_filename'] = format_artist_album_song_file_name($artist, $album, $song, $file);
@@ -9806,6 +9871,32 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
         $retval['year'] = '';
     }
     return $retval;
+}
+
+// get the average bit rate for a music file
+function getMusicFileMatadata($redis, $filename)
+// returns the cached metadata for the music file
+//  all MPD music files which are currently playing (should) have a cached metadata file
+//  contents include:
+//      ["format_name"] (example content = "MP3")
+//      ["encoder_version"] (example content = "LAME3.92")
+//      ["encoder_options"] (example content = "CBR320")
+//      ["bitrate_mode"] (example content = "cbr", "vbr")
+//      ["channels"] (example content = 2)
+//      ["sample_rate"] (example content = 48000)
+//      ["bits_per_sample"] (example content = 0)
+//      ["playing_time"] (example content = 380.47199999999998)
+//      ["avg_bit_rate"] (example content = 320000)
+{
+    // get the album art directory and url dir
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $metadataFileName = $artDir.'/'.md5($filename).'.mpd';
+    clearstatcache(true, $metadataFileName);
+    if (!file_exists($metadataFileName)) {
+        return false;
+    }
+    $metadata = json_decode(file_get_contents($metadataFileName), true);
+    return $metadata;
 }
 
 // get the value of the first matching key in a single or multidimensional array
