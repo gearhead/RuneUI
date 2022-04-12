@@ -3940,16 +3940,46 @@ button.close {
     }
 }
 /*!
+ *  Both Font Awesome v4.3.0 and v6.1.1 are used, glyphs from v6.1.1 must be specifically specified
+ *  This keeps compatibility with old glyphs while adding all possible new glyphs for the latest version
+ */
+/*!
  *  Font Awesome 4.3.0 by @davegandy - http://fontawesome.io - @fontawesome
  *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
  */
-
 @font-face {
     font-family: 'FontAwesome';
     src: url('../fonts/fontawesome-webfont.eot?v=4.3.0');
     src: url('../fonts/fontawesome-webfont.eot?#iefix&v=4.3.0') format('embedded-opentype'), url('../fonts/fontawesome-webfont.woff2?v=4.3.0') format('woff2'), url('../fonts/fontawesome-webfont.woff?v=4.3.0') format('woff'), url('../fonts/fontawesome-webfont.ttf?v=4.3.0') format('truetype'), url('../fonts/fontawesome-webfont.svg?v=4.3.0#fontawesomeregular') format('svg');
     font-weight: normal;
     font-style: normal
+}
+/*!
+ * Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ * Copyright 2022 Fonticons, Inc.
+ */
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-brands-400.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-brands-400.ttf') format('truetype');
+/*!
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.ttf') format('truetype'), url('../fonts/fontawesome-free-6.1.1-web/sprites/solid.svg#fontawesomeregular') format('svg');
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.ttf') format('truetype');
+*/
+    font-weight: 400;
+    font-style: normal;
+    unicode-range: U+F293,U+F294;
+}
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-regular-400.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-regular-400.ttf') format('truetype');
+/*!
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.ttf') format('truetype');
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.ttf') format('truetype');
+*/
+    font-weight: 400;
+    font-style: normal;
+    unicode-range: U+F31E;
 }
 .fa {
     display: inline-block;
@@ -4621,9 +4651,6 @@ button.close {
 }
 .fa-arrows-alt:before {
     content: "\f0b2"
-}
-.fa-expand-arrows-alt:before {
-    content: "\f31e"
 }
 .fa-group:before,
 .fa-users:before {
@@ -5738,6 +5765,19 @@ button.close {
 }
 .fa-medium:before {
     content: "\f23a"
+}
+/*!
+ *  Above are from Font Awesome v4.3.0 and below from v6.1.1
+ *  This keeps compatibility with old glyphs while adding all possible new glyphs for the latest version
+ */
+.fa-bluetooth:before {
+    content: "\f293"
+}
+.fa-bluetooth-b:before {
+    content: "\f294"
+}
+.fa-expand-arrows-alt:before {
+    content: "\f31e"
 }
 @font-face {
     font-family: 'Lato';
