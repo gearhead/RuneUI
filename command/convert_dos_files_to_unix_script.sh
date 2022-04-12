@@ -190,6 +190,12 @@ fi
 #
 # Check file protections and ownership
 #
+# art cache needs to be cleaned and dismounted first
+/srv/http/command/clean_music_metadata_async.php
+sync
+umount overlay_art_cache
+sync
+# now change the permissions of the UI files
 chown -R http.http /srv/http/
 find /srv/http/ -type f -exec chmod 644 {} \;
 find /srv/http/ -type d -exec chmod 755 {} \;
@@ -199,6 +205,11 @@ chmod 644 /etc/nginx/html/50x.html
 chmod 777 /run
 chmod 755 /srv/http/command/*
 chmod 755 /srv/http/db/*
+# remount art cache
+set +x # echo no commands to cli
+sync
+/srv/http/command/create_work_dirs.sh
+set -x # echo all commands to cli
 # chmod 755 /srv/http/db/redis_datastore_setup
 # chmod 755 /srv/http/db/redis_acards_details
 chmod 755 /srv/http/app/config/config.php

@@ -7800,23 +7800,62 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
 {
     // initialise variables
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $overlay_art_cache = $redis->get('overlay_art_cache');
+    // if required sync the in-memory tmpfs to the overly cache
+    if ($overlay_art_cache) {
+        // overlay cache is enabled
+        $cleanUpperDir = dirname($artDir).'/upper';
+        $cleanLowerDir = '/home/cache/art';
+        // sync the files part 1
+        //  image files are not synced
+        //  the file timestamp in the upper files directory is changed on file use, ignore this change
+        //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
+        //  the lower directory is ordered on creation date, the upper directory on usage date
+        //  the following files are created once and never change so --ignore-existing will sync them
+        // rsync --recursive --ignore-existing --include="*.radio" --include="*.album" --include="*.artist" --include="*.song" --exclude="*" /srv/http/tmp/upper/ /home/cache/art/
+        $rsyncCommand = 'rsync --recursive --ignore-existing '.
+            '--include="*.radio" '.
+            '--include="*.album" '.
+            '--include="*.artist" '.
+            '--include="*.song" '.
+            '--exclude="*" '.
+            $cleanUpperDir.'/ '.
+            $cleanLowerDir.'/';
+        sysCmd($rsyncCommand);
+        // sync the files part 2
+        //  image files are not synced
+        //  the file timestamp in the upper files directory is changed on file use, ignore this change
+        //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
+        //  the lower directory is ordered on creation date, the upper directory on usage date
+        //  the following files will be modified occasionally so --size_only and --checksum will sync them
+        // rsync --recursive --size-only --checksum --include="*.spotify" --exclude="*" /srv/http/tmp/upper/ /home/cache/art/
+        $rsyncCommand = 'rsync --recursive --size-only --checksum '.
+            '--include="*.spotify" '.
+            '--exclude="*" '.
+            $cleanUpperDir.'/ '.
+            $cleanLowerDir.'/';
+        sysCmd($rsyncCommand);
+    } else {
+        $cleanUpperDir = $artDir;
+        unset($cleanLowerDir);
+    }
     // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
     if ($clearAll) {
         $fileToSave = 0;
     } else {
         $fileToSave = 10;
     }
-    // clean up the album art files
+    // clean up the album art files in the upper directory
     //
     // files in the $requiredFiles array are never deleted
     $requiredFiles = array('none.png', 'black.png', 'airplay.png', 'spotify-connect.png', 'radio.png');
     // touch the required files this will ensure that they have a timestamp of now, these are then last in the directory listing for deletion
     foreach ($requiredFiles as $requiredFile) {
-        touch($artDir.'/'.$requiredFile);
+        touch($cleanUpperDir.'/'.$requiredFile);
     }
     // always remove files which over 3 months (90 days) old
     // the following command removes all files from the art directory which are older than 90 days
-    sysCmd('find "'.$artDir.'" -type f -mtime +90 -exec rm {} \;');
+    sysCmd('find "'.$cleanUpperDir.'" -type f -mtime +90 -exec rm {} \;');
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // if the art is using tmpfs get the physical memory information
@@ -7842,57 +7881,126 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     // allow the file system to fill to 80% (20% free), it is probably a tmpfs, but could
     //  use a sd-card, usb-drive or network-drive
     // get the total and available memory in the file system
-    $totalSpaceKB = disk_total_space($artDir)/1024;
-    $freeSpaceKB = disk_free_space($artDir)/1024;
+    $totalSpaceKB = disk_total_space($cleanUpperDir)/1024;
+    $freeSpaceKB = disk_free_space($cleanUpperDir)/1024;
     $percFreeDisk = ($freeSpaceKB / $totalSpaceKB) * 100;
     // diskspace to recover in kB
     if ($percFreeDisk < 20) {
         // less than 20% available, recover to make 35% available
         $recoverKB = intval(max(((35 - $percFreeDisk) * $totalSpaceKB)/100, $recoverKB));
     }
-    if (!$recoverKB) {
-        // no need to recover diskspace just return
+    if ($recoverKB) {
+        // need to recover diskspace
+        // first get the number of files in the directory
+        $filesInArtDir = sysCmd('ls -q1 "'.$cleanUpperDir.'" | wc -l | xargs')[0];
+        // loop for processing files in blocks of 100, this will reduce memory use
+        while (($filesInArtDir > $fileToSave) && ($recoverKB > 0)) {
+            // get the file names in date order, oldest first, the first line is the total allocated blocks
+            //  get in blocks of the 100 oldest files
+            $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$cleanUpperDir.'" | head -n 100');
+            foreach ($files as $file) {
+                $file = trim($file);
+                if (strpos(' '.$file, 'total') === 1) {
+                    // total line
+                    $file = preg_replace('!\s+!', ' ', $file);
+                    list($null, $totalAllocated) = explode(' ', $file, 2);
+                } else {
+                    // file lines
+                    // the file string contains tabs and double spaces, these must be removed, but not in the file name
+                    // the file name is the last part of the string after a timestamp containing a ':'
+                    $fileSplit = explode(':', $file, 2);
+                    if (!isset($fileSplit[1])) {
+                        // this should never happen!
+                        continue;
+                    }
+                    $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
+                    list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
+                    $fileName = trim($fileName);
+                    if (!$fileName) {
+                        // empty file name, should never happen
+                        continue;
+                    } else if (in_array($fileName, $requiredFiles)) {
+                        // this file must always be present, skip it (should never happen)
+                        continue;
+                    }
+                    $allocatedKB = intval(convertToBytes($allocated)/1024);
+                    $recoverKB -= $allocatedKB;
+                    unlink($cleanUpperDir.'/'.$fileName);
+                    echo 'Deleted : '.$fileName."\n";
+                }
+                if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
+                    break;
+                }
+            }
+        }
+    }
+    if (!$overlay_art_cache) {
+        // lower directory not in use
         return;
     }
-    // first get the number of files in the directory
-    $filesInArtDir = sysCmd('ls -q1 "'.$artDir.'" | wc -l | xargs')[0];
-    // loop for processing files in blocks of 100, this will reduce memory use
-    while (($filesInArtDir > $fileToSave) && ($recoverKB > 0)) {
-        // get the file names in date order, oldest first, the first line is the total allocated blocks
-        //  get in blocks of the 100 oldest files
-        $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$artDir.'" | head -n 100');
-        foreach ($files as $file) {
-            $file = trim($file);
-            if (strpos(' '.$file, 'total') === 1) {
-                // total line
-                $file = preg_replace('!\s+!', ' ', $file);
-                list($null, $totalAllocated) = explode(' ', $file, 2);
-            } else {
-                // file lines
-                // the file string contains tabs and double spaces, these must be removed, but not in the file name
-                // the file name is the last part of the string after a timestamp containing a ':'
-                $fileSplit = explode(':', $file, 2);
-                if (!isset($fileSplit[1])) {
-                    // this should never happen!
-                    continue;
+    // clean up the album art files in the lower directory
+    //
+    // files in the $requiredFiles array are never deleted
+    $requiredFiles = array();
+    $fileToSave = 0;
+    //
+    // always remove files which over 3 months (90 days) old
+    // the following command removes all files from the lower directory which are older than 90 days
+    sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
+    // initialise the amount of diskspace to recover (kB)
+    $recoverKB = 0;
+    // allow the file system to fill to 80% (20% free), it is a partition on the sd-card
+    // get the total and available memory in the file system
+    $totalSpaceKB = disk_total_space($cleanLowerDir)/1024;
+    $freeSpaceKB = disk_free_space($cleanLowerDir)/1024;
+    $percFreeDisk = ($freeSpaceKB / $totalSpaceKB) * 100;
+    // diskspace to recover in kB
+    if ($percFreeDisk < 20) {
+        // less than 20% available, recover to make 35% available
+        $recoverKB = intval(((35 - $percFreeDisk) * $totalSpaceKB)/100);
+    }
+    if ($recoverKB) {
+        // need to recover diskspace
+        // first get the number of files in the directory
+        $filesInArtDir = sysCmd('ls -q1 "'.$cleanLowerDir.'" | wc -l | xargs')[0];
+        // loop for processing files in blocks of 100, this will reduce memory use
+        while (($filesInArtDir > $fileToSave) && ($recoverKB > 0)) {
+            // get the file names in date order, oldest first, the first line is the total allocated blocks
+            //  get in blocks of the 100 oldest files
+            $files = sysCmd('ls -w0 -t1 -sGghr --time-style=iso "'.$cleanLowerDir.'" | head -n 100');
+            foreach ($files as $file) {
+                $file = trim($file);
+                if (strpos(' '.$file, 'total') === 1) {
+                    // total line
+                    $file = preg_replace('!\s+!', ' ', $file);
+                    list($null, $totalAllocated) = explode(' ', $file, 2);
+                } else {
+                    // file lines
+                    // the file string contains tabs and double spaces, these must be removed, but not in the file name
+                    // the file name is the last part of the string after a timestamp containing a ':'
+                    $fileSplit = explode(':', $file, 2);
+                    if (!isset($fileSplit[1])) {
+                        // this should never happen!
+                        continue;
+                    }
+                    $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
+                    list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
+                    $fileName = trim($fileName);
+                    if (!$fileName) {
+                        // empty file name, should never happen
+                        continue;
+                    } else if (in_array($fileName, $requiredFiles)) {
+                        // this file must always be present, skip it (should never happen)
+                        continue;
+                    }
+                    $allocatedKB = intval(convertToBytes($allocated)/1024);
+                    $recoverKB -= $allocatedKB;
+                    unlink($cleanLowerDir.'/'.$fileName);
+                    echo 'Deleted : '.$fileName."\n";
                 }
-                $file = preg_replace('!\s+!', ' ', $fileSplit[0]).':'.$fileSplit[1];
-                list($allocated, $perm, $links, $size, $date, $time, $fileName) = explode(' ', $file, 8);
-                $fileName = trim($fileName);
-                if (!$fileName) {
-                    // empty file name, should never happen
-                    continue;
-                } else if (in_array($fileName, $requiredFiles)) {
-                    // this file must always be present, skip it (should never happen)
-                    continue;
+                if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
+                    break;
                 }
-                $allocatedKB = intval(convertToBytes($allocated)/1024);
-                $recoverKB -= $allocatedKB;
-                unlink($artDir.'/'.$fileName);
-                echo 'Deleted : '.$fileName."\n";
-            }
-            if ((--$filesInArtDir <= $fileToSave) || ($recoverKB <= 0)) {
-                break;
             }
         }
     }

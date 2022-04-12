@@ -471,6 +471,39 @@ redis-cli save
 redis-cli shutdown save
 sync
 #
+# unmount the overlay cache filesystem and remove the cache disk partition
+#   we need to be very careful with this action, it will only be removed when we are absolutely sure it the
+#   partition which needs removing
+partitions=$( fdisk /dev/mmcblk0 -l | grep -ic mmcblk0p )
+if [ "$partitions" == "3" ]; then
+    # looks like the cache partition has previously been created, first check it
+    lines=$( fdisk /dev/mmcblk0 -l | grep -iE 'mmcblk0p3|disk ' | xargs )
+    if [[ "$lines" == *" 1G 83 Linux"* ]]; then
+        # the partition size is correct
+        tot_sectors=$( sed 's/^.*.bytes, //' <<< "$lines" )
+        tot_sectors=$( sed 's/ sectors.*//' <<< "$tot_sectors" )
+        end_sector=$( sed 's/^.*.mmcblk0p3 //' <<< "$lines" )
+        end_sector=$( echo $end_sector | cut -d ' ' -f 2 )
+        reserved_sectors=$(( $tot_sectors-$end_sector ))
+        if [ "$reserved_sectors" == "35" ]; then
+            # on creation we reserved 34 free sectors at the end of the disk, so this is the cache partition
+            # unmount the overlay
+            umount overlay_art_cache
+            # unmount the partition
+            umount /dev/mmcblk0p3
+            # remove the mount point
+            rmdir /home/cache
+            # first change the partition type to 0 (zero = undefined/empty)
+            partprobe /dev/mmcblk0
+            lines=$( echo -e "t\n3\n0\np\nw\n" | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3| disk ' | xargs )
+            # now remove the partition, this sometimes gives errors, but works as required
+            partprobe /dev/mmcblk0
+            lines=$( echo -e "d\n3\np\nw\n" | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3| disk ' | xargs )
+            partprobe /dev/mmcblk0
+        fi
+    fi
+ fi
+#
 # unmount rune tmpfs filesystems, empty their mount points and remount (to avoid errors in the startup sequence)
 # http-tmp > /srv/http/tmp
 rm -r /srv/http/tmp/*
