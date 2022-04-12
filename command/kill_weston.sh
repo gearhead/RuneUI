@@ -31,7 +31,7 @@
 #  coder: janui
 #  date: January 2021
 #
-# This file will cause the back-en to kill the westen job with the command 'pkill -15 weston'
+# This file will cause the back-end to kill the westen job with the command 'pkill -15 weston'
 #
 # setup
 set +e # continue on errors
@@ -40,6 +40,7 @@ set +e # continue on errors
 id=$(uuidgen | md5sum | cut -d ' ' -f 1)
 # echo $id
 redis-cli hset w_queue $id '{"wrkcmd":"kill_weston","action":null,"args":null}'
+redis-cli lPush w_queue_fifo $id
 # redis-cli hget w_queue $id
 #---
 #End script

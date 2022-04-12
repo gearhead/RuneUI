@@ -423,13 +423,14 @@ while (true) {
     // monitor loop
     do {
         // pop the jobID from the work fifo queue
-        $jobID = trim($redis->rPop('w_queue_fifo'));
-        if (!isset($jobID) || ($jobID == '')) {
+        $jobID = $redis->rPop('w_queue_fifo');
+        if (!isset($jobID) || !$jobID) {
             // queue is empty
-            // in case something went wrong add an entry to the fifo queue
-            //  for any entries in the work queue, this should never happen!
+            // in some cases an entry is added to the w_queue without adding an entry to the fifo queue
+            //  this happens when w_queue entries are added in bash, so add an entry to the fifo queue for
+            //  any entries in the work queue
             foreach ($redis->hGetAll('w_queue') as $jobID => $job) {
-                if (isset($jobID) && ($jobID != '')) {
+                if (isset($jobID) && $jobID) {
                     $redis->lPush('w_queue_fifo', $jobID);
                 }
             }

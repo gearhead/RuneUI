@@ -228,27 +228,27 @@ function sendMpdCommand(&$sock, $cmd)
         return false;
     }
     $cmd = trim($cmd)."\n";
-    $socReadCnt = 2;
-    while (!socket_write($$sockVarName, $cmd, strlen($cmd)) && $socReadCnt-- >= 0) {
+    if (socket_write($$sockVarName, $cmd, strlen($cmd)) === false) {
         // try reopening the socket with the same socket name if it has timed out (error code = 104)
         if (socket_last_error($$sockVarName) == 104) {
             closeMpdSocket($sock, true);
             $sock = openMpdSocket($sock['path'], $sock['type'], $sockVarName);
-            if (!$sock) {
-                // can't reopen it, reopen can only be tried once, just fail
-                $socReadCnt = 0;
+            if ($sock) {
+                if (socket_write($$sockVarName, $cmd, strlen($cmd)) === false) {
+                    runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR (2nd TRY) ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+                    return false;
+                }
+            } else {
+                runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR (REOPEN) ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+                return false;
             }
         } else {
-            $socReadCnt = 0;
+            runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+            return false;
         }
     }
-    if ($socReadCnt >= 0) {
-        runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
-        return true;
-    } else {
-        runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
-        return false;
-    }
+    runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
+    return true;
 }
 
 // detect end of MPD response
@@ -720,7 +720,7 @@ function sendSpopIdle($sock)
 
 function monitorSpopState($sock)
 {
-    if ($change = sendSpopIdle($sock)) {
+    if ($change == sendSpopIdle($sock)) {
         $status = _parseSpopStatusResponse(SpopStatus($sock));
         runelog('monitorSpopState()', $status);
         return $status;

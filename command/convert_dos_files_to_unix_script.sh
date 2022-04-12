@@ -34,8 +34,11 @@
 set -x # echo all commands to cli
 set +e # continue on errors
 #
+# parameters:
+#   fast > a quick version which just sets the privileges
+#   cleanfiles > a full version will also clear trailing whitespace from source files and uglify the javascript files
+#
 # Convert important files from dos format to unix format script
-# Parameter final removes the package dos2unix
 # Don't run if fast parameter is selected
 if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
@@ -47,16 +50,8 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
     # exceptions are /boot/config.txt and /boot/wifi/* these stay in ms-dos format
-    cp /srv/http/app/config/defaults/boot/config.txt /tmp/config.txt
-    cp /srv/http/app/config/defaults/boot/archimago_underclocking.txt /tmp/archimago_underclocking.txt
-    cp -r /srv/http/app/config/defaults/boot/wifi /tmp
     cd /srv/http/app/config/defaults
     find /srv/http/app/config/defaults/ -type f -exec dos2unix -k -s -o {} \;
-    cp /tmp/config.txt /srv/http/app/config/defaults/boot/config.txt
-    cp /tmp/archimago_underclocking.txt /srv/http/app/config/defaults/boot/archimago_underclocking.txt
-    cp -r /tmp/wifi /srv/http/app/config/defaults/boot
-    rm /tmp/config.txt
-    rm -r /tmp/wifi
     # all files in /srv/http/assets/js
     cd /srv/http/assets/js
     dos2unix -k -s -o *
@@ -221,12 +216,5 @@ chmod 777 /mnt/MPD/USB/*
 chown -R mpd.audio /var/lib/mpd
 chmod 440 /etc/sudoers
 chmod -R 440 /etc/sudoers.d
-#
-# Remove dos2unix if requested
-#
-if [ "$1" == "final" ] || [ "$2" == "final" ] || [ "$3" == "final" ]; then
-    echo "Removing dos2unix package"
-    pacman -Q dos2unix && pacman -Rsn dos2unix --noconfirm
-fi
 #---
 #End script
