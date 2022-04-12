@@ -338,10 +338,8 @@ if ($playerid_db === '') {
         runelog('service: SPOTIFYD start','');
         // start spotifyd if it is not already started
         sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
-        $redis->hSet('spotifyconnect', 'track_id', '');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
-        $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-        $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
     }
     //
     // start udevil
@@ -950,6 +948,21 @@ while (true) {
             case 'airplaymetadata':
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    sysCmd('pgrep -x rune_SSM_wrk || systemctl start rune_SSM_wrk');
+                } else if ($job->action === 'stop') {
+                    sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'spotifyconnectmetadata':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    sysCmd('pgrep -x rune_SDM_wrk || systemctl start rune_SDM_wrk');
+                } else if ($job->action === 'stop') {
+                    sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+                }
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'sambaonoff':
@@ -1336,10 +1349,7 @@ while (true) {
                         sysCmd('chmod 755 '.$spotifyConnectCache);
                         sysCmd('chmod -R 644 '.$spotifyConnectCache.'/*');
                     }
-                    $redis->hSet('spotifyconnect', 'track_id', '');
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
-                    $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-                    $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
                     // make sure that avahi allows other stacks
                     if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf") > 0) {
                         sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
@@ -1356,7 +1366,6 @@ while (true) {
                 isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
                 isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
                 isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
-                // isset($job->args->status) && $redis->hSet('spotifyconnect', 'event', $job->args->status);
                 // isset($job->args->ao) && $redis->hSet('spotifyconnect', 'ao', $job->args->ao);
                 isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
                 // isset($job->args->backend) && $redis->hSet('spotifyconnect', 'backend', $job->args->backend);
@@ -1365,10 +1374,7 @@ while (true) {
                 // isset($job->args->volume_control) && $redis->hSet('spotifyconnect', 'volume_control', $job->args->volume_control);
                 // isset($job->args->onevent) && $redis->hSet('spotifyconnect', 'onevent', $job->args->onevent);
                 // isset($job->args->cache_path) && $redis->hSet('spotifyconnect', 'cache_path', $job->args->cache_path);
-                // isset($job->args->track_id) && $redis->hSet('spotifyconnect', 'track_id', $job->args->track_id);
                 // isset($job->args->last_track_id) && $redis->hSet('spotifyconnect', 'last_track_id', $job->args->last_track_id);
-                // isset($job->args->event_time_stamp) && $redis->hSet('spotifyconnect', 'event_time_stamp', $job->args->event_time_stamp);
-                // isset($job->args->last_time_stamp) && $redis->hSet('spotifyconnect', 'last_time_stamp', $job->args->last_time_stamp);
                 // create a new spotifyd config file
                 wrk_spotifyd($redis);
                 // stop and/or start spotifyd
@@ -1380,10 +1386,8 @@ while (true) {
                     // noid ui_notify_async('Spotify Connect', 'Spotify Connect client configured');
                     ui_notify('Spotify Connect', 'Spotify Connect client configured');
                     sysCmd('pgrep spotifyd || systemctl start spotifyd');
-                    $redis->hSet('spotifyconnect', 'track_id', '');
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
-                    $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-                    $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
                     $redis->hSet('spotifyconnect', 'enable',  1);
                 } elseif ($job->action === 'stop') {
                     runelog('service: SPOTIFYD stop');
@@ -1392,25 +1396,11 @@ while (true) {
                     // noid ui_notify_async('Spotify Connect', 'Spotify Connect client stopped');
                     ui_notify('Spotify Connect', 'Spotify Connect client stopped');
                     sysCmd('pgrep spotifyd && systemctl stop spotifyd');
-                    $redis->hSet('spotifyconnect', 'track_id', '');
+                    sysCmd('pgrep rune_SDM_wrk && systemctl stop rune_SDM_wrk');
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
-                    $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-                    $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
                     $redis->hSet('spotifyconnect', 'enable',  0);
                 }
                 wrk_stopPlayer($redis, 'SpotifyConnect');
-                $redis->sRem('w_lock', $jobID);
-                break;
-            case 'spotifyconnectmsg':
-                runelog('wrk_SY: ', $job->wrkcmd);
-                $redis->sAdd('w_lock', $jobID);
-                // switch the player to spotify connect
-                // connect signals: stop, play: start, next track: change, stop: stop
-                wrk_startPlayer($redis, 'SpotifyConnect');
-                // process metadata if enabled
-                if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
-                    wrk_SpotifyConnectMetadata($redis, $job->action, $job->args);
-                }
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'sourcecfg':

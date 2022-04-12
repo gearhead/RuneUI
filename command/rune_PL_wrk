@@ -46,6 +46,11 @@ sysCmd('echo "--------------- start: rune_PL_wrk ---------------" > /var/log/run
 runelog('WORKER rune_PL_wrk START');
 // reset forceupdate state
 $forceupdate = 1;
+// initialise spotify connect last track ID
+$redis->hSet('spotifyconnect', 'last_track_id', '');
+// clear the spotify connect metadata queues
+$redis->del('s_queue');
+$redis->del('s_queue_fifo');
 
 // --- WORKER MAIN LOOP --- //
 while (true) {
@@ -62,7 +67,7 @@ while (true) {
     $activePlayer = $redis->get('activePlayer');
     $proxy = $redis->hGetall('proxy');
     $lastfm_apikey = $redis->get('lastfm_apikey');
-    if ($activePlayer === 'MPD') {
+    // if ($activePlayer === 'MPD') {
         runelog('rune_PL_wrk: open MPD local UNIX socket');
         //$socket = openMpdSocket('/run/mpd/socket', 0);
         $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
@@ -71,15 +76,15 @@ while (true) {
             sleep(5);
             continue;
         }
-    } else if ($activePlayer === 'Spotify') {
-        runelog('rune_PL_wrk: open SPOP socket');
-        $socket = openSpopSocket('localhost', 6602, 1);
-        if (!$socket) {
-            $redis->close();
-            sleep(5);
-            continue;
-        }
-    }
+    // } else if ($activePlayer === 'Spotify') {
+        // runelog('rune_PL_wrk: open SPOP socket');
+        // $socket = openSpopSocket('localhost', 6602, 1);
+        // if (!$socket) {
+            // $redis->close();
+            // sleep(5);
+            // continue;
+        // }
+    // }
 
     if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect")) {
         // exit script
@@ -94,6 +99,7 @@ while (true) {
             $newStatus = array();
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
+                $status = json_decode($redis->get('act_player_info'), true);
                 runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                 $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
@@ -147,6 +153,10 @@ while (true) {
                 if (!$newStatus || !is_array($newStatus)) {
                     // call close MPD socket to clean up the socket
                     closeMpdSocket($socket);
+                    break;
+                }
+                if ($redis->get('activePlayer') != 'MPD') {
+                    // no longer MPD, just break the loop
                     break;
                 }
                 // store next songid
@@ -279,6 +289,10 @@ while (true) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
                         $retval = wrk_get_webradio_art($redis, $status['currentsong']);
+                        if ($redis->get('activePlayer') != 'MPD') {
+                            // no longer MPD, just break the loop
+                            break;
+                        }
                         // $rts = time() - $rts;
                     } else {
                         $retval = false;
@@ -310,6 +324,9 @@ while (true) {
                             $status['artist_similar'] = $retval['artist_similar'];
                         }
                         if ($retval['artist_arturl']) {
+                            if ($retval['artist_arturl'] == $artUrl.'/none.png') {
+                                $retval['artist_arturl'] = stripcslashes($retval['album_arturl_medium']);
+                            }
                             if ($bigartIsAlbum) {
                                 $status['smallArtURL'] = $retval['artist_arturl'];
                             } else {
@@ -318,12 +335,13 @@ while (true) {
                         }
                         if ($retval['album_arturl_large']) {
                             // when 'album_arturl_large' is set, 'album_arturl_medium' and 'album_arturl_small' are also set
+                            // album art sourced from discogs is escaped, always remove with stripcslashes
                             if ($bigartIsAlbum) {
-                                $status['mainArtURL'] = $retval['album_arturl_medium'];
-                                $status['bigArtURL'] = $retval['album_arturl_medium'];
+                                $status['mainArtURL'] = stripcslashes($retval['album_arturl_medium']);
+                                $status['bigArtURL'] = stripcslashes($retval['album_arturl_medium']);
                             } else {
-                                $status['mainArtURL'] = $retval['album_arturl_small'];
-                                $status['smallArtURL'] = $retval['album_arturl_small'];
+                                $status['mainArtURL'] = stripcslashes($retval['album_arturl_small']);
+                                $status['smallArtURL'] = stripcslashes($retval['album_arturl_small']);
                             }
                         }
                     } else {
@@ -389,6 +407,7 @@ while (true) {
         } elseif ($activePlayer === 'Spotify') {
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
+                $status = json_decode($redis->get('act_player_info'), true);
                 runelog('----------------------------------- FORCE UPDATE Spotify -----------------------------------');
                 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                 $status = array_merge($status, initialise_playback_array($redis, 'Spotify'));
@@ -423,6 +442,7 @@ while (true) {
             //
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
+                $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE Airplay ----------------------------------');
                 $status = array_merge($status, initialise_playback_array($redis, 'Airplay'));
             }
@@ -436,15 +456,18 @@ while (true) {
             //
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
+                $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE SpotifyConnect ----------------------------------');
                 $status = array_merge($status, initialise_playback_array($redis, 'Spotify connect'));
             }
+            $redis->hSet('spotifyconnect', 'last_track_id', '');
             $spotify_connect_timeout = $redis->hGet('spotifyconnect', 'timeout');
             $spotify_connect_timeout_count = $spotify_connect_timeout;
+            $sleepUntilTime = microtime(true)+2;
             do {
                 runelog('rune_PL_wrk: Spotify Connect idle loop');
                 // sometimes spotifyd gets its stop/start switch mixed up (returning start when stopped) so test for something playing instead of the event 'stop' value
-                $playing = reset(sysCmd('cat /proc/asound/card*/pcm*p/sub*/hw_params | grep -c -i -v closed'));
+                $playing = sysCmd('cat /proc/asound/card*/pcm*p/sub*/hw_params | grep -civ closed')[0];
                 // $playing contains 0 or false when nothing is playing, otherwise a positive number like 7 (=true)
                 runelog('rune_PL_wrk: $playing:', $playing);
                 if ($playing) {
@@ -461,9 +484,16 @@ while (true) {
                     $spotify_connect_timeout_count = $spotify_connect_timeout;
                     break;
                 }
-                sleep(2);
+                // 2 second sleep
+                $sleepTime = $sleepUntilTime - microtime(true);
+                if ($sleepTime > 0) {
+                    $sleepTime = intval($sleepTime * 1000000);
+                    usleep($sleepTime);
+                }
+                $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'SpotifyConnect');
             sleep(1);
+            $redis->hSet('spotifyconnect', 'last_track_id', '');
         } else {
             $forceupdate = 1;
             sleep(1);

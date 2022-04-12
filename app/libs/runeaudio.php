@@ -4231,21 +4231,17 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         }
         syscmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
         syscmd('rm -f /tmp/spotifyd.conf');
-        // stop spotifyd
+        // stop spotifyd & rune_SDM_wrk
         sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
-        $redis->hSet('spotifyconnect', 'track_id', '');
+        sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
-        $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-        $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
         // update systemd
         sysCmd('systemctl daemon-reload');
         if ($redis->hGet('spotifyconnect', 'enable')) {
             runelog('restart spotifyd');
             sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
-            $redis->hSet('spotifyconnect', 'track_id', '');
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-            $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
         }
     }
 }
@@ -5263,104 +5259,111 @@ function wrk_startPlayer($redis, $newplayer)
         // it should always be set, but default to MPD when nothing specified
         $activePlayer = 'MPD';
     }
-    if ($activePlayer != $newplayer) {
-        if ($activePlayer === 'MPD') {
-            $redis->set('stoppedPlayer', $activePlayer);
-            // record  the mpd status
-            wrk_mpdPlaybackStatus($redis);
-            // connect to MPD daemon
-            // $sock = openMpdSocket('/run/mpd.sock', 0);
-            $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-            if ($sock) {
-                $status = _parseStatusResponse($redis, MpdStatus($sock));
-                runelog('MPD status', $status);
-                if ($status['state'] === 'play') {
-                    // pause playback
-                    if (sendMpdCommand($sock, 'pause')) {
-                        readMpdResponse($sock);
-                    }
-                    // debug
-                    runelog('sendMpdCommand', 'pause');
-                }
-                // set the new player
-                $redis->set('activePlayer', $newplayer);
-                // to get MPD out of its idle-loop we discribe to a channel
-                sendMpdCommand($sock, 'subscribe '.$newplayer);
-                sendMpdCommand($sock, 'unsubscribe '.$newplayer);
-                closeMpdSocket($sock);
-            }
-            if ($newplayer == 'Spotify') {
-                $retval = sysCmd('systemctl is-active spopd');
-                if ($retval[0] === 'active') {
-                    // do nothing
-                } else {
-                    sysCmd('systemctl start spopd');
-                    usleep(500000);
-                }
-                wrk_mpdconf($redis, 'forcestop');
-                $redis->set('mpd_playback_status', 'stop');
-                // set process priority
-                sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
-            }
-        } elseif ($activePlayer === 'Spotify') {
-            $redis->set('stoppedPlayer', $activePlayer);
-            // connect to SPOPD daemon
-            $sock = openSpopSocket('localhost', 6602, 1);
-            $status = _parseSpopStatusResponse(SpopStatus($sock));
-            runelog('SPOP status', $status);
+    if ($activePlayer === 'MPD') {
+        $redis->set('stoppedPlayer', $activePlayer);
+        // record  the mpd status
+        wrk_mpdPlaybackStatus($redis);
+        // connect to MPD daemon
+        // $sock = openMpdSocket('/run/mpd.sock', 0);
+        $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+        if ($sock) {
+            $status = _parseStatusResponse($redis, MpdStatus($sock));
+            runelog('MPD status', $status);
             if ($status['state'] === 'play') {
-                sendSpopCommand($sock, 'toggle');
+                // pause playback
+                if (sendMpdCommand($sock, 'pause')) {
+                    readMpdResponse($sock);
+                }
                 // debug
-                runelog('sendSpopCommand', 'toggle');
+                runelog('sendMpdCommand', 'pause');
             }
             // set the new player
             $redis->set('activePlayer', $newplayer);
-            // to get SPOP out of its idle-loop
-            sendSpopCommand($sock, 'notify');
-            closeSpopSocket($sock);
-            if ($newplayer == 'MPD') {
-                wrk_mpdconf($redis, 'start');
-                // ashuffle gets started automatically
-                // stop spotify
-                sysCmd('systemctl stop spopd');
-                // set process priority
-                sysCmdAsync('rune_prio nice');
-            }
-        } elseif ($activePlayer === 'Airplay') {
-            // cant switch back to Airplay so don't set stoppedPlayer
-            // stop the Airplay metadata worker
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
-            waitSyWrk($redis, $jobID);
-            // set the new player
-            $redis->set('activePlayer', $newplayer);
-            if ($newplayer === 'SpotifyConnect') {
-                // this will disconnect an exiting Airplay stream
-                // do it only when connecting to another stream
-                sysCmd('systemctl restart shairport-sync');
-            }
-        } elseif ($activePlayer === 'SpotifyConnect') {
-            // cant switch back to SpotifyConnect so don't set stoppedPlayer
-            // no metadata worker for SpotifyConnect
-            // set the new player
-            $redis->set('activePlayer', $newplayer);
-            // if ($newplayer === 'Airplay') {
-                // this will disconnect an exiting SpotifyConnect stream
-                // do it only when connecting to another stream
-                sysCmd('systemctl restart spotifyd');
-                $redis->hSet('spotifyconnect', 'track_id', '');
-                $redis->hSet('spotifyconnect', 'last_track_id', '');
-                $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-                $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
-            // }
-            sysCmd('rm /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
-            ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\"}");
-            sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+            // to get MPD out of its idle-loop we discribe to a channel
+            sendMpdCommand($sock, 'subscribe '.$newplayer);
+            sendMpdCommand($sock, 'unsubscribe '.$newplayer);
+            closeMpdSocket($sock);
         }
+        if ($newplayer == 'Spotify') {
+            $retval = sysCmd('systemctl is-active spopd');
+            if ($retval[0] === 'active') {
+                // do nothing
+            } else {
+                sysCmd('systemctl start spopd');
+                usleep(500000);
+            }
+            wrk_mpdconf($redis, 'forcestop');
+            $redis->set('mpd_playback_status', 'stop');
+        }
+    } elseif ($activePlayer === 'Spotify') {
+        $redis->set('stoppedPlayer', $activePlayer);
+        // connect to SPOPD daemon
+        $sock = openSpopSocket('localhost', 6602, 1);
+        $status = _parseSpopStatusResponse(SpopStatus($sock));
+        runelog('SPOP status', $status);
+        if ($status['state'] === 'play') {
+            sendSpopCommand($sock, 'toggle');
+            // debug
+            runelog('sendSpopCommand', 'toggle');
+        }
+        // set the new player
+        $redis->set('activePlayer', $newplayer);
+        // to get SPOP out of its idle-loop
+        sendSpopCommand($sock, 'notify');
+        closeSpopSocket($sock);
+        if ($newplayer == 'MPD') {
+            wrk_mpdconf($redis, 'start');
+            // ashuffle gets started automatically
+            // stop spotify
+            sysCmd('systemctl stop spopd');
+            // set process priority
+            sysCmdAsync('rune_prio nice');
+        }
+    } elseif ($activePlayer === 'Airplay') {
+        // cant switch back to Airplay so don't set stoppedPlayer
+        // stop the Airplay metadata worker
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
+        // set the new player
+        $redis->set('activePlayer', $newplayer);
+        // if ($newplayer === 'SpotifyConnect') {
+            // this will disconnect an exiting Airplay stream
+            // do it only when connecting to another stream
+            sysCmd('systemctl restart shairport-sync');
+        // }
+    } elseif ($activePlayer === 'SpotifyConnect') {
+        // cant switch back to SpotifyConnect so don't set stoppedPlayer
+        // stop SpotifyConnect worker for SpotifyConnect
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
+        // set the new player
+        $redis->set('activePlayer', $newplayer);
+        // if ($newplayer === 'Airplay') {
+            // this will disconnect an exiting SpotifyConnect stream
+            // do it only when connecting to another stream
+            sysCmd('systemctl restart spotifyd');
+        // }
+        $redis->hSet('spotifyconnect', 'last_track_id', '');
+        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+        if (($newplayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'paused')) {
+            // to-do: work out a better way to do this
+            // we need to pause MPD very early to allow spotify connect to start correctly
+            //  this means that we need to assume that if the stopped player is MDP and it's saved
+            //  state is paused then its real previous state was playing
+            $redis->set('mpd_playback_laststate', 'playing');
+        }
+        // sysCmd('rm /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
+        ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\"}");
+        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
     }
     if ($newplayer == 'MPD') {
         wrk_mpdRestorePlayerStatus($redis);
+    } elseif ($newplayer == 'Airplay') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
+    } elseif ($newplayer == 'SpotifyConnect') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
     }
     sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    // set process priority
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
 }
 
 function wrk_stopPlayer($redis, $activePlayer=null)
@@ -5369,116 +5372,109 @@ function wrk_stopPlayer($redis, $activePlayer=null)
     if (is_null($activePlayer)) {
         $activePlayer = $redis->get('activePlayer');
     }
-    if ($redis->get('activePlayer') != $activePlayer) {
-        runelog('wrk_stopPlayer player already stopped');
-    } else {
-        runelog('wrk_stopPlayer active player', $activePlayer);
-        if (($activePlayer == 'Airplay') || ($activePlayer == 'SpotifyConnect')) {
-            // we previously stopped playback of one player to use the Stream
-            $stoppedPlayer = $redis->get('stoppedPlayer');
-            runelog('wrk_stopPlayer stoppedPlayer = ', $stoppedPlayer);
-            // if ($activePlayer == 'Airplay') {
-                // sysCmd('systemctl restart shairport-sync');
-            // }
-            if ($activePlayer == 'SpotifyConnect') {
-                runelog('wrk_stopPlayer restart spotifyd');
-                sysCmd('systemctl restart spotifyd');
-                $redis->hSet('spotifyconnect', 'track_id', '');
-                $redis->hSet('spotifyconnect', 'last_track_id', '');
-                $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-                $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+    runelog('wrk_stopPlayer active player', $activePlayer);
+    if (($activePlayer == 'Airplay') || ($activePlayer == 'SpotifyConnect')) {
+        // we previously stopped playback of one player to use the Stream
+        $stoppedPlayer = $redis->get('stoppedPlayer');
+        runelog('wrk_stopPlayer stoppedPlayer = ', $stoppedPlayer);
+        // if ($activePlayer == 'Airplay') {
+            // sysCmd('systemctl restart shairport-sync');
+        // }
+        if ($stoppedPlayer === '') {
+            // if no stopped player is specified use MPD as default
+            $stoppedPlayer = 'MPD';
+        }
+        if ($activePlayer == 'SpotifyConnect') {
+            runelog('wrk_stopPlayer restart spotifyd');
+            sysCmd('systemctl restart spotifyd');
+            $redis->hSet('spotifyconnect', 'last_track_id', '');
+            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+            if (($stoppedPlayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'paused')) {
+                // to-do: work out a better way to do this
+                // we need to pause MPD very early to allow spotify connect to start correctly
+                //  this means that we need to assume that if the stopped player is MDP and it's saved
+                //  state is paused then its real previous state was playing
+                $redis->set('mpd_playback_laststate', 'playing');
             }
-            if ($stoppedPlayer === '') {
-                // if no stopped player is specified use MPD as default
-                $stoppedPlayer = 'MPD';
-            }
-            runelog('wrk_stopPlayer stoppedPlayer = ', $stoppedPlayer);
-            if ($stoppedPlayer === 'MPD') {
-                wrk_mpdconf($redis, 'start');
-                // ashuffle gets started automatically
-                // stop spotify
-                sysCmd('systemctl stop spopd');
-                // set process priority
-                sysCmdAsync('rune_prio nice');
-                // set the active player back to the one we stopped
-                $redis->set('activePlayer', $stoppedPlayer);
-                // connect to MPD daemon
-                //$sock = openMpdSocket('/run/mpd.sock', 0);
-                $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-                if ($sock) {
-                    $status = _parseStatusResponse($redis, MpdStatus($sock));
-                    runelog('MPD status', $status);
-                    if ($status['state'] === 'pause') {
-                        // clear the stopped player if we left MPD paused
-                        $redis->set('stoppedPlayer', '');
-                    }
-                    // to get MPD out of its idle-loop we discribe to a channel
-                    sendMpdCommand($sock, 'subscribe '.$activePlayer);
-                    sendMpdCommand($sock, 'unsubscribe '.$activePlayer);
-                    closeMpdSocket($sock);
-                }
-                // continue playing mpd where it stopped when the stream started
-                wrk_mpdRestorePlayerStatus($redis);
-            } elseif ($stoppedPlayer === 'Spotify') {
-                $retval = sysCmd('systemctl is-active spopd');
-                if ($retval[0] === 'active') {
-                    // do nothing
-                } else {
-                    sysCmd('systemctl start spopd');
-                    usleep(500000);
-                }
-                unset($retval);
-                wrk_mpdconf($redis, 'forcestop');
-                $redis->set('mpd_playback_status', 'stop');
-                // set process priority
-                sysCmdAsync('rune_prio nice');
-                // connect to SPOPD daemon
-                $sock = openSpopSocket('localhost', 6602, 1);
-                $status = _parseSpopStatusResponse(SpopStatus($sock));
-                runelog('SPOP status', $status);
+        }
+        runelog('wrk_stopPlayer stoppedPlayer = ', $stoppedPlayer);
+        if ($stoppedPlayer === 'MPD') {
+            wrk_mpdconf($redis, 'start');
+            // ashuffle gets started automatically
+            // stop spotify
+            sysCmd('systemctl stop spopd');
+            // set process priority
+            sysCmdAsync('rune_prio nice');
+            // set the active player back to the one we stopped
+            $redis->set('activePlayer', $stoppedPlayer);
+            // connect to MPD daemon
+            //$sock = openMpdSocket('/run/mpd.sock', 0);
+            $sock = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+            if ($sock) {
+                $status = _parseStatusResponse($redis, MpdStatus($sock));
+                runelog('MPD status', $status);
                 if ($status['state'] === 'pause') {
-                    // clear the stopped player if we left SPOP paused
+                    // clear the stopped player if we left MPD paused
                     $redis->set('stoppedPlayer', '');
                 }
-                // to get SPOP out of its idle-loop
-                sendSpopCommand($sock, 'notify');
-                //sendSpopCommand($sock, 'toggle');
-                closeSpopSocket($sock);
-                // set the active player back to the one we stopped
-                $redis->set('activePlayer', $stoppedPlayer);
-                //delete all files in shairport folder except "now_playing"
-                $dir = '/var/run/shairport/';
-                $leave_files = array('now_playing');
-                foreach( glob("$dir/*") as $file ) {
-                    if( !in_array(basename($file), $leave_files) ) {
-                        unlink($file);
-                    }
-                }
+                // to get MPD out of its idle-loop we discribe to a channel
+                sendMpdCommand($sock, 'subscribe '.$activePlayer);
+                sendMpdCommand($sock, 'unsubscribe '.$activePlayer);
+                closeMpdSocket($sock);
             }
-            runelog('endFunction!!!', $stoppedPlayer);
-            sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+            // continue playing mpd where it stopped when the stream started
+            wrk_mpdRestorePlayerStatus($redis);
+        } elseif ($stoppedPlayer === 'Spotify') {
+            $retval = sysCmd('systemctl is-active spopd');
+            if ($retval[0] === 'active') {
+                // do nothing
+            } else {
+                sysCmd('systemctl start spopd');
+                usleep(500000);
+            }
+            unset($retval);
+            wrk_mpdconf($redis, 'forcestop');
+            $redis->set('mpd_playback_status', 'stop');
+            // connect to SPOPD daemon
+            $sock = openSpopSocket('localhost', 6602, 1);
+            $status = _parseSpopStatusResponse(SpopStatus($sock));
+            runelog('SPOP status', $status);
+            if ($status['state'] === 'pause') {
+                // clear the stopped player if we left SPOP paused
+                $redis->set('stoppedPlayer', '');
+            }
+            // to get SPOP out of its idle-loop
+            sendSpopCommand($sock, 'notify');
+            //sendSpopCommand($sock, 'toggle');
+            closeSpopSocket($sock);
+            // set the active player back to the one we stopped
+            $redis->set('activePlayer', $stoppedPlayer);
         }
     }
+    runelog('endFunction!!!', $stoppedPlayer);
+    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    // set process priority
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
 }
 
-function wrk_SpotifyConnectMetadata($redis, $event, $track_id)
-{
-    runelog('wrk_SpotifyConnectMetadata event   :', $event);
-    runelog('wrk_SpotifyConnectMetadata track ID:', $track_id);
-    switch($event) {
-        case 'start':
-            // no break;
-        case 'change':
-            // no break;
-        case 'stop':
-            // run asynchronous metadata script
-            sysCmdAsync('nice --adjustment=3 /srv/http/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
-            break;
-        default:
-            runelog('wrk_SpotifyConnectMetadata error:', 'Unknown event');
-            break;
-    }
-}
+// function wrk_SpotifyConnectMetadata($redis, $event, $track_id)
+// {
+    // runelog('wrk_SpotifyConnectMetadata event   :', $event);
+    // runelog('wrk_SpotifyConnectMetadata track ID:', $track_id);
+    // switch($event) {
+        // case 'start':
+            // // no break;
+        // case 'change':
+            // // no break;
+        // case 'stop':
+            // // run asynchronous metadata script
+            // sysCmdAsync('nice --adjustment=3 /srv/http/command/spotify_connect_metadata_async.php '.$event.' '.$track_id);
+            // break;
+        // default:
+            // runelog('wrk_SpotifyConnectMetadata error:', 'Unknown event');
+            // break;
+    // }
+// }
 
 function wrk_startUpmpdcli($redis)
 {
@@ -5708,10 +5704,8 @@ function wrk_changeHostname($redis, $newhostname)
         if ($redis->hGet('spotifyconnect','enable') === '1') {
             runelog("service: spotifyconnect restart",'');
             sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
-            $redis->hSet('spotifyconnect', 'track_id', '');
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            $redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-            $redis->hSet('spotifyconnect', 'last_time_stamp', 0);
+            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
         }
     }
     // update dlna name
@@ -9131,6 +9125,10 @@ function wrk_get_webradio_art($redis, $radiostring)
             }
         }
     }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
+    }
     if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song'] || $info['album']) {
         // try to pick the artist album and song up from discogs
         // the album art is will also be returned if there is a match
@@ -9168,6 +9166,10 @@ function wrk_get_webradio_art($redis, $radiostring)
                 }
             }
         }
+    }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
     }
     // use music brainz to determine the release (album) and album_mbid (it could also be a single)
     if ($noRadioCache && !$info['album']) {
@@ -9237,14 +9239,26 @@ function wrk_get_webradio_art($redis, $radiostring)
             }
         }
     }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
+    }
 
     $retval = get_artistInfo($redis, $info);
     if ($retval) {
         $info = array_merge($info, $retval);
     }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
+    }
     $retval = get_songInfo($redis, $info);
     if ($retval) {
         $info = array_merge($info, $retval);
+    }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
     }
     $retval = get_albumInfo($redis, $info);
     if ($retval) {
@@ -9369,6 +9383,7 @@ function check_opcache($redis)
 
 // function to initialise the playback array
 function initialise_playback_array($redis, $playerType = 'MPD')
+// $playerType can have the following values: 'MPD' (default), 'Spotify', 'Airplay', 'Spotify connect'
 {
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
     $playerTypeLower = strtolower($playerType);
@@ -9465,4 +9480,351 @@ function add_udev_rules($rulesFileName)
     copy($rulesFileName, $tmpRulesFileName);
     symlink($tmpRulesFileName, $udevRulesFileName);
     sysCmd('sync');
+}
+
+// fucntion to retrieve Spotify metadata based on a track ID
+function wrk_getSpotifyMetadata($redis, $track_id)
+// track ID is returned by programs like spotifyd
+// this routine uses open Spotify URL's, and the returned web pages are screen-scraped
+// the results are returned in an array containing:
+//  array['artist'] > artist name
+//  array['album'] > album name
+//  array['title'] > song title
+//  array['albumart_url'] > URL pointing to the album art
+//  array['duration_in_sec'] > the track duration in seconds
+//  array['year'] > release year
+// the results which can be returned using this method are limited, see here for a more advanced
+//  method using the Spotify API: https://github.com/Spotifyd/spotifyd/wiki/User-supplied-scripts
+// other things which are available and could be added are:
+//  array['track.description'] > the track description (from track data)
+//  array['album:track'] > the track number (from track data)
+//  array['release_date'] > release date of the track (from track data)
+//  array['album.description'] > the album description including single/album info (from album data)
+//  array['artist.description'] > the number of monthly listeners (from artist data)
+{
+    // get the album art directory and url dir
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+    // set the variables to default values
+    $retval = array();
+    $retval['artist'] = 'Spotify';
+    $retval['album'] = 'Spotify Connect';
+    $retval['title'] = '-';
+    $retval['albumart_url'] = $artUrl.'/none.png';
+    $retval['duration_in_sec'] = '';
+    $retval['year'] = '';
+    $retval['date'] = date("Ymd");
+    // it there is a cache file, use it
+    $cacheFile = $artDir.'/'.trim($track_id).'.spotify';
+    clearstatcache(true, $cacheFile);
+    if (file_exists($cacheFile)) {
+        // the information for this track ID has been cached, use it
+        $cache = json_decode(trim(file_get_contents($cacheFile)) , true);
+        // update the file date stamp
+        touch($cacheFile);
+        if (!isset($cache['date']) || ($cache['date'] == date("Ymd"))) {
+            // when 'date' is not set the information is complete, just return it
+            // when date is set and it is from today, it may not be complete, but still just return it
+            return $cache;
+        } else {
+            $retval = array_merge($retval, $cache);
+
+        }
+    }
+    if ($redis->hGet('spotifyconnect', 'metadata_timeout_restart_time') >= microtime(true)) {
+        $timeout = true;
+    } else {
+        $timeout = false;
+    }
+    // just return when metadata is disabled or the when screen scraper has timed out
+    if (!$redis->hGet('spotifyconnect', 'metadata_enabled') || $timeout) {
+        // don't save any information, just ruturn the defaults
+        return $retval;
+    }
+    // when the API client-id and secret are set use the Spotify API method
+    if (($redis->hExists('spotifyconnect', 'api_id') && $redis->hGet('spotifyconnect', 'api_id')
+            && $redis->hExists('spotifyconnect', 'api_secret') && $redis->hGet('spotifyconnect', 'api_secret'))
+            || ($redis->hExists('spotifyconnect', 'api_token') && $redis->hGet('spotifyconnect', 'api_token'))) {
+        // API client-id and secret are set or the apt token is set
+        $retval = wrk_getSpotifyMetadataAdvanced($redis, $track_id);
+        if ($retval) {
+            // on success return the value
+            return $retval;
+        }
+    }
+    // otherwise use screen scraping
+    if ($retval['title'] == '-') {
+        // still set to default, so try retreving information
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -i -E 'og:title|og:image|og:description|music:duration|music:album|music:musician'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician'."'";
+        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician'."'";
+        runelog('wrk_getSpotifyMetadata track command:', $command);
+        $trackInfoLines = sysCmd($command);
+        $timeout = true;
+        foreach ($trackInfoLines as $workline) {
+            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
+            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
+            // then strip the html out of the response
+            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
+            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
+            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
+            $line = preg_replace('/"[\s]*\>/', '', $line);
+            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
+            $line = trim($line);
+            // result is <identifier>=<value>
+            $lineparts = explode('=', $line);
+            if ($lineparts[0] === 'og:title') {
+                $retval['title'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata track title:', $retval['title']);
+                $timeout = false;
+            } elseif ($lineparts[0] === 'og:image') {
+                $retval['albumart_url'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata track albumart_url:', $retval['albumart_url']);
+            } elseif ($lineparts[0] === 'og:description') {
+                $description = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata description:', $description);
+                $retval['artist'] = get_between_data($description, '', ' · ');
+                $retval['year'] = substr($description, -4);
+                runelog('wrk_getSpotifyMetadata artist:', $retval['artist']);
+                runelog('wrk_getSpotifyMetadata yeat:', $retval['year']);
+            } elseif ($lineparts[0] === 'music:duration') {
+                $retval['duration_in_sec'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata track duration_in_sec:', $retval['duration_in_sec']);
+            } elseif ($lineparts[0] === 'music:album') {
+                $retval['album_url'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata track album_url:', $retval['album_url']);
+            } elseif ($lineparts[0] === 'music:musician') {
+                $retval['artist_url'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata track artist_url:', $retval['artist_url']);
+            }
+            unset($lineparts);
+        }
+        unset($trackInfoLines, $workline, $line);
+        if ($timeout) {
+            // timeout for an hour (= current timestamp + 60x60 seconds)
+            $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
+        } else {
+            // cache the track ID information for the next time
+            file_put_contents($cacheFile, json_encode($retval)."\n");
+        }
+        return $retval;
+    }
+    //
+    // get the album name
+    if (!isset($retval['album_url']) || !$retval['album_url']) {
+        runelog('wrk_getSpotifyMetadata ALBUM_URL:', 'Empty');
+    } else if ($retval['date'] == date("Ymd")) {
+        // do nothing
+    } else {
+        // album name is still the default
+        runelog('wrk_getSpotifyMetadata ALBUM_URL:', $retval['album_url']);
+        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
+        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
+        runelog('wrk_getSpotifyMetadata album command:', $command);
+        $albumInfoLines = sysCmd($command);
+        $timeout = true;
+        foreach ($albumInfoLines as $workline) {
+            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
+            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
+            // then strip the html out of the response
+            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
+            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
+            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
+            $line = preg_replace('/"[\s]*\>/', '', $line);
+            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
+            $line = trim($line);
+            // result is <identifier>=<value>
+            $lineparts = explode('=', $line);
+            if ($lineparts[0] === 'og:title') {
+                $retval['date'] = date("Ymd");
+                $retval['album'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata album title:', $retval['album']);
+                $timeout = false;
+                unset($retval['album_url']);
+            }
+            unset($lineparts);
+        }
+        unset($albumInfoLines, $workline, $line);
+        if ($timeout) {
+            // timeout for an hour (= current timestamp + 60x60 seconds)
+            $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
+        } else {
+            // cache the track ID information for the next time
+            file_put_contents($cacheFile, json_encode($retval)."\n");
+        }
+        return $retval;
+    }
+
+    // get the artist name
+    if (!isset($retval['artist_url']) || !$retval['artist_url']) {
+        runelog('wrk_getSpotifyMetadata ARTIST_URL:', 'Empty');
+    } else if ($retval['date'] == date("Ymd")) {
+        // do nothing
+    } else {
+        runelog('wrk_getSpotifyMetadata ARTIST_URL:', $retval['artist_url']);
+        // curl -s '<ARTIST_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['artist_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
+        //$command = 'curl -s '."'".$artist_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
+        runelog('wrk_getSpotifyMetadata artist command:', $command);
+        $artistInfoLines = sysCmd($command);
+        $timeout = true;
+        foreach ($artistInfoLines as $workline) {
+            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
+            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
+            // then strip the html out of the response
+            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
+            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
+            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
+            $line = preg_replace('/"[\s]*\>/', '', $line);
+            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
+            $line = trim($line);
+            // result is <identifier>=<value>
+            $lineparts = explode('=', $line);
+            if ($lineparts[0] === 'og:title') {
+                $retval['artist'] = trim($lineparts[1]);
+                runelog('wrk_getSpotifyMetadata artist title:', $retval['artist']);
+                $timeout = false;
+                unset($retval['artist_url'], $retval['date']);
+            }
+            unset($lineparts);
+        }
+        unset($artistInfoLines, $workline, $line);
+        if ($timeout) {
+            // timeout for an hour (= current timestamp + 60x60 seconds)
+            $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
+        } else {
+            // cache the track ID information for the next time
+            file_put_contents($cacheFile, json_encode($retval)."\n");
+        }
+        return $retval;
+    }
+    return $retval;
+}
+
+// function to retrieve Spotify metadata based on a track ID via the Spotify API
+function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
+// track ID is returned by programs like spotifyd
+// this routine uses the Spotify API, which requires a registered API user ID and Secret
+// the results are returned in an array containing:
+//  array['artist'] > artist name
+//  array['album'] > album name
+//  array['title'] > song title
+//  array['albumart_url'] > URL pointing to the album art
+//  array['duration_in_sec'] > the track duration in seconds
+//  array[''] > release year
+{
+    // get the album art directory and url dir
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+    // it there is a cache file, use it
+    $cacheFile = $artDir.'/'.trim($track_id).'.spotify';
+    clearstatcache(true, $cacheFile);
+    if (file_exists($cacheFile)) {
+        // the information for this track ID has been cached, use it
+        $retval = json_decode(trim(file_get_contents($cacheFile)) , true);
+        // update the file date stamp
+        touch($cacheFile);
+        if (!isset($retval['date'])) {
+            // value set in this routine, not by screen scraping, just return the value
+            return $retval;
+        }
+    }
+    // get the API user ID, secret and token
+    $apiUserID = $redis->hGet('spotifyconnect', 'api_id');
+    $apiSecret = $redis->hGet('spotifyconnect', 'api_secret');
+    if (!$redis->hExists('spotifyconnect', 'api_token') || !$redis->hGet('spotifyconnect', 'api_token')) {
+        // no API token, get one
+        $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+        $retval = json_decode($retval, true);
+        if (isset($retval['access_token']) && $retval['access_token']) {
+            // got an API token, save it
+            $apiToken = $retval['access_token'];
+            $redis->hSet('spotifyconnect', 'api_token', $apiToken);
+        } else {
+            // cant get an API token, invalid user ID and/or secret
+            $apiToken = '';
+        }
+    } else {
+        // we have a saved API token, use it
+        $apiToken = $redis->hGet('spotifyconnect', 'api_token');
+    }
+    if ($apiToken) {
+        // there is a an API token
+        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+        $retval = implode(' ', sysCmd($command));
+        $metadata = json_decode($retval, true);
+        if (isset($metadata['error']['message']) && strpos($metadata['error']['message'], 'expired') ) {
+            // token has expired, get a new one
+            // other failures are not handled
+            $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+            $retval = json_decode($retval, true);
+            if (isset($retval['access_token']) && $retval['access_token']) {
+                // we have a new token, save it
+                $apiToken = $retval['access_token'];
+                $redis->hSet('spotifyconnect', 'api_token', $apiToken);
+            } else {
+                // cant get an API token, invalid user ID and/or secret
+                $apiToken = '';
+            }
+        } else {
+            // cant get an API token, some other unknown error
+            $apiToken = '';
+        }
+        // try again
+        if ($apiToken) {
+        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+            $retval = implode(' ', sysCmd($command));
+            $metadata = json_decode($retval, true);
+        }
+    }
+    $retval = array();
+    if (isset($metadata['name'])) {
+        // track name is valid, assume the rest is OK and use the results
+        $retval['artist'] = $metadata['artists'][0]['name']; // just use the first artist name, there are optionally more
+        $retval['album'] = $metadata['album']['name'];
+        $retval['title'] = $metadata['name'];
+        $retval['albumart_url'] = $metadata['album']['images'][1]['url']; // [0] = 640x640px, [1] = 300x300px, [2] = 64x64px
+        $retval['duration_in_sec'] = round($metadata['duration_ms']/1000);
+        $retval['year'] = substr($metadata['album']['release_date'], 0, 4);
+        // extra information is available, but not used
+        // $retval['release_date'] = $metadata['album']['release_date'];
+        // $retval['total_tracks'] = $metadata['album']['total_tracks']; // total number of tracks on the album
+        // $retval['type'] = $metadata['album']['type']; // album or single
+        // $retval['disc_number'] = $metadata['disc_number'];
+        // $retval['popularity'] = $metadata['popularity']; // scale unknown
+        // $retval['track_number'] = $metadata['track_number']; // this songs track number
+        // cache the track ID information for the next time
+        file_put_contents($cacheFile, json_encode($retval)."\n");
+    } else {
+        // no or invalid data returned, use default values
+        $retval['artist'] = 'Spotify';
+        $retval['album'] = 'Spotify Connect';
+        $retval['title'] = '-';
+        $retval['albumart_url'] = $artUrl.'/none.png';
+        $retval['duration_in_sec'] = '';
+        $retval['year'] = '';
+    }
+    return $retval;
+}
+
+// get the value of the first matching key in a single or multidimensional array
+function search_array_keys($myArray, $search)
+// returns the first non-null/non-false value of an array node when its key matching the search string
+// it really only works well returning strings, null and boolean values give incorrect results
+// no match returns false, a match with a null or boolian false value returns false
+{
+    foreach ($myArray as $key => $value) {
+        if (is_array($value)) {
+            $retval = search_array_keys($value, $search);
+            if ($retval) {
+                return $retval;
+            }
+        } else {
+            if ($key == $search) {
+                return $value;
+            }
+        }
+    }
+    return false;
 }

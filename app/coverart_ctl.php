@@ -219,52 +219,6 @@ if ($activePlayer === 'MPD' && $status['radio']) {
     header('Content-Type: '.$spotify_cover_mime);
     header('Content-Length: '.strlen($spotify_cover));
     echo $spotify_cover;
-} else if ($activePlayer === 'Airplay') {
-    // clear the cache before testing for the existence of a file
-    clearstatcache(true, $serverHome.'/tmp/airplay/airplay-cover.jpg');
-    clearstatcache(true, $serverHome.'/tmp/airplay/airplay-cover.png');
-    // determine the file name and path
-    if (file_exists($serverHome.'/tmp/airplay/airplay-cover.jpg')) {
-        $imgfilename = $serverHome.'/tmp/airplay/airplay-cover.jpg';
-    } else if (file_exists($serverHome.'/tmp/airplay/airplay-cover.png')) {
-        $imgfilename = $serverHome.'/tmp/airplay/airplay-cover.png';
-    } else {
-        $imgfilename = $serverHome.'/tmp/airplay/airplay-default.png';
-    }
-    // debug
-    runelog('Airplay coverart match: ', $imgfilename);
-    header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.
-    header('Pragma: no-cache'); // HTTP 1.0.
-    header('Expires: 0'); // Proxies, pre-expired content
-    header('Content-Type: '.mime_content_type($imgfilename));
-    // clear the cache otherwise filesize() returns incorrect values
-    clearstatcache(true, $imgfilename);
-    header('Content-Length: '.filesize($imgfilename));
-    readfile($imgfilename);
-    $output = 1;
-} else if ($activePlayer === 'SpotifyConnect') {
-    // clear the cache before testing for the existence of a file
-    clearstatcache(true, $serverHome.'/tmp/spotify-connect/spotify-connect-cover.jpg');
-    clearstatcache(true, $serverHome.'/tmp/spotify-connect/spotify-connect-cover.png');
-    // determine the file name and path
-    if (file_exists($serverHome.'/tmp/spotify-connect/spotify-connect-cover.jpg')) {
-        $imgfilename = $serverHome.'/tmp/spotify-connect/spotify-connect-cover.jpg';
-    } else if (file_exists($serverHome.'/tmp/spotify-connect/spotify-connect-cover.png')) {
-        $imgfilename = $serverHome.'/tmp/spotify-connect/spotify-connect-cover.png';
-    } else {
-        $imgfilename = $serverHome.'/tmp/spotify-connect/spotify-connect-default.png';
-    }
-    // debug
-    runelog('SpotifyConnect coverart match: ', $imgfilename);
-    header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.
-    header('Pragma: no-cache'); // HTTP 1.0.
-    header('Expires: 0'); // Proxies, pre-expired content
-    header('Content-Type: '.mime_content_type($imgfilename));
-    // clear the cache otherwise filesize() returns incorrect values
-    clearstatcache(true, $imgfilename);
-    header('Content-Length: '.filesize($imgfilename));
-    readfile($imgfilename);
-    $output = 1;
 } else {
     // redirect to /covers NGiNX location
     $local_cover_url =  'http://'.$_SERVER["SERVER_ADDR"].'/covers/'.$request_folder.'/'.$request_coverfile;

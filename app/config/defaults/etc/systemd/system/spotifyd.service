@@ -7,6 +7,8 @@ Requires=avahi-daemon.service
 
 [Service]
 ExecStart=/usr/bin/spotifyd --no-daemon -c /etc/spotifyd.conf
+# next line runs a script to correct the erroneous volume change which happens when spotifyd starts
+ExecStartPost=/srv/http/command/fix_spotify_start_volume.sh &
 User=spotifyd
 Group=spotifyd
 Restart=always
