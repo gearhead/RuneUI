@@ -5402,6 +5402,10 @@ button.close {
 .fa-spotify:before {
     content: "\f1bc"
 }
+.fa-spotify-green:before {
+    content: "\f1bc";
+    color: #1DB954
+}
 .fa-deviantart:before {
     content: "\f1bd"
 }
