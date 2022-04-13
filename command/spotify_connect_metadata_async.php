@@ -240,7 +240,7 @@ do {
     } else {
         $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
     }
-    // 
+    //
     // $playing = sysCmd('cat /proc/asound/card*/pcm*p/sub*/hw_params | grep -civ closed')[0];
     // // $playing contains 0 or false when nothing is playing, otherwise a positive number like 7 (=true)
     // if ($playing) {
