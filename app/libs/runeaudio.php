@@ -8015,7 +8015,15 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     //
     // always remove files which over 3 months (90 days) old
     // the following command removes all files from the lower directory which are older than 90 days
+    // the strategy is that we have used them for 3 months, but their source information may now have changed
     sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
+    // artist files (these can contain the text 'Sorry, no details available') without any content are deleted after 30 days
+    // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed
+    $files = sysCmd("find '".$cleanLowerDir."' -type f -mtime +30 -exec grep -il 'Sorry, no details available' {} \;");
+    foreach ($files as $file) {
+        unlink($file);
+    }
+    unset($files, $file);
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // allow the file system to fill to 80% (20% free), it is a partition on the sd-card
