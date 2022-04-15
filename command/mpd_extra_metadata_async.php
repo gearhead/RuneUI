@@ -178,6 +178,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
         // retrieve and validate the cached information
         //
         foreach ($songinfo as $songkey => &$song) {
+            // note $song is by reference and can be modified
             $song['file'] = $mpdRoot.'/'.$song['file'];
             if (isset($song['album']) && isset($song['albumartist']) && isset($song['date'])
                     && $song['album'] && $song['albumartist'] && $song['date']) {
