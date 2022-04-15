@@ -288,20 +288,24 @@ do {
         // calculate the volume, get the actual volume from alsa
         $card = preg_replace('/[^0-9]/', '',$redis->hGet('spotifyconnect', 'device'));
         $mixer = $redis->hGet('spotifyconnect', 'mixer');
-        $retval = sysCmd('amixer -c '.$card.' get '.$mixer.' | grep "%"');
-        if (isset($retval[0]) && $retval[0]) {
-            $lastvolume = get_between_data($retval[0], '[', '%');
-            if (is_numeric($lastvolume) && ($lastvolume >= 0) && ($lastvolume <= 100)) {
-                if ($status['volume'] != $lastvolume) {
-                    $status['volume'] = $lastvolume;
-                    // save the last set volume
-                    $redis->hSet('spotifyconnect', 'lastvolume', $status['volume']);
-                    $active_player = $redis->get('activePlayer');
-                    $updateUI = true;
+        if ($mixer != 'PCM') {
+            // PCM is the 'softvol' (software volume) control
+            // cant get a volume value, just skip the code
+            $retval = sysCmd('amixer -c '.$card.' get '.$mixer.' | grep "%"');
+            if (isset($retval[0]) && $retval[0]) {
+                $lastvolume = get_between_data($retval[0], '[', '%');
+                if (is_numeric($lastvolume) && ($lastvolume >= 0) && ($lastvolume <= 100)) {
+                    if ($status['volume'] != $lastvolume) {
+                        $status['volume'] = $lastvolume;
+                        // save the last set volume
+                        $redis->hSet('spotifyconnect', 'lastvolume', $status['volume']);
+                        $active_player = $redis->get('activePlayer');
+                        $updateUI = true;
+                    }
                 }
+            } else {
+                $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
             }
-        } else {
-            $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
         }
         if ($eventQueue) {
             // determine playing/pause status
