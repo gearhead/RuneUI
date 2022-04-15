@@ -5230,47 +5230,6 @@ function wrk_setHwPlatform($redis)
     }
 }
 
-// this can be removed in next version, because it's replaced by wrk_startPlayback($redis, $newplayer) and wrk_stopPlayback($redis, $oldplayer)
-// function wrk_togglePlayback($redis, $activePlayer)
-// {
-// $stoppedPlayer = $redis->get('stoppedPlayer');
-// // debug
-// runelog('stoppedPlayer = ', $stoppedPlayer);
-// runelog('activePlayer = ', $activePlayer);
-    // if ($stoppedPlayer !== '') {
-        // if ($stoppedPlayer === 'MPD') {
-            // // connect to MPD daemon
-            // $sock = openMpdSocket('/run/mpd.sock', 0);
-            // $status = _parseStatusResponse($redis, MpdStatus($sock));
-            // runelog('MPD status', $status);
-            // if ($status['state'] === 'pause') {
-                // $redis->set('stoppedPlayer', '');
-            // }
-            // sendMpdCommand($sock, 'pause');
-            // closeMpdSocket($sock);
-            // // debug
-            // runelog('sendMpdCommand', 'pause');
-        // } elseif ($stoppedPlayer === 'Spotify') {
-            // // connect to SPOPD daemon
-            // $sock = openSpopSocket('localhost', 6602, 1);
-            // $status = _parseSpopStatusResponse(SpopStatus($sock));
-            // runelog('SPOP status', $status);
-            // if ($status['state'] === 'pause') {
-                // $redis->set('stoppedPlayer', '');
-            // }
-            // sendSpopCommand($sock, 'toggle');
-            // closeSpopSocket($sock);
-            // // debug
-            // runelog('sendSpopCommand', 'toggle');
-        // }
-        // $redis->set('activePlayer', $stoppedPlayer);
-    // } else {
-        // $redis->set('stoppedPlayer', $activePlayer);
-        // wrk_togglePlayback($redis, $activePlayer);
-    // }
-// runelog('endFunction!!!', $stoppedPlayer);
-// }
-
 function wrk_startPlayer($redis, $newplayer)
 {
     $activePlayer = $redis->get('activePlayer');
@@ -8261,7 +8220,7 @@ function get_lastFm($redis, $url)
             $redis->hSet('service', 'lastfm', 0);
             // this will be reset each 15 minutes, if the last.fm site is up
         }
-        // an error has been returned,
+        // an error has been returned
         return 0;
     } else if (!is_array($retval)) {
         // response is not an array
