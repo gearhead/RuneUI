@@ -317,6 +317,10 @@
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'SpotifyConnect'): ?>disabled<?php endif; ?>"></a>
                         </label>
                         <span class="help-block">Enable Spotify Connect steaming client. You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong> account</span>
+                        <?php if($this->cores < 4): ?>
+                            .<br>This model has insufficient processing power to allow Spotify Connect metadata and album art to work correctly.
+                                It works, but may fail from time to time. Switching off other features off may help with performance issues
+                        <?php endif ?>
                     </div>
                 </div>
                 <div class="<?php if($this->spotifyconnect['enable'] != 1): ?>hide<?php endif ?>" id="spotifyconnectAuth">
