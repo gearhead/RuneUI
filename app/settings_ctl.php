@@ -315,18 +315,43 @@ $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
 $template->i2smodule_select = $redis->get('i2smodule_select');
 // maybe implement the following code for a manually edited /boot/config.txt
-// if ($template->i2smodule == 'none') {
-    // $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/## RuneAudio I2S-Settings/,/#/p' | grep dtoverlay | cut -d '=' -f2");
-    // if (isset($retval[0])) {
-        // $retval[0] = trim($retval[0]);
-        // if (($retval[0] != 'none') && (!empty(retval[0]))) {
-            // $redis->set('i2smodule', $retval[0]);
-            // also need to add code to determine a valid value of $redis->get('i2smodule_select')!!!
-            // $template->i2smodule = $retval[0];
-        // }
-    // }
-    // unset($retval);
-// }
+if ($template->i2smodule == 'none') {
+    $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];
+    if (isset($retval)) {
+        $retval = trim($retval);
+        if (($retval != 'none') && $retval) {
+            $redis->set('i2smodule', $retval);
+            $template->i2smodule = $retval;
+            // also determine a valid value of $redis->get('i2smodule_select')
+            // first try to match a generic sound-card
+            $retval1 = sysCmd("grep -i '".$retval."|Generic' '/srv/http/.config/i2s_table.txt' | head -n 1")[0];
+            if (isset($retval1)) {
+                $retval1 = trim($retval1);
+                if ($retval1) {
+                    $redis->set('i2smodule_select', $retval1);
+                    $template->i2smodule_select = $retval1;
+                } else {
+                    // when no generic sound card matches, just get the first
+                    $retval1 = sysCmd("grep -i '".$retval."|' '/srv/http/.config/i2s_table.txt' | head -n 1")[0];
+                    if (isset($retval1)) {
+                        $retval1 = trim($retval1);
+                        if ($retval1) {
+                            $redis->set('i2smodule_select', $retval1);
+                            $template->i2smodule_select = $retval1;
+                        } else {
+                            // this should never happen
+                            $retval1 = $retval.'|Unknown';
+                            $redis->set('i2smodule_select', $retval1);
+                            $template->i2smodule_select = $retval1;
+                        }
+                            
+                    }
+                }
+            }
+        }
+    }
+    unset($retval, retval1);
+}
 $template->audio_on_off = $redis->get('audio_on_off');
 // $template->kernel = $redis->get('kernel');
 $template->kernel = trim(sysCmd('uname -sr')[0]).$bit;
