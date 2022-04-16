@@ -91,8 +91,6 @@ $last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
 do {
     // pop the jobID from the work fifo queue
     $jobID = $redis->rPop('s_queue_fifo');
-    // get the active player for the continue statements, it is tested on end loop
-    $active_player = $redis->get('activePlayer');
     if (!isset($jobID) || !$jobID) {
         // queue is empty
         // in some cases an entry is added to the s_queue without adding an entry to the fifo queue
@@ -299,7 +297,6 @@ do {
                         $status['volume'] = $lastvolume;
                         // save the last set volume
                         $redis->hSet('spotifyconnect', 'lastvolume', $status['volume']);
-                        $active_player = $redis->get('activePlayer');
                         $updateUI = true;
                     }
                 }
@@ -382,6 +379,8 @@ do {
         sysCmdAsync('/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";
     }
+    // unload CPU: 0.5 second sleep
+    usleep(500000);
 } while (($active_player == 'SpotifyConnect') && !$error);
 runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));
 // close Redis connection
