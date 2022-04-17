@@ -349,7 +349,7 @@ if ($template->i2smodule == 'none') {
             }
         }
     }
-    unset($retval, retval1);
+    unset($retval, $retval1);
 }
 $template->audio_on_off = $redis->get('audio_on_off');
 // $template->kernel = $redis->get('kernel');
