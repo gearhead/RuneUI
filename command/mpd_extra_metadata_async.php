@@ -342,6 +342,24 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     }
                     $redis->set('act_player_info', json_encode($status));
                     ui_render('playback', json_encode($status));
+                    // unload CPU: 0.2 second sleep
+                    usleep(200000);
+                } else {
+                    // the song has changed
+                    // currently in a double loop, continue at the end of the outside loop
+                    continue 2;
+                }
+            } else if (($songkey == 'nextsong') && $artFound) {
+                // check the the current song is still valid
+                $status = json_decode($redis->get('act_player_info'), true);
+                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                    // the current song is still valid
+                    // set the cover art preload to the next song art url
+                    $status['coverArtPreload'] = $song['albumarturl'];
+                    $redis->set('act_player_info', json_encode($status));
+                    ui_render('playback', json_encode($status));
+                    // unload CPU: 0.2 second sleep
+                    usleep(200000);
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
@@ -429,6 +447,8 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     }
                     $redis->set('act_player_info', json_encode($status));
                     ui_render('playback', json_encode($status));
+                    // unload CPU: 0.2 second sleep
+                    usleep(200000);
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop

@@ -893,8 +893,9 @@ function updateGUI() {
     var currentalbumartist = ((typeof GUI.json.currentalbumartist == 'undefined') ? '' : GUI.json.currentalbumartist);
     var currentcomposer = ((typeof GUI.json.currentcomposer == 'undefined') ? '' : GUI.json.currentcomposer);
     var mainArtURL = ((typeof GUI.json.mainArtURL == 'undefined') ? '' : GUI.json.mainArtURL);
-    var bigArtURL = ((typeof GUI.json.bigArtURL == 'undefined') ? '' : GUI.json.bigArtURL);
     var smallArtURL = ((typeof GUI.json.smallArtURL == 'undefined') ? '' : GUI.json.smallArtURL);
+    var bigArtURL = ((typeof GUI.json.bigArtURL == 'undefined') ? '' : GUI.json.bigArtURL);
+    var coverArtPreload = ((typeof GUI.json.coverArtPreload == 'undefined') ? '' : GUI.json.coverArtPreload);
     var song_lyrics = ((typeof GUI.json.song_lyrics == 'undefined') ? '' : GUI.json.song_lyrics);
     var artist_bio_summary = ((typeof GUI.json.artist_bio_summary == 'undefined') ? '' : GUI.json.artist_bio_summary);
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
@@ -1022,6 +1023,10 @@ function updateGUI() {
         if ((bigArtURL !== '') && (GUI.bigArtURL !== bigArtURL)) {
             GUI.bigArtURL = bigArtURL;
             $('#cover-art-ss').css('background-image', 'url("' + bigArtURL + '")');
+        }
+        if ((coverArtPreload !== '') && (GUI.coverArtPreload !== coverArtPreload)) {
+            GUI.coverArtPreload = coverArtPreload;
+            $('#cover-art-preload').css('background-image', 'url("' + coverArtPreload + '")');
         }
         if ((artist_bio_summary !== '') && (GUI.artist_bio_summary !== artist_bio_summary)) {
             GUI.artist_bio_summary = artist_bio_summary;
