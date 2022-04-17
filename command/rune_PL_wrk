@@ -390,7 +390,7 @@ while (true) {
                 runelog('lock status ', $lock);
                 if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     // start the job
-                    sysCmdAsync('nice --adjustment=4 /srv/http/command/mpd_extra_metadata_async.php', 0);
+                    sysCmdAsync('nice --adjustment=2 /srv/http/command/mpd_extra_metadata_async.php', 0);
                 } else {
                     // just in case something goes wrong increment the lock value by 1
                     // when it reaches 9 (this should never happen) it will be processed as if there is no lock
