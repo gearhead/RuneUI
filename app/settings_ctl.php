@@ -344,7 +344,6 @@ if ($template->i2smodule == 'none') {
                             $redis->set('i2smodule_select', $retval1);
                             $template->i2smodule_select = $retval1;
                         }
-                            
                     }
                 }
             }
