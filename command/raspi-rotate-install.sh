@@ -77,8 +77,8 @@ find /usr/share -name *audiophonics*.png -exec rm -rf {} \;
 find /usr/share/*bootsplas* -xtype l -exec rm  -rf {} \;
 #
 # set the file attributes of the bootsplashes
-chown -Rh root.root /usr/share/bootsplas*
-chown -R root.root /usr/share/bootsplas*
+chown -Rh root:root /usr/share/bootsplas*
+chown -R root:root /usr/share/bootsplas*
 find /usr/share/boot* -type d -exec chmod 755 {} \;
 find /usr/share/boot*/*.png -type f -exec chmod 644 {} \;
 #

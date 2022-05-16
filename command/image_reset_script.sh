@@ -515,14 +515,14 @@ rm -r /var/log/runeaudio/*
 umount rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
-chown root.root /var/log/runeaudio
+chown root:root /var/log/runeaudio
 chmod 777 /var/log/runeaudio
 # logs > /var/log
 rm -r /var/log/*
 umount logs
 rm -r /var/log
 mkdir /var/log
-chown root.root /var/log
+chown root:root /var/log
 chmod 777 /var/log
 mount logs
 # rune-logs > /var/log/runeaudio (again after logs, with remount)
@@ -530,7 +530,7 @@ rm -r /var/log/runeaudio/*
 umount rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
-chown root.root /var/log/runeaudio
+chown root:root /var/log/runeaudio
 chmod 777 /var/log/runeaudio
 mount rune-logs
 # http-tmp > /var/log/runeaudio (again after logs, with remount)
@@ -538,7 +538,7 @@ rm -r /srv/http/tmp/*
 umount http-tmp
 rm -r /srv/http/tmp
 mkdir /srv/http/tmp
-chown root.root /srv/http/tmp
+chown root:root /srv/http/tmp
 chmod 777 /srv/http/tmp
 mount http-tmp
 #

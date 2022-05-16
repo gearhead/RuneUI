@@ -196,7 +196,7 @@ function updateOS($redis) {
                 $redis->hSet('mpdconf', 'log_level', 'default');
                 // copy the latest version of /usr/lib/systemd/system/rune_SY_wrk.service and set the correct file owner and protection
                 sysCmd('cp /var/www/app/config/defaults/rune_SY_wrk.service /usr/lib/systemd/system/rune_SY_wrk.service');
-                sysCmd('chown root.root /usr/lib/systemd/system/rune_SY_wrk.service');
+                sysCmd('chown root:root /usr/lib/systemd/system/rune_SY_wrk.service');
                 sysCmd('chmod 644 /usr/lib/systemd/system/rune_SY_wrk.service');
                 // clear the refresh ao lock
                 $redis->set('lock_refresh_ao', 0);
@@ -221,7 +221,7 @@ function updateOS($redis) {
             // if (file_exists('/var/www/app/config/defaults/runeaudio.cron')) {
                 // // the file is there, copy it and set the correct protection
                 // sysCmd("cp /var/www/app/config/defaults/runeaudio.cron /etc/cron.d/runeaudio.cron");
-                // sysCmd("chown root.root /etc/avahi/runeaudio.cron");
+                // sysCmd("chown root:root /etc/avahi/runeaudio.cron");
                 // sysCmd("chmod 644 /etc/avahi/runeaudio.cron");
                 // // clean up any cron avahi jobs owned by root
                 // // clear the cache otherwise file_exists() returns incorrect values
