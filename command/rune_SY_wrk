@@ -298,6 +298,15 @@ if ($playerid_db === '') {
         // ashuffle gets started automatically
     }
     //
+    // initialize OrionProfile
+    runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
+    $hwplatformid = $redis->get('hwplatformid');
+    $armVer = strtolower(trim(sysCmd('uname -m')[0]));
+    if (($hwplatformid = '08') && ($armVer == 'armv6l')) {
+        $hwplatformid = '01';
+    }
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/orion_optimize.sh '.$redis->get('orionprofile').' "'.$hwplatformid."'");
+    //
     // check that MPD only has one output enabled and if not correct it
     sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
     // reset usb storage (also starts samba)
@@ -349,10 +358,6 @@ if ($playerid_db === '') {
         // clean up any invalid mount points
         sysCmd('udevil clean');
     }
-    //
-    // initialize OrionProfile
-    runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
-    sysCmd("/srv/http/command/orion_optimize.sh ".$redis->get('orionprofile')." ".$redis->get('hwplatformid'));
     //
     // start php-fpm if required
     $retval = sysCmd('systemctl is-active php-fpm');
@@ -1229,7 +1234,12 @@ while (true) {
             case 'orionprofile':
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
-                $profile = $job->args." ".$redis->get('hwplatformid');
+                $hwplatformid = $redis->get('hwplatformid');
+                $armVer = strtolower(trim(sysCmd('uname -m')[0]));
+                if (($hwplatformid = '08') && ($armVer == 'armv6l')) {
+                    $hwplatformid = '01';
+                }
+                $profile = $job->args." ".$hwplatformid;
                 runelog("env: SET KERNEL PROFILE", $job->args);
                 sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
                 $redis->set('orionprofile', $job->args);

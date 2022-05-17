@@ -337,17 +337,34 @@ function debug_data($redis, $fp=null)
     $output .= "###### Kernel optimization parameters ######\n";
     $output .= "hardware platform:\t".$redis->get('hwplatform')."\n";
     $output .= "current orionprofile:\t".$redis->get('orionprofile')."\n";
-    $output .= "\n\n";
-    //         $output .=  "kernel scheduler for mmcblk0:\t\t".((empty(file_get_contents('/sys/block/mmcblk0/queue/scheduler'))) ? "\n" : file_get_contents('/sys/block/mmcblk0/queue/scheduler'));
-    $output .=  "kernel scheduler for mmcblk0:\t\t\t".file_get_contents('/sys/block/mmcblk0/queue/scheduler');
-    $output .=  "/proc/sys/vm/swappiness:\t\t\t".file_get_contents('/proc/sys/vm/swappiness');
-    $output .=  "/proc/sys/kernel/sched_latency_ns:\t\t".file_get_contents('/proc/sys/kernel/sched_latency_ns');
-    $output .=  "/proc/sys/kernel/sched_rt_period_us:\t\t".file_get_contents('/proc/sys/kernel/sched_rt_period_us');
-    $output .=  "/proc/sys/kernel/sched_rt_runtime_us:\t\t".file_get_contents('/proc/sys/kernel/sched_rt_runtime_us');
-    $output .=  "/proc/sys/kernel/sched_autogroup_enabled:\t".file_get_contents('/proc/sys/kernel/sched_autogroup_enabled');
-    $output .=  "/proc/sys/kernel/sched_rr_timeslice_ms:\t\t".file_get_contents('/proc/sys/kernel/sched_rr_timeslice_ms');
-    $output .=  "/proc/sys/kernel/sched_min_granularity_ns:\t".file_get_contents('/proc/sys/kernel/sched_min_granularity_ns');
-    $output .=  "/proc/sys/kernel/sched_wakeup_granularity_ns:\t".file_get_contents('/proc/sys/kernel/sched_wakeup_granularity_ns');
+    $output .= "\n";
+    $optArray = array(
+        '/sys/block/mmcblk0/queue/scheduler',
+        '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
+        '/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor',
+        '/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor',
+        '/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor',
+        '/proc/sys/vm/swappiness',
+        '/proc/sys/kernel/sched_latency_ns',
+        '/proc/sys/kernel/sched_rt_period_us',
+        '/proc/sys/kernel/sched_rt_runtime_us',
+        '/proc/sys/kernel/sched_autogroup_enabled',
+        '/proc/sys/kernel/sched_rr_timeslice_ms',
+        '/proc/sys/kernel/sched_min_granularity_ns',
+        '/proc/sys/kernel/sched_wakeup_granularity_ns',
+        '/proc/sys/kernel/hung_task_check_count',
+        '/proc/sys/vm/stat_interval',
+        '/proc/sys/vm/dirty_background_ratio'
+        );
+    foreach ($optArray as $optParam) {
+        $spaces = 56 - strlen($optParam);
+        if (file_exists($optParam)) {
+            $output .=  $optParam.":".str_repeat(' ', $spaces).file_get_contents($optParam);
+        } else {
+            $output .=  $optParam.":".str_repeat(' ', $spaces)."Unset/depreciated\n";
+        }
+    }
+    unset($optArray, $optParam);
     $output .= "\n\n";
     $output .= "###### Kernel module snd_usb_audio settings ######\n";
     $command = sysCmd('systool -v -m snd_usb_audio | grep -vi error');

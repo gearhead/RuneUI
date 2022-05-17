@@ -95,20 +95,25 @@
                 <div class="col-sm-10">
                     <select class="selectpicker" name="orionprofile" data-style="btn-default btn-lg">
                         <option value="default" <?php if($this->orionprofile === 'default'): ?> selected <?php endif ?>>ArchLinux default</option>
-                        <option value="RuneAudio" <?php if($this->orionprofile === 'RuneAudio'): ?> selected <?php endif ?>>RuneAudio</option>
+                        <option value="RuneAudio" <?php if($this->orionprofile === 'RuneAudio'): ?> selected <?php endif ?>>RuneAudio (default)</option>
                         <option value="ACX" <?php if($this->orionprofile === 'ACX'): ?> selected <?php endif ?>>ACX</option>
                         <option value="Orion" <?php if($this->orionprofile === 'Orion'): ?> selected <?php endif ?>>Orion</option>
                         <option value="OrionV2" <?php if($this->orionprofile === 'OrionV2'): ?> selected <?php endif ?>>OrionV2</option>
                         <option value="OrionV3_berrynosmini" <?php if($this->orionprofile === 'OrionV3_berrynosmini'): ?> selected <?php endif ?>>OrionV3 - (BerryNOS-mini)</option>
                         <option value="OrionV3_iqaudio" <?php if($this->orionprofile === 'OrionV3_iqaudio'): ?> selected <?php endif ?>>OrionV3 - (IQaudioPi-DAC)</option>
                         <option value="Um3ggh1U" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Um3ggh1U</option>
+                        <option value="Dynobot" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Dynobot for Pi2, 3 and 4</option>
+                        <option value="Frost_dk" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Frost_dk for Pi2, 3 and 4</option>
                     </select>
                     <span class="help-block">These profiles include a set of performance tweaks that act on some system kernel parameters.
                     It does not have anything to do with DSPs or other sound effects: the output is kept untouched (bit perfect).
                     It happens that these parameters introduce an audible impact on the overall sound quality, acting on kernel latency parameters (and probably on the amount of overall
                     <a href="http://www.thewelltemperedcomputer.com/KB/BitPerfectJitter.htm" title="Bit Perfect Jitter by Vincent Kars" target="_blank">jitter</a>).
                     Sound results may vary depending on where music is listened to, so choose according to your personal taste.
-                    (If you can't hear any tangible differences... never mind, just stick to the default settings)</span>
+                    (If you can't hear any tangible differences... never mind, just stick to the default settings).<br>
+                    <i>These settings tend to have more effect on the older less powerful processors and seem to have less effect on the newer
+                    multi-processor hardware. Some settings have now been depreciated within latest version of Linux which will further reduce the
+                    effect of and differences between the profiles</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">

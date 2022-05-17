@@ -141,10 +141,12 @@ function redisDatastore($redis,$action) {
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
             $redis->set('orionprofile', 'RuneAudio');
+            $redis->del('orion_reset');
             $redis->set('activePlayer', 'MPD');
             $redis->set('underclocking', 0);
             $redis->set('first_time_boot', 0);
             $redis->set('overlay_art_cache', 0);
+            $redis->del('cleancache');
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
