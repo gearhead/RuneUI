@@ -378,7 +378,7 @@ function debug_data($redis, $fp=null)
     $command = sysCmd('ls -l /etc/systemd/system/multi-user.target.wants/ | grep -vi total');
     $output .= implode("\n", $command)."\n\n\n";
     $output .= "###### Systemd enabled services (systemctl list-unit-files | grep enabled) ######\n";
-    $command = sysCmd("systemctl list-unit-files | grep -E '.service|STATE' | grep -E 'enabled[ ]{7}|enabled-|STATE'");
+    $command = sysCmd("systemctl list-unit-files | grep -E '.service|.socket|STATE' | grep -E 'enabled[ ]{7}|enabled-|STATE'");
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
     if ($fp) {

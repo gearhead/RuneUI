@@ -1325,36 +1325,6 @@ function _parseStatusResponse($redis, $resp)
         } else {
             $plistArray['audio_channels'] = "Stereo";
         }
-        //
-        // mpd returns the actual bitrate of the music file at that moment, when a variable bit rate file (e.g. FLAC) is being played
-        //  the value is generally incorrect, replace it when possible with the average bitrate
-        //  we need the current music file name in order to retrieve an average bitrate value
-        //  when required also update sample rate and sample depth
-        // ignore any line returned by mpd status containing 'updating', 3 lines mean a file is playing
-        $status = sysCmd('mpc status | grep -vi updating');
-        if ((count($status) == 3)) {
-            // we can determine the file name
-            $fileName = rtrim($redis->hGet('mpdconf', 'music_directory'), '/').'/'.trim(sysCmd('mpc -f "[%file%]"')[0]);
-            $metadata = getMusicFileMatadata($redis, $fileName);
-            // bit rate, always update it when a value is available
-            if ($metadata && isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
-                $plistArray['bitrate'] = intval($metadata['avg_bit_rate']/1000);
-            }
-            // sample rate, fix it if missing
-            if (!isset($plistArray['audio_sample_rate']) || !$plistArray['audio_sample_rate']) {
-                if ($metadata && isset($metadata['sample_rate']) && $metadata['sample_rate']) {
-                    $plistArray['audio_sample_rate'] = round($metadata['sample_rate']/1000, 1);
-                }
-            }
-            // sample depth, fix it if missing
-            if (!isset($plistArray['audio_sample_depth']) || !$plistArray['audio_sample_depth']) {
-                if ($metadata && isset($metadata['bits_per_sample']) && $metadata['bits_per_sample']) {
-                    $plistArray['audio_sample_depth'] = $metadata['bits_per_sample'];
-                }
-            }
-            unset($fileName, $metadata);
-        }
-        unset($status);
     }
     return $plistArray;
 }
@@ -5945,6 +5915,9 @@ function ui_status($mpd, $status)
         }
         if (isset($curTrack[0]['Composer']) && $curTrack[0]['Composer']) {
             $status['currentcomposer'] = $curTrack[0]['Composer'];
+        }
+        if (isset($curTrack[0]['Date']) && $curTrack[0]['Date']) {
+            $status['date'] = $curTrack[0]['Date'];
         }
     } else if (isset($curTrack) && is_array($curTrack)) {
         $status['currentartist'] = '';

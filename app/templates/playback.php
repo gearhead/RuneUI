@@ -72,7 +72,7 @@
 <div class="preload-content" style="display:none;">
     <!-- THIS PANEL CONTAINS PRELOADED WEB CONTENT TO ALLOW THE WEB BROWSER TO CACHE THE CONTENT, IT IS NEVER USED TO DISPLAY INFORMATION -->
     <div class="container-fluid">
-        <img id="cover-art-preload" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
+        <img id="cover-art-preload" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square" loading="eager">
     </div>
 </div>
 <div class="tab-content">

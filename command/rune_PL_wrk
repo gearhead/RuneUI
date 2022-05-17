@@ -140,8 +140,8 @@ while (true) {
             $saveCurrentsong = '';
             $saveFile = '';
             $status['mainArtURL'] = $artUrl.'/none.png';
-            $status['smallArtURL'] = $artUrl.'/mpd/black.png';
-            $status['bigArtURL'] = $artUrl.'/mpd/black.png';
+            $status['smallArtURL'] = $artUrl.'/black.png';
+            $status['bigArtURL'] = $artUrl.'/black.png';
             sysCmdAsync('/srv/http/command/ui_update_async', 0);
             do {
                 //
