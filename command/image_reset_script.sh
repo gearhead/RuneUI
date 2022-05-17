@@ -506,7 +506,7 @@ rm -r /srv/http/tmp/*
 umount http-tmp
 rm -r /srv/http/tmp
 mkdir /srv/http/tmp
-chown http.http /srv/http/tmp
+chown http:http /srv/http/tmp
 chmod 777 /srv/http/tmp
 mount http-tmp
 # many of the remaining lines in this section fail! this is not a problem
