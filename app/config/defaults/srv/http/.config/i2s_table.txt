@@ -16,6 +16,7 @@ hifiberry-dacplus|AOIDE ZPOD DAC
 applepi-dac|Apple PecanPi DAC
 applepi-dac|Apple Pi DAC
 audioinjector-addons|Audioinjector Addons
+audioinjector-bare-i2s|Audioinjector Audio bare i2s soundcard
 audioinjector-isolated-soundcard|Audioinjector audioinjector.net isolated soundcard
 audioinjector-addons|Audioinjector Octo soundcard
 audioinjector-wm8731-audio|Audioinjector Stereo soundcard
