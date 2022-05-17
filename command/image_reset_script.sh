@@ -218,16 +218,17 @@ git config --global core.editor "nano"
 git config user.email "any@body.com"
 git config user.name "anybody"
 git config pull.rebase false
+git config --global --add safe.directory /srv/http
 git stash
 git stash
 git add .
 git stash
 git stash
-git pull --no-edit
+sudo -u http git pull --no-edit
 # the following three lines should not be required
 git stash
 git stash
-git pull --no-edit
+sudo -u http git pull --no-edit
 if [ "$1" == "full" ]; then
     # clear the stash stack
     git stash clear
