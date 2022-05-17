@@ -177,7 +177,7 @@ fi
 redis-cli set backup_dir "$backupDir"
 # create the directory , change the owner and privileges and delete its contents(if any)
 mkdir -p "$backupDir"
-chown -R http.http "$backupDir"
+chown -R http:http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
@@ -219,7 +219,7 @@ artDir=$( redis-cli get albumart_image_dir | tr -s / | xargs )
 artDir="${artDir%/}"
 if [[ ! -d "$artDir" ]]; then
     mkdir -p "$artDir"
-    chown -R http.http "$artDir"
+    chown -R http:http "$artDir"
     chmod 755 "$artDir"
     chmod -R 644 $artDir/*
 fi

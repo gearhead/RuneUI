@@ -1856,8 +1856,8 @@ function wrk_xorgconfig($redis, $action, $args)
             clearstatcache(true, $filePathName);
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
-                sysCmd('mkdir "'.$filePath.'"; chown http.http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('mkdir "'.$filePath.'"; chown http:http "'.$filePath.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http:http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic force-device-scale-factor "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -1873,8 +1873,8 @@ function wrk_xorgconfig($redis, $action, $args)
             clearstatcache(true, $filePathName);
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
-                sysCmd('mkdir "'.$filePath.'"; chown http.http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http.http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('mkdir "'.$filePath.'"; chown http:http "'.$filePath.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http:http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic settings.webview.zoom_level "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -2089,7 +2089,7 @@ function wrk_backup($redis, $bktype = null)
     // delete the diff file for /boot/config.txt
     unlink('/home/config.txt.diff');
     // change the file privileges
-    sysCmd('chown http.http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
+    sysCmd('chown http:http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
     return $filepath;
 }
 
@@ -2965,7 +2965,7 @@ function wrk_playernamemenu($action)
     fwrite($fp, implode("", $newArray));
     fclose($fp);
     unset($newArray);
-    sysCmd('chown http.http '.$file);
+    sysCmd('chown http:http '.$file);
     sysCmd('chmod 644 '.$file);
 }
 

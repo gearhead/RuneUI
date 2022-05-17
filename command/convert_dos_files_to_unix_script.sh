@@ -191,7 +191,7 @@ sync
 umount overlay_art_cache
 sync
 # now change the permissions of the UI files
-chown -R http.http /srv/http/
+chown -R http:http /srv/http/
 find /srv/http/ -type f -exec chmod 644 {} \;
 find /srv/http/ -type d -exec chmod 755 {} \;
 find /etc -name *.conf -exec chmod 644 {} \;

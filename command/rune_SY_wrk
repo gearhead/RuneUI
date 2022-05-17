@@ -485,7 +485,7 @@ while (true) {
                     // TO-DO: use the airplay redis variables to determine the metadata artwork directory
                     sysCmd('mkdir -p /srv/http/tmp/airplay');
                     sysCmd('cp /srv/http/assets/img/airplay-default.png /srv/http/tmp/airplay/airplay-default.png');
-                    sysCmd('chown -R http.http /srv/http/tmp');
+                    sysCmd('chown -R http:http /srv/http/tmp');
                     sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-default.png');
                     // start or re-start shairport-sync service
                     if (isset($restart)) {
@@ -1337,7 +1337,7 @@ while (true) {
                     // the location /srv/http/tmp is a tmpfs, see /etc/fstab
                     sysCmd('mkdir -p /srv/http/tmp/spotify-connect');
                     sysCmd('cp /srv/http/assets/img/spotify-connect-default.png /srv/http/tmp/spotify-connect/spotify-connect-default.png');
-                    sysCmd('chown -R http.http /srv/http/tmp');
+                    sysCmd('chown -R http:http /srv/http/tmp');
                     sysCmd('chmod 755 /srv/http/tmp/spotify-connect');
                     sysCmd('chmod -R 644 /srv/http/tmp/spotify-connect/*');
                     // create a directory to use for spotifyd cache

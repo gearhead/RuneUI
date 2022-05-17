@@ -354,7 +354,7 @@ while (true) {
                         runelog('rune_SSM_wrk: Play stream begin, no arguments');
                         sysCmd('rm -f /srv/http/tmp/airplay/airplay-cover.*');
                         //sysCmd('cp /srv/http/assets/img/cover-black.png /srv/http/tmp/airplay/airplay-cover.png');
-                        //sysCmd('chown -f http.http /srv/http/tmp/airplay/airplay-cover.*');
+                        //sysCmd('chown -f http:http /srv/http/tmp/airplay/airplay-cover.*');
                         //sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-cover.*');
                         $status = array();
                         if ($redis->get('volume') && !empty($redis->get('lastmpdvolume'))) {
@@ -514,7 +514,7 @@ while (true) {
                                     runelog('rune_SSM_wrk: Image file create created, name: ', $artFileName);
                                     runelog('rune_SSM_wrk: Image file create created, buffer length: ', strlen($buf));
                                     // make sure the image file is readable for the UI (runs as user http)
-                                    sysCmd('chown -f http.http "'.$artFileName.'" ; chmod 644 "'.$artFileName.'"');
+                                    sysCmd('chown -f http:http "'.$artFileName.'" ; chmod 644 "'.$artFileName.'"');
                                     $status['mainArtURL'] = $artFileUrl;
                                     if ($albumBig) {
                                         $status['bigArtURL'] = $artFileUrl;

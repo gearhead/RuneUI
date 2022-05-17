@@ -54,7 +54,7 @@ pacman -S mpd ffmpeg mpc --noconfirm
 rm -r /home/mpdupdate
 #
 # check file protection and ownership
-chown -R http.http /srv/http/
+chown -R http:http /srv/http/
 find /srv/http/ -type f -exec chmod 644 {} \;
 find /srv/http/ -type d -exec chmod 755 {} \;
 find /etc -name *.conf -exec chmod 644 {} \;
