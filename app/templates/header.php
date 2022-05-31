@@ -32,9 +32,9 @@
     <meta name="application-name" content="RuneAudio">
 </head>
 <?php if (empty($this->uri(1)) OR ($this->uri(1) == 'playback')): ?>
-<body id="section-index" class="disable-scrollbar-1 disable-scrollbar-2">
+    <body id="section-index" class="disable-scrollbar-1 disable-scrollbar-2">
 <?php else: ?>
-<body id="section-<?=$this->section?>">
+    <body id="section-<?=$this->section?>">
 <?php endif ?>
 <!--
  /*

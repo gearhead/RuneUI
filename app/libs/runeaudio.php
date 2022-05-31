@@ -9546,7 +9546,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             $line = preg_replace('/[\s]*"[\s]*/', '', $line);
             $line = trim($line);
             // result is <identifier>=<value>
-            $lineparts = explode('=', $line);
+            $lineparts = explode('=', $line, 2);
             if ($lineparts[0] === 'og:title') {
                 $retval['title'] = trim($lineparts[1]);
                 runelog('wrk_getSpotifyMetadata track title:', $retval['title']);
@@ -9812,7 +9812,7 @@ function getMusicFileMatadata($redis, $filename)
 function search_array_keys($myArray, $search)
 // returns the first non-null/non-false value of an array node when its key matching the search string
 // it really only works well returning strings, null and boolean values give incorrect results
-// no match returns false, a match with a null or boolian false value returns false
+// no match returns false, a match with a null or boolean false value also return false
 {
     foreach ($myArray as $key => $value) {
         if (is_array($value)) {
