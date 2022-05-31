@@ -338,24 +338,43 @@ function debug_data($redis, $fp=null)
     $output .= "hardware platform:\t".$redis->get('hwplatform')."\n";
     $output .= "current orionprofile:\t".$redis->get('orionprofile')."\n";
     $output .= "\n";
-    $optArray = array(
-        '/sys/block/mmcblk0/queue/scheduler',
-        '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
-        '/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor',
-        '/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor',
-        '/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor',
-        '/proc/sys/vm/swappiness',
-        '/proc/sys/kernel/sched_latency_ns',
-        '/proc/sys/kernel/sched_rt_period_us',
-        '/proc/sys/kernel/sched_rt_runtime_us',
-        '/proc/sys/kernel/sched_autogroup_enabled',
-        '/proc/sys/kernel/sched_rr_timeslice_ms',
-        '/proc/sys/kernel/sched_min_granularity_ns',
-        '/proc/sys/kernel/sched_wakeup_granularity_ns',
-        '/proc/sys/kernel/hung_task_check_count',
-        '/proc/sys/vm/stat_interval',
-        '/proc/sys/vm/dirty_background_ratio'
-        );
+    $cores = $redis->get('cores');
+    if ($cores == 1) {
+        $optArray = array(
+            '/sys/block/mmcblk0/queue/scheduler',
+            '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
+            '/proc/sys/vm/swappiness',
+            '/proc/sys/kernel/sched_latency_ns',
+            '/proc/sys/kernel/sched_rt_period_us',
+            '/proc/sys/kernel/sched_rt_runtime_us',
+            '/proc/sys/kernel/sched_autogroup_enabled',
+            '/proc/sys/kernel/sched_rr_timeslice_ms',
+            '/proc/sys/kernel/sched_min_granularity_ns',
+            '/proc/sys/kernel/sched_wakeup_granularity_ns',
+            '/proc/sys/kernel/hung_task_check_count',
+            '/proc/sys/vm/stat_interval',
+            '/proc/sys/vm/dirty_background_ratio'
+            );
+    } else {
+        $optArray = array(
+            '/sys/block/mmcblk0/queue/scheduler',
+            '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor',
+            '/proc/sys/vm/swappiness',
+            '/proc/sys/kernel/sched_latency_ns',
+            '/proc/sys/kernel/sched_rt_period_us',
+            '/proc/sys/kernel/sched_rt_runtime_us',
+            '/proc/sys/kernel/sched_autogroup_enabled',
+            '/proc/sys/kernel/sched_rr_timeslice_ms',
+            '/proc/sys/kernel/sched_min_granularity_ns',
+            '/proc/sys/kernel/sched_wakeup_granularity_ns',
+            '/proc/sys/kernel/hung_task_check_count',
+            '/proc/sys/vm/stat_interval',
+            '/proc/sys/vm/dirty_background_ratio'
+            );
+    }
     foreach ($optArray as $optParam) {
         $spaces = 56 - strlen($optParam);
         if (file_exists($optParam)) {
@@ -364,7 +383,7 @@ function debug_data($redis, $fp=null)
             $output .=  $optParam.":".str_repeat(' ', $spaces)."Unset/depreciated\n";
         }
     }
-    unset($optArray, $optParam);
+    unset($optArray, $optParam, $cores);
     $output .= "\n\n";
     $output .= "###### Kernel module snd_usb_audio settings ######\n";
     $command = sysCmd('systool -v -m snd_usb_audio | grep -vi error');
