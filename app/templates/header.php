@@ -80,7 +80,11 @@
             <li class="<?=$this->uri(1, 'mpd', 'active')?>"><a href="/mpd/"><i class="fa fa-cogs"></i> MPD</a></li>
             <li class="<?=$this->uri(1, 'settings', 'active')?>"><a href="/settings/"><i class="fa fa-wrench"></i> Settings</a></li>
             <li class="<?=$this->uri(1, 'network', 'active')?>"><a href="/network/"><i class="fa fa-sitemap"></i> Network</a></li>
-            <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "Mixer");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+            <?php if (is_localhost()): ?>
+                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "_self");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+            <?php else: ?>
+                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "Mixer");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+            <?php endif ?>
             <li class="<?=$this->uri(1, 'debug', 'active')?>"><a href="/debug/"><i class="fa fa-bug"></i> Debug</a></li>
             <li class="<?=$this->uri(1, 'credits', 'active')?>"><a href="/credits/"><i class="fa fa-trophy"></i> Credits</a></li>
             <li><a href="#poweroff-modal" data-toggle="modal"><i class="fa fa-power-off"></i> Turn off</a></li>
