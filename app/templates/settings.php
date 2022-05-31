@@ -102,18 +102,18 @@
                         <option value="OrionV3_berrynosmini" <?php if($this->orionprofile === 'OrionV3_berrynosmini'): ?> selected <?php endif ?>>OrionV3 - (BerryNOS-mini)</option>
                         <option value="OrionV3_iqaudio" <?php if($this->orionprofile === 'OrionV3_iqaudio'): ?> selected <?php endif ?>>OrionV3 - (IQaudioPi-DAC)</option>
                         <option value="Um3ggh1U" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Um3ggh1U</option>
-                        <option value="Dynobot" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Dynobot for Pi2, 3 and 4</option>
-                        <option value="Frost_dk" <?php if($this->orionprofile === 'Um3ggh1U'): ?> selected <?php endif ?>>Frost_dk for Pi2, 3 and 4</option>
+                        <option value="Dynobot" <?php if($this->orionprofile === 'Dynobot'): ?> selected <?php endif ?>>Dynobot for Pi2, 3 and 4</option>
+                        <option value="Frost_dk" <?php if($this->orionprofile === 'Frost_dk'): ?> selected <?php endif ?>>Frost_dk for Pi2, 3 and 4</option>
+                        <option value="janui" <?php if($this->orionprofile === 'janui'): ?> selected <?php endif ?>>janui</option>
                     </select>
                     <span class="help-block">These profiles include a set of performance tweaks that act on some system kernel parameters.
                     It does not have anything to do with DSPs or other sound effects: the output is kept untouched (bit perfect).
                     It happens that these parameters introduce an audible impact on the overall sound quality, acting on kernel latency parameters (and probably on the amount of overall
                     <a href="http://www.thewelltemperedcomputer.com/KB/BitPerfectJitter.htm" title="Bit Perfect Jitter by Vincent Kars" target="_blank">jitter</a>).
-                    Sound results may vary depending on where music is listened to, so choose according to your personal taste.
+                    Sound results may vary depending on where music is listened to, your sound-card/DAC and the processor type, so choose according to your personal taste.
                     (If you can't hear any tangible differences... never mind, just stick to the default settings).<br>
-                    <i>These settings tend to have more effect on the older less powerful processors and seem to have less effect on the newer
-                    multi-processor hardware. Some settings have now been depreciated within latest version of Linux which will further reduce the
-                    effect of and differences between the profiles</i></span>
+                    <i>These settings tend to have more effect on the older less powerful processors. And some settings associated with these
+                    tweaks have now been depreciated which could further reduce the overall effect of the different profiles</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">

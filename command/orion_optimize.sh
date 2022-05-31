@@ -310,6 +310,32 @@ elif [ "$1" == "Frost_dk" ]; then
     fi
     sleep 2
     echo "(Frost_dk for Pi2, 3 and 4) sound signature profile"
+elif [ "$1" == "janui" ]; then
+    if [ "$2" == "08" ]; then
+        modmtu 9000
+        modtxqueuelen 4000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+        echo -n 1 > /proc/sys/kernel/hung_task_check_count
+        echo -n 20 > /proc/sys/vm/stat_interval
+        echo -n -1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 5 > /proc/sys/vm/dirty_background_ratio
+    else
+        modmtu 1500
+        modtxqueuelen 1000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n kyber > /sys/block/mmcblk0/queue/scheduler # kyber is a simple, low overhead, low latency scheduler
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
+    fi
+    sleep 2
+    echo "(RuneAudio) sound signature profile"
 fi
 
 # dev
@@ -319,6 +345,6 @@ fi
 
 if [ "$1" == "" ]; then
 echo "Orion Optimize Script v$ver"
-echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk} {architectureID}"
+echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
 exit 1
 fi
