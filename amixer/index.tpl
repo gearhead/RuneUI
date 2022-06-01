@@ -47,7 +47,7 @@
             <header class="mdl-layout__header-row">
                 <div class="mdl-layout-title">
                     <h1>
-                        <a id="rune_logo" class="home" href="javascript:window.history.go(( window.name == 'Mixer') ? 0 : -1)"><img src="icons/logo.png" class="logo" alt="RuneAudio"></a><br>
+                        <a id="rune_logo" class="home" href="javascript:window.history.go(( window.name == 'Mixer') ? 0 : -1)"><img src="icons/logo.png" class="logo" alt="RuneAudio" title="Back/Refresh"></a><br>
                         ALSA Mixer WebUI - {$hostname}
                     </h1>
                 </div>
