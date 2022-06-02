@@ -113,7 +113,7 @@
                     Sound results may vary depending on where music is listened to, your sound-card/DAC and the processor type, so choose according to your personal taste.
                     (If you can't hear any tangible differences... never mind, just stick to the default settings).<br>
                     <i>These settings tend to have more effect on the older less powerful processors. And some settings associated with these
-                    tweaks have now been depreciated which could further reduce the overall effect of the different profiles</i></span>
+                    tweaks have now been depreciated which could reduce the overall effect of the different profiles</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">

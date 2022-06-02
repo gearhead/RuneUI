@@ -117,7 +117,7 @@ function enable_overlay_art_cache {
                 test_count1=$( grep -ic "mmcblk0p$partitions" '/proc/mounts' )
                 test_count2=$( grep -ic '/home/cache' '/proc/mounts' )
                 if [ "$test_count1" == "0" ] && [ "$test_count1" == "0" ]; then
-                    # the persistant cache partition mmcblk0p? is not be mounted and the mount point /home/cache should is not in use
+                    # the persistent cache partition mmcblk0p? is not be mounted and the mount point /home/cache should is not in use
                     # mount mmcblk0p3
                     rm -r /home/cache
                     mkdir -p /home/cache
@@ -139,7 +139,7 @@ function enable_overlay_art_cache {
                         redis-cli set overlay_art_cache 1
                     fi
                 else
-                    # the persistant cache partition mmcblk0p? is mountend
+                    # the persistent cache partition mmcblk0p? is mountend
                     test_count1=$( grep -ic 'overlay_art_cache' '/proc/mounts' )
                     if [ "$test_count1" == "0" ]; then
                         # the overlay art cache is not mounted

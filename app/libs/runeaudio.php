@@ -8289,7 +8289,11 @@ function get_makeitpersonal($redis, $url)
     if (!$retval) {
         // nothing returned, it should always return something, disable makeitpersonal
         $redis->hSet('service', 'makeitpersonal', 0);
-        // this will be reset each 15 minutes, if the makeitpersonal site is up
+        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
+        return 0;
+    } else if (strpos(strtolower(' '.$retval), 'invalid params')) {
+        // 'invalid params' returned, error condition, but not fatal
+        // the artist and/or song parameters are probably too long
         return 0;
     } else if (strpos(strtolower(' '.$retval), '>oh-noes<')) {
         // 'oh-noes' returned, error condition in a web page, but not fatal
@@ -8300,7 +8304,7 @@ function get_makeitpersonal($redis, $url)
     } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
         // 'something went wrong' returned, error condition, disable makeitpersonal
         $redis->hSet('service', 'makeitpersonal', 0);
-        // this will be reset each 15 minutes, if the makeitpersonal site is up
+        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
         return 0;
     }
     $return = array();
