@@ -47,14 +47,17 @@ set +e # continue on errors
 webradiodir="/mnt/MPD/Webradio"
 #
 # if the directory /boot/webradios contains *.pls files copy them to the webradio directory and delete them
-find "/boot/webradios" -type f -name *.pls -exec cp -fn -- '{}' "$webradiodir/" \;
-find "/boot/webradios" -type f -name *.pls -exec rm -- '{}' \;
+find "/boot/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
 # remove any empty directories from /boot/webradios
 # nested directories could need several passes, this routine is run on each boot
 find "/boot/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
-# recreate the structure
-mkdir -p /boot/webradios
-cp /srv/http/app/config/defaults/boot/webradios/readme /boot/webradios/readme
+# recreate the structure and instructions
+if [ ! -d "/boot/webradios" ]; then
+    mkdir -p /boot/webradios
+fi
+if [ ! -f "/boot/webradios/readme" ]; then
+    cp /srv/http/app/config/defaults/boot/webradios/readme /boot/webradios/readme
+fi
 #
 # create webradio files when they are defined in redis but the file does not exist
 redis-cli hkeys webradios > /tmp/radios
@@ -77,7 +80,7 @@ rm /tmp/radios
 #
 # if sub directories
 # -mindepth 2 = in sub directories && -type f = file
-find "$webradiodir" -mindepth 2 -type f -name *.pls -exec mv -f -- '{}' "$webradiodir/" \;
+find "$webradiodir" -mindepth 2 -type f -name '*.pls' -exec mv -f -- '{}' "$webradiodir/" \;
 # remove empty subdirectories
 find "$webradiodir/*" -type d -exec rmdir {} &> /dev/null \;
 
