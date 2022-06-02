@@ -470,7 +470,7 @@ function debug_data($redis, $fp=null)
         }
     }
     $output .= "\n";
-    $output .= "###### Network, wifi status (iwconfig) ######\n";
+    $output .= "###### Network, Wi-Fi status (iwconfig) ######\n";
     $command = sysCmd('iwconfig');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
@@ -478,13 +478,24 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Network, WiFi Access Point (redis-cli hgetall AccessPoint) ######\n";
+    $output .= "###### Network, Wi-Fi Access Point (redis-cli hgetall AccessPoint) ######\n";
     $command = $redis->hgetall('AccessPoint');
     foreach ($command as $key => $value) {
-        $output .= $key.': '.$value."\n";
+        if ($key == 'passphrase') {
+            $output .= $key.': ######'."\n";
+        } else {
+            $output .= $key.': '.$value."\n";
+        }
+    }
+    $output .= "\n";
+    $nics = json_decode($redis->get('network_interfaces'), true);
+    foreach ($nics as $nic) {
+        if (($nic['type'] === 'AP') && ($nic['ipStatus'] === 'UP')) {
+            $output .= 'Wi-Fi Access Point ACTIVE on '.str_replace('Interface ', 'interface ', implode("\n", sysCmd('iw '.$nic['nic'].' info')))."\n";
+        }
     }
     $output .= "\n\n";
-    unset($command, $key, $value);
+    unset($command, $key, $value, $nics, $nic);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
