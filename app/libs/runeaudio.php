@@ -8027,15 +8027,35 @@ function set_last_mpd_volume($redis)
                         // set the mpd volume, do a soft increase/decrease
                         $setvolume = $mpdvolume - round((($mpdvolume-$lastmpdvolume)/2), 0, PHP_ROUND_HALF_UP);
                         $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs');
-                        $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
-                        $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
+                        if (isset($retval[0])) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        } else {
+                            // invalid response
+                            sleep(2);
+                            continue;
+                        }
+                        if (isset($retval[1])) {
+                            $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
+                        } else {
+                            $mpdvolume = '';
+                        }
                         // sleep 1 second before looping
                         sleep(1);
                     } else {
                         // set the mpd volume directly
                         $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs');
-                        $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
-                        $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
+                        if (isset($retval[0])) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        } else {
+                            // invalid response
+                            sleep(2);
+                            continue;
+                        }
+                        if (isset($retval[1])) {
+                            $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
+                        } else {
+                            $mpdvolume = '';
+                        }
                         if ($mpdvolume && is_numeric($mpdvolume) && ($mpdvolume >= 0) && ($mpdvolume <= 100)) {
                             // when $mpdvolume has a valid value we are finished
                             $retries_volume = 0;
