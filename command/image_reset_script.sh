@@ -60,6 +60,12 @@ declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shair
 declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved getty@tty1 haveged upower)
 declare -a unmask_arr=(systemd-journald)
 #
+# stop specified services
+for i in "${stop_arr[@]}"
+do
+   systemctl stop "$i"
+done
+#
 # unmask masked services, do this first otherwise other settings are ignored for masked services
 alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
 for i in $alreadymasked
@@ -211,7 +217,7 @@ rm -f /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/getid3
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5beforeRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5beforeSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
-md5beforeGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
+md5beforeGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 rm -f /srv/http/command/mpd-watchdog
 cd /srv/http/
 git config --global core.editor "nano"
@@ -239,7 +245,7 @@ cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
-md5afterGitignore=$( md5sum /sev/http/.gitignore | xargs | cut -f 1 -d " " )
+md5afterGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
     set +x
     echo "#######################################################################################"
