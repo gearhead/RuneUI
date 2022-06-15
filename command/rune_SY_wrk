@@ -188,7 +188,7 @@ if ($playerid_db === '') {
     sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
     // copy the runeaudio cmdline.txt file which suppresses console information
-    copy('/boot/cmdline.txt.runeaudio', '/boot/cmdline.txt');
+    // copy('/boot/cmdline.txt.runeaudio', '/boot/cmdline.txt');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
