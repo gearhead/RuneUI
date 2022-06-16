@@ -33,6 +33,7 @@
 #
 set -x # echo all commands to cli
 set +e # continue on errors
+cd /home
 #
 # the work directories are created on each start up, most are in the tmpfs memory file system, see /etc/fstab
 # backup could be created their, but is as default created in /home
@@ -168,6 +169,11 @@ function enable_overlay_art_cache {
 backupDir=$( redis-cli get backup_dir | tr -s / | xargs )
 # remove a trailing / if it exists
 backupDir="${backupDir%/}"
+if [[ "$backupDir" == "" ]]; then
+    # backup_dir has no value, maybe the redis database is empty or redis is not running
+    # set it to default
+    backupDir="/home/backup"
+fi
 if [[ "$backupDir" != *"tmp"* ]] && [[ "$backupDir" != *"backup"* ]]; then
     # backupDir must contain 'tmp' or 'backup', it should then never interfere with the Linux or RuneAudio
     # otherwise set it to default
@@ -198,8 +204,8 @@ if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
         # more than 256MB, so it is 512GB
         # get the model type
         model=$( redis-cli get pi_model )
-        if [ "$model" == "0d" ] || [ "$model" == "12" ]; then
-            # its a Pi 3 A+Pi or a Zero 2W with 512MB, multiprocessor & local browser support
+        if [ "$model" == "0d" ] || [ "$model" == "12" ] || [ "$model" == "" ]; then
+            # its a Pi 3 A+Pi, a Zero 2W or unknown with 512MB, multiprocessor & local browser support
             # increase the size to 20MB (up to 40Mb will probably be OK)
             mount -o remount,size=20M http-tmp
         else
@@ -217,6 +223,9 @@ fi
 artDir=$( redis-cli get albumart_image_dir | tr -s / | xargs )
 # remove a trailing / if it exists
 artDir="${artDir%/}"
+if [[ "$artDir" == "" ]]; then
+    artDir="/srv/http/tmp/art"
+fi
 if [[ ! -d "$artDir" ]]; then
     mkdir -p "$artDir"
     chown -R http:http "$artDir"

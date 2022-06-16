@@ -33,6 +33,7 @@
 #
 set -x # echo all commands to cli
 set +e # continue on errors
+cd /home
 #
 # parameters:
 #   fast > a quick version which just sets the privileges
@@ -194,8 +195,8 @@ sync
 chown -R http:http /srv/http/
 find /srv/http/ -type f -exec chmod 644 {} \;
 find /srv/http/ -type d -exec chmod 755 {} \;
-find /etc -name *.conf -exec chmod 644 {} \;
-find /usr/lib/systemd/system -name *.service -exec chmod 644 {} \;
+find /etc -type f -name *.conf -exec chmod 644 {} \;
+find /etc/systemd/system -type f -name *.service -exec chmod 644 {} \;
 chmod 644 /etc/nginx/html/50x.html
 chmod 777 /run
 chmod 755 /srv/http/command/*
