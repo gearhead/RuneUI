@@ -182,7 +182,7 @@ while (true) {
 
                 // runelog('---------status data------------',$newStatus);
                 $newStatus = ui_status($socket, $newStatus);
-                runelog('---------status data(2)------------',$newStatus);
+                // runelog('---------status data(2)------------',$newStatus);
                 // render Queue (push async)
                 //if ($status['changed'] === 'playlist') {
                 //    sysCmdAsync('ui_render_pl');
@@ -230,6 +230,7 @@ while (true) {
                 // tweaks to only retrieve radio information after a second metadata record
                 // some radio stations only send one metadata record (repeatedly), so really there is actually no metadata supplied
                 if ($newStatus['radio']) {
+                    // its a radio
                     if ($newStatus['file'] != $saveFile) {
                         // it is a radio and it is not the same as the last radio, so this is the first information from the webradio
                         $status = $newStatus;

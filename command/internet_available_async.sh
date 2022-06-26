@@ -68,7 +68,7 @@ do
 done
 #
 # internet
-# determine if we can see google.com, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see google.com, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # internet connection is available
@@ -91,7 +91,7 @@ else
     exit
 fi
 # dirble
-# determine if we can see dirble.com, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see dirble.com, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://www.dirble.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # dirble is available
@@ -101,7 +101,7 @@ else
     redis-cli hset service dirble 0
 fi
 # last.fm
-# determine if we can see ws.audioscrobbler.com, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see ws.audioscrobbler.com, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://ws.audioscrobbler.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # last.fm is available
@@ -111,7 +111,7 @@ else
     redis-cli hset service lastfm 0
 fi
 # makeitpersonal lyrics
-# determine if we can see makeitpersonal.co/, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see makeitpersonal.co/, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://makeitpersonal.co/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # lyrics is available
@@ -121,7 +121,7 @@ else
     redis-cli hset service makeitpersonal 0
 fi
 # musicbrainz
-# determine if we can see musicbrainz.org/ws/2/, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see musicbrainz.org/ws/2/, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://musicbrainz.org/ws/2/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # musicbrainz is available
@@ -131,7 +131,7 @@ else
     redis-cli hset service musicbrainz 0
 fi
 # coverartarchive.org
-# determine if we can see coverartarchive.org, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see coverartarchive.org, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://coverartarchive.org > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # coverartarchive.org is available
@@ -161,7 +161,7 @@ fi
     # redis-cli hset service azlyrics 0
 # fi
 # discogs
-# determine if we can see www.discogs.com/search, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see www.discogs.com/search, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.discogs.com/search > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # discogs is available
@@ -171,7 +171,7 @@ else
     redis-cli hset service discogs 0
 fi
 # fanart.tv
-# determine if we can see webservice.fanart.tv/v3/audio, this command will give up after +/-20 seconds (= timeout x retries)
+# determine if we can see webservice.fanart.tv/v3/audio, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://webservice.fanart.tv > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # fanart.tv is available

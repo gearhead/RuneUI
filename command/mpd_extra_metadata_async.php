@@ -33,8 +33,8 @@
  *  date: March 2022
  *  description:
  *      this file replaces app/coverart_ctl.php, app/artist_info_ctl.php and app/lyric_ctl.php these
- *      files were previously called by the UI to retrieve album art artist information and lyrics
- *      at the moment it was required for display
+ *      files were previously called by the javascript UI engine (runeaudio.js) to retrieve album art
+ *      artist information and lyrics at the moment it was required for display
  *      while operating the UI was blocked which caused poor UI response and the routines were also
  *      called by each active client causing stress on the external data-service providers
  *      in the new situation the information retrieved once and is pushed to the UI from the back-end
@@ -80,12 +80,12 @@ runelog('lock status ', $lock);
 if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     // set the lock
     $redis->set('lock_mpd_extra_metadata', '1');
-    // process the radio metadata
+    // process the extra metadata
     $saveFile = '';
     $status = json_decode($redis->get('act_player_info'), true);
     while (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
         // loop while MPD, it is not a webradio and the song has changed
-        // so if the song is the same at the start and end of the loop exit
+        // so exit if the song is the same at the start and end of the loop
         $saveFile = $status['file'];
         //
         // main processing
@@ -175,21 +175,27 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
         closeMpdSocket($socket);
         unset($socket, $retval, $retarray, $retline, $retlineparts, $currsongid, $nextsongid);
         //
-        // retrieve and validate the cached information
+        // process the songinfo array, which has one or two entries, current song 'currsong' and in most cases also next song 'nextsong'
         //
         foreach ($songinfo as $songkey => &$song) {
             // note $song is by reference and can be modified
+            //
+            // retrieve and validate the cached information
+            //
             $song['file'] = $mpdRoot.'/'.$song['file'];
-            if (isset($song['album']) && isset($song['albumartist']) && isset($song['date'])
-                    && $song['album'] && $song['albumartist'] && $song['date']) {
+            if (isset($song['album']) && isset($song['albumartist']) && isset($song['date']) && isset($song['title'])
+                    && $song['album'] && $song['albumartist'] && $song['date'] && $song['title']) {
+                $datafile = md5($song['album'].$song['albumartist'].$song['date'].$song['title']);
                 $imagename = md5($song['album'].$song['albumartist'].$song['date']);
-            } else if (isset($song['album']) && isset($song['artist'])
-                    && $song['album'] && $song['artist']) {
-                $imagename = md5($song['album'].$song['artist']);
+            } else if (isset($song['album']) && isset($song['artist']) && isset($song['title'])
+                    && $song['album'] && $song['artist'] && $song['title']) {
+                $datafile = md5($song['album'].$song['artist'].$song['title']);
+                $imagename = md5($song['album'].$song['artist'].$song['date']);
             } else {
-                $imagename = md5($song['file']);
+                $datafile = md5($song['file']);
+                $imagename = $datafile;
             }
-            $song['datafile'] = $artDir.'/'.$imagename.'.mpd';
+            $song['datafile'] = $artDir.'/'.$datafile.'.mpd';
             clearstatcache(true, $song['datafile']);
             if (file_exists($song['datafile'])) {
                 touch($song['datafile']);
@@ -219,11 +225,6 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 // cache is invalid clear the album art file and album art url entries
                 unset($song['albumartfile'], $song['albumarturl']);
             }
-        }
-        //
-        // process the songinfo array, one or two entries, current song 'currsong' and in most cases also next song 'nextsong'
-        //
-        foreach ($songinfo as $songkey => &$song) {
             //
             // process album art
             //
@@ -294,6 +295,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid);
             }
             if (!$artFound) {
+                //
                 // 2. try to find local coverart
                 $coverArtFileNames = array('folder.jpg', 'cover.jpg', 'folder.png', 'cover.png');
                 $coverArtDirectory = dirname($song['file']).'/';
