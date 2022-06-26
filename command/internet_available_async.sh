@@ -140,26 +140,26 @@ else
     # coverartarchive.org is not available
     redis-cli hset service coverartarchiveorg 0
 fi
-# wikipedia
-# determine if we can see upload.wikimedia.org, this command will give up after +/-20 seconds (= timeout x retries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://upload.wikimedia.org > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    # wikipedia is available
-    redis-cli hset service wikipedia 1
-else
-    # wikipedia is not available
-    redis-cli hset service wikipedia 0
-fi
-# azlyrics
-# determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x retries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    # azlyrics is available
-    redis-cli hset service azlyrics 1
-else
-    # azlyrics is not available
-    redis-cli hset service azlyrics 0
-fi
+# # wikipedia
+# # determine if we can see upload.wikimedia.org, this command will give up after +/-20 seconds (= timeout x tries)
+# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://upload.wikimedia.org > /dev/null 2>&1
+# if [ $? -eq 0 ]; then
+    # # wikipedia is available
+    # redis-cli hset service wikipedia 1
+# else
+    # # wikipedia is not available
+    # redis-cli hset service wikipedia 0
+# fi
+# # azlyrics
+# # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x tries)
+# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
+# if [ $? -eq 0 ]; then
+    # # azlyrics is available
+    # redis-cli hset service azlyrics 1
+# else
+    # # azlyrics is not available
+    # redis-cli hset service azlyrics 0
+# fi
 # discogs
 # determine if we can see www.discogs.com/search, this command will give up after +/-20 seconds (= timeout x retries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.discogs.com/search > /dev/null 2>&1
