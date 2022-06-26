@@ -241,11 +241,16 @@ else
         fi
         for file in $FILES
         do
-        # for each file with an upper of lower case flac file extension
+            # for each file with an upper of lower case flac file extension
             if [ -d "$file" ] ; then
                 continue # its a directory not a file
             fi
-            metaflac --add-replay-gain "$file"
+            # test the individual files for replay gain tags
+            cnt=$( metaflac --show-tag=REPLAYGAIN_TRACK_GAIN --show-tag=REPLAYGAIN_ALBUM_GAIN "$file" | wc -l)
+            if [ $cnt = 0 ]; then
+                # replay gain tags not found, add them
+                metaflac --add-replay-gain "$file"
+            fi
             # on errors just continue with the next one
             unset ?
         done
