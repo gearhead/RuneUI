@@ -139,7 +139,7 @@ gpu_mem=24
 [board-type=0x0e]
 gpu_mem=24
 [board-type=0xe]
-gpu_mem=28
+gpu_mem=24
 [all]
 #
 ##  Bluetooth settings ##
