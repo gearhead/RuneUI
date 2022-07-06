@@ -350,6 +350,7 @@ if [ -f "/boot/initramfs-v7-linux.img" ]; then
 fi
 # create required directories
 mkdir /root/.ssh
+mkdir -p /run/bluealsa-monitor/asoundrc
 # remove specific files
 rm /etc/udev/rules.d/99-runeaudio.rules
 rm /etc/udev/rules.d/70-bluealsa.rules

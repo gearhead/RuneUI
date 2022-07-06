@@ -328,11 +328,6 @@ function redisDatastore($redis,$action) {
             // $redis->set('hwplatform', '');
             // $redis->set('hwplatformid', '');
             // player control
-            if (($redis->get('hwplatformid') === '01') OR ($redis->get('hwplatformid') === '08')) {
-                $redis->set('ao', 'bcm2835 Headphones');
-            } else {
-                $redis->set('ao', '');
-            }
             $redis->set('volume', 0);
             $redis->set('pl_length', 0);
             $redis->set('nextsongid', 0);

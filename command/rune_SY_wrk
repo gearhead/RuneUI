@@ -36,7 +36,7 @@ $start = microtime(true);
 $savecpuRp = 12;
 $savecpuMnt = 1;
 $savecpuSmt = 480;
-$savecpuInc = 18;
+$savecpuInc = 240;
 $savecpuIncPrev = $savecpuInc;
 $savecpuSps = 43200;
 $savecpuAvd = 10800;
@@ -194,18 +194,6 @@ if ($playerid_db === '') {
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
     sysCmd('/srv/http/command/rune_shutdown reboot');
-    // // Temporary fix for Zero reboot failures
-    // $model = strtolower($redis->get('pi_model'));
-    // if (($model === '09') || ($model === '0c') || ($model === '12')) {
-        // // its a zero
-        // // create a file to indicate indicate reboot not possible
-        // touch('/srv/http/.config/noreboot');
-        // // use the emergency boot
-        // sysCmd('/srv/http/command/emergency_reboot.sh');
-    // } else {
-        // sysCmd('rm /srv/http/.config/noreboot');
-        // sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
-    // }
     sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
     // should never get here
     // invoke rune_SY_wrk respawn
@@ -301,10 +289,13 @@ if ($playerid_db === '') {
     // initialize OrionProfile
     runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
     $hwplatformid = $redis->get('hwplatformid');
-    $armVer = strtolower(trim(sysCmd('uname -m')[0]));
-    if (($hwplatformid = '08') && ($armVer == 'armv6l')) {
+    // the following lines can be removed after the next kernel upgrade 05-07-2022
+    $armVer = strtolower(trim(sysCmd('uname -m | xargs')[0]));
+    if (($hwplatformid != '01') && ($armVer == 'armv6l')) {
         $hwplatformid = '01';
+        $redis->set('hwplatformid', $hwplatformid);
     }
+    // remove to here
     sysCmdAsync('nice --adjustment=4 /srv/http/command/orion_optimize.sh '.$redis->get('orionprofile').' "'.$hwplatformid."'");
     //
     // check that MPD only has one output enabled and if not correct it
@@ -1235,10 +1226,13 @@ while (true) {
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
                 $hwplatformid = $redis->get('hwplatformid');
-                $armVer = strtolower(trim(sysCmd('uname -m')[0]));
-                if (($hwplatformid = '08') && ($armVer == 'armv6l')) {
+                // the following lines can be removed after the next kernel upgrade 05-07-2022
+                $armVer = strtolower(trim(sysCmd('uname -m | xargs')[0]));
+                if (($hwplatformid != '01') && ($armVer == 'armv6l')) {
                     $hwplatformid = '01';
+                    $redis->set('hwplatformid', $hwplatformid);
                 }
+                // remove to here
                 $profile = $job->args." ".$hwplatformid;
                 runelog("env: SET KERNEL PROFILE", $job->args);
                 sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
@@ -1684,8 +1678,8 @@ while (true) {
         }
     }
     // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
-    // it should run at least once per hour
-    // connman works (should work) in this exponential way of detecting WiFi networks and nics
+    //  it should run at least once per hour
+    //  connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuRefreshNics-- <= 0) {
         wrk_netconfig($redis, 'refreshAsync');
         // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
@@ -1732,18 +1726,18 @@ while (true) {
         $savecpuRp = 25 + rand(0, 10);
     }
     // MPD logfile size check, run first after 600 cycles (+/-5 minutes), then repeat on every +/-1200 cycles (+/-10 minutes)
-    // if the mpd log is greater than the parameter value (bytes) a new log will be created and the old one deleted
-    // the only reason a log file gets too big is when a very large music library is updated or rebuilt (it then tends to grow very quickly)
-    // or when rune runs for days on end without reboot
-    // 200000 bytes is enough for about 1500 normal log entries (@ 3mins per song = 3+ days playing time)
+    //  if the mpd log is greater than the parameter value (bytes) a new log will be created and the old one deleted
+    //  the only reason a log file gets too big is when a very large music library is updated or rebuilt (it then tends to grow quite quickly)
+    //  or when rune runs for days on end without reboot
+    //  200000 bytes is enough for about 1500 normal log entries (@ 3mins per song = 3+ days playing time)
     if ($savecpuMpdLog-- <= 0) {
         wrk_mpdLog($redis, $redis->get('mpd_max_logsize'));
         $savecpuMpdLog = 1150 + rand(0, 100);
     }
     // Test to see if an internet connection is available. Disable the artistinfo, lyrics webradios, etc. functions when no internet is available
-    // This will resolve freezing problems
-    // Run refresh_nics periodically, run it first after 18 cycles (+/-9 seconds), and increase the repeat cycle time by 100%
-    // it should run at least once each 15 minutes
+    // This will resolve freezing problems due to services being unavailable
+    // Run refresh_nics periodically, run it first after 240 cycles (+/-2 minutes), and increase the repeat cycle time by 100% (= x2)
+    //  it should run at least once each 15 minutes, it is also run once early in the start-up sequence
     if ($savecpuInc-- <= 0) {
         // run the tests and disable/enable the artistinfo & lyrics asynchronously
         sysCmdAsync('nice --adjustment=4 /srv/http/command/internet_available_async.sh');
@@ -1755,20 +1749,20 @@ while (true) {
         $savecpuIncPrev = $savecpuInc;
         unset($random);
     }
-    // Automatically determine the timezone
-    // Test first after 60 cycles (+/-30 seconds), then every +/-14400 cycles (= every +/-2 hours)
+    // Automatically determine the time-zone
+    // Test first after 60 cycles (+/-30 seconds), then every +/-28800 cycles (= every +/-4 hours)
     if ($savecpuTimezone-- <= 0) {
-        // run the routine, it is here (and not in the startup routines) because internet needs to be up be detected
-        // it will only change the timezone when it is set to the initial default value and internet is available
+        // run the routine, it is here (and not in the start-up routines) because internet needs to be up and be detected
+        // it will only change the time-zone when it is set to the initial default value and internet is available
         // it normally does nothing
         autoset_timezone($redis);
-        $savecpuTimezone = 14200 + rand(0, 400);
+        $savecpuTimezone = 28600 + rand(0, 400);
     }
     // S.M.A.R.T. monitoring tools
-    // will test each attached hard disk and tape unit
-    // test only when something is playing
-    // first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/20 minutes)
-    // when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
+    //  will test each attached hard disk and tape unit
+    //  test only when music is playing
+    //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
+    //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
     // Why test only when something is playing?
     //  a) someone needs see the error messages and
     //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
@@ -1883,8 +1877,8 @@ while (true) {
     }
     // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
     // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
-    // will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync
-    // to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.
+    //  will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync
+    //  to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.
     if ($savecpuFixdnssec-- <= 0) {
         $savecpuFixdnssec = 1750 + rand(0, 100);
         if (!sysCmd('systemctl is-active systemd-resolved.service | grep -ic inactive')[0]) {

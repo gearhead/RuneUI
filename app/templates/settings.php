@@ -3,7 +3,7 @@
     <form class="form-horizontal" method="post" role="form">
         <fieldset>
             <legend>Sound output & sound processing</legend>
-            <?php if($this->hwplatformid === '08' OR $this->hwplatformid === '01'): ?>
+            <?php if($this->hwplatformid === '01' OR $this->hwplatformid === '08'): ?>
             <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="kernel">Linux Kernel</label>

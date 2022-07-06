@@ -187,6 +187,12 @@ chown -R http:http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
+# Create the directory '/run/bluealsa-monitor/asoundrc', it should not be required but causes alsa errors when not available
+#   it seems to be related to the 'bluealsa-monitor' package, which is not normally installed
+#   this should be tested in the future and removed when no longer necessary
+#
+mkdir -p /run/bluealsa-monitor/asoundrc
+#
 # depending on the total memory and the PI model expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
 #
 # get the total memory

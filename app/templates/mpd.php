@@ -154,7 +154,7 @@
             <?php endif ?>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="dsd-usb">DSD Support</label>
-                <?php if($this->hwplatformid === '08' || $this->hwplatformid === '10'): ?>
+                <?php if(($this->hwplatformid === '01') || ($this->hwplatformid === '08') || ($this->hwplatformid === '10')): ?>
                 <div class="col-sm-10">
                     <select id="dsd-usb" name="conf[dsd_usb]" class="selectpicker" data-style="btn-default btn-lg">
                         <option value="DSDNATIVE" <?php if($this->conf['dsd_usb'] == 'DSDNATIVE'): ?> selected <?php endif ?>>DSD (native)</option>

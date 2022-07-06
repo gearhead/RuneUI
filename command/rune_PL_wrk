@@ -139,6 +139,7 @@ while (true) {
             $saveRadio = 'x';
             $saveCurrentsong = '';
             $saveFile = '';
+            $mpdFixFile = '';
             $status['mainArtURL'] = $artUrl.'/none.png';
             $status['smallArtURL'] = $artUrl.'/black.png';
             $status['bigArtURL'] = $artUrl.'/black.png';
@@ -188,14 +189,6 @@ while (true) {
                 //    sysCmdAsync('ui_render_pl');
                 //    runelog('---------------- PLAYLIST RENDER ----------------');
                 //}
-
-                // make sure currentartist and file variables are set
-                if (!isset($newStatus['currentartist'])) {
-                    $newStatus['currentartist'] = '';
-                }
-                if (!isset($newStatus['file'])) {
-                    $newStatus['file'] = '';
-                }
 
                 // set the radio flag and the radioname and currentalbum if required
                 // webradio's sometimes act like they are just playing file as an url, in this case the currentalbum and radioname are not set
@@ -255,6 +248,23 @@ while (true) {
                         $mpdChangeSong = false;
                     }
                 }
+                if (!$newStatus['radio']) {
+                    // its not a radio
+                    if ($newStatus['state'] === 'play') {
+                        // something is playing
+                        if ($newStatus['file'] && ($newStatus['file'] != $mpdFixFile)) {
+                            // for this file we have not fixed the MPD info
+                            $newStatus = ui_mpd_fix($redis, $newStatus);
+                            $mpdFixFile = $newStatus['file'];
+                        } else {
+                            // the UI remembers the last values
+                            unset($newStatus['bitrate'], $newStatus['audio_sample_rate'], $newStatus['audio_sample_depth']);
+                        }
+                    } else {
+                        // when not playing reset the fix file so that the mpd values are fixed after changing to the play state
+                        $mpdFixFile = '';
+                    }
+                }
                 //
                 // determine what has been returned by MPD, it could be a new song or some sort of status change
                 // the current $status will be filled with extra information for each new song, this information is not delivered by MPD,
@@ -273,8 +283,8 @@ while (true) {
                     $status = array_merge($status, $newStatus);
                     $mpdChangeSong = false;
                 } else {
-                    // it is not a radio or it is a new radio song, replace status
-                    $status = $newStatus;
+                    // radio is togged, new radio station or new song, replace status
+                    $status = array_merge($status, $newStatus);
                     $mpdChangeSong = true;
                     $saveRadio = $newStatus['radio'];
                     $saveCurrentsong = $newStatus['currentsong'];
@@ -385,18 +395,20 @@ while (true) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
-                // start the job to retrieve extra metadata
-                // get the lock status
-                $lock = $redis->get('lock_mpd_extra_metadata');
-                runelog('lock status ', $lock);
-                if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
-                    // start the job
-                    sysCmdAsync('nice --adjustment=2 /srv/http/command/mpd_extra_metadata_async.php', 0);
-                } else {
-                    // just in case something goes wrong increment the lock value by 1
-                    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
-                    $lock += 1;
-                    $redis->set('lock_mpd_extra_metadata', $lock);
+                // start the job to retrieve extra metadata when it is not a radio
+                if (!$status['radio']) {
+                    // get the lock status
+                    $lock = $redis->get('lock_mpd_extra_metadata');
+                    runelog('lock status ', $lock);
+                    if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+                        // start the job
+                        sysCmdAsync('nice --adjustment=4 /srv/http/command/mpd_extra_metadata_async.php', 0);
+                    } else {
+                        // just in case something goes wrong increment the lock value by 1
+                        // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+                        $lock += 1;
+                        $redis->set('lock_mpd_extra_metadata', $lock);
+                    }
                 }
 
                 // debug information

@@ -3030,6 +3030,37 @@ function wrk_audioOutput($redis, $action, $args = null)
                 //}
                 // read the matching predefined configuration for this audio card
                 $acards_details = $redis->hGet('acards_details', $card['name']);
+                // when no card is found try to determine a card-name in the table with a postfix
+                //  when the same card is defined for more hardware types with differing properties, they have a postfix in the key
+                //  name, which makes them unique
+                //  the sysname must be the name of the card we are looking for and the hwplatformid must match the current hardware
+                // this is the only place where hwplatformid is used, normally a match on the array key is enough regardless of the
+                //  hwplatformid value
+                if ($acards_details == '') {
+                    // card not found, collect the acard table keys
+                    $acards_keys = $redis->hKeys('acards_details');
+                    foreach ($acards_keys as $acards_key) {
+                        // try to find a matching key
+                        if (strpos(' '.$acards_key, $card['name']) == 1) {
+                            // the key matches, with some sort of postfix, get the details
+                            $acards_details = $redis->hGet('acards_details', $acards_key);
+                            $details = json_decode($acards_details, true);
+                            // check that both sysname and hwplatformid are set
+                            if (!isset($details['sysname']) || !isset($details['hwplatformid'])) {
+                                // not set, reset the details
+                                $acards_details = '';
+                            }
+                            // check that the sysname is the one we want and that the hardware platform matches
+                            else if (($details['sysname'] == $card['name']) && ($details['hwplatformid'] == $redis->get('hwplatformid'))) {
+                                // found, break the loop
+                                break;
+                            } else {
+                                // not found, reset the details
+                                $acards_details = '';
+                            }
+                        }
+                    }
+                }
                 unset($details);
                 $details = array();
                 // use the predefined configuration for this card of generate one from the system information
@@ -3037,7 +3068,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                     // no predefined configuration for this card use the available information
                     $details['sysname'] = $card['name'];
                     $details['extlabel'] = $card['sysdesc'];
-                    $details['hwplatformid'] = '08';
+                    $details['hwplatformid'] = $redis->get('hwplatformid');
                     if (substr($card['name'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
                         $details['description'] = 'Raspberry Pi: '.trim(substr($card['name'], 8));
@@ -3049,26 +3080,30 @@ function wrk_audioOutput($redis, $action, $args = null)
                 } else {
                     // using the predefined configuration
                     $details = json_decode($acards_details, true);
-                    // determine the description
-                    if (isset($details['type'])) {
-                        if ($details['type'] == 'i2s') {
-                            // save the name as defined in the UI when selecting this card
-                            $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
-                            if (($details['description'] === '') || ($redis->Get('i2smodule') === 'none')) {
-                                // otherwise call set the description to default, could happen when manually configured
-                                $details['description'] = 'Soundcard: '.$card['sysdesc'];
-                            }
-                        } else if ($details['type'] == 'usb') {
-                            // its a USB DAC
-                            $details['description'] = 'USB: '.$card['sysdesc'];
+                }
+                // determine the description
+                if (isset($details['type'])) {
+                    if ($details['type'] == 'i2s') {
+                        // save the name as defined in the UI when selecting this card
+                        $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
+                        if (($details['description'] === '') || ($redis->Get('i2smodule') === 'none')) {
+                            // otherwise call set the description to default, could happen when manually configured
+                            $details['description'] = 'Soundcard: '.$card['sysdesc'];
+                        }
+                    } else if ($details['type'] == 'usb') {
+                        // its a USB DAC
+                        if (isset($details['extlabel']) && ($details['extlabel'] != '')) {
+                            $details['description'] = 'USB: '.$card['extlabel'];
                         } else {
-                            // no idea what this card is, use its system description
-                            $details['description'] = $card['sysdesc'];
+                            $details['description'] = 'USB: '.$card['sysdesc'];
                         }
                     } else {
-                        // type is not set, use its system description
+                        // no idea what this card is, use its system description
                         $details['description'] = $card['sysdesc'];
                     }
+                } else {
+                    // type is not set, use its system description
+                    $details['description'] = $card['sysdesc'];
                 }
                 // when the mixer number ID or the mixer control name are not defined, sometimes these can be determined
                 if (!isset($details['mixer_numid']) || !$details['mixer_numid']) {
@@ -3309,7 +3344,8 @@ function wrk_i2smodule($redis, $args)
 
 function wrk_audio_on_off($redis, $args)
 {
-    if($redis->get('hwplatformid') === '08') {
+    $hwplatformid = $redis->get('hwplatformid');
+    if (($hwplatformid === '01') || ($hwplatformid === '08')) {
         if ($args == 1) {
             sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' /boot/config.txt");
         } else {
@@ -4892,11 +4928,6 @@ function wrk_sourcecfg($redis, $action, $args=null)
 
 function wrk_getHwPlatform($redis)
 {
-    if ($redis->exists('pi_model')) {
-        $previousModel = $redis->get('pi_model');
-    } else {
-        $previousModel = '';
-    }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
     foreach($fileData as $line) {
@@ -4923,7 +4954,7 @@ function wrk_getHwPlatform($redis)
         case 'BCM2837':
             if (intval("0x".$revision, 16) < 16) {
                 // RaspberryPi1
-                $arch = '08';
+                $arch = '01';
                 $model = "00";
                 // old single processor models no on-board Wi-Fi or Bluetooth
                 $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
@@ -4935,18 +4966,13 @@ function wrk_getHwPlatform($redis)
                 $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                 $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                 $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-                // // Temporary fix for 'dtparam=audio=on' failures
-                // if ($previousModel != $model) {
-                    // $redis->set('audio_on_off', -1);
-                // }
-                // // End temporary fix
             }
             else {
                 $model = strtolower(trim(substr($revision, -3, 2)));
                 switch($model) {
                     case "00":
                         // 00 = PiA or PiB
-                        $arch = '08';
+                        $arch = '01';
                         // single processor models no on-board Wi-Fi or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -4957,11 +4983,6 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-                        // // Temporary fix for 'dtparam=audio=on' failures
-                        // if ($previousModel != $model) {
-                            // $redis->set('audio_on_off', -1);
-                        // }
-                        // // End temporary fix
                         break;
                     case "01":
                         // 01 = PiB+, PiA+ or PiCompute module 1
@@ -4978,12 +4999,7 @@ function wrk_getHwPlatform($redis)
                     case "09":
                         // 09 = PiZero,
                         // single processor (armv6) models no on-board Wi-Fi or Bluetooth
-                        // // Temporary fix for 'dtparam=audio=on' failures
-                        // if ($previousModel != $model) {
-                            // $redis->set('audio_on_off', -1);
-                        // }
-                        // // End temporary fix
-                        $arch = '08';
+                        $arch = '01';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
@@ -5025,13 +5041,8 @@ function wrk_getHwPlatform($redis)
                         break;
                     case "0c":
                         // 0c = PiZero W
-                        $arch = '08';
+                        $arch = '01';
                         // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
-                        // // Temporary fix for 'dtparam=audio=on' failures
-                        // if ($previousModel != $model) {
-                            // $redis->set('audio_on_off', -1);
-                        // }
-                        // // End temporary fix
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
@@ -5086,6 +5097,7 @@ function wrk_getHwPlatform($redis)
                         // no break;
                     default:
                         $arch = '08';
+                        // unknown models assume multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
@@ -5145,7 +5157,6 @@ function wrk_getHwPlatform($redis)
             $arch = '--';
             break;
     }
-    $redis->set('pi_model', $model);
     return $arch;
 }
 
@@ -5159,7 +5170,7 @@ function wrk_setHwPlatform($redis)
     // register platform into database
     switch($arch) {
         case '01':
-            $redis->set('hwplatform', 'RaspberryPi');
+            $redis->set('hwplatform', 'RaspberryPi1');
             $redis->set('hwplatformid', $arch);
             break;
         case '02':
@@ -5183,7 +5194,7 @@ function wrk_setHwPlatform($redis)
             $redis->set('hwplatformid', $arch);
             break;
         case '08':
-            $redis->set('hwplatform', 'RaspberryPi');
+            $redis->set('hwplatform', 'RaspberryPi2');
             $redis->set('hwplatformid', $arch);
             break;
         case '09':
@@ -5958,6 +5969,78 @@ function ui_status($mpd, $status)
     if (!isset($status['radioname'])) {
         $status['radioname'] = '';
     }
+    if (!isset($status['date'])) {
+        $status['date'] = '';
+    }
+    return $status;
+}
+
+function ui_mpd_fix($redis, $status)
+//
+// get the extra information about the song from the pre-cached information file
+//
+{
+    if (!$status['radioname'] && $status['file']) {
+        // not for radio and only when file has a value
+        unset($datafile);
+        $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
+        $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+        // the name of the file name varies depending on the available information
+        if ($status['currentalbum'] && $status['currentalbumartist'] && $status['date'] && $status['currentsong']) {
+            // one file per album
+            $datafile = md5(trim($status['currentalbum']).trim($status['currentalbumartist']).trim($status['date']).trim($status['currentsong']));
+        } else if ($status['currentalbum'] && $status['currentartist'] && $status['currentsong']) {
+            // one file per album artist combination
+            $datafile = md5(trim($status['currentalbum']).trim($status['currentartist']).trim($status['currentsong']));
+        } else if ($status['file']) {
+            // as last resort, one file per music file
+            $datafile = md5($musicDir.'/'.trim($status['file']));
+        }
+        $fileName = $artDir.'/'.$datafile.'.mpd';
+        if (isset($datafile) && $datafile) {
+            // when $datafile is set we can determine a file name
+            // ui_notify('Test file name ', $fileName);
+            $metadata = getMusicFileMatadata($redis, $fileName);
+            if ($metadata) {
+                // ui_notify('Test metadata found ', $fileName);
+                // avarage bit rate, always update it when a value is available, MPD returns the actual bit rate at that moment
+                if (isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
+                    // ui_notify('Test bitrate ', $metadata['avg_bit_rate']);
+                    $status['bitrate'] = intval($metadata['avg_bit_rate']/1000);
+                }
+                // sample rate, fix it if missing
+                if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
+                    if (isset($metadata['sample_rate']) && $metadata['sample_rate']) {
+                        $status['audio_sample_rate'] = round($metadata['sample_rate']/1000, 1);
+                    }
+                }
+                // sample depth, fix it if missing
+                if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
+                    if (isset($metadata['bits_per_sample']) && $metadata['bits_per_sample']) {
+                        $status['audio_sample_depth'] = $metadata['bits_per_sample'];
+                    }
+                }
+                // album art, add it if available
+                if (isset($metadata['albumarturl']) && $metadata['albumarturl']) {
+                    // ui_notify('Test album url ', $metadata['albumarturl']);
+                    // available
+                    $status['mainArtURL'] = $metadata['albumarturl'];
+                    if ($redis->get('remoteSSbigart') === 'album') {
+                        $status['bigArtURL'] = $metadata['albumarturl'];
+                    } else {
+                        $status['smallArtURL'] = $metadata['albumarturl'];
+                    }
+                } else {
+                    // not available set it to the black image
+                    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+                    $status['mainArtURL'] = $artUrl.'/black.png';
+                }
+            } else {
+                // no metadata file, so set the main art to the black image
+                $status['mainArtURL'] = $artUrl.'/black.png';
+            }
+        }
+    }
     return $status;
 }
 
@@ -6251,7 +6334,7 @@ function ui_update($redis, $sock=null, $clientUUID=null)
     $activePlayerInfo = json_decode($redis->get('act_player_info'), true);
     if (isset($activePlayerInfo['actPlayer']) && $activePlayerInfo['actPlayer']) {
         // clear some act_player_info fields
-        unset ($activePlayerInfo['elapsed']);
+        unset ($activePlayerInfo['elapsed'], $activePlayerInfo['song_percent']);
         ui_render('playback', json_encode($activePlayerInfo));
     }
     ui_libraryHome($redis, $clientUUID);
@@ -6540,10 +6623,12 @@ function metadataStringClean($string, $type='')
         // this should remove things like '[live]', '(disk 1)', etc. from the string
         $string = preg_split('!( \()|( \{)|( \<)|( \[)|\]|\>|\}|\)!', $string)[0];
         if ($type == 'artist') {
-            // truncate the string up to a space colon, space semicolon, space slash or the
+            // truncate the string up to a space colon, colon space, space semicolon, semicolon space, slash or the
             //  text strings ' Feat. ', ' feat. ', ' Ft. ' or ' ft. ' (=featuring)
+            //  text strings ' Feat ', ' feat ', ' Ft ' or ' ft ' (=featuring)
+            //  text strings ' Vs ', ' vs ', ' Vs. ', ' vs. ' (=versus)
             //  this should remove a second artist or a featured artist from the string
-            $string = preg_split('!( \:)|( \;)|( \/)|( Feat. )|( feat. )|( Ft. )|( ft. )!', $string)[0];
+            $string = preg_split('!( \:)|(\: )|( \;)|(\; )|(\/)|( Feat. )|( feat. )|( Ft. )|( ft. )|( Feat )|( feat )|( Ft )|( ft )|( Vs. )|( vs. )|( Vs )|( vs )!', $string)[0];
         }
     }
     // replace characters with accents, etc. with normal characters
@@ -7793,8 +7878,14 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         touch($cleanUpperDir.'/'.$requiredFile);
     }
     // always remove files which over 3 months (90 days) old
-    // the following command removes all files from the art directory which are older than 90 days
-    sysCmd('find "'.$cleanUpperDir.'" -type f -mtime +90 -exec rm {} \;');
+    // do it once per day!
+    $today = date("Y-m-d");
+    if ($today != $redis->hGet('cleancache', '90upperdate')) {
+        // the following command removes all files from the art directory which are older than 90 days
+        sysCmd('find "'.$cleanUpperDir.'" -type f -mtime +90 -exec rm {} \;');
+        $redis->hSet('cleancache', '90upperdate', $today);
+    }
+    unset($today);
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // if the art is using tmpfs get the physical memory information
@@ -7884,16 +7975,44 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     $fileToSave = 0;
     //
     // always remove files which over 3 months (90 days) old
-    // the following command removes all files from the lower directory which are older than 90 days
-    // the strategy is that we have used them for 3 months, but their source information may now have changed
-    sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
-    // artist files (these can contain the text 'Sorry, no details available') without any content are deleted after 30 days
-    // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed
-    $files = sysCmd("find '".$cleanLowerDir."' -type f -mtime +30 -exec grep -il 'Sorry, no details available' {} \;");
-    foreach ($files as $file) {
-        unlink($file);
+    // and files without content after 1 month (30 days)
+    // do it once per day!
+    $today = date("Y-m-d");
+    if ($today != $redis->hGet('cleancache', '90lowerdate')) {
+        // the following command removes all files from the lower directory which are older than 90 days
+        // the strategy is that we have used them for 3 months, but their source information may now have changed
+        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
+        $redis->hSet('cleancache', '90lowerdate', $today);
+    } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
+        // artist files without any content (these can contain the text 'Sorry, no details available') are deleted after 30 days
+        // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
+        //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.artist' > '/tmp/exclude.filelist'");
+        //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Sorry, no details available' ".$cleanLowerDir."/*.artist");
+        //  remove the exclude file
+        unlink('/tmp/exclude.filelist');
+        // delete the files
+        foreach ($files as $file) {
+            unlink($file);
+        }
+        $redis->hSet('cleancache', '30lowerdate_artist', $today);
+    } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
+        // song files without any content (these can contain the text 'No lyrics available') are deleted after 30 days
+        // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
+        //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' >> '/tmp/exclude.filelist'");
+        //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song");
+        //  remove the exclude file
+        unlink('/tmp/exclude.filelist');
+        // delete the files
+        foreach ($files as $file) {
+            unlink($file);
+        }
+        $redis->hSet('cleancache', '30lowerdate_song', $today);
     }
-    unset($files, $file);
+    unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // allow the file system to fill to 80% (20% free), it is a partition on the sd-card
@@ -8002,6 +8121,11 @@ function set_last_mpd_volume($redis)
                 $retval = sysCmd('mpc volume | grep "volume:" | xargs');
                 if (!isset($retval[0]) || !$retval[0]) {
                     // no response
+                    sleep(2);
+                    continue;
+                }
+                if (!isset($retval[0])) {
+                    // invalid response
                     sleep(2);
                     continue;
                 }
@@ -8143,7 +8267,10 @@ function get_lastFm($redis, $url)
         // last.fm is down
         return 0;
     }
-    $retval = json_decode(curlGet($url, $proxy), true);
+//    $retval = json_decode(curlGet($url, $proxy), true);
+    // $proxy = $redis->hGetall('proxy');
+    // using a proxy is possible but not implemented
+    $retval = json_decode(sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
     if (isset($retval['error'])) {
         if (in_array($retval['error'], $lastfmDownErrors)) {
             // last.fm is down, or has other problems, for error codes see: https://www.last.fm/api/errorcodes
@@ -8176,10 +8303,9 @@ function get_musicBrainz($redis, $url)
     $opts = array('http' =>
         array(
             // timeout in seconds
-            // 3 seconds is a little on the high side, 1 or 2 is probably better
-            // setting it higher results in less failures, but causes musicbrainz to search for more obscure and more false matches
-            // but this part of the code is attempted only when musicbrainz is up, so it should not be a problem
-            'timeout' => 3,
+            // 5 seconds is a little on the high side, 2 or 3 is probably better
+            // setting it higher results in less failures, but can result in delays
+            'timeout' => 5,
             // ignore any errors, we check the returned value for errors
             'ignore_errors' => '1',
             // set up the user agent ! this is very important !
@@ -8233,9 +8359,9 @@ function get_fanartTv($redis, $url)
     $opts = array('http' =>
         array(
             // timeout in seconds
-            // 3 seconds is a little on the high side, 1 or 2 is probably better.
+            // 5 seconds is a little on the high side, 2 or 3 is probably better.
             // but this part of the code is attempted only when fanart.tv is up, so it should not be a problem
-            'timeout' => 3,
+            'timeout' => 5,
             // ignore any errors, we check the returned value for errors
             'ignore_errors' => '1'
         )
@@ -8305,13 +8431,8 @@ function get_makeitpersonal($redis, $url)
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
     $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
-    $retval = preg_replace('!\s+!', ' ', implode('<br>', $retval));
-    if (!$retval) {
-        // nothing returned, it should always return something, disable makeitpersonal
-        $redis->hSet('service', 'makeitpersonal', 0);
-        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-        return 0;
-    } else if (strpos(strtolower(' '.$retval), 'invalid params')) {
+    $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
+    if (strpos(strtolower(' '.$retval), 'invalid params')) {
         // 'invalid params' returned, error condition, but not fatal
         // the artist and/or song parameters are probably too long
         return 0;
@@ -8321,8 +8442,22 @@ function get_makeitpersonal($redis, $url)
     } else if (strpos(strtolower(' '.$retval), '>oh noes!<')) {
         // 'oh noes' returned, error condition in a web page, but not fatal
         return 0;
+    } else if (strpos(strtolower(' '.$retval), 'internal server error')) {
+        // 'Internal Server Error' returned, error condition server response, but not fatal
+        // trim the error message from the return value, it ends in '/html><br>'
+        $retval = trim(get_between_data($retval, '/html><br>'));
     } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
         // 'something went wrong' returned, error condition, disable makeitpersonal
+        $redis->hSet('service', 'makeitpersonal', 0);
+        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
+        return 0;
+    }
+    while (substr($retval, 0, 4) == '<br>') {
+        // remove leading empty lines
+        $retval = trim(substr($retval, 4));
+    }
+    if (!$retval) {
+        // nothing returned, it should always return something, disable makeitpersonal
         $redis->hSet('service', 'makeitpersonal', 0);
         // this will be reset each 15 minutes, providing that the makeitpersonal site is up
         return 0;
@@ -8348,9 +8483,9 @@ function get_coverartarchiveorg($redis, $url)
     $opts = array('http' =>
         array(
             // timeout in seconds
-            // 3 seconds is a little on the high side, 1 or 2 is probably better.
+            // 5 seconds is a little on the high side, 2 or 3 is probably better.
             // but this part of the code is attempted only when musicbrainz is up, so it should not be a problem
-            'timeout' => 3,
+            'timeout' => 5,
             // ignore any errors, we check the returned value for errors
             'ignore_errors' => '1',
             // set up the user agent ! this is important !
@@ -8441,7 +8576,7 @@ function get_songInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
-        if (!$info[$toSetInfoField]) {
+        if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
         }
@@ -8459,13 +8594,19 @@ function get_songInfo($redis, $info=array())
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
+    if (!isset($info['song_filename']) || !$info['song_filename']) {
+        $info['song_filename'] = '';
+        if (isset($info['artist']) && isset($info['song']) && $info['artist'] && $info['song']) {
+            $info['song_filename'] = format_artist_song_file_name($info['artist'], $info['song']);
+        }
+    }
     if ($info['song_filename']){
         $fileName = $artDir.'/'.$info['song_filename'].'.song';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($fileName == $infoCache['song_filename']) {
+            if ($fileName == $artDir.'/'.$infoCache['song_filename'].'.song') {
                 touch($fileName);
                 foreach ($infoCache as $key => $value) {
                     if (trim($value) != '') {
@@ -8479,28 +8620,35 @@ function get_songInfo($redis, $info=array())
     // check to see we can search for something
     if ((!$info['artist'] && !$info['albumartist']) || !$info['song']) {
         // no artist name is set or no song name set, just return the default values, cache cannot be set
-        $info['song_lyrics'] = '<br>No lyrics available<br>';
+        $info['song_lyrics'] = 'No lyrics available<br>';
         return $info;
     }
     // build up an array of artist and album search strings based on album artist, (song) artist and album name
     //  no duplicates in the array,
     //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
+    // when the album artist is contained in the (track) artist use the album artist
+    //  otherwise use the (track) artist
+    if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
+        $useAlbumArtist = true;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+    } else {
+        $useAlbumArtist = false;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
     }
     $searchSongs = array();
     $song = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['song']))),0, 100);
@@ -8537,21 +8685,28 @@ function get_songInfo($redis, $info=array())
                 $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
                 $retval = get_makeitpersonal($redis, $url);
                 if ($retval) {
-                    // found the release (song) on last.fm, use the data if it is set
+                    // found the lyrics on makeitpersonal.co, use the data if it is set
                     if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
                         $info['song_lyrics'] = $retval['song_lyrics'];
                         // break both loops
                         break 2;
+                    } else {
+                        // pause before trying again
+                        sleep(2);
                     }
                 }
             }
         }
     }
     if (!$info['song_lyrics']) {
-        $info['song_lyrics'] = '<br>No lyrics available<br>';
+        $info['song_lyrics'] = 'No lyrics available<br>';
     }
-    if ($info['artist'] && $info['song']) {
+    if ($useAlbumArtist && $info['albumartist'] && $info['song']) {
+        $info['song_filename'] = format_artist_song_file_name($info['albumartist'], $info['song']);
+    } else if ($info['artist'] && $info['song']) {
         $info['song_filename'] = format_artist_song_file_name($info['artist'], $info['song']);
+    }
+    if (isset($info['song_filename']) && $info['song_filename']) {
         $infoCache = array();
         foreach ($toCacheInfoFields as $toCacheInfoField) {
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
@@ -8600,7 +8755,7 @@ function get_albumInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
-        if (!$info[$toSetInfoField]) {
+        if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
         }
@@ -8619,13 +8774,19 @@ function get_albumInfo($redis, $info=array())
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
+    if (!isset($info['album_filename']) || !$info['album_filename']) {
+        $info['album_filename'] = '';
+        if (isset($info['artist']) && isset($info['album']) && $info['artist'] && $info['album']) {
+            $info['album_filename'] = format_artist_album_file_name($info['artist'], $info['album']);
+        }
+    }
     if ($info['album_filename']){
         $fileName = $artDir.'/'.$info['album_filename'].'.album';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($fileName == $infoCache['album_filename']) {
+            if ($fileName == $artDir.'/'.$infoCache['album_filename'].'.album') {
                 touch($fileName);
                 foreach ($infoCache as $key => $value) {
                     if (trim($value) != '') {
@@ -8654,21 +8815,28 @@ function get_albumInfo($redis, $info=array())
     //  no duplicates in the array,
     //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
-    if ($artist && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
-    if ($artist && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
-    if ($artist && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
-    if ($artist && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
+    // when the album artist is contained in the (track) artist use the album artist
+    //  otherwise use the (track) artist
+    if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
+        $useAlbumArtist = true;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+    } else {
+        $useAlbumArtist = false;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
     }
     $searchAlbums = array();
     $album = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['album']))),0, 100);
@@ -8688,7 +8856,7 @@ function get_albumInfo($redis, $info=array())
             if (file_exists($fileName)) {
                 // found a cached file, update its timestamp, use it and return
                 $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-                if ($fileName == $infoCache['album_filename']) {
+                if ($fileName == $artDir.'/'.$infoCache['album_filename'].'.album') {
                     touch($fileName);
                     foreach ($infoCache as $key => $value) {
                         if (trim($value) != '') {
@@ -8806,8 +8974,12 @@ function get_albumInfo($redis, $info=array())
             $info['album_arturl_small'] = $artUrl.'/none.png';
         }
     }
-    if ($info['artist'] && $info['album']) {
+    if ($useAlbumArtist && $info['albumartist'] && $info['album']) {
+        $info['album_filename'] = format_artist_album_file_name($info['albumartist'], $info['album']);
+    } else if ($info['artist'] && $info['album']) {
         $info['album_filename'] = format_artist_album_file_name($info['artist'], $info['album']);
+    }
+    if (isset($info['album_filename']) && $info['album_filename']) {
         $infoCache = array();
         foreach ($toCacheInfoFields as $toCacheInfoField) {
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
@@ -8858,7 +9030,7 @@ function get_artistInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
-        if (!$info[$toSetInfoField]) {
+        if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
         }
@@ -8876,13 +9048,19 @@ function get_artistInfo($redis, $info=array())
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
+    if (!isset($info['artist_filename']) || !$info['artist_filename']) {
+        $info['artist_filename'] = '';
+        if (isset($info['artist']) && $info['artist']) {
+            $info['artist_filename'] = format_artist_file_name($info['artist']);
+        }
+    }
     if ($info['artist_filename']){
         $fileName = $artDir.'/'.$info['artist_filename'].'.artist';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($fileName == $infoCache['artist_filename']) {
+            if ($fileName == $artDir.'/'.$infoCache['artist_filename'].'.artist') {
                 touch($fileName);
                 foreach ($infoCache as $key => $value) {
                     if (trim($value) != '') {
@@ -8901,26 +9079,37 @@ function get_artistInfo($redis, $info=array())
         $info['artist_bio_content'] = $info['artist'].' - Sorry, no details available.';
         $info['artist_similar'] = '<br>';
         return $info;
+    } else if (!$info['artist']) {
+        $info['artist'] = $info['albumartist'];
+    } else if (!$info['albumartist']) {
+        $info['albumartist'] = $info['artist'];
     }
     // build up an array of artist search strings based on album artist and (song) artist
     //  no duplicates in the array,
     //  each element is non-null, no non-space whitespace, single spaces, no leading or trailing spaces, lowercase, max. 100 chars
     $searchArtists = array();
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'),0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
-    }
-    $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
-    if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
-        $searchArtists[] = $artist;
+    // when the album artist is contained in the (track) artist use the album artist
+    //  otherwise use the (track) artist
+    if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
+        $useAlbumArtist = true;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['albumartist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+    } else {
+        $useAlbumArtist = false;
+        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
+        $artist = substr(metadataStringClean(strtolower($info['artist']), 'artist'), 0, 100);
+        if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
+            $searchArtists[] = $artist;
+        }
     }
     // search for an existing cached file
     foreach ($searchArtists as $searchArtist) {
@@ -8930,7 +9119,7 @@ function get_artistInfo($redis, $info=array())
         if (file_exists($fileName)) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
-            if ($fileName == $infoCache['artist_filename']) {
+            if ($fileName == $artDir.'/'.$infoCache['artist_filename'].'.artist') {
                 touch($fileName);
                 foreach ($infoCache as $key => $value) {
                     if (trim($value) != '') {
@@ -8975,18 +9164,19 @@ function get_artistInfo($redis, $info=array())
             if (!$info['artist_mbid'] && isset($retval['artist']['mbid']) && trim($retval['artist']['mbid']) ) {
                 $info['artist_mbid'] = trim($retval['artist']['mbid']);
             }
+            if ($useAlbumArtist && $info['albumartist']) {
+                $bioArtist = $info['albumartist'].' - ';
+            } else if ($info['artist']) {
+                $bioArtist = $info['artist'].' - ';
+            } else {
+                $bioArtist = '';
+            }
             if (!$info['artist_bio_summary'] && isset($retval['artist']['bio']['summary']) && trim($retval['artist']['bio']['summary'])) {
-                $info['artist_bio_summary'] = trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['summary']))));
-                if (substr($info['artist_bio_summary'], 0, 1) === '<') {
-                    $info['artist_bio_summary'] = $info['artist'].' - '.$info['artist_bio_summary'];
-                }
+                $info['artist_bio_summary'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['summary']))));
             }
             if (!$info['artist_bio_content'] && isset($retval['artist']['bio']['content']) && trim($retval['artist']['bio']['content'])) {
-                $info['artist_bio_content'] = trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['content']))));
+                $info['artist_bio_content'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['content']))));
             }
-                if (substr($info['artist_bio_content'], 0, 1) === '<') {
-                    $info['artist_bio_content'] = $info['artist'].' - '.$info['artist_bio_content'];
-                }
             if (!$info['artist_similar'] && isset($retval['artist']['similar']['artist'][0]['name'])) {
                 // similar artist name summary is set
                 $indx = 0;
@@ -8997,6 +9187,9 @@ function get_artistInfo($redis, $info=array())
                     } else {
                         $indx = 7;
                     }
+                }
+                if (strpos($info['artist_similar'], 'Samsung Galaxy A80') || strpos($info['artist_similar'], 'PUBG Mobile')) {
+                    $info['artist_similar'] = '';
                 }
             }
         }
@@ -9045,8 +9238,12 @@ function get_artistInfo($redis, $info=array())
     if (!$info['artist_arturl']) {
         $info['artist_arturl'] = $artUrl.'/none.png';
     }
-    if ($info['artist']) {
+    if ($useAlbumArtist && $info['albumartist']) {
+        $info['artist_filename'] = format_artist_file_name($info['albumartist']);
+    } else if ($info['artist']) {
         $info['artist_filename'] = format_artist_file_name($info['artist']);
+    }
+    if (isset($info['artist_filename']) && $info['artist_filename']) {
         $infoCache = array();
         foreach ($toCacheInfoFields as $toCacheInfoField) {
             $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
@@ -9334,33 +9531,44 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
 }
 
 // function to return a string between two delimiters
-function get_between_data($string, $start, $end, $occurence=1)
+function get_between_data($string, $start='', $end='', $occurrence=1)
+// $start can be blank/null, then occurrence is ignored, selection is from the first position in $string
+// $end can be blank/null, then selection to end of string
+// when $start and $end are specified but no match if found a zero length string is returned
+// when $start and $end are unspecified $string is returned
+// when $occurrence is set (default = 1) it is used to match n'th occurrence of $start, only then is searched for an occurrence of $end
 {
-    if ( !is_numeric($occurence) ) {
-        $substr_data = "";
+    if ($start == '') {
+        $substr_data = $string;
     } else {
-        if ( $occurence < 1 ) {
+        if ( !is_numeric($occurrence) ) {
             $substr_data = "";
         } else {
-            $substr_data = $string;
+            if ( $occurrence < 1 ) {
+                $substr_data = "";
+            } else {
+                $substr_data = $string;
+            }
+        }
+        for ($i = 1; $i <= $occurrence; $i++) {
+            $pos_start = stripos($substr_data, $start);
+            if ($pos_start === false) {
+                $substr_data = "";
+                break;
+            }
+            else {
+                $substr_data = substr($substr_data, $pos_start+strlen($start));
+            }
         }
     }
-    for ($i = 1; $i <= $occurence; $i++) {
-        $pos_start = stripos($substr_data, $start);
-        if ($pos_start === false) {
+    if ($end != '') {
+        $pos_end = stripos($substr_data, $end);
+        if ($pos_end === false) {
             $substr_data = "";
-            break;
         }
         else {
-            $substr_data = substr($substr_data, $pos_start+strlen($start));
+            $substr_data = trim(substr($substr_data, 0, $pos_end));
         }
-    }
-    $pos_end = stripos($substr_data, $end);
-    if ($pos_end === false) {
-        $substr_data = "";
-    }
-    else {
-        $substr_data = trim(substr($substr_data, 0, $pos_end));
     }
     return $substr_data;
 }
@@ -9807,28 +10015,39 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
 }
 
 // get the average bit rate for a music file
-function getMusicFileMatadata($redis, $filename)
+function getMusicFileMatadata($redis, $fileName)
 // returns the cached metadata for the music file
 //  all MPD music files which are currently playing (should) have a cached metadata file
 //  contents include:
-//      ["format_name"] (example content = "MP3")
-//      ["encoder_version"] (example content = "LAME3.92")
-//      ["encoder_options"] (example content = "CBR320")
+//      ["albumartfile"] The album art file name
+//      ["albumarturl"] The album art URL
+//      ["avg_bit_rate"] (example content = 320000 or 944292.45134554)
 //      ["bitrate_mode"] (example content = "cbr", "vbr")
-//      ["channels"] (example content = 2)
-//      ["sample_rate"] (example content = 48000)
 //      ["bits_per_sample"] (example content = 0)
+//      ["channels"] (example content = 2)
+//      ["date"] The publication year
+//      ["encoder_options"] (example content = "CBR320")
+//      ["encoder_version"] (example content = "LAME3.92")
+//      ["format_name"] (example content = "MP3")
+//      ["format_name"] Format of the music file (e.g. FLAC, MP3)
 //      ["playing_time"] (example content = 380.47199999999998)
-//      ["avg_bit_rate"] (example content = 320000)
+//      ["sample_rate"] (example content = 48000)
+//
 {
-    // get the album art directory and url dir
-    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
-    $metadataFileName = $artDir.'/'.md5($filename).'.mpd';
-    clearstatcache(true, $metadataFileName);
-    if (!file_exists($metadataFileName)) {
+    clearstatcache(true, $fileName);
+    if (!file_exists($fileName)) {
         return false;
     }
-    $metadata = json_decode(file_get_contents($metadataFileName), true);
+    $metadata = json_decode(file_get_contents($fileName), true);
+    // remove the album art file name and URL when no longer valid
+    if (isset($metadata['albumartfile']) && $metadata['albumartfile']) {
+        clearstatcache(true, $metadata['albumartfile']);
+        if (!file_exists($metadata['albumartfile'])) {
+            unset($metadata['albumartfile'], $metadata['albumarturl']);
+        }
+    } else {
+        unset($metadata['albumartfile'], $metadata['albumarturl']);
+    }
     return $metadata;
 }
 

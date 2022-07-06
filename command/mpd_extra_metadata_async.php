@@ -136,7 +136,11 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 foreach ($retarray as $retline) {
                     if (strpos(' '.$retline, ': ')) {
                         $retlineparts = explode(': ', $retline, 2);
-                        $songinfo['currsong'][trim(strtolower($retlineparts[0]))] = trim($retlineparts[1]);
+                        $retlineparts[0] = trim($retlineparts[0]);
+                        $retlineparts[1] = trim($retlineparts[1]);
+                        if ($retlineparts[0] && $retlineparts[1]) {
+                            $songinfo['currsong'][strtolower($retlineparts[0])] = $retlineparts[1];
+                        }
                     }
                 }
             } else {
@@ -158,7 +162,11 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 foreach ($retarray as $retline) {
                     if (strpos(' '.$retline, ': ')) {
                         $retlineparts = explode(': ', $retline, 2);
-                        $songinfo['nextsong'][trim(strtolower($retlineparts[0]))] = trim($retlineparts[1]);
+                        $retlineparts[0] = trim($retlineparts[0]);
+                        $retlineparts[1] = trim($retlineparts[1]);
+                        if ($retlineparts[0] && $retlineparts[1]) {
+                            $songinfo['nextsong'][strtolower($retlineparts[0])] = $retlineparts[1];
+                        }
                     }
                 }
             } else {
@@ -237,17 +245,9 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 // determine the album art
                 // set up the file names, we assume jpg, but it could be something else, regardless
                 //  of this, the browser seems to test the image file type and use it correctly
-                if (isset($song['album']) && isset($song['albumartist']) && isset($song['date'])
-                        && $song['album'] && $song['albumartist'] && $song['date']) {
-                    $imagename = md5($song['album'].$song['albumartist'].$song['date']);
-                } else if (isset($song['album']) && isset($song['artist'])
-                        && $song['album'] && $song['artist']) {
-                    $imagename = md5($song['album'].$song['artist']);
-                } else {
-                    $imagename = md5($song['file']);
-                }
                 $song['albumartfile'] = $artDir.'/'.$imagename.'.jpg';
                 $song['albumarturl'] = $artUrl.'/'.$imagename.'.jpg';
+                //
                 // 1. try to extract embedded coverart
                 // getid3 needs to operate in directory /srv/http/app/libs/vendor
                 chdir('/srv/http/app/libs/vendor');
@@ -278,15 +278,15 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                         }
                     } else {
                         // if there are music brainz id's in the metadata save them
-                        $artist_mbid = search_array_keys($value, 'artist_mbid');
+                        $artist_mbid = trim(search_array_keys($value, 'artist_mbid'));
                         if ($artist_mbid) {
                             $song['artist_mbid'] = $artist_mbid;
                         }
-                        $album_mbid = search_array_keys($value, 'album_mbid');
+                        $album_mbid = trim(search_array_keys($value, 'album_mbid'));
                         if ($album_mbid) {
                             $song['album_mbid'] = $album_mbid;
                         }
-                        $song_mbid = search_array_keys($value, 'song_mbid');
+                        $song_mbid = trim(search_array_keys($value, 'song_mbid'));
                         if ($song_mbid) {
                             $song['song_mbid'] = $song_mbid;
                         }
@@ -312,56 +312,59 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 unset($coverArtFileNames, $coverArtDirectory);
             }
             //
-            if ($artFound) {
-                // save the songinfo data
-                file_put_contents($song['datafile'], json_encode($song)."\n");
-            }
-            //
             // only when processing the current song and that albumart has been found update the UI
             if (($songkey == 'currsong') && $artFound) {
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
                 if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
                     // the current song is still valid
-                    $status['mainArtURL'] = $song['albumarturl'];
-                    if ($bigartIsAlbum) {
-                        $status['bigArtURL'] = $song['albumarturl'];
-                    } else {
-                        $status['smallArtURL'] = $song['albumarturl'];
-                    }
-                    if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
-                        $status['bitrate'] = intval($song['avg_bit_rate']/1000);
-                    }
-                    if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
-                        if (isset($song['sample_rate']) && $song['sample_rate']) {
-                            $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
+                    // write it when changed the main art url has changed
+                    // if (!isset($status['mainArtURL']) || ($status['mainArtURL'] != $song['albumarturl'])) {
+                        $status['mainArtURL'] = $song['albumarturl'];
+                        if ($bigartIsAlbum) {
+                            $status['bigArtURL'] = $song['albumarturl'];
+                        } else {
+                            $status['smallArtURL'] = $song['albumarturl'];
                         }
-                    }
-                    if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
-                        if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
-                            $status['audio_sample_depth'] = $song['bits_per_sample'];
+                        if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
+                            $status['bitrate'] = intval($song['avg_bit_rate']/1000);
                         }
-                    }
-                    $redis->set('act_player_info', json_encode($status));
-                    ui_render('playback', json_encode($status));
-                    // unload CPU: 0.2 second sleep
-                    // usleep(200000);
+                        if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
+                            if (isset($song['sample_rate']) && $song['sample_rate']) {
+                                $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
+                            }
+                        }
+                        if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
+                            if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
+                                $status['audio_sample_depth'] = $song['bits_per_sample'];
+                            }
+                        }
+                        unset($status['elapsed'], $status['song_percent']);
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
+                        // unload CPU: 0.2 second sleep
+                        // usleep(200000);
+                    // }
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
                     continue 2;
                 }
             } else if (($songkey == 'nextsong') && $artFound) {
+                // when processing the nextsong only update the cover art preload url
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
                 if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
                     // the current song is still valid
-                    // set the cover art preload to the next song art url
-                    $status['coverArtPreload'] = $song['albumarturl'];
-                    $redis->set('act_player_info', json_encode($status));
-                    ui_render('playback', json_encode($status));
-                    // unload CPU: 0.2 second sleep
-                    // usleep(200000);
+                    // set the cover art preload to the next song art url when changed
+                    if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
+                        $status['coverArtPreload'] = $song['albumarturl'];
+                        unset($status['elapsed'], $status['song_percent']);
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
+                        // unload CPU: 0.2 second sleep
+                        // usleep(200000);
+                    }
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
@@ -389,9 +392,15 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            $retval = get_songInfo($redis, $info);
-            if ($retval) {
-                $info = array_merge($info, $retval);
+            if (strpos(' '.strtolower($song['genre']), 'classical')) {
+                // genre is classical, skip the lyrics
+                $info['song_lyrics'] = 'Lyrics retrieval omitted for the "classical" genre';
+            } else {
+                // when not classical get the lyrics
+                $retval = get_songInfo($redis, $info);
+                if ($retval) {
+                    $info = array_merge($info, $retval);
+                }
             }
             // it seems illogical for this to be here however it is more effective to search
             // for cover art on internet together with the artist and song information
@@ -406,12 +415,15 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 // in this case there is no image file
                 unset($song['albumartfile']);
                 $song['albumarturl'] = $info['album_arturl_medium'];
-                // save the songinfo data
-                file_put_contents($song['datafile'], json_encode($song)."\n");
                 $artFound = true;
             }
-            // only when processing the current song
+            if ($artFound) {
+                // save the songinfo data
+                file_put_contents($song['datafile'], json_encode($song)."\n");
+            }
+            //
             if ($songkey == 'currsong') {
+                // currnet song
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
                 if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
@@ -447,6 +459,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     } else {
                         $status['bigArtURL'] = $info['artist_arturl'];
                     }
+                    unset($status['elapsed'], $status['song_percent']);
                     $redis->set('act_player_info', json_encode($status));
                     ui_render('playback', json_encode($status));
                     // unload CPU: 0.2 second sleep
@@ -456,12 +469,33 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     // currently in a double loop, continue at the end of the outside loop
                     continue 2;
                 }
+            } else if (($songkey == 'nextsong') && $artFound) {
+                // when processing the nextsong only update the cover art preload url
+                // check the the current song is still valid
+                $status = json_decode($redis->get('act_player_info'), true);
+                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                    // the current song is still valid
+                    // set the cover art preload to the next song art url when changed
+                    if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
+                        $status['coverArtPreload'] = $song['albumarturl'];
+                        unset($status['elapsed'], $status['song_percent']);
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($status));
+                        // unload CPU: 0.2 second sleep
+                        // usleep(200000);
+                    }
+                } else {
+                    // the song has changed
+                    // currently in a double loop, continue at the end of the outside loop
+                    continue 2;
+                }
             }
+            //
             unset($info);
         }
         $status = json_decode($redis->get('act_player_info'), true);
     }
-    // close the soket if its not been done
+    // close the socket if its not been done
     if (isset($socket) && $socket) {
         closeMpdSocket($socket);
     }
