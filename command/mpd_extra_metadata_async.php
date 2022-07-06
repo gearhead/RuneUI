@@ -190,17 +190,19 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             //
             // retrieve and validate the cached information
             //
+            if (!isset($song['file'])) {
+                // can't do anything if the file is not set
+                continue;
+            }
             $song['file'] = $mpdRoot.'/'.$song['file'];
+            $datafile = md5($song['file']);
             if (isset($song['album']) && isset($song['albumartist']) && isset($song['date']) && isset($song['title'])
                     && $song['album'] && $song['albumartist'] && $song['date'] && $song['title']) {
-                $datafile = md5($song['album'].$song['albumartist'].$song['date'].$song['title']);
                 $imagename = md5($song['album'].$song['albumartist'].$song['date']);
             } else if (isset($song['album']) && isset($song['artist']) && isset($song['title'])
                     && $song['album'] && $song['artist'] && $song['title']) {
-                $datafile = md5($song['album'].$song['artist'].$song['title']);
-                $imagename = md5($song['album'].$song['artist'].$song['date']);
+                $imagename = md5($song['album'].$song['artist']);
             } else {
-                $datafile = md5($song['file']);
                 $imagename = $datafile;
             }
             $song['datafile'] = $artDir.'/'.$datafile.'.mpd';
@@ -248,55 +250,91 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 $song['albumartfile'] = $artDir.'/'.$imagename.'.jpg';
                 $song['albumarturl'] = $artUrl.'/'.$imagename.'.jpg';
                 //
-                // 1. try to extract embedded coverart
+                // 1. try to extract embedded coverart with getid3
+                //
+                // There is a bug in getid3 which fails on .wav files, just skip the rest of the getid3 section for this filetype
+                //  This will probably get fixed, the following lines are temporary
+                if (!strpos(strtolower($song['file']), '.wav')) {
+                //  end temporary fix, don't forget the close curly bracket below
                 // getid3 needs to operate in directory /srv/http/app/libs/vendor
                 chdir('/srv/http/app/libs/vendor');
-                // run getid3
-                $au = new AudioInfo();
-                $auinfo =  $au->Info($song['file']);
-                if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
-                    // the music file has embedded metadata and it has a size of more than 200 bytes, save it
-                    file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
-                    // get some information about the file
-                    list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
-                    // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                    if (($width > 20) && ($height > 20) && $type) {
-                        // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
-                        $artFound = true;
-                    } else {
-                        // the image file has an invalid format or is very small, delete it
-                        unlink($song['albumartfile']);
-                    }
+                // run getid3 and trap any errors
+                $auOK = true;
+                try {
+                    // Code that may throw an Exception or Error.
+                    $au = new AudioInfo();
+                    $auinfo =  $au->Info($song['file']);
                 }
-                // save the other getid3 fields (e.g. average bitrate and sample rate)
-                foreach ($auinfo as $valuekey => $value) {
-                    if (!is_array($value)) {
-                        // most of the useful information is stored at the first level of the array
-                        $value = trim($value);
-                        if ($value) {
-                            $song[$valuekey] = $value;
+                catch (Throwable $t) {
+                    // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+                    $auOK = false;
+                }
+                catch (Exception $e) {
+                    // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+                    $auOK = false;
+                }
+                if ($auOK) {
+                    $au = new AudioInfo();
+                    $auinfo =  $au->Info($song['file']);
+                    if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
+                        // the music file has embedded metadata and it has a size of more than 200 bytes, save it
+                        file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
+                        // get some information about the file
+                        list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                        // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                        if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
+                            // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                            $artFound = true;
+                        } else {
+                            // the image file has an invalid format or is very small, delete it
+                            unlink($song['albumartfile']);
                         }
-                    } else {
-                        // if there are music brainz id's in the metadata save them
-                        $artist_mbid = trim(search_array_keys($value, 'artist_mbid'));
+                    }
+                    // save the other getid3 fields (e.g. average bitrate and sample rate)
+                    foreach ($auinfo as $valuekey => $value) {
+                        if (!is_array($value)) {
+                            // most of the useful information is stored at the first level of the array
+                            $value = trim($value);
+                            if ($value) {
+                                $song[$valuekey] = $value;
+                            }
+                        }
+                    }
+                    // if there are music brainz id's in the metadata save them
+                    if (!isset($song['artist_mbid'])) {
+                        $artist_mbid = trim(search_array_keys($auinfo, 'artist_mbid'));
                         if ($artist_mbid) {
                             $song['artist_mbid'] = $artist_mbid;
                         }
-                        $album_mbid = trim(search_array_keys($value, 'album_mbid'));
+                    }
+                    if (!isset($song['album_mbid'])) {
+                        $album_mbid = trim(search_array_keys($auinfo, 'album_mbid'));
                         if ($album_mbid) {
                             $song['album_mbid'] = $album_mbid;
                         }
-                        $song_mbid = trim(search_array_keys($value, 'song_mbid'));
+                    }
+                    if (!isset($song['song_mbid'])) {
+                        $song_mbid = trim(search_array_keys($auinfo, 'song_mbid'));
                         if ($song_mbid) {
                             $song['song_mbid'] = $song_mbid;
                         }
                     }
+                    // and also check for average bit rate (avg_bit_rate)
+                    if (!isset($song['avg_bit_rate'])) {
+                        $avg_bit_rate = trim(search_array_keys($auinfo, 'avg_bit_rate'));
+                        if ($avg_bit_rate) {
+                            $song['avg_bit_rate'] = $avg_bit_rate;
+                        }
+                    }
+                // also remove the next line to fix the getid3 '.wav' bugfix, see above
                 }
-                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid);
+                }
+                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate);
             }
             if (!$artFound) {
                 //
                 // 2. try to find local coverart
+                //
                 $coverArtFileNames = array('folder.jpg', 'cover.jpg', 'folder.png', 'cover.png');
                 $coverArtDirectory = dirname($song['file']).'/';
                 foreach ($coverArtFileNames as $coverArtFileName) {
@@ -327,7 +365,11 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                             $status['smallArtURL'] = $song['albumarturl'];
                         }
                         if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
-                            $status['bitrate'] = intval($song['avg_bit_rate']/1000);
+                            if (!is_numeric($song['avg_bit_rate'])) {
+                                $status['bitrate'] = $song['avg_bit_rate'];
+                            } else {
+                                $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
+                            }
                         }
                         if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
                             if (isset($song['sample_rate']) && $song['sample_rate']) {
@@ -371,14 +413,31 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     continue 2;
                 }
             }
+            file_put_contents($song['datafile'], json_encode($song)."\n");
             //
             // get the artistinfo & lyrics
             //
             $info = array();
-            $info['artist'] = $song['artist'];
-            $info['albumartist'] = $song['albumartist'];
-            $info['song'] = $song['title'];
-            $info['album'] = $song['album'];
+            if (isset($song['artist'])) {
+                $info['artist'] = $song['artist'];
+            } else {
+                $info['artist'] = '';
+            }
+            if (isset($song['albumartist'])) {
+                $info['albumartist'] = $song['albumartist'];
+            } else {
+                $info['albumartist'] = '';
+            }
+            if (isset($song['title'])) {
+                $info['song'] = $song['title'];
+            } else {
+                $info['song'] = '';
+            }
+            if (isset($song['title'])) {
+                $info['album'] = $song['album'];
+            } else {
+                $info['album'] = '';
+            }
             if (isset($song['artist_mbid'])) {
                 $info['artist_mbid'] = $song['artist_mbid'];
             }
@@ -392,11 +451,11 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            if (strpos(' '.strtolower($song['genre']), 'classical')) {
+            if (isset($song['genre']) && strpos(' '.strtolower($song['genre']), 'classical')) {
                 // genre is classical, skip the lyrics
                 $info['song_lyrics'] = 'Lyrics retrieval omitted for the "classical" genre';
             } else {
-                // when not classical get the lyrics
+                // when genre is unknown or not classical get the lyrics
                 $retval = get_songInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);

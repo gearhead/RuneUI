@@ -3093,7 +3093,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                     } else if ($details['type'] == 'usb') {
                         // its a USB DAC
                         if (isset($details['extlabel']) && ($details['extlabel'] != '')) {
-                            $details['description'] = 'USB: '.$card['extlabel'];
+                            $details['description'] = 'USB: '.$details['extlabel'];
                         } else {
                             $details['description'] = 'USB: '.$card['sysdesc'];
                         }
@@ -5985,17 +5985,8 @@ function ui_mpd_fix($redis, $status)
         unset($datafile);
         $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
         $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
-        // the name of the file name varies depending on the available information
-        if ($status['currentalbum'] && $status['currentalbumartist'] && $status['date'] && $status['currentsong']) {
-            // one file per album
-            $datafile = md5(trim($status['currentalbum']).trim($status['currentalbumartist']).trim($status['date']).trim($status['currentsong']));
-        } else if ($status['currentalbum'] && $status['currentartist'] && $status['currentsong']) {
-            // one file per album artist combination
-            $datafile = md5(trim($status['currentalbum']).trim($status['currentartist']).trim($status['currentsong']));
-        } else if ($status['file']) {
-            // as last resort, one file per music file
-            $datafile = md5($musicDir.'/'.trim($status['file']));
-        }
+        // the name of the file name is always the hash of its path
+        $datafile = md5($musicDir.'/'.trim($status['file']));
         $fileName = $artDir.'/'.$datafile.'.mpd';
         if (isset($datafile) && $datafile) {
             // when $datafile is set we can determine a file name
