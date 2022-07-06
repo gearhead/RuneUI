@@ -36,8 +36,8 @@ set +e # continue on errors
 #
 # start a upmpdcli job asynchronously
 /usr/bin/upmpdcli &
-# wait for 60 seconds
-sleep 60
+# wait for 120 seconds
+sleep 120
 # kill the upmpdcli job
 kill $(pgrep upmpdcli)
 #---
