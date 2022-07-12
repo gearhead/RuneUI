@@ -292,32 +292,6 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     $output .= "\n\n\n";
-    // TODO: better collect stream info
-    // $output .= "ALSA interface #0: (/proc/asound/card0/pcm0p/info)\n";
-    // $output .= "--------------------------------------------------\n";
-    // $output .=  file_get_contents('/proc/asound/card0/pcm0p/info');
-    // $output .= "\n";
-    // $output .= "ALSA interface #1: (/proc/asound/card1/pcm0p/info)\n";
-    // $output .= "--------------------------------------------------\n";
-    // $output .=  file_get_contents('/proc/asound/card1/pcm0p/info');
-    // $output .= "\n";
-    // $output .= "interface #0 stream status: (/proc/asound/card0/stream0)\n";
-    // $output .= "--------------------------------------------------------\n";
-    // $streaminfo = file_get_contents('/proc/asound/card0/stream0');
-    // if (empty($streaminfo)) {
-    // $output .= "no stream present\n";
-    // } else {
-    // $output .= $streaminfo;
-    // }
-    // $output .= "\n";
-    // $output .= "interface #1 stream status: (/proc/asound/card1/stream0)\n";
-    // $output .= "--------------------------------------------------------\n";
-    // $streaminfo = file_get_contents('/proc/asound/card1/stream0');
-    // if (empty($streaminfo)) {
-    // $output .= "no stream present\n";
-    // } else {
-    // $output .= $streaminfo;
-    // }
     $output .= "###### MPD statistics: (mpc stats) ######\n";
     $command = implode("\n", sysCmd('mpc stats'));
     $output .= $command;
@@ -389,6 +363,10 @@ function debug_data($redis, $fp=null)
     $command = sysCmd('systool -v -m snd_usb_audio | grep -vi error');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
+    if ($redis->exists('getID3_error')) {
+        $output .= "###### getID3 file processing error (redis-cli get getID3_error) ######\n";
+        $output .= "Error occurred when processing file: '".$redis->get('getID3_error')."'\n\n";
+    }
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';

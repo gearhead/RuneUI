@@ -252,14 +252,11 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 //
                 // 1. try to extract embedded coverart with getid3
                 //
-                // There is a bug in getid3 which fails on .wav files, just skip the rest of the getid3 section for this filetype
-                //  This will probably get fixed, the following lines are temporary
-                if (!strpos(strtolower($song['file']), '.wav')) {
-                //  end temporary fix, don't forget the close curly bracket below
-                // getid3 needs to operate in directory /srv/http/app/libs/vendor
+                // getID3 needs to operate in directory /srv/http/app/libs/vendor
                 chdir('/srv/http/app/libs/vendor');
-                // run getid3 and trap any errors
+                // run getID3 and trap any errors
                 $auOK = true;
+                unset($au, $auinfo);
                 try {
                     // Code that may throw an Exception or Error.
                     $au = new AudioInfo();
@@ -267,15 +264,19 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 }
                 catch (Throwable $t) {
                     // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+                    // save the name of the file which caused the error
+                    $redis->set('getID3_error', $song['file']);
                     $auOK = false;
+                    echo "Caught Throwable ('{$t->getMessage()}')\n{$t}\n";
                 }
                 catch (Exception $e) {
-                    // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+                    // Executed only in PHP 5 and lower, will not match in PHP 7 and higher
+                    // save the name of the file which caused the error
+                    $redis->set('getID3_error', $song['file']);
                     $auOK = false;
+                    echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
                 }
-                if ($auOK) {
-                    $au = new AudioInfo();
-                    $auinfo =  $au->Info($song['file']);
+                if ($auOK && is_array($auinfo)) {
                     if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
                         // the music file has embedded metadata and it has a size of more than 200 bytes, save it
                         file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
@@ -290,7 +291,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                             unlink($song['albumartfile']);
                         }
                     }
-                    // save the other getid3 fields (e.g. average bitrate and sample rate)
+                    // save the other getID3 fields (e.g. average bitrate and sample rate)
                     foreach ($auinfo as $valuekey => $value) {
                         if (!is_array($value)) {
                             // most of the useful information is stored at the first level of the array
@@ -326,8 +327,6 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                             $song['avg_bit_rate'] = $avg_bit_rate;
                         }
                     }
-                // also remove the next line to fix the getid3 '.wav' bugfix, see above
-                }
                 }
                 unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate);
             }
@@ -464,7 +463,9 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             // it seems illogical for this to be here however it is more effective to search
             // for cover art on internet together with the artist and song information
             if (!$artFound) {
-                // 3.0 try to find coverart on internet
+                //
+                // 3. try to find coverart on internet
+                //
                 $retval = get_albumInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);
