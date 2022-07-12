@@ -52,11 +52,24 @@ rm -r /srv/http/app/libs/vendor/ziegler
 sudo -u http ./composer.phar --with-all-dependencies update
 # create a symlink in the vendor directory pointing to the getid3 files
 ln -s /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
+# remove the composer setup script
+rm /home/composer-setup.php
+# now download the latest version of getID3 from github
+#   composer installs the default version of getID3, the git hub master version has the latest bug fixes
+rm -r /home/getID3
+mkdir -p /home/getID3
+git clone -b master https://github.com/JamesHeinrich/getID3.git/ /home/getID3
+# copy the getID3 php files to the correct directory
+cp /home/getID3/getid3/* /srv/http/app/libs/vendor/getid3
 # copy the saved version of audioinfo.class.php from /home to the getid3 files directory
 cp /home/audioinfo.class.php /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # correct the ownership of the audioinfo.class.php file
 chown http:http /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # remove the saved version of the audioinfo.class.php file
 rm /home/audioinfo.class.php
+# remove the downloaded getID3 files
+rm -r /home/getID3
+# make sure that all files are unix format and have the correct ownerships and protections
+/srv/http/command/convert_dos_files_to_unix_script.sh
 #---
 #End script
