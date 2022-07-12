@@ -3,7 +3,7 @@
         'name' => '__root__',
         'pretty_version' => 'dev-0.6b_connman',
         'version' => 'dev-0.6b_connman',
-        'reference' => '7bc04d8e2ae838ce63f2f18e9e8db06c21264a0f',
+        'reference' => 'f16de50b9e37190982fdb9b6b189efd6a0296666',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         '__root__' => array(
             'pretty_version' => 'dev-0.6b_connman',
             'version' => 'dev-0.6b_connman',
-            'reference' => '7bc04d8e2ae838ce63f2f18e9e8db06c21264a0f',
+            'reference' => 'f16de50b9e37190982fdb9b6b189efd6a0296666',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
