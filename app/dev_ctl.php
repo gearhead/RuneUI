@@ -121,6 +121,18 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Art preferences -----
+        if ((isset($_POST['mode']['bigArt'])) && ($_POST['mode']['bigArt'])) {
+            // value is set
+            if ($redis->get('remoteSSbigart') != $_POST['mode']['bigArt']) {
+                // value has changed, save it
+                $redis->set('remoteSSbigart', $_POST['mode']['bigArt']);
+                if ($redis->hGet('local_browser', 'enable')) {
+                    // local browser is enabled, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                }
+            }
+        }
         // ----- Webstreaming encoder and bitrate -----
         if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
             // value is set
@@ -268,6 +280,7 @@ $template->sambaprodonoff = $redis->hGet('samba', 'prodonoff');
 $template->soxrmpdonoff = $redis->get('soxrmpdonoff');
 $template->playernamemenu = $redis->get('playernamemenu');
 $template->UIorder = $redis->get('UIorder');
+$template->bigArt = $redis->get('remoteSSbigart');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
 $template->artworkairplayonoff = $redis->hGet('airplay', 'artworkonoff');

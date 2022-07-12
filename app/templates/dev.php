@@ -459,7 +459,25 @@
                             <option value="VTA" <?php if($this->UIorder === 'VTA'): ?> selected <?php endif ?>> Volume - Time - Album</option>
                         </select>
                         <span class="help-block">In the main UI the main objects in the screen are arranged in <strong>Time - Album - Volume</strong> order by default.<br>
-                        These objects may be reordered into any way which you prefer. This is particularly useful when using vertically orientated local browser screens or you use a telephone as remote control</span>
+                        These objects may be reordered into any way which you prefer. This is particularly useful when using vertically orientated local browser screens
+                        or when a smart-phone is used as preferred remote control.<br>
+                        <i>Notes: Regardless of this setting:<br>
+                        - the Album object can be removed from the display using <a href="/settings/#features-management">Settings Menu (Display album cover)</a><br>
+                        - the Volume object can be removed from the display using <a href="/mpd/">MPD Menu (Volume Control)</a> when the volume control is switched off</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="bigArt">Art preferences</label>
+                    <div class="col-sm-10">
+                        <select id="bigArt" class="selectpicker" name="mode[bigArt]" data-style="btn-default btn-lg">
+                            <option value="album" <?php if($this->bigArt === 'album'): ?> selected <?php endif ?>> Large Album cover art</option>
+                            <option value="artist" <?php if($this->bigArt === 'artist'): ?> selected <?php endif ?>> Large Artist photo art</option>
+                        </select>
+                        <span class="help-block">In the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display and in the screen saver pages
+                        the Album cover and Artist photo art are both displayed. By default the Album cover has a large size and the Artist photo is small.
+                        You can swap the large and small images using this option.<br>
+                        <i>Notes: This setting has no effect on the main UI Album object, where Album cover art is always used. When no Artist photo art can be found, the
+                        Album cover art will always be used for both large and small images</i></span>
                     </div>
                 </div>
             </div>
