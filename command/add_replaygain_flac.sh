@@ -249,7 +249,14 @@ else
             cnt=$( metaflac --show-tag=REPLAYGAIN_TRACK_GAIN --show-tag=REPLAYGAIN_ALBUM_GAIN "$file" | wc -l)
             if [ $cnt = 0 ]; then
                 # replay gain tags not found, add them
+                if [ $silent -eq 1 ]; then
+                    echo "$file (Adding ReplayGain)"
+                fi
                 metaflac --add-replay-gain "$file"
+            else
+                if [ $silent -eq 1 ]; then
+                    echo "$file (Already have ReplayGain)"
+                fi
             fi
             # on errors just continue with the next one
             unset ?
