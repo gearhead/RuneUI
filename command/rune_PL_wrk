@@ -59,6 +59,12 @@ while (true) {
     // initialise variables
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+    // when coverart is switched off some background jobs are not required
+    $coverartRequired = $redis->get('coverart');
+    if (($redis->get('remoteSStime') != -1) || ($redis->hGet('local_browser', 'localSStime') != -1)) {
+        // when a screensaver is switched on (value not = -1) the coverart routines are also required
+        $coverartRequired = true;
+    }
     if ($redis->get('remoteSSbigart') === 'album') {
         $bigartIsAlbum = true;
     } else {
@@ -249,20 +255,17 @@ while (true) {
                     }
                 }
                 if (!$newStatus['radio']) {
-                    // its not a radio
-                    if ($newStatus['state'] === 'play') {
-                        // something is playing
-                        if ($newStatus['file'] && ($newStatus['file'] != $mpdFixFile)) {
-                            // for this file we have not fixed the MPD info
+                    // its not a radio, try fixing the display data from cached values
+                    if ($newStatus['file'] && ($newStatus['file'] != $mpdFixFile)) {
+                        // for this file we have not fixed the MPD info
+                        if ($coverartRequired) {
+                            // coverart is switched on, so fit it
                             $newStatus = ui_mpd_fix($redis, $newStatus);
-                            $mpdFixFile = $newStatus['file'];
-                        } else {
-                            // the UI remembers the last values
-                            unset($newStatus['bitrate'], $newStatus['audio_sample_rate'], $newStatus['audio_sample_depth']);
                         }
+                        $mpdFixFile = $newStatus['file'];
                     } else {
-                        // when not playing reset the fix file so that the mpd values are fixed after changing to the play state
-                        $mpdFixFile = '';
+                        // the UI remembers the last values
+                        unset($newStatus['bitrate'], $newStatus['audio_sample_rate'], $newStatus['audio_sample_depth']);
                     }
                 }
                 //
@@ -296,7 +299,7 @@ while (true) {
                 // $rts = 0;
                 if ($mpdChangeSong && $status['radio'] && (!isset($status['currentartist']) || !$status['currentartist'])) {
                     runelog('rune_PL_wrk: radioname = ', $status['radioname']);
-                    if (isset($status['currentsong']) && $status['currentsong']) {
+                    if (isset($status['currentsong']) && $status['currentsong'] && $coverartRequired) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
                         $retval = wrk_get_webradio_art($redis, $status['currentsong']);
@@ -306,6 +309,7 @@ while (true) {
                         }
                         // $rts = time() - $rts;
                     } else {
+                        // currentsong has no value or coverart is switched off
                         $retval = false;
                         $status['currentsong'] = '';
                     }
@@ -395,14 +399,17 @@ while (true) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
-                // start the job to retrieve extra metadata when it is not a radio
-                if (!$status['radio']) {
+                // start the job to retrieve extra metadata when it is not a radio and coverart is enabled
+                if (!$status['radio'] && $coverartRequired) {
                     // get the lock status
                     $lock = $redis->get('lock_mpd_extra_metadata');
                     runelog('lock status ', $lock);
-                    if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
-                        // start the job
-                        sysCmdAsync('nice --adjustment=4 /srv/http/command/mpd_extra_metadata_async.php', 0);
+                    if ($lock === '0') {
+                        // no lock - start the Async job directly
+                        sysCmdAsync('nice --adjustment=10 /srv/http/command/mpd_extra_metadata_async.php', 0);
+                    } else if (($lock === '9') || ($lock >= 9)) {
+                        // lock limit reached - put the the Async job in the queue
+                        sysCmdAsync('nice --adjustment=10 /srv/http/command/mpd_extra_metadata_async.php');
                     } else {
                         // just in case something goes wrong increment the lock value by 1
                         // when it reaches 9 (this should never happen) it will be processed as if there is no lock

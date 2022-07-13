@@ -192,9 +192,17 @@ if (isset($_POST)) {
             $redis->get('udevil') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'udevil', 'action' => 'stop'));
         }
         if ((isset($_POST['features']['coverart'])) && ($_POST['features']['coverart'])) {
-            $redis->get('coverart') == 1 || $redis->set('coverart', 1);
+            if ($redis->get('coverart') != 1) {
+                $redis->set('coverart', 1);
+                $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
+                $redis->hSet('airplay', 'metadataonoff', 1);
+            }
         } else {
-            $redis->get('coverart') == 0 || $redis->set('coverart', 0);
+            if ($redis->get('coverart') != 0) {
+                $redis->set('coverart', 0);
+                $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
+                $redis->hSet('airplay', 'metadataonoff', 0);
+            }
         }
         if ((isset($_POST['features']['lastfm']['enable'])) && ($_POST['features']['lastfm']['enable'])) {
             // create worker job (start lastfm)

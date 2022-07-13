@@ -945,7 +945,7 @@ while (true) {
             case 'airplaymetadata':
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
-                if ($job->action === 'start') {
+                if (($job->action === 'start') && $redis->hGet('airplay', 'metadataonoff')) {
                     sysCmd('pgrep -x rune_SSM_wrk || systemctl start rune_SSM_wrk');
                 } else if ($job->action === 'stop') {
                     sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
@@ -955,7 +955,7 @@ while (true) {
             case 'spotifyconnectmetadata':
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
-                if ($job->action === 'start') {
+                if (($job->action === 'start') && $redis->hGet('spotifyconnect', 'metadata_enabled')) {
                     sysCmd('pgrep -x rune_SDM_wrk || systemctl start rune_SDM_wrk');
                 } else if ($job->action === 'stop') {
                     sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');

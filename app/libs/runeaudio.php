@@ -4263,6 +4263,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
             $redis->hSet('spotifyconnect', 'last_track_id', '');
             sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
         }
     }
 }
@@ -4470,6 +4471,7 @@ function wrk_shairport($redis, $ao, $name = null)
         if ($airplay['enable']) {
             runelog('restart shairport-sync');
             sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
+            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
         }
     }
     $redis->set('sssconfchange', 0);
