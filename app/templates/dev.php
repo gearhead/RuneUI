@@ -473,11 +473,12 @@
                             <option value="album" <?php if($this->bigArt === 'album'): ?> selected <?php endif ?>> Large Album cover art</option>
                             <option value="artist" <?php if($this->bigArt === 'artist'): ?> selected <?php endif ?>> Large Artist photo art</option>
                         </select>
-                        <span class="help-block">In the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display and in the screen saver pages
-                        the Album cover and Artist photo art are both displayed. By default the Album cover has a large size and the Artist photo is small.
-                        You can swap the large and small images using this option.<br>
-                        <i>Notes: This setting has no effect on the main UI Album object, where Album cover art is always used. When no Artist photo art can be found, the
-                        Album cover art will always be used for both large and small images</i></span>
+                        <span class="help-block">In the screen saver pages the Album cover and Artist photo art are both displayed. By default the
+                        Album cover has a large size and the Artist photo is small. You can swap the large and small images using this option.<br>
+                        This also changes the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display which contains the small image.<br>
+                        <i>Notes: Some cached information will not change until after a reboot. This setting has no effect on the main UI Album object,
+                        here Album cover art is always used. When no Artist photo art can be found, the Album cover art will always be used for both
+                        large and small images</i></span>
                     </div>
                 </div>
             </div>
@@ -528,7 +529,7 @@
                     </div>
                 </div>
             </div>
-            <legend>ReplayGain tags (experimental, use with care)</legend>
+            <legend>ReplayGain tags<?php if(isset($this->replaygain) && $this->replaygain): ?> - running <i class="fa fa-refresh fa-spin"></i><?php endif ?></legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
@@ -552,31 +553,35 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Add ReplayGain tags to all music files</label>
+                    <label class="col-sm-2 control-label">Add ReplayGain tags to all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). There are potential issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</span>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
+                        <strong>There are issues with several file types, loudgain cannot add tags to all files</strong></span>
                     </div>
                 </div>
+                <!--
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Update ReplayGain tags for all music files</label>
+                    <label class="col-sm-2 control-label">Update ReplayGain tags for all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain). There are potential issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</span>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain).
+                        <strong>There are issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</strong></span>
                     </div>
                 </div>
+                -->
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files</label>
+                    <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain). See the notes about adding and removing tags above<br>
+                        <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
+                        <strong>There are issues with several file types, loudgain cannot 100% remove/reverse the tags</strong></span>
                         <br>
                         MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags should not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
                         Please note that some audio file formats do not support ReplayGain tags, for details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
                         Check that the MPD <a href="/mpd/#general-options">ReplayGain</a> option is enabled for ReplayGain playback.<br>
                         The programs <a href="https://man.archlinux.org/man/extra/flac/metaflac.1.en" target="_blank">metaflac</a> and <a href="https://github.com/Moonbase59/loudgain" target="_blank">loudgain</a> use different algorithms to calculate ReplayGain settings, the results will differ.<br>
-                        All these actions take a long time to run, do not run multiple jobs at the same time. At the moment here is no simple way of checking that the action has completed using this UI.
-                        Reboot before running a second job or when you think the current job has finished.<br>
+                        Only one job may be run at any time and these actions take a long time to complete. The running indicator shows that a job is running, refresh the page to refresh the indicator.<br>
                         <strong>You should have a backup of your music before running these options.</strong><br>
                         The program metaflac for flac files appears to be very reliable, loudgain has various problems.<br>
                         <i>Indicative performance, average time for adding tags: Pi1B: 2 to 3 albums/hour, Pi4B: 40 to 70 albums/hour. Much depends on the speed of the storage and how it is connected</i></span>
@@ -593,7 +598,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Patched Linux kernel for audio output up to 384k</label>
                     <div class="col-sm-10">
-                        <span class="help-block">This version of RuneAudio incluses a patched kernel which allows alsa to stream at a sample-rate up to 384k.
+                        <span class="help-block">This version of RuneAudio includes a patched kernel which allows alsa to stream at a sample-rate up to 384k.
                         This is twice as high as the normal maximum rate of 192k.
                         Where necessary the parameters for selecting and setting up hardware audio cards have been adapted to give the best performance.<br>
                         If you manually update the kernel, not only will you lose the 384k feature but some of the setting for hardware audio cards will no longer be optimal</span>
