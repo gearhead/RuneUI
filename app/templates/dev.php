@@ -433,6 +433,21 @@
                     </div>
                 </div>
             </div>
+            <legend>Spotify Connect - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Metadata and Cover Art</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="SCmetadata_enabled" name="mode[SCmetadata_enabled][enable]" type="checkbox" value="1"<?php if((isset($this->SCmetadata_enabled)) && ($this->SCmetadata_enabled)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">Metadata and Cover Art for Spotify Connect is set ON or OFF depending on processor type.
+                        When set on it imposes a CPU overhead when Spotify Connect is active. On less powerful processors it can fail to work properly.
+                        You can can override the default setting here</span>
+                    </div>
+                </div>
+            </div>
             <legend>UI - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">

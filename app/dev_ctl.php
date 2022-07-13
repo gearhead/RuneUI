@@ -101,6 +101,14 @@ if (isset($_POST)) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputrate', 'args' => $_POST['mode']['airplayor']));
         }
+        // ----- Spotify Connect Metadata & Artwork -----
+        if ((isset($_POST['mode']['SCmetadata_enabled']['enable'])) && ($_POST['mode']['SCmetadata_enabled']['enable'])) {
+            // create worker job (set on and reset/restart MPD/Spotify Connect)
+            $redis->hGet('spotifyconnect', 'metadata_enabled') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkSC', 'action' => 1));
+        } else {
+            // create worker job (set off and reset/restart MPD/Spotify Connect)
+            $redis->hGet('spotifyconnect', 'metadata_enabled') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkSC', 'action' => 0));
+        }
         // ----- UI Player name Menu -----
         if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
             // create worker job (set on)
@@ -284,6 +292,7 @@ $template->bigArt = $redis->get('remoteSSbigart');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
 $template->artworkairplayonoff = $redis->hGet('airplay', 'artworkonoff');
+$template->SCmetadata_enabled = $redis->hGet('spotifyconnect', 'metadata_enabled');
 $template->hostname = $redis->get('hostname');
 $template->airplayof = $redis->hGet('airplay', 'alsa_output_format');
 $template->airplayor = $redis->hGet('airplay', 'alsa_output_rate');

@@ -1408,6 +1408,13 @@ while (true) {
                 wrk_stopPlayer($redis, 'SpotifyConnect');
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'artworkSC':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('spotifyconnect', 'metadata_enabled', $job->action);
+                wrk_spotifyd($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
             case 'sourcecfg':
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
