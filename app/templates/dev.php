@@ -549,21 +549,21 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to Flac files on your locally mounted USB-drives when these tags not present (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
                     </div>
                 </div>
@@ -588,7 +588,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
                         <strong>There are issues with several file types, loudgain cannot 100% remove/reverse the tags</strong></span>
                         <br>

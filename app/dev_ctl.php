@@ -301,6 +301,7 @@ $template->underclocking = $redis->get('underclocking');
 $template->WSencoder = $redis->hGet('webstreaming', 'encoder');
 $template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');
 $template->conf = $redis->hGetAll('mpdconf');
+$template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 
 // debug
 // var_dump($template->dev);
