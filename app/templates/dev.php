@@ -294,8 +294,8 @@
                             <option value="flac" <?php if($this->WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
                             <option value="lame" <?php if($this->WSencoder === 'lame'): ?> selected <?php endif ?>> Lame encoder for MP3</option>
                         </select>
-                        <span class="help-block">Default is Lame (MP3) output which always works. <i>Flac format is not supported in all browsers or on all devices.<br>
-                            The flac encoder can support higher bitrates</i></span>
+                        <span class="help-block">Default is Lame (MP3) output which always works. <i>The alternative FLAC format is not supported by all browsers, nor is it supported on all devices.<br>
+                            The FLAC encoder can support higher sample rates</i></span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -308,9 +308,9 @@
                             <option value="96000" <?php if($this->WSsamplerate === '96000'): ?> selected <?php endif ?>> 96000</option>
                             <?php endif; ?>
                         </select>
-                        <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. <i>Higher rates are valid for Flac encoding, which could be
+                        <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. <i>Higher sample rates are valid for FLAC encoding, which could be
                             useful if your music collection is primarily high definition recordings.
-                            However, higher transmission rates could cause packet losses on your network which would reduce audio quality</i></span>
+                            Higher sample rates could cause network issues which would then reduce overall audio quality</i></span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -514,7 +514,8 @@
                         </select>
                         <span class="help-block">In the screen saver pages the Album cover and Artist photo art are both displayed. By default the
                         Album cover has a large size and the Artist photo is small. You can swap the large and small images using this option.<br>
-                        This also changes the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display which contains the small image.<br>
+                        This also changes the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display which contains the resulting
+                        small image.<br>
                         <i>Notes: Some cached information will not change until after a reboot. This setting has no effect on the main UI Album object,
                         here Album cover art is always used. When no Artist photo art can be found, the Album cover art will always be used for both
                         large and small images</i></span>

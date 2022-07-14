@@ -179,7 +179,7 @@ if (isset($_POST)) {
                 $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('webstreaming', 'encoder'));
             }
         }
-        // ----- Automatic Wi-Fi Optimisation-----
+        // ----- Automatic Wi-Fi Optimisation -----
         if ((isset($_POST['mode']['optwifionof']['enable'])) && ($_POST['mode']['optwifionof']['enable'])) {
             $redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
         } else {
