@@ -5982,56 +5982,54 @@ function ui_mpd_fix($redis, $status)
 // get the extra information about the song from the pre-cached information file
 //
 {
-    if (!$status['radioname'] && $status['file']) {
+    if ((!isset($status['radio']) || !$status['radio']) && isset($status['file']) && $status['file']) {
         // not for radio and only when file has a value
         unset($datafile);
         $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
         $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+        $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
         // the name of the file name is always the hash of its path
         $datafile = md5($musicDir.'/'.trim($status['file']));
         $fileName = $artDir.'/'.$datafile.'.mpd';
-        if (isset($datafile) && $datafile) {
-            // when $datafile is set we can determine a file name
-            // ui_notify('Test file name ', $fileName);
-            $metadata = getMusicFileMatadata($redis, $fileName);
-            if ($metadata) {
-                // ui_notify('Test metadata found ', $fileName);
-                // avarage bit rate, always update it when a value is available, MPD returns the actual bit rate at that moment
-                if (isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
-                    // ui_notify('Test bitrate ', $metadata['avg_bit_rate']);
-                    $status['bitrate'] = intval($metadata['avg_bit_rate']/1000);
+        // when $datafile is set we can determine a file name
+        // ui_notify('Test file name ', $fileName);
+        $metadata = getMusicFileMatadata($redis, $fileName);
+        if ($metadata) {
+            // ui_notify('Test metadata found ', $fileName);
+            // avarage bit rate, always update it when a value is available, MPD returns the actual bit rate at that moment
+            if (isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
+                // ui_notify('Test bitrate ', $metadata['avg_bit_rate']);
+                $status['bitrate'] = intval($metadata['avg_bit_rate']/1000);
+            }
+            // sample rate, fix it if missing
+            if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
+                if (isset($metadata['sample_rate']) && $metadata['sample_rate']) {
+                    $status['audio_sample_rate'] = round($metadata['sample_rate']/1000, 1);
                 }
-                // sample rate, fix it if missing
-                if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
-                    if (isset($metadata['sample_rate']) && $metadata['sample_rate']) {
-                        $status['audio_sample_rate'] = round($metadata['sample_rate']/1000, 1);
-                    }
+            }
+            // sample depth, fix it if missing
+            if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
+                if (isset($metadata['bits_per_sample']) && $metadata['bits_per_sample']) {
+                    $status['audio_sample_depth'] = $metadata['bits_per_sample'];
                 }
-                // sample depth, fix it if missing
-                if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
-                    if (isset($metadata['bits_per_sample']) && $metadata['bits_per_sample']) {
-                        $status['audio_sample_depth'] = $metadata['bits_per_sample'];
-                    }
-                }
-                // album art, add it if available
-                if (isset($metadata['albumarturl']) && $metadata['albumarturl']) {
-                    // ui_notify('Test album url ', $metadata['albumarturl']);
-                    // available
-                    $status['mainArtURL'] = $metadata['albumarturl'];
-                    if ($redis->get('remoteSSbigart') === 'album') {
-                        $status['bigArtURL'] = $metadata['albumarturl'];
-                    } else {
-                        $status['smallArtURL'] = $metadata['albumarturl'];
-                    }
+            }
+            // album art, add it if available
+            if (isset($metadata['albumarturl']) && $metadata['albumarturl']) {
+                // ui_notify('Test album url ', $metadata['albumarturl']);
+                // available
+                $status['mainArtURL'] = $metadata['albumarturl'];
+                if ($redis->get('remoteSSbigart') === 'album') {
+                    $status['bigArtURL'] = $metadata['albumarturl'];
                 } else {
-                    // not available set it to the black image
-                    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
-                    $status['mainArtURL'] = $artUrl.'/black.png';
+                    $status['smallArtURL'] = $metadata['albumarturl'];
                 }
             } else {
-                // no metadata file, so set the main art to the black image
+                // not available set it to the black image
                 $status['mainArtURL'] = $artUrl.'/black.png';
             }
+        } else {
+            // no metadata file, so set the main art to the black image
+            $status['mainArtURL'] = $artUrl.'/black.png';
         }
     }
     return $status;
