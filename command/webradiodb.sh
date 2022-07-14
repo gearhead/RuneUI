@@ -46,8 +46,10 @@ set +e # continue on errors
 #
 webradiodir="/mnt/MPD/Webradio"
 #
-# if the directory /boot/webradios contains *.pls files copy them to the webradio directory and delete them
+# if the directory /boot/webradios contains *.pls files move them to the webradio directory and delete them
 find "/boot/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
+# when the files already exist in $webradiodir the will not be moved, the next line deletes the rest
+find "/boot/webradios" -type f -name '*.pls' -exec rm -- '{}' \;
 # remove any empty directories from /boot/webradios
 # nested directories could need several passes, this routine is run on each boot
 find "/boot/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
