@@ -47,7 +47,7 @@ $savecpuOneTimeActions = 30;
 $savecpuMpdLog = 600;
 $savecpuTimezone = 60;
 $savecpuOpCache = 7200;
-$savecpuFixLogs = 30;
+$savecpuFixLogs = 36;
 $allmounted = 0;
 $retriesmounting = 100;
 ini_set('display_errors', '1');
@@ -1082,7 +1082,7 @@ while (true) {
                 sysCmd('cp /srv/http/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
                 sysCmd('cp /srv/http/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
                 sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
-                sysCmd('find /etc/samba -name *.conf -exec chmod 644 {} \;');
+                sysCmd('find /etc/samba -name "*.conf" -exec chmod 644 {} \;');
                 // reset the redis varables for samba (set to OFF and Read-Only)
                 $redis->del('samba');
                 sysCmd('/srv/http/db/redis_datastore_setup check');
@@ -1712,7 +1712,7 @@ while (true) {
             wrk_netconfig($redis, 'boot-initialise');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'Webradio-boot-import')) {
-            if (sysCmd('find /boot/webradios -name *.pls | wc -l | xargs')[0]) {
+            if (sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
                 sysCmdAsync('nice --adjustment=4 /srv/http/command/webradiodb.sh');
             }
             $savecpuOneTimeActions = 11 + rand(0, 10);
@@ -1739,7 +1739,7 @@ while (true) {
         wrk_ashuffle($redis, 'check');
         $savecpuRp = 25 + rand(0, 10);
     }
-    // logfile fix, run first after 30 cycles (+/-15 seconds), then repeat on every +/-7200 cycles (+/-1 hour)
+    // logfile fix, run first after 36 cycles (+/-18 seconds), then repeat on every +/-7200 cycles (+/-1 hour)
     //  make all the log file RW and delete any with a zero size
     if ($savecpuFixLogs-- <= 0) {
         wrk_fixlogs();
