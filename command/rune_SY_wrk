@@ -39,7 +39,7 @@ $savecpuSmt = 480;
 $savecpuInc = 240;
 $savecpuIncPrev = $savecpuInc;
 $savecpuSps = 43200;
-$savecpuAvd = 10800;
+$savecpuAvd = 16;
 $savecpuFixdnssec = 20;
 $savecpuRefreshNics = 24;
 $savecpuRefreshNicsPrev = $savecpuRefreshNics;
@@ -1879,14 +1879,18 @@ while (true) {
             sysCmd('systemctl start shairport-sync');
         }
     }
-    // Restart avahi-daemon every 1,5 hours
+    // Restart avahi-daemon initially after 8 seconds and thereafter every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
-    // It looks like it is related to renewing the DHCP lease on the router
-    // Reload or restart every +/-10800 cycles (= every +/-1,5 hours)
+    //  It looks like it is related to renewing the DHCP lease on the router
+    // A second problem is that avahi-daemon uses the file '/etc/resolv.conf' which is a symlink pointing to '/run/connman/resolv.conf'
+    //  The file '/run/connman/resolv.conf' is created by connman when it starts, so avahi-daemon should wait until connman has started
+    //  However this would delay publishing the zeroconfig runeaudio name. It seems to publish the zeroconfig runeaudio name regardless
+    //  of the error about a missing '/etc/resolv.conf'.
+    // Reload or restart initially after (+/-8 seconds) then every +/-10800 cycles (+/-1,5 hours)
     if ($savecpuAvd-- <= 0) {
         $savecpuAvd = 10700 + rand(0, 200);
-        // reload or restart avahi-daemon
-        sysCmd('systemctl reload-or-restart avahi-daemon');
+        // restart avahi-daemon
+        sysCmdAsync('nice --adjustment=4 systemctl restart avahi-daemon');
     }
     // Check opcache every 1 hour (every 7200 cycles)
     // This will add memory to the opcache if required

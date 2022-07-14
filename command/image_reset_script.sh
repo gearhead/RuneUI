@@ -318,7 +318,12 @@ done
 # the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
 # also disable logins by locking the account
 usermod -L -s /usr/bin/bash spotifyd
-
+#
+# seems that there is a known bug in avahi-daemon where it expects group netdev to exist
+#   the netdev group is normally created by dhcdbd, which we don't use
+#   at some stage in the future the next line can be removed when it is fixed
+# add system group netdev if it is not defined
+grep -i netdev /etc/group || groupadd --system netdev
 #
 # reset the service and configuration files to the distribution standard
 # the following commands should also be run after a system update or any package updates
