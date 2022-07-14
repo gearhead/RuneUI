@@ -47,6 +47,7 @@ $savecpuOneTimeActions = 30;
 $savecpuMpdLog = 600;
 $savecpuTimezone = 60;
 $savecpuOpCache = 7200;
+$savecpuFixLogs = 30;
 $allmounted = 0;
 $retriesmounting = 100;
 ini_set('display_errors', '1');
@@ -1738,6 +1739,12 @@ while (true) {
         wrk_ashuffle($redis, 'check');
         $savecpuRp = 25 + rand(0, 10);
     }
+    // logfile fix, run first after 30 cycles (+/-15 seconds), then repeat on every +/-7200 cycles (+/-1 hour)
+    //  make all the log file RW and delete any with a zero size
+    if ($savecpuFixLogs-- <= 0) {
+        wrk_fixlogs();
+        $savecpuFixLogs = 7100 + rand(0, 200);
+    }
     // MPD logfile size check, run first after 600 cycles (+/-5 minutes), then repeat on every +/-1200 cycles (+/-10 minutes)
     //  if the mpd log is greater than the parameter value (bytes) a new log will be created and the old one deleted
     //  the only reason a log file gets too big is when a very large music library is updated or rebuilt (it then tends to grow quite quickly)
@@ -1780,8 +1787,8 @@ while (true) {
     //  a) someone needs see the error messages and
     //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
     if ($savecpuSmt-- <= 0) {
-        $retval = sysCmd('grep -vh closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs');
-        if (!trim($retval[0])) {
+        $retval = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+        if ($retval) {
             // something is playing
             // clear the cache otherwise file_exists() returns incorrect values
             clearstatcache(true, '/usr/bin/smartctl');
