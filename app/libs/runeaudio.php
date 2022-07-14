@@ -1260,7 +1260,7 @@ function _parseStatusResponse($redis, $resp)
          // "audio format" output
          if (isset($plistArray['audio'])) {
             $audio_format = explode(":", $plistArray['audio']);
-            $retval = sysCmd('grep -hi "rate: " /proc/asound/card?/pcm?p/sub?/hw_params');
+            $retval = sysCmd('grep -his "rate: " /proc/asound/card?/pcm?p/sub?/hw_params');
             switch (strtoupper($audio_format[0])) {
                 case 'DSD64':
                 case 'DSD128':
@@ -3013,7 +3013,7 @@ function wrk_audioOutput($redis, $action, $args = null)
                 //$card_index = $card['number'];
                 //$card = explode(' - ', $card, 2);
                 //$card = trim($card[1]);
-                // $description = sysCmd("grep -h ':' /proc/asound/cards | cut -d ':' -f 2 | cut -d ' ' -f 4-20");
+                // $description = sysCmd("grep -his ':' /proc/asound/cards | cut -d ':' -f 2 | cut -d ' ' -f 4-20");
                 // debug
                 //$card = $card['name'];
                 runelog('wrk_audioOutput card string: ', $card['name']);
