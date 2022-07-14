@@ -10106,3 +10106,55 @@ function set_alsa_default_card($cardName)
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
 }
+
+// sets log file privileges to RW and deletes any log files with a zero size
+function wrk_fixlogs()
+{
+    // change the privileges to RW for all users
+    sysCmd('chmod 666 /var/log/runeaudio/*');
+    // delete zero size files
+    sysCmd('find /var/log/runeaudio/ -type f -size 0 -exec rm {} \;');
+}
+
+// configures, enables and disables llmnrd
+function wrk_llmnrd($redis)
+{
+    // make sure the variables are set, these lines can be removed in the next version
+    if (!$redis->exists('llmnrdonoff')) {
+        $redis->set('llmnrdonoff', 1);
+    }
+    if (!$redis->exists('llmnrdipv6')) {
+        $redis->set('llmnrdipv6', 1);
+    }
+    // remove up to here
+    // depending on llmnrdipv6 set up llmnrd
+    $ipv6Status = trim(sysCmd('grep -ic "llmnrd -6" /etc/systemd/system/llmnrd.service')[0]);
+    $ipv6Setting = $redis->get('llmnrdipv6');
+    if ($ipv6Setting && !$ipv6Status) {
+        // IPv6 is on and is not specified in the unit service file
+        // stop llmnrd
+        sysCmd('systemctl stop llmnrd');
+        // change the unit service file
+        sysCmd("sed -i '/^ExecStart=/c\ExecStart=\/usr\/bin\/llmnrd -6' /etc/systemd/system/llmnrd.service");
+        // reload the systend daemon
+        sysCmd('systemctl daemon-reload');
+    } else if (!$ipv6Setting && $ipv6Status) {
+        // IPv6 is off but is specified in the unit service file
+        // stop llmnrd
+        sysCmd('systemctl stop llmnrd');
+        // change the unit service file
+        sysCmd("sed -i '/^ExecStart=/c\ExecStart=\/usr\/bin\/llmnrd' /etc/systemd/system/llmnrd.service");
+        // reload the systend daemon
+        sysCmd('systemctl daemon-reload');
+    }
+    // depending on llmnrdonoff enable/disable start/stop llmnrd
+    if ($redis->get('llmnrdonoff')) {
+        // llmnrd is enabled
+        // enable llmnrd to automatically start on boot and start it
+        sysCmd('systemctl enable llmnrd; systemctl start llmnrd');
+    } else {
+        // llmnrd is disabled
+        // disable llmnrd to prevent starting on boot and stop it
+        sysCmd('systemctl disable llmnrd; systemctl stop llmnrd');
+    }
+}

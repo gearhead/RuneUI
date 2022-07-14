@@ -185,6 +185,35 @@ if (isset($_POST)) {
         } else {
             !$redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 0);
         }
+        // ----- llmnrd -----
+        $llmnrd = false;
+        // ----- llmnrd on/off -----
+        if ((isset($_POST['mode']['llmnrdonoff']['enable'])) && ($_POST['mode']['llmnrdonoff']['enable'])) {
+            if (!$redis->get('llmnrdonoff')) {
+                $redis->set('llmnrdonoff', 1);
+                $llmnrd = true;
+            }
+        } else {
+            if ($redis->get('llmnrdonoff')) {
+                $redis->set('llmnrdonoff', 0);
+                $llmnrd = true;
+            }
+        }
+        // ----- llmnrd IPv6 support -----
+        if ((isset($_POST['mode']['llmnrdipv6']['enable'])) && ($_POST['mode']['llmnrdipv6']['enable'])) {
+            if (!$redis->get('llmnrdipv6')) {
+                $redis->set('llmnrdipv6', 1);
+                $llmnrd = true;
+            }
+        } else {
+            if ($redis->get('llmnrdipv6')) {
+                $redis->set('llmnrdipv6', 0);
+                $llmnrd = true;
+            }
+        }
+        if ($llmnrd) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'llmnrd'));
+        }
         // ----- Underclocking -----
         if ((isset($_POST['mode']['underclocking']['enable'])) && ($_POST['mode']['underclocking']['enable'])) {
             // create worker job (set on)
@@ -297,6 +326,8 @@ $template->hostname = $redis->get('hostname');
 $template->airplayof = $redis->hGet('airplay', 'alsa_output_format');
 $template->airplayor = $redis->hGet('airplay', 'alsa_output_rate');
 $template->optwifionof = $redis->get('network_autoOptimiseWifi');
+$template->llmnrdonoff = $redis->get('llmnrdonoff');
+$template->llmnrdipv6 = $redis->get('llmnrdipv6');
 $template->underclocking = $redis->get('underclocking');
 $template->WSencoder = $redis->hGet('webstreaming', 'encoder');
 $template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');

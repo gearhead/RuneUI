@@ -60,3 +60,4 @@ $redis->hSet('local_browser', 'enable', $xorgEnable);
 wrk_changeHostname($redis, $redis->get('hostname'));
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
+wrk_llmnrd($redis);

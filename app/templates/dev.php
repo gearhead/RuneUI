@@ -249,6 +249,30 @@
                     </div>
                 </div>
             </div>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Enable/disable llmnrd</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="llmnrdonoff" name="mode[llmnrdonoff][enable]" type="checkbox" value="1"<?php if((isset($this->llmnrdonoff)) && ($this->llmnrdonoff)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">llmnrd is set <strong>ON</strong> by default. <i>Generally you should leave it switched on and it should always be left <strong>ON</strong> when you need to
+                        support Windows clients. You could switch it off if all your clients are Linux, iOS and/or Android, but only when llmnrd is causing problems</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">IPv6 llmnrd support</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="llmnrdipv6" name="mode[llmnrdipv6][enable]" type="checkbox" value="1"<?php if((isset($this->llmnrdipv6)) && ($this->llmnrdipv6)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">IPv6 llmnrd support is set <strong>ON</strong> by default. <i>Generally you should leave it switched on. If llmnrd is logging many IPv6 messages then you could
+                        try switching it off</i></span>
+                    </div>
+                </div>
+            </div>
             <legend>MPD - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">

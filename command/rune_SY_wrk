@@ -1642,6 +1642,12 @@ while (true) {
                 unset($delaySeconds);
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'llmnrd':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_llmnrd($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
         } // end switch
         // delete processed job from the w_queue
         $redis->hDel('w_queue', $jobID);
