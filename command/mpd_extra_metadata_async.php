@@ -72,6 +72,7 @@ if ($redis->get('remoteSSbigart') === 'album') {
 } else {
     $bigartIsAlbum = false;
 }
+$omit_lyrics = $redis->hgetall('omit_lyrics');
 $mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
 //
 // get the lock status
@@ -450,11 +451,24 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            if (isset($song['genre']) && strpos(' '.strtolower($song['genre']), 'classical')) {
-                // genre is classical, skip the lyrics
-                $info['song_lyrics'] = 'Lyrics retrieval omitted for the "classical" genre';
+            // some lyrics are omitted since they almost never exits, default is a single entry containing 'classical'
+            $omit_string = '';
+            if (isset($song['genre'])) {
+                foreach ($omit_lyrics as $omit_lyric => $omit_valid) {
+                    if ($omit_valid) {
+                        if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
+                            // found a genre with omitted lyrics
+                            $omit_string = $omit_lyric;
+                            break;
+                        }
+                    }
+                }
+            }
+            if ($omit_string) {
+                // skip the lyrics
+                $info['song_lyrics'] = 'Lyrics retrieval omitted for the "'.$omit_string.'" genre';
             } else {
-                // when genre is unknown or not classical get the lyrics
+                // when genre is unknown or not omitted get the lyrics
                 $retval = get_songInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);
