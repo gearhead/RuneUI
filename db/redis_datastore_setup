@@ -311,7 +311,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('dirble', 'baseurl', 'http://api.dirble.com/v1/');
             $redis->hSet('discogs', 'token', 'KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI');
             $redis->hSet('fanarttv', 'token', '90fa4838789ea346c5e9cff6715f6e9b');
-// internal config hash control
+            // internal config hash control
             // $redis->set('mpdconfhash', '');
             // $redis->set('netconfhash', '');
             $redis->set('mpdconfhash', '12eed229f02c52816ed997cbce4b9f32');
