@@ -270,15 +270,16 @@ function redisDatastore($redis,$action) {
             $redis->set('avahiconfchange', 0);
             $redis->set('mpd_max_logsize', 200000);
             // ashuffle global random
+            $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hSet('globalrandom', 'enable', 0);
+            $redis->hSet('globalrandom', 'exclude', '');
+            $redis->hSet('globalrandom', 'minquelen', '1');
             $redis->hSet('globalrandom', 'playlist', '');
             $redis->hSet('globalrandom', 'playlist_filename', '');
-            $redis->hSet('globalrandom', 'exclude', '');
-            $redis->hSet('globalrandom', 'start_delay', 5);
-            $redis->hSet('globalrandom', 'wait_for_play', 0);
-            $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hSet('globalrandom', 'random_album', 0);
+            $redis->hSet('globalrandom', 'start_delay', 5);
             $redis->hSet('globalrandom', 'suspend_timeout', '1s');
+            $redis->hSet('globalrandom', 'wait_for_play', 0);
             // info
             $redis->del('soxrmpdonoff');
             $redis->set('remoteSStime', -1);
@@ -558,15 +559,16 @@ function redisDatastore($redis,$action) {
             $redis->hExists('spotify', 'plversion') || $redis->hSet('spotify', 'plversion', 1);
             $redis->hExists('spotify', 'lastcmd') || $redis->hSet('spotify', 'lastcmd', '');
             // ashuffle global random
+            $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'enable') || $redis->hSet('globalrandom', 'enable', 0);
+            $redis->hExists('globalrandom', 'exclude') || $redis->hSet('globalrandom', 'exclude', '');
+            $redis->hExists('globalrandom', 'minquelen') || $redis->hSet('globalrandom', 'minquelen', '1');
             $redis->hExists('globalrandom', 'playlist') || $redis->hSet('globalrandom', 'playlist', '');
             $redis->hExists('globalrandom', 'playlist_filename') || $redis->hSet('globalrandom', 'playlist_filename', '');
-            $redis->hExists('globalrandom', 'exclude') || $redis->hSet('globalrandom', 'exclude', '');
-            $redis->hExists('globalrandom', 'start_delay') || $redis->hSet('globalrandom', 'start_delay', 5);
-            $redis->hExists('globalrandom', 'wait_for_play') || $redis->hSet('globalrandom', 'wait_for_play', 0);
-            $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'random_album') || $redis->hSet('globalrandom', 'random_album', 0);
+            $redis->hExists('globalrandom', 'start_delay') || $redis->hSet('globalrandom', 'start_delay', 5);
             $redis->hExists('globalrandom', 'suspend_timeout') || $redis->hSet('globalrandom', 'suspend_timeout', '1s');
+            $redis->hExists('globalrandom', 'wait_for_play') || $redis->hSet('globalrandom', 'wait_for_play', 0);
             //  info
             $redis->exists('udevil') || $redis->set('udevil', 1);
             $redis->exists('coverart') || $redis->set('coverart', 1);

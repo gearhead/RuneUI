@@ -33,50 +33,52 @@
     <form class="form-horizontal" action="" method="post" data-parsley-validate>
         <fieldset>
             <legend>Volume Control</legend>
-            <div class="form-group">
-                <label class="col-sm-2 control-label" for="mixer-type">Volume control</label>
-                <div class="col-sm-10">
-                    <!--
-                    <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
-                        <option value="software" <?php if($this->conf['mixer_type'] == 'software'): ?> selected <?php endif ?>>enabled - software</option>
-                        <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled - hardware</option>
-                    </select>
-                    <span class="help-block">
-                        <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
-                        <strong>software</strong> - Volume knob enabled, controlled by <strong>software mixer</strong>. This option <strong>reduces the overall sound quality</strong>.<br>
-                        <strong>hardware</strong> - Volume knob enabled, controlled by <strong>hardware mixer</strong>. This option enables the volume control and let you achieve <strong>very good overall sound quality</strong>.<br>
-                        <i>Note: hardware mixer must be supported directly from your sound card hardware</i>
-                    </span>
-                    -->
-                    <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled</option>
-                        <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
-                        <option value="hide" <?php if($this->conf['mixer_type'] == 'hide'): ?> selected <?php endif ?>>disabled & hide volume knob</option>
-                    </select>
-                    <span class="help-block">
-                        <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
-                        <strong>enabled</strong> - A hardware mixer is automatically selected if supported, otherwise a software mixer is used.<br>
-                        <i>A hardware mixer has better sound quality performance than a software mixer, but it must be supported from your sound card. Regardless of the mixer type, at 100% volume there is no loss in sound quality</i></span>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="mixer-type">Volume control</label>
+                    <div class="col-sm-10">
+                        <!--
+                        <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
+                            <option value="software" <?php if($this->conf['mixer_type'] == 'software'): ?> selected <?php endif ?>>enabled - software</option>
+                            <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled - hardware</option>
+                        </select>
+                        <span class="help-block">
+                            <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
+                            <strong>software</strong> - Volume knob enabled, controlled by <strong>software mixer</strong>. This option <strong>reduces the overall sound quality</strong>.<br>
+                            <strong>hardware</strong> - Volume knob enabled, controlled by <strong>hardware mixer</strong>. This option enables the volume control and let you achieve <strong>very good overall sound quality</strong>.<br>
+                            <i>Note: hardware mixer must be supported directly from your sound card hardware</i>
+                        </span>
+                        -->
+                        <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="hardware" <?php if($this->conf['mixer_type'] == 'hardware'): ?> selected <?php endif ?>>enabled</option>
+                            <option value="disabled" <?php if($this->conf['mixer_type'] == 'disabled'): ?> selected <?php endif ?>>disabled</option>
+                            <option value="hide" <?php if($this->conf['mixer_type'] == 'hide'): ?> selected <?php endif ?>>disabled & hide volume knob</option>
+                        </select>
+                        <span class="help-block">
+                            <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
+                            <strong>enabled</strong> - A hardware mixer is automatically selected if supported, otherwise a software mixer is used.<br>
+                            <i>A hardware mixer has better sound quality performance than a software mixer, but it must be supported from your sound card. Regardless of the mixer type, at 100% volume there is no loss in sound quality</i></span>
+                    </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label" for="start-volume">Start Volume</label>
-                <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="number" id="start-volume" name="mpdvol[start_volume]" value="<?=$this->mpd['start_volume'] ?>" data-trigger="change" min="-1" max="100" placeholder="-1" />
-                    <span class="help-block">Sets a forced playback volume at startup (0-100, -1 disables the feature)</span>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="start-volume">Start Volume</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="number" id="start-volume" name="mpdvol[start_volume]" value="<?=$this->mpd['start_volume'] ?>" data-trigger="change" min="-1" max="100" placeholder="-1" />
+                        <span class="help-block">Sets a forced playback volume at startup (0-100, -1 disables the feature)</span>
+                    </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="col-sm-2 control-label" for="realtime-volume">Volume Knob</label>
-                <div class="col-sm-10">
-                    <select id="realtime-volume" name="mpdvol[realtime_volume]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="yes" <?php if($this->realtime_volume == '1'): ?> selected <?php endif ?>>realtime</option>
-                        <option value="no" <?php if($this->realtime_volume == '0'): ?> selected <?php endif ?>>on release</option>
-                    </select>
-                    <span class="help-block">This setting specifies the behavior of the UI's volume knob when it's turned.<br>
-                    <strong>realtime</strong> - volume changes continuously while the knob is dragged.<br>
-                    <strong>on release</strong> - volume changes when the knob is released</span>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="realtime-volume">Volume Knob</label>
+                    <div class="col-sm-10">
+                        <select id="realtime-volume" name="mpdvol[realtime_volume]" class="selectpicker" data-style="btn-default btn-lg">
+                            <option value="yes" <?php if($this->realtime_volume == '1'): ?> selected <?php endif ?>>realtime</option>
+                            <option value="no" <?php if($this->realtime_volume == '0'): ?> selected <?php endif ?>>on release</option>
+                        </select>
+                        <span class="help-block">This setting specifies the behavior of the UI's volume knob when it's turned.<br>
+                        <strong>realtime</strong> - volume changes continuously while the knob is dragged.<br>
+                        <strong>on release</strong> - volume changes when the knob is released</span>
+                    </div>
                 </div>
             </div>
         </fieldset>
@@ -251,7 +253,7 @@
         </div>
     </form>
     <form class="form-horizontal" action="" method="post" data-parsley-validate>
-        <legend>Crossfade, Autoplay, Consume and Random Play</legend>
+        <legend>Crossfade, Autoplay, Consume and Global Random Play</legend>
         <fieldset>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="crossfade">Crossfade</label>
@@ -280,37 +282,56 @@
                     <span class="help-block">When set to ON the entries in the queue are removed after being played</span>
                 </div>
             </div>
-            <div class="form-group">
-                <label class="control-label col-sm-2" for="globalrandom">Global Random</label>
-                <div class="col-sm-10">
-                    <label class="switch-light well" onclick="">
-                        <input id="mpd-gr-cb" name="mpd[globalrandom]" type="checkbox" value="1"<?php if((isset($this->mpd['globalrandom'])) && ($this->mpd['globalrandom'])): ?> checked="checked" <?php endif ?>>
-                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                    </label>
-                    <span class="help-block">Toggles Global Random Play, when ON it adds a random song from your MPD library to the queue when the queue becomes empty.<br>
-                    You can also select a playlist as source for random play, this option will then be switched on automatically.<br>
-                    <i>Note: When Crossfade is set, global random will always keep two entries in the queue to ensure that crossfading works correctly</i></span>
-                </div>
-                <div id="mpd-gr-fields" class="<?php if($this->mpd['globalrandom'] != 1): ?>hide<?php endif ?>">
-                    <label class="control-label col-sm-2" for="globalrandom">Random Album/Song</label>
+            <div <?php if($this->mpd['globalrandom']): ?>class="boxed-group"<?php endif ?> id="grBox">
+                <div class="form-group">
+                    <label class="control-label col-sm-2" for="globalrandom">Global Random</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
-                            <input name="mpd[random_album]" type="checkbox" value="1"<?php if((isset($this->mpd['random_album'])) && ($this->mpd['random_album'])): ?> checked="checked" <?php endif ?>>
+                            <input id="mpd-gr-cb" name="mpd[globalrandom]" type="checkbox" value="1"<?php if((isset($this->mpd['globalrandom'])) && ($this->mpd['globalrandom'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggles Album of Song based Global Random Play, when ON it adds a random Album, when OFF it adds a random Song.<br>
-                            <i>This setting has no effect when a playlist is selected as the source of the random songs</i></span>
-                        <input class="form-control input-lg" type="text" id="ramdomsource" name="ramdomsource" value="<?php echo $this->ramdomsource; ?>" disabled autocomplete="off">
+                        <span class="help-block">Toggles Global Random Play, when ON it adds a random song from your MPD library to the queue when the queue becomes empty.<br>
+                        You can also select a playlist as source for random play, this option will then be switched on automatically</span>
+                    </div>
+                    <div id="mpd-gr-fields" class="<?php if($this->mpd['globalrandom'] != 1): ?>hide<?php endif ?>">
+                        <label class="col-sm-2 control-label" for="crossfade">Minimum songs in Queue</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="number" id="minquelen" name="mpd[minquelen]" value="<?=$this->mpd['minquelen'] ?>" data-trigger="change" min="0" max=10 placeholder="0" />
+                            <span class="help-block">Sets the minimum number of unplayed songs to be maintained in the queue (0 to 10, default 1).<br>
+                            <i>When Crossfade is set, global random will always keep at least one unplayed entry in the queue to ensure that crossfading works correctly A zero value is valid only when Crossfade is also set to 0</i></span>
+                        </div>
+                        <label class="control-label col-sm-2" for="globalrandom">Random Album</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input name="mpd[random_album]" type="checkbox" value="1"<?php if((isset($this->mpd['random_album'])) && ($this->mpd['random_album'])): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Toggles Album of Song based Global Random Play, when ON it adds a random Album, when OFF it adds a random Song.<br>
+                                <i>This setting has no effect when a playlist is selected as the source of the random songs</i></span>
+                        </div>
+                        <label class="control-label col-sm-2" for="ntpserver">Exclude from random play</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="text" id="exclude" name="mpd[exclude] " value="<?php echo $this->mpd['exclude']; ?>" autocomplete="off">
+                            <span class="help-block">Enter a space delimited list of keywords. When any of the keywords appear in the <strong>genre</strong> of a song it will be excluded from the Global Random Play.<br>
+                            <i>This is intended to eliminate things like 'Christmas' songs when they are not season. But you could decide that you don't want to listen to 'country' and/or 'folk'. The list is case insensitive.<br>
+                            This setting has no effect when a playlist is selected as the source of the random songs</i></span>
+                            <input class="form-control input-lg" type="text" id="ramdomsource" name="ramdomsource" value="<?php echo $this->ramdomsource; ?>" disabled autocomplete="off">
+                            <span class="help-block">Select global random from a playlist in <a href="/#panel-dx">Queue, Manage Playlists</a></span>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group form-actions">
-                    <div class="col-sm-offset-2 col-sm-10">
-                        <br><a href="/mpd/" class="btn btn-default btn-lg">Cancel</a>
-                        <button type="submit" class="btn btn-primary btn-lg" name="save" value="save">Save and apply</button>
-                        <button type="submit" class="btn btn-primary btn-lg" name="resetrp" value="1" id="resetrp">Reset Random Play</button>
+            </div>
+            <div class="form-group form-actions">
+                <div class="col-sm-offset-2 col-sm-10">
+                    <br><a href="/mpd/" class="btn btn-default btn-lg">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-lg" name="save" value="save">Save and apply</button>
+                    <button type="submit" class="btn btn-primary btn-lg <?php if($this->mpd['globalrandom'] != 1): ?>hide<?php endif ?>" name="resetrp" value="1" id="resetrp">Reset Random Play</button>
+                    <?php if($this->mpd['globalrandom'] != 1): ?>
+                        <span class="help-block">Select Cancel or Save and apply</span>
+                    <?php else : ?>
                         <span class="help-block">Select Cancel, Save and apply or Reset Random Play.<br>
                         Selecting <strong>Reset Random Play</strong> will reset global random and will remove random play based on a selected playlist, the full MPD library will then be used</span>
-                    </div>
+                    <?php endif ?>
                 </div>
             </div>
         </fieldset>

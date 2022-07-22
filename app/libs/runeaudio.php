@@ -7401,13 +7401,22 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             $queuedSongs = 1;
         }
     } else {
-        $queuedSongs = '';
+        $queuedSongs = $redis->hGet('mpdconf', 'crossfade');
+    }
+    // the number of extra queued songs should be min 1, max 10, defined by $minquelen
+    $minquelen = $redis->hGet('globalrandom', 'minquelen');
+    // the biggest value of $minquelen and $queuedSongs (default 0 when both unset) is used as $quelen
+    $quelen = max($minquelen, $queuedSongs, 0);
+    if ($minquelen != $quelen) {
+        // this happens when an attempt is made to set the queued songs to zero when crossfade is non-zero
+        $redis->hSet('globalrandom', 'minquelen', $quelen);
     }
     unset($retval);
-    // set up ashuffle tweaks to randomise the ashuffle window size (default = 7) to enhance the randomness and set
-    //  the suspend timeout to its redis value (nominally 20ms) to prevent crashes after clearing the queue
-    //$randomWindow = random_int(7, 20);
-    $randomWindow = rand(7, 20);
+    // set up ashuffle tweaks to randomise the ashuffle window size (default = 7) to enhance the randomness
+    //  its set to a value larger than the minimum queue length so that the ashuffle intermediate random list is never emptied
+    //  also set the suspend timeout to its redis value (default 20ms) to prevent crashes after clearing the queue, a value
+    //  of 1 second allows UPnP/DLNA work correctly in conjunction with ashuffle
+    $randomWindow = rand(7+$quelen, 20+$quelen);
     $tweaks = ' -t window-size='.$randomWindow.' -t suspend-timeout='.$redis->hGet('globalrandom', 'suspend_timeout');
     $hostAndPort = ' --host '."'".$redis->hGet('mpdconf', 'bind_to_address')."'".' --port '."'".$redis->hGet('mpdconf', 'port')."'";
     switch ($action) {
@@ -7416,28 +7425,15 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             //
             // don't do anything if $queuedSongs has no value, MPD is probably not running, wait until the next time
             if (strlen($queuedSongs)) {
-                if ($queuedSongs === 0) {
-                    // crossfade = 0 so the number of extra queued songs should be 0
-                    if (sysCmd('grep -ic -- '."'".'-q 1'."' '".$ashuffleUnitFilename."'")[0]) {
-                        // incorrect value in the ashuffle service file
-                        // find the line beginning with 'ExecStart' and in that line replace '-q 1'' with -q 0'
-                        sysCmd("sed -i '/^ExecStart/s/-q 1/-q 0/' '".$ashuffleUnitFilename."'");
-                        // reload the service file
-                        sysCmd('systemctl daemon-reload');
-                        // stop ashuffle if it is running
-                        sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
-                    }
-                } else if ($queuedSongs > 0) {
-                    // crossfade > 0 so the number of extra queued songs should be 1
-                    if (sysCmd('grep -ihc -- '."'".'-q 0'."' '".$ashuffleUnitFilename."'")[0]) {
-                        // incorrect value in the ashuffle service file
-                        // find the line beginning with 'ExecStart' and in that line replace '-q 0'' with -q 1'
-                        sysCmd("sed -i '/^ExecStart/s/-q 0/-q 1/' '".$ashuffleUnitFilename."'");
-                        // reload the service file
-                        sysCmd('systemctl daemon-reload');
-                        // stop ashuffle if it is running
-                        sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
-                    }
+                // when the required queue length is not found in the unit file correct it
+                if (!sysCmd("grep -ihc -- '-q[ ]*".$quelen."' '".$ashuffleUnitFilename."'")[0]) {
+                    // incorrect value in the ashuffle service file
+                    // find the line beginning with 'ExecStart' and in that line replace '-q x' with -q y'
+                    sysCmd("sed -i '/^ExecStart/s/-q[ ]*.[^ ]*/-q ".$quelen."/' '".$ashuffleUnitFilename."'");
+                    // reload the service file
+                    sysCmd('systemctl daemon-reload');
+                    // stop ashuffle if it is running
+                    sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
                 }
             }
             break;
@@ -7456,9 +7452,6 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                 // no playlist name has been supplied, just exit
                 break;
             }
-            if (!strlen($queuedSongs)) {
-                $queuedSongs = 0;
-            }
             // stop ashuffle and set redis globalrandom to false/off, otherwise it may be restarted automatically
             $redis->hSet('globalrandom', 'enable', '0');
             sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
@@ -7469,7 +7462,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             $redis->hSet('globalrandom', 'playlist', $playlistName);
             $redis->hSet('globalrandom', 'playlist_filename', $playlistFilename);
             // the ashuffle systemd service file needs to explicitly reference the playlist file
-            $newArray = wrk_replaceTextLine($ashuffleUnitFilename, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -q '.$queuedSongs.' -f '."'".$playlistFilename."'".$hostAndPort.$tweaks);
+            $newArray = wrk_replaceTextLine($ashuffleUnitFilename, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -q '.$quelen.' -f '."'".$playlistFilename."'".$hostAndPort.$tweaks);
             $fp = fopen($ashuffleUnitFilename, 'w');
             $paramReturn = fwrite($fp, implode("", $newArray));
             fclose($fp);
@@ -7483,9 +7476,6 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
         case 'reset':
             // $action = 'reset'
             //
-            if (!strlen($queuedSongs)) {
-                $queuedSongs = 0;
-            }
             // save current value of redis globalrandom and set it to false/off, otherwise it may be restarted automatically
             $saveGlobalrandom = $redis->hGet('globalrandom', 'enable');
             $redis->hSet('globalrandom', 'enable', '0');
@@ -7518,7 +7508,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             }
             unset($retval);
             // the ashuffle systemd service file needs to explicitly exclude the reference the deleted playlist
-            $newArray = wrk_replaceTextLine($ashuffleUnitFilename, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -q '.$queuedSongs.$hostAndPort.$tweaks.$ashuffleAlbum.$randomExclude);
+            $newArray = wrk_replaceTextLine($ashuffleUnitFilename, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -q '.$quelen.$hostAndPort.$tweaks.$ashuffleAlbum.$randomExclude);
             $fp = fopen($ashuffleUnitFilename, 'w');
             $paramReturn = fwrite($fp, implode("", $newArray));
             fclose($fp);
@@ -7557,9 +7547,6 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     // play from the filename not present, set ashuffle to play from the filename
                     wrk_ashuffle($redis, 'set', $playlistName);
                 }
-            }
-            if (!strlen($queuedSongs)) {
-                $queuedSongs = 0;
             }
             $moveNr = $queuedSongs + 1;
             // start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons
