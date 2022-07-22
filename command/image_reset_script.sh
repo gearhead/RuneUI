@@ -557,19 +557,17 @@ chmod 777 /srv/http/tmp
 mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
-# this takes ages to run, but the zipped distribution image will then be very small
+# this takes ages to run, but the compressed distribution image will then be very small
 if [ "$1" == "full" ]; then
     echo "Zero filling the file system"
     # zero fill the file system
     cd /boot
     sync
     cat /dev/zero > zero.file
-    sync
     rm zero.file
     sync
     cd /
     cat /dev/zero > zero.file
-    sync
     rm zero.file
     sync
     cd /home

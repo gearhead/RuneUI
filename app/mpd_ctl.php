@@ -102,6 +102,18 @@
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflereset'));
             }
         }
+        if (isset($_POST['mpd']['minquelen']) && (trim($_POST['mpd']['minquelen']) != '')) {
+            if ($_POST['mpd']['minquelen'] != $redis->hGet('globalrandom', 'minquelen')) {
+                $redis->hSet('globalrandom', 'minquelen', $_POST['mpd']['minquelen']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflecheckCF'));
+            }
+        }
+        if (isset($_POST['mpd']['exclude'])) {
+            if ($_POST['mpd']['exclude'] != $redis->hGet('globalrandom', 'exclude')) {
+                $redis->hSet('globalrandom', 'exclude', $_POST['mpd']['exclude']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflereset'));
+            }
+        }
         if ((isset($_POST['mpd']['addrandom'])) && (is_numeric($_POST['mpd']['addrandom']))) {
             $redis->hGet('globalrandom', 'addrandom') == $_POST['mpd']['addrandom'] || $redis->hSet('globalrandom', 'addrandom', $_POST['mpd']['addrandom']);
         }
@@ -127,6 +139,8 @@ $template->mpd['mpd_autoplay'] = $redis->get('mpd_autoplay');
 $template->mpd['globalrandom'] = $redis->hGet('globalrandom', 'enable');
 $template->mpd['random_album'] = $redis->hGet('globalrandom', 'random_album');
 $template->mpd['addrandom'] = $redis->hGet('globalrandom', 'addrandom');
+$template->mpd['minquelen'] = $redis->hGet('globalrandom', 'minquelen');
+$template->mpd['exclude'] = $redis->hGet('globalrandom', 'exclude');
 $template->hostname = $redis->get('hostname');
 $template->samplerate = $redis->hget('webstreaming', 'samplerate');
 $crossfade = sysCmd('mpc crossfade')[0];

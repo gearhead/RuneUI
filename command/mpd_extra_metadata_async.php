@@ -72,6 +72,8 @@ if ($redis->get('remoteSSbigart') === 'album') {
 } else {
     $bigartIsAlbum = false;
 }
+$statusCnt = 10;
+$omit_lyrics = $redis->hgetall('omit_lyrics');
 $mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
 //
 // get the lock status
@@ -111,17 +113,20 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                         $nextsongid = trim(explode(': ', $retline, 2)[1]);
                     }
                 }
-            } else {
-                // mpd response invalid, exit the outside loop
-                break;
             }
-        } else {
-            // mpd socket invalid or send command failed, exit the outside loop
-            break;
         }
         if (!$currsongid && !$nextsongid) {
-            // nothing to do, exit the outside loop
-            break;
+            // nothing to do, loop or break the loop
+            if ($statusCnt-- <= 0 ) {
+                // on the 10th loop break the loop (10 seconds)
+                break;
+            } else {
+                $statusCnt = 10;
+                $saveFile = '';
+                sleep(1);
+                closeMpdSocket($socket);
+                continue;
+            }
         }
         $songinfo = array();
         //
@@ -144,12 +149,12 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     }
                 }
             } else {
-                // mpd response invalid, exit the outside loop
-                break;
+                // mpd response invalid, clear the array element
+                unset($songinfo['currsong']);
             }
         } else {
-            // mpd socket invalid or send command failed, exit the outside loop
-            break;
+            // mpd socket invalid or send command failed, clear the array element
+            unset($songinfo['currsong']);
         }
         //
         // get the next song information and create the 'nextsong' cache table entry
@@ -170,12 +175,12 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                     }
                 }
             } else {
-                // mpd response invalid, exit the outside loop
-                break;
+                // mpd response invalid, clear the array
+                unset($songinfo['nextsong']);
             }
         } else {
-            // mpd socket invalid or send command failed, exit the outside loop
-            break;
+            // mpd socket invalid or send command failed, clear the array
+            unset($songinfo['nextsong']);
         }
         //
         // close the mpd socket and tidy up
@@ -185,14 +190,20 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
         //
         // process the songinfo array, which has one or two entries, current song 'currsong' and in most cases also next song 'nextsong'
         //
+        if (!count($songinfo)) {
+            // songinfo array empty, nothing to do, the foreach below will no nothing
+            $saveFile = '';
+            sleep(1);
+        }
         foreach ($songinfo as $songkey => &$song) {
-            // note $song is by reference and can be modified
+            // note: $song is by reference and can be modified
             //
             // retrieve and validate the cached information
             //
             if (!isset($song['file'])) {
-                // can't do anything if the file is not set
-                continue;
+                // can't do anything if the file is not set, wait 1 second and exit the loop
+                sleep(1);
+                break;
             }
             $song['file'] = $mpdRoot.'/'.$song['file'];
             $datafile = md5($song['file']);
@@ -450,18 +461,31 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            if (isset($song['genre']) && strpos(' '.strtolower($song['genre']), 'classical')) {
-                // genre is classical, skip the lyrics
-                $info['song_lyrics'] = 'Lyrics retrieval omitted for the "classical" genre';
+            // some lyrics are omitted since they almost never exits, default is a single entry containing 'classical'
+            $omit_string = '';
+            if (isset($song['genre'])) {
+                foreach ($omit_lyrics as $omit_lyric => $omit_valid) {
+                    if ($omit_valid) {
+                        if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
+                            // found a genre with omitted lyrics
+                            $omit_string = $omit_lyric;
+                            break;
+                        }
+                    }
+                }
+            }
+            if ($omit_string) {
+                // skip the lyrics
+                $info['song_lyrics'] = 'Lyrics retrieval omitted for the "'.$omit_string.'" genre';
             } else {
-                // when genre is unknown or not classical get the lyrics
+                // when genre is unknown or not omitted get the lyrics
                 $retval = get_songInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);
                 }
             }
             // it seems illogical for this to be here however it is more effective to search
-            // for cover art on internet together with the artist and song information
+            //  for cover art on internet after searching for the artist and song information
             if (!$artFound) {
                 //
                 // 3. try to find coverart on internet
