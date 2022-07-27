@@ -39,6 +39,6 @@ set +e # continue on errors
 # wait for 120 seconds
 sleep 120
 # kill the upmpdcli job
-kill $(pgrep upmpdcli)
+pkill upmpdcli
 #---
 #End script
