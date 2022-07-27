@@ -32,8 +32,11 @@
  *
  */
 // common include
-include('/srv/http/app/config/config.php');
-opcache_invalidate ('/srv/http/command/cachectl.php');
+// RuneAudio Library include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
+opcache_invalidate('/srv/http/command/cachectl.php');
 // insect GET['action']
 if (isset($_GET['action'])) {
     switch ($_GET['action']) {

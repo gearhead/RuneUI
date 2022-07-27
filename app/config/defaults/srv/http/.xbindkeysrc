@@ -1,0 +1,42 @@
+# For the benefit of emacs users: -*- shell-script -*-
+###########################
+# xbindkeys configuration #
+###########################
+#
+# Version: 1.8.7
+#
+
+#keystate_numlock = enable
+#keystate_capslock = enable
+#keystate_scrolllock= enable
+
+"xbindkeys_show"
+  control+shift + q
+ 
+# Increase volume
+"mpc volume +5"
+   XF86AudioRaiseVolume
+
+# Decrease volume
+"mpc volume -5"
+   XF86AudioLowerVolume
+
+# play
+"mpc play"
+   XF86AudioPlay
+
+# mute
+"mpc mute"
+   XF86AudioMute
+
+# prev
+"mpc prev"
+   XF86AudioPrev
+
+# next
+"mpc next"
+   XF86AudioNext
+   
+##################################
+# End of xbindkeys configuration #
+##################################

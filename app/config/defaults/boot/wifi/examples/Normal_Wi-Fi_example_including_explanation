@@ -1,0 +1,9 @@
+Normal Wi-Fi example including explanation
+==========================================
+Any file name can be used. Use a text editor on your PC to create the files, after flashing the Micro-SD card.
+Only lines beginning with 'Name=', 'Passphrase=' and 'Hidden=' will be processed.
+The groups of values can be repeated in a single file. Each time a line is encountered beginning with 'Name='
+a new profile is defined.
+
+Name=My network SSID name
+Passphrase=my P@66w0rd

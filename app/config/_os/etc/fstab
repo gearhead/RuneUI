@@ -1,9 +1,0 @@
-# 
-# /etc/fstab: static file system information
-#
-# <file system>	<dir>	<type>	<options>	<dump>	<pass>
-/dev/mmcblk0p1  /boot   vfat    defaults        0       0
-var-tmp         /var/tmp        tmpfs nodev,nosuid,noatime,mode=1777,size=5M 0       0
-logs            /var/log        tmpfs nodev,nosuid,noatime,mode=1777,size=5M 0       0
-rune-logs	/var/log/runeaudio 	tmpfs nodev,nosuid,noatime,mode=1777,size=5M 0       0
-http-tmp	/srv/http/tmp  		tmpfs nodev,nosuid,noatime,mode=1777,size=5M,uid=http,gid=http 0       0

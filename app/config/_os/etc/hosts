@@ -1,6 +1,0 @@
-# Static table lookup for hostnames.
-# See hosts(5) for details.
-127.0.0.1       localhost localhost.localdomain runeaudio.local runeaudio
-#127.0.0.1      runeaudio.local runeaudio
-#::1 runeaudio.local runeaudio
-

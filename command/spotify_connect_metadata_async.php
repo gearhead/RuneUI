@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -33,269 +33,312 @@
  *  date: 20-02-2019
  *
  */
-// common include
+//
+// this routing should read the play event information from spotifyd, but it is wrong and unusable
+//  the player-events names are correctly posted, but only small parts of the other data is correct
+//  luckily spotifyd also posts textual information to its log which is correct, from this we can
+//  derive the spotify track-id, the track-duration and the track-name
+//  with this information the Spotify metadata can be retrieved and posted in a reasonable way, however
+//  the code in this module is a mess
+//
+// initialisation
+// report errors: set display_errors to true (=1)
 ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
 ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/spotify_connect_metadata_async.log');
-include('/var/www/app/libs/runeaudio.php');
-error_reporting(E_ALL & ~E_NOTICE);
-
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend
+require_once('/srv/http/app/libs/openredis.php');
 // reset logfile
 sysCmd('echo "--------------- start: spotify_connect_metadata_async.php ---------------" > /var/log/runeaudio/spotify_connect_metadata_async.log');
-runelog('spotify_connect_metadata_async START');
+// logging starting message
+runelog('WORKER spotify_connect_metadata_async.php STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
 
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis.sock');
-
-// read the parameters - this is the PLAYER_EVENT and TRACK_ID
-// $event = trim($argv[1]); // PLAYER_EVENT: stop, start or change (connect= stop)
-// $track_id = trim($argv[2]); // TRACK_ID
-// don't use the parameters, this job runs with a delay, there may have been more events since this job was initiated
-// use the latest information from redis, later jobs could run but may have nothing to do
-$event = $redis->hGet('spotifyconnect', 'event');
-$track_id = $redis->hGet('spotifyconnect', 'track_id');
-$event_time_stamp = $redis->hGet('spotifyconnect', 'event_time_stamp');
-runelog('spotify_connect_metadata_async PLAYER_EVENT    :', $event);
-runelog('spotify_connect_metadata_async TRACK_ID        :', $track_id);
-runelog('spotify_connect_metadata_async EVENT TIME STAMP:', $event_time_stamp);
-if ($event == '') {
-	runelog('spotify_connect_metadata_async PLAYER_EVENT:', 'Empty - Terminating');
-	return 0;
-}
-if ($track_id == '') {
-	runelog('spotify_connect_metadata_async TRACK_ID:', 'Empty - Terminating');
-	return 0;
-}
-$active_player = $redis->get('activePlayer');
-if ($active_player != 'SpotifyConnect') {
-	runelog('spotify_connect_metadata_async active player changed:', $active_player);
-	return 0;
-}
-
-$last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
-if ($event!= 'stop') {
-	// set this early so that any later jobs will do nothing when events are skipped
-	$redis->hSet('spotifyconnect', 'last_track_id', $track_id);
-}
-
-// sort out the metadata
-$status = array();
-if ($last_track_id == '') {
-	// first time start
-	// remove any cover art
-	sysCmd('rm -f /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
-	// initialise the status array
-	$status['audio'] = "44100:16:2";
-	$status['audio_sample_rate'] = "44.1";
-	$status['audio_sample_depth'] = "16";
-	$status['bitrate'] = "1411";
-	$status['audio_channels'] = "Stereo";
-	$status['random'] = "0";
-	$status['single'] = "0";
-	$status['consume'] = "0";
-	$status['playlist'] = "1";
-	$status['playlistlength'] = "1";
-	$status['state'] = "stop";
-	$status['time'] = "0";
-	$status['elapsed'] = "0";
-	$status['song_percent'] = "100";
-	$status['currentartist'] = "SpotifyConnect";
-	$status['currentalbum'] = "-----";
-	$status['currentsong'] = "Switching";
-	$status['actPlayer'] = "SpotifyConnect";
-	$status['radioname'] = null;
-	$status['OK'] = null;
-	if ($event == 'stop') {
-		// save JSON response for extensions
-		$redis->set('act_player_info', json_encode($status));
-		ui_render('playback', json_encode($status));
-		sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-		sysCmdAsync('/var/www/command/ui_update_async');
-	}
+// get the lock status
+$lock = $redis->get('lock_spotify_connect_metadata');
+runelog('lock status ', $lock);
+if (($lock === '0') || ($lock === '60')  || ($lock >= 60)) {
+    // set the lock
+    $redis->set('lock_spotify_connect_metadata', '1');
+    // process the spotify connect metadata
 } else {
-	// not the frst time, we have already processed some data 
-	// get the last stored status
-	$status = json_decode($redis->get('act_player_info'), true);
+    runelog("LOCKED!", '');
+    echo "LOCKED!";
+    // just in case something goes wrong increment the lock value by 1
+    // when it reaches 60 (= 30 seconds, this should never happen) it will be processed as if there is no lock
+    $lock += 1;
+    $redis->set('lock_spotify_connect_metadata', $lock);
+    runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));
+    // close Redis connection
+    $redis->close();
+    runelog('WORKER spotify_connect_metadata_async.php END...');
+    exit(1);
 }
-if ($track_id == $last_track_id) {
-	// same song as last time
-	// stop > start, start > stop or change > stop
-	if ($event == 'stop') {
-		// start > stop or change > stop
-		// assume pause, timeout counter starts when stop is set, actual stop occurs after timeout
-		$status['state'] = "pause";
-		// calculate elapsed time and song percentage at stop time, it will be used on a restart
-		// compensate because this routine runs async and is therefore late, event_time_stamp contains the real stop event time
-		$last_time_stamp = $redis->hGet('spotifyconnect', 'last_time_stamp');
-		$status['elapsed'] += intval($event_time_stamp - $last_time_stamp);
-		$redis->hSet('spotifyconnect', 'last_time_stamp', $event_time_stamp);
-		if ($status['time'] != 0) {
-			$status['song_percent'] = $status['elapsed'] / $status['time'] * 100;
-		} else {
-			$status['song_percent'] = 0;
-		}
-	} else {
-		// stop > start
-		// restarting a paused track
-		$status['state'] = "play";
-	}
-} else if ($event != 'stop') {
-	// null > start, stop > change or start > change
-	// new song, assume started from the beginning of the track
-	$status['state'] = "play";
-	$status['time'] = "0";
-	$status['elapsed'] = "0";
-	$status['song_percent'] = "0";
-	// delete any existing cover art
-	sysCmd('rm -f /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
-	// curl -s https://open.spotify.com/track/<TRACK_ID> | sed 's/<meta/\n<meta/g' | grep -i -E 'og:title|og:image|music:duration|music:album|music:musician'
-	$command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 https://open.spotify.com/track/'.$track_id.' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|music:duration|music:album|music:musician'."'";
-	runelog('spotify_connect_metadata_async track command:', $command);
-	$retval = sysCmd($command);
-	foreach ($retval as &$line) {
-		// replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-		$line = preg_replace('/[\t\n\r\s]+/', ' ', $line);
-		// then strip the html out of the response
-		$line = str_replace('<meta property="', '', $line);
-		$line = str_replace('" content', '', $line);
-		$line = str_replace('">', '', $line);
-		$line = str_replace('"', '', $line);
-		$line = trim($line);
-		// result is <identifier>=<value>
-		$lineparts = explode('=', $line);
-		if ($lineparts[0] === 'og:title') {
-			$title = trim($lineparts[1]);
-			runelog('spotify_connect_metadata_async track title:', $title);
-		} elseif ($lineparts[0] === 'og:image') {
-			$albumart_url = trim($lineparts[1]);
-			runelog('spotify_connect_metadata_async track albumart_url:', $albumart_url);
-		} elseif ($lineparts[0] === 'music:duration') {
-			$duration_in_sec = trim($lineparts[1]);
-			runelog('spotify_connect_metadata_async track duration_in_sec:', $duration_in_sec);
-		} elseif ($lineparts[0] === 'music:album') {
-			$album_url = trim($lineparts[1]);
-			runelog('spotify_connect_metadata_async track album_url:', $album_url);
-		} elseif ($lineparts[0] === 'music:musician') {
-			$artist_url = trim($lineparts[1]);
-			runelog('spotify_connect_metadata_async track artist_url:', $artist_url);
-		}
-		unset($lineparts);
-	}
-	unset($retval, $line);
-	// get the album name
-	runelog('spotify_connect_metadata_async ALBUM_URL:', $album_url);
-	if ($album_url == '') {
-		runelog('spotify_connect_metadata_async ALBUM_URL:', 'Empty');
-	} else {
-		// curl -s <ALBUM_URL> | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-		$command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '.$album_url.' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-		runelog('spotify_connect_metadata_async album command:', $command);
-		$retval = sysCmd($command);
-		foreach ($retval as &$line) {
-			// replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-			$line = preg_replace('/[\t\n\r\s]+/', ' ', $line);
-			// then strip the html out of the response
-			$line = str_replace('<meta property="', '', $line);
-			$line = str_replace('" content', '', $line);
-			$line = str_replace('">', '', $line);
-			$line = str_replace('"', '', $line);
-			$line = trim($line);
-			// result is <identifier>=<value>
-			$lineparts = explode('=', $line);
-			if ($lineparts[0] === 'og:title') {
-				$album = trim($lineparts[1]);
-				runelog('spotify_connect_metadata_async album title:', $album);
-			}
-			unset($lineparts);
-		}
-		unset($retval, $line);
-	}
-	// get the artist name
-	runelog('spotify_connect_metadata_async ARTIST_URL:', $artist_url);
-	if ($artist_url == '') {
-		runelog('spotify_connect_metadata_async ARTIST_URL:', 'Empty');
-	} else {
-		// curl -s <ARTIST_URL> | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-		$command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '.$artist_url.' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-		runelog('spotify_connect_metadata_async artist command:', $command);
-		$retval = sysCmd($command);
-		foreach ($retval as &$line) {
-			// replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-			$line = preg_replace('/[\t\n\r\s]+/', ' ', $line);
-			// then strip the html out of the response
-			$line = str_replace('<meta property="', '', $line);
-			$line = str_replace('" content', '', $line);
-			$line = str_replace('">', '', $line);
-			$line = str_replace('"', '', $line);
-			$line = trim($line);
-			// result is <identifier>=<value>
-			$lineparts = explode('=', $line);
-			if ($lineparts[0] === 'og:title') {
-				$artist = trim($lineparts[1]);
-				runelog('spotify_connect_metadata_async artist title:', $artist);
-			}
-			unset($lineparts);
-		}
-		unset($retval, $line);
-	}
-	// get the album art file
-	runelog('spotify_connect_metadata_async ALBUMART_URL:', $albumart_url);
-	if ($albumart_url == '') {
-		runelog('spotify_connect_metadata_async ALBUMART_URL:', 'Empty - Terminating');
-	} else {
-		// wget -nv -F -T 10 -t 2 -O /srv/http/tmp/spotify-connect/spotify-connect-cover https://i.scdn.co/image/<ALBUMART_URL>
-		$command = 'wget -nv -F -T 10 -t 2 -O /srv/http/tmp/spotify-connect/spotify-connect-cover '.$albumart_url;
-		runelog('spotify_connect_metadata_async album art:', $command);
-		$retval = sysCmd($command);
-		if (filesize('/srv/http/tmp/spotify-connect/spotify-connect-cover') <= 100) {
-			runelog('spotify_connect_metadata_async ALBUMART FILE:', 'Empty');
-			$redis->hSet('lyrics', 'art', '/srv/http/tmp/spotify-connect/spotify-connect-default.png');
-			sysCmd('rm -f /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
-		} else {
-			// extract the first 32 characters from the album art file
-			$fp = fopen('/srv/http/tmp/spotify-connect/spotify-connect-cover', 'r');
-			$data_32 = fread($fp, 32);
-			fclose($fp);
-			// determine the album art file type
-			if (strpos(' '.$data_32, 'PNG')) {
-				$imgtype = 'png';
-			} else if (strpos(' '.$data_32, 'JFIF')) {
-				$imgtype = 'jpg';
-			} else {
-				$imgtype = 'jpg';
-			}
-			rename("/srv/http/tmp/spotify-connect/spotify-connect-cover", "/srv/http/tmp/spotify-connect/spotify-connect-cover.".$imgtype);
-			$redis->hSet('lyrics', 'art', '/srv/http/tmp/spotify-connect/spotify-connect-cover.'.$imgtype);
-			runelog('spotify_connect_metadata_async image filename:', '/srv/http/tmp/spotify-connect/spotify-connect-cover.'.$imgtype);
-		}
-		unset($retval);
-	}
-	$status['time'] = abs(round(floatval($duration_in_sec)));
-	$status['currentartist'] = $artist;
-	$status['currentalbum'] = $album;
-	$status['currentsong'] = $title;
-	// calculate elapsed time and song percentage
-	// compensate because this routine runs async and is therefore late, event_time_stamp contains the real start time
-	$time_stamp = time();
-	$redis->hSet('spotifyconnect', 'last_time_stamp', $time_stamp);
-	$status['elapsed'] = intval($time_stamp - $event_time_stamp);
-	if ($status['time'] != 0) {
-		$status['song_percent'] = $status['elapsed'] / $status['time'] * 100;
-	} else {
-		$status['song_percent'] = 0;
-	}
+// get the album art directory and url dir
+$artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+$artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+if ($redis->get('remoteSSbigart') === 'album') {
+    $bigartIsAlbum = true;
+} else {
+    $bigartIsAlbum = false;
 }
-$redis->hSet('lyrics', 'time', $status['time']);
-$redis->hSet('lyrics', 'artist', $status['currentartist']);
-$redis->hSet('lyrics', 'currentartist', lyricsStringClean($status['currentartist'], 'artist'));
-$redis->hSet('lyrics', 'album', $status['currentalbum']);
-$redis->hSet('lyrics', 'currentalbum', lyricsStringClean($status['currentalbum']));
-$redis->hSet('lyrics', 'song', $status['currentsong']);
-$redis->hSet('lyrics', 'currentsong', lyricsStringClean($status['currentsong']));
-// save JSON response for extensions
-$redis->set('act_player_info', json_encode($status));
-ui_render('playback', json_encode($status));
-sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-sysCmdAsync('/var/www/command/ui_update_async');
-return 1;
+// get the last stored status
+$status = json_decode($redis->get('act_player_info'), true);
+$lastEvent = '';
+do {
+    // make sure we have the last track ID
+    $last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
+    // pop the jobID from the work fifo queue
+    $jobID = $redis->rPop('s_queue_fifo');
+    // get the active player for the continue statements, it is tested on end loop
+    $active_player = $redis->get('activePlayer');
+    if (!isset($jobID) || !$jobID) {
+        // queue is empty
+        // in some cases an entry is added to the s_queue without adding an entry to the fifo queue
+        //  this should never happen, even so add an entry to the fifo queue for
+        //  any entries in the work queue
+        foreach ($redis->hGetAll('s_queue') as $jobID => $job) {
+            if (isset($jobID) && $jobID) {
+                $redis->lPush('s_queue_fifo', $jobID);
+            }
+        }
+        // run through the loop one more time, this should set the playing indicator and volume level, maybe a change of track
+        $job['event'] = 'endofqueue';
+        $job['track_id'] = $last_track_id;
+        $job['duration_ms'] = '0';
+        $job['position_ms'] = '0';
+    }
+    // read the job information from the work queue
+    if (isset($jobID) && $jobID) {
+        // not end of queue
+        if ($redis->hExists('s_queue', $jobID)) {
+            $job = json_decode($redis->hGet('s_queue', $jobID), true);
+            $redis->hDel('s_queue', $jobID);
+        } else {
+            // no work queue entry for the fifo queue entry, this should never happen!
+            //  something went wrong, just skip and get the next one
+            continue;
+        }
+    }
+    // PLAYER_EVENT: <one of the values: start, stop, play, pause, change, volumeset, load, preload, endoftrack, unavailable, preloading>
+    // ignore the following events
+    $skipEvents = array('load', 'preload', 'unavailable', 'preloading');
+    if (in_array($job['event'],$skipEvents)) {
+        continue;
+    }
+    // event: stop, start, change, load, play, pause, preload, endoftrack, volumeset, unavailable, preloading
+    // track_id: the current Spotify track ID
+    // duration_ms: track time in milliseconds
+    // position_ms: track current position in milliseconds
+    runelog('spotify_connect_metadata_async job PLAYER_EVENT    :', $job['event']);
+    runelog('spotify_connect_metadata_async job TRACK_ID        :', $job['track_id']);
+    runelog('spotify_connect_metadata_async job TIME            :', $job['duration_ms']);
+    runelog('spotify_connect_metadata_async job ELAPSED         :', $job['position_ms']);
+    // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
+    $title = '';
+    unset($status['elapsed'], $status['song_percent']);
+    // sleep for a half of a second between processing each event, do it here to allow the journal information
+    //  to be completed
+    usleep(500000);
+    $song_line=sysCmd("journalctl -u spotifyd | tail -n 60 | grep -i '<spotify:track:' | tail -n 1");
+    if (isset($song_line[0])) {
+        $job['track_id'] = get_between_data($song_line[0], '<spotify:track:', '>', 1);
+        $title = get_between_data($song_line[0], '<', '>', 1);
+        // escape the backslash and double quote, not a single quote
+        $title = str_replace('\\', '\\\\', $title);
+        $title = str_replace('"', '\\"', $title);
+        $song_line=sysCmd('journalctl -u spotifyd | tail -n 60 | grep -i "'.$title.'> (" | tail -n 1');
+        if (isset($song_line[0])) {
+            $duration_ms = get_between_data($song_line[0], '(', ' ms)', 1);
+        } else {
+            continue;
+        }
+    } else {
+        continue;
+    }
+    runelog('spotify_connect_metadata_async fixed TRACK_ID      :', $job['track_id']);
+    runelog('spotify_connect_metadata_async fixed TIME          :', $duration_ms);
+    runelog('spotify_connect_metadata_async fixed TITLE         :', $title);
+    // echo $job['event']." ".$job['track_id']." ".$duration_ms." ".$title." Fixed\n";
+    // check for first time
+    if (($last_track_id == '') && ($job['event'] == 'start')) {
+        // first time start
+        // initialise the status array
+        initialise_playback_array($redis, 'Spotify connect');
+        $status['audio'] = "44100:16:2";
+        $status['audio_sample_rate'] = "44.1";
+        $status['audio_sample_depth'] = "16";
+        $status['bitrate'] = $redis->hGet('spotifyconnect', 'bitrate');
+        $status['audio_channels'] = "Stereo";
+        $status['random'] = "0";
+        $status['single'] = "0";
+        $status['consume'] = "0";
+        $status['playlist'] = "1";
+        $status['playlistlength'] = "1";
+        $status['state'] = "stop";
+        $status['time'] = "0";
+        $status['elapsed'] = "0";
+        $status['song_percent'] = "100";
+        $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
+        $status['volume'] = $lastvolume;
+        sysCmd('mpc volume '.$lastvolume);
+        $status['currentalbumartist'] = "SpotifyConnect";
+        $status['currentartist'] = "SpotifyConnect";
+        $status['currentalbum'] = "-----";
+        $status['currentsong'] = "Switching";
+        $status['actPlayer'] = "SpotifyConnect";
+        $status['radioname'] = null;
+        $status['OK'] = null;
+        $status['mainArtURL'] = $artUrl.'/spotify-connect.png';
+        $status['smallArtURL'] = $artUrl.'/black.png';
+        $status['bigArtURL'] = $artUrl.'/black.png';
+        // save JSON response for extensions
+        $redis->set('act_player_info', json_encode($status));
+        ui_render('playback', json_encode($status));
+        // echo $job['event']." ".$job['track_id']." Init\n";
+        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        $status['song_percent'] = 0;
+        $status['elapsed'] = 0;
+    }
+    if ((($job['event'] == 'pause') || ($job['event'] == 'play')) && ($job['event'] != $lastEvent)) {
+        if (!isset($status['time']) || !$status['time']) {
+            $status['time'] = round($job['duration_ms']/1000);
+        }
+        $status['elapsed'] = round($job['position_ms']/1000);
+        // calculate the percentage played
+        if ($status['time'] != 0) {
+            $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+        } else {
+            $status['song_percent'] = 0;
+        }
+    }
+    $lastEvent = $job['event'];
+    if (($job['event'] == 'endoftrack') || ($job['event'] == 'change')) {
+        $status['song_percent'] = 0;
+        $status['elapsed'] = 0;
+    }
+    // calculate the volume, get the actual volume from alsa
+    $card = preg_replace('/[^0-9]/', '',$redis->hGet('spotifyconnect', 'device'));
+    $mixer = $redis->hGet('spotifyconnect', 'mixer');
+    $retval = sysCmd('amixer -c '.$card.' get '.$mixer.' | grep "%"');
+    if (isset($retval[0]) && $retval[0]) {
+        $lastvolume = get_between_data($retval[0], '[', '%');
+        if (is_numeric($lastvolume) && ($lastvolume >= 0) && ($lastvolume <= 100)) {
+            if ($status['volume'] != $lastvolume) {
+                $status['volume'] = $lastvolume;
+                // save the last set volume
+                $redis->hSet('spotifyconnect', 'lastvolume', $status['volume']);
+                $active_player = $redis->get('activePlayer');
+            }
+        }
+    } else {
+        $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
+    }
+    //
+    // $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+    // // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
+    // if ($playing) {
+        // // something is playing
+        // // restarting a paused track
+        // $status['state'] = "play";
+    // } else {
+        // // start > stop or change > stop
+        // // assume pause, timeout counter starts when stop is set, actual stop occurs after timeout
+        // $status['state'] = "pause";
+    // }
+    // set playing on certain events
+    $playingEvents = array('start', 'endoftrack', 'change');
+    if (in_array($job['event'],$playingEvents)) {
+        $status['state'] = "play";
+    }
+    // get the metadata when the track changes
+    $trackChangeEvents = array('start', 'endoftrack', 'change', 'play', 'endofqueue');
+    if ((in_array($job['event'],$trackChangeEvents) || ($last_track_id == ''))
+            && ($last_track_id != $job['track_id'])
+            && $job['track_id']) {
+        // save the last track ID
+        $redis->hSet('spotifyconnect', 'last_track_id', $job['track_id']);
+        // get the Spotify metadata based on the track ID
+        $retval = wrk_getSpotifyMetadata($redis, $job['track_id']);
+        // var_dump($retval);
+        $status['state'] = "pause";
+        if (isset($retval['duration_in_sec']) && $retval['duration_in_sec']) {
+            $status['time'] = abs(round(floatval($retval['duration_in_sec'])));
+        } else {
+            $status['time'] = round($duration_ms/1000);
+        }
+        // calculate the percentage played
+        if (isset($status['elapsed']) && $status['elapsed']) {
+            if ($status['time'] != 0) {
+                $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+            } else {
+                $status['song_percent'] = 0;
+            }
+        }
+        $status['currentartist'] = $retval['artist'];
+        $status['currentalbumartist'] = $retval['artist'];
+        $status['currentalbum'] = $retval['album'];
+        $status['currentsong'] = $retval['title'];
+        if (($status['currentsong'] == '-') && $title != '') {
+            $status['currentsong'] = $title;
+        }
+        $status['mainArtURL'] = $retval['albumart_url'];
+        if ($bigartIsAlbum) {
+            $status['bigArtURL'] = $retval['albumart_url'];
+        } else {
+            $status['smallArtURL'] = $retval['albumart_url'];
+        }
+        // now get the artist art and song information
+        $info = array();
+        $info['artist'] = $status['currentartist'];
+        $info['albumartist'] = $status['currentalbumartist'];
+        $info['song'] = $status['currentsong'];
+        $retval = get_artistInfo($redis, $info);
+        if ($retval) {
+            $info = array_merge($info, $retval);
+        }
+        $retval = get_songInfo($redis, $info);
+        if ($retval) {
+            $info = array_merge($status, $retval);
+        }
+        $status['song_lyrics'] = $info['song_lyrics'];
+        $status['artist_bio_summary'] = $info['artist_bio_summary'];
+        $status['artist_similar'] = $info['artist_similar'];
+        if ($artUrl == substr($info['artist_arturl'], 0, strlen($artUrl))) {
+            // the artist art has not been found, so use the album art
+            $info['artist_arturl'] = $status['mainArtURL'];
+        }
+        if ($bigartIsAlbum) {
+            $status['smallArtURL'] = $info['artist_arturl'];
+        } else {
+            $status['bigArtURL'] = $info['artist_arturl'];
+        }
+    }
+    $active_player = $redis->get('activePlayer');
+    if ($active_player == 'SpotifyConnect') {
+        // save JSON response for extensions
+        $redis->set('act_player_info', json_encode($status));
+        ui_render('playback', json_encode($status));
+        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        // echo $job['event']." ".$job['track_id']." Main\n";
+    }
+} while (($active_player == 'SpotifyConnect') && isset($jobID) && $jobID);
+// clean up the metadata, async and at low priority
+sysCmdAsync('nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+// unlock
+$redis->set('lock_spotify_connect_metadata', '0');
+runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));
+// close Redis connection
+$redis->close();
+
+runelog('WORKER spotify_connect_metadata_async.php END...');
+#---
+#End script
+

@@ -1,0 +1,37 @@
+RuneAudio webradios setup at boot
+=================================
+
+Create one or more files in the /boot/webradios directory which contain the lines:
+---
+[playlist]
+NumberOfEntries=1
+File1=<webradio_url>
+Title1=<webradio_name>
+---
+
+Where <webradio_url> is the url of the webradio_name
+and <webradio_name> is the description of the webradio_name
+The Filename should be <webradio_name>.pls
+
+By copying all of your webradio files into then /boot/webradios directory they will be
+automatically imported.
+
+Duplicates already in RuneAudio will not be replaced. The files will be deleted after importing them into RuneAudio. 
+Use the RuneAudio backup feature to save your configuration, including playlists and webradios.
+See menu Settings.
+
+It is sometimes difficult to find the URL of Radio streams. The Radio companies try to hide
+these so that users are forced to use their websites, which try to create a fanbase and create
+advertising revenue for them. I suppose it is understandable.
+Here is a list of radio stations and their URL's: https://www.hendrikjansen.nl/henk/streaming.html
+It's a Dutch webpage, but understandable. You can find other lists like this one on internet.
+
+Example:
+---
+Filename: 'UK BBC Radio 4.pls'
+---
+[playlist]
+NumberOfEntries=1
+File1=http://bbcmedia.ic.llnwd.net/stream/bbcmedia_radio4fm_mf_p.m3u 
+Title1=UK BBC Radio 4
+---

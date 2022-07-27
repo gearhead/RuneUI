@@ -1,0 +1,24 @@
+[Unit]
+Description=launch Local Browser Kiosk Weston
+After=network.target weston.service
+Wants=weston.service
+
+[Service]
+Type=simple
+User=http
+Group=http
+WorkingDirectory=/srv/http
+Environment="HOME=/srv/http"
+Environment="XDG_RUNTIME_DIR=/run/weston"
+Environment="WAYLAND_DISPLAY=wayland-1"
+Environment="XDG_SESSION_TYPE=wayland"
+Environment="GDK_BACKEND=wayland"
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/bin/luakit localhost
+ExecStartPost=/srv/http/command/ui_update_async 5000000
+ExecStop=/usr/bin/pkill -15 luakit
+ExecStopPost=/usr/bin/pkill -15 weston
+TimeoutSec=infinity
+
+[Install]
+WantedBy=multi-user.target

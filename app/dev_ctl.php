@@ -1,4 +1,4 @@
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -31,105 +31,240 @@
  *  coder: Simone De Gregori
  *
  */
+ // flag to determine mpd update
+$mpdChange = false;
 // inspect POST
 if (isset($_POST)) {
     // ----- DEV MODE -----
     if (isset($_POST['mode'])) {
-        if ($_POST['mode']['dev']['enable'] == 1) {
+        if ((isset($_POST['mode']['dev']['enable'])) && ($_POST['mode']['dev']['enable'])) {
             // create worker job (start udevil)
             if ($redis->get('dev') != 1) {
-				$redis->set('dev', 1);
-				$redis->get('debug') == 1 || $redis->set('debug', 1);
-				$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambarestart'));
-			}
+                $redis->set('dev', 1);
+                $redis->get('debug') == 1 || $redis->set('debug', 1);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambarestart'));
+            }
         } else {
             // create worker job (stop udevil)
             if ($redis->get('dev') != 0) {
-				$redis->set('dev', 0);
-				$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambarestart'));
-			}
+                $redis->set('dev', 0);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambarestart'));
+            }
         }
-    // ----- DEBUG -----
-        if ($_POST['mode']['debug']['enable'] == 1) {
+        // ----- DEBUG -----
+        if ((isset($_POST['mode']['debug']['enable'])) && ($_POST['mode']['debug']['enable'])) {
             // set debug on
             $redis->get('debug') == 1 || $redis->set('debug', 1);
         } else {
             // set debug off
             $redis->get('debug') == 0 || $redis->set('debug', 0);
         }
-    // ----- SoXr MPD -----
-        if ($_POST['mode']['soxrmpdonoff']['enable'] == 1) {
+        // ----- SoXr MPD -----
+        if ((isset($_POST['mode']['soxrmpdonoff']['enable'])) && ($_POST['mode']['soxrmpdonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->get('soxrmpdonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrmpd', 'action' => 1));
         } else {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->get('soxrmpdonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrmpd', 'action' => 0));
         }
-    // ----- SoXr Airplay -----
-        if ($_POST['mode']['soxrairplayonoff']['enable'] == 1) {
+        // ----- SoXr Airplay -----
+        if ((isset($_POST['mode']['soxrairplayonoff']['enable'])) && ($_POST['mode']['soxrairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'soxronoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrairplay', 'action' => 1));
         } else {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'soxronoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'soxrairplay', 'action' => 0));
         }
-    // ----- Airplay Metadata -----
-        if ($_POST['mode']['metadataairplayonoff']['enable'] == 1) {
+        // ----- Airplay Metadata -----
+        if ((isset($_POST['mode']['metadataairplayonoff']['enable'])) && ($_POST['mode']['metadataairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'metadataonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'metadataairplay', 'action' => 1));
         } else {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'metadataonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'metadataairplay', 'action' => 0));
         }
-    // ----- Airplay Artwork -----
-        if ($_POST['mode']['artworkairplayonoff']['enable'] == 1) {
+        // ----- Airplay Artwork -----
+        if ((isset($_POST['mode']['artworkairplayonoff']['enable'])) && ($_POST['mode']['artworkairplayonoff']['enable'])) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'artworkonoff') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkairplay', 'action' => 1));
         } else {
             // create worker job (set off and reset/restart MPD/Airplay)
             $redis->hget('airplay', 'artworkonoff') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkairplay', 'action' => 0));
         }
-    // ----- Airplay output format -----
-        if ($_POST['mode']['airplayof'] != $redis->hget('airplay', 'alsa_output_format')) {
+        // ----- Airplay output format -----
+        if ((isset($_POST['mode']['airplayof'])) && ($_POST['mode']['airplayof'] != $redis->hget('airplay', 'alsa_output_format'))) {
             // create worker job (set value and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputformat', 'args' => $_POST['mode']['airplayof']));
         }
-		// ----- Airplay output rate -----
-        if ($_POST['mode']['airplayor'] != $redis->hget('airplay', 'alsa_output_rate')) {
+        // ----- Airplay output rate -----
+        if ((isset($_POST['mode']['airplayor'])) && ($_POST['mode']['airplayor'] != $redis->hget('airplay', 'alsa_output_rate'))) {
             // create worker job (set on and reset/restart MPD/Airplay)
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayoutputrate', 'args' => $_POST['mode']['airplayor']));
         }
-    // ----- Player name Menu-----
-        if ($_POST['mode']['playernamemenu']['enable'] == 1) {
+        // ----- Spotify Connect Metadata & Artwork -----
+        if ((isset($_POST['mode']['SCmetadata_enabled']['enable'])) && ($_POST['mode']['SCmetadata_enabled']['enable'])) {
+            // create worker job (set on and reset/restart MPD/Spotify Connect)
+            $redis->hGet('spotifyconnect', 'metadata_enabled') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkSC', 'action' => 1));
+        } else {
+            // create worker job (set off and reset/restart MPD/Spotify Connect)
+            $redis->hGet('spotifyconnect', 'metadata_enabled') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkSC', 'action' => 0));
+        }
+        // ----- UI Player name Menu -----
+        if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
             // create worker job (set on)
             $redis->get('playernamemenu') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 1));
         } else {
             // create worker job (set off)
             $redis->get('playernamemenu') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 0));
         }
+        // ----- UI Object Order -----
+        if ((isset($_POST['mode']['UIorder'])) && ($_POST['mode']['UIorder'])) {
+            // value is set
+            if ($redis->get('UIorder') != $_POST['mode']['UIorder']) {
+                // value has changed, save it
+                $redis->set('UIorder', $_POST['mode']['UIorder']);
+                if ($redis->hGet('local_browser', 'enable')) {
+                    // local browser is enabled, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                }
+            }
+        }
+        // ----- Art preferences -----
+        if ((isset($_POST['mode']['bigArt'])) && ($_POST['mode']['bigArt'])) {
+            // value is set
+            if ($redis->get('remoteSSbigart') != $_POST['mode']['bigArt']) {
+                // value has changed, save it
+                $redis->set('remoteSSbigart', $_POST['mode']['bigArt']);
+                if ($redis->hGet('local_browser', 'enable')) {
+                    // local browser is enabled, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                }
+            }
+        }
+        // ----- Webstreaming encoder and bitrate -----
+        if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
+            // value is set
+            if ($redis->get('WSencoder') != $_POST['mode']['WSencoder']) {
+                // value has changed, save it
+                $redis->hSet('webstreaming', 'encoder', $_POST['mode']['WSencoder']);
+                if ($_POST['mode']['WSencoder'] === 'lame') {
+                    $redis->hSet('webstreaming', 'samplerate', '44100');
+                }
+                if ($redis->hGet('mpdconf', 'webstreaming')) {
+                    // this redis variable ('mpdconf', 'webstreaming') is a switch, 0 = off, any other value is on
+                    // it has a value so replace it
+                    $redis->hSet('mpdconf', 'webstreaming', $redis->hGet('webstreaming', 'samplerate'));
+                    $mpdChange = true;
+                }
+                // always save the encoder
+                $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('webstreaming', 'encoder'));
+            }
+        }
+        if ((isset($_POST['mode']['WSsamplerate'])) && ($_POST['mode']['WSsamplerate'])) {
+            // value is set
+            if ($redis->get('WSsamplerate') != $_POST['mode']['WSsamplerate']) {
+                // value has changed, save it
+                if ($redis->hGet('webstreaming', 'encoder') === 'lame') {
+                    $redis->hSet('webstreaming', 'samplerate', '44100');
+                } else {
+                    $redis->hSet('webstreaming', 'samplerate', $_POST['mode']['WSsamplerate']);
+                }
+                if ($redis->hGet('mpdconf', 'webstreaming')) {
+                    // this redis variable ('mpdconf', 'webstreaming') is a switch, 0 = off, any other value is on
+                    // it has a value so replace it and the encoder
+                    $redis->hSet('mpdconf', 'webstreaming', $redis->hGet('webstreaming', 'samplerate'));
+                    $mpdChange = true;
+                }
+                // always save the encoder
+                $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('webstreaming', 'encoder'));
+            }
+        }
+        // ----- Automatic Wi-Fi Optimisation -----
+        if ((isset($_POST['mode']['optwifionof']['enable'])) && ($_POST['mode']['optwifionof']['enable'])) {
+            $redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
+        } else {
+            !$redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 0);
+        }
+        // ----- llmnrd -----
+        $llmnrd = false;
+        // ----- llmnrd on/off -----
+        if ((isset($_POST['mode']['llmnrdonoff']['enable'])) && ($_POST['mode']['llmnrdonoff']['enable'])) {
+            if (!$redis->get('llmnrdonoff')) {
+                $redis->set('llmnrdonoff', 1);
+                $llmnrd = true;
+            }
+        } else {
+            if ($redis->get('llmnrdonoff')) {
+                $redis->set('llmnrdonoff', 0);
+                $llmnrd = true;
+            }
+        }
+        // ----- llmnrd IPv6 support -----
+        if ((isset($_POST['mode']['llmnrdipv6']['enable'])) && ($_POST['mode']['llmnrdipv6']['enable'])) {
+            if (!$redis->get('llmnrdipv6')) {
+                $redis->set('llmnrdipv6', 1);
+                $llmnrd = true;
+            }
+        } else {
+            if ($redis->get('llmnrdipv6')) {
+                $redis->set('llmnrdipv6', 0);
+                $llmnrd = true;
+            }
+        }
+        if ($llmnrd) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'llmnrd'));
+        }
+        // ----- Underclocking -----
+        if ((isset($_POST['mode']['underclocking']['enable'])) && ($_POST['mode']['underclocking']['enable'])) {
+            // create worker job (set on)
+            $redis->get('underclocking') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'underclocking', 'action' => 1));
+        } else {
+            // create worker job (set off)
+            $redis->get('underclocking') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'underclocking', 'action' => 0));
+        }
+        // ----- MPD configuration -----
+        if (isset($_POST['mode']['conf'])) {
+            if (
+            (isset($_POST['mode']['conf']['port']) && ($_POST['mode']['conf']['port'] != $redis->hGet('mpdconf', 'port'))) ||
+            (isset($_POST['mode']['conf']['user']) && ($_POST['mode']['conf']['user'] != $redis->hGet('mpdconf', 'user'))) ||
+            (isset($_POST['mode']['conf']['log_level']) && ($_POST['mode']['conf']['log_level'] != $redis->hGet('mpdconf', 'log_level'))) ||
+            (isset($_POST['mode']['conf']['state_file_enable']) && ($_POST['mode']['conf']['state_file_enable'] != $redis->hGet('mpdconf', 'state_file_enable'))) ||
+            (isset($_POST['mode']['conf']['ffmpeg']) && ($_POST['mode']['conf']['ffmpeg'] != $redis->hGet('mpdconf', 'ffmpeg'))) ||
+            (isset($_POST['mode']['conf']['proxy_node']) && ($_POST['mode']['conf']['proxy_node'] != $redis->hGet('mpdconf', 'proxy_node'))) ||
+            (isset($_POST['mode']['conf']['proxy_port']) && ($_POST['mode']['conf']['proxy_port'] != $redis->hGet('mpdconf', 'proxy_port')))
+            ) {
+                $mpdChange = true;
+            }
+        }
     }
+    // update the MPD configuration if required
+    if ($mpdChange) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'update', 'args' => $_POST['mode']['conf']));
+        $mpdChange = false;
+    }
+
     // ----- OPCACHE -----
     if (isset($_POST['opcache'])) {
-        if ($_POST['opcache']['enable'] == 1) {
+        if ($_POST['opcache']['enable']) {
             // create worker job (enable php opcache)
             $redis->get('opcache') == 1 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'opcache', 'action' => 'enable'));
         } else {
             // create worker job (disable php opcache)
             $redis->get('opcache') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'opcache', 'action' => 'disable'));
-        }    
+        }
     }
     if (isset($_POST['syscmd'])) {
         // ----- BLANK PLAYERID -----
         if ($_POST['syscmd'] === 'blankplayerid') {
-			$redis->set('playerid','');
-			$redis->set('hwplatformid','');
-		}
+            $redis->set('playerid','');
+            $redis->set('hwplatformid','');
+        }
         // ----- CLEARIMG -----
         if ($_POST['syscmd'] === 'clearimg') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'clearimg'));
         // ----- CHECK FS PERMISSIONS -----
         if ($_POST['syscmd'] === 'syschmod') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sysAcl'));
         // ----- RESTART MPD -----
-        if ($_POST['syscmd'] === 'mpdrestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdrestart'));
+        if ($_POST['syscmd'] === 'mpdrestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'forcempdrestart'));
         // ----- RESET NET CONFIG -----
         if ($_POST['syscmd'] === 'netconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'reset'));
         // ----- RESET MPD CONFIG -----
@@ -152,13 +287,25 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'airplayconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplayconfreset'));
         // ----- RESET SAMBA CONFIG -----
         if ($_POST['syscmd'] === 'sambaconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaconfreset'));
-        // ----- RESET / SWITCH ON CHRONYD-TIME -----
-        if ($_POST['syscmd'] === 'chronydon') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'NTPswitch', 'action' => 'chronyd'));
-        // ----- RESET / SWITCH ON SYSTEMD-TIME -----
-        if ($_POST['syscmd'] === 'systemdon') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'NTPswitch', 'action' => 'systemd'));
+        // ----- REBUILD WEBRADIO DATABASE -----
+        if ($_POST['syscmd'] === 'webradiorebuild') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'webradio', 'action' => 'rebuild'));
+        // ----- ADD REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'addRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'addRGtagsFlac'));
+        // ----- UPDATE REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'updateRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'updateRGtagsFlac'));
+        // ----- REMOVE REPLAYGAIN TAGS TO ALL FLAC FILES -----
+        if ($_POST['syscmd'] === 'delRGtagsFlac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'delRGtagsFlac'));
+        // ----- ADD REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'addRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'addRGtagsAll'));
+        // ----- UPDATE REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'updateRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'updateRGtagsAll'));
+        // ----- REMOVE REPLAYGAIN TAGS TO ALL MUSIC FILES -----
+        if ($_POST['syscmd'] === 'delRGtagsAll') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'replaygain', 'action' => 'delRGtagsAll'));
     }
 }
-waitSyWrk($redis, $jobID);
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
+}
 $template->dev = $redis->get('dev');
 $template->debug = $redis->get('debug');
 $template->playerid = $redis->get('playerid');
@@ -169,14 +316,24 @@ $template->sambadevonoff = $redis->hGet('samba', 'devonoff');
 $template->sambaprodonoff = $redis->hGet('samba', 'prodonoff');
 $template->soxrmpdonoff = $redis->get('soxrmpdonoff');
 $template->playernamemenu = $redis->get('playernamemenu');
+$template->UIorder = $redis->get('UIorder');
+$template->bigArt = $redis->get('remoteSSbigart');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
 $template->artworkairplayonoff = $redis->hGet('airplay', 'artworkonoff');
+$template->SCmetadata_enabled = $redis->hGet('spotifyconnect', 'metadata_enabled');
 $template->hostname = $redis->get('hostname');
-$template->chronydstatus = $redis->hGet('NTPtime', 'chronyd');
-$template->systemdstatus = $redis->hGet('NTPtime', 'systemd');
 $template->airplayof = $redis->hGet('airplay', 'alsa_output_format');
 $template->airplayor = $redis->hGet('airplay', 'alsa_output_rate');
+$template->optwifionof = $redis->get('network_autoOptimiseWifi');
+$template->llmnrdonoff = $redis->get('llmnrdonoff');
+$template->llmnrdipv6 = $redis->get('llmnrdipv6');
+$template->underclocking = $redis->get('underclocking');
+$template->WSencoder = $redis->hGet('webstreaming', 'encoder');
+$template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');
+$template->conf = $redis->hGetAll('mpdconf');
+$template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
+
 // debug
 // var_dump($template->dev);
 // var_dump($template->debug);

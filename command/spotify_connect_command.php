@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -37,7 +37,7 @@
 ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log', '/var/log/runeaudio/spotify_connect_command.log');
-include('/var/www/app/libs/runeaudio.php');
+require_once('/var/www/app/libs/runeaudio.php');
 error_reporting(E_ALL & ~E_NOTICE);
 
 // reset logfile
@@ -46,7 +46,7 @@ runelog('spotify_connect_command START');
 
 // Connect to Redis backend
 $redis = new Redis();
-$redis->connect('/run/redis.sock');
+$redis->connect('/run/redis/socket');
 
 // get the environment variables
 $track_id = trim(getenv('TRACK_ID', true));
@@ -61,10 +61,10 @@ runelog('spotify_connect_command OLD_TRACK_ID    :'.$old_track_id);
 runelog('spotify_connect_command PLAYER_EVENT    :'.$player_event);
 runelog('spotify_connect_command EVENT_TIME_STAMP:'.$event_time_stamp);
 if (($track_id == '') || ($player_event == '')) {
-	// a track ID and an event are essential
-	runelog('spotify_connect_command - ERROR - no parameters');
-	// return false
-	return 0;
+    // a track ID and an event are essential
+    runelog('spotify_connect_command - ERROR - no parameters');
+    // return false
+    return 0;
 }
 
 // set the event, track and time stamp in redis variables
@@ -74,7 +74,6 @@ $redis->hSet('spotifyconnect', 'event_time_stamp', $event_time_stamp);
 
 // pass the command to the back-end to process the information, it needs to run as root to start and stop systemd services
 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmsg', 'action' => $player_event, 'args' => $track_id));
-waitSyWrk($redis, $jobID);
 
 // return true
 return 1;

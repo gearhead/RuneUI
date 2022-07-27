@@ -9,9 +9,10 @@ $("#restore").submit(function() {
         contentType: false,
         enctype: "multipart/form-data",
         processData: false,
-        success: function (response) {
-            alert(response);
+        complete: function (response) {
+            window.location.reload();
+            return false;
         }
     });
-    return false
+    return false;
 });

@@ -1,9 +1,0 @@
-[Unit]
-Description=RuneAudio Shairport Sync Metadata Decoder Worker 
-After=network.target redis.target rune_PL_wrk.service shairport-sync.service
-
-[Service]
-ExecStart=/var/www/command/rune_SSM_wrk
-
-[Install]
-WantedBy=multi-user.target

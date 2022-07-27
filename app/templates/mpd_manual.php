@@ -17,7 +17,7 @@
             <a class="btn btn-default btn-lg" href="/mpd/">Cancel</a>
             <button type="submit" class="btn btn-primary btn-lg" name="save" value="save">Save changes</button>
         </form>
-      
+
         <div id="mpd-config-defaults" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="mpd-config-defaults-label" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">

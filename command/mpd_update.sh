@@ -20,9 +20,7 @@ cp /usr/lib/libicuuc.so.61.1 /home/mpdupdate/icu/libicuuc.so.61.1
 #
 # stop mpd and ashuffle
 mpc stop
-systemctl stop ashuffle mpdscribble upmpdcli
-mpd --kill
-systemctl stop mpd
+systemctl stop mpd ashuffle mpdscribble upmpdcli
 pacman -Syy
 #
 # update prerequisites (2.52 MiB & 0.01 MiB & 0.55 MiB)
@@ -56,7 +54,7 @@ pacman -S mpd ffmpeg mpc --noconfirm
 rm -r /home/mpdupdate
 #
 # check file protection and ownership
-chown -R http.http /srv/http/
+chown -R http:http /srv/http/
 find /srv/http/ -type f -exec chmod 644 {} \;
 find /srv/http/ -type d -exec chmod 755 {} \;
 find /etc -name *.conf -exec chmod 644 {} \;

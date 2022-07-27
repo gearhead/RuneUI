@@ -10,7 +10,7 @@ module.exports = function(grunt) {
         'Gruntfile.js',
         'assets/js/*.js',
         '!assets/js/runeui.min.js',
-		'!assets/js/vendor/*.js'
+        '!assets/js/vendor/*.js'
       ]
     },
     less: {

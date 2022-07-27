@@ -1,0 +1,12 @@
+[Unit]
+Description=Bluealsa-cli Socket
+PartOf=bt-connection.service
+
+[Socket]
+ListenStream=%t/bluealsa-monitor/socket
+Backlog=5
+KeepAlive=true
+PassCredentials=true
+
+[Install]
+WantedBy=sockets.target

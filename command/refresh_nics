@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -30,227 +30,144 @@
  *  file: command/refresh_nics
  *  version: 1.3
  *  coder: Simone De Gregori
+ *  revised to use connman in May 2020
+ *  janui, Gearhead
  *
  */
-// common include
+// initialisation
+// report errors: set display_errors to true (=1)
 ini_set('display_errors', '1');
-// ini_set('error_reporting', -1);
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/refresh_nics.log');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis.sock');
-include('/var/www/app/libs/runeaudio.php');
-include '/var/www/app/libs/vendor/ziegler/iwlist-parser.class.php';
-// startup - lock the scan system
-runelog('--------------------------- lock the scan system ---------------------------');
-$redis->Set('lock_wifiscan', 1);
-// random delay
-$sleep = rand(1000000, 2000000);
-usleep($sleep);
-runelog('random delay: ', $sleep);
-// startup - collect system data
-runelog('--------------------------- collect system data ---------------------------');
-$excluded_nics = array('ifb0', 'ifb1', 'p2p0', 'bridge');
-$active_nics = sysCmd("ifconfig | grep UP | cut -d ':' -f 1");
-$detected_nics = sysCmd("ip addr |grep \"BROADCAST,\" |cut -d':' -f1-2 |cut -d' ' -f2");
-$detected_nics = array_diff($detected_nics, $excluded_nics);
-$inactive_nics = array_diff($detected_nics, $active_nics);
-$configured_nics = array_map("trim", sysCmd("netctl list | cut -d ' ' -f 2,3"));
-$removed_nics = array_diff($configured_nics, $detected_nics);
-// debug
-runelog('########### active_nics ########### ', $active_nics);
-// print_r($active_nics);
-// print_r($excluded_nics);
-runelog('########### excluded_nics ########### ', $excluded_nics);
-// print_r($detected_nics);
-runelog('########### detected_nics ########### ', $detected_nics);
-// print_r(array_diff($detected_nics,$active_nics));
-// print_r($configured_nics);
-runelog('########### configured_nics ########### ', $configured_nics);
-// print_r(array_diff($configured_nics,$detected_nics));
-// print_r($removed_nics);
-runelog('########### removed_nics ########### ', $removed_nics);
-// check if wlan0/1 is detected
-if (!in_array("wlan0", $detected_nics)) {
-    $retval = sysCmd('systemctl is-enabled netctl-auto@wlan0');
-    if ($retval[0] === 'enabled') {
-        sysCmd ("systemctl stop netctl-auto@wlan0");
-        sysCmd ("systemctl disable netctl-auto@wlan0");
-        runelog('######## Disabled netctl-auto@wlan0 ########');
-    }
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: refresh_nics ---------------" > /var/log/runeaudio/refresh_nics.log');
+// logging starting message
+runelog('WORKER refresh_nics STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+//
+// check that internet is available, if not run the internet available routine and wait for 20 seconds to allow connman to reconnect
+if (!$redis->hGet('service', 'internet')) {
+    // double check that the current status correct is
+    sysCmd('/srv/http/command/internet_available_async.sh');
+    // sleep(20);
+    // // run it twice, the first time will try to initiate a recovery, the second time will detect the status
+    // sysCmd('/srv/http/command/internet_available_async.sh');
 }
-if (!in_array("wlan1", $detected_nics)) {
-    $retval = sysCmd('systemctl is-enabled netctl-auto@wlan1');
-    if ($retval[0] === 'enabled') {
-        sysCmd ("systemctl stop netctl-auto@wlan1");
-        sysCmd ("systemctl disable netctl-auto@wlan1");
-        runelog('######## Disabled netctl-auto@wlan1 ########');
-    }
+//
+// refresh the network arrays and save them in redis
+$networkInterfaces = refresh_nics($redis);
+if ($networkInterfaces) {
+    // do nothing
+} else {
+    // refresh_nics returned false so use the last stored value from redis
+    $networkInterfaces = json_decode($redis->Get('network_interfaces'), true);
 }
-// handle inactive nics
-runelog('--------------------------- handle inactive nics ---------------------------');
-unset($nic);
-runelog('--------------------------- handle active nics ---------------------------');
-// check if there is a stored profile
-// refesh visible wifi networks.
-$iw = new iwlist_parser;
-wrk_netconfig($redis, 'setnics');
-$nics = wrk_netconfig($redis, 'getnics');
-foreach ($nics as $nic => $nicdetail) {
-    if ($nicdetail->wireless === 1) {
-        if (empty(sysCmd('ifconfig | grep '.$nic.''))) {
-            runelog('########### restart link for nic: '.$nic);
-                sysCmd('ip link set '.$nic.' up');
-        }
-        runelog('  try nic: '.$nic);
-        
-        // test if service is enabled
-        sysCmd('systemctl enable netctl-auto@'.$nic.'.service');
-        
-        // get stored profiles
-        $wlans_profiles = sysCmd("netctl-auto list | cut -c3-");
-        $redis->set('stored_profiles',json_encode($wlans_profiles));
-        // scan for ap in range
-        $scan = $iw->parseScanDev( $nic );
-        $tmp_wlans = array();
-        $redis->set('wlans',json_encode($scan));
-        foreach ($scan as $nicname => $nicscan) {
-            runelog('    scan for nic: '.$nic.' nicname = '.$nicname);
-            foreach ($nicscan as $count => $wlan) {
-                runelog('      scan for nic: '.$nic.' AP = '.$count);
-                if ($wlan['ESSID'] === "" OR array_search ($wlan['ESSID'], $tmp_wlans) !== false) {
-                    runelog('        SSID already found');
-                } else {
-                    foreach ($wlan as $key => $value) {
-                        $wlans[$count]['nic'] = $nicname;
-                        runelog('        scan for nic: '.$nic.' = '.$key.' = '.$value);
-                        if ($key === 'ESSID') {
-                            $wlans[$count][$key] = $value;
-                            $tmp_wlans[] = $value;
-                            if ($nicdetail->currentssid === $value) {
-                                $wlans[$count]['connected'] = 1;
-                            } else {
-                                $wlans[$count]['connected'] = 0;
-                            }
-                            foreach($wlans_profiles as $item){
-                                if($item === $value){
-                                    $wlans[$count]['storedprofile'] = 1;
-                                    break;   // found it!
-                                } else {
-                                    $wlans[$count]['storedprofile'] = 0;
-                                }
-                            }
-                        }
-                        if ($key === 'Encryption key') $wlans[$count]['encryption'] = $value;
-                        $wlans[$count]['origin'] = 'scan';
-                    }
-                }
+//
+// start AP if configured and there is a AP capable Wi-Fi nic with no IP-address assigned
+//  only start AP if it is the first time that a suitable nic is (or becomes) available or later when
+//  no internet connection is available
+//  AP will start on boot if no Wi-Fi network is connected
+//  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
+//  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
+// note: it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now
+if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
+    // Wi-Fi is enabled and access point enabled
+    runelog('------------------ try to start AP if no IP is assigned ---------------------');
+    $apWifiNicFound = false;
+    $ethNicConnected = false;
+    // walk through the array $networkInterfaces, this contains all wireless nics plus the connected wired nics
+    foreach($networkInterfaces as $nic) {
+        // check if accesspoint is enabled and the Wi-Fi nic is not connected, technology is 'wifi' and it supports AP
+        //  also look for a connected Ethernet nic which is a prerequisite for NAT
+        //  then wait for 20 seconds to allow connman to complete any reconnection activities
+        //  finally double check to see if the nic is still not connected!
+        //  (connman may not have initiated a reconnection process when the nics array was created)
+        //  use this to check the actual connection status: 'ip -o  address | sed 's,[ ]\+, ,g' | grep -i 'inet ' | grep -ic wlan0'
+        if (
+                (!$nic['connected']) &&
+                // the nic was not connected when the nics array was created
+                (!$apWifiNicFound) &&
+                // still haven't found a suitable nic in the array
+                ($nic['technology'] === 'wifi') &&
+                // its a Wi-Fi nic
+                ($nic['apSupported'])
+                // the nic supports AP
+                )
+        {
+            // sleep for 20 seconds to ensure that connman has time to connect/reconnect
+            sleep(20);
+            // double-check that the nic is still not connected
+            if (!sysCmd('ip -o  address | sed '."'".'s,[ ]\+, ,g'."'".' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'])[0]) {
+                // the nic is still not connected, use it and skip the rest
+                runelog('########### got a nic for AP: '.$nic['nic']);
+                $wlanNic = $nic['nic'];
+                $apWifiNicFound = true;
             }
         }
-
-        // handle hidden but stored profiles
-        foreach ($wlans_profiles as $item){
-            if ((bool)strpos(serialize($wlans), $item) === false){
-                $wlans[++$count]['nic'] = $nic;
-                $wlans[$count]['ESSID'] = $item;
-                if ($nicdetail->currentssid === $item) {
-                    $wlans[$count]['connected'] = 1;
-                } else {
-                    $wlans[$count]['connected'] = 0;
-                }
-                $wlans[$count]['storedprofile'] = 1;
-                $wlans[$count]['encryption'] = 'unknown';
-                $wlans[$count]['origin'] = 'storage';
+        // check if the nic technology is 'ethernet' and it has an allocated IP address
+        if ((!$ethNicConnected) && ($nic['technology'] === 'ethernet') && ($nic['connected'])) {
+            // always use the first one found for NAT, skip the rest
+            runelog('########### got a nic for AP NAT: '.$nic['nic']);
+            $ethNic = $nic['nic'];
+            $ethNicConnected = true;
+        }
+    }
+    //
+    if ($apWifiNicFound) {
+        // we found a suitable Wi-Fi nic
+        if ((is_firstTime($redis, 'AP-start')) || (!$redis->hGet('service', 'internet'))) {
+            // it is the first time we have detected a suitable Wi-Fi nic or there is no internet available
+            runelog('########### no IP => start AP on '.$wlanNic);
+            $file = '/etc/hostapd/hostapd.conf';
+            // change AP name
+            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
+            // change passphrase
+            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
+            // change interface nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            sysCmd('systemctl start hostapd');
+            //
+            $file = '/etc/dnsmasq.conf';
+            // change dhcp-range
+            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
+            // change dhcp-option dns-server
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            // change dhcp-option router
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            // change Wi-Fi nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic, 'WIFI-Interface', 1);
+            // change ethernet nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$ethNic, 'ethernet', 1);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            sysCmd('systemctl start dnsmasq');
+            //
+            // enable the AP by switching braodcast on
+            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
+            //
+            // NAT configuration
+            if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
+                // enable NAT if enabled and there is a wired nic available
+                sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
+                sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
+                sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
+                sysCmd('sysctl net.ipv4.ip_forward=1');
             }
         }
-
-        //runelog('wlans response: ', $wlans);
-        $wlans = json_encode($wlans);
-        runelog('wlans response(encoded): ', $wlans);
-        ui_render('wlans', $wlans);
-    } else {
-        sysCmd('systemctl enable netctl-ifplugd@'.$nic.'.service');
     }
 }
-// send nics status to RuneUI
-ui_render('nics', json_encode($nics));
-unset($nic);
-// handle removed nics
-runelog('--------------------------- handle removed nics ---------------------------');
-if (!empty($removed_nics)) {
-    foreach($removed_nics as $nic) {
-        // check for orphan netctl startup profiles
-        if (!empty(sysCmd('ls /etc/systemd/system/multi-user.target.wants/ | grep '.$nic))) {
-            runelog('########### disable netctl profiles for nic: '.$nic);
-            sysCmd('systemctl disable netctl-ifplugd@'.$nic);
-            sysCmd('systemctl disable netctl-auto@'.$nic);
-        }
-    }
-}
-
-// start AP if configured and no IP is assigned
-if ($redis->hGet('AccessPoint', 'enabled') === '1') {
-	runelog('------------------ try to start AP if no IP is assigned ---------------------');
-	$got_one_IP = false;
-	if (!empty($active_nics)) {
-		foreach($active_nics as $nic) {
-			if (($nic === "wlan0") && (sysCmd('ip address show dev '.$nic.' | grep inet | wc -l')[0] !== '0')) {
-				runelog('########### got one IP for nic: '.$nic);
-				$got_one_IP = true;
-			}
-		}
-	}
-   // Start AP only if a supported nic is available by checking for the line '* AP' in the section 'Supported interface modes:' in the output from 'iw list'
-   // 'iw list' returns nothing when some unsupported nics are installed. These unsupported nics seem only to work when netctl-auto@wlan0 is running, don't switch it off
-   $iwAccessPointInfo = sysCmd("iw list | sed -n '/Supported interface modes:/,/:/p' | grep '* AP$'");
-   if (($got_one_IP === false) && (trim($iwAccessPointInfo[0]) == '* AP')) {
-   //if ($got_one_IP === false) {
-		runelog('########### no IP => start AP on wlan0');
-		sysCmd('systemctl stop netctl-auto@wlan0');
-		// change AP name
-		$file = '/etc/hostapd/hostapd.conf';
-        $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet("AccessPoint", "ssid"));
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
-        fclose($fp);
-		// change passphrase
-		$file = '/etc/hostapd/hostapd.conf';
-        $newArray = wrk_replaceTextLine($file, '', 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet("AccessPoint", "passphrase"));
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
-        fclose($fp);
-		sysCmd('systemctl start hostapd');
-		// change dhcp-range
-		$file = '/etc/dnsmasq.conf';
-        $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet("AccessPoint", "dhcp-range"));
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
-        fclose($fp);
-		// change dhcp-option
-		$file = '/etc/dnsmasq.conf';
-        $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet("AccessPoint", "dhcp-option-dns"));
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
-        fclose($fp);
-		$file = '/etc/dnsmasq.conf';
-        $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet("AccessPoint", "dhcp-option-router"));
-        $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
-        fclose($fp);
-		sysCmd('systemctl start dnsmasq');
-		sysCmd('ip addr add '.$redis->hGet("AccessPoint", "ip-address").'/24 broadcast '.$redis->hGet("AccessPoint", "broadcast").' dev wlan0');
-		if ($redis->hGet('AccessPoint', 'enable-NAT') === '1') {
-			sysCmd('iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
-			sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-			sysCmd('iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT');
-			sysCmd('sysctl net.ipv4.ip_forward=1');
-		}
-	}
-}
-// start AP end
-
-// end - unlock the scan system
-runelog('--------------------------- unlock the scan system ---------------------------');
-$redis->Set('lock_wifiscan', 0);
-// colse Redis connection
+// close Redis connection
 $redis->close();
+
+runelog('WORKER refresh_nics END...');

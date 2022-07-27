@@ -1,7 +1,6 @@
 <?php
-$redis = new Redis();
-//$redis->connect('127.0.0.1');
-$redis->connect('/run/redis.sock');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 $hash = $redis->get('password');
 
 if (!password_verify($_POST['pwd'], $hash)) die();

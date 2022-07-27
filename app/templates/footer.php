@@ -9,24 +9,28 @@
                 <button id="syscmd-poweroff" name="syscmd" value="poweroff" class="btn btn-primary btn-lg btn-block" data-dismiss="modal"><i class="fa fa-power-off sx"></i> Power off</button>
                 &nbsp;
                 <button id="syscmd-reboot" name="syscmd" value="reboot" class="btn btn-primary btn-lg btn-block" data-dismiss="modal"><i class="fa fa-refresh sx"></i> Reboot</button>
-				<?php if (is_localhost()): ?>
-					&nbsp;
-					<button id="syscmd-display_off" name="syscmd" value="display_off" class="btn btn-primary btn-lg btn-block" data-dismiss="modal"><i class="fa fa-display sx"></i> Display off</button>
-				<?php endif ?>
-			</div>
-			<div class="modal-footer">
+                <?php if (is_localhost()): ?>
+                    &nbsp;
+                    <button id="syscmd-display_off" name="syscmd" value="display_off" class="btn btn-primary btn-lg btn-block" data-dismiss="modal"><i class="fa fa-display sx"></i> Display off</button>
+                <?php endif ?>
+            </div>
+            <div class="modal-footer">
                 <button class="btn btn-default btn-lg" data-dismiss="modal" aria-hidden="true">Cancel</button>
             </div>
         </div>
     </div>
 </div>
 <!-- loader -->
-<div id="loader"<?php if ($this->section == 'dev') { ?> class="hide"<?php } ?>><div id="loaderbg"></div><div id="loadercontent"><i class="fa fa-refresh fa-spin"></i>connecting...</div></div>
-<script src="<?=$this->asset('/js/vendor/jquery-2.1.0.min.js')?>"></script>
+<div id="loader"<?php if ($this->section == 'dev'): ?> class="hide" <?php endif ?>>
+    <div id="loaderbg">
+    </div>
+    <div id="loadercontent"><i class="fa fa-refresh fa-spin"></i>connecting...
+    </div>
+</div>
+<script src="<?=$this->asset('/js/vendor/jquery-2.2.4.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/pushstream.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/bootstrap.min.js')?>"></script>
 <?php if ($this->section == 'debug'): ?>
-<script src="<?=$this->asset('/js/vendor/ZeroClipboard.min.js')?>"></script>
 <?php endif ?>
 <?php if ($this->section == 'index'): ?>
 <script src="<?=$this->asset('/js/vendor/jquery.plugin.min.js')?>"></script>

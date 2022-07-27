@@ -35,10 +35,9 @@
 // common include
 ini_set('error_log', '/var/log/runeaudio/mount_async.log');
 define('APP', '/srv/http/app/');
-include('/srv/http/app/libs/runeaudio.php');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis.sock');
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 
 // reset logfile
 sysCmd('echo "--------------- start: mount_async.php ---------------" > /var/log/runeaudio/mount_async.log');
@@ -46,7 +45,7 @@ runelog('WORKER mount_async.php STARTING...');
 
 $allmounted = $redis->get('allmounted');
 if (!$allmounted) {
-	// parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
-	$allmounted = wrk_sourcemount($redis, 'mountall', null, true, false);
-	$redis->set('allmounted', $allmounted);
+    // parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
+    $allmounted = wrk_sourcemount($redis, 'mountall', null, true, false);
+    $redis->set('allmounted', $allmounted);
 }

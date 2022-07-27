@@ -1,0 +1,9 @@
+Name=My network SSID name
+Passphrase=my P@66w0rd
+Name=My2ndSSIDname
+Passphrase=myP@66w0rd2
+Name=MyHiddenSSIDname
+Passphrase=myP@66w0rd3
+Hidden=true
+Name=MyOtherSSID name
+Passphrase=myOtherP@66w0rd

@@ -1,62 +1,62 @@
 Changelog for 0.5b
 Previous changes for 0.1 to 0.4b are not included.
 
-•	Changed HW-device name to 'RaspberryPi' for 01 and 08 hardware types, fixed Pi Zero W hardware identification, included Pi 3 B+ hardware identification. RuneAudio UI is now the same for all Pi hardware types. Some options are automatically disabled for the less powerful processor types.
-•	Reimplemented Samba, on/off controls included in Settings UI, restart and reset in the /dev UI, instructions in configuration files, changes work on the fly.
-•	Hostname changes work on the fly, all dependant variables modified, and dependant jobs restarted.
-•	Fixed some issues with Spotify, however Spotify no longer works due to changes made by Spotify in May 2018. Settings UI text included to explain this.
-•	Global Random works truly randomly using ashuffle for randomly playing playlists or the complete MPD library. On/off switches included in the Settings UI.
-•	Auto Play function works correctly also in combination with Global Random. The song or webradio playing at shutdown will automatically play on restart. On/off switches included in the Settings UI.
-•	SoXr for MPD is independent of MPD version (v0.19.x or v0.20.x), on/off switch is included in the /dev UI. MPD V0.20.20 is installed.
-•	Corrected problems with MPD start-up volume and volume when switching between players.
-•	Chromium local browser implemented for Pi2/Pi3, starts/stops on the fly via controls in the Settings UI.
-•	Airplay implemented using shairport-sync, including metadata and cover-art. Metadata on/off switches and a reset function built into in the Dev IU. Default settings are based on the Pi type on initial start-up. Automatic output device configuration based on MPD settings. Artist-info, lyrics and screen-saver now work in the same way for MPD and Airplay. SoXr for Airplay is included but disabled. 
-•	Wider choice of Soundcard/DAC’s included in the Settings UI, most common models are listed. pcm510x DAC's also work acceptably with source audio files using bit-rates > 192k, automatic configuration from the Settings UI.
-•	UPnP/DLNA can optionally work as owner of the MPD queue, on/off switch is included in the Settings UI.
-•	Implemented Smartmontools for hard disk monitoring and alerting.
-•	The correct DSD playback rates are now shown in UI.
-•	Settings UI 'show status' display modified to include Hardware model type.
-•	Improve Debug UI to show Hardware model type and selected journal messages.
-•	Rune start-up sequence modified to minimise background job restarts.
-•	When a static IP address is chosen it will be correctly displayed after a refresh nics in the Network UI.
-•	Fixed WiFi with hidden SSID settings.
-•	USB auto-mount fixed (UI messages have disappeared - but it now works). Incorrectly reported ‘ghost’ USB devices are automatically removed. USB volume names with spaces are now supported.
-•	Corrected git pull in the /dev UI.
-•	Replaced ntp (ntpd) with chrony (chronyd), a user defined NTP time server is now saved and used.
-•	NAS connections can now use a ‘<hostname>.local’ name instead of a IP address. Fixed IP addresses are no longer a requirement for file servers. Added "vers=1.0" as default to the NAS CIFS mount flags.
-•	Backup & restore (based on Rern's addon), included.
-•	Rern’s Addons can now be installed and removed from the /dev UI.
-•	Rern’s Addon 'RuneUI Fonts - Extended Characters' is pre-installed.
-•	The player name is included in the browser tab and can optionally be included in 'Menu' text. The control to switch ON/OFF is included in the /dev UI.
-•	Extend the Linux Partition is now an option in the /dev UI.
-•	All UI's checked and updated. Extra notes added where required. Specifically, credits UI updated, /dev UI notes added for mediainfo, 384k kernel and smartmontools.
-•	No sound/hissing problems with Allo Piano 2.1 with Kali Reclocker fixed (32 bit is now forced by default).
-•	Rern's Addons Menu can be installed and removed from the /dev UI.
-•	CIFS network mounts logic reworked.
-•	For fast start-up changed to systemd-timesyncd NTP, chronyd still avalable via switch in /dev UI.
-•	Disable start-up volume, set saved volume to 100% and volume control off by default (only relevant for new builds).
-•	lirc package added to the Pi1 image and lirc system files modified for RuneAudio.
-•	RuneAudio freezing problem when no internet is available fixed.
-•	Added bitrate and output format controls for shairport-sync in the /dev UI.
-•	Added Random Play reset button and current random play source display in the MPD UI.
-•	Network mount improvements for CIFS and NFS, including Async retries. A NAS which is switched on after Rune has booted will be found and mounted.
-•	Added extra local browser controls for zoomfactor, rotate and mouse cursor (including raspi-rotate) in the Settings UI, all work on the fly.
-•	Switching local browser on and off also enables and disables the boot/shutdown/reboot splash screens.
-•	Added some small modifications for the on-screen keyboard and screen saver format for improved portrait mode (90 degree rotation) use.
-•	Modified the I2S audio card selector in the Settings UI to remember the selected card type.
-•	Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default). Added IQaudIO Pi-DAC PRO in the Settings UI I²S kernel modules selector
-•	Added workaround fixes for situations when shairport-sync and the RuneAudio player fail to broadcast their respective names on the network (using avahi). The problem tends to happen only after 24+ hours of usage, the reason is unknown.
-•	Lyrics now change when the song changes. Optimised Lyrics and Artist Information for situations when when only partial information is available.
-•	Fixed UI Problems when the lyrics server is not available.
-•	Added an option for Hidden SSID for WiFi in the Network UI.
-•	Access Point default on/off depending on Pi type (with on-board WiFi > ON, otherwise OFF), WiFi dongles with partial AP functionality are now supported.
+•   Changed HW-device name to 'RaspberryPi' for 01 and 08 hardware types, fixed Pi Zero W hardware identification, included Pi 3 B+ hardware identification. RuneAudio UI is now the same for all Pi hardware types. Some options are automatically disabled for the less powerful processor types.
+•   Reimplemented Samba, on/off controls included in Settings UI, restart and reset in the /dev UI, instructions in configuration files, changes work on the fly.
+•   Hostname changes work on the fly, all dependant variables modified, and dependant jobs restarted.
+•   Fixed some issues with Spotify, however Spotify no longer works due to changes made by Spotify in May 2018. Settings UI text included to explain this.
+•   Global Random works truly randomly using ashuffle for randomly playing playlists or the complete MPD library. On/off switches included in the Settings UI.
+•   Auto Play function works correctly also in combination with Global Random. The song or webradio playing at shutdown will automatically play on restart. On/off switches included in the Settings UI.
+•   SoXr for MPD is independent of MPD version (v0.19.x or v0.20.x), on/off switch is included in the /dev UI. MPD V0.20.20 is installed.
+•   Corrected problems with MPD start-up volume and volume when switching between players.
+•   Chromium local browser implemented for Pi2/Pi3, starts/stops on the fly via controls in the Settings UI.
+•   Airplay implemented using shairport-sync, including metadata and cover-art. Metadata on/off switches and a reset function built into in the Dev IU. Default settings are based on the Pi type on initial start-up. Automatic output device configuration based on MPD settings. Artist-info, lyrics and screen-saver now work in the same way for MPD and Airplay. SoXr for Airplay is included but disabled. 
+•   Wider choice of Soundcard/DAC’s included in the Settings UI, most common models are listed. pcm510x DAC's also work acceptably with source audio files using bit-rates > 192k, automatic configuration from the Settings UI.
+•   UPnP/DLNA can optionally work as owner of the MPD queue, on/off switch is included in the Settings UI.
+•   Implemented Smartmontools for hard disk monitoring and alerting.
+•   The correct DSD playback rates are now shown in UI.
+•   Settings UI 'show status' display modified to include Hardware model type.
+•   Improve Debug UI to show Hardware model type and selected journal messages.
+•   Rune start-up sequence modified to minimise background job restarts.
+•   When a static IP address is chosen it will be correctly displayed after a refresh nics in the Network UI.
+•   Fixed WiFi with hidden SSID settings.
+•   USB auto-mount fixed (UI messages have disappeared - but it now works). Incorrectly reported ‘ghost’ USB devices are automatically removed. USB volume names with spaces are now supported.
+•   Corrected git pull in the /dev UI.
+•   Replaced ntp (ntpd) with chrony (chronyd), a user defined NTP time server is now saved and used.
+•   NAS connections can now use a ‘<hostname>.local’ name instead of a IP address. Fixed IP addresses are no longer a requirement for file servers. Added "vers=1.0" as default to the NAS CIFS mount flags.
+•   Backup & restore (based on Rern's addon), included.
+•   Rern’s Addons can now be installed and removed from the /dev UI.
+•   Rern’s Addon 'RuneUI Fonts - Extended Characters' is pre-installed.
+•   The player name is included in the browser tab and can optionally be included in 'Menu' text. The control to switch ON/OFF is included in the /dev UI.
+•   Extend the Linux Partition is now an option in the /dev UI.
+•   All UI's checked and updated. Extra notes added where required. Specifically, credits UI updated, /dev UI notes added for mediainfo, 384k kernel and smartmontools.
+•   No sound/hissing problems with Allo Piano 2.1 with Kali Reclocker fixed (32 bit is now forced by default).
+•   Rern's Addons Menu can be installed and removed from the /dev UI.
+•   CIFS network mounts logic reworked.
+•   For fast start-up changed to systemd-timesyncd NTP, chronyd still avalable via switch in /dev UI.
+•   Disable start-up volume, set saved volume to 100% and volume control off by default (only relevant for new builds).
+•   lirc package added to the Pi1 image and lirc system files modified for RuneAudio.
+•   RuneAudio freezing problem when no internet is available fixed.
+•   Added bitrate and output format controls for shairport-sync in the /dev UI.
+•   Added Random Play reset button and current random play source display in the MPD UI.
+•   Network mount improvements for CIFS and NFS, including Async retries. A NAS which is switched on after Rune has booted will be found and mounted.
+•   Added extra local browser controls for zoomfactor, rotate and mouse cursor (including raspi-rotate) in the Settings UI, all work on the fly.
+•   Switching local browser on and off also enables and disables the boot/shutdown/reboot splash screens.
+•   Added some small modifications for the on-screen keyboard and screen saver format for improved portrait mode (90 degree rotation) use.
+•   Modified the I2S audio card selector in the Settings UI to remember the selected card type.
+•   Support for the Allo Piano 2.0 DAC included (requires 32 bit to forced by default). Added IQaudIO Pi-DAC PRO in the Settings UI I²S kernel modules selector
+•   Added workaround fixes for situations when shairport-sync and the RuneAudio player fail to broadcast their respective names on the network (using avahi). The problem tends to happen only after 24+ hours of usage, the reason is unknown.
+•   Lyrics now change when the song changes. Optimised Lyrics and Artist Information for situations when when only partial information is available.
+•   Fixed UI Problems when the lyrics server is not available.
+•   Added an option for Hidden SSID for WiFi in the Network UI.
+•   Access Point default on/off depending on Pi type (with on-board WiFi > ON, otherwise OFF), WiFi dongles with partial AP functionality are now supported.
 
 Known problems:
-•	Spotify has stopped working (see forum for details).
-•	Jamendo is still not working (see forum for details).
-•	Alert messaging is not working correctly.
-•	Dim the volume control in UI when in Airplay mode is not working. There are also other screen refresh issues.
-•	Using UPnP/DLNA when Global Random (ashuffle) is enabled will not work. This is documented in the UI.
-•	The library navigation based on Artist, Composer and Genre do not work correctly. This functionality is unchanged in 0.5b, the same problems also exist in 0.4b. It seems to occurs when the metadata album name differs from the directory name containing the song files from the album.
-•	Special characters in the WiFi SysID will fail.
-•	Casting MP3 via UPnP/DLNA has sound quality problems, other file formats are OK. See here for the probable cause: http://www.runeaudio.com/forum/digital-output-and-input-for-runeaudio-t6592.html
+•   Spotify has stopped working (see forum for details).
+•   Jamendo is still not working (see forum for details).
+•   Alert messaging is not working correctly.
+•   Dim the volume control in UI when in Airplay mode is not working. There are also other screen refresh issues.
+•   Using UPnP/DLNA when Global Random (ashuffle) is enabled will not work. This is documented in the UI.
+•   The library navigation based on Artist, Composer and Genre do not work correctly. This functionality is unchanged in 0.5b, the same problems also exist in 0.4b. It seems to occurs when the metadata album name differs from the directory name containing the song files from the album.
+•   Special characters in the WiFi SysID will fail.
+•   Casting MP3 via UPnP/DLNA has sound quality problems, other file formats are OK. See here for the probable cause: http://www.runeaudio.com/forum/digital-output-and-input-for-runeaudio-t6592.html

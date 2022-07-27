@@ -1,0 +1,9 @@
+[Unit]
+Description=RuneAudio Spotifyd Metadata Decoder Worker
+After=network.target sound.target redis.service rune_PL_wrk.service spotifyd.service
+
+[Service]
+ExecStart=/var/www/command/rune_SDM_wrk
+
+[Install]
+WantedBy=multi-user.target

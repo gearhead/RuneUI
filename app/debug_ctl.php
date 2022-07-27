@@ -1,4 +1,4 @@
-<?php 
+<?php
 /*
  * Copyright (C) 2013 RuneAudio Team
  * http://www.runeaudio.com
@@ -30,11 +30,17 @@
  *  version: 1.3
  *
  */
-// ob_start();
-// echo debug_data($redis);
-// $debugdata = ob_get_clean();
-$jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'debug'));
-waitSyWrk($redis, $jobID);
-$template->debug = $redis->get('debugdata');
+// inspect POST
+if (isset($_POST)) {
+    if (isset($_POST['refresh'])) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'debug-refresh'));
+    } else {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'debug'));
+    }
+} else {
+    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'debug'));
+}
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
+}
 $template->hostname = $redis->get('hostname');
-

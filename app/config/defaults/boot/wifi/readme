@@ -1,0 +1,34 @@
+RuneAudio Wi-Fi setup at boot
+=============================
+
+Create one or more files in the wifi directory which contain the lines:
+---
+Name=<ssid>
+Passphrase=<passphrase>
+---
+
+Optionally the following line can also be added:
+---
+Hidden=[true|false]
+---
+
+Any file name can be used. Use a text editor on your PC to create the files, after flashing the Micro-SD card.
+Only lines beginning with 'Name=', 'Passphrase=' and 'Hidden=' will be processed.
+The groups of values can be repeated in a single file. Each time a line is encountered beginning with 'Name='
+a new profile is defined.
+
+There are some example files in the directory /wifi/examples.
+
+All user created files in the wifi directoy will be processed and deleted during the RuneAudio startup process, regardless of the success of the processing.
+
+If you screw up your network configuration you can also use this function to recreate valid wifi profiles.
+
+Example:
+---
+this line will be ignored
+Name=My network name
+Passphrase=my P@66w0rd
+Hidden=false
+adi this line will be ignored
+Hidden this line will be ignored
+---

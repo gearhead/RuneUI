@@ -34,122 +34,251 @@
 
 // inspect POST
 if (isset($_POST)) {
-    if (isset($_POST['nic']) && !isset($_POST['wifiprofile'])) {
-        //ui_notify_async("'wrkcmd' => 'netcfg', 'action' => 'config'", $_POST['nic']);
-        $redis->get($_POST['nic']['name']) === json_encode($nic) || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'config', 'args' => $_POST['nic']));        
-    }
+    // valid netcfg action values:
+    //    refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
+    //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
     if (isset($_POST['refresh'])) {
-        //ui_notify_async("'wrkcmd' => 'netcfg', 'action' => 'refresh'", $_POST['nic']);
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refresh'));
     }
-    if (isset($_POST['wifiprofile'])) {
-        switch ($_POST['wifiprofile']['action']) {
-            case 'add':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'add'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'wificfg', 'action' => 'add', 'args' => $_POST['wifiprofile']));
-                break;
-            case 'edit':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'edit'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'wificfg', 'action' => 'edit', 'args' => $_POST['wifiprofile']));
-                break;
-            case 'delete':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'delete'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'wificfg', 'action' => 'delete', 'args' =>  $_POST['wifiprofile']));
-                break;                            
-            case 'connect':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'connect'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'wificfg', 'action' => 'connect', 'args' => $_POST['wifiprofile'] ));
-                break;
-            case 'disconnect':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'disconnect'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'wificfg', 'action' => 'disconnect', 'args' => $_POST['wifiprofile'] ));
-                break;
-            case 'disconnect-delete':
-                //ui_notify_async("'wrkcmd' => 'wificfg', 'action' => 'disconnect'", $_POST['wifiprofile']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'wificfg', 'action' => 'disconnect', 'args' => $_POST['wifiprofile'] ));
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'wificfg', 'action' => 'delete', 'args' =>  $_POST['wifiprofile']));
-                break;
-				
+    if (isset($_POST['profile']['action'])) {
+        // debug
+        // $redis->set($_POST['profile']['action'], json_encode($_POST['profile']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'netcfg', 'action' => $_POST['profile']['action'], 'args' => $_POST['profile']));
+    }
+    if (isset($_POST['apenable'])) {
+        if ($_POST['apenable'] && !$redis->hGet('AccessPoint', 'enable')) {
+            $redis->hSet('AccessPoint', 'enable', 1);
+        } else if (!$_POST['apenable'] && $redis->hGet('AccessPoint', 'enable')) {
+            $redis->hSet('AccessPoint', 'enable', 0);
+        }
+    }
+    if (isset($_POST['btenable'])) {
+        if ($_POST['btenable'] && !$redis->get('bluetooth_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableBT'));
+        } else if (!$_POST['btenable'] && $redis->get('bluetooth_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableBT'));
+        }
+    }
+    if (isset($_POST['wifienable'])) {
+        if ($_POST['wifienable'] && !$redis->get('wifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableWifi'));
+        } else if (!$_POST['wifienable'] && $redis->get('wifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableWifi'));
         }
     }
 }
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
+}
 
-waitSyWrk($redis,$jobID);
-
-$template->addprofile = 0;
-$template->stored = 0;
 $template->hostname = $redis->get('hostname');
+$template->network_autoOptimiseWifi = $redis->get('network_autoOptimiseWifi');
 
-
-$template->nics = wrk_netconfig($redis, 'getnics');
-$template->wlan_autoconnect = $redis->Get('wlan_autoconnect');
-if ($redis->Exists(urldecode($template->uri(4)))) $template->stored = 1;
-if (isset($template->action)) {
-    // check if we are into interface details (ex. http://runeaudio/network/edit/eth0)
-    if (isset($template->arg)) {
-        // check if there is a stored profile for current nic
-        $nic_stored_profile = json_decode($redis->Get($template->uri(3)));
-        // runelog('nic stored profile: ',$nic_stored_profile);
-        if (!empty($nic_stored_profile)) {
-            if ($nic_stored_profile->dhcp === '0') {
-                // read nic stored profile
-                $template->nic_stored = $nic_stored_profile;
-            }
+// retrieve the nics
+$template->nics = json_decode($redis->get('network_interfaces'), true);
+// retrieve the networks
+$networks = json_decode($redis->get('network_info'), true);
+// start an asynchronous job to refresh the network & nic info, don't wait wait for completion
+wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refreshAsync'));
+//
+if ($template->action === 'wifi_scan') {
+    //
+    // call from network.php > target template = network_wifi_scan.php
+    // $template->arg contains the wifi nic
+    //
+    $template->networks = array();
+    $template->networksFound = false;
+    //
+    foreach ($networks as $key => $network) {
+        if ($network['nic'] != $template->arg) {
+            continue;
         }
-        // retrieve current nic status data (detected from the system)
-        $nic_connection = $redis->hGet('nics', $template->arg);
-        $template->nic = json_decode($nic_connection);
-        // check if we action is = 'edit' or 'wlan' (ex. http://runeaudio/network/edit/....)
-        if ($template->action === 'edit') {
-            // fetch current (stored) nic configuration data
-            if ($redis->get($template->arg)) {
-                $template->{$template->arg} = json_decode($redis->get($template->arg));
-                // ok nic configuration not stored, but check if it is configured
-            } else if ($nic_connection == null) {
-                // last case, nonexistant nic. route to error template
-                $template->content = 'error';
-            } 
-            // check if the current nic is wireless
-            if ($template->nic->wireless === 1) {
-                $template->wlans = json_decode($redis->get('wlans'));
-                $template->wlan_profiles = new stdClass();
-                if ($wlan_profiles = wrk_netconfig($redis, 'getstoredwlans')) {
-                    foreach ($wlan_profiles as $key => $value) {
-                        $template->wlan_profiles->{$key} = json_decode($value);
-                    }
-                }
-            }
-            // we are in the wlan subtemplate (ex. http://runeaudio/network/wlan/....)
-        } else {
-            // check if we want to store a wifi profile, that is not in range. (ex. http://runeaudio/network/wlan/add )
-            if ($template->uri(4) === 'add') {
-                $template->addprofile = 1;
-            } else {
-                // we are connecting to a visible network
-                //  /network/edit/wlan0/<Some SSID>
-                
-                $template->wlans = json_decode($redis->get('wlans'));
-                foreach ($template->wlans->{$template->uri(3)} as $key => $value) {
-                    $SSID = urldecode($template->uri(4));
-                    // if we are in a stored profile, retrieve his details
-                    if ($template->stored) {
-                        //$template->profile_{urldecode($template->uri(4))} = json_decode($redis->hGet('wlan_profiles', urldecode($template->uri(4))));
-                        //$template->profile_{$SSID} = json_decode($redis->hGet('wlan_profiles', $SSID));
-                        $template->profile_{$SSID} = json_decode($redis->hGet('stored_profiles', $SSID));
-                        
-                    }
-                    // check if we are in a connected profile
-                    //if ($template->uri(4) === $value->ESSID) {
-                    if ($SSID === $value->ESSID) {
-                        // retrieve SSID details
-                        //$template->{$template->uri(4)} =  $value;
-                        $template->{$SSID} =  $value;
-                    }
-                }
-                
-                //$template->connected = (isset($this->nic->currentssid) && $this->nic->currentssid === $this->{urldecode($this->uri(4))}->{'ESSID'});
-                
+        if ($network['technology'] != 'wifi') {
+            continue;
+        }
+        $template->networksFound = true;
+        $template->macAddress = $network['macAddress'];
+        foreach ($network as $entry => $value) {
+            if (strpos(' |technology|nic|macAddress|ssidHex|connected|configured|security|ssid|strength|strengthStars|ready|online|', '|'.$entry.'|')) {
+                $template->networks[$key][$entry] = $value;
             }
         }
     }
-} 
+    // debug
+    // $redis->set('wifi_scan', json_encode($template->networks));
+    //
+    // get the stored profiles if they exists
+    $template->storedProfiles = array();
+    $template->storedProfilesFound = false;
+    if ($redis->exists('network_storedProfiles')) {
+        $template->storedProfiles = json_decode($redis->get('network_storedProfiles'), true);
+        foreach ($template->storedProfiles as $key => $profile) {
+            $template->storedProfiles[$key]['online'] = false;
+            $template->storedProfiles[$key]['ready'] = false;
+            $template->storedProfilesFound = true;
+        }
+        foreach ($networks as $network) {
+            if ($network['technology'] != 'wifi') {
+                continue;
+            }
+            if (isset($network['ssid'])) {
+                $ssidHexKey = 'ssidHex:'.trim(implode(unpack("H*", $network['ssid'])));
+            } else {
+                continue;
+            }
+            if (isset($template->storedProfiles[$ssidHexKey]['ssid'])) {
+                $template->storedProfiles[$ssidHexKey]['security'] = strtoupper($network['security']);
+                if ($network['online']) {
+                    $template->storedProfiles[$ssidHexKey]['online'] = true;
+                }
+                if ($network['ready']) {
+                    $template->storedProfiles[$ssidHexKey]['ready'] = true;
+                }
+            }
+        }
+    }
+    // sort the network array into strength descending order
+    osort($template->networks, 'strength', true);
+    // clean up
+    $template->profile = array();
+    unset($networks, $storedProfiles);
+    //
+} else if ($template->action === 'wifi_edit') {
+    //
+    // call from network_wifi_scan.php > target template = network_wifi_edit.php
+    // $template->arg contains the wifi mac address plus ssid-hex ('mac_ssid')
+    //
+    // build up the profile use the nic information then the network information and then the stored profile
+    // set up some defaults
+    $template->profile = array();
+    $template->profile['connected'] = false;
+    $template->profile['ipAssignment'] = 'DHCP';
+    // get the nic information and add it to the profile
+    // this supplies the ip information, masks, default gateway, dns
+    list($macAddress, $ssidHex) = explode('_',$template->arg,2);
+    $macAddress = (string) trim($macAddress);
+    $macAddressKey = 'macAddress:'.$macAddress;
+    $ssidHex = (string) trim($ssidHex);
+    $ssidHexKey = 'ssidHex:'.$ssidHex;
+    $first = true;
+    foreach ($template->nics as $nic) {
+        if (($nic['technology'] === 'wifi') && $first) {
+            // use the first wifi profile as a default
+            $template->profile = array_merge($template->profile, $nic);
+            $first = false;
+        }
+        if ($nic['macAddress'] === $macAddress) {
+            // if a match is found use it end exit the loop
+            $template->profile = array_merge($template->profile, $nic);
+            break;
+        }
+    }
+    // add the network to the profile
+    if (isset($networks[$template->arg])) {
+        $template->profile = array_merge($template->profile, $networks[$template->arg]);
+        $template->profile['manual'] = false;
+    } else {
+        // this an add without selecting a network (possibly a hidden ssid)
+        // clear the information which should be provided by the network info
+        $template->profile['manual'] = true;
+        $template->profile['ssid'] = '';
+        $template->profile['passphrase'] = '';
+        $template->profile['ssidHex'] = '';
+        $template->profile['autoconnect'] = false;
+        $template->profile['ready'] = false;
+        $template->profile['online'] = false;
+        $template->profile['configured'] = false;
+        $template->profile['security'] = 'PSK';
+        $template->profile['connmanString'] = '';
+        $template->profile['hidden'] = false;
+    }
+    // determine if this network is connected on another nic and store the nic
+    $template->profile['cNic'] = '';
+    if (($template->profile['configured']) && isset($ssidHex) && $ssidHex) {
+        foreach ($networks as $network) {
+            if (($network['ssidHex'] === $ssidHex) && ($network['ready'] || $network['online'])) {
+                $template->profile['cNic'] = $network['nic'];
+                break;
+            }
+        }
+    }
+    // get the stored profile if it exists ans add it to the profile
+    if ($redis->exists('network_storedProfiles')) {
+        $storedProfiles = json_decode($redis->get('network_storedProfiles'), true);
+        if (isset($storedProfiles[$ssidHexKey])) {
+            $template->profile = array_merge($template->profile, $storedProfiles[$ssidHexKey]);
+            $template->profile['manual'] = false;
+            $template->profile['configured'] = true;
+        } else if (!$template->profile['configured']) {
+            $template->profile['manual'] = true;
+        }
+    } else if (!$template->profile['configured']) {
+        $template->profile['manual'] = true;
+    }
+    if ($template->profile['manual']) {
+        // set the ipv4 address to a default based on the Default Gateway, replacing the last segment with 200
+        $ipv4Address = explode('.', $template->profile['defaultGateway']);
+        if (count($ipv4Address) === 4) {
+            $ipv4Address[3] = '200';
+            $template->profile['ipv4Address'] = join('.', $ipv4Address);
+        } else {
+            $template->profile['ipv4Address'] = '192.168.1.200';
+        }
+    }
+    // never pass the passphrase the the UI
+    $template->profile['passphrase'] = '';
+    // clean up
+    $template->networks = array();
+    $template->storedProfiles = array();
+    unset($first, $networks, $network, $storedProfiles, $macAddress, $ssidHex, $ssidHexKey, $ipv4Address);
+    //
+} else if ($template->action === 'ethernet_edit') {
+    //
+    // call from network_wifi_scan.php > target template = network_wifi_edit.php
+    // $template->arg contains the ethernet nic
+    //
+    // build up the profile use the nic information and then the stored profile
+    // set up some defaults
+    $template->profile = array();
+    $template->profile['ipAssignment'] = 'DHCP';
+    // get the nic information and add it to the profile
+    foreach ($networks as $network) {
+        if ($network['nic'] === $template->arg) {
+            $template->profile = array_merge($template->profile, $network);
+            break;
+        }
+    }
+    if (isset($template->nics[$template->arg])) {
+        $template->profile = array_merge($template->profile, $template->nics[$template->arg]);
+    }
+    // get the stored profile if it exists and add it to the profile
+    if ($redis->exists('network_storedProfiles')) {
+        $storedProfiles = json_decode($redis->Get('network_storedProfiles'), true);
+        if ((isset($template->profile['macAddress'])) && (isset($storedProfiles[$template->profile['macAddress']]))) {
+            $macAddressKey = 'macAddress:'.$template->profile['macAddress'];
+            $template->profile = array_merge($template->profile, $storedProfiles[$macAddressKey]);
+        }
+    }
+    // clean up
+    $template->networks = array();
+    $template->storedProfiles = array();
+    unset($networks, $storedProfiles);
+    //
+} else {
+    //
+    // call from menu > target template = network.php
+    // no parameters
+    //
+    // reset the template parameters
+    $template->action = '';
+    $template->arg = '';
+    $template->content = 'network';
+    $template->networks = array();
+    $template->storedProfiles = array();
+    $template->profile = array();
+    $template->apenable = $redis->hGet('AccessPoint', 'enable');
+    $template->btenable = $redis->get('bluetooth_on');
+    $template->wifienable = $redis->get('wifi_on');
+    unset($networks, $storedProfiles);
+    // only the contents of $template->nics is used
+}

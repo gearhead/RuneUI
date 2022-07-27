@@ -31,29 +31,29 @@
  *  coder: Frank Friedmann (aka hondagx35)
  *
  */
- 
-// include('/srv/http/app/libs/runeaudio.php');
- 
- if (isset($_POST)) {
+
+// require_once('/srv/http/app/libs/runeaudio.php');
+
+if (isset($_POST)) {
     //
     if (isset($_POST['alsa_settings'])) {
-        $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'set_alsa', 'args' => $_POST['alsa_settings']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'set_alsa', 'args' => $_POST['alsa_settings']));
     }
- }
+}
 
- waitSyWrk($redis, $jobID);
+waitSyWrk($redis, $jobID);
 // collect alsa settings
 
 $cards = sysCmd("/usr/bin/cat /proc/asound/cards | /usr/bin/grep : | /usr/bin/cut -b 5-19 | /usr/bin/sed -e 's/[[:space:]]*$//'");
 foreach ($cards as $z => $card) {
-  $controls = sysCmd('/usr/bin/amixer -c '.$card.' scontrols');
-  foreach ($controls as $j => $control) {
-    preg_match("/'([^']+)'/", $control, $value);
-    $data = sysCmd('/usr/bin/amixer -c '.$card.' sget "'.$value[1].'"');
-    foreach ($data as $i => $entry) {
-	  if ($i != 0) 
-	    $template->alsa_controls[$card][$value[1]][split(": ", ltrim($entry))[0]] = str_getcsv(split(": ", ltrim($entry))[1], ' ', "'");
+    $controls = sysCmd('/usr/bin/amixer -c '.$card.' scontrols');
+    foreach ($controls as $j => $control) {
+        preg_match("/'([^']+)'/", $control, $value);
+        $data = sysCmd('/usr/bin/amixer -c '.$card.' sget "'.$value[1].'"');
+        foreach ($data as $i => $entry) {
+            if ($i != 0)
+                $template->alsa_controls[$card][$value[1]][split(": ", ltrim($entry))[0]] = str_getcsv(split(": ", ltrim($entry))[1], ' ', "'");
+        }
     }
-  }
 }
-var_dump($template->alsa_controls);
+// var_dump($template->alsa_controls);

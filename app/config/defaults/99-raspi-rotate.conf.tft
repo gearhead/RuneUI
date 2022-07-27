@@ -1,0 +1,26 @@
+Section "Device"
+        Identifier "RpiFB"
+# regular fb settings
+#        Driver "fbdev"
+#        Option "fbdev" "/dev/fb1"
+# fbturbo settings
+        Driver "fbturbo"
+        Option "fbdev" "/dev/fb1"
+        Option "SwapbuffersWait" "true"
+EndSection
+
+Section "Monitor"
+        Identifier "generic"
+        DisplaySize 127 85    # In millimeters
+EndSection
+
+Section "Screen"
+        Identifier "screen1"
+        Device "RpiFB"
+        Monitor "generic"
+EndSection
+
+Section "ServerLayout"
+        Identifier "slayo1"
+        Screen "screen1"
+EndSection
