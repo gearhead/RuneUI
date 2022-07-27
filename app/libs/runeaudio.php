@@ -5007,18 +5007,22 @@ function wrk_getHwPlatform($redis)
                         break;
                     case "01":
                         // 01 = PiB+, PiA+ or PiCompute module 1
-                        // no break;
                     case "02":
                         // 02 = PiA+,
-                        // no break;
                     case "03":
                         // 03 = PiB+,
-                        // no break;
+                    case "05":
+                        // 05 = PiAlpha prototype, treat as a PiB+
                     case "06":
                         // 06 = PiCompute Module 1
-                        // no break;
+                    case "07":
+                        // 07 = unknown, treat as a PiB+
                     case "09":
-                        // 09 = PiZero,
+                        // 09 = PiZero
+                    case "0b":
+                        // 0b = unknown, treat as a PiB+
+                    case "0f":
+                        // 0f = internal use only, treat as a PiB+
                         // single processor (armv6) models no on-board Wi-Fi or Bluetooth
                         $arch = '01';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
@@ -5034,19 +5038,12 @@ function wrk_getHwPlatform($redis)
                         break;
                     case "04":
                         // 04 = Pi2B,
-                        // no break;
                     case "06":
                         // 06 = PiCompute Module
-                        // no break;
                     case "0a":
                         // 0a = PiCompute Module 3
-                        // no break;
-                    case "0A":
-                        // 0A = PiCompute Module 3
-                        // no break;
                     case "10":
                         // 10 = PiCompute Module 3+
-                        // no break;
                     case "14":
                         // 14 = PiCompute Module 4
                         // multi processor (armv7 or 64bit) models no on-board Wi-Fi or Bluetooth
@@ -5102,18 +5099,6 @@ function wrk_getHwPlatform($redis)
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
                         break;
-                    case "05":
-                        // 05 = PiAlpha prototype,
-                        // no break;
-                    case "07":
-                        // 07 = unknown,
-                        // no break;
-                    case "0b":
-                        // 0b = unknown,
-                        // no break;
-                    case "0f":
-                        // 0f = internal use only,
-                        // no break;
                     default:
                         $arch = '08';
                         // unknown models assume multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
