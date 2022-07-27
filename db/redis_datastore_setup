@@ -126,6 +126,30 @@ function redisDatastore($redis,$action) {
             // $redis->hExists('mpdconf', 'gapless_mp3_playback') ||$redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
             // $redis->hExists('mpdconf', 'id3v1_encoding') || $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
             break;
+        case 'apreset':
+            // Access Point
+            $redis->hDel('AccessPoint', 'enable');
+            $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
+            $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
+            $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
+            $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
+            $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
+            $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
+            $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
+            $redis->hSet('AccessPoint', 'enable-NAT', 0);
+            break;
+        case 'apcheck':
+            // Access Point
+            $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
+            $redis->hExists('AccessPoint', 'ip-address') || $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
+            $redis->hExists('AccessPoint', 'broadcast') || $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
+            $redis->hExists('AccessPoint', 'ssid') || $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
+            $redis->hExists('AccessPoint', 'passphrase') || $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
+            $redis->hExists('AccessPoint', 'dhcp-range') || $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
+            $redis->hExists('AccessPoint', 'dhcp-option-dns') || $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
+            $redis->hExists('AccessPoint', 'dhcp-option-router') || $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
+            $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
+            break;
         case 'reset':
             // kernel
             $bit = ' '.sysCmd('uname -m')[0];
@@ -154,16 +178,6 @@ function redisDatastore($redis,$action) {
             $option = array('cost' => 12);
             $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
             $redis->set('password', $hash);
-            // Access Point
-            $redis->hDel('AccessPoint', 'enable');
-            $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
-            $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
-            $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
-            $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
-            $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
-            $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
-            $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
-            $redis->hSet('AccessPoint', 'enable-NAT', 0);
             // Internet services
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
@@ -472,16 +486,6 @@ function redisDatastore($redis,$action) {
                 $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
                 $redis->set('password', $hash);
             }
-            // Access Point
-            $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-            $redis->hExists('AccessPoint', 'ip-address') || $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
-            $redis->hExists('AccessPoint', 'broadcast') || $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
-            $redis->hExists('AccessPoint', 'ssid') || $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
-            $redis->hExists('AccessPoint', 'passphrase') || $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
-            $redis->hExists('AccessPoint', 'dhcp-range') || $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
-            $redis->hExists('AccessPoint', 'dhcp-option-dns') || $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
-            $redis->hExists('AccessPoint', 'dhcp-option-router') || $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
-            $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
             // Internet services
             $redis->hExists('service', 'internet') || $redis->hSet('service', 'internet', 0);
             $redis->hExists('service', 'webradio') || $redis->hSet('service', 'webradio', 0);
@@ -685,12 +689,14 @@ if (isset($argv[1])) {
     switch ($argv[1]) {
         case 'reset':
             redisDatastore($redis,'mpdreset');
+            redisDatastore($redis,'apreset');
             redisDatastore($redis,'reset');
             sysCmd('/srv/http/db/redis_acards_details');
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'check':
             redisDatastore($redis,'mpdcheck');
+            redisDatastore($redis,'apcheck');
             redisDatastore($redis,'check');
             redisDatastore($redis,'opcachecheck');
             break;
@@ -701,13 +707,19 @@ if (isset($argv[1])) {
         case 'mpdcheck':
             redisDatastore($redis,'mpdcheck');
             break;
+        case 'apreset':
+            redisDatastore($redis,'apreset');
+            break;
+        case 'apcheck':
+            redisDatastore($redis,'apcheck');
+            break;
         case 'opcachecheck':
             redisDatastore($redis,'opcachecheck');
             break;
         default:
-            trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|opcachecheck}\n", E_USER_ERROR);
+            trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachecheck}\n", E_USER_ERROR);
             break;
     }
 } else {
-    trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|opcachecheck}\n", E_USER_ERROR);
+    trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachecheck}\n", E_USER_ERROR);
 }
