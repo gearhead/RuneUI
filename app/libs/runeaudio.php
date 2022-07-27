@@ -4966,6 +4966,7 @@ function wrk_getHwPlatform($redis)
         // RaspberryPi
         case 'BCM2708':
         case 'BCM2709':
+        case 'BCM2710':
         case 'BCM2711':
         case 'BCM2835':
         case 'BCM2836':
