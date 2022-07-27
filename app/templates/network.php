@@ -29,10 +29,51 @@
     <br>
     <legend>Bluetooth</legend>
     <div class="boxed">
-        <p>Configure Bluetooth</p>
-        <button class="btn btn-lg btn-primary" onclick="location.href='/bluetooth'">Bluetooth Configuration</button>
-        <span class="help-block">Use this option to connect to  a Bluetooth device.<br>
-        RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones)</span>
+        <form id='btonoff' name='btonoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
+            <div class="form-group">
+                <label for="bluetooth" class="control-label col-sm-2">Bluetooth</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input type="hidden" name="btenable" value="0">
+                        <input id="bluetooth" name="btenable" type="checkbox" value="1"<?php if((isset($this->btenable)) && ($this->btenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Enable/Disable Bluetooth.<br>
+                        <i>Notes: The default setting is ON when on-board Bluetooth is available.
+                        A <strong>reboot</strong> is required to activate a changed setting!
+                        If you do not intend to use Bluetooth, you should <strong>switch it off</strong></i></span>
+                </div>
+            </div>
+            <div class="form-group form-actions">
+                <div class="col-sm-offset-2 col-sm-10">
+                    <?php if(isset($this->btenable) && $this->btenable): ?>
+                    <button type="button" class="btn btn-lg btn-primary" onclick="location.href='/bluetooth'">Bluetooth Configuration</button>
+                    <span class="help-block">Click on 'Bluetooth Configuration' for more information and to configuration details<bt>
+                    <i>RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones)</i></span>
+                    <?php endif ?>
+                </div>
+            </div>
+        </form>
+    </div>
+    <br>
+    <legend>Wi-Fi</legend>
+    <div class="boxed">
+        <form id='wifionoff' name='wifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
+            <div class="form-group">
+                <label for="bluetooth" class="control-label col-sm-2">Wi-Fi</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input type="hidden" name="wifienable" value="0">
+                        <input id="wifi" name="wifienable" type="checkbox" value="1"<?php if((isset($this->wifienable)) && ($this->wifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Enable/Disable Wi-Fi.<br>
+                        <i>Notes: The default setting is ON when on-board Wi-Fi is available.
+                        A <strong>reboot</strong> is required to activate a changed setting!
+                        If you do not intend to use Wi-Fi, you should <strong>switch it off</strong></i></span>
+                </div>
+            </div>
+        </form>
     </div>
     <br>
     <legend>Access Point</legend>

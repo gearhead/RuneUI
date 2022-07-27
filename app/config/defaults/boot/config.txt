@@ -143,8 +143,15 @@ gpu_mem=24
 [all]
 #
 ##  Bluetooth settings ##
+#   Bluetooth on/off
+#dtoverlay=disable-bt
 #   Autoprobing onboard Bluetooth if available
 dtparam=krnbt=on
+#
+#
+##  Wi-Fi settings ##
+#   Wi-Fi on/off
+#dtoverlay=disable-wifi
 #
 ##  Audio settings ##
 #   RuneAudio HDMI & 3,5mm jack

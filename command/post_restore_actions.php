@@ -61,3 +61,13 @@ wrk_changeHostname($redis, $redis->get('hostname'));
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
+if ($redis->get('bluetooth_on')) {
+    wrk_netconfig($redis, 'enableBT');
+} else {
+    wrk_netconfig($redis, 'disableBT');
+}
+if ($redis->get('wifi_on')) {
+    wrk_netconfig($redis, 'enableWiFi');
+} else {
+    wrk_netconfig($redis, 'disableWiFi');
+}

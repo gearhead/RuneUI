@@ -77,8 +77,8 @@ if ($networkInterfaces) {
 //  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
 //  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
 // note: it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now
-if ($redis->hGet('AccessPoint', 'enable')) {
-    // access point enabled and it is the first time this point in the code has been processed since reboot/boot or there is no internet available
+if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
+    // Wi-Fi is enabled and access point enabled
     runelog('------------------ try to start AP if no IP is assigned ---------------------');
     $apWifiNicFound = false;
     $ethNicConnected = false;

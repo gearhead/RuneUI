@@ -406,6 +406,15 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
+    $output .= "###### Network, basic settings ######\n";
+    $output .= "Wi-Fi on        : ".(boolval($redis->get('wifi_on')) ? 'true' : 'false')."\n";
+    $output .= "Access Point on : ".(boolval($redis->hGet('AccessPoint', 'enable')) ? 'true' : 'false')."\n";
+    $output .= "Bluetooth on    : ".(boolval($redis->get('bluetooth_on')) ? 'true' : 'false')."\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### Network, all interfaces (ip -h link) ######\n";
     $command = sysCmd('ip -h link');
     $output .= implode("\n", $command)."\n\n";

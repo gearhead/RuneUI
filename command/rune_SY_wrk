@@ -177,9 +177,15 @@ if ($playerid_db === '') {
     wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        sysCmd('/srv/http/command/bluetooth_on.sh');
+        wrk_netconfig($redis, 'enableBT');
     } else {
-        sysCmd('/srv/http/command/bluetooth_off.sh');
+        wrk_netconfig($redis, 'disableBT');
+    }
+    // disable/enable Wi-Fi, wifi_on is set depending on the Pi model on-board Wi-Fi support
+    if ($redis->get('wifi_on')) {
+        wrk_netconfig($redis, 'enableWiFi');
+    } else {
+        wrk_netconfig($redis, 'disableWiFi');
     }
     //
     // enable mpd to start automatically on boot
@@ -1147,8 +1153,9 @@ while (true) {
                 runelog('wrk_SY: ', $job->wrkcmd);
                 $redis->sAdd('w_lock', $jobID);
                 // valid netcfg $action values:
-                //    boot-initialise, refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
-                //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
+                //  boot-initialise, refresh, refreshAsync, saveWifi, enableWifi, disableWifi, enableBT, disableBT,
+                //  saveEthernet, reconnect, connect, autoconnect-on, autoconnect-off, disconnect, disconnect-delete,
+                //  delete & reset
                 if (isset($job->args)) {
                     foreach ($job->args as $key => $value) {
                         // convert the sudo-object to a normal array
@@ -1562,22 +1569,6 @@ while (true) {
                     //ui_notify_async('Underclocking', 'Disabled.', $jobID);
                     // noid ui_notify_async('Underclocking', 'Disabled.');
                     ui_notify('Underclocking', 'Disabled.');
-                }
-                $redis->sRem('w_lock', $jobID);
-                break;
-            case 'bluetooth_toggle':
-                runelog('wrk_SY: ', $job->wrkcmd);
-                $redis->sAdd('w_lock', $jobID);
-                if ($job->action === 1) {
-                    sysCmd('/srv/http/command/bluetooth_on.sh');
-                    //ui_notify_async('Bluetooth', 'Enabled.', $jobID);
-                    // noid ui_notify_async('Bluetooth', 'Enabled.');
-                    ui_notify('Bluetooth', 'Enabled.');
-                } else {
-                    sysCmd('/srv/http/command/bluetooth_on.sh');
-                    //ui_notify_async('Bluetooth', 'Disabled.', $jobID);
-                    // noid ui_notify_async('Bluetooth', 'Disabled.');
-                    ui_notify('Bluetooth', 'Disabled.');
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;

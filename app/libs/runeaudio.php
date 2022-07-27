@@ -2624,6 +2624,14 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // run the refresh nics routine async don't wait until it finishes
             sysCmdAsync('nice --adjustment=4 /srv/http/command/refresh_nics');
             break;
+        case 'enableWifi':
+            // run the command file to disable Wi-Fi, a reboot is required
+            sysCmd('/srv/http/command/wifi_on.sh');
+            break;
+        case 'disableWifi':
+            // run the command file to disable Wi-Fi, a reboot is required
+            sysCmd('/srv/http/command/wifi_off.sh');
+            break;
         case 'saveWifi':
             // is used to create/modify a wifi config file and stored profile
             // add a config file and stored profile
@@ -2831,6 +2839,14 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 sysCmd('rmdir --ignore-fail-on-non-empty \'/var/lib/connman/ethernet_'.$args['macAddress'].'*\'');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
+            break;
+        case 'enableBT':
+            // run the command file to enable Bluetooth, a reboot is required
+            sysCmd('/srv/http/command/bluetooth_on.sh');
+            break;
+        case 'disableBT':
+            // run the command file to disable Bluetooth, a reboot is required
+            sysCmd('/srv/http/command/bluetooth_off.sh');
             break;
         case 'reset':
             // delete all stored profiles and configuration files and restore the system defaults
@@ -4961,6 +4977,7 @@ function wrk_getHwPlatform($redis)
                 // old single processor models no on-board Wi-Fi or Bluetooth
                 $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                 $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+                $redis->exists('wifi_on') || $redis->set('wifi_on', 0);
                 $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
                 $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 0);
                 $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 0);
@@ -4978,6 +4995,7 @@ function wrk_getHwPlatform($redis)
                         // single processor models no on-board Wi-Fi or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 0);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 0);
@@ -5004,6 +5022,7 @@ function wrk_getHwPlatform($redis)
                         $arch = '01';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
@@ -5033,6 +5052,7 @@ function wrk_getHwPlatform($redis)
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 0);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
@@ -5047,6 +5067,7 @@ function wrk_getHwPlatform($redis)
                         // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
@@ -5057,26 +5078,21 @@ function wrk_getHwPlatform($redis)
                         break;
                     case "08":
                         // 08 = Pi3B,
-                        // no break;
                     case "0d":
                         // 0d = Pi3B+
-                        // no break;
                     case "0e":
                         // 0d = Pi3A+
-                        // no break;
                     case "11":
                         // 0d = Pi4B+
-                        // no break;
                     case "12":
                         // 12 = PiZero 2 W
-                        // no break;
                     case "13":
                         // 13 = Pi400
-                        // no break;
                         $arch = '08';
                         // multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
@@ -5100,14 +5116,15 @@ function wrk_getHwPlatform($redis)
                     default:
                         $arch = '08';
                         // unknown models assume multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
-                        $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 0);
-                        $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
-                        $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 0);
-                        $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 0);
-                        $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 0);
-                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
-                        $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'no');
-                        $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 0);
+                        $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
+                        $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
+                        $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
+                        $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
+                        $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
+                        $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
+                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 1);
+                        $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'yes');
+                        $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
                         break;
                 }

@@ -45,6 +45,20 @@ if (isset($_POST)) {
         // $redis->set($_POST['profile']['action'], json_encode($_POST['profile']));
         $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'netcfg', 'action' => $_POST['profile']['action'], 'args' => $_POST['profile']));
     }
+    if (isset($_POST['btenable'])) {
+        if ($_POST['btenable'] && !$redis->get('bluetooth_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableBT'));
+        } else if (!$_POST['btenable'] && $redis->get('bluetooth_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableBT'));
+        }
+    }
+    if (isset($_POST['wifienable'])) {
+        if ($_POST['wifienable'] && !$redis->get('wifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableWifi'));
+        } else if (!$_POST['wifienable'] && $redis->get('wifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableWifi'));
+        }
+    }
 }
 if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
@@ -255,6 +269,8 @@ if ($template->action === 'wifi_scan') {
     $template->networks = array();
     $template->storedProfiles = array();
     $template->profile = array();
+    $template->btenable = $redis->get('bluetooth_on');
+    $template->wifienable = $redis->get('wifi_on');
     unset($networks, $storedProfiles);
     // only the contents of $template->nics is used
 }
