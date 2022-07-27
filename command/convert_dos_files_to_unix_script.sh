@@ -210,8 +210,8 @@ set -x # echo all commands to cli
 # chmod 755 /srv/http/db/redis_acards_details
 chmod 755 /srv/http/app/config/config.php
 chmod -R 755 /etc/X11/xinit/
-chown mpd.audio /mnt/MPD/*
-chown mpd.audio /mnt/MPD/USB/*
+chown mpd:audio /mnt/MPD/*
+chown mpd:audio /mnt/MPD/USB/*
 chmod 777 /mnt/MPD/USB
 chmod 777 /mnt/MPD/USB/*
 chown -R mpd.audio /var/lib/mpd
