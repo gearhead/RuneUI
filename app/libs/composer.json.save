@@ -1,9 +1,0 @@
-{
-    "require": {
-        "league/plates": "1.2.*",
-        "evenement/evenement": "3.0.*",
-        "guzzlehttp/guzzle": "7.2.*",
-        "james-heinrich/getid3": "*.*.*"
-    }
-}
-
