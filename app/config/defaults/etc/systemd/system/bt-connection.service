@@ -1,0 +1,13 @@
+[Unit]
+Description=The BlueAlsa connection monitor
+After=network.target
+
+[Service]
+Type=simple
+RuntimeDirectory=bluealsa-monitor
+PIDFile=/run/bluelasa-monitor/bt-connection.pid
+ExecStart=/usr/bin/bluealsa-cli -q monitor
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

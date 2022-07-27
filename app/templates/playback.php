@@ -5,116 +5,137 @@
 </script>
 <div class="screen-saver-content" style="display:none;">
     <!-- NORMAL SCREEN SAVER PANEL -->
-	<div class="container-fluid">
-		<div class="leftpanel-expandable-ss">
-			<div id="currentartist-ss"><i class="fa fa-spinner fa-spin"></i></div>
-			<div id="currentsong-ss"><i class="fa fa-spinner fa-spin"></i></div>
-			<div id="currentalbum-ss"><i class="fa fa-spinner fa-spin"></i></div>
-		</div>
-		<div class="rightpanel-compactable-ss">
-			<div id="extrainfo-ss">
-				<div id="playlist-position-ss"><span></span></div>
-				<div id="format-bitrate-ss"><i class="fa fa-spinner fa-spin"></i></div>
-			</div>
-		</div>
-	</div>
-	<div class="container-fluid">
-		<div class="leftpanel-ss">
-			<div class="col-sm-4 coverart-ss">
-				<img id="cover-art-ss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
-			</div>
-			<div id="countdown-display-ss"><i class="fa fa-spinner fa-spin"></i></div>
-			<div id="total-ss"><i class="fa fa-spinner fa-spin"></i></div>
-		</div>
-		<div class="rightpanel-ss">
-			<div style="height: 100%">
-				<div class="col-sm-4 coverart">
-					<div id="artist-ss"><i>Artist:</i></div>
-					<img id="artist-image-ss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square"></img>
-					<div id="artist-bio-ss"><pre class="fa fa-spinner fa-spin"></pre></div>
-				</div>
-			</div>
-			<div style="height: auto">
-				<div class="col-sm-4 coverart">
-					<div id="addinfo-ss"><i>Additional Info:</i></div>
-					<div id="addinfo-text-ss"><pre class="fa fa-spinner fa-spin"></pre></div>
-				</div>
-			</div>
-		</div>
-	</div>
+    <div class="container-fluid">
+        <div class="leftpanel-expandable-ss">
+            <div id="currentartist-ss"><i class="fa fa-spinner fa-spin"></i></div>
+            <div id="currentsong-ss"><i class="fa fa-spinner fa-spin"></i></div>
+            <div id="currentalbum-ss"><i class="fa fa-spinner fa-spin"></i></div>
+        </div>
+        <div class="rightpanel-compactable-ss">
+            <div id="extrainfo-ss">
+                <div id="playlist-position-ss"><span></span></div>
+                <div id="format-bitrate-ss"><i class="fa fa-spinner fa-spin"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid">
+        <div class="leftpanel-ss">
+            <div class="col-sm-4 coverart-ss">
+                <img id="cover-art-ss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
+            </div>
+            <div id="countdown-display-ss"><i class="fa fa-spinner fa-spin"></i></div>
+            <div id="total-ss"><i class="fa fa-spinner fa-spin"></i></div>
+        </div>
+        <div class="rightpanel-ss">
+            <div style="height: 100%">
+                <div class="col-sm-4 coverart">
+                    <div id="artist-ss"><i>Artist:</i></div>
+                    <img id="artist-image-ss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square"></img>
+                    <div id="artist-bio-ss"><pre class="fa fa-spinner fa-spin"></pre></div>
+                </div>
+            </div>
+            <div style="height: auto">
+                <div class="col-sm-4 coverart">
+                    <div id="addinfo-text-ss"><pre class="fa fa-spinner fa-spin"></pre></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 <div class="small-screen-saver-content" style="display:none;">
-	<!-- SMALL SCREEN SCREEN SAVER PANEL -->
-	<div class="container-fluid">
-		<div class="leftpanel-sss">
-			<div class="col-sm-4 coverart-sss">
-				<img id="cover-art-sss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
-			</div>
-		</div>
-		<div class="rightpanel-sss">
-			<div style="height: auto">
-				<div class="col-sm-4 coverart">
-					<div class="top-sss">
-						<div id="currentartist-sss"><i class="fa fa-spinner fa-spin"></i></div>
-						<div id="currentsong-sss"><i class="fa fa-spinner fa-spin"></i></div>
-						<div id="currentalbum-sss"><i class="fa fa-spinner fa-spin"></i></div>
-					</div>
-					<div class="bottom-sss">
-						<div id="playlist-position-sss"><span></span></div>
-						<div id="format-bitrate-sss"><i class="fa fa-spinner fa-spin"></i></div>
-						<div id="countdown-display-sss"><i class="fa fa-spinner fa-spin"></i></div>
-						<div id="total-sss"><i class="fa fa-spinner fa-spin"></i></div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</div>
-<div class="tab-content">
-    <!-- PLAYBACK PANEL -->
-    <div id="playback" class="tab-pane active disable-scrollbar-1 disable-scrollbar-2">
-        <div class="container-fluid">
-			<span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
-            <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
-			<div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
-				<span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
-				<span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
-			</div>
-            <div class="knobs row">
-                <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
-                    <input id="time" value="0" data-width="230" data-height="230" data-bgColor="#34495E" data-fgcolor="#0095D8" data-thickness="0.30" data-min="0" data-max="1000" data-displayInput="false" data-displayPrevious="true">
-                    <span id="countdown-display"><i class="fa fa-spinner fa-spin"></i></span>
-                    <span id="total"><i class="fa fa-spinner fa-spin"></i></span>
-                    <div class="btn-group">
-                        <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
-                        <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
-                        <button id="single" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Single" data-cmd="single"><i class="fa fa-refresh"></i></button>
-                        <!--<button type="button" id="consume" class="btn btn-default btn-lg btn-cmd btn-toggle" title="Consume Mode" data-cmd="consume"><i class="fa fa-compress"></i></button>-->
+    <!-- SMALL SCREEN SCREEN SAVER PANEL -->
+    <div class="container-fluid">
+        <div class="leftpanel-sss">
+            <div class="col-sm-4 coverart-sss">
+                <img id="cover-art-sss" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
+            </div>
+        </div>
+        <div class="rightpanel-sss">
+            <div style="height: auto">
+                <div class="col-sm-4 coverart">
+                    <div class="top-sss">
+                        <div id="currentartist-sss"><i class="fa fa-spinner fa-spin"></i></div>
+                        <div id="currentsong-sss"><i class="fa fa-spinner fa-spin"></i></div>
+                        <div id="currentalbum-sss"><i class="fa fa-spinner fa-spin"></i></div>
                     </div>
-                </div>
-                <?php if ($this->coverart == 1): ?>
-                <div class="col-sm-<?=$this->colspan ?> coverart">
-                    <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
-                    <button id="overlay-social-open" class="btn btn-default" type="button" title="Share this track"><i class="fa fa-share"></i></button>
-                    <button id="songinfo-open" class="btn btn-default" type="button" title="Song Info" href="#songinfo-modal" data-toggle="modal"><i class="fa fa-info"></i></button>
-                </div>
-                <?php endif ?>
-                <div id="volume-knob" class="col-sm-<?=$this->colspan ?> <?=$this->volume['divclass'] ?>">
-                    <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
-                    <!--
-                    <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?>>
-                    -->
-                    <div class="btn-group">
-                        <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
-                        <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
-                        <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled'])): ?> disabled="disabled" <?php endif ?> title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
+                    <div class="bottom-sss">
+                        <div id="playlist-position-sss"><span></span></div>
+                        <div id="format-bitrate-sss"><i class="fa fa-spinner fa-spin"></i></div>
+                        <div id="countdown-display-sss"><i class="fa fa-spinner fa-spin"></i></div>
+                        <div id="total-sss"><i class="fa fa-spinner fa-spin"></i></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+<div class="preload-content" style="display:none;">
+    <!-- THIS PANEL CONTAINS PRELOADED WEB CONTENT TO ALLOW THE WEB BROWSER TO CACHE THE CONTENT, IT IS NEVER USED TO DISPLAY INFORMATION -->
+    <div class="container-fluid">
+        <img id="cover-art-preload" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square" loading="eager">
+    </div>
+</div>
+<div class="tab-content">
+    <!-- PLAYBACK PANEL -->
+    <div id="playback" class="tab-pane active disable-scrollbar-1 disable-scrollbar-2">
+        <div class="container-fluid">
+            <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
+            <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
+            <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
+            <div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
+                <span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
+                <span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
+            </div>
+            <div class="knobs row">
+                <?php for ($i = 0; $i <= 2; $i++): ?>
+                    <?php if ($this->UIorder[$i] === 'T'): ?>
+                        <div id="time-knob" class="col-sm-<?=$this->colspan ?>">
+                            <input id="time" value="0" data-width="230" data-height="230" data-bgColor="#34495E" data-fgcolor="#0095D8" data-thickness="0.30" data-min="0" data-max="1000" data-displayInput="false" data-displayPrevious="true">
+                            <span id="countdown-display"><i class="fa fa-spinner fa-spin"></i></span>
+                            <span id="total"><i class="fa fa-spinner fa-spin"></i></span>
+                            <div class="btn-group">
+                                <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
+                                <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
+                                <button id="single" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Single" data-cmd="single"><i class="fa fa-refresh"></i></button>
+                                <!--<button type="button" id="consume" class="btn btn-default btn-lg btn-cmd btn-toggle" title="Consume Mode" data-cmd="consume"><i class="fa fa-compress"></i></button>-->
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($this->UIorder[$i] === 'A'): ?>
+                        <div class="<?php if ($this->coverart): ?>col-sm-<?=$this->colspan ?><?php else: ?>hide<?php endif; ?> coverart">
+                            <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="transparent-square">
+                            <button id="overlay-social-open" class="btn btn-default" type="button" title="Share this track"><i class="fa fa-share"></i></button>
+                            <button id="songinfo-open" class="btn btn-default" type="button" title="Song Info" href="#songinfo-modal" data-toggle="modal"><i class="fa fa-info"></i></button>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($this->UIorder[$i] === 'V'): ?>
+                        <div id="volume-knob" class="<?php if (isset($this->volume['hide']) && $this->volume['hide']): ?>hide<?php else: ?>col-sm-<?=$this->colspan ?><?php endif; ?> <?=$this->volume['divclass'] ?> <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?>">
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?>>
+                        <!--
+                        <div id="volume-knob" class="col-sm-<?=$this->colspan ?> <?=$this->volume['divclass'] ?>">
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="false" data-fgColor="#0095D8" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
+                            <input id="volume" value="100" data-width="230" data-height="230" data-bgColor="#f00" data-thickness=".25" data-skin="tron" data-cursor="true" data-angleArc="250" data-angleOffset="-125" data-readOnly="<?=$this->volume['readonly'] ?>" data-fgColor="<?=$this->volume['color'] ?>" data-dynamic="<?=$this->volume['dynamic'] ?>" disabled="disabled" >
+                            -->
+                            <div class="btn-group">
+                                <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?> title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
+                                <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?> title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
+                                <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" <?php if (isset($this->volume['disabled']) && $this->volume['disabled']): ?> disabled="disabled" <?php endif ?> title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
+                                <!--
+                                <button id="volumedn" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume down" data-cmd="volumedn"><i class="fa fa-volume-down"></i></button>
+                                <button id="volumemute" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume mute/unmute" data-cmd="volumemute"><i class="fa fa-volume-off"></i> <i class="fa fa-exclamation"></i></button>
+                                <button id="volumeup" class="btn btn-default btn-lg btn-cmd btn-volume" type="button" title="Volume up" data-cmd="volumeup"><i class="fa fa-volume-up"></i></button>
+                                -->
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endfor; ?>
+            </div>
+        </div>
+    </div>
     <!-- LIBRARY PANEL -->
+
+
+
     <div id="panel-sx" class="tab-pane">
         <div class="btnlist btnlist-top">
             <form id="db-search" class="form-inline" action="javascript:getDB({cmd: 'search', path: GUI.currentpath, browsemode: GUI.browsemode});">
@@ -200,11 +221,13 @@
             <div id="pl-manage">
                 <button id="pl-manage-list" class="btn btn-default" type="button" title="Manage playlists"><i class="fa fa-file-text-o"></i></button>
                 <button id="pl-manage-save" class="btn btn-default" type="button" title="Save current queue as playlist" data-toggle="modal" data-target="#modal-pl-save"><i class="fa fa-save"></i></button>
-                <button id="pl-manage-clear" class="btn btn-default" type="button" title="Clear the playing queue" data-toggle="modal" data-target="#modal-pl-clear"><i class="fa fa-trash-o"></i></button>
+                <button id="pl-manage-shuffle" class="btn btn-default" type="button" title="Randomise the order of the queue" data-toggle="modal" data-target="#modal-pl-shuffle"><i class="fa fa-random"></i></button>
+                <button id="pl-manage-clear" class="btn btn-default" type="button" title="Clear the queue" data-toggle="modal" data-target="#modal-pl-clear"><i class="fa fa-trash-o"></i></button>
             </div>
             <div id="pl-currentpath" class="hide">
                 <i class="fa fa-folder-open"></i>
-                <span>Playlists</span>
+                <span>Playlists&nbsp;&nbsp;</span>
+                <button id="pl-manage-random" class="btn btn-default" type="button" title="Manage Global Random" data-toggle="modal" data-target="#modal-pl-ashuffle"><i class="fa fa-random"></i></button>
             </div>
         </div>
         <div id="spinner-pl" class="csspinner duo hide"></div>
@@ -214,6 +237,7 @@
     <div id="context-menu" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
+            <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="rescan"><i class="fa fa-refresh sx"></i> Update this folder</a></li>
@@ -223,9 +247,11 @@
     <div id="context-menu-file" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
+            <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
-            <li><a href="javascript:;" data-cmd="lastfmaddreplaceplay"><i class="fa fa-lastfm sx"></i> Last.fm playlist from this</a></li>
+            <li><a href="javascript:;" data-cmd="lastfmadd"><i class="fa fa-lastfm sx"></i> Add and add similar</a></li>
+            <li><a href="javascript:;" data-cmd="lastfmaddreplaceplay"><i class="fa fa-lastfm sx"></i> Add, replace, play and add similar</a></li>
         </ul>
     </div>
     <div id="context-menu-dirble" class="context-menu">
@@ -236,14 +262,14 @@
             <li><a href="javascript:;" data-cmd="wrsave"><i class="fa fa-microphone sx"></i> Save in My Webradios</a></li>
         </ul>
     </div>
-	<div id="context-menu-spotify-pl" class="context-menu">
+    <div id="context-menu-spotify-pl" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="spadd" data-type="spotify-playlist"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="spaddplay" data-type="spotify-playlist"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="spaddreplaceplay" data-type="spotify-playlist"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
         </ul>
     </div>
-	<div id="context-menu-spotify" class="context-menu">
+    <div id="context-menu-spotify" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="spadd" data-type="spotify-track"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="spaddplay" data-type="spotify-track"><i class="fa fa-play sx"></i> Add and play</a></li>
@@ -253,6 +279,7 @@
     <div id="context-menu-webradio" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
+            <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="wredit"><i class="fa fa-edit sx"></i> Edit</a></li>
@@ -261,12 +288,14 @@
     </div>
     <div id="context-menu-playlist" class="context-menu">
         <ul class="dropdown-menu" role="menu">
-            <li><a href="javascript:;" data-cmd="pl-add"><i class="fa fa-plus-circle sx"></i> Add to queue</a></li>
-            <li><a href="javascript:;" data-cmd="pl-replace"><i class="fa fa-undo sx"></i> Replace the queue</a></li>
-            <li><a href="javascript:;" data-cmd="pl-addreplaceplay"><i class="fa fa-share-square-o sx"></i> Replace and play the queue</a></li>
-			<li><a href="javascript:;" data-cmd="pl-ashuffle"><i class="fa fa-random sx"></i> Randomly add songs to queue</a></li>
-            <li><a href="javascript:;" data-cmd="pl-rename"><i class="fa fa-edit sx"></i> Rename</a></li>
-            <li><a href="javascript:;" data-cmd="pl-rm"><i class="fa fa-trash-o sx"></i> Delete</a></li>
+            <li><a href="javascript:;" data-cmd="pl-add" title="Add this playlist to the queue"><i class="fa fa-plus-circle sx"></i> Add to queue</a></li>
+            <li><a href="javascript:;" data-cmd="pl-replace" title="Replace the queue with this playlist"><i class="fa fa-undo sx"></i> Replace the queue</a></li>
+            <li><a href="javascript:;" data-cmd="pl-addreplaceplay" title="Replace the queue with this playlist and play"><i class="fa fa-share-square-o sx"></i> Replace and play the queue</a></li>
+            <li><a href="javascript:;" data-cmd="pl-ashuffle" title="Randomly add songs from this playlist to the queue after the last song is finished"><i class="fa fa-random sx"></i> Randomly add songs to queue</a></li>
+            <li><a href="javascript:;" data-cmd="pl-rem-dup" title="Remove duplicate songs from this playlist"><i class="fa fa-tasks sx"></i> Remove duplicates</a></li>
+            <li><a href="javascript:;" data-cmd="pl-rem-invalid" title="Remove invalid songs from this playlist"><i class="fa fa-th-list sx"></i> Remove invalid</a></li>
+            <li><a href="javascript:;" data-cmd="pl-rename" title="Rename this playlist"><i class="fa fa-edit sx"></i> Rename</a></li>
+            <li><a href="javascript:;" data-cmd="pl-rm" title="Delete this playlist"><i class="fa fa-trash-o sx"></i> Delete</a></li>
         </ul>
     </div>
     <div id="context-menu-album" class="context-menu">
@@ -313,8 +342,8 @@
                 </input>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button type="button" id="modal-pl-save-btn" class="btn btn-primary btn-lg" data-dismiss="modal">Save playlist</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button type="button" id="modal-pl-save-btn" title="Save the queue as a playlist" class="btn btn-primary btn-lg" data-dismiss="modal">Save as playlist</button>
             </div>
         </div>
     </div>
@@ -327,12 +356,54 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Clear current queue</h3>
             </div>
             <div class="modal-body">
-                This will clear the current playing queue.<br>
+                Or clear all songs from queue (<strong>Clear</strong>).<br>
+                Or clear the queue except the current song (<strong>Crop</strong>).<br>
+                This will clear the songs before the current song (<strong>Clear Played</strong>).<br>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear all songs from queue" data-cmd="clear" data-dismiss="modal">Clear</button>
+                <button id="pl-crop-button"type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the queue except the current song" data-dismiss="modal">Crop</button>
+                <button id="pl-clear-played-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the songs before the current song" data-dismiss="modal">Clear Played</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="modal-pl-ashuffle" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modal-pl-stop-random" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h3 class="modal-title" id="modal-pl-clear-label">Manage Global Random</h3>
+            </div>
+            <div class="modal-body">
+                The Global Random function randomly adds songs to the Queue when it is empty. Songs can be randomly added from a saved Playlist or from your full song collection.<br>
+                Here you can <strong>Start</strong> or <strong>Stop</strong> Global Random. You can also switch off adding songs from a previously selected playlist by <strong>adding songs from your full collection</strong>.<br>
+                In the MPD menu that are more options.
+            </div>
+            <div class="modal-footer">
+                <button id="pl-ashuffle-reset-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Stop adding songs from a playlist" data-dismiss="modal">Add from full collection</button><br><br>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button id="pl-ashuffle-start-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Start Global Random" data-dismiss="modal">Start</button>
+                <button id="pl-ashuffle-stop-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Stop Global Random" data-dismiss="modal">Stop</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="modal-pl-shuffle" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modal-pl-clear-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h3 class="modal-title" id="modal-pl-clear-label">Shuffle current queue</h3>
+            </div>
+            <div class="modal-body">
+                This will place the currently playing song in the first position and randomise the order of the rest of the songs. <strong>There is no undo!</strong><br>
                 Are you sure?
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary btn-lg btn-cmd" data-cmd="clear" data-dismiss="modal">Clear</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-lg btn-cmd" title="Randomise the order of songs in the queue" data-cmd="shuffle" data-dismiss="modal">Shuffle</button>
             </div>
         </div>
     </div>
@@ -345,12 +416,13 @@
                 <h3 class="modal-title" id="modal-pl-rename-label">Rename the playlist</h3>
             </div>
             <div class="modal-body">
+                Rename will replace an exiting playlist with the same name!<br>
                 <label for="pl-rename-name">Rename "<strong id="pl-rename-oldname"></strong>" playlist to:</label>
-                <input id="pl-rename-name" class="form-control osk-trigger" type="text" placeholder="Enter playlist name">
+                <input id="pl-rename-name" class="form-control osk-trigger" type="text" placeholder="Enter new playlist name">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button id="pl-rename-button" type="button" class="btn btn-primary btn-lg" data-dismiss="modal">Rename</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button id="pl-rename-button" type="button" class="btn btn-primary btn-lg" title="Rename the playlist" data-dismiss="modal">Rename</button>
             </div>
         </div>
     </div>
@@ -370,8 +442,8 @@
                 <input id="webradio-add-url" name="radio[label]" class="form-control osk-trigger" type="text" placeholder="Enter webradio url">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button id="webradio-add-button" type="button" class="btn btn-primary btn-lg">Add to Library</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button id="webradio-add-button" type="button" class="btn btn-primary btn-lg" title="Add the webradio to the library" data-dismiss="modal" >Add to Library</button>
             </div>
         </div>
     </div>
@@ -392,8 +464,8 @@
                 <input id="webradio-edit-url" name="radio[label]" class="form-control osk-trigger" type="text" placeholder="Enter webradio url">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button id="webradio-edit-button" type="button" class="btn btn-primary btn-lg" data-dismiss="modal">Save</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button id="webradio-edit-button" type="button" class="btn btn-primary btn-lg" title="Save the webradio" data-dismiss="modal">Save</button>
             </div>
         </div>
     </div>
@@ -410,8 +482,8 @@
                 Delete this entry from your Library?</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-lg" data-dismiss="modal">Close</button>
-                <button id="webradio-delete-button" type="button" class="btn btn-primary btn-lg" data-dismiss="modal">Delete</button>
+                <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
+                <button id="webradio-delete-button" type="button" class="btn btn-primary btn-lg" title="Delete the webradio" data-dismiss="modal">Delete</button>
             </div>
         </div>
     </div>
@@ -437,9 +509,9 @@
                         <div id="lyric-text-overlay" style="font-size: 20px; box-sizing: border-box;"><pre class="fa fa-spinner fa-spin"></pre></div>
                     </div>
                 </div>
-			</div>
-			<div class="modal-footer">
-                <button id="songinfo-close-cancel" class="btn btn-default btn-lg" data-dismiss="modal" aria-hidden="true">Cancel</button>
+            </div>
+            <div class="modal-footer">
+                <button id="songinfo-close-cancel" class="btn btn-default btn-lg" title="Close this layer" data-dismiss="modal" aria-hidden="true">Close</button>
             </div>
         </div>
     </div>
@@ -460,19 +532,22 @@
     <nav>
         <ul>
             <li><span>Playback source</span></li>
-			<li><a href="javascript:;" id="playsource-mpd" class="btn btn-default btn-lg btn-block" title="Switch to MPD"><i class="fa fa-linux sx"></i> MPD</a></li>
-			<?php if ($this->spotify): ?>hidden
-			<li><a href="javascript:;" id="playsource-spotify" class="btn btn-default btn-lg btn-block inactive" title="Switch to Spotify"><i class="fa fa-spotify sx"></i> <span>spop</span> Spotify</a></li>
-			<?php endif; ?>
-			<?php if ($this->spotifyconnect): ?>
-			<li><a href="javascript:;" id="playsource-spotify-connect" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-spotify sx"></i> <span>spotyfyd</span> Spotify Connect</a></li>
-			<?php endif; ?>
-			<?php if ($this->airplay): ?>
-			<li><a href="javascript:;" id="playsource-airplay" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-apple sx"></i> <span>shairport-sync</span> Airplay</a></li>
-			<?php endif; ?>
-			<?php if ($this->dlna): ?>
-			<li><a href="javascript:;" id="playsource-dlna" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-puzzle-piece sx"></i> <span>upmpdcli</span> DLNA</a></li>
-			<?php endif; ?>
+            <li><a href="javascript:;" id="playsource-mpd" class="btn btn-default btn-lg btn-block" title="Switch to MPD"><i class="fa fa-linux sx"></i> MPD</a></li>
+            <?php if ($this->spotify): ?>hidden
+            <li><a href="javascript:;" id="playsource-spotify" class="btn btn-default btn-lg btn-block inactive" title="Switch to Spotify"><i class="fa fa-spotify sx"></i> <span>spop</span> Spotify</a></li>
+            <?php endif; ?>
+            <?php if ($this->spotifyconnect): ?>
+            <li><a href="javascript:;" id="playsource-spotify-connect" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-spotify sx"></i> <span>spotyfyd</span> Spotify Connect</a></li>
+            <?php endif; ?>
+            <?php if ($this->airplay): ?>
+            <li><a href="javascript:;" id="playsource-airplay" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-apple sx"></i> <span>shairport-sync</span> Airplay</a></li>
+            <?php endif; ?>
+            <?php if ($this->dlna): ?>
+            <li><a href="javascript:;" id="playsource-dlna" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-puzzle-piece sx"></i> <span>upmpdcli</span> DLNA</a></li>
+            <?php endif; ?>
+            <?php if ($this->bluetooth): ?>
+            <li><a href="/bluetooth/" id="playsource-bluetooth" class="btn btn-default btn-lg btn-block"><i class="fa fa-bluetooth sx"></i> Bluetooth</a></li>
+            <?php endif; ?>
             <li><button id="overlay-playsource-close" class="btn btn-link" type="button"><i class="fa fa-times"></i> close this layer</button></li>
         </ul>
     </nav>

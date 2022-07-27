@@ -1,0 +1,26 @@
+[Unit]
+Description=Bluealsa audio player
+Documentation=https://github.com/Arkq/bluez-alsa/
+Wants=bluealsa.service
+
+[Service]
+Type=simple
+;default to all devices - can be overridden in the EnvironmentFile
+Environment="BT_ADDR=00:00:00:00:00:00"
+EnvironmentFile=-/etc/default/bluealsa-aplay
+ExecStart=/usr/bin/bluealsa-aplay $OPTIONS $BT_ADDR
+Restart=on-failure
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+;PrivateDevices=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX
+; Also non-privileged can user be used
+; this example assumes a user called 'bluealsa-aplay' exists in the group 'audio'
+;User=bluealsa-aplay
+;Group=audio
+;NoNewPrivileges=true
+
+[Install]
+WantedBy=multiuser.target

@@ -37,31 +37,29 @@ ini_set('display_errors', '1');
 error_reporting(E_ALL);
 ini_set('error_log', '/var/log/runeaudio/airplay_toggle.log');
 define('APP', '/srv/http/app/');
-include('/srv/http/app/libs/runeaudio.php');
-
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 
 // read status from /usr/lib/systemd/system/shairport.service
-$status = $argv[1]; // "on" or "off"
+$status = trim(strtolower($argv[1])); // "on" or "off"
 
 switch($status) {
     case "on":
         // start Airplay
-		$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaytoggle', 'action' => 'start'));
-		waitSyWrk($redis, $jobID);
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaytoggle', 'action' => 'start'));
+        waitSyWrk($redis, $jobID);
         // send notify
         ui_notify('AirPlay', 'Playback has been switched to an incoming Airplay stream.');
         break;
     case "off":
         // stop Airplay
-		$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaytoggle', 'action' => 'stop'));
-		waitSyWrk($redis, $jobID);
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaytoggle', 'action' => 'stop'));
+        waitSyWrk($redis, $jobID);
         // send notify
         ui_notify('AirPlay', 'Airplay playback has completed. The player is now unlocked.');
         break;
 }
 
 // update player view
-ui_libraryHome($redis, 'Server');
+sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');

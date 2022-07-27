@@ -25,305 +25,317 @@
 #  You should have received a copy of the GNU General Public License
 #  along with RuneAudio; see the file COPYING.  If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
-# 
+#
 #  file: command/orion_optimize.sh
 #  version: 1.3
 #  coder: Simone De Gregori
 #
 #####################################
 ver="1.3"
+set +x # echo no commands to cli
+set +e # continue on errors
+
 ####################
 # common functions #
 ####################
-mpdprio_nice () {
-count=1
-for pid in $(pgrep -w mpd); 
-do
-    if ((count == 3)) 
-    then
-        echo "### Set priority for: mpd-player thread ###";
-        renice -15 $pid;
-    fi
-    if ((count == 4))  
-    then
-        echo "### Set priority for: mpd-output thread ###";
-        renice -18 $pid;
-    fi
-    if ((count == 5))
-    then
-        echo "### Set priority for: mpd-decoder thread ###";
-        renice -16 $pid;
-    fi
-count=$((count+1))
-done
+# adjust the mtu for all connected nics with an ip-address
+modmtu () {
+    # parameter 1 ($1) is the mtu value
+    nics=$( ip -br add | grep ' UP ' | cut -d " " -f 1 | xargs )
+    for i in $nics; do
+        ifconfig $i mtu $1
+    done
 }
 
-mpdprio_default () {
-count=1
-for pid in $(pgrep -w mpd); 
-do
-    if ((count == 3)) 
-    then
-        echo "### Set priority for: mpd-player thread ###";
-        renice 20 $pid;
-    fi
-    if ((count == 4))  
-    then
-        echo "### Set priority for: mpd-output thread ###";
-        renice 20 $pid;
-    fi
-    if ((count == 5))
-    then
-        echo "### Set priority for: mpd-decoder thread ###";
-        renice 20 $pid;
-    fi
-count=$((count+1))
-done
-}
-
-# set cifsd priority
-cifsprio () {
-local "${@}" 
-if (( -n ${pid})) 
-then 
-echo "### Set priority for: cifsd ###"
-renice ${prio} ${pid}
-fi
+# adjust the txqueuelen for all connected nics with an ip-address
+modtxqueuelen () {
+    # parameter 1 ($1) is the mtu value
+    nics=$( ip -br add | grep ' UP ' | cut -d " " -f 1 | xargs )
+    for i in $nics; do
+        ifconfig $i txqueuelen $1
+    done
 }
 
 # adjust Kernel scheduler latency based on Architecture
 modKschedLatency () {
     local "${@}"
-    # RaspberryPi
     if (($((10#${hw})) == "1"))
+    # RaspberryPi
     then
-	    echo "RaspberryPi"
+        echo "RaspberryPi"
         echo ${s01} > /proc/sys/kernel/sched_latency_ns
-        echo "sched_latency_ns = "${s01}
-        sndusb_profile nrpacks=${u01}
-        echo "USB nrpacks="${u01}
+        echo -n "sched_latency_ns = "${s01}
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-    fi
+    elif (($((10#${hw})) == "2"))
     # CuBox
-    if (($((10#${hw})) == "2"))
     then
-	    echo "CuBox"
-        echo ${s02} > /proc/sys/kernel/sched_latency_ns
+        echo "CuBox"
+        echo -n ${s02} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s02}
-        sndusb_profile nrpacks=${u02}
-        echo "USB nrpacks="${u02}
-    fi
+    elif (($((10#${hw})) == "3"))
     # UDOO
-    if (($((10#${hw})) == "3"))
     then
         echo "UDOO"
-		echo ${s03} > /proc/sys/kernel/sched_latency_ns
+        echo -n ${s03} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s03}
-        sndusb_profile nrpacks=${u03}
-        echo "USB nrpacks="${u03}
-    fi
+    elif (($((10#${hw})) == "4"))
     # BeagleBoneBlack
-    if (($((10#${hw})) == "4"))
     then
-	    echo "BeagleBoneBlack"
-        echo ${s04} > /proc/sys/kernel/sched_latency_ns
+        echo "BeagleBoneBlack"
+        echo -n ${s04} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s04}
-        sndusb_profile nrpacks=${u04}
-        echo "USB nrpacks="${u04}
-    fi
+    elif (($((10#${hw})) == "5"))
     # Compulab Utilite
-    if (($((10#${hw})) == "5"))
     then
-	    echo "Utilite"
-        echo ${s04} > /proc/sys/kernel/sched_latency_ns
+        echo "Utilite"
+        echo -n ${s04} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s04}
-        sndusb_profile nrpacks=${u04}
-        echo "USB nrpacks="${u04}
-    fi
+    elif (($((10#${hw})) == "6"))
     # Cubietruck
-    if (($((10#${hw})) == "6"))
     then
-	    echo "Cubietruck"
-        echo ${s06} > /proc/sys/kernel/sched_latency_ns
+        echo "Cubietruck"
+        echo -n ${s06} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s06}
-        sndusb_profile nrpacks=${u06}
-        echo "USB nrpacks="${u06}
-    fi
+    elif (($((10#${hw})) == "7"))
     # Cubox-i
-    if (($((10#${hw})) == "7"))
     then
-		echo "Cubox-i"
-        echo ${s07} > /proc/sys/kernel/sched_latency_ns
+        echo "Cubox-i"
+        echo -n ${s07} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s07}
-        sndusb_profile nrpacks=${u07}
-        echo "USB nrpacks="${u07}
-    fi
-    # RaspberryPi2/3
-    if (($((10#${hw})) == "8")) 
+    elif (($((10#${hw})) == "8"))
+    # RaspberryPi2/3/4
     then
-	    echo "RaspberryPi2/3"
-        echo ${s08} > /proc/sys/kernel/sched_latency_ns
+        echo "RaspberryPi2/3/4"
+        echo -n ${s08} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s08}
-        # sndusb_profile nrpacks=${u08}    nrpacks not supported anymore on newer kernels
-        # echo "USB nrpacks="${u08}
-    fi
+    elif (($((10#${hw})) == "9"))
     # ODROID C1
-    if (($((10#${hw})) == "9"))
     then
-	    echo "ODROIDC1"
-        echo ${s09} > /proc/sys/kernel/sched_latency_ns
+        echo "ODROIDC1"
+        echo -n ${s09} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s09}
-        # sndusb_profile nrpacks=${u09}    nrpacks not supported anymore on newer kernels
-        # echo "USB nrpacks="${u09}
-    fi
+    elif (($((10#${hw})) == "10"))
     # ODROID C2
-    if (($((10#${hw})) == "10")) 
     then
-		echo "ODROIDC2"
-        echo ${s10} > /proc/sys/kernel/sched_latency_ns
+        echo "ODROIDC2"
+        echo -n ${s10} > /proc/sys/kernel/sched_latency_ns
         echo "sched_latency_ns = "${s10}
-        # sndusb_profile nrpacks=${u10}    nrpacks not supported anymore on newer kernels
-        # echo "USB nrpacks="${u10}
     fi
 }
 
-sndusb_profile() {
-local "${@}"
-mpc pause > /dev/null 2>&1
-sleep 0.3
-modprobe -r snd-usb-audio
-echo "options snd-usb-audio nrpacks=${nrpacks}" > /etc/modprobe.d/modprobe.conf
-sleep 0.2
-modprobe snd-usb-audio
-sleep 0.5
-#mpc play > /dev/null 2>&1
-#mpc pause > /dev/null 2>&1
-mpc play > /dev/null 2>&1
-}
 
 ##################
 # common startup #
 ##################
-#if [ "$PID" != null  ]; then 
-#echo "Set priority for: cifsd"
-#renice -20 $PID
-#fi
-cifsprio pid=$(pidof cifsd)
-echo "Set normal priority for: rune_SY_wrk"
-renice 20 $(pgrep rune_SY_wrk)
-echo "Set normal priority for: rune_PL_wrk"
-renice 20 $(pgrep rune_PL_wrk)
-echo "Set normal priority for: smbd"
-renice 19 $(pidof smbd)
-renice 19 $(pidof smb)
-echo "Set normal priority for: nmbd"
-renice 19 $(pidof nmbd)
-renice 19 $(pidof nmb)
+
+# when it is a Pi 01 (archv6 - single processor) or Pi 08 (multiprocessors) and it is the first time save the initial values, otherwise restore the saved values
+# these values are reset on boot
+if [ "$2" == "01" ] || [ "$2" == "08" ]; then
+    # its a Pi 01 (archv6 - single processor) or Pi 08 (multiprocessors)
+    declare -a par_arr=(/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor /proc/sys/vm/swappiness /sys/block/mmcblk0/queue/scheduler /proc/sys/kernel/sched_latency_ns /proc/sys/kernel/sched_rt_period_us /proc/sys/kernel/sched_rt_runtime_us /proc/sys/kernel/sched_autogroup_enabled /proc/sys/kernel/sched_rr_timeslice_ms /proc/sys/kernel/sched_min_granularity_ns /proc/sys/kernel/sched_wakeup_granularity_ns /proc/sys/kernel/hung_task_check_count /proc/sys/vm/stat_interval /proc/sys/vm/dirty_background_ratio)
+    if [ -f "/tmp/orion_reset.firsttime" ]; then
+        # the orion_reset file exists, reset the values from the redis store
+        # first remove any files which we created
+        for i in "${par_arr[@]}"; do
+            exists=$( redis-cli hexists orion_reset "$i" )
+            if [ -f "$i" ] && [ "$exists" == "0" ]; then
+                # the file exists, we created the file as it did not exist before, delete it
+                rm "$i"
+            fi
+        done
+        # now reset the values of existing files which we modified
+        keys=$( redis-cli hkeys orion_reset | xargs )
+        for i in $keys; do
+            val=$( redis-cli hget orion_reset "$i" )
+            echo -n "$val" > "$i"
+        done
+    else
+        # the orion_reset file does not exist, save the values in redis and create the file
+        # delete the current saved values
+        redis-cli del orion_reset
+        # save the values which are set
+        for i in "${par_arr[@]}"; do
+            if [ -f "$i" ]; then
+                val=$( cat "$i" | cut -d '[' -f 2 | cut -d ']' -f 1 | xargs )
+                redis-cli hset orion_reset "$i" "$val"
+                # echo "$i $val"
+            fi
+        done
+        # create the orion_reset file
+        touch "/tmp/orion_reset.firsttime"
+    fi
+fi
 
 ##################
 # sound profiles #
 ##################
 
-# default
 if [ "$1" == "default" ]; then
-ifconfig eth0 mtu 1500
-ifconfig eth0 txqueuelen 1000
-echo 60 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=6000000 s02=6000000 s03=6000000 s04=6000000 s05=6000000 s06=6000000 s07=6000000 s08=6000000 s09=6000000 s10=6000000 u01=8 u02=8 u03=8 u04=8 u05=8 u06=8 u07=8 u08=8 u09=8 u10=8
-mpdprio_default
-echo "DEFAULT sound signature profile"
-fi
-
-# default
-if [ "$1" == "RuneAudio" ]; then
-ifconfig eth0 mtu 1500
-ifconfig eth0 txqueuelen 1000
-echo 0 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
-mpdprio_nice
-echo "RuneAudio  sound signature profile"
-fi
-
-# mod1
-if [ "$1" == "ACX" ]; then
-ifconfig eth0 mtu 1500
-ifconfig eth0 txqueuelen 4000
-echo 0 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=850000 s02=3500075 s03=3500075 s04=3500075 s05=3500075 s06=3500075 s07=3500075 s08=3500075 s09=3500075 s10=3500075 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
-mpdprio_default
-echo "(ACX) sound signature profile"
-fi
-
-# mod2
-if [ "$1" == "Orion" ]; then
-ifconfig eth0 mtu 1000
-echo 20 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=500000 s02=500000 s03=500000 s04=1000000 s05=1000000 s06=1000000 s07=100000 s08=1000000 s09=1000000 s10=1000000 u01=1 u02=1 u03=1 u04=1 u05=1 u06=1 u07=1 u08=1 u09=1 u10=1
-sleep 2
-mpdprio_default
-echo "(Orion) sound signature profile"
-fi
-
-# mod3
-if [ "$1" == "OrionV2" ]; then
-ifconfig eth0 mtu 1000
-ifconfig eth0 txqueuelen 4000
-echo 0 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=120000 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
-sleep 2
-mpdprio_nice
-echo "(OrionV2) sound signature profile"
-fi
-
-# mod4
-if [ "$1" == "OrionV3_iqaudio" ]; then
-ifconfig eth0 mtu 1000
-ifconfig eth0 txqueuelen 4000
-echo 0 > /proc/sys/vm/swappiness
-#modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2 
-if [ "$2" == "01" ]; then
-    echo 1500000 > /proc/sys/kernel/sched_latency_ns
-    echo 950000 > /proc/sys/kernel/sched_rt_period_us
-    echo 950000 > /proc/sys/kernel/sched_rt_runtime_us
-    echo 0 > /proc/sys/kernel/sched_autogroup_enabled
-    echo 1 > /proc/sys/kernel/sched_rr_timeslice_ms
-    echo 950000 > /proc/sys/kernel/sched_min_granularity_ns
-    echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns
-fi
-sleep 2
-mpdprio_nice
-echo "(OrionV3 optimized for IQaudio Pi-DAC) sound signature profile"
-fi
-
-# mod5
-if [ "$1" == "OrionV3_berrynosmini" ]; then
-ifconfig eth0 mtu 1000
-ifconfig eth0 txqueuelen 4000
-echo 0 > /proc/sys/vm/swappiness
-#modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2 
-if [ "$2" == "01" ]; then
-    echo 60 > /proc/sys/vm/swappiness
-    echo 145655 > /proc/sys/kernel/sched_latency_ns
-    echo 1 > /proc/sys/kernel/sched_rt_period_us
-    echo 1 > /proc/sys/kernel/sched_rt_runtime_us
-    echo 0 > /proc/sys/kernel/sched_autogroup_enabled
-    echo 100 > /proc/sys/kernel/sched_rr_timeslice_ms
-    echo 400000 > /proc/sys/kernel/sched_min_granularity_ns
-    echo 1 > /proc/sys/kernel/sched_wakeup_granularity_ns
-fi
-sleep 2
-mpdprio_nice
-echo "(OrionV3 optimized for BerryNOS-mini I2S DAC) sound signature profile"
-fi
-
-# mod6
-if [ "$1" == "Um3ggh1U" ]; then
-ifconfig eth0 mtu 1500
-ifconfig eth0 txqueuelen 1000
-echo 0 > /proc/sys/vm/swappiness
-modKschedLatency hw=$2 s01=500000 s02=3700000 s03=3700000 s04=3700000 s05=3700000 s06=3700000 s07=3700000 s08=3700000 s09=3700000 s10=3700000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
-mpdprio_default
-echo "(Um3ggh1U) sound signature profile"
+    modmtu 1500
+    modtxqueuelen 1000
+    echo "Linux DEFAULT sound signature profile"
+elif [ "$1" == "RuneAudio" ]; then
+    if [ "$2" == "08" ]; then
+        modmtu 9000
+        modtxqueuelen 4000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+        echo -n 1 > /proc/sys/kernel/hung_task_check_count
+        echo -n 20 > /proc/sys/vm/stat_interval
+        echo -n -1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 5 > /proc/sys/vm/dirty_background_ratio
+    else
+        modmtu 1500
+        modtxqueuelen 1000
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
+    fi
+    sleep 2
+    echo "(RuneAudio) sound signature profile"
+elif [ "$1" == "ACX" ]; then
+    modmtu 1500
+    modtxqueuelen 4000
+    echo -n 0 > /proc/sys/vm/swappiness
+    modKschedLatency hw=$2 s01=850000 s02=3500075 s03=3500075 s04=3500075 s05=3500075 s06=3500075 s07=3500075 s08=3500075 s09=3500075 s10=3500075 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    echo "(ACX) sound signature profile"
+elif [ "$1" == "Orion" ]; then
+    modmtu 1000
+    modtxqueuelen 1000
+    echo -n 20 > /proc/sys/vm/swappiness
+    modKschedLatency hw=$2 s01=500000 s02=500000 s03=500000 s04=1000000 s05=1000000 s06=1000000 s07=100000 s08=1000000 s09=1000000 s10=1000000 u01=1 u02=1 u03=1 u04=1 u05=1 u06=1 u07=1 u08=1 u09=1 u10=1
+    echo "(Orion) sound signature profile"
+elif [ "$1" == "OrionV2" ]; then
+    modmtu 1000
+    modtxqueuelen 4000
+    echo -n 0 > /proc/sys/vm/swappiness
+    modKschedLatency hw=$2 s01=120000 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    sleep 2
+    echo "(OrionV2) sound signature profile"
+elif [ "$1" == "OrionV3_iqaudio" ]; then
+    if [ "$2" == "01" ]; then
+        modmtu 1000
+        modtxqueuelen 4000
+        echo -n 1500000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 950000 > /proc/sys/kernel/sched_rt_period_us
+        echo -n 950000 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 0 > /proc/sys/kernel/sched_autogroup_enabled
+        echo -n 1 > /proc/sys/kernel/sched_rr_timeslice_ms
+        echo -n 950000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+    else
+        modmtu 1000
+        modtxqueuelen 4000
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    fi
+    sleep 2
+    echo "(OrionV3 optimized for IQaudio Pi-DAC) sound signature profile"
+elif [ "$1" == "OrionV3_berrynosmini" ]; then
+    if [ "$2" == "01" ]; then
+        modmtu 1000
+        modtxqueuelen 4000
+        echo -n 60 > /proc/sys/vm/swappiness
+        echo -n 145655 > /proc/sys/kernel/sched_latency_ns
+        echo -n 1 > /proc/sys/kernel/sched_rt_period_us
+        echo -n 1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 0 > /proc/sys/kernel/sched_autogroup_enabled
+        echo -n 100 > /proc/sys/kernel/sched_rr_timeslice_ms
+        echo -n 400000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 1 > /proc/sys/kernel/sched_wakeup_granularity_ns
+    else
+        modmtu 1000
+        modtxqueuelen 4000
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    fi
+    sleep 2
+    echo "(OrionV3 optimized for BerryNOS-mini I2S DAC) sound signature profile"
+elif [ "$1" == "ACX" ]; then
+    modmtu 1500
+    modtxqueuelen 4000
+    echo -n 0 > /proc/sys/vm/swappiness
+    modKschedLatency hw=$2 s01=850000 s02=3500075 s03=3500075 s04=3500075 s05=3500075 s06=3500075 s07=3500075 s08=3500075 s09=3500075 s10=3500075 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    echo "(ACX) sound signature profile"
+elif [ "$1" == "Dynobot" ]; then
+    if [ "$2" == "08" ]; then
+        modmtu 9000
+        modtxqueuelen 4000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+        echo -n kyber > /sys/block/mmcblk0/queue/scheduler # was previously noop (depreciated), kyber is a simple, low overhead, low latency scheduler, similar to noop but has completely different algorithm
+        echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+        echo -n 1 > /proc/sys/kernel/hung_task_check_count
+        echo -n 20 > /proc/sys/vm/stat_interval
+        echo -n -1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 5 > /proc/sys/vm/dirty_background_ratio
+    else
+        modmtu 1500
+        modtxqueuelen 1000
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=500000 s02=3700000 s03=3700000 s04=3700000 s05=3700000 s06=3700000 s07=3700000 s08=3700000 s09=3700000 s10=3700000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
+    fi
+    sleep 2
+    echo "(Dynobot for Pi2, 3 and 4) sound signature profile"
+elif [ "$1" == "Frost_dk" ]; then
+    if [ "$2" == "08" ]; then
+        modmtu 9000
+        modtxqueuelen 4000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+        echo -n mq-deadline > /sys/block/mmcblk0/queue/scheduler # mq-deadline is the current default scheduler, balanced approach (throughput vs. latency), this line could be removed
+        echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+        echo -n 1 > /proc/sys/kernel/hung_task_check_count
+        echo -n 20 > /proc/sys/vm/stat_interval
+        echo -n -1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 5 > /proc/sys/vm/dirty_background_ratio
+    else
+        modmtu 1000
+        modtxqueuelen 4000
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=120000 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
+    fi
+    sleep 2
+    echo "(Frost_dk for Pi2, 3 and 4) sound signature profile"
+elif [ "$1" == "janui" ]; then
+    if [ "$2" == "08" ]; then
+        modmtu 9000
+        modtxqueuelen 4000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+        echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
+        echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
+        echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
+        echo -n 1 > /proc/sys/kernel/hung_task_check_count
+        echo -n 20 > /proc/sys/vm/stat_interval
+        echo -n -1 > /proc/sys/kernel/sched_rt_runtime_us
+        echo -n 5 > /proc/sys/vm/dirty_background_ratio
+    else
+        modmtu 1500
+        modtxqueuelen 1000
+        echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        echo -n kyber > /sys/block/mmcblk0/queue/scheduler # kyber is a simple, low overhead, low latency scheduler
+        echo -n 0 > /proc/sys/vm/swappiness
+        modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
+    fi
+    sleep 2
+    echo "(RuneAudio) sound signature profile"
 fi
 
 # dev
@@ -332,7 +344,7 @@ echo "flush DEV sound profile 'fake'"
 fi
 
 if [ "$1" == "" ]; then
-echo "Orion Optimize Script v$ver" 
-echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U} {architectureID}"
+echo "Orion Optimize Script v$ver"
+echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
 exit 1
 fi

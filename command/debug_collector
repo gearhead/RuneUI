@@ -32,79 +32,237 @@
  *  coder: Simone De Gregori
  *
  */
-// common include
+// initialisation
+// report errors: set display_errors to true (=1)
 ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
 ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/debug_collector.log');
-include('/var/www/app/libs/runeaudio.php');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
-function debug_data($redis)
+require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: debug_collector ---------------" > /var/log/runeaudio/debug_collector.log');
+// logging starting message
+runelog('WORKER debug_collector STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+function debug_data($redis, $fp=null)
 {
-	$acards = sysCmd("cat /proc/asound/cards | grep : | cut -d ' ' -f 2");
     $output = "\n";
     $output .= "###### System info ######\n";
     $output .=  file_get_contents('/proc/version')."\n";
+    $output .= "Hardware model:\t".implode('\n', sysCmd("cat /proc/device-tree/model | tr -dc '[[:print:]]'"))."\n";
+    $bit = ' '.sysCmd('uname -m')[0];
+    if (strpos($bit, '64')) {
+        $bit = ' (64 bit)';
+    } else if (strpos($bit, '7')) {
+        $bit = ' (32 bit)';
+    } else {
+        $bit = '';
+    }
+    $output .= "Linux version:\t".implode('\n', sysCmd('uname -r')).$bit."\n";
+    unset($bit);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "System time:\t".implode('\n', sysCmd('date'))."\n";
     $output .= "System load:\t".file_get_contents('/proc/loadavg');
-    $output .= "Hardware model:\t".implode('\n', sysCmd('cat /proc/device-tree/model'))."\n";
-    $output .= "Linux version:\t".implode('\n', sysCmd('uname -r'))."\n";
-    $command = sysCmd("cat /etc/motd | grep -i 'RuneUI:' | cut -d ':' -f 2");
-    $output .= "RuneOS/UI:\t".trim($command[0])." - ";
-    unset($command);
-    $command = sysCmd("cat /etc/motd | grep -i 'RuneOS:' | cut -d ':' -f 2");
-    $output .= trim($command[0])."\n";
-    unset($command);
-    $output .= "Git Branch:\t".$redis->hget('git', 'branch')."\n";
     $output .= "HW platform:\t".$redis->get('hwplatform')." (".$redis->get('hwplatformid').")\n";
-    $output .= "Build version:\t".$redis->get('buildversion')."-".$redis->get('patchlevel')."\n";
-    $output .= "PlayerID:\t".$redis->get('playerid')."\n";
-    $output .= "\n";
-    $output .= "\n";
-    $output .= "###### Boot configuration (cat /boot/config.txt) ######\n";
-    $command = sysCmd("grep -v -e '^[[:space:]]*$' /boot/config.txt | grep -v '#.*='");
+    $command = sysCmd("grep -i 'RuneOS:' /etc/motd | cut -d ':' -f 2");
+    $output .= "RuneOS:\t\t".trim($command[0])."\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "RuneUI:\t\t".$redis->get('buildversion')."-".$redis->get('patchlevel')."\n";
+    $output .= "Git Branch:\t".$redis->hget('git', 'branch')."\n";
+    $output .= "PlayerID:\t".$redis->get('playerid')."\n\n\n";
+    $output .= "###### CPU temperature, throttling & power supply voltage status ######\n";
+    $command = sysCmd("/opt/vc/bin/vcgencmd measure_temp");
+    $output .= "CPU Temperature: \t   ".preg_replace('/[^0-9.]/', '', $command[0])."'C\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $command = sysCmd("/opt/vc/bin/vcgencmd get_throttled");
+    $command = explode("0x", $command[0], 2);
+    if ($command[1] == 0) {
+        $output .= "Status:\t\t\t   No issues to report\n";
+    } else {
+        // echo $command[1]."\n";
+        $throttled = '';
+        foreach (str_split($command[1]) as $hex) {
+            $throttled .= str_pad(base_convert($hex,16,2),4,"0",STR_PAD_LEFT);
+        }
+        // echo $throttled."\n";
+        $throttled=array_reverse(str_split($throttled));
+        // echo implode($throttled)."\n";
+        $command = sysCmd("/opt/vc/bin/vcgencmd get_config int | grep -i temp_limit");
+        $output .= "Temperature limit: \t   ".preg_replace('/[^0-9.]/', '', $command[0])."'C\n";
+        $output .= "Temperature status:\t";
+        if ($throttled[3]) {
+            $output .= "** Currently temperature limit reached!!\n";
+        } else if ($throttled[19]) {
+            $output .= "*  Temperature limit reached since last reboot!\n";
+        } else {
+            $output .= "   No temperature limit reached since last reboot\n";
+        }
+        $output .= "Throttling status:\t";
+        if ($throttled[2]) {
+            $output .= "** Currently throttled!!\n";
+        } else if ($throttled[18]) {
+            $output .= "*  Throttling has occurred since last reboot!\n";
+        } else {
+            $output .= "   No throttling has occurred since last reboot\n";
+        }
+        $output .= "ARM frequency status:\t";
+        if ($throttled[1]) {
+            $output .= "** Currently arm frequency capped!!\n";
+        } else if ($throttled[17]) {
+            $output .= "*  Arm frequency capping has occurred since last reboot!\n";
+        } else {
+            $output .= "   No arm frequency capping has occurred since last reboot\n";
+        }
+        $output .= "Under-voltage status:\t";
+        if ($throttled[0]) {
+            $output .= "** Currently under-voltage!!\n";
+        } else if ($throttled[16]) {
+            $output .= "*  Under-voltage has occurred since last reboot!\n";
+        } else {
+            $output .= "   No under-voltage has occurred since last reboot\n";
+        }
+    }
+    $output .= "\n\n";
+    unset($command, $throttled, $hex);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Memory statistics (free -l) ######\n";
+    $command = sysCmd('free -l');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-    $output .= "##################################################\n\n\n";
-    $output .= "###### System load statistics (procinfo -H) ######\n";
-    $command = sysCmd('procinfo -H');
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### System load statistics (procinfo -r) ######\n";
+    $command = sysCmd('procinfo -r');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### Active processes (pstree) ######\n";
     $command = sysCmd('pstree');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' /boot/config.txt) ######\n";
+    $command = sysCmd("grep -ve '^\s*#' /boot/config.txt");
+    $output .= implode("\n", $command)."\n";
+    $output .= "##################################################\n\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Boot configuration - cmdline.txt (cat /proc/cmdline) ######\n";
+    $command = sysCmd("fold -s -w 100 /proc/cmdline");
+    $output .= implode("\n", $command)."\n";
+    $output .= "##################################################\n\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Filesystem mounts (cat /proc/mounts) ######\n";
+    $output .=  file_get_contents('/proc/mounts')."\n\n";
+    $output .= "###### Filesystem mounts - free space (df -h) ######\n";
+    $command = sysCmd('df -h');
+    $output .= implode("\n", $command)."\n\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, '/usr/bin/parted');
+    if (file_exists('/usr/bin/parted')) {
+        $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
+        $command = sysCmd("parted -ls | grep -v '^$' | sed -E ':a;N;$!ba;s/\\nModel/\\n\\nModel/g' ");
+        $output .= implode("\n", $command)."\n\n\n";
+        unset($command);
+        if ($fp) {
+            gzwrite($fp, $output);
+            $output = '';
+        }
+    }
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, '/usr/bin/smartctl');
+    if (file_exists('/usr/bin/smartctl')) {
+        $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
+        if (!empty($drive_list)) {
+            foreach($drive_list as $drive) {
+                $drive = trim($drive);
+                if ($drive != "") {
+                    $drive = "smartctl ".$drive." | grep -E 'Model:|Capacity:|-health self-|SMART support is'";
+                    $output .= "###### Hard Disk Drive - SMART Health Check (".$drive.") ######\n";
+                    $command = sysCmd($drive);
+                    $output .= implode("\n", $command)."\n\n";
+                    unset($command);
+                }
+            }
+            unset($drive);
+            unset($drive_list);
+            $output .= "\n";
+            if ($fp) {
+                gzwrite($fp, $output);
+                $output = '';
+            }
+        }
+    }
     $output .= "###### Audio backend ######\n";
     $output .=  file_get_contents('/proc/asound/version');
     $output .= "\n";
     $output .= "Card list: (/proc/asound/cards)\n";
     $output .= "--------------------------------------------------\n";
     $output .=  file_get_contents('/proc/asound/cards');
-    $output .= "\n";
-    $output .= "\n";
+    $output .= "\n\n";
     $output .= "PLAYBACK devices: (aplay -l)\n";
     $output .= "--------------------------------------------------\n";
     $output .= implode("\n", sysCmd('aplay -l'));
-    $output .= "\n";
-    $output .= "\n";
-    $output .= "\n";
-    $output .= "PCM devices: (aplay -L)\n";
-    $output .= "--------------------------------------------------\n";
-    $output .= implode("\n", sysCmd('aplay -L'));
-    $output .= "\n";
-    $output .= "\n";
-    $output .= "\n";
+    $output .= "\n\n\n";
+    // $output .= "PCM devices: (aplay -L)\n";
+    // $output .= "--------------------------------------------------\n";
+    // $output .= implode("\n", sysCmd('aplay -L'));
+    // $output .= "\n\n\n";
     $output .= "Simple mixer controls: (amixer scontrols)\n";
     $output .= "--------------------------------------------------\n";
+    $acards = sysCmd("grep : /proc/asound/cards | cut -d ' ' -f 2");
     foreach ($acards as $card) {
         $output .= "card ".$card.":\n";
         $command = implode("\n", sysCmd('amixer -c '.$card.' scontrols'));
         if (!empty($command)) { $output .= $command; } else { $output .= 'no mixer scontrols'; }
         unset($command);
-        $output .= "\n\n";
+        if ($fp) {
+            gzwrite($fp, $output);
+            $output = '';
+        }
+        $output .= "\n";
     }
-    $output .= "\n";
+    $output .= "\n\n";
     $output .= "Mixer controls: (amixer controls)\n";
     $output .= "--------------------------------------------------\n";
     foreach ($acards as $card) {
@@ -112,185 +270,266 @@ function debug_data($redis)
         $command = implode("\n", sysCmd('amixer -c '.$card.' controls'));
         if (!empty($command)) { $output .= $command; } else { $output .= 'no mixer controls'; }
         unset($command);
-        $output .= "\n\n";
+        if ($fp) {
+            gzwrite($fp, $output);
+            $output = '';
+        }
+        $output .= "\n";
     }
-    $output .= "\n";
+    $output .= "\n\n";
+    unset($command, $acards, $card);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "MPD audio outputs status: (mpc outputs)\n";
     $output .= "--------------------------------------------------\n";
-    $command = implode("\n", sysCmd('mpc outputs'));
+    $command = implode("\n", sysCmd("mpc outputs"));
     $output .= $command;
     unset($command);
-    $output .= "\n\n";
-    $output .= "MPD statistics: (mpc stats)\n";
-    $output .= "--------------------------------------------------\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "\n\n\n";
+    $output .= "###### MPD statistics: (mpc stats) ######\n";
     $command = implode("\n", sysCmd('mpc stats'));
     $output .= $command;
     unset($command);
-    $output .= "\n\n";
-    // TODO: better collect stream info
-    // $output .= "ALSA interface #0: (/proc/asound/card0/pcm0p/info)\n";
-    // $output .= "--------------------------------------------------\n";
-    // $output .=  file_get_contents('/proc/asound/card0/pcm0p/info');
-    // $output .= "\n";
-    // $output .= "ALSA interface #1: (/proc/asound/card1/pcm0p/info)\n";
-    // $output .= "--------------------------------------------------\n";
-    // $output .=  file_get_contents('/proc/asound/card1/pcm0p/info');
-    // $output .= "\n";
-    // $output .= "interface #0 stream status: (/proc/asound/card0/stream0)\n";
-    // $output .= "--------------------------------------------------------\n";
-    // $streaminfo = file_get_contents('/proc/asound/card0/stream0');
-    // if (empty($streaminfo)) {
-    // $output .= "no stream present\n";
-    // } else {
-    // $output .= $streaminfo;
-    // }
-    // $output .= "\n";
-    // $output .= "interface #1 stream status: (/proc/asound/card1/stream0)\n";
-    // $output .= "--------------------------------------------------------\n";
-    // $streaminfo = file_get_contents('/proc/asound/card1/stream0');
-    // if (empty($streaminfo)) {
-    // $output .= "no stream present\n";
-    // } else {
-    // $output .= $streaminfo;
-    // }
-    $command = implode("\n", sysCmd('mpd --version'));
-    $output .= "###### mpd version ######\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "\n\n\n";
+    $output .= "###### mpd version (mpd --version) ######\n";
+    $command = implode("\n", sysCmd("mpd --version | grep -v '^$'"));
     $output .= $command;
-    $output .= "\n\n";
-    $output .= "###### mpd.conf ######\n";
+    $output .= "\n\n\n";
+    $output .= "###### MPD configuration (cat /etc/mpd.conf) ######\n";
     $output .= file_get_contents('/etc/mpd.conf');
-    $output .= "\n";
+    $output .= "##################################################\n\n\n";
     $output .= "###### Kernel optimization parameters ######\n";
     $output .= "hardware platform:\t".$redis->get('hwplatform')."\n";
     $output .= "current orionprofile:\t".$redis->get('orionprofile')."\n";
+    $output .= "\n";
+    $cores = $redis->get('cores');
+    if ($cores == 1) {
+        $optArray = array(
+            '/sys/block/mmcblk0/queue/scheduler',
+            '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
+            '/proc/sys/vm/swappiness',
+            '/proc/sys/kernel/sched_latency_ns',
+            '/proc/sys/kernel/sched_rt_period_us',
+            '/proc/sys/kernel/sched_rt_runtime_us',
+            '/proc/sys/kernel/sched_autogroup_enabled',
+            '/proc/sys/kernel/sched_rr_timeslice_ms',
+            '/proc/sys/kernel/sched_min_granularity_ns',
+            '/proc/sys/kernel/sched_wakeup_granularity_ns',
+            '/proc/sys/kernel/hung_task_check_count',
+            '/proc/sys/vm/stat_interval',
+            '/proc/sys/vm/dirty_background_ratio'
+            );
+    } else {
+        $optArray = array(
+            '/sys/block/mmcblk0/queue/scheduler',
+            '/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor',
+            '/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor',
+            '/proc/sys/vm/swappiness',
+            '/proc/sys/kernel/sched_latency_ns',
+            '/proc/sys/kernel/sched_rt_period_us',
+            '/proc/sys/kernel/sched_rt_runtime_us',
+            '/proc/sys/kernel/sched_autogroup_enabled',
+            '/proc/sys/kernel/sched_rr_timeslice_ms',
+            '/proc/sys/kernel/sched_min_granularity_ns',
+            '/proc/sys/kernel/sched_wakeup_granularity_ns',
+            '/proc/sys/kernel/hung_task_check_count',
+            '/proc/sys/vm/stat_interval',
+            '/proc/sys/vm/dirty_background_ratio'
+            );
+    }
+    foreach ($optArray as $optParam) {
+        $spaces = 56 - strlen($optParam);
+        if (file_exists($optParam)) {
+            $output .=  $optParam.":".str_repeat(' ', $spaces).file_get_contents($optParam);
+        } else {
+            $output .=  $optParam.":".str_repeat(' ', $spaces)."Unset/depreciated\n";
+        }
+    }
+    unset($optArray, $optParam, $cores);
     $output .= "\n\n";
-    //         $output .=  "kernel scheduler for mmcblk0:\t\t".((empty(file_get_contents('/sys/block/mmcblk0/queue/scheduler'))) ? "\n" : file_get_contents('/sys/block/mmcblk0/queue/scheduler'));
-    $output .=  "kernel scheduler for mmcblk0:\t\t\t".file_get_contents('/sys/block/mmcblk0/queue/scheduler');
-    $output .=  "/proc/sys/vm/swappiness:\t\t\t".file_get_contents('/proc/sys/vm/swappiness');
-    $output .=  "/proc/sys/kernel/sched_latency_ns:\t\t".file_get_contents('/proc/sys/kernel/sched_latency_ns');
-    $output .=  "/proc/sys/kernel/sched_rt_period_us:\t\t".file_get_contents('/proc/sys/kernel/sched_rt_period_us');
-    $output .=  "/proc/sys/kernel/sched_rt_runtime_us:\t\t".file_get_contents('/proc/sys/kernel/sched_rt_runtime_us');
-    $output .=  "/proc/sys/kernel/sched_autogroup_enabled:\t".file_get_contents('/proc/sys/kernel/sched_autogroup_enabled');
-    $output .=  "/proc/sys/kernel/sched_rr_timeslice_ms:\t\t".file_get_contents('/proc/sys/kernel/sched_rr_timeslice_ms');
-    $output .=  "/proc/sys/kernel/sched_min_granularity_ns:\t".file_get_contents('/proc/sys/kernel/sched_min_granularity_ns');
-    $output .=  "/proc/sys/kernel/sched_wakeup_granularity_ns:\t".file_get_contents('/proc/sys/kernel/sched_wakeup_granularity_ns');
-    $output .= "\n";
-    $output .= "\n";
     $output .= "###### Kernel module snd_usb_audio settings ######\n";
-    $command = sysCmd('systool -v -m snd_usb_audio');
+    $command = sysCmd('systool -v -m snd_usb_audio | grep -vi error');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
-    $output .= "###### Systemd active startup scripts (ls -lah /etc/systemd/system/multi-user.target.wants/) ######\n";
-    $command = sysCmd('ls -lah /etc/systemd/system/multi-user.target.wants/');
+    if ($redis->exists('getID3_error')) {
+        $output .= "###### getID3 file processing error (redis-cli get getID3_error) ######\n";
+        $output .= "Error occurred when processing file: '".$redis->get('getID3_error')."'\n\n";
+    }
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Systemd active startup scripts (ls -l /etc/systemd/system/multi-user.target.wants/) ######\n";
+    $command = sysCmd('ls -l /etc/systemd/system/multi-user.target.wants/ | grep -vi total');
     $output .= implode("\n", $command)."\n\n\n";
-    $output .= "###### Filesystem mounts ######\n";
-    $output .=  file_get_contents('/proc/mounts')."\n\n";
-    $output .= "###### Filesystem mounts - free space (df -h) ######\n";
-    $command = sysCmd('df -h');
+    $output .= "###### Systemd enabled services (systemctl list-unit-files | grep enabled) ######\n";
+    $command = sysCmd("systemctl list-unit-files | grep -E '.service|.socket|STATE' | grep -E 'enabled[ ]{7}|enabled-|STATE'");
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-	if (file_exists("/usr/bin/parted")) {
-		$output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
-		$command = sysCmd('parted -ls');
-		$output .= implode("\n", $command)."\n";
-		unset($command);
-	}
-	if (file_exists("/usr/bin/smartctl")) {
-		$drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
-		if (!empty($drive_list)) {
-			foreach($drive_list as $drive) {
-				$drive = trim($drive);
-				if ($drive != "") {
-					$drive = "smartctl ".$drive." | grep -E 'Model:|Capacity:|-health self-|SMART support is'";
-					$output .= "###### Hard Disk Drive - SMART Health Check (".$drive.") ######\n";
-					$command = sysCmd($drive);
-					$output .= implode("\n", $command)."\n\n";
-					unset($command);
-				}
-			}
-			unset($drive);
-			unset($drive_list);
-			$output .= "\n";
-		}
-	}
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### Loaded kernel modules (lsmod) ######\n";
     $command = sysCmd('lsmod');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-    $output .= "###### Network listening sockets (netstat -lnp) ######\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, listening sockets (netstat -lnp) ######\n";
     $command = sysCmd('netstat -lnp');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-    $output .= "###### Network established sockets (netstat -np) ######\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, established sockets (netstat -np) ######\n";
     $command = sysCmd('netstat -np');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-    $output .= "###### Network interfaces (ip addr) ######\n";
-    $command = sysCmd('ip addr');
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, basic settings ######\n";
+    $output .= "Wi-Fi on        : ".(boolval($redis->get('wifi_on')) ? 'true' : 'false')."\n";
+    $output .= "Access Point on : ".(boolval($redis->hGet('AccessPoint', 'enable')) ? 'true' : 'false')."\n";
+    $output .= "Bluetooth on    : ".(boolval($redis->get('bluetooth_on')) ? 'true' : 'false')."\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, all interfaces (ip -h link) ######\n";
+    $command = sysCmd('ip -h link');
+    $output .= implode("\n", $command)."\n\n";
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, connected interfaces (ip -s -h -d addr) ######\n";
+    $command = sysCmd('ip -s -h -d addr');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
-    $output .= "###### Network interfaces (ifconfig) ######\n";
-    $command = sysCmd('ifconfig');
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, network profiles (connmanctl services) ######\n";
+    $command = sysCmd('connmanctl services | grep "*"');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
-    $output .= "###### Network netctl profiles (netctl list) ######\n";
-    $command = sysCmd('netctl list');
-    $output .= implode("\n", $command)."\n\n";
-    unset($command);
-    $command = sysCmd("netctl list | cut -d ' ' -f 2,3");
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $command = sysCmd('connmanctl services | grep "*" | cut -b 26-');
     foreach ($command as $interface) {
-        $command = sysCmd('netctl status "'.trim($interface).'"');
-        $output .= $interface." netctl status\n";
-        $output .= "--------------------------------------------------------\n";
-        $output .= implode("\n",$command)."\n\n";
-        $output .= $interface." netctl profile\n";
-        $output .= "--------------------------------------------------------\n";
-        $command = sysCmd('cat /etc/netctl/"'.trim($interface).'"');
-        // go through all settings and mask out the PSK
-        foreach ($command as $line) {
-            if (stripos($line, "psk=") != FALSE) $line = '    \'psk="***************"\'';
-            $output .= $line."\n";
+        $interface = trim($interface);
+        // clear the cache otherwise file_exists() returns incorrect values
+        clearstatcache(true, '/var/lib/connman/'.$interface.'/settings');
+        if (file_exists('/var/lib/connman/'.$interface.'/settings')) {
+            $output .= "# favourite connman profile ".$interface." #\n";
+            $output .= str_repeat('-',strlen($interface)+30)."\n";
+            $command = sysCmd('cat /var/lib/connman/'.$interface.'/settings | sed s/^Passphrase.*/Passphrase=***************/g');
+            $output .= implode("\n", $command)."\n\n";
+            unset($command);
+            if ($fp) {
+                gzwrite($fp, $output);
+                $output = '';
+            }
         }
-        $output .= "\n";
     }
     $output .= "\n";
-    $output .= "###### Network wifi status (iwconfig) ######\n";
+    $output .= "###### Network, Wi-Fi status (iwconfig) ######\n";
     $command = sysCmd('iwconfig');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
-    $output .= "###### Network WiFi Access Point (redis-cli hgetall AccessPoint) ######\n";
-	$command = sysCmd('redis-cli hgetall AccessPoint');
-	$output .= implode("\n", $command)."\n\n";
-    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    $output .= "###### Network, Wi-Fi Access Point (redis-cli hgetall AccessPoint) ######\n";
+    $command = $redis->hgetall('AccessPoint');
+    foreach ($command as $key => $value) {
+        if ($key == 'passphrase') {
+            $output .= $key.': ######'."\n";
+        } else {
+            $output .= $key.': '.$value."\n";
+        }
+    }
+    $output .= "\n";
+    $nics = json_decode($redis->get('network_interfaces'), true);
+    foreach ($nics as $nic) {
+        if (($nic['type'] === 'AP') && ($nic['ipStatus'] === 'UP')) {
+            $output .= 'Wi-Fi Access Point ACTIVE on '.str_replace('Interface ', 'interface ', implode("\n", sysCmd('iw '.$nic['nic'].' info')))."\n";
+        }
+    }
+    $output .= "\n\n";
+    unset($command, $key, $value, $nics, $nic);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### Rern's Addons (redis-cli hgetall addons) ######\n";
-	$command = sysCmd('redis-cli hgetall addons');
-	$output .= implode("\n", $command)."\n\n";
-    unset($command);
-    // $output .= "###### Network wifi site-scan (iwlist scan) ######\n";
-    // $command = sysCmd('iwlist scan');
-    // $output .= implode("\n",$command)."\n\n";
-    // unset($command);
+    $command = $redis->hgetall('addons');
+    foreach ($command as $key => $value) {
+        $output .= $key.': '.$value."\n";
+    }
+    $output .= "\n\n";
+    unset($command, $key, $value);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### List all USB devices (lsusb) ######\n";
     $command = sysCmd('lsusb');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### Kernel status (dmesg) ######\n";
     $command = sysCmd('dmesg');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
     $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|loaded|loading" | grep -i -v "audit" | head -n 200');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
-	// $output .= "###### latest systemd (journal) messages (journalctl | tail -n 50) ######\n";
-	// $command = sysCmd('journalctl | tail -n 50');
-	// $output .= implode("\n", $command)."\n\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
+    // $output .= "###### latest systemd (journal) messages (journalctl | tail -n 50) ######\n";
+    // $command = sysCmd('journalctl | tail -n 50');
+    // $output .= implode("\n", $command)."\n\n";
     // unset($command);
     $output .= "###### PHP backend ######\n";
     $output .= "php version:\t".phpversion()."\n";
     $output .= "debug level:\t".$redis->get('debug')."\n";
-    $output .= "\n";
-    $output .= "\n";
+    $output .= "\n\n";
     // $output .= "###### SESSION ######\n";
     // $output .= "\n";
     // $output .= "STATUS:\t\t".session_status()."\n";
@@ -304,7 +543,52 @@ function debug_data($redis)
     $output .= "Debug data collected in ".round((microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']),3)." seconds. ";
     // $output .= "\n";
     // $output .= "\n";
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     return $output;
 }
-$redis->set('debugdata', debug_data($redis));
+
+// get the lock status
+$lock = $redis->get('lock_debug_collector');
+runelog('lock status ', $lock);
+if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+    // set the lock
+    $redis->set('lock_debug_collector', '1');
+    $fileTmp = '/srv/http/.config/debug.tmp';
+    $file = '/srv/http/.config/debug.txt';
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, $fileTmp);
+    // if os updates are needed
+    if (file_exists($fileTmp)) {
+        unlink($fileTmp);           // delete the tmp file, it should not be there
+    }
+    $fp = gzopen($fileTmp, 'wb9');  // open then tmp file in write mode, maximum compression
+    if ($fp) {
+        gzrewind($fp);          // truncate file
+        debug_data($redis, $fp);// process debug data
+        gzclose($fp);           // close the file
+        if (!rename($fileTmp, $file)) {
+            runelog("Couldn't rename the file!", '');
+            echo "Couldn't rename the file!\n";
+        }
+    } else {
+        runelog("Couldn't open file!", '');
+        echo "Couldn't open file!\n";
+    }
+    // unlock
+    $redis->set('lock_debug_collector', '0');
+} else {
+    runelog("LOCKED!", '');
+    echo "LOCKED!\n";
+    // just in case something goes wrong increment the lock value by 1
+    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+    $lock += 1;
+    $redis->set('lock_debug_collector', $lock);
+}
+runelog('lock status ', $redis->get('lock_debug_collector'));
+// close Redis connection
 $redis->close();
+
+runelog('WORKER radio_metadata_async.php END...');

@@ -34,9 +34,8 @@
 // disable main template output
 $tplfile = 0;
 $proxy = $redis->hGetall('proxy');
-if ($proxy['enable'] === '1') {
+if ($proxy['enable']) {
     echo curlGet(substr($_SERVER["REQUEST_URI"], 5), $proxy);
 } else {
     echo curlGet(substr($_SERVER["REQUEST_URI"], 5));
 }
- 

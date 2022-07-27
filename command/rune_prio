@@ -25,7 +25,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
-# 
+#
 #  file: command/rune_prio
 #  version: 1.3
 #  coder: Simone De Gregori
@@ -33,91 +33,76 @@
 #####################################
 set +e # continue on errors
 prio_nice () {
-# count=1
-# for pid in $(pgrep -w mpd);
-# do
-    # if ((count == 3))
-    # then
-        # echo "### Set priority for: mpd-player thread ###";
-        # renice -16 $pid;
-    # fi
-    # if ((count == 4))
-    # then
-        # echo "### Set priority for: mpd-output thread ###";
-        # renice -18 $pid;
-    # fi
-    # if ((count == 5))
-    # then
-            # echo "### Set priority for: mpd-decoder thread ###";
-            # renice -16 $pid;
-    # fi
-# count=$((count+1))
-# done
-renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-renice -1 $(pgrep -wx shairport-sync)
-renice -1 $(pgrep -wx spopd)
-renice -1 $(pgrep -wx upmpdcli)
-renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-renice 10 $(pgrep -wx chromium)
-renice 3 $(pgrep -wx ashuffle)
-renice 3 $(pgrep -wx local-browser)
-renice 3 $(pgrep -wx mpdscribble)
-renice 2 $(pgrep -wx nmbd)
-renice 2 $(pgrep -wx nmb)
-renice 3 $(pgrep -wx rune_PL_wrk)
-renice 3 $(pgrep -wx rune_SSM_wrk)
-renice 3 $(pgrep -wx rune_SY_wrk)
-renice 2 $(pgrep -wx smbd)
-renice 2 $(pgrep -wx smb)
-renice 2 $(pgrep -wx sshd)
-renice 2 $(pgrep -wx xinit)
-renice 1 $(pgrep -wx Xorg)
-renice 1 $(pgrep -wx matchbox-window)
-renice 2 $(pgrep -wx xbindkeys)
+# MPD has the capability of setting its own priority in real time
+# the following is to make sure that its associated processes are also set to a higher priority
+for pid in $(pgrep -w mpd);
+do
+    renice -1 $pid;
+done;
+renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+renice -1 $(pgrep -w mpd)
+renice -1 $(pgrep -w shairport-sync)
+renice -1 $(pgrep -w spopd)
+renice -1 $(pgrep -w spotifyd)
+renice -1 $(pgrep -w upmpdcli)
+# set the local browser to a low value
+for pid in $(pgrep -w chromium);
+do
+    renice 10 $pid;
+done;
+# renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
+# renice 10 $(pgrep -w chromium)
+renice 10 $(pgrep -w luakit)
+renice 10 $(pgrep -w WebKit)
+renice 4 $(pgrep -w ashuffle)
+renice 4 $(pgrep -w local-browser)
+renice 3 $(pgrep -w mpdscribble)
+renice 2 $(pgrep -w nmbd)
+renice 2 $(pgrep -w nmb)
+renice 3 $(pgrep -w rune_PL_wrk)
+renice 4 $(pgrep -w rune_SSM_wrk)
+renice 4 $(pgrep -w rune_SDM_wrk)
+renice 3 $(pgrep -w rune_SY_wrk)
+renice 2 $(pgrep -w smbd)
+renice 2 $(pgrep -w smb)
+renice 2 $(pgrep -w sshd)
+renice 10 $(pgrep -w xinit)
+renice 10 $(pgrep -w Xorg)
+renice 4 $(pgrep -w matchbox-window)
+renice 3 $(pgrep -w xbindkeys)
+renice 4 $(pgrep -w uwsgi)
+renice 6 $(pgrep -w upowerd)
 }
 
 prio_default () {
-# count=1
-# for pid in $(pgrep -w mpd);
-# do
-    # if ((count == 3))
-    # then
-        # echo "### Set priority for: mpd-player thread ###";
-        # renice 0 $pid;
-    # fi
-    # if ((count == 4))
-    # then
-        # echo "### Set priority for: mpd-output thread ###";
-        # renice 0 $pid;
-    # fi
-    # if ((count == 5))
-    # then
-        # echo "### Set priority for: mpd-decoder thread ###";
-        # renice 0 $pid;
-    # fi
-# count=$((count+1))
-# done
-renice 0 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-renice 0 $(pgrep -wx shairport-sync)
-renice 0 $(pgrep -wx spopd)
-renice 0 $(pgrep -wx upmpdcli)
-# renice 0 $(ps -Teo spid,pid,ni,pri,fname | grep -i ' chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-# renice 0 $(pgrep -wx chromium)
-renice 0 $(pgrep -wx ashuffle)
-renice 0 $(pgrep -wx local-browser)
-renice 0 $(pgrep -wx mpdscribble)
-renice 0 $(pgrep -wx nmbd)
-renice 0 $(pgrep -wx nmb)
-renice 0 $(pgrep -wx rune_PL_wrk)
-renice 0 $(pgrep -wx rune_SSM_wrk)
-renice 0 $(pgrep -wx rune_SY_wrk)
-renice 0 $(pgrep -wx smbd)
-renice 0 $(pgrep -wx smb)
-renice 0 $(pgrep -wx sshd)
-renice 0 $(pgrep -wx xinit)
-renice 0 $(pgrep -wx Xorg)
-renice 0 $(pgrep -wx matchbox-window)
-renice 0 $(pgrep -wx xbindkeys)
+# always leave chromium & luakit/Webkit at a lower priority
+# always leave upowerd at a lower priority
+# always leave uwsgi at a lower priority
+for pid in $(pgrep -w mpd);
+do
+    renice 0 $pid;
+done;
+renice 0 $(pgrep -w mpd)
+renice 0 $(pgrep -w shairport-sync)
+renice 0 $(pgrep -w spopd)
+renice 0 $(pgrep -w spotifyd)
+renice 0 $(pgrep -w upmpdcli)
+renice 0 $(pgrep -w ashuffle)
+renice 0 $(pgrep -w local-browser)
+renice 0 $(pgrep -w mpdscribble)
+renice 0 $(pgrep -w nmbd)
+renice 0 $(pgrep -w nmb)
+renice 0 $(pgrep -w rune_PL_wrk)
+renice 0 $(pgrep -w rune_SSM_wrk)
+renice 0 $(pgrep -w rune_SDM_wrk)
+renice 0 $(pgrep -w rune_SY_wrk)
+renice 0 $(pgrep -w smbd)
+renice 0 $(pgrep -w smb)
+renice 0 $(pgrep -w sshd)
+renice 0 $(pgrep -w xinit)
+renice 0 $(pgrep -w Xorg)
+renice 0 $(pgrep -w matchbox-window)
+renice 0 $(pgrep -w xbindkeys)
 }
 
 if [ "$1" == "default" ]; then

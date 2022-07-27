@@ -1,0 +1,17 @@
+[Unit]
+Description=ashuffle for mpd
+After=mpd.service network.target
+
+[Service]
+ExecStart=/usr/bin/ashuffle -q 0 --host /run/mpd/socket --port 6600 -t window-size=7 -t suspend-timeout=1s
+ExecReload=/usr/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=always
+RestartSec=10
+TimeoutStartSec=20
+StartLimitInterval=60
+StartLimitBurst=3
+User=mpd
+
+[Install]
+WantedBy=multi-user.target

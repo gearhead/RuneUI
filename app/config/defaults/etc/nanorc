@@ -257,7 +257,7 @@ set linenumbers
 ## them easier to remember and faster to type using nano's -Y option.
 ##
 ## To include all existing syntax definitions, you can do:
-# include "/usr/share/nano/*.nanorc"
+include "/usr/share/nano/*.nanorc"
 
 
 ## Key bindings.

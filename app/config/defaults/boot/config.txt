@@ -1,176 +1,288 @@
-# Uncomment some or all of these to enable the optional hardware interfaces
-# Params:
-#         i2c_arm                  Set to "on" to enable the ARM's i2c interface
-#                                  (default "off")
-#         i2c_vc                   Set to "on" to enable the i2c interface
-#                                  usually reserved for the VideoCore processor
-#                                  (default "off")
-#         i2c_arm_baudrate         Set the baudrate of the ARM's i2c interface
-#                                  (default "100000")
-#         i2c_vc_baudrate          Set the baudrate of the VideoCore i2c interface
-#                                  (default "100000")
-#         i2c_baudrate             An alias for i2c_arm_baudrate
-#         i2s                      Set to "on" to enable the i2s interface
-#                                  (default "off")
-#         spi                      Set to "on" to enable the spi interfaces
-#                                  (default "off")
-#         act_led_trigger          Choose which activity the LED tracks.
-#                                  Use "heartbeat" for a nice load indicator.
-#                                  (default "mmc")
-#         act_led_activelow        Set to "on" to invert the sense of the LED
-#                                  (default "off")
-#         act_led_gpio             Set which GPIO pin to use for the activity LED
-#                                  (in case you want to connect it to an external
-#                                  device)
-#                                  (default "16" on a non-Plus board, "47" on a
-#                                  Plus or Pi 2)
-#         N.B. It is recommended to only enable those interfaces that are needed.
-#         Leaving all interfaces enabled can lead to unwanted behaviour (i2c_vc
-#         interfering with Pi Camera, I2S and SPI hogging GPIO pins, etc.)
-#         Note also that i2c, i2c_arm and i2c_vc are aliases for the physical
-#         interfaces i2c0 and i2c1. Use of the numeric variants is still possible
-#         but deprecated because the ARM/VC assignments differ between board
-#         revisions. The same board-specific mapping applies to i2c_baudrate,
-#         and the other i2c baudrate parameters.
-
-#dtparam=i2c_arm=on
-#dtparam=i2c_vc=on
-#dtparam=i2s=on
-#dtparam=spi=on
-#dtparam=act_led_trigger=mmc
-#dtdebug=on
-
-#dtparam=uart1=off
-#dtoverlay=pi3-disable-wifi
-#dtoverlay=pi3-disable-bt
-#dtoverlay=pi3-miniuart-bt
-
-## RuneAudio HDMI & 3,5mm jack
+# Introduction /boot/config.txt for RuneAudio
+# ===========================================
+#
+#   See /boot/overlays/README for details
+#
+#   Built-in params:
+#   Format dtparam=<parameter>[=<value>], e.g. dtparam=noant or dtpatam=eth_led0=0
+#
+#   ant1                    Select antenna 1 (default). CM4 only.
+#   ant2                    Select antenna 2. CM4 only.
+#   noant                   Disable both antennas. CM4 only.
+#   audio                   Set to "on" to enable the onboard ALSA audio
+#                           interface (default "off")
+#   axiperf                 Set to "on" to enable the AXI bus performance
+#                           monitors.
+#                           See /sys/kernel/debug/raspberrypi_axi_monitor
+#                           for the results.
+#   eee                     Enable Energy Efficient Ethernet support for
+#                           compatible devices (default "on"). See also
+#                           "tx_lpi_timer". Pi3B+ only.
+#   eth_downshift_after     Set the number of auto-negotiation failures
+#                           after which the 1000Mbps modes are disabled.
+#                           Legal values are 2, 3, 4, 5 and 0, where
+#                           0 means never downshift (default 2). Pi3B+ only.
+#   eth_led0                Set mode of LED0 - amber on Pi3B+ (default "1"),
+#                           green on Pi4 (default "0").
+#                           The legal values are:
+#                           Pi3B+
+#                           0=link/activity          1=link1000/activity
+#                           2=link100/activity       3=link10/activity
+#                           4=link100/1000/activity  5=link10/1000/activity
+#                           6=link10/100/activity    14=off    15=on
+#                           Pi4
+#                           0=Speed/Activity         1=Speed
+#                           2=Flash activity         3=FDX
+#                           4=Off                    5=On
+#                           6=Alt                    7=Speed/Flash
+#                           8=Link                   9=Activity
+#   eth_led1                Set mode of LED1 - green on Pi3B+ (default "6"),
+#                           amber on Pi4 (default "8"). See eth_led0 for
+#                           legal values.
+#   eth_max_speed           Set the maximum speed a link is allowed
+#                           to negotiate. Legal values are 10, 100 and
+#                           1000 (default 1000). Pi3B+ only.
+#   i2c_arm                 Set to "on" to enable the ARM's i2c interface
+#                           (default "off")
+#   i2c_vc                  Set to "on" to enable the i2c interface
+#                           usually reserved for the VideoCore processor
+#                           (default "off")
+#   i2c                     An alias for i2c_arm
+#   i2c_arm_baudrate        Set the baudrate of the ARM's i2c interface
+#                           (default "100000")
+#   i2c_vc_baudrate         Set the baudrate of the VideoCore i2c interface
+#                           (default "100000")
+#   i2c_baudrate            An alias for i2c_arm_baudrate
+#   i2s                     Set to "on" to enable the i2s interface
+#                           (default "off")
+#   krnbt                   Set to "on" to enable autoprobing of Bluetooth
+#                           driver without need of hciattach/btattach
+#                           (default "off")
+#   krnbt_baudrate          Set the baudrate of the PL011 UART when used
+#                           with krnbt=on
+#   leds_off                If set to 'true' the onboard indicator LEDs
+#                           are switched off at all times.
+#   spi                     Set to "on" to enable the spi interfaces
+#                           (default "off")
+#   spi_dma4                Use to enable 40-bit DMA on spi interfaces
+#                           (the assigned value doesn't matter)
+#                           (2711 only)
+#   random                  Set to "on" to enable the hardware random
+#                           number generator (default "on")
+#   sd_overclock            Clock (in MHz) to use when the MMC framework
+#                           requests 50MHz
+#   sd_poll_once            Looks for a card once after booting. Useful
+#                           for network booting scenarios to avoid the
+#                           overhead of continuous polling. N.B. Using
+#                           this option restricts the system to using a
+#                           single card per boot (or none at all).
+#                           (default off)
+#   sd_force_pio            Disable DMA support for SD driver (default off)
+#   sd_pio_limit            Number of blocks above which to use DMA for
+#                           SD card (default 1)
+#   sd_debug                Enable debug output from SD driver (default off)
+#   sdio_overclock          Clock (in MHz) to use when the MMC framework
+#                            requests 50MHz for the SDIO/WLAN interface.
+#   tx_lpi_timer            Set the delay in microseconds between going idle
+#                           and entering the low power state (default 600).
+#                           Requires EEE to be enabled - see "eee".
+#   uart0                   Set to "off" to disable uart0 (default "on")
+#   uart1                   Set to "on" or "off" to enable or disable uart1
+#                           (default varies)
+#   watchdog                Set to "on" to enable the hardware watchdog
+#                           (default "off")
+#   act_led_trigger         Choose which activity the LED tracks.
+#                           Use "heartbeat" for a nice load indicator.
+#                           (default "mmc")
+#   act_led_activelow       Set to "on" to invert the sense of the LED
+#                           (default "off")
+#                           N.B. For Pi 3B, 3B+, 3A+ and 4B, use the act-led
+#                           overlay.
+#   act_led_gpio            Set which GPIO to use for the activity LED
+#                           (in case you want to connect it to an external
+#                           device)
+#                           (default "16" on a non-Plus board, "47" on a
+#                           Plus or Pi 2)
+#                           N.B. For Pi 3B, 3B+, 3A+ and 4B, use the act-led
+#                           overlay.
+#   pwr_led_trigger
+#   pwr_led_activelow
+#   pwr_led_gpio            As for act_led_*, but using the PWR LED.
+#                           Not available on Model A/B boards.
+#
+#   N.B. It is recommended to only enable those interfaces that are needed.
+#   Leaving all interfaces enabled can lead to unwanted behaviour (i2c_vc
+#   interfering with Pi Camera, I2S and SPI hogging GPIO pins, etc.)
+#   Note also that i2c, i2c_arm and i2c_vc are aliases for the physical
+#   interfaces i2c0 and i2c1. Use of the numeric variants is still possible
+#   but deprecated because the ARM/VC assignments differ between board
+#   revisions. The same board-specific mapping applies to i2c_baudrate,
+#   and the other i2c baudrate parameters.
+#
+#   Documentation for config.txt:
+#   See: https://www.raspberrypi.com/documentation/computers/config_txt.html
+#
+#
+##  Memory settings ##
+#   These are considered legacy settings and may become depreciated, check the documentation
+gpu_mem=64
+[pi1]
+gpu_mem=16
+[pi0]
+gpu_mem=16
+[all]
+# Pi Zero 2 W (512MB)
+[pi02]
+gpu_mem=24
+[all]
+# Pi 3 A+ (512MB)
+[board-type=0x0e]
+gpu_mem=24
+[board-type=0xe]
+gpu_mem=24
+[all]
+#
+##  Bluetooth settings ##
+#   Bluetooth on/off
+#dtoverlay=disable-bt
+#   Autoprobing onboard Bluetooth if available
+dtparam=krnbt=on
+#
+#
+##  Wi-Fi settings ##
+#   Wi-Fi on/off
+#dtoverlay=disable-wifi
+#
+##  Audio settings ##
+#   RuneAudio HDMI & 3,5mm jack
 dtparam=audio=on
-
-## RuneAudio I2S-Settings
+#   RuneAudio I2S-Settings
 #dtoverlay=none
-
-# Uncomment to enable the lirc-rpi module
-# Params: gpio_out_pin             GPIO pin for output (default "17")
-#         gpio_in_pin              GPIO pin for input (default "18")
-#         gpio_in_pull             Pull up/down/off on the input pin
-#                                  (default "down")
-#         sense                    Override the IR receive auto-detection logic:
-#                                    "1" = force active high
-#                                    "0" = force active low
-#                                    "-1" = use auto-detection
-#                                  (default "-1")
-#         softcarrier              Turn the software carrier "on" or "off"
-#                                  (default "on")
-#         invert                   "on" = invert the output pin (default "off")
-#         debug                    "on" = enable additional debug messages
-#                                  (default "off")
-#dtoverlay=lirc-rpi
-#dtparam=gpio_out_pin=17
-#dtparam=gpio_in_pin=18
-#dtparam=gpio_in_pull=down
-
-# LCD settings
-# 180 degrees
+#
+##  Display settings ##
+#   Many display settings are considered legacy settings and may become depreciated, check the documentation
+display_auto_detect=1
+#   LCD settings
+#   next 3 lines for the AdaFruit PiTFT Plus - 3.5" Resistive touch-screen
+#dtparam=i2c_arm=on
+#dtparam=spi=on
+#dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=20
+#   RPi FT5406 LCD card
+#   rotation 0 (normal), 90, 180 or 270 degrees
+#lcd_rotate=0
+#lcd_rotate=1
 #lcd_rotate=2
-# Normal
-lcd_rotate=0
+#lcd_rotate=3
 #dtoverlay=rpi-backlight
 #dtoverlay=rpi-ft5406
-
-## Boot splash
-# set to 1 to disable or 0 to enable boot splash
-disable_splash=1
-
-# Uncomment if you get no picture on HDMI for a default "safe" mode
+#   waveshare LCD cards (these are XPT2046 / ADS7846 tft touch-screens)
+#   waveshare: uncommenting one or more the following hdmi flags may be
+#       necessary, normally uncommenting the overlay below is enough
+#hdmi_force_hotplug=1
+#hdmi_group=2
+#hdmi_mode=1
+#hdmi_mode=87
+#hdmi_cvt 480 320 60 6 0 0 0
+#hdmi_drive=2
+#   waveshare: choose one of the following pre-installed overlays, see: https://www.waveshare.com/w/upload/1/1e/RPi_LCD_User_Manual_EN.pdf
+#       the overlays have 2 optional parameters: rotate (value: 0, 90, 180 or 270) and swapxy (value: 0 or 1)
+#       see: https://github.com/swkim01/waveshare-dtoverlays
+#dtoverlay=waveshare32b
+#dtoverlay=waveshare32c
+#dtoverlay=waveshare35a
+#dtoverlay=waveshare35b
+#dtoverlay=waveshare35b-v2
+#dtoverlay=waveshare35c
+#dtoverlay=waveshare4c
+#   Uncomment if you get no picture on HDMI for a default "safe" mode
 #hdmi_safe=1
-
-# Uncomment this if your display has a black border of unused pixels visible
-# and your display can output without overscan
+#   Uncomment this if your display has a black border of unused pixels visible
+#       and your display can output without overscan (uncomment this for small LCD screens)
 #disable_overscan=1
-
-# Uncomment the following to adjust overscan. Use positive numbers if console
-# goes off screen, and negative if there is too much border
+#   Uncomment the following to adjust overscan. Use positive numbers if console
+#       goes off screen, and negative if there is too much border
 #overscan_left=16
 #overscan_right=16
 #overscan_top=16
 #overscan_bottom=16
-
-# Uncomment to force a console size. By default it will be display's size minus
-# overscan.
+#   Uncomment to force a console size. By default it will be display's size minus
+#       overscan.
 #framebuffer_width=1280
 #framebuffer_height=720
-
-# Uncomment if hdmi display is not detected and composite is being output
+#   Uncomment if hdmi display is not detected and composite is being output
 #hdmi_force_hotplug=1
-
-# Uncomment to force a specific HDMI mode (this will force VGA)
+#   Uncomment to force a specific HDMI mode (this will force VGA)
 #hdmi_group=1
 #hdmi_mode=1
-
-# Uncomment to force a HDMI mode rather than DVI. This can make audio work in
-# DMT (computer monitor) modes
+#   Uncomment to force a HDMI mode rather than DVI. This can make audio work in
+#       DMT (computer monitor) modes
 #hdmi_drive=2
-
-# Uncomment to set monitor mode to DMT
+#   Uncomment to set monitor mode to DMT
 #hdmi_group=2
-
-# Uncomment to increase signal to HDMI, if you have interference, blanking, or
-# no display
+#   Uncomment to increase signal to HDMI, if you have interference, blanking, or
+#       no display
 #config_hdmi_boost=4
-
-# setting the max usb current to 1200mA
-max_usb_current=1
-
-# memory options
-gpu_mem=16
-
-## Some overclocking settings, governor is set to on-demand as standard
-## The values below are valid for the B+ and Zero models
-## Overclocking should not be needed for the 2B, 3B and 3B+ models
-## See your documentation for A and B models
-
+#
+##  Some overclocking settings ##
+#   The values below are valid for the B+ model
+#   Overclocking is not required for the Pi 2B, 3B, 3B+, 4B and Zero 2W models
+#   See internet for documentation on overclocking options for A, B and Zero
+#       models, be careful, check 2 independent sources!
+[pi1]
+# Conditional for Model A, Model B, Compute Module
 ## None
 #arm_freq=700
 #core_freq=250
 #sdram_freq=400
 #over_voltage=0
-
 ## Modest
 #arm_freq=800
 #core_freq=300
 #sdram_freq=400
 #over_voltage=0
-
 ## Medium
 #arm_freq=900
 #core_freq=333
 #sdram_freq=450
 #over_voltage=2
-
 ## High
 #arm_freq=950
 #core_freq=450
 #sdram_freq=450
 #over_voltage=6
-
 ## Turbo
 #arm_freq=1000
 #core_freq=500
 #sdram_freq=500
 #over_voltage=6
-
-## General CPU settings
-# Setting force turbo on (=1) always invalidates warranty in combination with some (higher) overclocking settings
-# Altenative is turbo on demand (=0), this is already set as standard
+[all]
+# Conditional end
+#
+##  Underclocking placeholder
+#
+##  General CPU settings ##
+#   Setting the governor to force turbo on (=1) can invalidates warranty in combination with some (higher)
+#       overclocking settings for some models. We set turbo on to try to keep the clocks in the Pi running at a
+#       consistent speed, many audio cards use this clock. For higher speed Pi models with USB DAC's or master
+#       mode DAC's it is probably not a requirement. Switching it off will make the PI run cooler (with possibly
+#       less audio noise). Alternative is turbo on demand (force_turbo=0)
 force_turbo=1
-#force_turbo=0
-# Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some protection when (force) turbo is set
-# If the max temp is reached the cpu will autmatically be throttled back
-#temp_limit=70
-# Boot delay sometimes needs to be set to higher values when overclocking is enabled
-# Default boot delay is 1 second, 3B+ needs a delay of 2
+#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set on
+#   If the max temp is reached the cpu will automatically be throttled back
+#       Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
+temp_limit=75
+#   Boot delay sometimes needs to be set to higher values when overclocking is enabled
+#       Default boot delay is 1 second, the Pi 3B+ needs a delay of 2 seconds
 boot_delay=2
-
+#   Set the max usb current to 1200mA (in theory this is depreciated and should not be required)
+max_usb_current=1
+#   For the Pi4 set the default turbo-mode clock to be set to 1.5GHz or 1.8GHz. As default we use 1.5GHz (this
+#       is very fast). The turbo-mode clock can be increased to to 1.8GHz (faster, hotter, possibly more audio
+#       noise) by setting arm_boost on (arm_boost=1)
+[pi4]
+# Conditional for Model 4
+arm_boost=0
+[all]
+# Conditional end
+#
 initramfs initramfs-linux.img followkernel

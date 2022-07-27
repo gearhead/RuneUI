@@ -1,4 +1,4 @@
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -33,44 +33,54 @@
  */
 // inspect POST
 if (isset($_POST)) {
-    if ($_POST['rescanmpd'] == 1) sendMpdCommand($mpd, 'rescan');
-    if ($_POST['updatempd'] == 1) sendMpdCommand($mpd, 'update');
-    if ($_POST['mountall'] == 1) $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'mountall' ));
-    if ($_POST['umountall'] == 1) $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'umountall' ));
-    if ($_POST['remountall'] == 1) $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'remountall' ));
-    if ($_POST['reset'] == 1) $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
-    if (isset($_POST['usb-umount'])) $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'umountusb', 'args' => $_POST['usb-umount']));
-    if (!empty($_POST['mount'])) {
-        $_POST['mount']['remotedir'] = str_replace('\\', '/', $_POST['mount']['remotedir']);
-        if ($_POST['mount']['rsize'] == '') $_POST['mount']['rsize'] = 8192;
-        if ($_POST['mount']['wsize'] == '') $_POST['mount']['wsize'] = 16384;
-        if ($_POST['action'] == 'add') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'add', 'args' => $_POST['mount']));
-        if ($_POST['action'] == 'edit') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'edit', 'args' => $_POST['mount']));
-        if ($_POST['action'] == 'delete') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'delete', 'args' => $_POST['mount']));
-        if ($_POST['action'] == 'reset') $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
+    if ((isset($_POST['rescanmpd'])) && ($_POST['rescanmpd'])) sendMpdCommand($mpd, 'rescan');
+    if ((isset($_POST['updatempd'])) && ($_POST['updatempd'])) sendMpdCommand($mpd, 'update');
+    if ((isset($_POST['mountall'])) && ($_POST['mountall'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'mountall' ));
+    if ((isset($_POST['remountall'])) && ($_POST['remountall'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'remountall' ));
+    // if ((isset($_POST['reset'])) && ($_POST['reset'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
+    if (isset($_POST['usb-umount'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'umountusb', 'args' => $_POST['usb-umount']));
+    if ((isset($_POST['mount'])) && (!empty($_POST['mount']))) {
+        if (isset($_POST['mount']['remotedir'])) {
+            $_POST['mount']['remotedir'] = str_replace('\\', '/', $_POST['mount']['remotedir']);
+        } else {
+            $_POST['mount']['remotedir'] = "";
+        }
+        if ((!isset($_POST['mount']['rsize'])) || (trim($_POST['mount']['rsize']) == "") || (empty($_POST['mount']['rsize']))) $_POST['mount']['rsize'] = 8192;
+        if ((!isset($_POST['mount']['wsize'])) || (trim($_POST['mount']['wsize']) == "") || (empty($_POST['mount']['rsize']))) $_POST['mount']['wsize'] = 16384;
+        if (isset($_POST['action'])) {
+            if ($_POST['action'] == 'add') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'add', 'args' => $_POST['mount']));
+            if ($_POST['action'] == 'edit') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'edit', 'args' => $_POST['mount']));
+            if ($_POST['action'] == 'delete') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'delete', 'args' => $_POST['mount']));
+            if ($_POST['action'] == 'reset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
+        }
     }
     // ----- FEATURES -----
-    if (isset($_POST['sources'])) {
-        if ($_POST['sources']['db_autorebuild'] == 1) {
-            $redis->get('usb_db_autorebuild') == 1 || $redis->set('usb_db_autorebuild', 1);
+    if (isset($_POST['save']) && ($_POST['save'])) {
+        if (isset($_POST['db_autorebuild']) && ($_POST['db_autorebuild'])) {
+            $redis->get('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
         } else {
-            $redis->get('usb_db_autorebuild') == 0 || $redis->set('usb_db_autorebuild', 0);
+            !$redis->get('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 0);
         }
     }
 }
-waitSyWrk($redis, $jobID);
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
+}
 // collect system status
 $template->db_autorebuild = $redis->get('usb_db_autorebuild');
 $template->hostname = $redis->get('hostname');
 
 
 $source = netMounts($redis, 'read');
-if($source !== true) { 
+if($source !== true) {
     foreach ($source as $mp) {
         if (wrk_checkStrSysfile('/proc/mounts', '/mnt/MPD/NAS/'.$mp['name'])) {
             $mp['status'] = 1;
         } else {
             $mp['status'] = 0;
+        }
+        if ($mp['type'] == 'osx') {
+            $mp['type'] = 'cifs';
         }
         $mounts[]=$mp;
     }
@@ -83,8 +93,11 @@ foreach ($usbmounts as $usbmount) {
 if (isset($template->action)) {
     if (isset($template->arg)) {
         foreach ($source as $mp) {
+            if ($mp['type'] == 'osx') {
+                $mp['type'] = 'cifs';
+            }
             if ($mp['id'] == $template->arg) {
-            $template->mount = $mp;
+                $template->mount = $mp;
             }
         }
         $template->title = 'Edit network mount';

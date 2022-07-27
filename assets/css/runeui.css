@@ -8,7 +8,7 @@ html {
 
 .disable-scrollbar-0 {
     scrollbar-width: none; /*For Firefox*/
-	overflow: hidden scroll; /*For Firefox*/
+    overflow: hidden scroll; /*For Firefox*/
 }
 
 .disable-scrollbar-1 {
@@ -16,8 +16,8 @@ html {
 }
 
 .disable-scrollbar-2::-webkit-scrollbar {
-		width: 0 !important; /*For Chrome, Safari and Opera*/
-		display: none; /*For Chrome, Safari and Opera*/
+    width: 0 !important; /*For Chrome, Safari and Opera*/
+    display: none; /*For Chrome, Safari and Opera*/
 }
 
 body {
@@ -205,7 +205,7 @@ th {
 }
 html {
     font-size: 10px;
-	/* overflow-y:scroll; */
+    /* overflow-y:scroll; */
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0)
 }
 body {
@@ -2575,7 +2575,7 @@ tbody.collapse.in {
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 1000;
+    z-index: 10000;
     display: none;
     float: left;
     min-width: 160px;
@@ -3505,13 +3505,16 @@ button.close {
 }
 .modal-footer .btn+.btn {
     margin-left: 5px;
-    margin-bottom: 0
 }
 .modal-footer .btn-group .btn+.btn {
     margin-left: -1px
 }
 .modal-footer .btn-block+.btn-block {
     margin-left: 0
+}
+.modal-footer>.btn{
+    /* wrapped lines of buttons in modial-footer have 8px between lines */
+    margin-bottom: 8px
 }
 .modal-scrollbar-measure {
     position: absolute;
@@ -3937,16 +3940,46 @@ button.close {
     }
 }
 /*!
+ *  Both Font Awesome v4.3.0 and v6.1.1 are used, glyphs from v6.1.1 must be specifically specified
+ *  This keeps compatibility with old glyphs while adding all possible new glyphs for the latest version
+ */
+/*!
  *  Font Awesome 4.3.0 by @davegandy - http://fontawesome.io - @fontawesome
  *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
  */
-
 @font-face {
     font-family: 'FontAwesome';
     src: url('../fonts/fontawesome-webfont.eot?v=4.3.0');
     src: url('../fonts/fontawesome-webfont.eot?#iefix&v=4.3.0') format('embedded-opentype'), url('../fonts/fontawesome-webfont.woff2?v=4.3.0') format('woff2'), url('../fonts/fontawesome-webfont.woff?v=4.3.0') format('woff'), url('../fonts/fontawesome-webfont.ttf?v=4.3.0') format('truetype'), url('../fonts/fontawesome-webfont.svg?v=4.3.0#fontawesomeregular') format('svg');
     font-weight: normal;
     font-style: normal
+}
+/*!
+ * Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ * Copyright 2022 Fonticons, Inc.
+ */
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-brands-400.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-brands-400.ttf') format('truetype');
+/*!
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.ttf') format('truetype'), url('../fonts/fontawesome-free-6.1.1-web/sprites/solid.svg#fontawesomeregular') format('svg');
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.ttf') format('truetype');
+*/
+    font-weight: 400;
+    font-style: normal;
+    unicode-range: U+F293,U+F294;
+}
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-regular-400.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-regular-400.ttf') format('truetype');
+/*!
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-solid-900.ttf') format('truetype');
+    src: url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.woff2') format('woff2'), url('../fonts/fontawesome-free-6.1.1-web/webfonts/fa-v4compatibility.ttf') format('truetype');
+*/
+    font-weight: 400;
+    font-style: normal;
+    unicode-range: U+F31E;
 }
 .fa {
     display: inline-block;
@@ -5369,6 +5402,10 @@ button.close {
 .fa-spotify:before {
     content: "\f1bc"
 }
+.fa-spotify-green:before {
+    content: "\f1bc";
+    color: #1DB954
+}
 .fa-deviantart:before {
     content: "\f1bd"
 }
@@ -5732,6 +5769,19 @@ button.close {
 }
 .fa-medium:before {
     content: "\f23a"
+}
+/*!
+ *  Above are from Font Awesome v4.3.0 and below from v6.1.1
+ *  This keeps compatibility with old glyphs while adding all possible new glyphs for the latest version
+ */
+.fa-bluetooth:before {
+    content: "\f293"
+}
+.fa-bluetooth-b:before {
+    content: "\f294"
+}
+.fa-expand-arrows-alt:before {
+    content: "\f31e"
 }
 @font-face {
     font-family: 'Lato';
@@ -6226,6 +6276,9 @@ body {
 .red {
     color: #f00
 }
+.black {
+    color: #000
+}
 .bbg {
     background: #0000ff
 }
@@ -6550,7 +6603,11 @@ body {
     margin-bottom: 30px
 }
 #volume-knob {
-    margin-top: 30px
+    margin-top: 30px;
+    color: #0095d8 !important
+}
+#volume-knob:disabled {
+    color: #1a242f !important
 }
 #countdown-display {
     position: absolute;
@@ -6585,8 +6642,18 @@ body {
 #volume {
     background: #000;
     border: none;
-    color: #000;
+    outline: 0;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    font-size: 42px !important;
+    color: #e0e7ee !important;
     font-family: inherit !important
+}
+#volume.disabled {
+    color: #1a242f !important;
+    pointer-events: none !important;
 }
 #time:hover,
 #volume:hover,
@@ -7436,7 +7503,8 @@ fieldset[disabled] #pl-filter-results {
 .ui-pnotify {
     position: absolute;
     height: auto;
-    z-index: 9999
+    z-index: 9999;
+    cursor: pointer
 }
 .ui-pnotify .alert {
     background: #0095d8;
@@ -8130,257 +8198,257 @@ ul.parsley-error-list li {
 
 /* Screensaver */
 .leftpanel-ss {
-	float: left;
-	width: 40%;
-	height: 100%;
+    float: left;
+    width: 40%;
+    height: 100%;
 }
 .leftpanel-expandable-ss {
-	float: left;
-	padding: 20px 0px 0px 0px;
-	position: relative;
-	width: 100%;
-	height: 100%;
+    float: left;
+    padding: 20px 0px 0px 0px;
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 .rightpanel-ss {
-	float: right;
-	width: 60%;
-	height: 100%;
+    float: right;
+    width: 60%;
+    height: 100%;
 }
 .rightpanel-compactable-ss {
-	float: right;
-	width: 0%;
-	height: 100%;
-	display: none;
+    float: right;
+    width: 0%;
+    height: 100%;
+    display: none;
 }
 #currentartist-ss {
-	font-size: 30px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	line-height: 115%;
-	color: rgb(224, 231, 238);
+    font-size: 30px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    line-height: 115%;
+    color: rgb(224, 231, 238);
 }
 #currentsong-ss {
-	overflow: hidden;
-	font-size: 40px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	font-weight: bold;
-	color: rgb(0, 149, 216);
-	line-height: 115%;
+    overflow: hidden;
+    font-size: 40px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    font-weight: bold;
+    color: rgb(0, 149, 216);
+    line-height: 115%;
 }
 #currentalbum-ss {
-	font-size: 30px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	line-height: 115%;
-	color: rgb(224, 231, 238);
+    font-size: 30px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    line-height: 115%;
+    color: rgb(224, 231, 238);
 }
 div.coverart-ss {
-	height: auto;
-	margin: 10px auto 11px;
-	width: 100%;
+    height: auto;
+    margin: 10px auto 11px;
+    width: 100%;
 }
 #cover-art-ss {
-	width: 100%;
-	height: auto;
-	border: 2px solid rgb(52, 73, 94);
-	border-radius: 6px;
-	background-size: 100% 100%;
+    width: 100%;
+    height: auto;
+    border: 2px solid rgb(52, 73, 94);
+    border-radius: 6px;
+    background-size: 100% 100%;
 }
 #countdown-display-ss {
-	float: left;
-	width: 50%;
-	height: auto;
-	font-size: 20px;
-	font-weight: bold;
-	text-align: center;
+    float: left;
+    width: 50%;
+    height: auto;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
 }
 #total-ss {
-	height: auto;
-	font-size: 20px;
-	font-weight: bold;
-	text-align: center;
+    height: auto;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
 }
 #extrainfo-ss {
-	height: 110px;
+    height: 110px;
 }
 #extrainfo-ss div {
-	font-size: 22px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	font-weight: bold;
-	color: rgb(0, 149, 216);
-	line-height: 34px;
+    font-size: 22px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    font-weight: bold;
+    color: rgb(0, 149, 216);
+    line-height: 34px;
 }
 #playlist-position-ss {
-	padding-top: 30px;
+    padding-top: 30px;
 }
 .rightpanel-ss .coverart {
-	height: auto;
-	margin: 10px auto 11px;
-	width: 100%;
+    height: auto;
+    margin: 10px auto 11px;
+    width: 100%;
 }
 #artist-ss {
-	font-size: 30px;
-	display: block;
-	box-sizing: border-box;
-	text-align: left;
-	font-weight: bold;
-	color: rgb(0, 149, 216);
-	line-height: 34px;
+    font-size: 30px;
+    display: block;
+    box-sizing: border-box;
+    text-align: left;
+    font-weight: bold;
+    color: rgb(0, 149, 216);
+    line-height: 34px;
 }
 #artist-image-ss {
-	margin-right: 20px;
-	margin-left: 10px;
-	float: left;
-	width: 130px;
-	height: auto;
-	border: 2px solid rgb(52, 73, 94);
-	border-radius: 6px;
-	background-size: 100% 100%;
+    margin-right: 20px;
+    margin-left: 10px;
+    float: left;
+    width: 130px;
+    height: auto;
+    border: 2px solid rgb(52, 73, 94);
+    border-radius: 6px;
+    background-size: 100% 100%;
 }
 #artist-bio-ss {
-	font-size: 20px;
+    font-size: 20px;
 }
 #addinfo-ss {
-	font-size: 24px;
-	display: block;
-	box-sizing: border-box;
-	text-align: left;
-	font-weight: bold;
-	color: rgb(0, 149, 216);
-	line-height: 34px;
+    font-size: 24px;
+    display: block;
+    box-sizing: border-box;
+    text-align: left;
+    font-weight: bold;
+    color: rgb(0, 149, 216);
+    line-height: 34px;
 }
 #addinfo-text-ss {
-	font-size: 20px;
-	box-sizing: border-box;
+    font-size: 20px;
+    box-sizing: border-box;
 }
 @media (min-width: 700px) {
-	.leftpanel-expandable-ss {
-		width: 40%;
-	}
-	.rightpanel-compactable-ss {
-		width: 60%;
-		display: block;
-	}
-	#countdown-display-ss {
-		font-size: 30px;
-	}
-	#total-ss {
-		font-size: 30px;
-	}
+    .leftpanel-expandable-ss {
+        width: 40%;
+    }
+    .rightpanel-compactable-ss {
+        width: 60%;
+        display: block;
+    }
+    #countdown-display-ss {
+        font-size: 30px;
+    }
+    #total-ss {
+        font-size: 30px;
+    }
 }
 
 /* Small Screensaver */
 .leftpanel-sss {
-	float: left;
-	width: 45%;
-	height: 100%;
+    float: left;
+    width: 45%;
+    height: 100%;
 }
 .rightpanel-sss {
-	float: right;
-	width: 55%;
-	height: 100%;
-	display: block;
+    float: right;
+    width: 55%;
+    height: 100%;
+    display: block;
 }
 #currentartist-sss {
-	font-size: 38px;
-	line-height: 115%;
-	height: auto;
-	margin-bottom: 10px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	color: rgb(224, 231, 238);
+    font-size: 38px;
+    line-height: 115%;
+    height: auto;
+    margin-bottom: 10px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    color: rgb(224, 231, 238);
 }
 #currentsong-sss {
-	font-size: 40px;
-	line-height: 115%;
-	height: auto;
-	margin-bottom: 10px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	font-weight: bold;
-	color: rgb(0, 149, 216);
+    font-size: 40px;
+    line-height: 115%;
+    height: auto;
+    margin-bottom: 10px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    font-weight: bold;
+    color: rgb(0, 149, 216);
 }
 #currentalbum-sss {
-	font-size: 38px;
-	line-height: 115%;
-	height: auto;
-	margin-bottom: 10px;
-	display: block;
-	box-sizing: border-box;
-	text-align: center;
-	color: rgb(224, 231, 238);
+    font-size: 38px;
+    line-height: 115%;
+    height: auto;
+    margin-bottom: 10px;
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    color: rgb(224, 231, 238);
 }
 div.coverart-sss {
-	height: auto;
-	margin: 10px auto 11px;
-	width: 100%;
+    height: auto;
+    margin: 10px auto 11px;
+    width: 100%;
 }
 #cover-art-sss {
-	width: 100%;
-	height: auto;
-	border: 2px solid rgb(52, 73, 94);
-	border-radius: 6px;
-	background-size: 100% 100%;
+    width: 100%;
+    height: auto;
+    border: 2px solid rgb(52, 73, 94);
+    border-radius: 6px;
+    background-size: 100% 100%;
 }
 #countdown-display-sss {
-	float: left;
-	width: 50%;
-	height: auto;
-	font-size: 38px;
-	font-weight: bold;
-	text-align: center;
+    float: left;
+    width: 50%;
+    height: auto;
+    font-size: 38px;
+    font-weight: bold;
+    text-align: center;
 }
 #total-sss {
-	height: auto;
-	font-size: 38px;
-	font-weight: bold;
-	text-align: center;
+    height: auto;
+    font-size: 38px;
+    font-weight: bold;
+    text-align: center;
 }
 #format-bitrate-sss {
-	height: auto;
-	font-size: 30px;
-	text-align: center;
-	color: rgb(0, 149, 216);
+    height: auto;
+    font-size: 30px;
+    text-align: center;
+    color: rgb(0, 149, 216);
 }
 #playlist-position-sss {
-	height: auto;
-	font-size: 30px;
-	text-align: center;
-	color: rgb(0, 149, 216);
+    height: auto;
+    font-size: 30px;
+    text-align: center;
+    color: rgb(0, 149, 216);
 }
 .rightpanel-sss .coverart {
-	height: auto;
-	margin: 10px auto 11px;
-	width: 100%;
+    height: auto;
+    margin: 10px auto 11px;
+    width: 100%;
 }
 .top-sss {
-	position: relative;
-	text-align: center;
-	top: 10px;
-	height: 58%;
-	width: auto;
+    position: relative;
+    text-align: center;
+    top: 10px;
+    height: 58%;
+    width: auto;
 }
 .bottom-sss {
-	position: fixed;
-	text-align: center;
-	bottom: 0;
-	height: 42%;
-	width: 50%;
+    position: fixed;
+    text-align: center;
+    bottom: 0;
+    height: 42%;
+    width: 50%;
 }
 @media (min-width: 700px) {
-	.leftpanel-expandable-sss {
-		width: 45%;
-	}
-	.rightpanel-compactable-sss {
-		width: 55%;
-		display: block;
-	}
+    .leftpanel-expandable-sss {
+        width: 45%;
+    }
+    .rightpanel-compactable-sss {
+        width: 55%;
+        display: block;
+    }
 }

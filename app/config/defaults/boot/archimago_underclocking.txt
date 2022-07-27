@@ -1,0 +1,37 @@
+## Underclocking start
+#
+# Archimago's CRAAP Pi 3 B+ Underclocking settings...
+# November, 4 2018
+# See: http://archimago.blogspot.com/2018/11/musings-raspberry-pi-3-b-touch.html
+# To see the settings use this: /opt/vc/bin/vcgencmd get_config int
+[pi3+]
+# Conditional for Model 3B+, Model 3A+
+arm_freq=1000
+sdram_freq=500
+core_freq=400
+gpu_freq=300
+over_voltage=-3
+over_voltage_sdram=-3
+
+# Archimago's CRAAP Pi 4B Underclocking settings...
+# October 14, 2020
+# See: http://archimago.blogspot.com/2020/10/musingshow-to-raspberry-pi-4-touch.html
+# To see the settings use this: /opt/vc/bin/vcgencmd get_config int
+[pi4]
+# Conditional for Model 4B
+# CPU speed control - normally 1500MHz, min 600
+arm_freq=1200
+arm_freq_min=300
+# CPU voltage control - SYSTEM DEPENDENT!
+over_voltage=-3
+over_voltage_min=-4
+# SDRAM control, normally 3200 - again, watch system dependent voltage
+sdram_freq=2400
+sdram_freq_min=300
+over_voltage_sdram=-3
+core_freq_min=200
+gpu_freq_min=200
+
+[all]
+# Conditional end
+## Underclocking end

@@ -1,0 +1,19 @@
+# Part of RuneAudio
+# This unit connects an input bluetooth source to the current active alsa output
+# it is initiated in the UI and will run for 90 seconds, this should be enough time to connect
+# the connect action is enabled in the UI and initiated on the device connecting to RuneAudio
+[Unit]
+Description=Bluetooth connection agent service
+Wants=sound.target bluetooth.target
+After=sound.target bluetooth.target bluetooth.service bluealsa.service bluealsa-aplay.service
+Requires=bluetooth.service bluealsa.service bluealsa-aplay.service
+
+[Service]
+ExecStartPre=/bin/bluetoothctl power on; /bin/bluetoothctl discoverable on
+ExecStart=/var/www/command/bluetooth-agent
+ExecStopPost=/bin/bluetoothctl discoverable off
+RuntimeMaxSec=30
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

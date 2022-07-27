@@ -32,28 +32,38 @@
  *  coder: Simone De Gregori
  *
  */
-// common include
-include('/srv/http/app/libs/runeaudio.php');
 $start = microtime(true);
-$savecpu_rp = 12;
-$savecpu_mnt = 1;
-$savecpu_smt = 480;
-$savecpu_inc = 8;
-$savecpu_sps = 43200;
-$savecpu_avd = 86400;
+$savecpuRp = 12;
+$savecpuMnt = 1;
+$savecpuSmt = 480;
+$savecpuInc = 240;
+$savecpuIncPrev = $savecpuInc;
+$savecpuSps = 43200;
+$savecpuAvd = 16;
+$savecpuFixdnssec = 20;
+$savecpuRefreshNics = 24;
+$savecpuRefreshNicsPrev = $savecpuRefreshNics;
+$savecpuOneTimeActions = 30;
+$savecpuMpdLog = 600;
+$savecpuTimezone = 60;
+$savecpuOpCache = 7200;
+$savecpuFixLogs = 36;
 $allmounted = 0;
 $retriesmounting = 100;
 ini_set('display_errors', '1');
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('error_log', '/var/log/runeaudio/rune_SY_wrk.log');
 define('APP', '/srv/http/app/');
+
+// common include
+require_once(APP.'libs/runeaudio.php');
+// Connect to Redis backend include
+require_once(APP.'libs/openredis.php');
+
 // setup /run dir
 sysCmd('chmod 777 /run');
-
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
-
+// clear the cache otherwise file_exists() returns incorrect values
+clearstatcache(true, '/srv/http/command/update_os.php');
 // if os updates are needed
 if (file_exists('/srv/http/command/update_os.php')) {
     include '/srv/http/command/update_os.php';
@@ -66,15 +76,11 @@ $redis->set('disk_error', 0);
 // clean up Rern's addons security
 // Rern's addons menu
 if ($redis->hGet('addons', 'addo') != '') {
-	// do nothing
+    // do nothing
 } else {
-	// not set or is empty so delete the sudo enable-all file for user http - used for addons menu
-	sysCmd('rm -f /etc/sudoers.d/http');
+    // not set or is empty so delete the sudo enable-all file for user http - used for addons menu
+    sysCmd('rm -f /etc/sudoers.d/http');
 }
-// Rern's restore (as in backup) enable
-// always delete the sudo enable-all file for user http ans disable the redis 'restore activate' entry - used for backup restore
-sysCmd('rm -f /etc/sudoers.d/http-backup');
-$redis->set('restoreact', 0);
 
 // determine the actual mpd player version
 $retval = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4 -d' '");
@@ -90,6 +96,7 @@ runelog('registered playerid: ', $playerid_db);
 // initialize Redis worker data tables
 $redis->del('w_lock');
 $redis->del('w_queue');
+$redis->del('w_queue_fifo');
 $redis->del('notifications');
 
 // reset worker logfile
@@ -108,9 +115,11 @@ if ($arch_db !== $arch) {
 }
 
 // check git branch
-$gitbranch = sysCmd("cd /var/www/ ; git branch | grep \"*\" | cut -d ' ' -f 2");
-runelog('GIT BRANCH: ', $gitbranch[0]);
-$redis->hSet('git', 'branch', $gitbranch[0]);
+$gitbranch = trim(sysCmd("cd /srv/http/ ; git branch | grep '*' | cut -d ' ' -f 2 | xargs")[0]);
+if (isset($gitbranch) && $gitbranch) {
+    runelog('GIT BRANCH: ', $gitbranch);
+    $redis->hSet('git', 'branch', $gitbranch);
+}
 
 if ($playerid_db === '') {
     // RUNEAUDIO FIRST RUN PROCESS --- //
@@ -120,20 +129,22 @@ if ($playerid_db === '') {
     wrk_sysAcl();
     // reset Redis Player Datastore
     runelog('invoke Redis player datastore reset');
-	sysCmd('/var/www/db/redis_datastore_setup reset');
+    sysCmd('/srv/http/db/redis_datastore_setup reset');
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
     wrk_setHwPlatform($redis);
+    // Set audio on off to its redis value
+    wrk_audio_on_off($redis, $redis->get('audio_on_off'));
     // reset netconf to defaults
     runelog('reset netconf to defaults');
     // read system network interfaces details
     wrk_netconfig($redis,'reset');
-	// reset USB mounts
-	runelog('invoke USB mounts reset');
-	sysCmd('/srv/http/command/usbmount');
+    // reset USB mounts
+    runelog('invoke USB mounts reset');
+    sysCmd('/srv/http/command/usbmount');
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
-	wrk_mpdconf($redis,'stop');
+    wrk_mpdconf($redis, 'stop');
     wrk_sourcecfg($redis,'reset');
     // reset Webradios
     $redis->del('webradios');
@@ -141,76 +152,91 @@ if ($playerid_db === '') {
     // reset mpdconf to defaults
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
-	// check that mpd is running
-	$retval = sysCmd('systemctl is-active mpd');
-	if ($retval[0] === 'active') {
-		// do nothing
-	} else {
-		sysCmd('systemctl start mpd');
-	}
-	unset($retval);
-	// ashuffle gets started automatically
+    // check that mpd is running
+    // wrk_mpdconf($redis, 'start');
+    // ashuffle gets started automatically
     // reconnect to new instance of MPD
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd, 'update');
-	sysCmd('mpc update');
+    // sysCmd('mpc update');
     // system ENV files check and replace
         // runelog("system ENV files check and replace",'');
         // wrk_sysEnvCheck($arch,1);
     // set HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
-	// check that MPD only has one output enabled
-	$count = sysCmd('mpc outputs | grep -c -i enabled');
-	$countmpdenabled = $count[0];
-	unset($count);
-	if ($countmpdenabled != 1) {
-		sysCmd("mpc enable only 1");
-	}
-	// ensure that systemd-time is on
-	sysCmd('/srv/http/command/switch_systemd_time_on.sh');
+    // check that MPD only has one output enabled
+    // $count = sysCmd('mpc outputs | grep -c -i enabled');
+    // $countMpdEnabled = $count[0];
+    // unset($count);
+    // if ($countMpdEnabled != 1) {
+        // sysCmd("mpc enable only 1");
+    // }
+    //
+    // load Wi-Fi configuration, refresh nics & set up avahi
+    wrk_netconfig($redis, 'boot-initialise');
+    refresh_nics($redis);
     wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
-    runelog('--- RUNEAUDIO FIRST RUN PROCESS');
-    // invoke rune_SY_wrk respawn
+    // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
+    if ($redis->get('bluetooth_on')) {
+        wrk_netconfig($redis, 'enableBT');
+    } else {
+        wrk_netconfig($redis, 'disableBT');
+    }
+    // disable/enable Wi-Fi, wifi_on is set depending on the Pi model on-board Wi-Fi support
+    if ($redis->get('wifi_on')) {
+        wrk_netconfig($redis, 'enableWiFi');
+    } else {
+        wrk_netconfig($redis, 'disableWiFi');
+    }
+    //
+    // enable mpd to start automatically on boot
+    sysCmd('systemctl enable mpd.socket');
+    // enable nginx and php-fpm to start automatically on boot
+    sysCmd('systemctl enable nginx');
+    sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
+    // copy the runeaudio cmdline.txt file which suppresses console information
+    copy('/boot/cmdline.txt.runeaudio', '/boot/cmdline.txt');
+    // set first time boot to true
+    $redis->set('first_time_boot', 1);
+    runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
+    // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
+    sysCmd('/srv/http/command/rune_shutdown reboot');
+    sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
+    // should never get here
+    // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
-    // --- RUNEAUDIO FIRST RUN PROCESS //
+    // --- RUNEAUDIO FIRST RUN PROCESS END --- //
 } else if ($redis->hGet('mpdconf', 'version') != $mpdversion) {
     // MPD VERSION HAS CHANGED PROCES--- //
     runelog('>>>>>>MPD VERSION HAS CHANGED PROCESS ---');
-	// set up file protections and ownership
+    // set up file protections and ownership
     wrk_sysAcl();
     // check Redis Player Datastore
     runelog('invoke Redis player datastore check');
-	sysCmd('/var/www/db/redis_datastore_setup check');
-	// stop MPD and associated services
+    sysCmd('/srv/http/db/redis_datastore_setup check');
+    // stop MPD and associated services
     wrk_mpdconf($redis,'stop');
-	// reset mpdconf to defaults (also restarts mpd)
+    // reset mpdconf to defaults (also restarts mpd)
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis,'reset');
-	// reset sourcecfg to defaults
+    // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_sourcecfg($redis,'reset');
-    // reconnect to new instance of MPD
-	$retval = sysCmd('systemctl is-active mpd');
-	if ($retval[0] === 'active') {
-		// do nothing
-	} else {
-		sysCmd('systemctl start mpd');
-	}
-	unset($retval);
-	// ashuffle gets started automatically
+    // check that MPD is running
+    wrk_mpdconf($redis,'start');
+    // ashuffle gets started automatically
     // clear MPD database
     //$mpd = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     //sendMpdCommand($mpd,'update');
-	sysCmd('mpc update');
-    sleep(1);
-	// check that MPD only has one output enabled
-	$count = sysCmd('mpc outputs | grep -c -i enabled');
-	$countmpdenabled = $count[0];
-	unset($count);
-	if ($countmpdenabled != 1) {
-		sysCmd("mpc enable only 1");
-	}
+    sysCmd('mpc update');
+    // check that MPD only has one output enabled
+    $countMpdEnabled = sysCmd('mpc outputs | grep -c -i enabled')[0];
+    if ($countMpdEnabled != 1) {
+        sysCmd("mpc enable only 1");
+    }
     runelog('--- MPD VERSION HAS CHANGED PROCESS');
     // invoke rune_SY_wrk respawn
     sysCmd('systemctl daemon-reload');
@@ -221,1550 +247,1669 @@ if ($playerid_db === '') {
     // --- INITIALIZE ENVIRONMENT //
     // NORMAL STARTUP --- //
     runelog('NORMAL STARTUP ---');
-    // NTP sync
     $start2 = microtime(true);
     $firstlap = $start2-$start;
-    //runelog('NTP sync', $redis->get('ntpserver'));
-    //wrk_NTPsync($redis->get('ntpserver'));
     $start3 = microtime(true);
-
-	// refresh nics, check redis datastore status, check if an active internet connection is available - run this while waiting for chrony (see below)
-	// mostly these commands should do nothing or very little, they are also not essential for the startup sequence
-	sysCmdAsync('nice --adjustment=1 /var/www/command/refresh_nics ; /srv/http/db/redis_datastore_setup check ; /srv/http/command/internet_available_async.sh');
-
-	// if chrony is active call chronyc and wait for time to be set. 12 tries x 10 second between attempts is maximum 2 minutes
-	// normally by this point time has been set, if not there is probably no internet connection
-	// the problem is that several jobs (incl. php-fpm) will crash and core dump if a large time change takes place while they are running
-	// beter to wait for chrony to do its initial synchronisation as the core dumps take cpu resources and time
-	$retval = sysCmd('systemctl is-active chronyd');
-	if ($retval[0] === 'active') {
-		// chrony is running
-		sysCmd('chronyc waitsync 12');
-	}
-	unset($retval);
-
+    //
+    // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/create_work_dirs.sh');
+    //
     // check HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
-	$retval = sysCmd('hostname');
+    $retval = sysCmd('hostname');
     $hn = trim($retval[0]);
-	if (strtolower($hn) != strtolower(trim($redis->get('hostname')))) {
-		wrk_changeHostname($redis, $redis->get('hostname'));
-	}
-	unset($retval);
-
-	// read activePlayer state
-	$activePlayer = $redis->get('activePlayer');
-	if ($activePlayer === 'MPD') {
-		// stop spotify, if started
-		sysCmd('pgrep -x spopd && systemctl stop spopd');
-		// check MPD process, it can be stared earlier
-		$retval = sysCmd('systemctl is-active mpd');
-		if ($retval[0] === 'active') {
-			// do nothing
-		} else {
-			// Start and refresh MPD (audio hardware status - soundcards and MPD config)
-			wrk_mpdconf($redis, 'refresh');
-		}
-		unset($retval);
-		// ashuffle gets started automatically
-	} else if ($activePlayer === 'Spotify') {
-		// check MPD process, it can be started earlier
-		$retval = sysCmd('systemctl is-active mpd');
-		if ($retval[0] === 'active') {
-			// stop mpd with kill, this saves the state-file
-			sysCmd('mpd --kill');
-		}
-		unset($retval);
-		// start spotify, if not started
-		sysCmd('pgrep -x spopd || systemctl start spopd');
-	} else {
-		// stop spotify, if started
-		sysCmd('pgrep -x spopd && systemctl stop spopd');
-		// reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
-		$redis->set('activePlayer', 'MPD');
-		$retval = sysCmd('systemctl is-active mpd');
-		if ($retval[0] === 'active') {
-			// do nothing
-		} else {
-			// Start and refresh MPD (audio hardware status - soundcards and MPD config)
-			wrk_mpdconf($redis,'refresh');
-		}
-		unset($retval);
-		// ashuffle gets started automatically
-	}
-
-	// check that MPD only has one output enabled
-	// it is possible that an output pipe has been defined which is always active, so be careful
-	$retval = sysCmd('mpc outputs | grep -c -i enabled');
-	$countmpdenabled = $retval[0];
-	unset($retval);
-	if ($countmpdenabled != 1) {
-		// none or more than one outputs enabled
-		$retval = sysCmd('mpc outputs | grep -c -i output');
-		$countmpdoutput = $retval[0];
-		unset($retval);
-		if ($countmpdoutput == 1) {
-			// only one output device so enable it
-			sysCmd("mpc enable only 1");
-		} else {
-			// more than one output devices
-			if ($countmpdenabled == 0) {
-				// no output enabled and there are more than one, enable all except the 3,5mm output (this may not exit, that's OK)
-				// this will enable a pipe if one is defined
-				sysCmd("mpc disable only 'bcm2835 ALSA_1'");
-				// do as if all outputs are (were) enabled
-				$countmpdenabled = $countmpdoutput;
-			}
-			if ($countmpdenabled == $countmpdoutput) {
-				// all outputs are (were) enabled
-				if ($countmpdoutput == 2) {
-					// two outputs enabled so disable the the 3,5mm output (this may not exit, that's OK)
-					sysCmd("mpc disable 'bcm2835 ALSA_1'");
-				} else {
-					// more than 2 outputs enabled, disable some (these may not exit, that's OK)
-					sysCmd("mpc disable 'bcm2835 ALSA_1'");
-					sysCmd("mpc disable 'bcm2835 ALSA_2'");
-				}
-			}
-		}
-	}
-
-	// check ENV files
-    //if ($arch !== '--') {
-        // wrk_sysOBEnvCheck($arch,0);
-    //}
-
-    // start Samba services (if required)
-	//wrk_restartSamba($redis);
-
-	$kernel = $redis->get('kernel');
-	// load i2smodule
-	if ($redis->get('i2smodule') !== 'none') {
-		switch($arch_db) {
-			case '01':
-				if ($kernel !== 'linux-rune-3.6.11-18-ARCH+') $loadi2s = true;
-				break;
-			case '10':
-				$loadi2s = true;
-				break;
-		}
-		if ($loadi2s === true) wrk_i2smodule($redis, $redis->get('i2smodule'));
-	}
-	// start shairport-sync
-	if ($redis->hGet('airplay', 'enable')) {
-		runelog('service: SHAIRPORT-SYNC start','');
-		// create a directory to use for airplay metadata artwork
-		// the location /srv/http/tmp is a tmpfs, see /etc/fstab
-		sysCmd('mkdir -p /srv/http/tmp/airplay');
-		sysCmd('cp /srv/http/assets/img/airplay-default.png /srv/http/tmp/airplay/airplay-default.png');
-		sysCmd('chown -R http.http /srv/http/tmp');
-		sysCmd('chmod 755 /srv/http/tmp/airplay');
-		sysCmd('chmod -R 644 /srv/http/tmp/airplay/*');
-		// start shairport-sync if it is not already started
-		sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
-	}
-	// start spotifyd
-	if ($redis->hGet('spotifyconnect', 'enable')) {
-		runelog('service: SPOTIFYD start','');
-		// create a directory to use for spotifyd artwork
-		// the location /srv/http/tmp is a tmpfs, see /etc/fstab
-		sysCmd('mkdir -p /srv/http/tmp/spotify-connect');
-		sysCmd('cp /srv/http/assets/img/spotify-connect-default.png /srv/http/tmp/spotify-connect/spotify-connect-default.png');
-		sysCmd('chown -R http.http /srv/http/tmp');
-		sysCmd('chmod 755 /srv/http/tmp/spotify-connect');
-		sysCmd('chmod -R 644 /srv/http/tmp/spotify-connect/*');
-		// create a directory to use for spotifyd cache
-		// the location /tmp is a tmpfs, see /etc/fstab
-		// default location is '/tmp/spotifyConnectCache'
-		$spotifyConnectCache = $redis->hGet('spotifyconnect', 'cache_path');
-		if (!empty($spotifyConnectCache)) {
-			sysCmd('mkdir -p '.$spotifyConnectCache);
-			sysCmd('chown -R spotifyd.spotifyd '.$spotifyConnectCache);
-			sysCmd('chmod 755 '.$spotifyConnectCache);
-			sysCmd('chmod -R 644 '.$spotifyConnectCache.'/*');
-		}
-		// start spotifyd if it is not already started
-		sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
-		$redis->hSet('spotifyconnect', 'track_id', '');
-		$redis->hSet('spotifyconnect', 'last_track_id', '');
-		$redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-		$redis->hSet('spotifyconnect', 'last_time_stamp', 0);
-	}
-	// start udevil
-	if ($redis->get('udevil') === '1') {
-		runelog("service: UDEVIL start",'');
-		sysCmd('pgrep -x udevil || systemctl start udevil');
-	}
-	// read system network interfaces details
-	// wrk_netconfig($redis,'setnics');
-	// check /etc/network/interfaces integrity
-	// hashCFG('check_net',$redis);
-	// check /etc/mpd.conf integrity
-	// hashCFG('check_mpd',$redis);
-
-	// initialize OrionProfile
-	runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
-	sysCmd("/var/www/command/orion_optimize.sh ".$redis->get('orionprofile')." ".$redis->get('hwplatformid'));
-
-	// start php-fpm if required
-	$retval = sysCmd('systemctl is-active php-fpm');
-	if ($retval[0] === 'active') {
-		// do nothing
-	} else {
-		sysCmd('systemctl start php-fpm');
-	}
-	unset($retval);
-
-	// PHP 5.5 OPCache
-	if (!$redis->get('dev')) {
-		// prime PHP OPCache
-		runelog('prime PHP OPCache');
-		sysCmdAsync("curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
-	}
-
-	// start rune_PL_wrk
-	sysCmd('pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk');
-	$start4 = microtime(true);
-	$starttime = ($start4-$start3)+$firstlap;
-	runelog('WORKER rune_SY_wrk.php STARTED in '.$starttime.' seconds.');
-	ui_notify_async('system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
-
-	// start the local browser
-	if (($redis->hGet('local_browser', 'enable')) && (file_exists('/usr/bin/xinit'))) {
-		sysCmdAsync('systemctl start local-browser');
-	} else {
-		sysCmdAsync('systemctl stop local-browser');
-	}
-
-	// turn wifi power saving off
-	sysCmd('iwconfig wlan0 power off');
-
-	// close startup Redis connection
-	$redis->close();
-	// reset usb storage (also starts samba), set the mpd volume, collect debug data, set process priority (to nice)
-	sysCmdAsync('nice --adjustment=1 /var/www/command/usbmount ; /var/www/command/set_mpd_volume.php ; /var/www/command/debug_collector ; /srv/http/command/rune_prio nice');
-	runelog('--- NORMAL STARTUP');
-	// --- NORMAL STARTUP //
+    if (strtolower($hn) != strtolower(trim($redis->get('hostname')))) {
+        wrk_changeHostname($redis, $redis->get('hostname'));
+    }
+    unset($retval);
+    //
+    // store the memory and number of cores
+    $redis->set('cores', preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]));
+    $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo')[0]));
+    //
+    // set the Wi-Fi regulatory domain based on the current time zone
+    wrk_setRegDom($redis);
+    //
+    // activate rune udev rules
+    add_udev_rules('/srv/http/app/config/defaults/etc/udev/rules.d/99-runeaudio.rules');
+    //
+    // read activePlayer state
+    $activePlayer = $redis->get('activePlayer');
+    if ($activePlayer === 'MPD') {
+        // stop spotify, if started
+        sysCmd('pgrep -x spopd && systemctl stop spopd');
+        // Refresh the MPD config file and start/restart MPD if required
+        wrk_mpdconf($redis, 'refresh');
+        // ashuffle gets started automatically
+    } else if ($activePlayer === 'Spotify') {
+        // stop MPD
+        wrk_mpdconf($redis,'stop');
+        // start spotify, if not started
+        sysCmd('pgrep -x spopd || systemctl start spopd');
+    } else {
+        // stop spotify, if started
+        sysCmd('pgrep -x spopd && systemctl stop spopd');
+        // reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
+        $redis->set('activePlayer', 'MPD');
+        // Refresh the MPD config file and start/restart MPD if required
+        wrk_mpdconf($redis,'refresh');
+        // ashuffle gets started automatically
+    }
+    //
+    // initialize OrionProfile
+    runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
+    $hwplatformid = $redis->get('hwplatformid');
+    // the following lines can be removed after the next kernel upgrade 05-07-2022
+    $armVer = strtolower(trim(sysCmd('uname -m | xargs')[0]));
+    if (($hwplatformid != '01') && ($armVer == 'armv6l')) {
+        $hwplatformid = '01';
+        $redis->set('hwplatformid', $hwplatformid);
+    }
+    // remove to here
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/orion_optimize.sh '.$redis->get('orionprofile').' "'.$hwplatformid."'");
+    //
+    // check that MPD only has one output enabled and if not correct it
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
+    // reset usb storage (also starts samba)
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/usbmount');
+    // set the mpd volume - important on the first boot, subsequently less so as MPD remembers the last volume level
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/set_mpd_volume.php');
+    // check the availability of internet and services
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/internet_available_async.sh');
+    // refresh nics, this will start the AP if required
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/refresh_nics');
+    // set process priority (to nice)
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
+    //
+    $kernel = $redis->get('kernel');
+    // load i2smodule
+    $loadi2s = false;
+    if ($redis->get('i2smodule') !== 'none') {
+        switch($arch_db) {
+            case '01':
+                if ($kernel !== 'linux-rune-3.6.11-18-ARCH+') $loadi2s = true;
+                break;
+            case '10':
+                $loadi2s = true;
+                break;
+        }
+        if ($loadi2s === true) wrk_i2smodule($redis, $redis->get('i2smodule'));
+    }
+    //
+    // start shairport-sync (Airplay)
+    if ($redis->hGet('airplay', 'enable')) {
+        // start shairport-sync if it is not already started
+        runelog('service: SHAIRPORT-SYNC start','');
+        sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
+    }
+    //
+    // start spotifyd (Spotify Connect)
+    if ($redis->hGet('spotifyconnect', 'enable')) {
+        runelog('service: SPOTIFYD start','');
+        // start spotifyd if it is not already started
+        sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
+        $redis->hSet('spotifyconnect', 'last_track_id', '');
+        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+    }
+    //
+    // start udevil
+    if ($redis->get('udevil')) {
+        runelog("service: UDEVIL start",'');
+        sysCmd('pgrep -x udevil || systemctl start udevil');
+        // clean up any invalid mount points
+        sysCmd('udevil clean');
+    }
+    //
+    // start php-fpm if required
+    $retval = sysCmd('systemctl is-active php-fpm');
+    if ($retval[0] === 'active') {
+        // do nothing
+    } else {
+        sysCmd('systemctl start php-fpm');
+        if ($redis->get('first_time_boot')) {
+            // workaround for nginx needing restart with php7.x (normally it now seems to work fine without, but not the first time boot)
+            sysCmd('systemctl restart nginx');
+        }
+    }
+    unset($retval);
+    // sometimes on the armv6 image nginx fails to start automatically, if it is not running start it
+    sysCmd('pgrep nginx || systemctl start nginx');
+    //
+    // PHP OPCache
+    if (!$redis->get('dev')) {
+        // prime PHP OPCache
+        runelog('prime PHP OPCache');
+        sysCmdAsync("curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
+    }
+    //
+    // clear the current song data on the first pass after startup
+    if (is_firstTime($redis, 'clear_act_player_info')) {
+        $redis->set('act_player_info', json_encode(array()));
+    }
+    // start rune_PL_wrk
+    sysCmd('pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk');
+    //
+    // start the local browser
+    // clear the cache otherwise file_exists() returns incorrect values
+    clearstatcache(true, '/usr/bin/xinit');
+    if (($redis->hGet('local_browser', 'enable')) && (file_exists('/usr/bin/xinit'))) {
+        sysCmdAsync('systemctl start local-browser; /srv/http/command/ui_update_async 5000000');
+    } else {
+        sysCmdAsync('systemctl stop local-browser');
+        $redis->hSet('local_browser', 'enable', 0);
+    }
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
+    if ($redis->get('first_time_boot')) {
+        // display the first boot message
+        sysCmd("ply-image '/usr/share/bootsplash/runeaudio_first_time.png'");
+        $redis->set('first_time_boot', 0);
+    }
+    //
+    // save the redis database to disk
+    $redis->bgsave();
+    // don't close redis, it has been opened with a $redis->pconnect() which reuses connections.
+    // $redis->close();
+    //
+    $start4 = microtime(true);
+    $starttime = ($start4-$start3)+$firstlap;
+    runelog('WORKER rune_SY_wrk.php STARTED in '.$starttime.' seconds.');
+    // noid ui_notify_async('system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
+    ui_notify('system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
+    runelog('--- NORMAL STARTUP');
+    // --- NORMAL STARTUP //
 }
+//
 runelog('WORKER MAIN LOOP ---');
+//
 // WORKER MAIN LOOP --- //
-while (1) {
-	// Connect to Redis backend
-	$redis->pconnect('/run/redis/socket');
-	// runelog('[wrk] loop marker ',microtime(true));
+while (true) {
+    // Connect to Redis backend
+    $redis->pconnect('/run/redis/socket');
+    // runelog('[wrk] loop marker ',microtime(true));
     // monitor loop
-    if (!empty($redis->hGetAll('w_queue'))) {
-        //debug
-        runelog('[wrk] there is something for me in the queue! ');
-        // switch command queue for predefined jobs
-        foreach ($redis->hGetAll('w_queue') as $jobID => $job) {
-            runelog('(loop) start job', $jobID);
-            // decode redis data
-            $job = json_decode($job);
-			runelog('wrk_SY: ', $job->wrkcmd);
-			if (isset($job->action)) {
-				runelog($job->wrkcmd.' action: ', $job->action);
-			} else {
-				runelog($job->wrkcmd.' action: ', 'Not set');
-			}
-			if (isset($job->args)) {
-				runelog($job->wrkcmd.'   args: ', $job->args);
-			} else {
-				runelog($job->wrkcmd.'   args: ', 'Not set');
-			}
-            switch($job->wrkcmd) {
-                case 'test':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // send notfy to UI
-                    ui_notify_async('Test', 'text message: jobID='.$jobID, $jobID);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'airplay':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->args !== $redis->hGet('airplay', 'name')) {
-                        $redis->hSet('airplay', 'name', $job->args);
-                        // update shairport startup config
-                        wrk_shairport($redis, $redis->get('ao'), $redis->hGet('airplay', 'name'));
-                        $restart = 1;
-                    }
-                    if ($job->action === 'start') {
-						// start shairport-sync
-                        runelog('service: SHAIRPORT start');
-						// create a directory to use for airplay metadata artwork
-						// the location /srv/http/tmp is a tmpfs, see /etc/fstab
-						// TO-DO: use the airplay redis variables to determine the metadata artwork directory
-						sysCmd('mkdir -p /srv/http/tmp/airplay');
-						sysCmd('cp /srv/http/assets/img/airplay-default.png /srv/http/tmp/airplay/airplay-default.png');
-						sysCmd('chown -R http.http /srv/http/tmp');
-						sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-default.png');
-                        // start or re-start shairport-sync service
-                        if (isset($restart)) {
-                            sysCmd('systemctl reload-or-restart shairport-sync');
-                        } else {
-                            sysCmd('systemctl start shairport-sync');
-                        }
-                        $redis->hSet('airplay', 'enable', 1);
-                        // send notfy to UI
-                        ui_notify('AirPlay', 'AirPlay feature enabled', $jobID);
-                    } elseif ($job->action === 'stop') {
-						// stop shairport-sync
-                        runelog('service: SHAIRPORT stop');
-                        sysCmd('systemctl stop shairport-sync');
-                        $redis->hSet('airplay', 'enable', 0);
-                        // send notfy to UI
-                        ui_notify('AirPlay', 'AirPlay feature disabled', $jobID);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-				case 'airplaytoggle':
-					runelog('wrk_SY: ', $job->wrkcmd);
-					if ($job->action === 'start') {
-						// switch the player to airplay
-						wrk_startPlayer($redis, 'Airplay');
-						// start rune_SSM_wrk if metadata is enabled
-						if ($redis->hGet('airplay', 'metadata_enabled') == 'yes') {
-							sysCmd('systemctl start rune_SSM_wrk');
-							sleep(2);
-							sysCmd('renice 3 $(pgrep -w rune_SSM_wrk) || renice 3 $(pgrep -w rune_SSM_wrk)');
-						}
-					} elseif ($job->action === 'stop') {
-						// switch the player from airplay
-						wrk_stopPlayer($redis, 'Airplay');
-						// stop rune_SSM_wrk
-						sysCmd('systemctl stop rune_SSM_wrk');
-					}
-                    $redis->sAdd('w_lock', $jobID);
-                    $redis->sRem('w_lock', $jobID);
-					break;
-                case 'xorgserver':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					if ($job->action === 'start') {
-						// save the local browser values
-						$redis->hSet('local_browser', 'enable', $job->args);
-						// set bootsplash-disable OFF for the next reboot
-						$redis->hSet('local_browser', 'disable-splash', 0);
-						wrk_xorgconfig($redis, $job->action, 0);
-						sysCmd('systemctl enable bootsplash');
-						// start the local browser
-						sysCmd('systemctl start local-browser');
-						sysCmdAsync('/srv/http/command/rune_prio nice');
-					} else if ($job->action === 'stop') {
-						// save the local browser values
-						$redis->hSet('local_browser', 'enable', $job->args);
-						// set bootsplash-disable ON for the next reboot
-						$redis->hSet('local_browser', 'disable-splash', 1);
-						wrk_xorgconfig($redis, $job->action, 1);
-						sysCmd('systemctl disable bootsplash');
-						// stop the local browser
-						sysCmd('systemctl stop local-browser');
-					} else if ($job->action === 'zoomfactor') {
-						// zoomfactor
-						// reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points
-						$zoomfactor = floatval(preg_replace("/[^0-9.]/", "", $job->args));
-						// check range of zoomfactor
-						if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
-							// strip any leading & trailing zero's, spaces, etc.
-							$zoomfactor = trim(trim($zoomfactor, '0'));
-							// save the localbrowser zoomfactor value
-							$redis->hSet('local_browser', $job->action, $zoomfactor);
-							// set the parameter file
-							wrk_xorgconfig($redis, $job->action, $zoomfactor);
-							// retart local browser if enabled
-							if ($redis->hGet('local_browser', 'enable')) {
-								sysCmd('systemctl stop local-browser');
-								sysCmd('systemctl daemon-reload');
-								sysCmd('systemctl start local-browser');
-								sysCmd('/srv/http/command/rune_prio nice');
-							}
-						} else {
-							ui_notify('Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
-							sleep(3);
-						}
-					} else {
-						// localSStime, rotate, mouse_cursor or smallScreenSaver
-						// save the local browser rotate or mouse_cursor values
-						$redis->hSet('local_browser', $job->action, $job->args);
-						// set the parameter file
-						wrk_xorgconfig($redis, $job->action, $job->args);
-						// retart local browser if enabled
-						if ($redis->hGet('local_browser', 'enable')) {
-							sysCmd('systemctl stop local-browser');
-							sysCmd('systemctl daemon-reload');
-							sysCmd('systemctl start local-browser');
-							sysCmd('/srv/http/command/rune_prio nice');
-						}
-					}
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'backup':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    $backup = wrk_backup($redis);
-                    $redis->hSet('w_msg', $jobID, $backup);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'restoreact':
-					runelog('wrk_SY: ', $job->wrkcmd);
-					// Activate the Restore function
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->set('restoreact', ' 1');
-					sysCmd("echo 'http ALL=NOPASSWD: ALL' > /etc/sudoers.d/http-backup");
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                // case 'restore':
-					// runelog('wrk_SY: ', $job->wrkcmd);
-                    // $redis->sAdd('w_lock', $jobID);
-					// ui_notify_async('Restore backup', 'please wait for a restart...', $jobID);
-                    // wrk_restore($redis, "/run/".$job->args);
-					// this function never returns, it will stop most jobs restart redis and finally respawn rune_SY_wrk (this file)
-                    // $redis->sRem('w_lock', $jobID);
-                    // break;
-                case 'clearimg':
-                    $redis->sAdd('w_lock', $jobID);
-                    // Clean IMG
-                    runelog('Clean IMG');
-                    // send notfy to UI
-                    //ui_notify_async('Clean IMG', 'Started, this can take a while to complete', $jobID);
-                    ui_notify('Clean IMG', 'Started, this can take a while to complete');
-                    // enable OPcache
-                    wrk_opcache('enable');
-                    wrk_cleanDistro();
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'debug':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    sysCmd('/var/www/command/debug_collector');
-                    // $redis->sRem('w_lock', $jobID);???
-                    break;
-                case 'dlna':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					sysCmd('systemctl stop upmpdcli');
-                    if (($job->args->name !== $redis->hGet('dlna', 'name')) OR ($job->args->queueowner !== $redis->hGet('dlna', 'queueowner'))) {
-                        $redis->hSet('dlna', 'name', $job->args->name);
-                        $redis->hSet('dlna', 'queueowner', $job->args->queueowner);
-                        // update upmpdcli startup config
-                        wrk_upmpdcli($redis, $redis->hGet('dlna', 'name'), $redis->hGet('dlna', 'queueowner'));
-                    }
-                    // start upmpdcli
-                    if ($job->action === 'start') {
-                        runelog('service: UPMPDCLI start');
-                        // start or re-start upmpdcli service
-                        sysCmd('systemctl start upmpdcli');
-                        $redis->hSet('dlna', 'enable', 1);
-                        // send notfy to UI
-                        ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature enabled', $jobID);
-                    }
-                    // stop upmpdcli
-                    if ($job->action === 'stop') {
-                        runelog('service: UPMPDCLI stop');
-                        $redis->hSet('dlna', 'enable', 0);
-                        // send notfy to UI
-                        ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'gitpull':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-					$redis->sAdd('w_lock', $jobID);
-                    // Update RuneUI
-                    runelog('Update RuneUI');
-					// preparation: delete the MPD watchdog, set up git user-name and email (set to player ID)
-					sysCmd('rm -f /var/www/command/mpd-watchdog');
-					sysCmd('cd /srv/http/ && git config user.name "'.$redis->get('playerid').'"');
-					sysCmd('cd /srv/http/ && git config user.email "'.$redis->get('playerid').'@runeaudio.com"');
-                    // git stash, git add then git pull
-                    $retval = sysCmd('cd /srv/http/ && git stash ; git add . ; git stash ; git pull --no-edit');
-                    //sysCmd("curl -s -X GET 'http://localhost/clear'");
-                    // send notfy to UI
-                    ui_notify('Update RuneUI', 'RuneUI update message<br>'.implode('<br>', $retval));
-                    sysCmd('cd /srv/http/ && git stash');
-					$gitupdated = 1;
-					foreach($retval as $line) {
-						if (strpos(' '.strtolower($line),'already up to date')) {
-							$gitupdated = 0;
-						}
-					}
-					ui_notify('Update RuneUI', 'Wait for the screen to refresh...');
-					wrk_sysAcl();
-					$playernamemenu = $redis->get('playernamemenu');
-					wrk_playernamemenu($playernamemenu);
-					if ($gitupdated) {
-						ui_notify('Update RuneUI', 'Rebooting');
-						$redis->set('dev', 0);
-						sleep(3);
-						sysCmd('systemctl reload-or-restart php-fpm || systemctl start php-fpm');
-						sysCmd('/var/www/command/rune_shutdown reboot');
-						sysCmd('systemctl reboot');
-					}
-					unset($retval);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'hostname':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					ui_notify('Settings - Change Hostname', 'it takes some time .....');
-                    wrk_changeHostname($redis, $job->args);
-					$retval = sysCmd('hostname');
-                    $hn = trim($retval[0]);
-					if (strtolower($hn) === strtolower(trim($job->args))){
-						$redis->set('hostname', trim($job->args));
-					} else {
-						$redis->set('hostname', $hn);
-					}
-					unset($retval);
-                    // update hash
-                    $hash = md5_file('/etc/mpd.conf');
-                    $redis->set('mpdconfhash', $hash);
-                    // send notfy to UI
-                    //ui_notify_async('Hostname', 'Hostname changed to:'.$hn, $jobID);
-                    ui_notify('Hostname', 'Hostname changed to:'.$hn);
-					sleep(3);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'i2smodule':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    runelog('env: SET I2S MODULE', $job->args);
-                    wrk_i2smodule($redis, $job->args);
-                    // send notification
-                    // TODO: make a real check!
-                    ui_notify_async('I&#178;S kernel module', 'Operation completed', $jobID);
-                    // TODO (rework needed)
-                    $ao = $redis->get('ao');
-                    runelog('env: reenable the current AO', $ao);
-                    if ($ao === 'bcm2835 ALSA_1' OR $ao === 'bcm2835 ALSA_2') {
-                        sysCmd('mpc enable only "bcm2835 ALSA"');
-                    } else {    
-                        sysCmd('mpc enable only "'.$ao.'"');
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'audio_on_off':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    runelog('env: SET dtparam-audio', $job->args);
-                    wrk_audio_on_off($redis, $job->args);
-                    // send notification
-                    // TODO: make a real check!
-                    ui_notify_async('Switching onboard audio mode', 'Operation completed', $jobID);
-                    // TODO (rework needed)
-                    $ao = $redis->get('ao');
-                    runelog('env: reenable the current AO', $ao);
-                    if ($ao === 'bcm2835 ALSA_1' OR $ao === 'bcm2835 ALSA_2') {
-                        sysCmd('mpc enable only "bcm2835 ALSA"');
-                    } else {    
-                        sysCmd('mpc enable only "'.$ao.'"');
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'kernelswitch':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    runelog('env: SWITCH KERNEL',$job->args);
-                    if (wrk_kernelswitch($redis,$job->args)) {
-                        if ($job->args === 'linux-rune-rpi_3.12.13-rt21_wosa') {
-                            $redis->set('ao', 'snd_rpi_wsp_1');
-                            $redis->set('i2smodule', 'none');
-                            $redis->set('orionprofile', 'OrionV2');
-                        }
-                        $notification = new stdClass();
-                        $notification->title = 'Kernel switch';
-                        $notification->text = $job->args.' selected successfully, reboot reqired';
-                        wrk_notify($redis, 'kernelswitch', $notification, $jobID);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'lastfm':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'start') {
-                        if ($job->args->user != $redis->hGet('lastfm', 'user') OR $job->args->pass != $redis->hGet('lastfm', 'pass')) {
-                        // mpdscribble.conf
-                        $file = '/etc/mpdscribble.conf';
-                        $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
-                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
-                        // Commit changes to /etc/mpdscribble.conf
-                        $fp = fopen($file, 'w');
-                        fwrite($fp, implode("", $newArray));
-                        fclose($fp);
-						unset($newArray);
-                        // write LastFM auth data to Redis datastore
-                        setLastFMauth($redis, $job->args);
-                        }
-                        // check if spotify is configured
-                        if ($redis->hGet('spotify','enable') === '1') {
-                            // spopd.conf
-                            $file = '/etc/spop/spopd.conf';
-                            $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$redis->hGet('lastfm','user'), 'api_endpoint', 1);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$redis->hGet('lastfm','pass'), 'api_endpoint', 2);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', 'plugins = scrobble', '### System settings ###', 2);
-                            // commit changes to /etc/spop/spopd.conf
-                            $fp = fopen($file, 'w');
-                            fwrite($fp, implode("", $newArray));
-                            fclose($fp);
-							unset($newArray);
-                            if ($redis->get('activePlayer') === 'Spotify') {
-                                sysCmd('systemctl reload-or-restart spopd || systemctl start spopd');
-                            }
-                        }
-                        sysCmd('systemctl stop mpdscribble');
-                        runelog('service: MPDSCRIBBLE start');
-                        sysCmd('systemctl start mpdscribble');
-                        // send notfy to UI
-                        ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon started', $jobID);
-                        $redis->hSet('lastfm', 'enable', 1);
-                    }
-                    if ($job->action === 'stop') {
-                        sysCmd('systemctl stop mpdscribble');
-                        // check if spotify is configured
-                        if ($redis->hGet('spotify','enable') === '1') {
-                            // spopd.conf
-                            $file = '/etc/spop/spopd.conf';
-                            $newArray = wrk_replaceTextLine($file, '', 'plugins =', '#plugins = scrobble', '### System settings ###', 2);
-                            // commit changes to /etc/spop/spopd.conf
-                            $fp = fopen($file, 'w');
-                            fwrite($fp, implode("", $newArray));
-                            fclose($fp);
-							unset($newArray);
-                            sysCmd('systemctl reload-or-restart spopd');
-                        }
-                        // send notfy to UI
-                        ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon stopped', $jobID);
-                        $redis->hSet('lastfm', 'enable', 0);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'mpdcfg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'update') {
-                        // send notfy to UI
-                        ui_notify_async('MPD', 'configuration updated', $jobID);
-                        runelog('args',$job->args);
-                        wrk_mpdconf($redis, 'update', $job->args, $jobID);
-                        wrk_mpdconf($redis, 'restart');
-                    }
-                    if ($job->action === 'reset') {
-                        wrk_mpdconf($redis, 'reset');
-                        wrk_mpdconf($redis, 'restart');
-                    }
-                    if ($job->action === 'switchao') {
-                        wrk_mpdconf($redis, 'switchao', $job->args, $jobID);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'mpdcfgman':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // send notfy to UI
-                    ui_notify_async('MPD', 'configuration updated', $jobID);
-                    // stop MPD daemon
-                    wrk_mpdconf($redis, 'stop');
-                    // write mpd.conf file
-                    $fh = fopen('/etc/mpd.conf', 'w');
-                    fwrite($fh, $job->args);
-                    fclose($fh);
-                    wrk_mpdconf($redis, 'start');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'mpdrestart':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    wrk_mpdconf($redis, 'restart');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                //case 'ashufflestart':
-                    // runelog('wrk_SY: ', $job->wrkcmd);
-                    //$redis->sAdd('w_lock', $jobID);
-					// shuffle.service has the line: ExecStart=/usr/bin/ashuffle -f /var/lib/mpd/playlists/RandomPlayPlaylist.m3u
-					// The hard coded /var/lib/mpd/playlists is set to $redis->hget('mpdconf', 'playlist_directory')
-					// This will modify the standard shuffle.service to be able to random play from playlists
-					//$file = '/usr/lib/systemd/system/ashuffle.service';
-					//$newArray = wrk_replaceTextLine($file, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -f '.$redis->hGet('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
-					//$fp = fopen($file, 'w');
-					//$return = fwrite($fp, implode("", $newArray));
-					//fclose($fp);
-					//unset($newArray);
-					// Restart ashuffle if global random ON
-					//if ('1' === $redis->get('globalrandom')) {
-						//sysCmd('systemctl daemon-reload');
-						// ashuffle gets started automatically
-					//}
-                    //$redis->sRem('w_lock', $jobID);
-                    //break;
-                case 'ashufflereset':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// If it exists, remove the symbolic link which ashuffle uses as a random playlist. ashuffle uses the whole MPD database in it is not present
-					sysCmd('rm -f '.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
-					// set the indicator to say NO playlist random file exists
-					$redis->set('last_pl_randomfile', 'none');
-					// Stop ashuffle
-					sysCmd('systemctl stop ashuffle');
-					// shuffle.service has the line: ExecStart=/usr/bin/ashuffle -f /var/lib/mpd/playlists/RandomPlayPlaylist.m3u
-					// The hard coded /var/lib/mpd/playlists is set to $redis->hget('mpdconf', 'playlist_directory')
-					// This will modify the standard shuffle.service to be able to random play from playlists
-					$file = '/usr/lib/systemd/system/ashuffle.service';
-					$newArray = wrk_replaceTextLine($file, '', 'ExecStart=', 'ExecStart=/usr/bin/ashuffle -f '.$redis->hGet('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
-					$fp = fopen($file, 'w');
-					$return = fwrite($fp, implode("", $newArray));
-					fclose($fp);
-					unset($newArray);
-					// Restart ashuffle if global random ON
-					if ('1' === $redis->get('globalrandom')) {
-						sysCmd('systemctl daemon-reload');
-						// ashuffle gets started automatically
-					}
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'pl_ashuffle':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// Stop ashuffle
-					sysCmd('systemctl stop ashuffle');
-					// delete the existing symbolic link if it exists
-					sysCmd('rm -f "'.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u"');
-					// Make a symbolic link to the selected playlist for random play, ashuffle will use it on startup if it is available
-					sysCmd('ln -sf "'.$redis->hget('mpdconf', 'playlist_directory').'/'.$job->args.'.m3u" "'.$redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u"');
-					// set the indicator to say a playlist random file exists
-					$redis->set('last_pl_randomfile', 'exists');
-					// Set global random ON
-					$redis->set('globalrandom', '1');
-					// ashuffle gets started automatically
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'addrandomtracks':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// save the number of files to add
-					$redis->set('addrandom', $job->args);
-					// call ashuffle to add the specified number of tracks to the queue
-					ui_notify('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
-					sleep(3);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'airplaymetadata':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-				case 'sambaonoff':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('samba', 'enable', $job->action);
-					$redis->hSet('samba', 'readwrite', $job->args);
-					wrk_restartSamba($redis);
-                    $redis->sRem('w_lock', $jobID);
-					break;
-				case 'sambarestart':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					wrk_restartSamba($redis);
-                    $redis->sRem('w_lock', $jobID);
-					break;
-				case 'rerninstall':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-					ui_notify("Install Rern's Addons", 'It takes some time .....');
-                    $redis->sAdd('w_lock', $jobID);
-					sysCmd('systemctl stop addons cronie');
-					sysCmd('systemctl disable addons cronie');
-					sysCmd('rm -f /etc/systemd/system/addons.service');
-					sysCmd('rm -f /etc/sudoers.d/http');
-					sysCmd('rm -f /etc/sudoers.d/http-backup');
-					sysCmd('rm -fr /home/rern');
-					sysCmd('mkdir -m=777 -p /home/rern');
-					sysCmd('/usr/local/bin/uninstall_addo.sh');
-					sysCmd('rm -f ./install.sh');
-					sysCmd('rm -f /usr/local/bin/uninstall_addo.sh');
-					sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
-					$redis->del('addons');
-					$redis->del('addo');
-					sysCmd('wget -vN --no-check-certificate https://github.com/rern/RuneAudio_Addons/raw/master/install.sh --output-file=/home/rern/Rern_Addons.log');
-					sysCmd('chmod +x -v ./install.sh  >> /home/rern/Rern_Addons.log');
-					sysCmd('./install.sh >> /home/rern/Rern_Addons.log');
-					sysCmd('sed -i "s,\x1B\[[0-9;]*[a-zA-Z],,g" /home/rern/Rern_Addons.log');
-					$retval = sysCmd('grep -i -E "installed|please" /home/rern/Rern_Addons.log');
-					ui_notify("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
-					sleep(3);
-					ui_notify("Rern's Addons", 'You may need to reboot...');
-					sleep(3);
-					unset($retval);
-					$redis->hSet('addons', 'update', '0');
-					$redis->hSet('addons', 'font', '20170901');
-                    sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
-					$redis->sRem('w_lock', $jobID);
-					break;
-				case 'rernremove':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-					ui_notify("Remove Rern's Addons", 'It takes some time .....');
-                    $redis->sAdd('w_lock', $jobID);
-					sysCmd('systemctl stop addons cronie');
-					sysCmd('systemctl disable addons cronie');
-					sysCmd('rm -f /etc/systemd/system/addons.service');
-					sysCmd('rm -f /etc/sudoers.d/http');
-					sysCmd('rm -f /etc/sudoers.d/http-backup');
-					sysCmd('rm -fr /home/rern');
-					sysCmd('/usr/local/bin/uninstall_addo.sh');
-					sysCmd('rm -f ./install.sh');
-					sysCmd('rm -f /usr/local/bin/uninstall_addo.sh');
-					sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
-					$redis->del('addons');
-					$redis->del('addo');
-					ui_notify("Remove Rern's Addons", 'You may need to reboot...');
-					sleep(3);
-					$redis->hSet('addons', 'update', '0');
-					$redis->hSet('addons', 'font', '20170901');
-                    sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'extendpartition':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$retval = sysCmd("echo -e 'd\n2\nn\np\n2\n\n\nt\n2\n83\np\nw' | fdisk /dev/mmcblk0 | grep -i mmcblk0p2");
-					sysCmd('partprobe /dev/mmcblk0');
-					sysCmd('resize2fs /dev/mmcblk0p2');
-					ui_notify("Extend Linux Partition", implode("\n", $retval));
-					sleep(3);
-					unset($retval);
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'NTPswitch':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					sysCmd('/srv/http/command/switch_'.$job->action.'_time_on.sh');
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'airplayconfreset':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					sysCmd('cp /var/www/app/config/defaults/shairport-sync.service /usr/lib/systemd/system/shairport-sync.service');
-					sysCmd('cp /var/www/app/config/defaults/shairport-sync.conf /etc/shairport-sync.conf');
-					wrk_sysAcl();
-					$airplay_name = $redis->hGet('airplay', 'name');
-					$airplay_enable = $redis->hGet('airplay', 'enable');
-					$redis->del('airplay');
-					sysCmd('/var/www/db/redis_datastore_setup check');
-					$redis->hSet('airplay', 'name', $airplay_name);
-					$redis->hSet('airplay', 'enable', $airplay_enable);
-					wrk_getHwPlatform($redis);
-					wrk_shairport($redis, $redis->get('ao'), $airplay_name);
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'sambaconfreset':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// stop samba
-					sysCmd('systemctl stop smbd smb nmbd nmb');
-					sysCmd('systemctl disable smbd smb nmbd nmb');
-					// reset the config files
-					sysCmd('rm -f /etc/samba/*.conf');
-					sysCmd('cp /var/www/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
-					sysCmd('cp /var/www/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
-					sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
-					sysCmd('find /etc/samba -name *.conf -exec chmod 644 {} \;');
-					// reset the redis varables for samba (set to OFF and Read-Only)
-					$redis->del('samba');
-					sysCmd('/var/www/db/redis_datastore_setup check');
-					// remove any samba usernames and passwords
-					sysCmd('pdbedit -L | grep -o ^[^:]* | smbpasswd -x');
-					// restart samba if required (e.g. when in dev mode)
-					wrk_restartSamba($redis);
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'soxrmpd':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->set('soxrmpdonoff', $job->action);
-                    wrk_mpdconf($redis, 'refresh');
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'soxrairplay':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    runelog('soxrairplay action: ', $job->action);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('airplay', 'soxronoff', $job->action);
-					wrk_shairport($redis, $redis->get('ao'));
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'metadataairplay':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('airplay', 'metadataonoff', $job->action);
-					wrk_shairport($redis, $redis->get('ao'));
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'artworkairplay':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('airplay', 'artworkonoff', $job->action);
-					wrk_shairport($redis, $redis->get('ao'));
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'airplayoutputformat':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('airplay', 'alsa_output_format', $job->args);
-					wrk_shairport($redis, $redis->get('ao'));
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'airplayoutputrate':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					$redis->hSet('airplay', 'alsa_output_rate', $job->args);
-					wrk_shairport($redis, $redis->get('ao'));
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'playernamemenu':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					wrk_playernamemenu($job->action);
-					$redis->set('playernamemenu', $job->action);
-                    sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
-					$redis->sRem('w_lock', $jobID);
-					break;
-                case 'netcfg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // reset network configuration to default
-                    if ($job->action === 'reset') {
-                        wrk_netconfig($redis,'reset',$job->args);
-                    }
-                    // write network configuration
-                    if ($job->action === 'config') {
-                        // send notfy to UI
-                        ui_notify('Networkconfiguration', 'it takes some time .....');
-                        $retval = wrk_netconfig($redis, 'writecfg', $job->args);
-                        // reboot if needed !!!
-                        if ($retval === 'reboot') {
-                            //$notification = new stdClass();
-                            //$notification->title = 'Network config';
-                            //$notification->text = 'Config changed successfully, reboot reqired';
-                            //wrk_notify($redis, 'kernelswitch', $notification, $jobID);
-                            sysCmd('/var/www/command/rune_shutdown reboot');
-                            sysCmdAsync('systemctl reboot');
-                        }
-						unset($retval);
-                    }
-                    // refresh network configuration
-                    if ($job->action === 'refresh') {
-                        sysCmd('/var/www/command/refresh_nics');
-                    }
-                    // manual network configuration
-                    if ($job->action === 'manual') {
-                        // wrk_netconfig($redis,'manual',$job->args);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'apcfg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // reset accesspoint configuration to default
-                    if ($job->action === 'reset') {
-						// Need to test the following
-                        // $redis->Del('AccessPoint');
-						// sysCmd('/var/www/command/refresh_nics');
-                    }
-                    // write network configuration
-                    if ($job->action === 'config') {
-                        // send notfy to UI
-                        ui_notify('AccessPoint configuration', 'it takes some time .....');
-                        $retval = wrk_apconfig($redis, 'writecfg', $job->args);
-                        // reboot if needed !!!
-                        if ($retval === 'reboot') {
-                            $notification = new stdClass();
-                            $notification->title = 'AccessPoint config';
-                            $notification->text = 'Config changed successfully, reboot reqired';
-                            wrk_notify($redis, 'kernelswitch', $notification, $jobID);
-                            sysCmd('/var/www/command/rune_shutdown reboot');
-                            sysCmdAsync('systemctl reboot');
-                        }
-						unset($retval);
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'ntpserver':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    $redis->set('ntpserver', wrk_NTPsync($job->args));
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'opcache':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // Restart PHP service
-                    if ($job->action === 'enable') {
-                        wrk_opcache('enable', $redis);
-                        runelog('PHP 5.5 OPcache enabled');
-                        sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
-                        // wrk_opcache('forceprime');
-                        // send notfy to UI
-                        ui_notify_async('PHP OpCache', 'cache enabled', $jobID);
+    do {
+        // pop the jobID from the work fifo queue
+        $jobID = $redis->rPop('w_queue_fifo');
+        if (!isset($jobID) || !$jobID) {
+            // queue is empty
+            // in some cases an entry is added to the w_queue without adding an entry to the fifo queue
+            //  this happens when w_queue entries are added in bash, so add an entry to the fifo queue for
+            //  any entries in the work queue
+            foreach ($redis->hGetAll('w_queue') as $jobID => $job) {
+                if (isset($jobID) && $jobID) {
+                    $redis->lPush('w_queue_fifo', $jobID);
+                }
+            }
+            continue;
+        }
+        // read the job information from the work queue
+        if ($redis->hExists('w_queue', $jobID)) {
+            $job = $redis->hGet('w_queue', $jobID);
+        } else {
+            // no work queue entry for the fifo queue entry, this should never happen!
+            //  something went wrong, just skip and get the next one
+            continue;
+        }
+        runelog('(loop) start job', $jobID);
+        // decode redis data
+        $job = json_decode($job);
+        runelog('wrk_SY: ', $job->wrkcmd);
+        if (isset($job->action)) {
+            runelog($job->wrkcmd.' action: ', $job->action);
+        } else {
+            runelog($job->wrkcmd.' action: ', 'Not set');
+        }
+        if (isset($job->args)) {
+            runelog($job->wrkcmd.'   args: ', $job->args);
+        } else {
+            runelog($job->wrkcmd.'   args: ', 'Not set');
+        }
+        switch($job->wrkcmd) {
+            case 'test':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // send notfy to UI
+                //ui_notify_async('Test', 'text message: jobID='.$jobID, $jobID);
+                // noid ui_notify_async('Test', 'text message: jobID='.$jobID);
+                ui_notify('Test', 'text message: jobID='.$jobID);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplay':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->args !== $redis->hGet('airplay', 'name')) {
+                    $redis->hSet('airplay', 'name', $job->args);
+                    // update shairport startup config
+                    wrk_shairport($redis, $redis->get('ao'), $redis->hGet('airplay', 'name'));
+                    $restart = 1;
+                }
+                if ($job->action === 'start') {
+                    // start shairport-sync
+                    runelog('service: SHAIRPORT start');
+                    // create a directory to use for airplay metadata artwork
+                    // the location /srv/http/tmp is a tmpfs, see /etc/fstab
+                    // TO-DO: use the airplay redis variables to determine the metadata artwork directory
+                    sysCmd('mkdir -p /srv/http/tmp/airplay');
+                    sysCmd('cp /srv/http/assets/img/airplay-default.png /srv/http/tmp/airplay/airplay-default.png');
+                    sysCmd('chown -R http:http /srv/http/tmp');
+                    sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-default.png');
+                    // start or re-start shairport-sync service
+                    if (isset($restart)) {
+                        sysCmd('systemctl reload-or-restart shairport-sync');
                     } else {
-                        wrk_opcache('disable', $redis);
-                        runelog('PHP 5.5 OPcache disabled');
-                        sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
-                        // send notfy to UI
-                        ui_notify_async('PHP OpCache', 'cache disabled', $jobID);
+                        sysCmd('systemctl start shairport-sync');
                     }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'orionprofile':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    $profile = $job->args." ".$redis->get('hwplatformid');
-                    runelog("env: SET KERNEL PROFILE", $job->args);
-                    sysCmd("/var/www/command/orion_optimize.sh ".$profile);
-                    $redis->set('orionprofile', $job->args);
-                    ui_notify_async('SoundSignature', 'Profile '.$profile.' applied', $jobID);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'phprestart':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
+                    $redis->hSet('airplay', 'enable', 1);
+                    // send notfy to UI
+                    //ui_notify_async('AirPlay', 'AirPlay feature enabled', $jobID);
+                    // noid ui_notify_async('AirPlay', 'AirPlay feature enabled');
+                    ui_notify('AirPlay', 'AirPlay feature enabled');
+                } elseif ($job->action === 'stop') {
+                    // stop shairport-sync
+                    runelog('service: SHAIRPORT stop');
+                    sysCmd('systemctl stop shairport-sync');
+                    $redis->hSet('airplay', 'enable', 0);
+                    // send notfy to UI
+                    //ui_notify_async('AirPlay', 'AirPlay feature disabled', $jobID);
+                    // noid ui_notify_async('AirPlay', 'AirPlay feature disabled');
+                    ui_notify('AirPlay', 'AirPlay feature disabled');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplaytoggle':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    // switch the player to airplay
+                    wrk_startPlayer($redis, 'Airplay');
+                    // start rune_SSM_wrk if metadata is enabled
+                    if ($redis->hGet('airplay', 'metadata_enabled') == 'yes') {
+                        sysCmd('systemctl restart rune_SSM_wrk');
+                    }
+                } elseif ($job->action === 'stop') {
+                    // switch the player from airplay
+                    wrk_stopPlayer($redis, 'Airplay');
+                    // stop rune_SSM_wrk
+                    sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
+                }
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'xorgserver':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'zoomfactor') {
+                    // zoomfactor
+                    // reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points
+                    $zoomfactor = floatval(preg_replace("/[^0-9.]/", "", $job->args));
+                    // check range of zoomfactor
+                    if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
+                        // strip any leading & trailing zero's
+                        $zoomfactor = trim($zoomfactor, '0');
+                        wrk_xorgconfig($redis, $job->action, $zoomfactor);
+                    } else {
+                        ui_notifyError('Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
+                        sleep(3);
+                    }
+                } else {
+                    wrk_xorgconfig($redis, $job->action, $job->args);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'backup':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('w_msg', $jobID, wrk_backup($redis));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'delbackup':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $fileName = trim($job->args);
+                if (substr($fileName, 0, 6) === '/home/') {
+                    // only allow deleting files in the directory '/home/'
+                    sysCmd('rm -f '."'".$fileName."'");
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            // case 'restoreact':
+                // runelog('wrk_SY: ', $job->wrkcmd);
+                // // Activate the Restore function
+                // $redis->sAdd('w_lock', $jobID);
+                // $redis->set('restoreact', ' 1');
+                // sysCmd("echo 'http ALL=NOPASSWD: ALL' > /etc/sudoers.d/http-backup");
+                // $redis->sRem('w_lock', $jobID);
+                // break;
+             case 'restore':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                //ui_notify_async('Working', 'It takes some time....', $jobID);
+                // noid ui_notify_async('Working', 'It takes some time....');
+                ui_notify('Working', 'It takes some time....');
+                wrk_restore($redis, $job->args);
+                // a reboot will take place after a successful restore, if it comes back here something has gone wrong
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'clearimg':
+                $redis->sAdd('w_lock', $jobID);
+                // Clean IMG
+                runelog('Clean IMG');
+                // send notfy to UI
+                //ui_notify_async('Clean IMG', 'Started, this can take a while to complete', $jobID);
+                // noid ui_notify_async('Clean IMG', 'Started, this can take a while to complete');
+                ui_notify('Clean IMG', 'Started, this can take a while to complete');
+                // enable OPcache
+                wrk_opcache($redis, 'enable');
+                wrk_cleanDistro();
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'debug':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'debug-refresh':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // this just waits for the debug collector to complete then allows the UI to refresh
+                // the debug collector takes between 3 and 15 seconds to run
+                if ($redis->get('lock_debug_collector')) {
+                    $cnt = 10;
+                    while ($redis->get('lock_debug_collector') && ($cnt-- > 0)) {
+                        sleep(2);
+                    }
+                    if ($cnt <= 0) {
+                        // this should not happen, run the debug collector again when we get here
+                        sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
+                    }
+                } else {
+                    // debug collector had already finished, run it again for the next time
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'dlna':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('systemctl stop upmpdcli');
+                if (($job->args->name !== $redis->hGet('dlna', 'name')) OR ($job->args->queueowner !== $redis->hGet('dlna', 'queueowner'))) {
+                    $redis->hSet('dlna', 'name', $job->args->name);
+                    $redis->hSet('dlna', 'queueowner', $job->args->queueowner);
+                    // update upmpdcli startup config
+                    wrk_upmpdcli($redis, $redis->hGet('dlna', 'name'), $redis->hGet('dlna', 'queueowner'));
+                }
+                // start upmpdcli
+                if ($job->action === 'start') {
+                    runelog('service: UPMPDCLI start');
+                    // start or re-start upmpdcli service
+                    sysCmd('systemctl start upmpdcli');
+                    $redis->hSet('dlna', 'enable', 1);
+                    // send notfy to UI
+                    //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature enabled', $jobID);
+                    // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature enabled');
+                    ui_notify('UPnP / DLNA', 'UPnP / DLNA feature enabled');
+                }
+                // stop upmpdcli
+                if ($job->action === 'stop') {
+                    runelog('service: UPMPDCLI stop');
+                    $redis->hSet('dlna', 'enable', 0);
+                    sysCmd('systemctl stop upmpdcli');
+                    // send notfy to UI
+                    //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
+                    // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled');
+                    ui_notify('UPnP / DLNA', 'UPnP / DLNA feature disabled');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'gitpull':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // Update RuneUI
+                runelog('Update RuneUI');
+                // preparation: set up git user-name and email (set to player ID)
+                sysCmd('cd /srv/http/ ; git config user.name "'.$redis->get('playerid').'"');
+                sysCmd('cd /srv/http/ ; git config user.email "'.$redis->get('playerid').'@runeaudio.com"');
+                sysCmd('cd /srv/http/ ; git config pull.rebase false');
+                // git stash x2, git add ., stash x2 then git pull
+                sysCmd('cd /srv/http/ ; git stash ; git stash ; git add . ; git stash ; git stash');
+                $retval = sysCmd('cd /srv/http/ ; git pull --no-edit');
+                //sysCmd("curl -s -X GET 'http://localhost/clear'");
+                // send notfy to UI
+                //ui_notify_async('Git pull', $retval, $jobID);
+                // noid ui_notify_async('Git pull', $retval);
+                ui_notify('Git pull', $retval);
+                sysCmd('cd /srv/http/ && git stash; git stash');
+                $gitupdated = 1;
+                foreach($retval as $line) {
+                    if (strpos(' '.strtolower($line),'already up to date')) {
+                        $gitupdated = 0;
+                    }
+                }
+                if ($gitupdated) {
+                    //ui_notify_async('Update RuneUI', 'Rebooting', $jobID);
+                    // noid ui_notify_async('Update RuneUI', 'Rebooting');
+                    ui_notify('Update RuneUI', 'Rebooting');
+                    wrk_sysAcl();
+                    $playernamemenu = $redis->get('playernamemenu');
+                    wrk_playernamemenu($playernamemenu);
+                    $redis->set('dev', 0);
+                    sysCmd('systemctl daemon-reload');
                     sysCmd('systemctl reload-or-restart php-fpm || systemctl start php-fpm');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'poweroff':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// save the playback status
-					wrk_mpdPlaybackStatus($redis);
-					$redis->save();
-                    // send notfy to UI
-                    ui_notify_async('Shutdown', 'system shutdown in progress...', $jobID);
-                    sysCmd('/var/www/command/rune_shutdown poweroff');
-                    sysCmdAsync('poweroff');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'reboot':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// save the playback status
-					wrk_mpdPlaybackStatus($redis);
-					$redis->save();
-                    // send notfy to UI
-                    ui_notify_async('Reboot', 'system reboot in progress...', $jobID);
-                    sysCmd('/var/www/command/rune_shutdown reboot');
-                    sysCmdAsync('reboot');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-				case 'display_off':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    sysCmd('export DISPLAY=:0; xset dpms force off');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'spotify':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'start') {
-                        if ($job->args->user !== $redis->hGet('spotify', 'user') OR $job->args->pass !== $redis->hGet('spotify', 'pass')) {
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+                } else {
+                    //ui_notify_async('Update RuneUI', 'Wait for the screen to refresh...', $jobID);
+                    // noid ui_notify_async('Update RuneUI', 'Wait for the screen to refresh...');
+                    ui_notify('Update RuneUI', 'Wait for the screen to refresh...');
+                }
+                unset($retval, $gitupdated, $playernamemenu);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'hostname':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                //ui_notify_async('Settings - Change Hostname', 'it takes some time .....', $jobID);
+                // noid ui_notify_async('Settings - Change Hostname', 'it takes some time .....');
+                ui_notify('Settings - Change Hostname', 'it takes some time .....');
+                wrk_changeHostname($redis, $job->args);
+                $retval = sysCmd('hostname');
+                $hn = trim($retval[0]);
+                if (strtolower($hn) === strtolower(trim($job->args))){
+                    $redis->set('hostname', trim($job->args));
+                } else {
+                    $redis->set('hostname', $hn);
+                }
+                unset($retval);
+                // update hash
+                $hash = md5_file('/etc/mpd.conf');
+                $redis->set('mpdconfhash', $hash);
+                // send notfy to UI
+                //ui_notify_async('Hostname', 'Hostname changed to:'.$hn, $jobID);
+                // noid ui_notify_async('Hostname', 'Hostname changed to:'.$hn);
+                ui_notify('Hostname', 'Hostname changed to:'.$hn);
+                sleep(3);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'i2smodule':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                runelog('env: SET I2S MODULE', $job->args);
+                wrk_i2smodule($redis, $job->args);
+                // send notification
+                // TODO: make a real check!
+                //ui_notify_async('I&#178;S kernel module', 'Operation completed', $jobID);
+                // noid ui_notify_async('I&#178;S kernel module', 'Operation completed');
+                ui_notify('I&#178;S kernel module', 'Operation completed');
+                // TODO (rework needed)
+                $ao = $redis->get('ao');
+                runelog('env: reenable the current AO', $ao);
+                if ($ao === 'bcm2835 ALSA_1' OR $ao === 'bcm2835 ALSA_2') {
+                    sysCmd('mpc enable only "bcm2835 ALSA"');
+                } else {
+                    sysCmd('mpc enable only "'.$ao.'"');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'audio_on_off':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                runelog('env: SET dtparam-audio', $job->args);
+                wrk_audio_on_off($redis, $job->args);
+                // send notification
+                // TODO: make a real check!
+                //ui_notify_async('Switching onboard audio mode', 'Operation completed', $jobID);
+                // noid ui_notify_async('Switching onboard audio mode', 'Operation completed');
+                ui_notify('Switching onboard audio mode', 'Operation completed');
+                // TODO (rework needed)
+                $ao = $redis->get('ao');
+                runelog('env: reenable the current AO', $ao);
+                if ($ao === 'bcm2835 ALSA_1' OR $ao === 'bcm2835 ALSA_2') {
+                    sysCmd('mpc enable only "bcm2835 ALSA"');
+                } else {
+                    sysCmd('mpc enable only "'.$ao.'"');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'kernelswitch':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                runelog('env: SWITCH KERNEL', $job->args);
+                if (wrk_kernelswitch($redis, $job->args)) {
+                    if ($job->args === 'linux-rune-rpi_3.12.13-rt21_wosa') {
+                        $redis->set('ao', 'snd_rpi_wsp_1');
+                        $redis->set('i2smodule', 'none');
+                        $redis->set('orionprofile', 'OrionV2');
+                    }
+                    $notification = new stdClass();
+                    $notification->title = 'Kernel switch';
+                    $notification->text = $job->args.' selected successfully, reboot reqired';
+                    wrk_notify($redis, 'kernelswitch', $notification, $jobID);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'lastfm':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    if ($job->args->user != $redis->hGet('lastfm', 'user') OR $job->args->pass != $redis->hGet('lastfm', 'pass')) {
+                    // mpdscribble.conf
+                    $file = '/etc/mpdscribble.conf';
+                    $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
+                    $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
+                    // Commit changes to /etc/mpdscribble.conf
+                    $fp = fopen($file, 'w');
+                    fwrite($fp, implode("", $newArray));
+                    fclose($fp);
+                    unset($newArray);
+                    // write LastFM auth data to Redis datastore
+                    setLastFMauth($redis, $job->args);
+                    }
+                    // check if spotify is configured
+                    if ($redis->hGet('spotify','enable') === '1') {
                         // spopd.conf
                         $file = '/etc/spop/spopd.conf';
-                        $newArray = wrk_replaceTextLine($file, '', 'spotify_username =', 'spotify_username = '.$job->args->user, '### Spotify auth settings ###', 2);
-                        $newArray = wrk_replaceTextLine('', $newArray, 'spotify_password =', 'spotify_password = '.$job->args->pass, '### Spotify auth settings ###', 3);
-                        // check if last.fm is configured
-                        if ($redis->hGet('lastfm','enable') === '1') {
-                            $newArray = wrk_replaceTextLine('', $newArray, 'username =', 'username = '.$redis->hGet('lastfm','user'), 'api_endpoint', 1);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$redis->hGet('lastfm','pass'), 'api_endpoint', 2);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', 'plugins = scrobble', '### System settings ###', 2);
-                        } else {
-                            $newArray = wrk_replaceTextLine('', $newArray, 'username =', '#username = user', 'api_endpoint', 1);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'password =', '#password = pass', 'api_endpoint', 2);
-                            $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', '#plugins = scrobble', '### System settings ###', 2);
-                        }
+                        $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$redis->hGet('lastfm','user'), 'api_endpoint', 1);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$redis->hGet('lastfm','pass'), 'api_endpoint', 2);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', 'plugins = scrobble', '### System settings ###', 2);
                         // commit changes to /etc/spop/spopd.conf
                         $fp = fopen($file, 'w');
                         fwrite($fp, implode("", $newArray));
                         fclose($fp);
-						unset($newArray);
-                        // write Spotify auth data to Redis datastore
-                        $redis->hSet('spotify', 'user', $job->args->user);
-                        $redis->hSet('spotify', 'pass', $job->args->pass); 
-                        }
+                        unset($newArray);
                         if ($redis->get('activePlayer') === 'Spotify') {
-                            sysCmd('systemctl stop spopd');
-                            runelog('service: SPOPD start');
-                            sysCmd('systemctl start spopd');
+                            sysCmd('systemctl reload-or-restart spopd || systemctl start spopd');
                         }
-                        // send notfy to UI
-                        ui_notify_async('Spotify', 'Spotify client configured', $jobID);
-                        $redis->hSet('spotify', 'enable',  1);
                     }
-                    if ($job->action === 'stop') {
-                        runelog('service: SPOPD stop');
+                    sysCmd('systemctl stop mpdscribble');
+                    runelog('service: MPDSCRIBBLE start');
+                    sysCmd('systemctl start mpdscribble');
+                    // send notfy to UI
+                    //ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon started', $jobID);
+                    // noid ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon started');
+                    ui_notify('Last.FM scrobbling', 'mpdscribble daemon started');
+                    $redis->hSet('lastfm', 'enable', 1);
+                }
+                if ($job->action === 'stop') {
+                    sysCmd('systemctl stop mpdscribble');
+                    // check if spotify is configured
+                    if ($redis->hGet('spotify','enable') === '1') {
+                        // spopd.conf
+                        $file = '/etc/spop/spopd.conf';
+                        $newArray = wrk_replaceTextLine($file, '', 'plugins =', '#plugins = scrobble', '### System settings ###', 2);
+                        // commit changes to /etc/spop/spopd.conf
+                        $fp = fopen($file, 'w');
+                        fwrite($fp, implode("", $newArray));
+                        fclose($fp);
+                        unset($newArray);
+                        sysCmd('systemctl reload-or-restart spopd');
+                    }
+                    // send notfy to UI
+                    //ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon stopped', $jobID);
+                    // noid ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon stopped');
+                    ui_notify('Last.FM scrobbling', 'mpdscribble daemon stopped');
+                    $redis->hSet('lastfm', 'enable', 0);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'mpdcfg':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'update') {
+                    // send notfy to UI
+                    //ui_notify_async('MPD', 'configuration updated', $jobID);
+                    // noid ui_notify_async('MPD', 'configuration updated');
+                    ui_notify('MPD', 'configuration update started');
+                    runelog('args',$job->args);
+                    wrk_mpdconf($redis, 'update', $job->args, $jobID);
+                    wrk_mpdconf($redis, 'restart');
+                } else if ($job->action === 'reset') {
+                    wrk_mpdconf($redis, 'reset');
+                    wrk_mpdconf($redis, 'restart');
+                } else if ($job->action === 'switchao') {
+                    wrk_mpdconf($redis, 'switchao', $job->args, $jobID);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'mpdcfgman':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // send notfy to UI
+                //ui_notify_async('MPD', 'configuration updated', $jobID);
+                // noid ui_notify_async('MPD', 'configuration updated');
+                ui_notify('MPD', 'configuration updated');
+                // write mpd.conf file
+                $fh = fopen('/etc/mpd.conf', 'w');
+                fwrite($fh, $job->args);
+                fclose($fh);
+                // set redis indicator showing mpd.conf has changed
+                $redis->set('mpdconfchange', 1);
+                // restart MPD daemon
+                wrk_mpdconf($redis, 'restart');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'mpdrestart':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_mpdconf($redis, 'restart');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'forcempdrestart':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_mpdconf($redis, 'forcerestart');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'pl_rem_dup':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // $job>args contains the playlist name
+                // run the job async with a lower priority
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/remove_playlist_duplicates.sh '."'".$job->args."'");
+                //ui_notify_async('Remove duplicates started for playlist:', $job->args, $jobID);
+                // noid ui_notify_async('Remove duplicates started for playlist:', $job->args);
+                ui_notify('Remove duplicates started for playlist:', $job->args);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'pl_rem_invalid':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // $job>args contains the playlist name
+                // run the job async with a lower priority
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/remove_playlist_invalid.sh '."'".$job->args."'");
+                //ui_notify_async('Remove invalid entries started for playlist:', $job->args, $jobID);
+                // noid ui_notify_async('Remove invalid entries started for playlist:', $job->args);
+                ui_notify('Remove invalid entries started for playlist:', $job->args);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'ashufflecheckCF':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_ashuffle($redis, 'checkcrossfade');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'ashufflereset':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_ashuffle($redis, 'reset');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'pl_ashuffle':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // $job>args contains the playlist name
+                wrk_ashuffle($redis, 'set', $job->args);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'addrandomtracks':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // save the number of files to add
+                $redis->hSet('globalrandom', 'addrandom', $job->args);
+                // call ashuffle to add the specified number of tracks to the queue
+                //ui_notify_async('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)), $jobID);
+                // noid ui_notify_async('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
+                ui_notify('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
+                sleep(3);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplaymetadata':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (($job->action === 'start') && $redis->hGet('airplay', 'metadataonoff')) {
+                    sysCmd('pgrep -x rune_SSM_wrk || systemctl start rune_SSM_wrk');
+                } else if ($job->action === 'stop') {
+                    sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'spotifyconnectmetadata':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (($job->action === 'start') && $redis->hGet('spotifyconnect', 'metadata_enabled')) {
+                    sysCmd('pgrep -x rune_SDM_wrk || systemctl start rune_SDM_wrk');
+                } else if ($job->action === 'stop') {
+                    sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sambaonoff':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('samba', 'enable', $job->action);
+                $redis->hSet('samba', 'readwrite', $job->args);
+                wrk_restartSamba($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sambarestart':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_restartSamba($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'rerninstall':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                //ui_notify_async("Install Rern's Addons", 'It takes some time .....', $jobID);
+                ui_notify_async("Install Rern's Addons", 'It takes some time .....');
+                //ui_notify("Install Rern's Addons", 'It takes some time .....');
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('systemctl stop addons cronie');
+                sysCmd('systemctl disable addons cronie');
+                sysCmd('rm -f /etc/systemd/system/addons.service');
+                sysCmd('rm -f /etc/sudoers.d/http');
+                sysCmd('rm -f /etc/sudoers.d/http-backup');
+                sysCmd('rm -fr /home/rern');
+                sysCmd('mkdir -m=777 -p /home/rern');
+                sysCmd('/usr/local/bin/uninstall_addo.sh');
+                sysCmd('rm -f ./install.sh');
+                sysCmd('rm -f /usr/local/bin/uninstall_addo.sh');
+                sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
+                $redis->del('addons');
+                $redis->del('addo');
+                sysCmd('wget -vN --no-check-certificate https://github.com/rern/RuneAudio_Addons/raw/master/install.sh --output-file=/home/rern/Rern_Addons.log');
+                sysCmd('chmod +x -v ./install.sh  >> /home/rern/Rern_Addons.log');
+                sysCmd('./install.sh >> /home/rern/Rern_Addons.log');
+                sysCmd('sed -i "s,\x1B\[[0-9;]*[a-zA-Z],,g" /home/rern/Rern_Addons.log');
+                $retval = sysCmd('grep -hi -E "installed|please" /home/rern/Rern_Addons.log');
+                //ui_notify_async("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))), $jobID);
+                ui_notify_async("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
+                //ui_notify("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
+                sleep(3);
+                //ui_notify_async("Rern's Addons", 'You may need to reboot...', $jobID);
+                ui_notify_async("Rern's Addons", 'You may need to reboot...');
+                //ui_notify("Rern's Addons", 'You may need to reboot...');
+                sleep(3);
+                unset($retval);
+                $redis->hSet('addons', 'update', '0');
+                $redis->hSet('addons', 'font', '20170901');
+                sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'rernremove':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                //ui_notify_async("Remove Rern's Addons", 'It takes some time .....', $jobID);
+                ui_notify_async("Remove Rern's Addons", 'It takes some time .....');
+                //ui_notify("Remove Rern's Addons", 'It takes some time .....');
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('systemctl stop addons cronie');
+                sysCmd('systemctl disable addons cronie');
+                sysCmd('rm -f /etc/systemd/system/addons.service');
+                sysCmd('rm -f /etc/sudoers.d/http');
+                sysCmd('rm -f /etc/sudoers.d/http-backup');
+                sysCmd('rm -fr /home/rern');
+                sysCmd('/usr/local/bin/uninstall_addo.sh');
+                sysCmd('rm -f ./install.sh');
+                sysCmd('rm -f /usr/local/bin/uninstall_addo.sh');
+                sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
+                $redis->del('addons');
+                $redis->del('addo');
+                //ui_notify_async("Remove Rern's Addons", 'You may need to reboot...', $jobID);
+                ui_notify_async("Remove Rern's Addons", 'You may need to reboot...');
+                //ui_notify("Remove Rern's Addons", 'You may need to reboot...');
+                sleep(3);
+                $redis->hSet('addons', 'update', '0');
+                $redis->hSet('addons', 'font', '20170901');
+                sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'extendpartition':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $retval = sysCmd("echo -e 'd\n2\nn\np\n2\n\n\nt\n2\n83\np\nw' | fdisk /dev/mmcblk0 | grep -i mmcblk0p2");
+                sysCmd('partprobe /dev/mmcblk0');
+                sysCmd('resize2fs /dev/mmcblk0p2');
+                //ui_notify_async("Extend Linux Partition", implode("\n", $retval), $jobID);
+                ui_notify_async("Extend Linux Partition", implode("\n", $retval));
+                //ui_notify("Extend Linux Partition", implode("\n", $retval));
+                sleep(3);
+                unset($retval);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplayconfreset':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('cp /srv/http/app/config/defaults/shairport-sync.service /usr/lib/systemd/system/shairport-sync.service');
+                sysCmd('cp /srv/http/app/config/defaults/shairport-sync.conf /etc/shairport-sync.conf');
+                wrk_sysAcl();
+                $airplay_name = $redis->hGet('airplay', 'name');
+                $airplay_enable = $redis->hGet('airplay', 'enable');
+                $redis->del('airplay');
+                sysCmd('/srv/http/db/redis_datastore_setup check');
+                $redis->hSet('airplay', 'name', $airplay_name);
+                $redis->hSet('airplay', 'enable', $airplay_enable);
+                wrk_getHwPlatform($redis);
+                wrk_shairport($redis, $redis->get('ao'), $airplay_name);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sambaconfreset':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // stop samba
+                sysCmd('systemctl stop smbd smb nmbd nmb');
+                sysCmd('systemctl disable smbd smb nmbd nmb');
+                // reset the config files
+                sysCmd('rm -f /etc/samba/*.conf');
+                sysCmd('cp /srv/http/app/config/defaults/smb-dev.conf /etc/samba/smb-dev.conf');
+                sysCmd('cp /srv/http/app/config/defaults/smb-prod.conf /etc/samba/smb-prod.conf');
+                sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
+                sysCmd('find /etc/samba -name "*.conf" -exec chmod 644 {} \;');
+                // reset the redis varables for samba (set to OFF and Read-Only)
+                $redis->del('samba');
+                sysCmd('/srv/http/db/redis_datastore_setup check');
+                // remove any samba usernames and passwords
+                sysCmd('pdbedit -L | grep -o ^[^:]* | smbpasswd -x');
+                // restart samba if required (e.g. when in dev mode)
+                wrk_restartSamba($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'soxrmpd':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->set('soxrmpdonoff', $job->action);
+                wrk_mpdconf($redis, 'refresh');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'soxrairplay':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                runelog('soxrairplay action: ', $job->action);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('airplay', 'soxronoff', $job->action);
+                wrk_shairport($redis, $redis->get('ao'));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'metadataairplay':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('airplay', 'metadataonoff', $job->action);
+                wrk_shairport($redis, $redis->get('ao'));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'artworkairplay':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('airplay', 'artworkonoff', $job->action);
+                wrk_shairport($redis, $redis->get('ao'));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplayoutputformat':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('airplay', 'alsa_output_format', $job->args);
+                wrk_shairport($redis, $redis->get('ao'));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'airplayoutputrate':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('airplay', 'alsa_output_rate', $job->args);
+                wrk_shairport($redis, $redis->get('ao'));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'playernamemenu':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_playernamemenu($job->action);
+                $redis->set('playernamemenu', $job->action);
+                sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'netcfg':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // valid netcfg $action values:
+                //  boot-initialise, refresh, refreshAsync, saveWifi, enableWifi, disableWifi, enableBT, disableBT,
+                //  saveEthernet, reconnect, connect, autoconnect-on, autoconnect-off, disconnect, disconnect-delete,
+                //  delete & reset
+                if (isset($job->args)) {
+                    foreach ($job->args as $key => $value) {
+                        // convert the sudo-object to a normal array
+                        $param[$key] = $value;
+                    }
+                    wrk_netconfig($redis, $job->action, '', $param);
+                } else {
+                    wrk_netconfig($redis, $job->action);
+                }
+                unset($key, $value, $param);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'apcfg':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (isset($job->args)) {
+                    foreach ($job->args as $key => $value) {
+                        // convert the sudo-object to a normal array
+                        $param[$key] = $value;
+                    }
+                }
+                // reset accesspoint configuration to default settings
+                if ($job->action === 'reset') {
+                    $retval = wrk_apconfig($redis, 'reset', $param);
+                    //ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings', $jobID);
+                    // noid ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings');
+                    ui_notify('AccessPoint', 'Configuration reset');
+                }
+                // write accesspoint configuration
+                if ($job->action === 'config') {
+                    $retval = wrk_apconfig($redis, 'writecfg', $param);
+                    //ui_notify_async('AccessPoint', 'Configuration changed', $jobID);
+                    // noid ui_notify_async('AccessPoint', 'Configuration changed');
+                    ui_notify('AccessPoint', 'Configuration changed');
+                }
+                // check if reboot is needed !!!
+                if ($retval === 'reboot') {
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+                }
+                unset($key, $value, $param, $retval);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'ntpserver':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->set('ntpserver', wrk_NTPsync($job->args));
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'opcache':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // Restart PHP service
+                if ($job->action === 'enable') {
+                    wrk_opcache($redis, 'enable');
+                    runelog('PHP 5.5 OPcache enabled');
+                    // restart php-fpm after waiting 5 seconds
+                    sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
+                    // wrk_opcache($redis, 'forceprime');
+                    // send notfy to UI
+                    //ui_notify_async('PHP OpCache', 'cache enabled', $jobID);
+                    // noid ui_notify_async('PHP OpCache', 'cache enabled');
+                    ui_notify('PHP OpCache', 'cache enabled');
+                } else {
+                    wrk_opcache($redis, 'disable');
+                    runelog('PHP 5.5 OPcache disabled');
+                    // restart php-fpm after waiting 5 seconds
+                    sysCmdAsync('systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
+                    // send notfy to UI
+                    //ui_notify_async('PHP OpCache', 'cache disabled', $jobID);
+                    // noid ui_notify_async('PHP OpCache', 'cache disabled');
+                    ui_notify('PHP OpCache', 'cache disabled');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'orionprofile':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $hwplatformid = $redis->get('hwplatformid');
+                // the following lines can be removed after the next kernel upgrade 05-07-2022
+                $armVer = strtolower(trim(sysCmd('uname -m | xargs')[0]));
+                if (($hwplatformid != '01') && ($armVer == 'armv6l')) {
+                    $hwplatformid = '01';
+                    $redis->set('hwplatformid', $hwplatformid);
+                }
+                // remove to here
+                $profile = $job->args." ".$hwplatformid;
+                runelog("env: SET KERNEL PROFILE", $job->args);
+                sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
+                $redis->set('orionprofile', $job->args);
+                //ui_notify_async('SoundSignature', 'Profile '.$profile.' applied', $jobID);
+                // noid ui_notify_async('SoundSignature', 'Profile '.$profile.' applied');
+                ui_notify('SoundSignature', 'Profile '.$profile.' applied');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'phprestart':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('systemctl reload-or-restart php-fpm || systemctl start php-fpm');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'poweroff':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // save the playback status
+                wrk_mpdPlaybackStatus($redis);
+                $redis->save();
+                // send notfy to UI
+                //ui_notify_async('Shutdown', 'system shutdown in progress...', $jobID);
+                // noid ui_notify_async('Shutdown', 'system shutdown in progress...');
+                ui_notify('Shutdown', 'system shutdown in progress...');
+                sysCmd('/srv/http/command/rune_shutdown poweroff');
+                sysCmd('redis-cli shutdown save; shutdown now --poweroff --no-wall');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'reboot':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // save the playback status
+                wrk_mpdPlaybackStatus($redis);
+                $redis->save();
+                // send notfy to UI
+                //ui_notify_async('Reboot', 'system reboot in progress...', $jobID);
+                // noid ui_notify_async('Reboot', 'system reboot in progress...');
+                ui_notify('Reboot', 'system reboot in progress...');
+                sysCmd('/srv/http/command/rune_shutdown reboot');
+                sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'display_off':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('systemctl stop local-browser');
+                sysCmd('export DISPLAY=:0; xset dpms force off');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'spotify':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    if ($job->args->user !== $redis->hGet('spotify', 'user') OR $job->args->pass !== $redis->hGet('spotify', 'pass')) {
+                    // spopd.conf
+                    $file = '/etc/spop/spopd.conf';
+                    $newArray = wrk_replaceTextLine($file, '', 'spotify_username =', 'spotify_username = '.$job->args->user, '### Spotify auth settings ###', 2);
+                    $newArray = wrk_replaceTextLine('', $newArray, 'spotify_password =', 'spotify_password = '.$job->args->pass, '### Spotify auth settings ###', 3);
+                    // check if last.fm is configured
+                    if ($redis->hGet('lastfm','enable') === '1') {
+                        $newArray = wrk_replaceTextLine('', $newArray, 'username =', 'username = '.$redis->hGet('lastfm','user'), 'api_endpoint', 1);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$redis->hGet('lastfm','pass'), 'api_endpoint', 2);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', 'plugins = scrobble', '### System settings ###', 2);
+                    } else {
+                        $newArray = wrk_replaceTextLine('', $newArray, 'username =', '#username = user', 'api_endpoint', 1);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', '#password = pass', 'api_endpoint', 2);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'plugins =', '#plugins = scrobble', '### System settings ###', 2);
+                    }
+                    // commit changes to /etc/spop/spopd.conf
+                    $fp = fopen($file, 'w');
+                    fwrite($fp, implode("", $newArray));
+                    fclose($fp);
+                    unset($newArray);
+                    // write Spotify auth data to Redis datastore
+                    $redis->hSet('spotify', 'user', $job->args->user);
+                    $redis->hSet('spotify', 'pass', $job->args->pass);
+                    }
+                    if ($redis->get('activePlayer') === 'Spotify') {
                         sysCmd('systemctl stop spopd');
-                        // send notfy to UI
-                        ui_notify_async('Spotify', 'Spotify client stopped', $jobID);
-                        $redis->hSet('spotify', 'enable',  0);
+                        runelog('service: SPOPD start');
+                        sysCmd('systemctl start spopd');
                     }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'spotifyconnect':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'start') {
-						// create a directory to use for spotifyd artwork
-						// the location /srv/http/tmp is a tmpfs, see /etc/fstab
-						sysCmd('mkdir -p /srv/http/tmp/spotify-connect');
-						sysCmd('cp /srv/http/assets/img/spotify-connect-default.png /srv/http/tmp/spotify-connect/spotify-connect-default.png');
-						sysCmd('chown -R http.http /srv/http/tmp');
-						sysCmd('chmod 755 /srv/http/tmp/spotify-connect');
-						sysCmd('chmod -R 644 /srv/http/tmp/spotify-connect/*');
-						// create a directory to use for spotifyd cache
-						// the location /tmp is a tmpfs, see /etc/fstab
-						// default location is '/tmp/spotifyConnectCache'
-						$spotifyConnectCache = $redis->hGet('spotifyconnect', 'cache_path');
-						if (!empty($spotifyConnectCache)) {
-							sysCmd('mkdir -p '.$spotifyConnectCache);
-							sysCmd('chown -R spotifyd.spotifyd '.$spotifyConnectCache);
-							sysCmd('chmod 755 '.$spotifyConnectCache);
-							sysCmd('chmod -R 644 '.$spotifyConnectCache.'/*');
-						}
-						$redis->hSet('spotifyconnect', 'track_id', '');
-						$redis->hSet('spotifyconnect', 'last_track_id', '');
-						$redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-						$redis->hSet('spotifyconnect', 'last_time_stamp', 0);
-					}
-					// write Spotify Connect data to Redis datastore
-					isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
-					isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
-					isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
-					isset($job->args->bitrate) && $redis->hSet('spotifyconnect', 'bitrate', $job->args->bitrate);
-					isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation); 
-					isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
-					isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
-					isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
-					// isset($job->args->status) && $redis->hSet('spotifyconnect', 'event', $job->args->status);
-					// isset($job->args->ao) && $redis->hSet('spotifyconnect', 'ao', $job->args->ao);
-					isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
-					// isset($job->args->backend) && $redis->hSet('spotifyconnect', 'backend', $job->args->backend);
-					// isset($job->args->device) && $redis->hSet('spotifyconnect', 'device', $job->args->device);
-					// isset($job->args->mixer) && $redis->hSet('spotifyconnect', 'mixer', $job->args->mixer);
-					// isset($job->args->volume_control) && $redis->hSet('spotifyconnect', 'volume_control', $job->args->volume_control);
-					// isset($job->args->onevent) && $redis->hSet('spotifyconnect', 'onevent', $job->args->onevent);
-					// isset($job->args->cache_path) && $redis->hSet('spotifyconnect', 'cache_path', $job->args->cache_path);
-					// isset($job->args->track_id) && $redis->hSet('spotifyconnect', 'track_id', $job->args->track_id);
-					// isset($job->args->last_track_id) && $redis->hSet('spotifyconnect', 'last_track_id', $job->args->last_track_id);
-					// isset($job->args->event_time_stamp) && $redis->hSet('spotifyconnect', 'event_time_stamp', $job->args->event_time_stamp);
-					// isset($job->args->last_time_stamp) && $redis->hSet('spotifyconnect', 'last_time_stamp', $job->args->last_time_stamp);
-					// create a new spotifyd config file
-					wrk_spotifyd($redis);
-					// stop and/or start spotifyd
-                    if ($job->action === 'start') {
-                        runelog('service: SPOTIFYD start');
-                        // start or re-start spotifyd service
-                        // send notfy to UI
-                        ui_notify('Spotify Connect', 'Spotify Connect client configured', $jobID);
-                        sysCmd('pgrep spotifyd || systemctl start spotifyd');
-                        $redis->hSet('spotifyconnect', 'track_id', '');
-						$redis->hSet('spotifyconnect', 'last_track_id', '');
-						$redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-						$redis->hSet('spotifyconnect', 'last_time_stamp', 0);
-                        $redis->hSet('spotifyconnect', 'enable',  1);
-                    } elseif ($job->action === 'stop') {
-                        runelog('service: SPOTIFYD stop');
-                        // send notfy to UI
-                        ui_notify('Spotify Connect', 'Spotify Connect client stopped', $jobID);
-                        sysCmd('pgrep spotifyd && systemctl stop spotifyd');
-						$redis->hSet('spotifyconnect', 'track_id', '');
-						$redis->hSet('spotifyconnect', 'last_track_id', '');
-						$redis->hSet('spotifyconnect', 'event_time_stamp', 0);
-						$redis->hSet('spotifyconnect', 'last_time_stamp', 0);
-                        $redis->hSet('spotifyconnect', 'enable',  0);
+                    // send notfy to UI
+                    //ui_notify_async('Spotify', 'Spotify client configured', $jobID);
+                    // noid ui_notify_async('Spotify', 'Spotify client configured');
+                    ui_notify('Spotify', 'Spotify client configured');
+                    $redis->hSet('spotify', 'enable',  1);
+                }
+                if ($job->action === 'stop') {
+                    runelog('service: SPOPD stop');
+                    sysCmd('systemctl stop spopd');
+                    // send notfy to UI
+                    //ui_notify_async('Spotify', 'Spotify client stopped', $jobID);
+                    // noid ui_notify_async('Spotify', 'Spotify client stopped');
+                    ui_notify('Spotify', 'Spotify client stopped');
+                    $redis->hSet('spotify', 'enable',  0);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'spotifyconnect':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
+                    // create a directory to use for spotifyd artwork
+                    // the location /srv/http/tmp is a tmpfs, see /etc/fstab
+                    sysCmd('mkdir -p /srv/http/tmp/spotify-connect');
+                    sysCmd('cp /srv/http/assets/img/spotify-connect-default.png /srv/http/tmp/spotify-connect/spotify-connect-default.png');
+                    sysCmd('chown -R http:http /srv/http/tmp');
+                    sysCmd('chmod 755 /srv/http/tmp/spotify-connect');
+                    sysCmd('chmod -R 644 /srv/http/tmp/spotify-connect/*');
+                    // create a directory to use for spotifyd cache
+                    // the location /tmp is a tmpfs, see /etc/fstab
+                    // default location is '/tmp/spotifyConnectCache'
+                    $spotifyConnectCache = $redis->hGet('spotifyconnect', 'cache_path');
+                    if (!empty($spotifyConnectCache)) {
+                        sysCmd('mkdir -p '.$spotifyConnectCache);
+                        sysCmd('chown -R spotifyd.spotifyd '.$spotifyConnectCache);
+                        sysCmd('chmod 755 '.$spotifyConnectCache);
+                        sysCmd('chmod -R 644 '.$spotifyConnectCache.'/*');
                     }
-					wrk_stopPlayer($redis, 'SpotifyConnect');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-				case 'spotifyconnectmsg':
-					runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-					// switch the player to spotify connect
-					// connect signals: stop, play: start, next track: change, stop: stop
-					wrk_startPlayer($redis, 'SpotifyConnect');
-					// process metadata if enabled
-					if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
-						wrk_SpotifyConnectMetadata($redis, $job->action, $job->args);
-					}
-                    $redis->sRem('w_lock', $jobID);
-					break;
-                case 'sourcecfg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'switchplayer':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if (wrk_startPlayer($redis, $job->args)) {
-                        ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
+                    $redis->hSet('spotifyconnect', 'last_track_id', '');
+                    // make sure that avahi allows other stacks
+                    if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf") > 0) {
+                        sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
+                        sysCmd('systemctl restart avahi-daemon');
                     }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'sysAcl':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    wrk_sysAcl();
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'timezone':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    sysCmd('timedatectl set-timezone '.$job->args);
-                    $redis->set('timezone', $job->args);
-                    ui_notify_async('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args, $jobID);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'udevil':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    if ($job->action === 'start') {
+                    unset($spotifyConnectCache);
+                }
+                // write Spotify Connect data to Redis datastore
+                isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
+                isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
+                isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
+                isset($job->args->bitrate) && $redis->hSet('spotifyconnect', 'bitrate', $job->args->bitrate);
+                isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);
+                isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
+                isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
+                isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
+                // isset($job->args->ao) && $redis->hSet('spotifyconnect', 'ao', $job->args->ao);
+                isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
+                // isset($job->args->backend) && $redis->hSet('spotifyconnect', 'backend', $job->args->backend);
+                // isset($job->args->device) && $redis->hSet('spotifyconnect', 'device', $job->args->device);
+                // isset($job->args->mixer) && $redis->hSet('spotifyconnect', 'mixer', $job->args->mixer);
+                // isset($job->args->volume_control) && $redis->hSet('spotifyconnect', 'volume_control', $job->args->volume_control);
+                // isset($job->args->onevent) && $redis->hSet('spotifyconnect', 'onevent', $job->args->onevent);
+                // isset($job->args->cache_path) && $redis->hSet('spotifyconnect', 'cache_path', $job->args->cache_path);
+                // isset($job->args->last_track_id) && $redis->hSet('spotifyconnect', 'last_track_id', $job->args->last_track_id);
+                // create a new spotifyd config file
+                wrk_spotifyd($redis);
+                // stop and/or start spotifyd
+                if ($job->action === 'start') {
+                    runelog('service: SPOTIFYD start');
+                    // start or re-start spotifyd service
+                    // send notfy to UI
+                    //ui_notify_async('Spotify Connect', 'Spotify Connect client configured', $jobID);
+                    // noid ui_notify_async('Spotify Connect', 'Spotify Connect client configured');
+                    ui_notify('Spotify Connect', 'Spotify Connect client configured');
+                    sysCmd('pgrep spotifyd || systemctl start spotifyd');
+                    $redis->hSet('spotifyconnect', 'last_track_id', '');
+                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    $redis->hSet('spotifyconnect', 'enable',  1);
+                } elseif ($job->action === 'stop') {
+                    runelog('service: SPOTIFYD stop');
+                    // send notfy to UI
+                    //ui_notify_async('Spotify Connect', 'Spotify Connect client stopped', $jobID);
+                    // noid ui_notify_async('Spotify Connect', 'Spotify Connect client stopped');
+                    ui_notify('Spotify Connect', 'Spotify Connect client stopped');
+                    sysCmd('pgrep spotifyd && systemctl stop spotifyd');
+                    sysCmd('pgrep rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+                    $redis->hSet('spotifyconnect', 'last_track_id', '');
+                    $redis->hSet('spotifyconnect', 'enable',  0);
+                }
+                wrk_stopPlayer($redis, 'SpotifyConnect');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'artworkSC':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                $redis->hSet('spotifyconnect', 'metadata_enabled', $job->action);
+                wrk_spotifyd($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sourcecfg':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'switchplayer':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (wrk_startPlayer($redis, $job->args)) {
+                    //ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
+                    // noid ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args);
+                    ui_notify('Switch Player Engine', 'Current active player engine: '.$job->args);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sysAcl':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_sysAcl();
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'timezone':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if (wrk_setTimezone($redis, $job->args)) {
+                    //ui_notify_async('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args, $jobID);
+                    // noid ui_notify_async('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args);
+                    ui_notify('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args);
+                } else {
+                    //ui_notify_async('Error', 'Timezone update failed.<br>Timezone unchanged', $jobID);
+                    // noid ui_notify_async('Error', 'Timezone update failed.<br>Timezone unchanged');
+                    ui_notifyError('Error', 'Timezone update failed.<br>Timezone unchanged');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'udevil':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'start') {
                     runelog('service: UDEVIL start');
+                    sysCmd('systemctl enable udevil');
                     sysCmd('systemctl start udevil');
                     $redis->set('udevil', 1);
-                    ui_notify_async('USB-Auto', 'USB-Automount feature enabled', $jobID);
-                    }
-                    if ($job->action === 'stop') {
+                    //ui_notify_async('USB-Auto', 'USB-Automount feature enabled', $jobID);
+                    // noid ui_notify_async('USB-Auto', 'USB-Automount feature enabled');
+                    ui_notify('USB-Auto', 'USB-Automount feature enabled');
+                }
+                if ($job->action === 'stop') {
                     runelog('service: UDEVIL stop');
+                    sysCmd('systemctl disable udevil');
                     sysCmd('systemctl stop udevil');
                     $redis->set('udevil', 0);
-                    ui_notify_async('USB-Auto', 'USB-Automount feature disabled', $jobID);
+                    //ui_notify_async('USB-Auto', 'USB-Automount feature disabled', $jobID);
+                    // noid ui_notify_async('USB-Auto', 'USB-Automount feature disabled');
+                    ui_notify('USB-Auto', 'USB-Automount feature disabled');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'webradio':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                //$mpd = openMpdSocket('/run/mpd/socket');
+                $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'));
+                if ($job->action === 'add') {
+                    runelog('service: WEBRADIO add', $job->args);
+                    if (addRadio($mpd, $redis, $job->args)) {
+                        //ui_notify_async('Webradio', $job->args->label.' added to the library', $jobID);
+                        // noid ui_notify_async('Webradio', $job->args->label.' added to the library');
+                        ui_notify('Webradio', $job->args->label.' added to the library');
                     }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'webradio':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    $mpd = openMpdSocket('/run/mpd/socket');
-                    if ($job->action === 'add') {
-                        runelog('service: WEBRADIO add', $job->args);
-                        if (addRadio($mpd, $redis, $job->args)) {
-                            ui_notify_async('Webradio', $job->args->label.' added to the library', $jobID);
+                }
+                if ($job->action === 'edit') {
+                    runelog('service: WEBRADIO edit', $job->args);
+                    if (editRadio($mpd, $redis, $job->args)) {
+                        //ui_notify_async('Webradio', $job->args->label.' modified succesfully', $jobID);
+                        // noid ui_notify_async('Webradio', $job->args->label.' modified succesfully');
+                        ui_notify('Webradio', $job->args->label.' modified succesfully');
+                    }
+                }
+                if ($job->action === 'delete') {
+                    runelog('service: WEBRADIO delete', $job->args);
+                    if (deleteRadio($mpd, $redis, $job->args)) {
+                        //ui_notify_async('Webradio', $job->args->label.' deleted', $jobID);
+                        // noid ui_notify_async('Webradio', $job->args->label.' deleted');
+                        ui_notify('Webradio', $job->args->label.' deleted');
+                    }
+                }
+                if ($job->action === 'rebuild') {
+                    runelog('service: WEBRADIO rebuild', $job->args);
+                    sysCmd('/srv/http/command/webradiodb.sh');
+                    //ui_notify_async('Webradio', 'Library rebuilt', $jobID);
+                    // noid ui_notify_async('Webradio', 'Library rebuilt');
+                    ui_notify('Webradio', 'Library rebuilt');
+                }
+                ui_libraryHome($redis);
+                closeMpdSocket($mpd);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'wrkrestart':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // restart worker
+                sysCmd('systemctl reload-or-restart '.$job->args);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'ui_notify':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                // TODO: rework needed (fix bug in /srv/http/index.php)
+                if (!isset($job->delay_us)) {
+                    $job->delay_us = 650000;
+                }
+                runelog('delay_us '.$job->delay_us);
+                usleep($job->delay_us);
+                // send notify to RuneUI
+                foreach ($job->args as $raw_notification) {
+                    wrk_notify($redis, 'raw', $raw_notification);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'underclocking':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 1) {
+                    // switch underclocking on
+                    if (sysCmd('grep -hi "Underclocking placeholder" /boot/config.txt')[0]) {
+                        if (!sysCmd('grep -hi "Underclocking start" /boot/config.txt')[0]) {
+                            sysCmd("sed -i -e '/Underclocking placeholder/r /boot/Archimago_underclocking.txt' /boot/config.txt");
                         }
+                        $redis->set('underclocking', 1);
+                        //ui_notify_async('Underclocking', 'Enabled.', $jobID);
+                        // noid ui_notify_async('Underclocking', 'Enabled.');
+                        ui_notify('Underclocking', 'Enabled.');
+                    } else {
+                        //ui_notify_async('Failed', 'An image reset is required.', $jobID);
+                        // noid ui_notify_async('Failed', 'An image reset is required.');
+                        ui_notifyError('Failed', 'An image reset is required.');
                     }
-                    if ($job->action === 'edit') {
-                        runelog('service: WEBRADIO edit', $job->args);
-                        if (editRadio($mpd, $redis, $job->args)) {
-                            ui_notify_async('Webradio', $job->args->label.' modified succesfully', $jobID);
-                        }
+                } else {
+                    // switch underclocking off
+                    sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' /boot/config.txt");
+                    $redis->set('underclocking', 0);
+                    //ui_notify_async('Underclocking', 'Disabled.', $jobID);
+                    // noid ui_notify_async('Underclocking', 'Disabled.');
+                    ui_notify('Underclocking', 'Disabled.');
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'kill_weston':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                sysCmd('pkill -15 weston');
+                // ui_notify('Kill weston', '');
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'replaygain':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                if ($job->action === 'addRGtagsFlac') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/add_replaygain_flac_to_local.sh silent continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                    ui_notify("Add ReplayGain tags for Flac files", 'Job started');
+                } else if ($job->action === 'updateRGtagsFlac') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/add_replaygain_flac_to_local.sh silent skip continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                    ui_notify("Update ReplayGain tags for Flac files", 'Job started');
+                } else if ($job->action === 'delRGtagsFlac') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/remove_replaygain_flac_from_local.sh silent continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                    ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
+                } else if ($job->action === 'addRGtagsAll') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/add_replaygain_all_to_local.sh silent continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                    ui_notify("Add ReplayGain tags for Flac files", 'Job started');
+                } else if ($job->action === 'updateRGtagsAll') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/add_replaygain_all_to_local.sh silent skip continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                    ui_notify("Update ReplayGain tags for Flac files", 'Job started');
+                } else if ($job->action === 'delRGtagsAll') {
+                    sysCmdAsync('nice --adjustment=4 /srv/http/command/remove_replaygain_all_from_local.sh silent continue > /dev/null 2>&1', 0);
+                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                    ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
+                }
+                sleep(3);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'ui_render':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                runelog('wrk_SY action: ', $job->action);
+                runelog('wrk_SY args: ', $job->args);
+                $redis->sAdd('w_lock', $jobID);
+                // when $job->action is set to 'seconds', $job->args contains a timestamp in seconds which is the requested start time
+                if (($job->action = 'seconds') && is_numeric($job->args)) {
+                    $delaySeconds = round($job->args - microtime(true));
+                    if ($delaySeconds < 0 ) {
+                        $delaySeconds = 0;
                     }
-                    if ($job->action === 'delete') {
-                        runelog('service: WEBRADIO delete', $job->args);
-                        if (deleteRadio($mpd, $redis, $job->args)) {
-                            ui_notify_async('Webradio', $job->args->label.' deleted', $jobID);
-                        }
-                    }
-                    ui_libraryHome($redis);
-                    closeMpdSocket($mpd);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'wificfg':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // add profile
-                    if ($job->action === 'add') {
-                        runelog('wificfg: add profile for SSID: '.$job->args->ssid);
-                        ui_notify_async('Adding WIFI-Profile', $job->args->ssid, $jobID);
-                        wrk_wifiprofile($redis, $job->action, $job->args);
-                        ui_notify_async('Added WIFI-Profile', $job->args->ssid, $jobID);
-                    }
-                    if ($job->action === 'edit') {
-                        runelog('wificfg: edit profile for SSID: '.$job->args->ssid);
-                        ui_notify_async('Changing WIFI-Profile', $job->args->ssid, $jobID);
-                        wrk_wifiprofile($redis, $job->action, $job->args);
-                        ui_notify_async('Changed WIFI-Profile', $job->args->ssid, $jobID);
-                    }
-                    if ($job->action === 'delete') {
-                        runelog('wificfg: delete profile for SSID: '.$job->args->ssid);
-                        ui_notify_async('Deleting WIFI-Profile', $job->args->ssid, $jobID);
-                        wrk_wifiprofile($redis, $job->action, $job->args);
-                        ui_notify_async('Deleted WIFI-Profile', $job->args->ssid, $jobID);
-                    }
-                    if ($job->action === 'disconnect') {
-                        runelog('wificfg: disconnect profile for SSID: '.$job->args->ssid);
-                        ui_notify_async('Disconnecting from WIFI-Profile', $job->args->ssid, $jobID);
-                        wrk_wifiprofile($redis, $job->action, $job->args);
-                        ui_notify_async('Disconnected from WIFI-Profile', $job->args->ssid, $jobID);
-                    }
-                    if ($job->action === 'connect') {
-                        runelog('wificfg: connect profile for SSID: '.$job->args->ssid);
-                        ui_notify_async('Connecting to WIFI-Profile', $job->args->ssid, $jobID);
-                        wrk_wifiprofile($redis, $job->action, $job->args);
-                        ui_notify_async('Connected to WIFI-Profile', $job->args->ssid, $jobID);
-                    }
-                    // inject random delay to avoid wifi scan overlapping
-                    if ($job->action === 'scan') {
-                        // random delay
-//                        $sleep = rand(1000000, 2000000);
-//                        usleep($sleep);
-//                        $lock = $redis->Get('lock_wifiscan');
-                    }
-                    if ($job->action === 'scan') {
-                        $lock = $redis->Get('lock_wifiscan');
-                        if ($lock !== '1') {
-                            runelog('wificfg: scan ');
-                            // refresh nics status
-                            sysCmdAsync('/var/www/command/refresh_nics');
-                        } else {
-                            runelog('wificfg: scan aborted. System locked, scan in progress.');
-                        }
-                    }
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'wrkrestart':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    $redis->sAdd('w_lock', $jobID);
-                    // restart worker
-                    sysCmd('systemctl reload-or-restart '.$job->args);
-                    $redis->sRem('w_lock', $jobID);
-                    break;
-                case 'ui_notify':
-                    runelog('wrk_SY: ', $job->wrkcmd);
-                    // TODO: rework needed (fix bug in /var/www/index.php)
-                    if (!isset($job->delay_us)) {
-                        $job->delay_us = 650000;
-                    }
-                    runelog('delay_us '.$job->delay_us);
-                    usleep($job->delay_us);
-                    // send notify to RuneUI
-                    foreach ($job->args as $raw_notification) {
-                        wrk_notify($redis, 'raw', $raw_notification);
-                    }
-                    // $redis->sRem('w_lock', $jobID); ???
-                    break;
-            } // end switch
-            // delete processed job from the w_queue
-            $redis->hDel('w_queue', $jobID);
-            // emit endjob notification
-            wrk_notify($redis, 'endjob', '', $jobID);
-            runelog('(loop) delete job_queue', $jobID);
-        } // end foreach loop
-    } // end if loop
+                } else {
+                    $delaySeconds = 0;
+                }
+                sysCmdAsync('/srv/http/command/ui_update_async '.$delaySeconds);
+                unset($delaySeconds);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'llmnrd':
+                runelog('wrk_SY: ', $job->wrkcmd);
+                $redis->sAdd('w_lock', $jobID);
+                wrk_llmnrd($redis);
+                $redis->sRem('w_lock', $jobID);
+                break;
+        } // end switch
+        // delete processed job from the w_queue
+        $redis->hDel('w_queue', $jobID);
+        // emit endjob notification
+        wrk_notify($redis, 'endjob', '', $jobID);
+        runelog('(loop) delete job_queue', $jobID);
+    } while ($jobID != ""); // end while loop
+    //
+    // extra tasks to be carried out based on a timer
+    //
     // mount all sources
-    if ((!$allmounted) && ($retriesmounting == 100)) {
+    if ((!$allmounted) && is_firstTime($redis, 'mount_all_shares')) {
         runelog('wrk_SY: try to mount all shares! - First time');
-		// first time, so call directly
-		// parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
-		$allmounted = wrk_sourcemount($redis, 'mountall', null, true, true);
-		$redis->set('allmounted', $allmounted);
+        // first time, so call directly
+        // parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
+        $allmounted = wrk_sourcemount($redis, 'mountall', null, true, true);
+        $redis->set('allmounted', $allmounted);
         if ($allmounted) {
             runelog('wrk_SY: all shares mounted successfully!');
             // start play if enabled
             if ($redis->get('mpd_autoplay')) {
-				$redis->set('mpd_playback_laststate', 'playing');
-				wrk_mpdRestorePlayerStatus($redis);
+                $redis->set('mpd_playback_laststate', 'playing');
+                wrk_mpdRestorePlayerStatus($redis);
             }
         }
-		// this sets the number of times mounting is to be retried, 99 @ 4 times per hour is +/-25 hours
-		// you can change the number of retries here, maximum 99
-		$retriesmounting = 99;
+        // this routine will not detect disconnected/unmounted shares which had previously been mounted
+        // $retriesmounting sets the number of times mounting is to be retried, 100 @ 4 times per hour = +/-25 hours
+        // you can change the number of retries here
+        $retriesmounting = 100;
     }
-	$allmounted = $redis->get('allmounted');
-	// If mounting is unsuccessful retry mounting the first time on the 1st cycle, then every +/-1800th cycle (= every +/-15 minutes), first time it is set to zero
-	if ((!$allmounted) && ($savecpu_mnt-- === 0)) {
-		if ($retriesmounting-- > 0) {
-			runelog('wrk_SY: error mounting shares, try it again! Count: '.$retriesmounting);
-			// run asynchronous mount script
-			sysCmdAsync('nice --adjustment=2 /var/www/command/mount_async.php');
-		}
-		$savecpu_mnt = 1750 + rand(0, 100);
-	}
-	// Random play auto start and stop, run first after 12 cycles (+/-6 seconds), then only on every +/-30th cycle (= every +/-15 seconds)
-	// Detect deletion of playlist random file and restart if applicable
-	// Start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons, this is the only place where it is started
-	if ($savecpu_rp-- === 0) {
-		// Detect deletion of playlist random play file
-		// Stop (and restart) ashuffle if the file RandomPlayPlaylist.m3u has been deleted
-		// To-do: Better if the UI informs /db/index.php that it has deleted a file, then call the ashufflereset function in /db/index.php
-		$retval = sysCmd('systemctl is-active ashuffle');
-		if ($retval[0] == 'active') {
-			if (file_exists($redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u')) {
-				// file found
-				$redis->set('last_pl_randomfile', 'exists');
-				// clear the cache for the next time round - the function file_exists() uses cached information
-				clearstatcache();
-			} else {
-				// no file found
-				if ($redis->get('last_pl_randomfile') === 'exists') {
-					// but the file was there the last time, so reset ashuffle
-					// first delete the symlink, could be the symlink points to a non existing playlist (the function file_exists() will return false for this)
-					// use unlink in place of rm to automatically clear the cache
-					unlink($redis->hget('mpdconf', 'playlist_directory').'/RandomPlayPlaylist.m3u');
-					// just stop ashuffle, it will start itself automatically (without a playlist random file)
-					sysCmd('systemctl stop ashuffle');
-					sleep(2);
-					sysCmd('systemctl daemon-reload');
-					sleep(2);
-				}
-				$redis->set('last_pl_randomfile', 'none');
-				// no cache is stored for non-existant files
-			}
-		}
-		unset($retval);
-		// start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons
-		// this is the only place where ashuffle it is started
-		// first check that it is enabled, not waiting for auto play to initialise and there are some songs to play
-		if (($redis->get('globalrandom')) && (!$redis->get('ashuffle_wait_for_play'))) {
-			// count the number of NAS Mounts
-			$nasmounts = count(scandir("/mnt/MPD/NAS"))-2;
-			// count the number of USB Mounts
-			$usbmounts = count(scandir("/mnt/MPD/USB"))-2;
-			// count the number of local storage files
-			$localstoragefiles = count(scandir("/mnt/MPD/LocalStorage"))-2;
-			$retval = sysCmd('systemctl is-active ashuffle');
-			if ($retval[0] == 'active') {
-				// ashuffle already started
-				unset($retval);
-				if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($redis->get('activePlayer') != 'MPD')) {
-					// nothing to play or active player is not MPD, so stop ashuffle
-					sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
-				}
-			} else {
-				// ashuffle not started
-				if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($redis->get('activePlayer') != 'MPD'))  {
-					// nothing to play, MPD not active, do nothing
-				} else {
-					// seems to be a bug somewhere in MPD
-					// if ashuffle is started too quickly it loads many many (far TOO many) songs in the queue before MPD gets round to start playing one
-					// wait until mpd has been running for a while before starting ashuffle
-					$retval = sysCmd('ps -C mpd -o etimes=');
-					if (isset($retval[0])) {
-						// a value has been returned
-						$mpd_uptime = intval(trim($retval[0]));
-					} else {
-						// no value, MPD is probably not running
-						$mpd_uptime = 0;
-					}
-					if ($mpd_uptime > intval($redis->get('ashuffle_start_delay'))) {
-						sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
-						sysCmdAsync('/srv/http/command/rune_prio nice');
-					}
-					unset($retval);
-				}
-			}
-		}
-		$savecpu_rp = 25 + rand(0, 10);
-	}
-	// Test to see if an internet connection is available. Disable the artistinfo & lyrics functions when no internet is available
-	// This will resolve freezing problems
-	// Test first after 8 cycles (+/-4 seconds), then every +/-1800 cycles (= every +/-15 minutes)
-	if ($savecpu_inc-- === 0) {
-		// run the tests and disable/enable the artistinfo & lyrics asynchronously
-		sysCmdAsync('nice --adjustment=2 /srv/http/command/internet_available_async.sh');
-		$savecpu_inc = 1750 + rand(0, 100);
-	}
-	// S.M.A.R.T. monitoring tools
-	// will test each attached hard disk and tape unit
-	// test only when something is playing
-	// first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/20 minutes)
-	// when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
-	// Why test only when something is playing?
-	//	a) someone needs see the error messages and 
-	//  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
-	if ($savecpu_smt-- === 0) {
-		$retval = sysCmd('cat /proc/asound/card?/pcm?p/sub?/hw_params | grep -v closed');
-		if (!empty(trim($retval[0]))) {
-			// something is playing
-			if (file_exists("/usr/bin/smartctl")) {
-				// monitoring tools software is installed
-				// scan for hard disks
-				$drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
-				if (!empty($drive_list)) {
-					foreach($drive_list as $drive) {
-						// for each connected drive
-						$drive = trim($drive);
-						if ($drive != "") {
-							$command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
-							$self_check = sysCmd($command);
-							// the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
-							If (!empty($self_check)) {
-								$smart_avalable = false;
-								$smart_enabled = false;
-								$smart_result = false;
-								$smart_good = false;
-								foreach ($self_check as $self_check_line) {
-									$self_check_line = trim($self_check_line);
-									if ($self_check_line != "") {
-										// now looking for the lines
-										// 'SMART support is: Available...' and
-										// 'SMART support is: Enabled'
-										if (strpos(' '.$self_check_line, 'SMART support is')) {
-											if (strpos(' '.$self_check_line, 'Available')) {
-												$smart_avalable = true;
-											} else if (strpos(' '.$self_check_line, 'Enabled')) {
-												$smart_enabled = true;
-											}
-										}
-										// now looking for the line containing something like this:
-										// 'SMART overall-health self-assessment test result: PASSED'
-										// actually looking for '-health self-' together with 'OK' or 'PASSED'
-										if (strpos(' '.$self_check_line, '-health self-')) {
-											// there is a result
-											$smart_result = true;
-											if (strpos(' '.$self_check_line, 'OK')) {
-												$smart_good = true;
-											} else if (strpos(' '.$self_check_line, 'PASSED')) {
-												$smart_good = true;
-											}
-										}
-									}
-								}
-								if ($smart_avalable && $smart_enabled && $smart_result && !$smart_good) {
-									// SMART is available, enabled, there is a result and it is not good
-									// display the information
-									ui_notify('Disk errors - Action required', implode("\n", $self_check));
-									// set the disk_error flag to true
-									$redis->set('disk_error', 1);								}
-							}
-						}
-						unset($self_check);
-						unset($command);
-					}
-					unset($drive);
-					unset($drive_list);
-				}
-			}
-		}
-		unset($retval);
-		if ($redis->get('disk_error')) {
-			// set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
-			$savecpu_smt = 170 + rand(0, 20);
-		} else {
-			// set the disk check frequency to +/-2400 cycles (= +/20 minutes)
-			$savecpu_smt = 2350 + rand(0, 100);
-		}
-	}
-	// Restart shairport-sync every 6 hours, but only when it is inactive
-	// There is an unresolved problem with shairport-sync which stops broadcasting its name after a number of hours
-	// It will normally run correctly for at least 24 hours
-	// Restart every +/-43200 cycles (= every +/-6 hours)
-	if ($savecpu_sps-- === 0) {
-		$savecpu_sps = 43100 + rand(0, 200);
-		// see which player is active
-		if ($redis->get('activePlayer') === 'Airplay') {
-			// Airplay is active so try again in after +/-7200 cycles (= +/-1 hour)
-			$savecpu_sps = 7100 + rand(0, 200);
-		} else {
-			// Airplay is not running so stop and restart it
-			sysCmd('systemctl stop shairport-sync');
-			sysCmd('systemctl daemon-reload');
-			sysCmd('systemctl start shairport-sync');
-		}
-	}
-	// Restart avahi-daemon every 12 hours
-	// There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
-	// It will normally run correctly for at least 24 hours
-	// Restart every +/-86400 cycles (= every +/-12 hours)
-	if ($savecpu_avd-- === 0) {
-		$savecpu_avd = 86300 + rand(0, 200);
-		// restart avahi-daemon
-		sysCmd('systemctl restart avahi-daemon');
-	}
-    // unload CPU: 0,5 second sleep
+    // If mounting is unsuccessful retry mounting the first time on the 1st cycle, then every +/-1800th cycle (= every +/-15 minutes), first time it is set to zero
+    if ($savecpuMnt-- <= 0) {
+        $allmounted = $redis->get('allmounted');
+        if (!$allmounted) {
+            if ($retriesmounting-- >= 0) {
+                runelog('wrk_SY: error mounting shares, trying it again! Count: '.$retriesmounting);
+                // run asynchronous mount script
+                sysCmdAsync('nice --adjustment=4 php -f /srv/http/command/mount_async.php');
+            }
+            $savecpuMnt = 1750 + rand(0, 100);
+        }
+    }
+    // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
+    //  it should run at least once per hour
+    //  connman works (should work) in this exponential way of detecting WiFi networks and nics
+    if ($savecpuRefreshNics-- <= 0) {
+        wrk_netconfig($redis, 'refreshAsync');
+        // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
+        $savecpuRefreshNics = min(7200, intval($savecpuRefreshNicsPrev*2));
+        // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
+        $random = min(100,max(2, intval($savecpuRefreshNics/20)));
+        $savecpuRefreshNics = $savecpuRefreshNics - $random + rand(0, $random*2);
+        $savecpuRefreshNicsPrev = $savecpuRefreshNics;
+        unset($random);
+    }
+    // One time actions, run first after 30 cycles (+/-15 seconds), then only on every +/-16th cycle (= every +/-8 seconds) until everything is done when it repeats after 10,000,000 cycles (58 days)
+    // Several one time actions are managed here, they are run one at a time, one on each cycle
+    if ($savecpuOneTimeActions-- <= 0) {
+        if (is_firstTime($redis, 'WiFi-boot-initialise')) {
+            // run boot-initialise for Wi-Fi networks
+            wrk_netconfig($redis, 'boot-initialise');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'Webradio-boot-import')) {
+            if (sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
+                sysCmdAsync('nice --adjustment=4 /srv/http/command/webradiodb.sh');
+            }
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
+            // check that the redis database is up to date
+            sysCmdAsync('nice --adjustment=4 /srv/http/db/redis_datastore_setup check');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'debug_collector')) {
+            // run debug collector to initialise the datafile for today
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/debug_collector');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'changewindow')) {
+            // change the window for ahuffle, this helps improve the randomisation
+            wrk_ashuffle($redis, 'changewindow');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else {
+            $savecpuOneTimeActions = 10000000;
+        }
+    }
+    // Random play auto start and stop, run first after 12 cycles (+/-6 seconds), then only on every +/-30th cycle (= every +/-15 seconds)
+    // Detect deletion of playlist random file and restart if applicable
+    // Start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons, this is the only place where it is started
+    if ($savecpuRp-- <= 0) {
+        wrk_ashuffle($redis, 'check');
+        $savecpuRp = 25 + rand(0, 10);
+    }
+    // logfile fix, run first after 36 cycles (+/-18 seconds), then repeat on every +/-7200 cycles (+/-1 hour)
+    //  make all the log file RW and delete any with a zero size
+    if ($savecpuFixLogs-- <= 0) {
+        wrk_fixlogs();
+        $savecpuFixLogs = 7100 + rand(0, 200);
+    }
+    // MPD logfile size check, run first after 600 cycles (+/-5 minutes), then repeat on every +/-1200 cycles (+/-10 minutes)
+    //  if the mpd log is greater than the parameter value (bytes) a new log will be created and the old one deleted
+    //  the only reason a log file gets too big is when a very large music library is updated or rebuilt (it then tends to grow quite quickly)
+    //  or when rune runs for days on end without reboot
+    //  200000 bytes is enough for about 1500 normal log entries (@ 3mins per song = 3+ days playing time)
+    if ($savecpuMpdLog-- <= 0) {
+        wrk_mpdLog($redis, $redis->get('mpd_max_logsize'));
+        $savecpuMpdLog = 1150 + rand(0, 100);
+    }
+    // Test to see if an internet connection is available. Disable the artistinfo, lyrics webradios, etc. functions when no internet is available
+    // This will resolve freezing problems due to services being unavailable
+    // Run refresh_nics periodically, run it first after 240 cycles (+/-2 minutes), and increase the repeat cycle time by 100% (= x2)
+    //  it should run at least once each 15 minutes, it is also run once early in the start-up sequence
+    if ($savecpuInc-- <= 0) {
+        // run the tests and disable/enable the artistinfo & lyrics asynchronously
+        sysCmdAsync('nice --adjustment=4 /srv/http/command/internet_available_async.sh');
+        // increase the repeat cycle time by 100% with a maximum of 1800 (= 15 mins, 15 x 60 x 2)
+        $savecpuInc = min(1800, intval($savecpuIncPrev*2));
+        // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
+        $random = min(100,max(2, intval($savecpuInc/20)));
+        $savecpuInc = $savecpuInc - $random + rand(0, $random*2);
+        $savecpuIncPrev = $savecpuInc;
+        unset($random);
+    }
+    // Automatically determine the time-zone
+    // Test first after 60 cycles (+/-30 seconds), then every +/-28800 cycles (= every +/-4 hours)
+    if ($savecpuTimezone-- <= 0) {
+        // run the routine, it is here (and not in the start-up routines) because internet needs to be up and be detected
+        // it will only change the time-zone when it is set to the initial default value and internet is available
+        // it normally does nothing
+        autoset_timezone($redis);
+        $savecpuTimezone = 28600 + rand(0, 400);
+    }
+    // S.M.A.R.T. monitoring tools
+    //  will test each attached hard disk and tape unit
+    //  test only when music is playing
+    //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
+    //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
+    // Why test only when something is playing?
+    //  a) someone needs see the error messages and
+    //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
+    if ($savecpuSmt-- <= 0) {
+        $retval = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+        if ($retval) {
+            // something is playing
+            // clear the cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, '/usr/bin/smartctl');
+            if (file_exists('/usr/bin/smartctl')) {
+                // monitoring tools software is installed
+                // scan for hard disks
+                $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
+                if (isset($drive_list) && !empty($drive_list)) {
+                    foreach($drive_list as $drive) {
+                        // for each connected drive
+                        $drive = trim($drive);
+                        if ($drive != "") {
+                            $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
+                            $self_check = sysCmd($command);
+                            // the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
+                            If (!empty($self_check)) {
+                                $smart_avalable = false;
+                                $smart_enabled = false;
+                                $smart_result = false;
+                                $smart_good = false;
+                                foreach ($self_check as $self_check_line) {
+                                    $self_check_line = trim($self_check_line);
+                                    if ($self_check_line != "") {
+                                        // now looking for the lines
+                                        // 'SMART support is: Available...' and
+                                        // 'SMART support is: Enabled'
+                                        if (strpos(' '.$self_check_line, 'SMART support is')) {
+                                            if (strpos(' '.$self_check_line, 'Available')) {
+                                                $smart_avalable = true;
+                                            } else if (strpos(' '.$self_check_line, 'Enabled')) {
+                                                $smart_enabled = true;
+                                            }
+                                        }
+                                        // now looking for the line containing something like this:
+                                        // 'SMART overall-health self-assessment test result: PASSED'
+                                        // actually looking for '-health self-' together with 'OK' or 'PASSED'
+                                        if (strpos(' '.$self_check_line, '-health self-')) {
+                                            // there is a result
+                                            $smart_result = true;
+                                            if (strpos(' '.$self_check_line, 'OK')) {
+                                                $smart_good = true;
+                                            } else if (strpos(' '.$self_check_line, 'PASSED')) {
+                                                $smart_good = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                if ($smart_avalable && $smart_enabled && $smart_result && !$smart_good) {
+                                    // SMART is available, enabled, there is a result and it is not good
+                                    // display the information
+                                    ui_notifyError('Disk errors - Action required', implode("\n", $self_check));
+                                    // set the disk_error flag to true
+                                    $redis->set('disk_error', 1);
+                                }
+                            }
+                        }
+                        unset($self_check);
+                        unset($command);
+                    }
+                    unset($drive);
+                    unset($drive_list);
+                }
+            }
+        }
+        unset($retval);
+        if ($redis->get('disk_error')) {
+            // set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
+            $savecpuSmt = 170 + rand(0, 20);
+        } else {
+            // set the disk check frequency to +/-2400 cycles (= +/20 minutes)
+            $savecpuSmt = 2350 + rand(0, 100);
+        }
+    }
+    // Restart shairport-sync every 6 hours, but only when it is inactive
+    // There is an unresolved problem with shairport-sync which stops broadcasting its name after a number of hours
+    // It will normally run correctly for at least 24 hours
+    // Restart every +/-43200 cycles (= every +/-6 hours)
+    if ($savecpuSps-- <= 0) {
+        $savecpuSps = 43100 + rand(0, 200);
+        // see which player is active
+        if ($redis->get('activePlayer') === 'Airplay') {
+            // Airplay is active so try again in after +/-7200 cycles (= +/-1 hour)
+            $savecpuSps = 7100 + rand(0, 200);
+        } else {
+            // Airplay is not running so stop and restart it
+            sysCmd('systemctl stop shairport-sync');
+            sysCmd('systemctl daemon-reload');
+            sysCmd('systemctl start shairport-sync');
+        }
+    }
+    // Restart avahi-daemon initially after 8 seconds and thereafter every 1,5 hours
+    // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
+    //  It looks like it is related to renewing the DHCP lease on the router
+    // A second problem is that avahi-daemon uses the file '/etc/resolv.conf' which is a symlink pointing to '/run/connman/resolv.conf'
+    //  The file '/run/connman/resolv.conf' is created by connman when it starts, so avahi-daemon should wait until connman has started
+    //  However this would delay publishing the zeroconfig runeaudio name. It seems to publish the zeroconfig runeaudio name regardless
+    //  of the error about a missing '/etc/resolv.conf'.
+    // Reload or restart initially after (+/-8 seconds) then every +/-10800 cycles (+/-1,5 hours)
+    if ($savecpuAvd-- <= 0) {
+        $savecpuAvd = 10700 + rand(0, 200);
+        // restart avahi-daemon
+        sysCmdAsync('nice --adjustment=4 systemctl restart avahi-daemon');
+    }
+    // Check opcache every 1 hour (every 7200 cycles)
+    // This will add memory to the opcache if required
+    if ($savecpuOpCache-- <= 0) {
+        $savecpuOpCache = 7100 + rand(0, 200);
+        // run the script async
+        sysCmdAsync('nice --adjustment=4 /srv/http/command/check_opcache_async.php');
+    }
+    // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
+    // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
+    //  will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync
+    //  to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.
+    if ($savecpuFixdnssec-- <= 0) {
+        $savecpuFixdnssec = 1750 + rand(0, 100);
+        if (!sysCmd('systemctl is-active systemd-resolved.service | grep -ic inactive')[0]) {
+            // not inactive - systemd-resolved.service is running
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/dnssec_fix.sh');
+        }
+    }
+    // Check the usb_db_autorebuild_retry variable, when set update the MPD USB library
+    if ($redis->get('usb_db_autorebuild_retry')) {
+        sysCmd('mpc update USB');
+        // unset the variable
+        $redis->set('usb_db_autorebuild_retry', 0);
+    }
+    // unload CPU: 0.5 second sleep
     usleep(500000);
 } // end while loop
 // --- WORKER MAIN LOOP //

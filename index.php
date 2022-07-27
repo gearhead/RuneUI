@@ -23,7 +23,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with RuneAudio; see the file COPYING.  If not, see
+ * along with RuneAudio; see the file COPYING. If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: index.php
@@ -32,25 +32,31 @@
  *
  */
 // load configuration
-include($_SERVER['HOME'].'/app/config/config.php');
-// main include
-include($_SERVER['HOME'].'/app/libs/vendor/autoload.php');
+if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
+    require_once($_SERVER['HOME'].'/app/config/config.php');
+    // main include
+    require_once($_SERVER['HOME'].'/app/libs/vendor/autoload.php');
+} else {
+    require_once('/var/www/app/config/config.php');
+    // main include
+    require_once('/var/www/app/libs/vendor/autoload.php');
+}
 // open session
 session_start();
 
 // password prodection
-if (FALSE === $redis->get('password')) {
+if (!$redis->exists('password')) {
     $redis->set('password', '$2y$12$k3zKY3VANC3f90AHZyj/DOWmQ56hczAXZ/UOmxMmeP8kGNDnRelfm');
 }
-if (FALSE === $redis->get('pwd_protection')) {
+if (!$redis->exists('pwd_protection')) {
     $redis->set('pwd_protection', '0');
 }
 if (!is_localhost() && !isset($_SESSION["login"]) && $redis->get('pwd_protection')) {
     $host  = $_SERVER['HTTP_HOST'];
     $uri   = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
     $extra = 'login.php';
-	header("Location: http://$host$uri/$extra");
-	die();
+    header("Location: http://$host$uri/$extra");
+    die();
 }
 // plates: create new engine
 $engine = new \League\Plates\Engine('/srv/http/app/templates');
@@ -68,19 +74,20 @@ $activePlayer = $redis->get('activePlayer');
 $template->activePlayer = $activePlayer;
 // allowed controllers
 $controllers = array(
+    'accesspoint',
     'alsamixer',
-    'lyric',
-	'artist_info',
+    'artist_info',
+    'bluetooth',
     'coverart',
     'credits',
-    'dev',
     'debug',
+    'dev',
     'help',
     'index',
     'login',
+    'lyric',
     'mpd',
     'network',
-    'accesspoint',
     'playback',
     'settings',
     'sources',
@@ -92,13 +99,13 @@ if (in_array($template->uri(1), $controllers) OR empty($template->uri(1))) {
     if (!empty($template->uri(1)) && ($template->uri(1) !== 'playback')) {
         // decode ACTION
         if (!empty($template->uri(2))) {
-        $template->action = $template->uri(2);
-                // assign SUB-TEMPLATE
-                if ($template->action === 'add') {
-                    $subtpl = 'edit';
-                } else {
-                    $subtpl = $template->action;
-                }
+            $template->action = $template->uri(2);
+            // assign SUB-TEMPLATE
+            if ($template->action === 'add') {
+                $subtpl = 'edit';
+            } else {
+                $subtpl = $template->action;
+            }
             // decode ARG
             if(!empty($template->uri(3))) {
                 $template->arg = $template->uri(3);
@@ -108,6 +115,8 @@ if (in_array($template->uri(1), $controllers) OR empty($template->uri(1))) {
         } else {
             // assign TEMPLATE
             $template->content = $template->uri(1);
+            $template->action = '';
+            $template->arg = '';
         }
         $template->section = $template->uri(1);
         // debug
@@ -115,16 +124,16 @@ if (in_array($template->uri(1), $controllers) OR empty($template->uri(1))) {
         // debug
         //runelog("index: selected controller(1)",APP.$template->uri(1));
         // load selected APP Controller
-        include(APP.$template->uri(1).'_ctl.php');
+        require_once(APP.$template->uri(1).'_ctl.php');
         // register current controller in SESSION
         if ($template->uri(1) !== 'coverart' && $template->uri(1) !== 'coverart2') {
-        $_SESSION['controller'] = $template->uri(1);
+            $_SESSION['controller'] = $template->uri(1);
         }
     } else {
         // debug
         //runelog("index: selected controller(2)",'playback_ctl.php');
         // load playback APP Controller
-        include(APP.'playback_ctl.php');
+        require_once(APP.'playback_ctl.php');
         $template->section = 'index';
         $template->content = 'playback';
         // register current controller in SESSION
@@ -139,10 +148,14 @@ if (in_array($template->uri(1), $controllers) OR empty($template->uri(1))) {
 // set devmode
 $template->dev = $devmode;
 // plates: render layout (if you want to output direct, set $tplfile = 0 into controller)
-if ($tplfile !== 0) {
+if (isset($tplfile)) {
+    if ($tplfile !== 0) {
+        echo $template->render('default_lo');
+    }
+} else {
     echo $template->render('default_lo');
 }
-// close palyer backend connection
+// close player backend connection
 if ($activePlayer === 'MPD') {
     // close MPD connection
     closeMpdSocket($mpd);

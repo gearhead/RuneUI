@@ -1,0 +1,23 @@
+##Made by Hondagx35
+##Save this as /etc/systemd/system/amixer-webui.service
+
+[Unit]
+Description=Rune Audio Amixer-WebUI Service
+After=audio.target
+
+[Service]
+User=http
+Group=http
+RuntimeDirectory=uwsgi
+WorkingDirectory=/srv/http/amixer
+#ExecStart=/usr/bin/python /srv/http/amixer/alsamixer_webui.py
+ExecStart=/usr/bin/uwsgi --ini /srv/http/amixer/amixer-webui.ini
+ExecReload=/usr/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=always
+RestartSec=10
+StartLimitInterval=30
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

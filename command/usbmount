@@ -36,10 +36,10 @@
 ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log','/var/log/runeaudio/usbmount.log');
-include('/var/www/app/libs/runeaudio.php');
-// Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
+// RuneAudio Library include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend include
+require_once('/srv/http/app/libs/openredis.php');
 // handle HFS+ mount
 if (strpos(file_get_contents('/proc/mounts'), '/mnt/MPD/USB/EFI vfat')) {
     sysCmd('devmon --unmount /mnt/MPD/USB/EFI');
@@ -50,16 +50,16 @@ $redis->Del('usbmounts');
 $usbmounts = sysCmd("df -hl | grep '/mnt/MPD/USB'");
 foreach ($usbmounts as $line) {
     $line = array_values(array_filter(explode(' ', trim($line))));
-	// fix any spaces in volume name
-	for ($cnt = 6; isset($line[$cnt]); $cnt++) {
-		if (!empty($line[$cnt])) {
-			$line[5] .= " ".$line[$cnt];
-		}
-		// should not be needed, but break at cnt 16 just in case, this is 10 spaces
-		if ($cnt = 16 ) {
-			break;
-		}
-	}
+    // fix any spaces in volume name
+    for ($cnt = 6; isset($line[$cnt]); $cnt++) {
+        if (!empty($line[$cnt])) {
+            $line[5] .= " ".$line[$cnt];
+        }
+        // should not be needed, but break at cnt 16 just in case, this is 10 spaces
+        if ($cnt = 16 ) {
+            break;
+        }
+    }
     // debug
     // print_r($line);
     $redis->hSet('usbmounts', $line[0], json_encode(array('device' => $line[0], 'size' => $line[1], 'use' => $line[4], 'name' => substr(trim($line[5]), 9))));
@@ -74,22 +74,19 @@ sysCmd('chmod 777 /mnt/MPD/USB/*');
 // remove 'ghost' usb mounts
 // use udevil clean to remove any ghost entries
 sysCmd('udevil clean');
-// connect to MPD daemon
 // check if usb autorebuild is set
 if ($redis->get('usb_db_autorebuild')) {
-    //$mpd = openMpdSocket('/run/mpd/socket');
-	// next two lines should eventually be removed, at the moment mpd seems to have problems when requested to do an update too quickly
-	sysCmd('sync ; mpc status');
-	sleep(5);
-	sysCmd('mpc update USB');
+    // update MPD database
+    $retval = sysCmd('mpc update USB');
+    if (isset($retval) && is_array($retval) && strpos(' '.$retval[0], 'error')) {
+        // mpc has returned an error, mpd is probably starting up
+        //  set redis variable 'usb_db_autorebuild_retry' which will be acted on by rune_SY_wrk
+        $redis->set('usb_db_autorebuild_retry', 1);
+    }
 }
-// update MPD database
-//sendMpdCommand($mpd, 'update USB');
-// update library panel
+// update library panel to display the new mount
 ui_libraryHome($redis);
-// close MPD connection
-//closeMpdSocket($mpd);
-// restart Samba
+// restart Samba in order to pick up the new USB mount
 wrk_restartSamba($redis);
 // close Redis connection
 $redis->close();

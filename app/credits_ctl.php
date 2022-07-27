@@ -36,4 +36,3 @@
  $template->release = $redis->get('release');
  $template->hostname = $redis->get('hostname');
 
- 

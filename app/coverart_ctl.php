@@ -40,17 +40,25 @@ ob_implicit_flush(0);
 ob_clean();
 flush();
 
+if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME'])) {
+    $serverHome = $_SERVER['HOME'];
+} else {
+    $serverHome = '/var/www';
+}
+
+
 // --------------------- MPD ---------------------
 if ($activePlayer === 'MPD') {
     // output switch
     $output = 0;
-    include('getid3/audioinfo.class.php');
+    require_once('getid3/audioinfo.class.php');
     // get Last.FM api-key
     $lastfm_apikey = $redis->get('lastfm_apikey');
     // get HTTP proxy settings
     $proxy = $redis->hGetall('proxy');
     // connect to MPD daemon
-    $mpd2 = openMpdSocket('/run/mpd/socket', 0);
+    //$mpd2 = openMpdSocket('/run/mpd/socket', 0);
+    $mpd2 = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     // fetch MPD status
     $status = _parseStatusResponse($redis, MpdStatus($mpd2));
     $curTrack = getTrackInfo($mpd2, $status['song']);
@@ -74,24 +82,8 @@ if ($activePlayer === 'MPD') {
     $spop = openSpopSocket('localhost', 6602, 1);
 }
 
-if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
-	$cover_url = $redis->hGet('lyrics','arturl');
-	if (!empty($cover_url)) {
-		// debug
-		runelog("coverart match: lastfm radio coverURL=", $cover_url);
-		$lastfm_img = curlGet($cover_url, $proxy);
-		// $lastfm_img = file_get_contents($cover_url);
-		$bufferinfo = new finfo(FILEINFO_MIME);
-		$lastfm_img_mime = $bufferinfo->buffer($lastfm_img);
-		if (!empty($lastfm_img)) {
-			header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
-			header('Pragma: no-cache'); // HTTP 1.0.
-			header('Expires: 0'); // Proxies.
-			header('Content-Type: '.$lastfm_img_mime);
-			echo $lastfm_img;
-			$output = 1;
-		}
-	}
+if ($activePlayer === 'MPD' && $status['radio']) {
+    $output = 1;
 } else if (((substr($request_coverfile, 0, 2) === '?v') || ($current_mpd_folder ===  $request_folder)) && ($activePlayer === 'MPD')) {
     // extact song details
     if (isset($curTrack[0]['Title'])) {
@@ -127,6 +119,7 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
             header('Pragma: no-cache'); // HTTP 1.0.
             header('Expires: 0'); // Proxies.
             header('Content-Type: ' .$auinfo['comments']['picture'][0]['image_mime']);
+            header('Content-Length: '.strlen($auinfo['comments']['picture'][0]['data']));
             echo $auinfo['comments']['picture'][0]['data'];
             $output = 1;
         }
@@ -154,13 +147,15 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
             header('Pragma: no-cache'); // HTTP 1.0.
             header('Expires: 0'); // Proxies.
             header('Content-Type: ' .mime_content_type($local_cover_path));
-
+            // clear the cache otherwise filesize() returns incorrect values
+            clearstatcache(true, $local_cover_path);
+            header('Content-Length: '.filesize($local_cover_path));
             readfile($local_cover_path);
-        } 
+        }
     }
     // 3.0 try to find coverart on Last.FM (Album)
     if ($output === 0) {
-        $cover_url = ui_lastFM_coverart($status['currentartist'], $status['currentalbum'], $lastfm_apikey, $proxy);
+        $cover_url = ui_lastFM_coverart($redis, $status['currentartist'], $status['currentalbum'], $lastfm_apikey, $proxy);
         $bufferinfo = new finfo(FILEINFO_MIME);
         if (!empty($cover_url)) {
             // debug
@@ -169,12 +164,12 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
             $lastfm_img_mime = $bufferinfo->buffer($lastfm_img);
         } else {
             // 3.1 try to find coverart on Last.FM (Artist)
-            $cover_url = ui_lastFM_coverart($status['currentartist'], '', $lastfm_apikey, $proxy);
+            $cover_url = ui_lastFM_coverart($redis, $status['currentartist'], '', $lastfm_apikey, $proxy);
             if (!empty($cover_url)) {
                 // debug
                 runelog("coverart match: lastfm (query 2) coverURL=", $cover_url);
-				$lastfm_img = curlGet($cover_url, $proxy);
-				$lastfm_img_mime = $bufferinfo->buffer($lastfm_img);
+                $lastfm_img = curlGet($cover_url, $proxy);
+                $lastfm_img_mime = $bufferinfo->buffer($lastfm_img);
             }
         }
         if (!empty($lastfm_img)) {
@@ -182,87 +177,52 @@ if ($activePlayer === 'MPD' && $redis->hGet('lyrics', 'radio')) {
             header('Pragma: no-cache'); // HTTP 1.0.
             header('Expires: 0'); // Proxies.
             header('Content-Type: '.$lastfm_img_mime);
+            header('Content-Length: '.strlen($lastfm_img));
             echo $lastfm_img;
             $output = 1;
         }
     }
-    // 4. serve DEFAULT rune-cover image    
+    // 4. serve DEFAULT rune-cover image
     if ($output === 0) {
         // debug
         runelog("coverart match: cover-default");
         header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
         header('Pragma: no-cache'); // HTTP 1.0.
         header('Expires: 0'); // Proxies.
-        header('Content-Type: ' .mime_content_type($_SERVER['HOME'].'/assets/img/cover-default.png'));
-        readfile($_SERVER['HOME'].'/assets/img/cover-default.png');
+        header('Content-Type: ' .mime_content_type($serverHome.'/assets/img/cover-default.png'));
+        // clear the cache otherwise filesize() returns incorrect values
+        clearstatcache(true, $serverHome.'/assets/img/cover-default.png');
+        header('Content-Length: '.filesize($serverHome.'/assets/img/cover-default.png'));
+        readfile($serverHome.'/assets/img/cover-default.png');
         $output = 1;
     }
 } else if ($activePlayer === 'Spotify') {
-	$count = 1;
-	do {
-		sendSpopCommand($spop, 'image');
-		unset($spotify_cover);
-		$spotify_cover = readSpopResponse($spop);
-		$spotify_cover = json_decode($spotify_cover);
-		usleep(500000);
-		runelog('coverart (spotify): retry n: '.$count, $spotify_cover->status);
-		if ($spotify_cover->status === 'ok') {
-			$spotify_cover = base64_decode($spotify_cover->data);
-			break;
-		}
-		$count++;
-	} while ($count !== 10);
-	$bufferinfo = new finfo(FILEINFO_MIME);
-	$spotify_cover_mime = $bufferinfo->buffer($spotify_cover);
-	header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
-	header('Pragma: no-cache'); // HTTP 1.0.
-	header('Expires: 0'); // Proxies.
-	header('Content-Type: '.$spotify_cover_mime);
-	echo $spotify_cover;
-} else if ($activePlayer === 'Airplay') {
-	// clear the cache before testing for the existence of a file
-	clearstatcache();
-	// determine the file name and path
-	if (file_exists($_SERVER['HOME'].'/tmp/airplay/airplay-cover.jpg')) {
-		$imgfilename = $_SERVER['HOME'].'/tmp/airplay/airplay-cover.jpg';
-	} else if (file_exists($_SERVER['HOME'].'/tmp/airplay/airplay-cover.png')) {
-		$imgfilename = $_SERVER['HOME'].'/tmp/airplay/airplay-cover.png';
-	} else {
-		$imgfilename = $_SERVER['HOME'].'/tmp/airplay/airplay-default.png';
-	}
-	// debug
-	runelog('Airplay coverart match: ', $imgfilename);
-	header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.
-	header('Pragma: no-cache'); // HTTP 1.0.
-	header('Expires: 0'); // Proxies, pre-expired content
-	header('Content-Type: '.mime_content_type($imgfilename));
-	header('Content-Length: '.filesize($imgfilename));
-	readfile($imgfilename);
-	$output = 1;
-} else if ($activePlayer === 'SpotifyConnect') {
-	// clear the cache before testing for the existence of a file
-	clearstatcache();
-	// determine the file name and path
-	if (file_exists($_SERVER['HOME'].'/tmp/spotify-connect/spotify-connect-cover.jpg')) {
-		$imgfilename = $_SERVER['HOME'].'/tmp/spotify-connect/spotify-connect-cover.jpg';
-	} else if (file_exists($_SERVER['HOME'].'/tmp/spotify-connect/spotify-connect-cover.png')) {
-		$imgfilename = $_SERVER['HOME'].'/tmp/spotify-connect/spotify-connect-cover.png';
-	} else {
-		$imgfilename = $_SERVER['HOME'].'/tmp/spotify-connect/spotify-connect-default.png';
-	}
-	// debug
-	runelog('SpotifyConnect coverart match: ', $imgfilename);
-	header('Cache-Control: no-cache, no-store, must-revalidate, proxy-revalidate, no-transform'); // HTTP 1.1.
-	header('Pragma: no-cache'); // HTTP 1.0.
-	header('Expires: 0'); // Proxies, pre-expired content
-	header('Content-Type: '.mime_content_type($imgfilename));
-	header('Content-Length: '.filesize($imgfilename));
-	readfile($imgfilename);
-	$output = 1;
+    $count = 1;
+    do {
+        sendSpopCommand($spop, 'image');
+        unset($spotify_cover);
+        $spotify_cover = readSpopResponse($spop);
+        $spotify_cover = json_decode($spotify_cover);
+        usleep(500000);
+        runelog('coverart (spotify): retry n: '.$count, $spotify_cover->status);
+        if ($spotify_cover->status === 'ok') {
+            $spotify_cover = base64_decode($spotify_cover->data);
+            break;
+        }
+        $count++;
+    } while ($count !== 10);
+    $bufferinfo = new finfo(FILEINFO_MIME);
+    $spotify_cover_mime = $bufferinfo->buffer($spotify_cover);
+    header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
+    header('Pragma: no-cache'); // HTTP 1.0.
+    header('Expires: 0'); // Proxies.
+    header('Content-Type: '.$spotify_cover_mime);
+    header('Content-Length: '.strlen($spotify_cover));
+    echo $spotify_cover;
 } else {
-	// redirect to /covers NGiNX location
-	$local_cover_url =  'http://'.$_SERVER["SERVER_ADDR"].'/covers/'.$request_folder.'/'.$request_coverfile;
-	runelog("coverart: redirect to local-coverart (url): ", $local_cover_url);
-	header('Location: '.$local_cover_url, true, 301);
+    // redirect to /covers NGiNX location
+    $local_cover_url =  'http://'.$_SERVER["SERVER_ADDR"].'/covers/'.$request_folder.'/'.$request_coverfile;
+    runelog("coverart: redirect to local-coverart (url): ", $local_cover_url);
+    header('Location: '.$local_cover_url, true, 301);
 }
 runelog("\n--------------------- coverart (end) ---------------------");

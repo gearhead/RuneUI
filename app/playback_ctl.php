@@ -1,4 +1,4 @@
-<?php 
+<?php
 /*
  * Copyright (C) 2013-2014 RuneAudio Team
  * http://www.runeaudio.com
@@ -31,15 +31,37 @@
  *  coder: Simone De Gregori
  *
  */
+ //
+ // run ui_render in the background after the absolute time in seconds has past
+$nowSeconds = microtime(true);
+// delay 2 second, so add 2 to the value
+$startAfterSeconds = $nowSconds + 2;
+wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterSeconds));
 $template->activePlayer = $redis->get('activePlayer');
+//
+// setup the display variables
 if ($redis->get('coverart') == 1) {
-    $template->coverart = 1;
-    $template->colspan = 4;
+    if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
+        $template->coverart = 1;
+        $template->colspan = 4;
+        $template->volume['hide'] = 0;
+    } else {
+        $template->coverart = 1;
+        $template->colspan = 6;
+        $template->volume['hide'] = 1;
+    }
 } else {
-    $template->coverart = 0;
-    $template->colspan = 6;
+    if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
+        $template->coverart = 0;
+        $template->colspan = 6;
+        $template->volume['hide'] = 0;
+    } else {
+        $template->coverart = 0;
+        $template->colspan = 12;
+        $template->volume['hide'] = 1;
+    }
 }
-if ($redis->get('volume') == 1 && $template->activePlayer == 'MPD') {
+if (($redis->get('volume') == 1) && ($template->activePlayer == 'MPD')) {
     $template->volume['color'] = '#0095D8';
     $template->volume['readonly'] = 'false';
     $template->volume['disabled'] = 0;
@@ -51,12 +73,14 @@ if ($redis->get('volume') == 1 && $template->activePlayer == 'MPD') {
     $template->volume['disabled'] = 1;
     $template->volume['divclass'] = 'nomixer';
 }
+$template->UIorder = str_split($redis->get('UIorder'));
 $template->volume['dynamic'] = $redis->get('dynVolumeKnob');
 $template->dev = $redis->get('dev');
 $template->spotify = $redis->hGet('spotify', 'enable');
 $template->spotifyconnect = $redis->hGet('spotifyconnect', 'enable');
 $template->airplay = $redis->hGet('airplay', 'enable');
 $template->dlna = $redis->hGet('dlna', 'enable');
+$template->bluetooth = $redis->get('bluetooth_on');
 $template->localSStime = $redis->hGet('local_browser', 'localSStime');
 $template->remoteSStime = $redis->get('remoteSStime');
 $template->hostname = $redis->get('hostname');

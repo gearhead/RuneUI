@@ -32,7 +32,7 @@
  *
  */
 // Environment vars
-if ($_SERVER["DOCUMENT_ROOT"] !== '') {
+if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
     define('APP',$_SERVER['HOME'].'/app/');
 } else {
     define('APP','/var/www/app/');
@@ -41,31 +41,55 @@ if ($_SERVER["DOCUMENT_ROOT"] !== '') {
 $libs = APP.'libs/vendor';
 set_include_path(get_include_path() . PATH_SEPARATOR . $libs);
 // RuneAudio Library include
-include(APP.'libs/runeaudio.php');
-// Connect to Redis backend
-$redis = new Redis(); 
-//$redis->pconnect('127.0.0.1');
-$redis->pconnect('/run/redis/socket');
-$devmode = $redis->get('dev');
-$activePlayer = $redis->get('activePlayer');
+require_once(APP.'libs/runeaudio.php');
+// Connect to Redis backend include
+require_once(APP.'libs/openredis.php');
 // LogSettings
-if ($redis->get('debug') > 0 ) {
-    $activeLog=1;
+if ($redis->get('debug')) {
+    $activeLog = '1';
 } else {
-    $activeLog=0;
+    $activeLog = '0';
 }
 ini_set('log_errors', $activeLog);
 ini_set('error_log', '/var/log/runeaudio/runeui.log');
 ini_set('display_errors', $activeLog);
-// connect to MPD daemon
-if ($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php' && $activePlayer === 'MPD') {
+//
+$devmode = $redis->get('dev');
+$activePlayer = $redis->get('activePlayer');
+// connect to the MPD daemon, when it is starting up the open may need to be repeated
+// a massive repeat value for looping is specified, it should work on the first try
+//  but, if no MPD connection can be made the rest will fail, so keep trying
+//  should only be a problem during start up or after restarting MPD
+$repeat = 30;
+if ((isset($_SERVER["SCRIPT_FILENAME"])) && ($activePlayer === 'MPD') && (($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
     // debug
-    runelog('[connection.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');
-    $mpd = openMpdSocket('/run/mpd/socket', 0);
-} elseif ($activePlayer === 'MPD') {
+    runelog('[config.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');
+    if (isset($mpd) && is_array($mpd)) {
+        // socket is already open
+        if ($mpd['type'] != 0) {
+            // wrong type of socked, close and reopen
+            closeMpdSocket($mpd);
+            $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+        }
+    } else {
+        // no socket open
+        $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+    }
+} else if ($activePlayer === 'MPD') {
     // debug
-    runelog('[connection.php] >>> OPEN MPD SOCKET [BURST MODE [1] (blocking)] <<<','');
-    $mpd = openMpdSocket('/run/mpd/socket', 1);
-} elseif ($redis->hGet('spotify', 'enable') === '1' && $activePlayer === 'Spotify') {
+    runelog('[config.php] >>> OPEN MPD SOCKET [BURST MODE [1] (blocking)] <<<','');
+    if (isset($mpd) && is_array($mpd)) {
+        // socket is already open
+        if ($mpd['type'] != 1) {
+            // wrong type of socked, close and reopen
+            closeMpdSocket($mpd);
+            $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+        }
+    } else {
+        // no socket open
+        $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
+    }
+} else if (($redis->hGet('spotify', 'enable')) && ($activePlayer === 'Spotify')) {
+    runelog('[config.php] >>> OPEN SPOTIFY SOCKET [BURST MODE [1] (blocking)] <<<','');
     $spop = openSpopSocket('localhost', 6602, 1);
 }
