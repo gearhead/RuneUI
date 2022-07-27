@@ -2243,8 +2243,8 @@ function wrk_apconfig($redis, $action, $args = null)
             $args = array_merge($args, $redis->hgetall('AccessPoint'));
             break;
         case 'reset':
-            $redis->Del('AccessPoint');
-            sysCmd('/srv/http/db/redis_datastore_setup check');
+            sysCmd('/srv/http/db/redis_datastore_setup apreset');
+            wrk_getHwPlatform($redis);
             $args = array_merge($args, $redis->hgetall('AccessPoint'));
             break;
     }

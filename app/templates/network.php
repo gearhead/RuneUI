@@ -76,12 +76,36 @@
         </form>
     </div>
     <br>
+    <?php if((isset($this->wifienable)) && ($this->wifienable)): ?>
     <legend>Access Point</legend>
     <div class="boxed">
-        <p>Configure an Access Point (AP)</p>
-        <button class="btn btn-lg btn-primary" onclick="location.href='/accesspoint'">AP settings</button>
-        <span class="help-block">Use this option to enable (default) or disable your device as an Access Point.<br>
-        RuneAudio tries to connect to configured Wi-Fi profiles first. The Access Point will start only when all configured Wi-Fi profiles fail to connect</span>
+        <form id='aponoff' name='aponoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
+            <div class="form-group">
+                <label for="accesspoint" class="control-label col-sm-2">Access Point</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input type="hidden" name="apenable" value="0">
+                        <input id="accesspoint" name="apenable" type="checkbox" value="1"<?php if((isset($this->apenable)) && ($this->apenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Enable/Disable starting a wireless AccessPoint on startup.<br>
+                        <i>Notes: The Access Point will start only when a valid Wi-Fi network connection is available and a normal Wi-Fi network cannot be connected.
+                        The Access Point is designed for setting up the RuneAudio Wi-Fi network configuration when no wired connection is available.
+                        The default setting is ON when on-board Wi-Fi is available.
+                        A <strong>reboot</strong> is required to activate a changed setting!
+                        If you do not intend to use the Access Point, you should <strong>switch it off</strong> and/or <strong>change the passphrase</strong> (password)</i></span>
+                </div>
+            </div>
+            <div class="form-group form-actions">
+                <div class="col-sm-offset-2 col-sm-10">
+                    <?php if(isset($this->apenable) && $this->apenable): ?>
+                    <button type="button" class="btn btn-lg btn-primary" onclick="location.href='/accesspoint'">AP Configuration</button>
+                    <span class="help-block">Click on 'AP Configuration' for more information and to configure your device as an Access Point</span>
+                    <?php endif ?>
+                </div>
+            </div>
+        </form>
     </div>
     <br>
+    <?php endif ?>
 </div>

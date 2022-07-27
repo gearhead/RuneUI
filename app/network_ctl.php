@@ -45,6 +45,13 @@ if (isset($_POST)) {
         // $redis->set($_POST['profile']['action'], json_encode($_POST['profile']));
         $jobID[] = wrk_control($redis, 'newjob', $data = array( 'wrkcmd' => 'netcfg', 'action' => $_POST['profile']['action'], 'args' => $_POST['profile']));
     }
+    if (isset($_POST['apenable'])) {
+        if ($_POST['apenable'] && !$redis->hGet('AccessPoint', 'enable')) {
+            $redis->hSet('AccessPoint', 'enable', 1);
+        } else if (!$_POST['apenable'] && $redis->hGet('AccessPoint', 'enable')) {
+            $redis->hSet('AccessPoint', 'enable', 0);
+        }
+    }
     if (isset($_POST['btenable'])) {
         if ($_POST['btenable'] && !$redis->get('bluetooth_on')) {
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableBT'));
@@ -269,6 +276,7 @@ if ($template->action === 'wifi_scan') {
     $template->networks = array();
     $template->storedProfiles = array();
     $template->profile = array();
+    $template->apenable = $redis->hGet('AccessPoint', 'enable');
     $template->btenable = $redis->get('bluetooth_on');
     $template->wifienable = $redis->get('wifi_on');
     unset($networks, $storedProfiles);
