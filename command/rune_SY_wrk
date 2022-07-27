@@ -689,12 +689,13 @@ while (true) {
                     //ui_notify_async('Update RuneUI', 'Rebooting', $jobID);
                     // noid ui_notify_async('Update RuneUI', 'Rebooting');
                     ui_notify('Update RuneUI', 'Rebooting');
+                    sysCmd('/srv/http/db/redis_datastore_setup check');
                     wrk_sysAcl();
                     $playernamemenu = $redis->get('playernamemenu');
                     wrk_playernamemenu($playernamemenu);
                     $redis->set('dev', 0);
                     sysCmd('systemctl daemon-reload');
-                    sysCmd('systemctl reload-or-restart php-fpm || systemctl start php-fpm');
+                    sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     //ui_notify_async('Update RuneUI', 'Wait for the screen to refresh...', $jobID);
