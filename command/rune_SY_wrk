@@ -115,9 +115,11 @@ if ($arch_db !== $arch) {
 }
 
 // check git branch
-$gitbranch = sysCmd("cd /srv/http/ ; git branch | grep \"*\" | cut -d ' ' -f 2");
-runelog('GIT BRANCH: ', $gitbranch[0]);
-$redis->hSet('git', 'branch', $gitbranch[0]);
+$gitbranch = trim(sysCmd("cd /srv/http/ ; git branch | grep '*' | cut -d ' ' -f 2 | xargs")[0]);
+if (isset($gitbranch) && $gitbranch) {
+    runelog('GIT BRANCH: ', $gitbranch);
+    $redis->hSet('git', 'branch', $gitbranch);
+}
 
 if ($playerid_db === '') {
     // RUNEAUDIO FIRST RUN PROCESS --- //
