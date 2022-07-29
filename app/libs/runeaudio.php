@@ -434,7 +434,7 @@ function sendMpdIdle($sock)
     $resp = readMpdResponse($sock);
     if (strpos(' '.$resp, 'OK')) {
         // the response is 'changed:<value>', multiple lines can be returned, followed by 'OK'
-        // convert it to a string delimited by colons, no duplicates, e.g. 'player:playlist:mixer:OK'
+        // convert it to a string delimited by colons, no duplicates, e.g. 'player:playlist:mixer:OK' and not 'player:playlist:player:mixer:OK'
         $plistArray = array();
         $plistLine = strtok($resp, "\n\r");
         while ($plistLine) {
