@@ -6325,16 +6325,15 @@ function wrk_setRegDom($redis)
 
 function ui_update($redis, $sock=null, $clientUUID=null)
 {
-    $activePlayerInfo = json_decode($redis->get('act_player_info'), true);
-    if (isset($activePlayerInfo['actPlayer']) && $activePlayerInfo['actPlayer']) {
-        // clear some act_player_info fields
-        unset ($activePlayerInfo['elapsed'], $activePlayerInfo['song_percent']);
-        ui_render('playback', json_encode($activePlayerInfo));
-    }
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
         case 'MPD':
-            return sysCmd('mpc status && mpc move 1 1 || mpc clear');
+            if ($sock) {
+                // to get MPD out of its idle-loop we discribe to a channel
+                sendMpdCommand($sock, 'subscribe renderui');
+                sendMpdCommand($sock, 'unsubscribe renderui');
+            }
+            return sysCmd('mpc status && mpc move 1 1 || mpc clear')[0];
             break;
             // if ($redis->get('pl_length') !== '0') {
                 // sendMpdCommand($sock, 'swap 0 0');
@@ -6349,6 +6348,14 @@ function ui_update($redis, $sock=null, $clientUUID=null)
             sendSpopCommand($sock, 'repeat');
              // return SPOP response
             return readSpopResponse($sock);
+            break;
+        default:
+            $activePlayerInfo = json_decode($redis->get('act_player_info'), true);
+            if (isset($activePlayerInfo['actPlayer']) && $activePlayerInfo['actPlayer']) {
+                // clear some act_player_info fields
+                unset ($activePlayerInfo['elapsed'], $activePlayerInfo['song_percent']);
+                ui_render('playback', json_encode($activePlayerInfo));
+            }
             break;
     }
 }

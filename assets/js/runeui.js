@@ -264,7 +264,7 @@ function refreshKnob() {
         var step = parseInt(1000/delta);
     }
     var el = $('.countdown-amount').html();
-    console.log('initTime = ' + initTime + ', delta = ' + delta + ', step = ' + step + ', el = ' + el);
+    // console.log('initTime = ' + initTime + ', delta = ' + delta + ', step = ' + step + ', el = ' + el);
     var time = $('#time');
     time.val(initTime, false).trigger('update');
     if (GUI.state === 'play') {
@@ -945,8 +945,19 @@ function updateGUI() {
     } else if (typeof GUI.json.time !== 'undefined') {
         var time = GUI.json.time;
     }
-    if (typeof GUI.json.elapsed !== 'undefined') {
-        var elapsed = GUI.json.elapsed;
+    if (typeof GUI.json.elapsed === 'undefined') {
+        var GUIcountdown = $('.countdown-amount').html();
+        if (typeof GUIcountdown !== 'undefined') {
+            // console.log('Countdown = ', GUIcountdown);
+            var GUIcountdownParts = GUIcountdown.split(':');
+            GUI.json.elapsed = (parseInt(GUIcountdownParts[0])*60) + parseInt(GUIcountdownParts[1]);
+            // console.log('Elapsed = ', GUI.json.elapsed);
+        }
+    }
+    if ((typeof GUI.json.song_percent === 'undefined') && (typeof GUI.json.elapsed !== 'undefined') && (typeof time !== 'undefined')) {
+        if ((GUI.json.elapsed !== 0) && (time !== 0)) {
+            GUI.json.song_percent = parseInt((parseInt(GUI.json.elapsed)*100)/parseInt(time));
+        }
     }
     if ((typeof GUI.json.time !== 'undefined') && (typeof GUI.json.elapsed !== 'undefined')) {
         refreshTimer(parseInt(GUI.json.elapsed), parseInt(GUI.json.time), GUI.json.state);
@@ -1634,7 +1645,7 @@ function populateDB(options){
 
     // DEBUG
     // console.log('populateDB OPTIONS: data = ' + data + ', path = ' + path + ', uplevel = ' + uplevel + ', keyword = ' + keyword +', querytype = ' + querytype);
-    console.log(JSON.stringify(data));
+    // console.log(JSON.stringify(data));
 
     if (plugin !== '') {
     // plugins
