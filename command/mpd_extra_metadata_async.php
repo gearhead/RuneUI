@@ -366,37 +366,34 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 $status = json_decode($redis->get('act_player_info'), true);
                 if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
                     // the current song is still valid
-                    // write it when changed the main art url has changed
-                    // if (!isset($status['mainArtURL']) || ($status['mainArtURL'] != $song['albumarturl'])) {
-                        $status['mainArtURL'] = $song['albumarturl'];
-                        if ($bigartIsAlbum) {
-                            $status['bigArtURL'] = $song['albumarturl'];
+                    $status['mainArtURL'] = $song['albumarturl'];
+                    if ($bigartIsAlbum) {
+                        $status['bigArtURL'] = $song['albumarturl'];
+                    } else {
+                        $status['smallArtURL'] = $song['albumarturl'];
+                    }
+                    if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
+                        if (!is_numeric($song['avg_bit_rate'])) {
+                            $status['bitrate'] = $song['avg_bit_rate'];
                         } else {
-                            $status['smallArtURL'] = $song['albumarturl'];
+                            $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
                         }
-                        if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
-                            if (!is_numeric($song['avg_bit_rate'])) {
-                                $status['bitrate'] = $song['avg_bit_rate'];
-                            } else {
-                                $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
-                            }
+                    }
+                    if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
+                        if (isset($song['sample_rate']) && $song['sample_rate']) {
+                            $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
                         }
-                        if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
-                            if (isset($song['sample_rate']) && $song['sample_rate']) {
-                                $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
-                            }
+                    }
+                    if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
+                        if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
+                            $status['audio_sample_depth'] = $song['bits_per_sample'];
                         }
-                        if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
-                            if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
-                                $status['audio_sample_depth'] = $song['bits_per_sample'];
-                            }
-                        }
-                        unset($status['elapsed'], $status['song_percent']);
-                        $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($status));
-                        // unload CPU: 0.2 second sleep
-                        // usleep(200000);
-                    // }
+                    }
+                    unset($status['elapsed'], $status['song_percent']);
+                    $redis->set('act_player_info', json_encode($status));
+                    ui_render('playback', json_encode($status));
+                    // unload CPU: 0.2 second sleep
+                    // usleep(200000);
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
