@@ -32,7 +32,7 @@
 #  date: January 2021
 #
 
-sed -i '/dtparam=disable-bt/c\dtparam=disable-bt' /boot/config.txt
+sed -i '/dtoverlay=disable-bt/c\dtoverlay=disable-bt' /boot/config.txt
 sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=off' /boot/config.txt
 systemctl disable bluetooth bluealsa bluealsa-aplay
 systemctl stop bluetooth bluealsa bluealsa-aplay

@@ -32,7 +32,7 @@
 #  date: July 2022
 #
 
-sed -i '/dtparam=disable-wifi/c\#dtparam=disable-wifi' /boot/config.txt
+sed -i '/dtoverlay=disable-wifi/c\#dtoverlay=disable-wifi' /boot/config.txt
 redis-cli set wifi_on 1
 #---
 #End script
