@@ -40,8 +40,8 @@
                     </label>
                     <span class="help-block">Enable/Disable Bluetooth.<br>
                         <i>Notes: The default setting is ON when on-board Bluetooth is available.
-                        A <strong>reboot</strong> is required to activate a changed setting!
-                        If you do not intend to use Bluetooth, you should <strong>switch it off</strong></i></span>
+                        If you do not intend to use Bluetooth, you should <strong>switch it off.</strong>
+                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">
@@ -69,8 +69,8 @@
                     </label>
                     <span class="help-block">Enable/Disable Wi-Fi.<br>
                         <i>Notes: The default setting is ON when on-board Wi-Fi is available.
-                        A <strong>reboot</strong> is required to activate a changed setting!
-                        If you do not intend to use Wi-Fi, you should <strong>switch it off</strong></i></span>
+                        If you do not intend to use Wi-Fi, you should <strong>switch it off.</strong>
+                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
                 </div>
             </div>
         </form>
@@ -92,8 +92,8 @@
                         <i>Notes: The Access Point will start only when a valid Wi-Fi network connection is available and a normal Wi-Fi network cannot be connected.
                         The Access Point is designed for setting up the RuneAudio Wi-Fi network configuration when no wired connection is available.
                         The default setting is ON when on-board Wi-Fi is available.
-                        A <strong>reboot</strong> is required to activate a changed setting!
-                        If you do not intend to use the Access Point, you should <strong>switch it off</strong> and/or <strong>change the passphrase</strong> (password)</i></span>
+                        If you do not intend to use the Access Point, you should <strong>switch it off</strong>.
+                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">

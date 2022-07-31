@@ -32,7 +32,7 @@
 #  date: July 2022
 #
 
-sed -i '/dtparam=disable-wifi/c\dtparam=disable-wifi' /boot/config.txt
+sed -i '/dtoverlay=disable-wifi/c\dtoverlay=disable-wifi' /boot/config.txt
 # turn off the Wi-Fi nics, it could lock out the UI if a mistake were made
 #   currently not using this, a reboot is required to actually switch everything off
 # for dev in /sys/class/net/*; do
