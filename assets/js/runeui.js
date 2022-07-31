@@ -44,10 +44,11 @@ var GUI = {
     currentDBpos: [0,0,0,0,0,0,0,0,0,0,0],
     currentDBpath: ['','','','','','','','','','',''],
     currentalbum: '',
+    currentartist: '',
+    currentsong: '',
     currentalbum_and_artist: '',
     currentknob: null,
     currentpath: '',
-    currentsong: null,
     json: 0,
     libraryhome: '',
     forceGUIupdate: false,
@@ -964,11 +965,36 @@ function updateGUI() {
     }
     refreshState();
     if ($('#section-index').length) {
+        // console.log('mainArtURL = ', mainArtURL);
+        // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
+        // console.log('UI = ', $('#cover-art').css('background-image'));
+        if ((mainArtURL !== '') && ((GUI.mainArtURL === mainArtURL) || !$('#cover-art').css('background-image').includes(mainArtURL))) {
+            // main art has a value its the same as the last time, but the UI has a different value, so force a refresh for all values
+            GUI.currentalbum_and_artist = '';
+            GUI.currentartist = '';
+            GUI.currentsong = '';
+            GUI.currentalbum = ''
+            GUI.song_lyrics = '';
+            GUI.mainArtURL = '';
+            GUI.smallArtURL = '';
+            GUI.bigArtURL = '';
+            GUI.coverArtPreload = '';
+            GUI.artist_bio_summary = '';
+            GUI.artist_similar = '';
+        }
         // check song update
-        // console.log('A = ', GUI.json.currentsong); console.log('B = ', GUI.currentsong);
-        if (GUI.currentsong !== currentsong) {
-            GUI.currentsong = currentsong;
-            countdownRestart(0);
+        // console.log('GUI.json.currentsong = ', GUI.json.currentsong);
+        // console.log('GUI.currentsong = ', GUI.currentsong);
+        // console.log('currentsong = ', currentsong);
+        // console.log('GUI.json.currentartist = ', GUI.json.currentartist);
+        // console.log('GUI.currentartist = ', GUI.currentartist);
+        // console.log('currentartist = ', currentartist);
+        var currentalbum_and_artist = currentalbum + currentartist;
+        // console.log('GUI.currentalbum_and_artist = ', GUI.currentalbum_and_artist);
+        // console.log('currentalbum_and_artist = ', currentalbum_and_artist);
+        if (GUI.currentalbum_and_artist !== currentalbum_and_artist) {
+            GUI.currentalbum_and_artist = currentalbum_and_artist;
+            countdownRestart(GUI.json.elapsed);
             if ($('#panel-dx').hasClass('active')) {
                 var current = parseInt(GUI.json.song);
                 customScroll('pl', current);
@@ -978,58 +1004,87 @@ function updateGUI() {
         if (GUI.vol_changed_local === 0) {
             $('#volume').val((volume === '-1') ? 100 : volume, false).trigger('update');
         }
-        // console.log('currentartist = ', GUI.json.currentartist);
-        if (currentartist === null || currentartist.length > 55) {
-            $('#currentartist-ss')[0].style.fontSize = "18px";
-            $('#currentartist-sss')[0].style.fontSize = "28px";
-        } else if (currentartist.length > 45) {
-            $('#currentartist-ss')[0].style.fontSize = "20px";
-            $('#currentartist-sss')[0].style.fontSize = "30px";
-        } else if (currentartist.length > 30) {
-            $('#currentartist-ss')[0].style.fontSize = "22px";
-            $('#currentartist-sss')[0].style.fontSize = "32px";
-        } else {
-            $('#currentartist-ss')[0].style.fontSize = "28px";
-            $('#currentartist-sss')[0].style.fontSize = "34px";
+        //
+        // console.log('GUI.json.currentartist = ', GUI.json.currentartist);
+        // console.log('currentartist = ', currentartist);
+        // console.log('GUI.currentartist = ', GUI.currentartist);
+        if ((currentartist === '') || (currentartist === null)) {
+            var currentartist = '<span class="notag">[no artist]</span>';
         }
-        $('#currentartist').html((currentartist === null || currentartist === undefined || currentartist === '') ? '<span class="notag">[no artist]</span>' : currentartist);
-        $('#currentartist-ss').html((currentartist === null || currentartist === undefined || currentartist === '') ? '<span class="notag">[no artist]</span>' : currentartist);
-        $('#currentartist-sss').html((currentartist === null || currentartist === undefined || currentartist === '') ? '<span class="notag">[no artist]</span>' : currentartist);
-        if (currentsong === null || currentsong.length > 55) {
-            $('#currentsong-ss')[0].style.fontSize = "18px";
-            $('#currentsong-sss')[0].style.fontSize = "28px";
-        } else if (currentsong.length > 45) {
-            $('#currentsong-ss')[0].style.fontSize = "20px";
-            $('#currentsong-sss')[0].style.fontSize = "30px";
-        } else if (currentsong.length > 35) {
-            $('#currentsong-ss')[0].style.fontSize = "26px";
-            $('#currentsong-sss')[0].style.fontSize = "32px";
-        } else if (currentsong.length > 25) {
-            $('#currentsong-ss')[0].style.fontSize = "32px";
-            $('#currentsong-sss')[0].style.fontSize = "36px";
-        } else {
-            $('#currentsong-ss')[0].style.fontSize = "40px";
-            $('#currentsong-sss')[0].style.fontSize = "40px";
+        if (GUI.currentartist !== currentartist) {
+            GUI.currentartist = currentartist;
+            if (GUI.currentartist.length > 55) {
+                $('#currentartist-ss')[0].style.fontSize = "18px";
+                $('#currentartist-sss')[0].style.fontSize = "28px";
+            } else if (GUI.currentartist.length > 45) {
+                $('#currentartist-ss')[0].style.fontSize = "20px";
+                $('#currentartist-sss')[0].style.fontSize = "30px";
+            } else if (GUI.currentartist.length > 30) {
+                $('#currentartist-ss')[0].style.fontSize = "22px";
+                $('#currentartist-sss')[0].style.fontSize = "32px";
+            } else {
+                $('#currentartist-ss')[0].style.fontSize = "28px";
+                $('#currentartist-sss')[0].style.fontSize = "34px";
+            }
+            $('#currentartist').html(GUI.currentartist);
+            $('#currentartist-ss').html(GUI.currentartist);
+            $('#currentartist-sss').html(GUI.currentartist);
         }
-        $('#currentsong').html((currentsong === null || currentsong === undefined || currentsong === '') ? '<span class="notag">[no title]</span>' : currentsong);
-        $('#currentsong-ss').html((currentsong === null || currentsong === undefined || currentsong === '') ? '<span class="notag">[no title]</span>' : currentsong);
-        $('#currentsong-sss').html((currentsong === null || currentsong === undefined || currentsong === '') ? '<span class="notag">[no title]</span>' : currentsong);
-        if (currentalbum === null || currentalbum.length > 55) {
-            $('#currentalbum-ss')[0].style.fontSize = "18px";
-            $('#currentalbum-sss')[0].style.fontSize = "28px";
-        } else if (currentalbum.length > 45) {
-            $('#currentalbum-ss')[0].style.fontSize = "20px";
-            $('#currentalbum-sss')[0].style.fontSize = "30px";
-        } else if (currentalbum.length > 30) {
-            $('#currentalbum-ss')[0].style.fontSize = "22px";
-            $('#currentalbum-sss')[0].style.fontSize = "32px";
-        } else {
-            $('#currentalbum-ss')[0].style.fontSize = "24px";
-            $('#currentalbum-sss')[0].style.fontSize = "34px";
+        //
+        // console.log('GUI.json.currentsong = ', GUI.json.currentsong);
+        // console.log('currentsong = ', currentsong);
+        // console.log('GUI.currentsong = ', GUI.currentsong);
+        if ((currentsong === '') || (GUI.currentsong === null)) {
+            var currentsong = '<span class="notag">[no song]</span>';
         }
-        $('#currentalbum').html((currentalbum === null || currentalbum === undefined || currentalbum === '') ? '<span class="notag">[no album]</span>' : currentalbum);
-        $('#currentalbum-ss').html((currentalbum === null || currentalbum === undefined || currentalbum === '') ? '<span class="notag">[no album]</span>' : currentalbum);
-        $('#currentalbum-sss').html((currentalbum === null || currentalbum === undefined || currentalbum === '') ? '<span class="notag">[no album]</span>' : currentalbum);
+        if (GUI.currentsong !== currentsong) {
+            GUI.currentsong = currentsong;
+            if (GUI.currentsong.length > 55) {
+                $('#currentsong-ss')[0].style.fontSize = "18px";
+                $('#currentsong-sss')[0].style.fontSize = "28px";
+            } else if (GUI.currentsong.length > 45) {
+                $('#currentsong-ss')[0].style.fontSize = "20px";
+                $('#currentsong-sss')[0].style.fontSize = "30px";
+            } else if (GUI.currentsong.length > 35) {
+                $('#currentsong-ss')[0].style.fontSize = "26px";
+                $('#currentsong-sss')[0].style.fontSize = "32px";
+            } else if (GUI.currentsong.length > 25) {
+                $('#currentsong-ss')[0].style.fontSize = "32px";
+                $('#currentsong-sss')[0].style.fontSize = "36px";
+            } else {
+                $('#currentsong-ss')[0].style.fontSize = "40px";
+                $('#currentsong-sss')[0].style.fontSize = "40px";
+            }
+            $('#currentsong').html(GUI.currentsong);
+            $('#currentsong-ss').html(GUI.currentsong);
+            $('#currentsong-sss').html(GUI.currentsong);
+        }
+        //
+        // console.log('GUI.json.currentalbum = ', GUI.json.currentalbum);
+        // console.log('currentalbum = ', currentalbum);
+        // console.log('GUI.currentalbum = ', GUI.currentalbum);
+        if ((currentalbum === '') || (currentalbum === null)) {
+            var currentalbum = '<span class="notag">[no album]</span>';
+        } else if (GUI.currentalbum !== currentalbum) {
+            GUI.currentalbum = currentalbum;
+            if (GUI.currentalbum.length > 55) {
+                $('#currentalbum-ss')[0].style.fontSize = "18px";
+                $('#currentalbum-sss')[0].style.fontSize = "28px";
+            } else if (GUI.currentalbum.length > 45) {
+                $('#currentalbum-ss')[0].style.fontSize = "20px";
+                $('#currentalbum-sss')[0].style.fontSize = "30px";
+            } else if (GUI.currentalbum.length > 30) {
+                $('#currentalbum-ss')[0].style.fontSize = "22px";
+                $('#currentalbum-sss')[0].style.fontSize = "32px";
+            } else {
+                $('#currentalbum-ss')[0].style.fontSize = "24px";
+                $('#currentalbum-sss')[0].style.fontSize = "34px";
+            }
+            $('#currentalbum').html(GUI.currentalbum);
+            $('#currentalbum-ss').html(GUI.currentalbum);
+            $('#currentalbum-sss').html(GUI.currentalbum);
+        }
+        //
         if (GUI.json.repeat === '1') {
             $('#repeat').addClass('btn-primary');
         } else {
@@ -1051,6 +1106,7 @@ function updateGUI() {
             $('#single').removeClass('btn-primary');
         }
         if ((song_lyrics !== '') && (GUI.song_lyrics !== song_lyrics)) {
+            GUI.song_lyrics = song_lyrics;
             $('#lyric-text-overlay').html(song_lyrics);
         }
         if ((mainArtURL !== '') && (GUI.mainArtURL !== mainArtURL)) {

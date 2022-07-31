@@ -154,6 +154,8 @@ while (true) {
             $saveRadio = 'x';
             $saveCurrentsong = '';
             $saveFile = '';
+            $saveChanged = '';
+            $subscriptionCnt = 1;
             $mpdFixFile = '';
             do {
                 //
@@ -175,6 +177,24 @@ while (true) {
                         closeMpdSocket($socket);
                     }
                     break;
+                }
+                // we use the mpd subscribe and unsubscribe to channels to trigger an idle interrupt, we need to do it twice, but
+                //  only need to react once
+                if (($newStatus['changed'] == 'subscription:OK') && ($newStatus['changed'] == $saveChanged)) {
+                    // the subscription changed type come in 3's or 4's after each other, process the first one and skip any others
+                    //  which follow sequentially
+                    if ($subscriptionCnt-- > 0) {
+                        continue;
+                    } else {
+                        // process every second one
+                        $subscriptionCnt = 1;
+                    }
+                } else if (strpos(' '.$newStatus['changed'], 'subscription')) {
+                    // when any other type of 'changed' event happens together with a subscription always process it, but set
+                    //  the saved changed value as if it happened alone
+                    $saveChanged = 'subscription:OK';
+                } else {
+                    $saveChanged = $newStatus['changed'];
                 }
                 // store next songid
                 if (!isset($newStatus['nextsongid']) || !$newStatus['nextsongid']) {
