@@ -70,7 +70,7 @@ remove)
         end=${bracket[$i]}
         # now lets find the ao which is just greater than bluealsa
         let k=0
-        # if blue is gt this ao and less then brkt, we found it. 
+        # if blue is gt this ao and less then brkt, we found it.
         for j in $(eval echo {0..$numouts});do
              if test $blue -gt ${ao[$j]}; then
              (( k++ ))
@@ -81,7 +81,7 @@ remove)
         #echo $end
         sed -i "$begin,$end d" $file
         systemctl start mpd.socket
-        # remove the BT default if it was added to mpd.conf 
+        # remove the BT default if it was added to mpd.conf
    fi
    mpc play
    ;;
