@@ -48,7 +48,7 @@
                 <div class="col-sm-offset-2 col-sm-10">
                     <?php if(isset($this->btenable) && $this->btenable): ?>
                     <button type="button" class="btn btn-lg btn-primary" onclick="location.href='/bluetooth'">Bluetooth Configuration</button>
-                    <span class="help-block">Click on 'Bluetooth Configuration' for more information and to configuration details<bt>
+                    <span class="help-block">Click on 'Bluetooth Configuration' for more information and to configure a Bluetooth connection.<br>
                     <i>RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones)</i></span>
                     <?php endif ?>
                 </div>
@@ -56,6 +56,7 @@
         </form>
     </div>
     <br>
+    <?php if((isset($this->wifiswitch)) && ($this->wifiswitch)): ?>
     <legend>Wi-Fi</legend>
     <div class="boxed">
         <form id='wifionoff' name='wifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
@@ -76,6 +77,7 @@
         </form>
     </div>
     <br>
+    <?php endif ?>
     <?php if((isset($this->wifienable)) && ($this->wifienable)): ?>
     <legend>Access Point</legend>
     <div class="boxed">
