@@ -187,9 +187,7 @@ chown -R http:http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
-# Create the directory '/run/bluealsa-monitor/asoundrc', it should not be required but causes alsa errors when not available
-#   it seems to be related to the 'bluealsa-monitor' package, which is not normally installed
-#   this should be tested in the future and removed when no longer necessary
+# Create the directory '/run/bluealsa-monitor/asoundrc', required by the 'bluealsa-monitor' package
 #
 mkdir -p /run/bluealsa-monitor/asoundrc
 #
@@ -242,11 +240,14 @@ fi
 redis-cli set overlay_art_cache 0
 # try initialising the overlay cache
 enable_overlay_art_cache "$artDir"
+#
+# copy the default art to the art directory, note that all are copied as .png files even though they may be .jpg's
 cp "/srv/http/assets/img/cover-default-runeaudio.png" "$artDir/none.png"
 cp "/srv/http/assets/img/black.png" "$artDir/black.png"
 cp "/srv/http/assets/img/airplay-default.png" "$artDir/airplay.png"
 cp "/srv/http/assets/img/spotify-connect-default.png" "$artDir/spotify-connect.png"
 cp "/srv/http/assets/img/cover-radio.jpg" "$artDir/radio.png"
+cp "/srv/http/assets/img/Bluetooth_300x300.jpg" "$artDir/bluetooth.png"
 #
 # if the Spotify Connect cache is defined create the directory, normally not set, it uses large amounts of space
 #   when set and instructed to use it, it contains the Spotify played music files. Note: it does not clean itself up

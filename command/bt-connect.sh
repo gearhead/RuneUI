@@ -8,8 +8,8 @@
 file="/etc/mpd.conf"
 case "$1" in
 add)
-# wait for PCM(s) to be created, with absolute timeout of 5 seconds.
-timeout 5 stdbuf -oL bluealsa-cli -q monitor | grep -q -m 1 ^PCMAdded || exit 0
+    # wait for PCM(s) to be created, with absolute timeout of 5 seconds.
+    timeout 5 stdbuf -oL bluealsa-cli -q monitor | grep -q -m 1 ^PCMAdded || exit 0
     case "$(/usr/bin/bluealsa-cli -q list-pcms | grep a2dp | grep -o -E '(sink|source)$')" in
     *sink*) # attached speaker(s)
         mpc stop
@@ -83,6 +83,6 @@ remove)
         systemctl start mpd.socket
         # remove the BT default if it was added to mpd.conf 
    fi
-    mpc play
-    ;;
+   mpc play
+   ;;
 esac

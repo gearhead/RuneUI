@@ -9,7 +9,9 @@ Group=http
 RuntimeDirectory=bluealsa-monitor
 RuntimeDirectoryMode=0755
 Environment="XDG_RUNTIME_DIR=/run"
-ExecStart=/usr/bin/bluealsa-monitor
+# ExecStart=/usr/bin/bluealsa-monitor
+# The following line for RuneAudio
+ExecStart=/bin/bluealsa-monitor --udev --default=a2dp,playback
 
 [Install]
 WantedBy=default.target

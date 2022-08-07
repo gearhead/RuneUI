@@ -54,9 +54,9 @@ if (isset($_POST)) {
     }
     if (isset($_POST['btenable'])) {
         if ($_POST['btenable'] && !$redis->get('bluetooth_on')) {
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableBT'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
         } else if (!$_POST['btenable'] && $redis->get('bluetooth_on')) {
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableBT'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'disable'));
         }
     }
     if (isset($_POST['wifienable'])) {
@@ -279,6 +279,25 @@ if ($template->action === 'wifi_scan') {
     $template->apenable = $redis->hGet('AccessPoint', 'enable');
     $template->btenable = $redis->get('bluetooth_on');
     $template->wifienable = $redis->get('wifi_on');
+    $wired = false;
+    $wifi = false;
+    foreach ($template->nics as $nic) {
+        if (($nic['technology'] === 'ethernet') && $nic['connected']) {
+            // a connected wired connection is available
+            $wired = true;
+        }
+        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['connected']) {
+            // a connected wifi connection is available
+            $wifi = true;
+        }
+    }
+    if ($wired && !$wifi) {
+        // a wired connection is available and no Wi-Fi connection is available (maybe it is configured as an AP), so enable switching Wi-Fi on/off
+        $template->wifiswitch = 1;
+    } else{
+        // disable switching Wi-Fi on/off
+        $template->wifiswitch = 0;
+    }
     unset($networks, $storedProfiles);
     // only the contents of $template->nics is used
 }

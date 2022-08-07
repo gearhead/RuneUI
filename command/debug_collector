@@ -64,7 +64,7 @@ function debug_data($redis, $fp=null)
     } else {
         $bit = '';
     }
-    $output .= "Linux version:\t".implode('\n', sysCmd('uname -r')).$bit."\n";
+    $output .= "Linux version:\t".implode('\n', sysCmd('uname -rm')).$bit."\n";
     unset($bit);
     if ($fp) {
         gzwrite($fp, $output);
