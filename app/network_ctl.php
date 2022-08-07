@@ -279,6 +279,25 @@ if ($template->action === 'wifi_scan') {
     $template->apenable = $redis->hGet('AccessPoint', 'enable');
     $template->btenable = $redis->get('bluetooth_on');
     $template->wifienable = $redis->get('wifi_on');
+    $wired = false;
+    $wifi = false;
+    foreach ($template->nics as $nic) {
+        if (($nic['technology'] === 'ethernet') && $nic['connected']) {
+            // a connected wired connection is available
+            $wired = true;
+        }
+        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['connected']) {
+            // a connected wifi connection is available
+            $wifi = true;
+        }
+    }
+    if ($wired && !$wifi) {
+        // a wired connection is available and no Wi-Fi connection is available (maybe it is configured as an AP), so enable switching Wi-Fi on/off
+        $template->wifiswitch = 1;
+    } else{
+        // disable switching Wi-Fi on/off
+        $template->wifiswitch = 0;
+    }
     unset($networks, $storedProfiles);
     // only the contents of $template->nics is used
 }
