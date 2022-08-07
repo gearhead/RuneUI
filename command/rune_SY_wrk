@@ -179,9 +179,9 @@ if ($playerid_db === '') {
     wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        wrk_netconfig($redis, 'enableBT');
+        wrk_btcfg($redis, 'enable');
     } else {
-        wrk_netconfig($redis, 'disableBT');
+        wrk_btcfg($redis, 'disable');
     }
     // disable/enable Wi-Fi, wifi_on is set depending on the Pi model on-board Wi-Fi support
     if ($redis->get('wifi_on')) {
@@ -1199,6 +1199,17 @@ while (true) {
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 }
                 unset($key, $value, $param, $retval);
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'btcfg':
+                $redis->sAdd('w_lock', $jobID);
+                // $job->action has the values: enable, disable, disconnect, output_list, output_connect, input_connect, trust, untrust
+                // $job-args is only set for disconnect, output_connect, trust, untrust
+                if (isset($job->args)) {
+                    wrk_btcfg($redis, $job->action, $job->args);
+                } else {
+                    wrk_btcfg($redis, $job->action);
+                }
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'ntpserver':

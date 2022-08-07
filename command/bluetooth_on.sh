@@ -34,8 +34,11 @@
 
 sed -i '/dtoverlay=disable-bt/c\#dtoverlay=disable-bt' /boot/config.txt
 sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=on' /boot/config.txt
-systemctl enable bluetooth bluealsa bluealsa-aplay
-systemctl start bluetooth bluealsa bluealsa-aplay
+systemctl enable bluetooth bluealsa bluealsa-aplay bluealsa-monitor.service
+systemctl start bluetooth bluealsa bluealsa-aplay bluealsa-monitor.service
+bluetoothctl power on
+bluetoothctl discoverable off
+bluetoothctl pairable off
 redis-cli set bluetooth_on 1
 #---
 #End script
