@@ -2840,14 +2840,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
             break;
-        case 'enableBT':
-            // run the command file to enable Bluetooth, a reboot is required
-            sysCmd('/srv/http/command/bluetooth_on.sh');
-            break;
-        case 'disableBT':
-            // run the command file to disable Bluetooth, a reboot is required
-            sysCmd('/srv/http/command/bluetooth_off.sh');
-            break;
         case 'reset':
             // delete all stored profiles and configuration files and restore the system defaults
             // automatic reboot follows
@@ -5319,6 +5311,8 @@ function wrk_startPlayer($redis, $newplayer)
         // sysCmd('rm /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
         ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\"}");
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    } elseif ($activePlayer === 'Bluetooth') {
+        // no need to do anything
     }
     if ($newplayer == 'MPD') {
         wrk_mpdRestorePlayerStatus($redis);
@@ -5326,8 +5320,13 @@ function wrk_startPlayer($redis, $newplayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     } elseif ($newplayer == 'Airplay') {
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     } elseif ($newplayer == 'SpotifyConnect') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
+    } elseif ($newplayer == 'Bluetooth') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     }
     usleep(500000);
     sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
@@ -7860,7 +7859,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     // clean up the album art files in the upper directory
     //
     // files in the $requiredFiles array are never deleted
-    $requiredFiles = array('none.png', 'black.png', 'airplay.png', 'spotify-connect.png', 'radio.png');
+    $requiredFiles = array('none.png', 'black.png', 'airplay.png', 'spotify-connect.png', 'radio.png', 'bluetooth.png');
     // touch the required files this will ensure that they have a timestamp of now, these are then last in the directory listing for deletion
     foreach ($requiredFiles as $requiredFile) {
         touch($cleanUpperDir.'/'.$requiredFile);
@@ -9577,7 +9576,7 @@ function check_opcache($redis)
 
 // function to initialise the playback array
 function initialise_playback_array($redis, $playerType = 'MPD')
-// $playerType can have the following values: 'MPD' (default), 'Spotify', 'Airplay', 'Spotify connect'
+// $playerType can have the following values: 'MPD' (default), 'Spotify', 'Airplay', 'Spotify connect', 'Bluetooth'
 {
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
     $playerTypeLower = strtolower($playerType);
@@ -9592,12 +9591,12 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['bitrate'] = '320';
     $status['changed'] = '';
     $status['consume'] = '0';
-    $status['currentalbum'] = '-----';
+    $status['currentalbum'] = '';
     $status['currentalbumartist'] = $playerType;
     $status['currentartist'] = $playerType;
     $status['currentcomposer'] = '';
-    $status['currentsong'] = '-----';
-    $status['duration'] = '';
+    $status['currentsong'] = '';
+    $status['duration'] = '0';
     $status['elapsed'] = '0';
     $status['file'] = '';
     $status['fileext'] = '';
@@ -10151,5 +10150,34 @@ function wrk_llmnrd($redis)
         // llmnrd is disabled
         // disable llmnrd to prevent starting on boot and stop it
         sysCmd('systemctl disable llmnrd; systemctl stop llmnrd');
+    }
+}
+
+// function to set up and configure Bluetooth input and output
+function wrk_btcfg($redis, $action, $param = null)
+{
+    // $action has the values: enable, disable, disconnect, output_list, output_connect, input_connect, trust, untrust
+    // $param is only set for disconnect, output_connect, trust, untrust
+    switch ($action) {
+        case 'enable':
+            // run the command file to enable Bluetooth, a reboot is required
+            sysCmd('/srv/http/command/bluetooth_on.sh');
+            break;
+        case 'disable':
+            // run the command file to disable Bluetooth, a reboot is required
+            sysCmd('/srv/http/command/bluetooth_off.sh');
+            break;
+        case 'disconnect':
+            break;
+        case 'output_list':
+            break;
+        case 'output_connect':
+            break;
+        case 'input_connect':
+            break;
+        case 'trust':
+            break;
+        case 'untrust':
+            break;
     }
 }

@@ -36,25 +36,34 @@
 // inspect POST
 if (isset($_POST)) {
     if (isset($_POST['try'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => $_POST['try']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
     }
     if (isset($_POST['disconnect'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => $_POST['disconnect']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'disconnect', 'args' => $_POST['output_connect']));
+    }
+    if (isset($_POST['disconnect'])) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'trust', 'args' => $_POST['output_connect']));
+    }
+    if (isset($_POST['disconnect'])) {
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'untrust', 'args' => $_POST['output_connect']));
     }
     if (isset($_POST['output_list'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => $_POST['output_list']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'output_list'));
     }
     if (isset($_POST['output_connect'])) {
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'output_connect', 'args' => $_POST['output_connect']));
     }
     if (isset($_POST['input_connect'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => $_POST['input_connect']));
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'input_connect'));
     }
+}
+if (!$redis->get('bluetooth_on') || (sysCmd('systemctl is-active bluetooth')[0] == 'inactive')) {
+    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
 }
 
 waitSyWrk($redis,$jobID);
 
 $template->hostname = $redis->get('hostname');
 $template->enable = $redis->get('bluetooth_on');
-$template->bluetooth = sysCmd('bluetoothctl list | grep -ic controller');
-$template->connected = sysCmd('bluetoothctl list | grep -ic paired-devices');
+$template->bluetooth = sysCmd('bluetoothctl list | grep -ic controller | xargs')[0];
+$template->connected = sysCmd('bluetoothctl list | grep -ic paired-devices | xargs')[0];

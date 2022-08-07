@@ -54,9 +54,9 @@ if (isset($_POST)) {
     }
     if (isset($_POST['btenable'])) {
         if ($_POST['btenable'] && !$redis->get('bluetooth_on')) {
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableBT'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
         } else if (!$_POST['btenable'] && $redis->get('bluetooth_on')) {
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableBT'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'disable'));
         }
     }
     if (isset($_POST['wifienable'])) {
