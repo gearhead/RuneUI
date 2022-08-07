@@ -197,6 +197,8 @@ function redisDatastore($redis,$action) {
             $redis->set('usb_db_autorebuild', 1);
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
+            $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hDel('spotifyconnect', 'metadata_enabled');
             $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hSet('spotifyconnect', 'api_id', '');
@@ -337,9 +339,9 @@ function redisDatastore($redis,$action) {
             $redis->set('dev', 0);
             $redis->set('debug', 0);
             $redis->set('opcache', 1);
-            $redis->set('buildversion', 'janui-20210826');
+            $redis->set('buildversion', 'janui-20220807');
             $redis->set('patchlevel', 0);
-            $redis->set('release', '0.6b');
+            $redis->set('release', '0.6a');
             // HW platform data
             // $redis->set('playerid', '');
             // $redis->set('hwplatform', '');
@@ -504,6 +506,8 @@ function redisDatastore($redis,$action) {
             $redis->exists('ntpserver') || $redis->set('ntpserver', 'pool.ntp.org');
             $redis->exists('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
             $redis->exists('usb_db_autorebuild_retry') || $redis->set('usb_db_autorebuild_retry', 0);
+            $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hExists('spotifyconnect', 'ao') || $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hExists('spotifyconnect', 'api_id') || $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hExists('spotifyconnect', 'api_secret') || $redis->hSet('spotifyconnect', 'api_secret', '');
@@ -636,9 +640,9 @@ function redisDatastore($redis,$action) {
             $redis->exists('dev') || $redis->set('dev', 0);
             $redis->exists('debug') || $redis->set('debug', 0);
             $redis->exists('opcache') || $redis->set('opcache', 1);
-            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20210826');
+            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20220807');
             $redis->exists('patchlevel') || $redis->set('patchlevel', 0);
-            $redis->exists('release') || $redis->set('release', '0.6b');
+            $redis->exists('release') || $redis->set('release', '0.6a');
             // HW platform data
             $redis->exists('playerid') || $redis->set('playerid', '');
             $redis->exists('hwplatform') || $redis->set('hwplatform', '');
