@@ -122,6 +122,8 @@ umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
+# clean up any no longer valid mounts
+udevil clean
 #
 # set up connman
 # delete the file/link at /etc/resolv.conf
@@ -458,10 +460,21 @@ cd /srv/http/
 gitbranch=$( git branch | xargs )
 gitbranch=${gitbranch#*[[:space:]]*}
 cd /home
-if [ $gitbranch = $release ]; then
-    experimental="Beta"
+if [ "$gitbranch" == "$release" ]; then
+    if [ "${gitbranch:3:1}" == "a" ]; then
+        experimental="Alpha"
+    else
+        experimental="Beta"
+    fi
 else
-    experimental="Experimental Beta"
+    if [ "${gitbranch:3:1}" == "a" ]; then
+        experimental="Experimental Alpha"
+    else
+        experimental="Experimental Beta"
+    fi
+fi
+if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
+    experimental="Alpha"
 fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
