@@ -115,7 +115,7 @@ if ($arch_db !== $arch) {
 }
 
 // check git branch
-$gitbranch = trim(sysCmd("cd /srv/http/ ; git branch | grep '*' | cut -d ' ' -f 2 | xargs")[0]);
+$gitbranch = trim(sysCmd("bash -c 'cd /srv/http/ ; git branch --show-current | xargs'")[0]);
 if (isset($gitbranch) && $gitbranch) {
     runelog('GIT BRANCH: ', $gitbranch);
     $redis->hSet('git', 'branch', $gitbranch);
