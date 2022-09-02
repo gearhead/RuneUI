@@ -86,7 +86,7 @@ switch($param) {
         if ($redis->get('activePlayer') == 'Bluetooth') {
             // active player is Bluetooth
             if (!$sourceCnt) {
-                // no connected Bluetooth source device, stop current player 
+                // no connected Bluetooth source device, stop current player
                 wrk_stopPlayer($redis);
             }
         }
