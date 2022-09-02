@@ -52,12 +52,42 @@ fi
 # clean up any no longer valid mounts
 udevil clean
 #
+# clear Bluetooth cache
+# the bluetooth service needs to running in order to use the bluetoothctl command
+systemctl start bluetooth
+# loop until bluetoothctl gives a non-error response (give up after 20 seconds)
+count=3
+timeout 5 bluetoothctl devices
+until [ $? -eq 0 ] || (( count-- <= 0 )); do
+    # loop for 3 times to allow the bluetooth service to start
+    # echo $count
+    # echo $?
+    sleep 2
+    timeout 5 bluetoothctl devices
+done
+# now get a list of bluetooth devices
+btdevices=$( timeout 5 bluetoothctl devices )
+# for each device disconnect and remove (now max 25 seconds since starting the bluetooth sevice)
+for i in "$btdevices"
+do
+    # echo $i
+    btmac=$( echo $i | cut -d ' ' -f 2 )
+    # echo $btmac
+    if [ "$btmac" != "" ]; then
+        bluetoothctl disconnect $btmac
+        bluetoothctl remove $btmac
+    fi
+done
+# finally delete the Bluetooth cache
+rm -rf /var/lib/bluetooth/*
+bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth
+#
 # set up services and stop them
 # systemctl stops after an erroneous entry, use arrays to run through all entries individually
-declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbindd winbind udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd php-fpm ntpd bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff plymouth-lite-start bootsplash systemd-resolved local-browser-w rune_shutdown llmnrd upower)
-declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman bluetooth bluealsa bluealsa-aplay amixer-webui udevil llmnrd)
-declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie udevil bluetooth bluealsa bluealsa-aplay amixer-webui local-browser-w llmnrd haveged upower)
-declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved getty@tty1 haveged upower)
+declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbindd winbind udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd php-fpm ntpd bt_mon_switch bt_scan_outputbluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff plymouth-lite-start bootsplash systemd-resolved local-browser-w rune_shutdown llmnrd upower)
+declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd)
+declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli chronyd systemd-timesyncd cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower)
+declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved getty@tty1 haveged upower bluealsa-monitor)
 # declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-resolved haveged upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
 #
@@ -270,9 +300,9 @@ cd /home
 #   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
 #       lyrics (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
 #       airplay (airplay), samba (samba), debugdata (debugdata), locks (lock), first* (first), local* (local), access* (access)
-#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache
+#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache, bluetooth
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache|bluetooth' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
@@ -359,7 +389,8 @@ if [ -f "/boot/initramfs-v7-linux.img" ]; then
 fi
 # create required directories
 mkdir /root/.ssh
-mkdir -p /run/bluealsa-monitor/asoundrc
+mkdir -p /run/bluealsa-monitor
+touch /run/bluealsa-monitor/asoundrc
 # remove specific files
 rm /etc/udev/rules.d/99-runeaudio.rules
 rm /etc/udev/rules.d/70-bluealsa.rules
@@ -368,6 +399,7 @@ rm /etc/udev/rules.d/90-touchscreen.rules
 ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
+ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
 #
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")

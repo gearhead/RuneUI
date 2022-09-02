@@ -544,7 +544,7 @@ while (true) {
                 runelog('rune_PL_wrk: Spotify Connect timeout count', $spotify_connect_timeout_count);
                 if ($spotify_connect_timeout_count <= 0) {
                     runelog('rune_PL_wrk: Spotify Connect timeout initiated');
-                    wrk_stopPlayer($redis, 'SpotifyConnect');
+                    wrk_stopPlayer($redis);
                     $spotify_connect_timeout_count = $spotify_connect_timeout;
                     break;
                 }
@@ -566,68 +566,89 @@ while (true) {
                 $forceupdate = 0;
                 $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE Bluetooth ----------------------------------');
-                $status = array_merge($status, initialise_playback_array($redis, 'Bluetooth'));
+                $status = initialise_playback_array($redis, 'Bluetooth');
                 ui_render('playback', json_encode($status));
+                $redis->set('act_player_info', json_encode($status));
+                $audio = $status['audio'];
+                $btDeviceName = $status['currentalbum'];
+                $state = $status['state'];
+                $audio_channels = $status['audio_channels'];
+                $audio_sample_depth = $status['audio_sample_depth'];
+                $audio_sample_rate = intval($status['audio_sample_rate'] * 1000);
+                $btDeviceName = $status['currentalbum'];
             }
             $bluetooth_timeout = $redis->hGet('bluetooth', 'timeout');
             $bluetooth_timeout_count = $bluetooth_timeout;
             $sleepUntilTime = microtime(true)+2;
             $checkAudioCnt = 2;
             do {
+                $status = json_decode($redis->get('act_player_info'), true);
                 runelog('rune_PL_wrk: Bluetooth idle loop');
                 // test for something playing instead of a event 'stop' value
-                $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+                $playing = trim(strtolower(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]));
                 // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
                 runelog('rune_PL_wrk: $playing:', $playing);
                 if ($playing) {
                     runelog('rune_PL_wrk: Bluetooth is playing');
                     $bluetooth_timeout_count = $bluetooth_timeout;
-                    if ($checkAudioCnt-- <=0) {
+                    $state = 'play';
+                    if ($state != $status['state']) {
+                        $status['elapsed'] = 0;
+                        $status['song_percent'] = 0;
+                    }
+                    if ($checkAudioCnt-- <= 0) {
                         // a value of 5 for $checkAudioCnt means that this code is run every 10 seconds since the do loop has a 2 second cycle
                         $checkAudioCnt = 5;
-                        $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
-                        if ($audio_channels_number === 1) {
+                        $audio_channels_number = round(preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' ')), 1);
+                        if ($audio_channels_number == 1) {
                             $audio_channels = 'Mono';
-                        } else if ($audio_channels_number === 2) {
+                        } else if ($audio_channels_number == 2) {
                             $audio_channels = 'Stereo';
                         } else {
                             $audio_channels = 'Multichannel';
                         }
-                        $audio_sample_depth = preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' '));
-                        $audio_sample_rate = preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' '));
+                        $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
+                        $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
                         $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
-                        $btDeviceInfo = sysCmd('bluetoothctl devices | xargs')[0];
-                        if (isset($btDeviceInfo) && $btDeviceInfo && (substr_count($btDeviceInfo, ' ') > 1)) {
-                            list( , , $btDeviceName) = explode(' ', $btDeviceInfo, 3);
+                        $btDeviceArray = wrk_btcfg($redis, 'status');
+                        $btDeviceName = '';
+                        foreach ($btDeviceArray as $btDevice) {
+                            if ($btDevice['connected'] && $btDevice['source']) {
+                                $btDeviceName = $btDevice['name'];
+                                break;
+                            }
                         }
                         if (!isset($btDeviceName)) {
                             $btDeviceName = '-';
                         }
-                        if (($audio != $status['audio']) || ($btDeviceName != $status['currentalbum'])) {
-                            $status['audio'] = $audio;
-                            $status['audio_channels'] = $audio_channels;
-                            $status['audio_sample_depth'] = $audio_sample_depth;
-                            $status['audio_sample_rate'] = $audio_sample_rate/1000;
-                            $status['currentalbum'] = $btDeviceName;
-                            $status['currentsong'] = 'Streaming';
-                            ui_render('playback', json_encode($status));
-                        }
-                        unset($audio_channels_number, $audio_channels, $audio_sample_depth, $audio_sample_rate, $audio, $btDeviceInfo, $btDeviceName);
+                    } else {
                     }
                 } else if ($redis->hGet('bluetooth', 'initialising')) {
                     runelog('rune_PL_wrk: Bluetooth is initialising');
+                    $state = 'stop';
                     $bluetooth_timeout_count = $bluetooth_timeout;
                 } else {
                     runelog('rune_PL_wrk: Bluetooth is not playing');
+                    $state = 'stop';
                     $bluetooth_timeout_count -= 2;
                 }
-                runelog('rune_PL_wrk: Bluetooth timeout count', $bluetooth_timeout_count);
                 if ($bluetooth_timeout_count <= 0) {
                     runelog('rune_PL_wrk: Bluetooth timeout initiated');
-                    wrk_stopPlayer($redis, 'Bluetooth');
-                    $bluetooth_timeout_count = $bluetooth_timeout;
-                    break;
+                    wrk_stopPlayer($redis);
+                    continue;
                 }
+                if (($audio != $status['audio']) || ($btDeviceName != $status['currentalbum']) || ($state != $status['state'])) {
+                    $status['state'] = $state;
+                    $status['audio'] = $audio;
+                    $status['audio_channels'] = $audio_channels;
+                    $status['audio_sample_depth'] = $audio_sample_depth;
+                    $status['audio_sample_rate'] = round($audio_sample_rate/1000, 1);
+                    $status['currentalbum'] = $btDeviceName;
+                    $status['currentsong'] = 'Streaming';
+                    ui_render('playback', json_encode($status));
+                    $redis->set('act_player_info', json_encode($status));
+                }
+                runelog('rune_PL_wrk: Bluetooth timeout count', $bluetooth_timeout_count);
                 // 2 second sleep
                 $sleepTime = $sleepUntilTime - microtime(true);
                 if ($sleepTime > 0) {

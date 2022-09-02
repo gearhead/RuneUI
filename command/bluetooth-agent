@@ -1,9 +1,8 @@
 #!/usr/bin/python3
 #
 # Reworking of Bluez authentication agent
-# Based on https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/test/simple-agent
-# and https://github.com/nicokaiser/rpi-audio-receiver/blob/master/install-bluetooth.sh
-# borrowed fron balena-sound to pair w/o user input on the Rune
+# Based on https://github.com/balenablocks/bluetooth/blob/master/bluetooth-agent
+#  and https://github.com/nicokaiser/rpi-audio-receiver/blob/master/install-bluetooth.sh
 #
 #  If and where applicable, not infringing on any original copyright:
 #  Copyright (C) 2013-2014 RuneAudio Team
@@ -40,7 +39,8 @@
 # See also: /etc/systemd/system/bluetooth-agent.service
 #   and: /srv/http/app/config/defaults/etc/systemd/system/bluetooth-agent.service
 # Needs:
-#   pip3 install PyGObject
+#   python-pip python-gobject dbus-python
+#   pacman -Sy python-pip python-gobject dbus-python
 #
 from __future__ import absolute_import, print_function, unicode_literals
 import argparse

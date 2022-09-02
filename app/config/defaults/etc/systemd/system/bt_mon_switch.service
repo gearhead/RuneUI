@@ -1,0 +1,12 @@
+[Unit]
+Description=Bluetooth monitor to switch player
+After=bluealsa.service
+
+[Service]
+Type=simple
+# User=http
+ExecStart=/srv/http/command/bt_mon_switch.php
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

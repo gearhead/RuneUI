@@ -187,9 +187,10 @@ chown -R http:http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
-# Create the directory '/run/bluealsa-monitor/asoundrc', required by the 'bluealsa-monitor' package
+# Create the directory '/run/bluealsa-monitor and a file in it called /run/bluealsa-monitor/asoundrc', required by the 'bluealsa-monitor' package
 #
-mkdir -p /run/bluealsa-monitor/asoundrc
+mkdir -p /run/bluealsa-monitor
+touch /run/bluealsa-monitor/asoundrc
 #
 # depending on the total memory and the PI model expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
 #

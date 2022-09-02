@@ -220,7 +220,11 @@
                             <input id="airplay" name="features[airplay][enable]" type="checkbox" value="1"<?php if((isset($this->airplay['enable'])) && ($this->airplay['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
+                        <?php if($this->oa): ?>
+                            <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
+                        <?php else: ?>
+                            <span class="help-block">There are no valid audio outputs defined, <strong>Airplay will not work correctly</strong></span>
+                        <?php endif ?>
                     </div>
                 </div>
                 <div class="<?php if($this->airplay['enable'] != 1): ?>hide<?php endif ?>" id="airplayName">
@@ -280,9 +284,9 @@
                             <input id="dlna" name="features[dlna][enable]" type="checkbox" value="1"<?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA protocol.<br>
+                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA (OpenHome).<br>
                         <?php if ($this->cores < 4): ?>
-                        <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model, insufficient processing capacity available</i>
+                        <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model as there is insufficient processing capacity available</i>
                         <?php endif ?>
                         </span>
                     </div>
@@ -321,7 +325,13 @@
                             <?php if($this->activePlayer === 'SpotifyConnect'): ?><input id="spotifyconnect" name="features[spotifyconnect][enable]" type="hidden" value="1"><?php endif; ?>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'SpotifyConnect'): ?>disabled<?php endif; ?>"></a>
                         </label>
-                        <span class="help-block">Enable Spotify Connect steaming client. You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php if($this->oa): ?>
+                            <span class="help-block">Toggle the capability of receiving wireless streaming of audio via Spotify Connect.
+                                You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php else: ?>
+                            <span class="help-block">There are no valid audio outputs defined, <strong>Spotify Connect will not work correctly</strong>.
+                                You must also have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php endif ?>
                         <?php if($this->cores < 4): ?>
                             account.<br>This model has insufficient processing power to allow Spotify Connect metadata and album art to always work correctly.
                                 It works, but may fail from time to time. Switching off other features off may help with performance issues

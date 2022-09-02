@@ -322,7 +322,12 @@ $template->samba = $redis->hGetAll('samba');
 $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
 $template->i2smodule_select = $redis->get('i2smodule_select');
-// maybe implement the following code for a manually edited /boot/config.txt
+if ($redis->get('oa')) {
+    $template->ao = true;
+} else {
+    $template->ao = false;
+}
+// the following code is for a manually edited /boot/config.txt containing a I2S-Settings dtoverlay value
 if ($template->i2smodule == 'none') {
     $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];
     if (isset($retval)) {

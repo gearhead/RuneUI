@@ -43,8 +43,13 @@ add)
         # set default output in mpd.conf to BT
         ;;
     *source*) # attached phone
-        mpc stop
-        # this is enough to allow a device to play through alsa
+        # switch to bluetooth playback mode
+        id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+        # switch player by starting a system worker background job (rune_SY_wrk > switchplayer)
+        #   by writing the command to the worker redis hash and fifo queue
+        redis-cli hset w_queue "$id" '{"wrkcmd":"switchplayer","action":null,"args":"Bluetooth"}'
+        redis-cli lpush w_queue_fifo "$id"
+        # this will also stop any other streaming players and/or pause MPD
         ;;
     esac
     ;;
@@ -52,8 +57,7 @@ remove)
     mpc stop
     blue=$(grep -n bluealsa $file | cut -d ":" -f 1)
     # line where we found "bluealsa" if found
-    if [ $blue -ne 0 ]
-    then
+    if [ $blue -ne 0 ]; then
         systemctl stop mpd
         mapfile -t ao < <( grep -n audio_output $file | cut -d ":" -f 1 )
         numouts=${#ao[@]}
@@ -82,7 +86,16 @@ remove)
         sed -i "$begin,$end d" $file
         systemctl start mpd.socket
         # remove the BT default if it was added to mpd.conf
-   fi
-   mpc play
+    fi
+    player=$( redis-cli get activePlayer | xargs )
+    if [ "$player" == "Bluetooth" ]; then
+        # switch to previous playback mode
+        id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+        # switch player by starting a system worker background job (rune_SY_wrk > stopplayer)
+        #   by writing the command to the worker redis hash and fifo queue
+        redis-cli hset w_queue "$id" '{"wrkcmd":"stopplayer","action":null,"args":null}'
+        redis-cli lpush w_queue_fifo "$id"
+        # this will stop the current player, switch to the previous player and if it was MPD then reset its previous play status (i.e stop/play/pause)
+    fi
    ;;
 esac

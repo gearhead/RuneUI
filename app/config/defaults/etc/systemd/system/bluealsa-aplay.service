@@ -23,4 +23,4 @@ RestrictAddressFamilies=AF_UNIX
 ;NoNewPrivileges=true
 
 [Install]
-WantedBy=multiuser.target
+WantedBy=bluetooth.target

@@ -45,6 +45,9 @@ renice -1 $(pgrep -w shairport-sync)
 renice -1 $(pgrep -w spopd)
 renice -1 $(pgrep -w spotifyd)
 renice -1 $(pgrep -w upmpdcli)
+renice -1 $(pgrep -w bluetooth)
+renice -1 $(pgrep -w bluealsa)
+renice -1 $(pgrep -w bluealsa-aplay)
 # set the local browser to a low value
 for pid in $(pgrep -w chromium);
 do
@@ -52,6 +55,7 @@ do
 done;
 # renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
 # renice 10 $(pgrep -w chromium)
+renice 4 $(pgrep -w bt_mon_switch)
 renice 10 $(pgrep -w luakit)
 renice 10 $(pgrep -w WebKit)
 renice 4 $(pgrep -w ashuffle)
@@ -87,6 +91,10 @@ renice 0 $(pgrep -w shairport-sync)
 renice 0 $(pgrep -w spopd)
 renice 0 $(pgrep -w spotifyd)
 renice 0 $(pgrep -w upmpdcli)
+renice 0 $(pgrep -w bluetooth)
+renice 0 $(pgrep -w bluealsa)
+renice 0 $(pgrep -w bluealsa-aplay)
+renice 0 $(pgrep -w bt_mon_switch)
 renice 0 $(pgrep -w ashuffle)
 renice 0 $(pgrep -w local-browser)
 renice 0 $(pgrep -w mpdscribble)

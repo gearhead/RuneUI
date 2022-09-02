@@ -317,6 +317,8 @@ if ($playerid_db === '') {
     sysCmdAsync('nice --adjustment=4 /srv/http/command/internet_available_async.sh');
     // refresh nics, this will start the AP if required
     sysCmdAsync('nice --adjustment=4 /srv/http/command/refresh_nics');
+    // refresh the bluetooth status
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/bt_status_async.php');
     // set process priority (to nice)
     sysCmdAsync('nice --adjustment=4 /srv/http/command/rune_prio nice');
     //
@@ -524,7 +526,7 @@ while (true) {
                     }
                 } elseif ($job->action === 'stop') {
                     // switch the player from airplay
-                    wrk_stopPlayer($redis, 'Airplay');
+                    wrk_stopPlayer($redis);
                     // stop rune_SSM_wrk
                     sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
                 }
@@ -1148,8 +1150,7 @@ while (true) {
                 break;
             case 'btcfg':
                 $redis->sAdd('w_lock', $jobID);
-                // $job->action has the values: enable, disable, disconnect, output_list, output_connect, input_connect, trust, untrust
-                // $job-args is only set for disconnect, output_connect, trust, untrust
+                // $job->action is always set, $job->args can also contain information
                 if (isset($job->args)) {
                     wrk_btcfg($redis, $job->action, $job->args);
                 } else {
@@ -1363,7 +1364,7 @@ while (true) {
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
                     $redis->hSet('spotifyconnect', 'enable',  0);
                 }
-                wrk_stopPlayer($redis, 'SpotifyConnect');
+                wrk_stopPlayer($redis);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'artworkSC':
@@ -1383,6 +1384,15 @@ while (true) {
                     //ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
                     // noid ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args);
                     ui_notify('Switch Player Engine', 'Current active player engine: '.$job->args);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'stopplayer':
+                $redis->sAdd('w_lock', $jobID);
+                if (wrk_stopPlayer($redis)) {
+                    //ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
+                    // noid ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args);
+                    ui_notify('Switch Player Engine', 'Current active player engine: '.$redis->get('activePlayer'));
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;

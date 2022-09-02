@@ -26,19 +26,24 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: command/bluetooth_on.sh
+#  file: command/bt_off.sh
 #  version: 1.3
 #  coder: janui
 #  date: January 2021
 #
 
-sed -i '/dtoverlay=disable-bt/c\#dtoverlay=disable-bt' /boot/config.txt
-sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=on' /boot/config.txt
-systemctl enable bluetooth bluealsa bluealsa-aplay bluealsa-monitor.service
-systemctl start bluetooth bluealsa bluealsa-aplay bluealsa-monitor.service
-bluetoothctl power on
-bluetoothctl discoverable off
-bluetoothctl pairable off
-redis-cli set bluetooth_on 1
+sed -i '/dtoverlay=disable-bt/c\dtoverlay=disable-bt' /boot/config.txt
+sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=off' /boot/config.txt
+timeout 5 bluetoothctl pairable off
+timeout 5 bluetoothctl discoverable off
+timeout 5 bluetoothctl power off
+declare -a bluetooth_arr=(bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth)
+# stop and disable Bluetooth services
+for i in "${bluetooth_arr[@]}"
+do
+   systemctl stop "$i"
+   systemctl disable "$i"
+done
+redis-cli set bluetooth_on 0
 #---
 #End script
