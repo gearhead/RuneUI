@@ -7851,13 +7851,22 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
 // when $clearAll is set to a true value all cached information will be cleared
 {
     // initialise variables
-    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $artDir = trim(trim($redis->get('albumart_image_dir')), '/');
+    if (!is_dir($artDir)) {
+        return;
+    }
     $overlay_art_cache = $redis->get('overlay_art_cache');
     // if required sync the in-memory tmpfs to the overly cache
     if ($overlay_art_cache) {
         // overlay cache is enabled
         $cleanUpperDir = dirname($artDir).'/upper';
+        if (!is_dir($cleanUpperDir)) {
+            return;
+        }
         $cleanLowerDir = '/home/cache/art';
+        if (!is_dir($cleanLowerDir)) {
+            return;
+        }
         // sync the files part 1
         //  image files are not synced
         //  the file timestamp in the upper files directory is changed on file use, ignore this change

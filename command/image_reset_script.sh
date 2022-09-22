@@ -328,7 +328,7 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 # reset root password and save the date set
 echo -e "rune\nrune" | passwd root
 passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
-redis-cli hset passworddate $passworddate
+redis-cli set passworddate $passworddate
 #
 # make sure that Rune-specific users are created
 declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
