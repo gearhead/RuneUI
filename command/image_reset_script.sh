@@ -254,10 +254,12 @@ md5beforeGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 rm -f /srv/http/command/mpd-watchdog
 cd /srv/http/
 git config --global core.editor "nano"
-git config user.email "any@body.com"
-git config user.name "anybody"
-git config pull.rebase false
+git config --global pull.rebase false
 git config --global --add safe.directory /srv/http
+git config --global user.email any@body.com
+git config --global user.name "anybody"
+git config user.email any@body.com
+git config user.name "anybody"
 git stash
 git stash
 git add .
