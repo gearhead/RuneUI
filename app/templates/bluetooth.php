@@ -133,7 +133,6 @@
         </div>
         <legend>Bluetooth configuration</legend>
         <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
-            <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Quality</label>
                 <div class="col-sm-10">
@@ -143,11 +142,12 @@
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device quality, <strong>High Definition</strong> or <strong>Default</strong>.<br>
-                        <i>Notes: Some output devices may not be able to process High Definition audio, these will not be connected correctly or may give poor sound quality.
+                    <span class="help-block">Choose the Bluetooth output device quality.<br>
+                        <i>Notes: Some output devices may not be able to process higher quality audio, these may not be connected correctly or may give poor sound quality.
                         You should then use the Default quality configuration</i></span>
                 </div>
             </div>
+            <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_def_volume">Bluetooth Default Volume Level</label>
                 <div class="col-sm-10">

@@ -10763,16 +10763,10 @@ function wrk_btcfg($redis, $action, $param = null)
                 sleep(3);
                 $devices = wrk_btcfg($redis, 'status');
                 foreach ($devices as $device) {
-                    if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted']) {
+                    if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
                         // this is a new device or trusted auto-connect has failed to connect it
                         wrk_btcfg($redis, 'connect', $device['device']);
                     }
-                }
-            }
-            foreach ($devices as $device) {
-                // sometime trusted auto-connect wont work, do it manually here
-                if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted']) {
-                    wrk_btcfg($redis, 'connect', $device['device']);
                 }
             }
             sysCmd('systemctl stop bluetoothctl_scan ; pkill bluetoothctl');

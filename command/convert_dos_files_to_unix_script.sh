@@ -214,7 +214,7 @@ chown mpd:audio /mnt/MPD/*
 chown mpd:audio /mnt/MPD/USB/*
 chmod 777 /mnt/MPD/USB
 chmod 777 /mnt/MPD/USB/*
-chown -R mpd.audio /var/lib/mpd
+chown -R mpd:audio /var/lib/mpd
 chmod 440 /etc/sudoers
 chmod -R 440 /etc/sudoers.d
 #---

@@ -57,7 +57,7 @@ done
 systemctl start bluealsa-aplay bt_mon_switch
 timeout 5 bluetoothctl discoverable off
 timeout 5 bluetoothctl pairable off
-[ $? -ne 0 ] || redis-cli set bluetooth_on 1
+[ $? -ne 0 ] || redis-cli set bluetooth_on 1 ; systemctl enable bluetooth bluealsa bluealsa-aplay bt_mon_switch
 #
 # set up the redis variable containing the Bluetooth Quality options
 id=$( uuidgen | md5sum | cut -d ' ' -f 1 )

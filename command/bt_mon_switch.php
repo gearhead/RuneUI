@@ -49,6 +49,10 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: bt_mon_switch.php ---------------" > /var/log/runeaudio/bt_mon_switch.log');
 runelog('WORKER bt_mon_switch.php STARTING...');
 
+// set initial delay count to 5: the failed trusted output auto-connect routing runs with an initial delay of 15 seconds (5x3 = 15 seconds)
+//  the main loop cycles every 3 seconds
+$delayCnt = 5;
+
 while (true) {
     sleep(3);
     if (!$redis->get('bluetooth_on')) {
@@ -85,26 +89,41 @@ while (true) {
             }
         }
     }
-    // the 'W: Missing RTP packet' message is produced repeatedly when the alsa output is in use (locked) by another player
-    //  if the last message is 'W: Missing RTP packet', pause, and check again for a different time-stamp
-    $lastJournalMessage = sysCmd("journalctl -u bluealsa | tail -n 1")[0];
-    if (!strpos(' '.$lastJournalMessage, 'W: Missing RTP packet')) {
-        // last message does not contain the warning
-        continue;
+    if ($redis->get('activePlayer') != 'Bluetooth') {
+        // the 'W: Missing RTP packet' message is produced repeatedly when the alsa output is in use (locked) by another player
+        // if the last message is 'W: Missing RTP packet', pause, and check again for a different time-stamp
+        $lastJournalMessage = sysCmd("journalctl -u bluealsa | tail -n 1")[0];
+        if (strpos(' '.$lastJournalMessage, 'W: Missing RTP packet')) {
+            // last message contains the warning
+            // 2 second sleep
+            sleep(2);
+            $newLastJournalMessage = sysCmd("journalctl -u bluealsa | tail -n 1")[0];
+            if (strpos(' '.$newLastJournalMessage, 'W: Missing RTP packet')) {
+                // last message again contains the warning
+                if ($lastJournalMessage != $newLastJournalMessage) {
+                    // both messages contain the warning and have different time stamps
+                    //  the alsa output is in use (locked) by another player, switch the player to Bluetooth
+                    wrk_startPlayer($redis, "Bluetooth");
+                    sleep(5);
+                    continue;
+                }
+            }
+        }
     }
-    // 2 second sleep
-    sleep(2);
-    $newLastJournalMessage = sysCmd("journalctl -u bluealsa | tail -n 1")[0];
-    if (!strpos(' '.$newLastJournalMessage, 'W: Missing RTP packet')) {
-        // last message does not contain the warning
-        continue;
-    }
-    if ($lastJournalMessage != $newLastJournalMessage) {
-        // both messages contain the warning and have different time stamps
-        //  the alsa output is in use (locked) by another player, switch the player to Bluetooth
-        wrk_startPlayer($redis, "Bluetooth");
-        sleep(5);
-        continue;
+    if (($redis->get('activePlayer') != 'Bluetooth') && ($delayCnt-- <= 0)) {
+        // the player is not Bluetooth, run through the Bluetooth outputs
+        // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
+        $devices = wrk_btcfg($redis, 'status');
+        foreach ($devices as $device) {
+            // sometime trusted auto-connect wont work, do it manually here
+            if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
+                // attempt to connect
+                wrk_btcfg($redis, 'connect', $device['device']);
+            }
+        }
+        // set delay count to 20: this routing runs every 1 minute (20x3 = 60 seconds)
+        //  the main loop cycles every 3 seconds
+        $delayCnt = 20;
     }
 }
 //
