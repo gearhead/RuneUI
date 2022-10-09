@@ -5715,7 +5715,8 @@ function alsa_findHwMixerControl($cardID)
 }
 
 // webradio management (via .pls files)
-function addRadio($mpd, $redis, $data)
+function addRadio($redis, $mpd, $data)
+// data->label contains the file name without the extension ('.pls')
 {
     if ($data->label !== '' && $data->url !== '') {
         //debug
@@ -5723,7 +5724,6 @@ function addRadio($mpd, $redis, $data)
         // store webradio record in redis
         $redis->hSet('webradios', $data->label, $data->url);
         // create new file
-        // $file = '/mnt/MPD/Webradio/'.$data['label'].'.pls';
         $file = '/mnt/MPD/Webradio/'.$data->label.'.pls';
         $newpls = "[playlist]\n";
         $newpls .= "NumberOfEntries=1\n";
@@ -5733,67 +5733,50 @@ function addRadio($mpd, $redis, $data)
         $fp = fopen($file, 'w');
         $return = fwrite($fp, $newpls);
         fclose($fp);
-        if ($return) {
-            if (sendMpdCommand($mpd, 'update Webradio')) {
-                readMpdResponse($mpd);
-            }
-        }
+        sendMpdCommand($mpd, 'update Webradio');
     } else {
         $return = false;
     }
     return $return;
 }
 
-function editRadio($mpd,$redis,$data)
+function editRadio($redis, $mpd, $data)
+// data->label and $data->newlabel contain the file name without the extension ('.pls')
 {
     if ($data->label !== '' && $data->url !== '') {
         //debug
         runelog('editRadio (data)', $data);
-        // edit webradio URL in .pls file
-        $file = '/mnt/MPD/Webradio/'.$data->label.'.pls';
-        if ($data->label !== $data->newlabel) {
-            unlink($file);
-            // delete old webradio record in redis
-            $redis->hDel('webradios', $data->label);
-            // store new webradio record in redis
+        // delete and add the radio
+        $data->label = $data->label.'.pls';
+        deleteRadio($redis, $mpd, $data);
+        if ($data->newlabel !== '') {
             $data->label = $data->newlabel;
-            $data->newlabel = null;
-            $return = addRadio($mpd, $redis, $data);
-        } else {
-            $redis->hSet('webradios',$data->label,$data->url);
-            $newArray = wrk_replaceTextLine($file, '', 'File1=', 'File1='.$data->url, 'NumberOfEntries=1',1);
-            // Commit changes to .pls file
-            $fp = fopen($file, 'w');
-            $return = fwrite($fp, implode("", $newArray));
-            fclose($fp);
         }
-        if ($return) {
-            if (sendMpdCommand($mpd, 'update Webradio')) {
-                readMpdResponse($mpd);
-            }
-        }
+        unset($data->newlabel);
+        addRadio($redis, $mpd, $data);
+        sendMpdCommand($mpd, 'update Webradio');
+        $return = true;
     } else {
         $return = false;
     }
     return $return;
 }
 
-function deleteRadio($mpd,$redis,$data)
+function deleteRadio($redis, $mpd, $data)
+// data->label contains the full file name (including the '.pls')
 {
     if ($data->label !== '') {
         //debug
         runelog('deleteRadio (data)', $data);
         // delete .pls file
         $file = '/mnt/MPD/Webradio/'.$data->label;
-        $label = parseFileStr($data->label, '.', 1);
-        runelog('deleteRadio (label)', $label);
+        runelog('deleteRadio (label)', $data->label);
         $return = unlink($file);
         if ($return) {
             // delete webradio record in redis
+            $label = str_replace('.pls', '', $data->label);
             $redis->hDel('webradios', $label);
-            if (sendMpdCommand($mpd, 'update Webradio')) {
-                readMpdResponse($mpd);
-            }
+            sendMpdCommand($mpd, 'update Webradio');
         }
     } else {
         $return = false;

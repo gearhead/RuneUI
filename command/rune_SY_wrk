@@ -1441,21 +1441,21 @@ while (true) {
                 //$mpd = openMpdSocket('/run/mpd/socket');
                 $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'));
                 if ($job->action === 'add') {
-                    if (addRadio($mpd, $redis, $job->args)) {
+                    if (addRadio($redis, $mpd, $job->args)) {
                         //ui_notify_async('Webradio', $job->args->label.' added to the library', $jobID);
                         // noid ui_notify_async('Webradio', $job->args->label.' added to the library');
                         ui_notify('Webradio', $job->args->label.' added to the library');
                     }
                 }
                 if ($job->action === 'edit') {
-                    if (editRadio($mpd, $redis, $job->args)) {
+                    if (editRadio($redis, $mpd, $job->args)) {
                         //ui_notify_async('Webradio', $job->args->label.' modified succesfully', $jobID);
                         // noid ui_notify_async('Webradio', $job->args->label.' modified succesfully');
                         ui_notify('Webradio', $job->args->label.' modified succesfully');
                     }
                 }
                 if ($job->action === 'delete') {
-                    if (deleteRadio($mpd, $redis, $job->args)) {
+                    if (deleteRadio($redis, $mpd, $job->args)) {
                         //ui_notify_async('Webradio', $job->args->label.' deleted', $jobID);
                         // noid ui_notify_async('Webradio', $job->args->label.' deleted');
                         ui_notify('Webradio', $job->args->label.' deleted');
