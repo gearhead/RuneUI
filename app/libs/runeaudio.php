@@ -5541,11 +5541,11 @@ function wrk_NTPsync($ntpserver)
 }
 
 function wrk_restartSamba($redis)
+// restart Samba
 {
-    // restart Samba
-    // first stop Samba ?
     runelog('Samba Stopping...', '');
-    sysCmd('systemctl stop smbd smb nmbd nmb');
+    sysCmd('systemctl stop smb nmb winbind');
+    sysCmd('systemctl disable smb nmb winbind');
     runelog('Samba Dev Mode   :', $redis->get('dev'));
     runelog('Samba Enable     :', $redis->hGet('samba', 'enable'));
     runelog('Samba Read/Write :', $redis->hGet('samba', 'readwrite'));
@@ -5583,11 +5583,11 @@ function wrk_restartSamba($redis)
     if (($redis->get('dev')) OR ($redis->hGet('samba', 'enable'))) {
         runelog('Samba Restarting...', '');
         sysCmd('systemctl daemon-reload');
-        sysCmd('systemctl start nmbd nmb smbd smb');
-        sysCmd('pgrep -x nmbd || systemctl reload-or-restart nmbd');
-        sysCmd('pgrep -x smbd || systemctl reload-or-restart smbd');
-        sysCmd('pgrep -x nmb || systemctl reload-or-restart nmb');
-        sysCmd('pgrep -x smb || systemctl reload-or-restart smb');
+        sysCmd('systemctl start nmb smb winbind');
+        sysCmd('systemctl enable nmb smb winbind');
+        sysCmd('pgrep -x nmbd || systemctl reload-or-restart nmb');
+        sysCmd('pgrep -x smbd || systemctl reload-or-restart smb');
+        sysCmd('pgrep -x winbindd || systemctl reload-or-restart winbind');
     }
 }
 
