@@ -217,5 +217,7 @@ chmod 777 /mnt/MPD/USB/*
 chown -R mpd:audio /var/lib/mpd
 chmod 440 /etc/sudoers
 chmod -R 440 /etc/sudoers.d
+chmod -R 755 /usr
+chmod +s /usr/bin/udevil
 #---
 #End script
