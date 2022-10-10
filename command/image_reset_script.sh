@@ -258,6 +258,9 @@ git config --global pull.rebase false
 git config --global --add safe.directory /srv/http
 git config --global user.email any@body.com
 git config --global user.name "anybody"
+git config core.editor "nano"
+git config pull.rebase false
+git config --add safe.directory /srv/http
 git config user.email any@body.com
 git config user.name "anybody"
 git stash
@@ -276,6 +279,16 @@ if [ "$1" == "full" ]; then
     git reset HEAD -- .
     git clean -f
 fi
+git config --global core.editor "nano"
+git config --global pull.rebase false
+git config --global --add safe.directory /srv/http
+git config --global user.email any@body.com
+git config --global user.name "anybody"
+git config core.editor "nano"
+git config pull.rebase false
+git config --add safe.directory /srv/http
+git config user.email any@body.com
+git config user.name "anybody"
 cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
@@ -290,12 +303,6 @@ if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5after
     echo "#######################################################################################"
     exit
 fi
-#
-# remove any git user-names & email
-cd /srv/http/
-git config user.name ""
-git config user.email ""
-cd /home
 #
 # redis reset
 # remove the redis variables used for:
@@ -490,10 +497,7 @@ buildversion=$( redis-cli get buildversion | xargs )
 patchlevel=$( redis-cli get patchlevel | xargs )
 release=$( redis-cli get release | xargs )
 archarmver=$( uname -msr | xargs )
-cd /srv/http/
-gitbranch=$( git branch | xargs )
-gitbranch=${gitbranch#*[[:space:]]*}
-cd /home
+gitbranch=$( git --git-dir=/srv/http/.git branch --show-current | xargs )
 if [ "$gitbranch" == "$release" ]; then
     if [ "${gitbranch:3:1}" == "a" ]; then
         experimental="Alpha"
