@@ -217,7 +217,14 @@ chmod 777 /mnt/MPD/USB/*
 chown -R mpd:audio /var/lib/mpd
 chmod 440 /etc/sudoers
 chmod -R 440 /etc/sudoers.d
-chmod -R 755 /usr
+# corrections for previously erroneously setting /usr to 755
+chmod -R -x /usr/lib/systemd/system/*
+chmod -R -x /usr/lib/systemd/network/*
+chmod -R -x /usr/lib/udev/rules.d/*
+# udevil will fail when it is not explicitly given system privileges
 chmod +s /usr/bin/udevil
+# luakit will fail to start when it cant read its recovery session (luakit runs as http)
+chmod 666 /etc/xdg/luakit/rc.lua
+chown http:http /etc/xdg/luakit/rc.lua
 #---
 #End script
