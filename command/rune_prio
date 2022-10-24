@@ -76,6 +76,8 @@ renice 4 $(pgrep -w matchbox-window)
 renice 3 $(pgrep -w xbindkeys)
 renice 4 $(pgrep -w uwsgi)
 renice 6 $(pgrep -w upowerd)
+renice 2 $(pgrep -w winbindd)
+renice 2 $(pgrep -w winbind)
 }
 
 prio_default () {
@@ -111,6 +113,8 @@ renice 0 $(pgrep -w xinit)
 renice 0 $(pgrep -w Xorg)
 renice 0 $(pgrep -w matchbox-window)
 renice 0 $(pgrep -w xbindkeys)
+renice 0 $(pgrep -w winbindd)
+renice 0 $(pgrep -w winbind)
 }
 
 if [ "$1" == "default" ]; then
