@@ -1638,14 +1638,16 @@ while (true) {
     // One time actions, run first after 30 cycles (+/-15 seconds), then only on every +/-16th cycle (= every +/-8 seconds) until everything is done when it repeats after 10,000,000 cycles (58 days)
     // Several one time actions are managed here, they are run one at a time, one on each cycle
     if ($savecpuOneTimeActions-- <= 0) {
-        if (is_firstTime($redis, 'WiFi-boot-initialise')) {
+        if (is_firstTime($redis, 'Clear_starting_splash') && $redis->hGet('local_browser', 'enable-splash') && !$redis->hGet('local_browser', 'enable')) {
+            // clear the screen if splash screens are on and local browser is off
+            sysCmd('/usr/bin/ply-image /srv/http/tmp/art/black.png');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'WiFi_boot_initialise')) {
             // run boot-initialise for Wi-Fi networks
             wrk_netconfig($redis, 'boot-initialise');
             $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'Webradio-boot-import')) {
-            if (sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
-                sysCmdAsync('nice --adjustment=4 /srv/http/command/webradiodb.sh');
-            }
+        } else if (is_firstTime($redis, 'Webradio_boot_import') && sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
+            sysCmdAsync('nice --adjustment=4 /srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
             // check that the redis database is up to date
