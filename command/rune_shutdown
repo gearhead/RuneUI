@@ -75,6 +75,9 @@ rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
 # udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
 udevil clean
+# unmount the persistent cache subsystem
+umount /home/cache
+umount /srv/http/tmp/art
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
