@@ -305,7 +305,7 @@ if ($playerid_db === '') {
         $redis->set('hwplatformid', $hwplatformid);
     }
     // remove to here
-    sysCmdAsync('nice --adjustment=4 /srv/http/command/orion_optimize.sh '.$redis->get('orionprofile').' "'.$hwplatformid."'");
+    sysCmdAsync('nice --adjustment=4 /srv/http/command/orion_optimize.sh "'.$redis->get('orionprofile').'" "'.$hwplatformid.'"');
     //
     // check that MPD only has one output enabled and if not correct it
     sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
