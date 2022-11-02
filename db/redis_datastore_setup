@@ -178,7 +178,10 @@ function redisDatastore($redis,$action) {
             $option = array('cost' => 12);
             $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
             $redis->set('password', $hash);
-            // Internet services
+            // asynchronous fifo command queue
+            $redis->del('cmd_queue');
+            $redis->del('cmd_queue_encoding');
+            // internet services
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
             $redis->hSet('service', 'dirble', 0);
@@ -382,7 +385,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('proxy', 'pass', '');
             // lock keys
             $redis->set('lock_clean_music_metadata', 0);
-            $redis->set('lock_cmd_queue', 0);
             $redis->set('lock_debug_collector', 0);
             $redis->set('lock_globalrandom', 0);
             $redis->set('lock_radio_metadata', 0);
@@ -681,7 +683,6 @@ function redisDatastore($redis,$action) {
             $redis->exists('timezone') || $redis->set('timezone', 'Pacific/Pago_Pago');
             // lock keys
             $redis->exists('lock_clean_music_metadata') || $redis->set('lock_clean_music_metadata', 0);
-            $redis->exists('lock_cmd_queue') || $redis->set('lock_cmd_queue', 0);
             $redis->exists('lock_debug_collector') || $redis->set('lock_debug_collector', 0);
             $redis->exists('lock_globalrandom') || $redis->set('lock_globalrandom', 0);
             $redis->exists('lock_radio_metadata') || $redis->set('lock_radio_metadata', 0);

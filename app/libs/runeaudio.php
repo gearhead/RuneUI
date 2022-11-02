@@ -1047,7 +1047,7 @@ function sysCmdAsync($syscmd, $waitsec = null)
         runelog('sysCmdAsync() output:', $output, __FUNCTION__);
         return $output;
     } else {
-        // no $waitsec value is present, so queue the command in fifo 'cmd_queue'
+        // no valid $waitsec value is present, so queue the command in fifo 'cmd_queue'
         global $redis;
         //
         // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
@@ -1055,20 +1055,22 @@ function sysCmdAsync($syscmd, $waitsec = null)
         //  the reverse is used to decode commands
         //  its not really secure but should be enough to deter the casual burglar
         // variables
-        // use the first cypher in the list of possibles
-        $cipher = openssl_get_cipher_methods()[0];
-        // the passphrase is a hash of the playerid
-        $passphrase = $redis->get('playerid');
-        // the initialization vector is calculated in the standard way, once per boot
-        if (is_firstTime($redis, 'cipher_iv')) {
-            // this is the standard way
+        // the initialization vector is calculated in the standard way, initially at boot time and after emptying the queue (see below)
+        if (is_firstTime($redis, 'cmd_queue_encoding')) {
+            // use the first cypher in the list of possibles
+            $cipher = openssl_get_cipher_methods()[0];
+            $redis->hSet('cmd_queue_encoding', 'cipher', $cipher);
+            // determine the initialization vector
             $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length($cipher));
-            $redis->set('cipher_iv', $iv);
-        } else {
             // it must be the same for encoding and decoding, save it
-            //  this means that encoding changes after each reboot
-            $iv = $redis->get('cipher_iv');
+            $redis->hSet('cmd_queue_encoding', 'cipher_iv', $iv);
+            // the passphrase is the playerid
+            $passphrase = $redis->get('playerid');
+            $redis->hSet('cmd_queue_encoding', 'passphrase', $passphrase);
         }
+        $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+        $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
         // encode
         // $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
         // decode
@@ -1077,25 +1079,9 @@ function sysCmdAsync($syscmd, $waitsec = null)
         // deflate, encrypt en base64 encode then put the command into the queue
         $encoded = base64_encode(openssl_encrypt(gzdeflate($syscmd, 9), $cipher, $passphrase, 0, $iv));
         $redis->lPush('cmd_queue', $encoded);
-        // get the lock value
-        $lock = $redis->get('lock_cmd_queue');
-        // debug
-        runelog('sysCmdAsync(lock status) ', $lock);
-        runelog('sysCmdAsync($syscmd) decoded', $syscmd);
-        runelog('sysCmdAsync($syscmd) encoded', $encoded);
-        if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
-            // the job is not running
-            // set the lock, it will be unlocked when the command queue job completes
-            $redis->set('lock_cmd_queue', '1');
-            // start the command queue job by posting it with an explicit wait of 0 seconds
-            sysCmdAsync('nice --adjustment=1 /srv/http/command/cmd_async_queue', 0);
-        } else {
-            // locked
-            // just in case something goes wrong increment the lock value by 1
-            // when it reaches 9 (this should never happen) it will be processed as if there is no lock
-            $lock += 1;
-            $redis->set('lock_cmd_queue', $lock);
-        }
+        // start the Asynchronous FIFO command queue service
+        //  it stops when all entries have been processed, starting it twice is not a problem
+        sysCmd('systemctl start cmd_async_queue');
     }
 }
 

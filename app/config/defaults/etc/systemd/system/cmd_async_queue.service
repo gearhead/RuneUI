@@ -1,0 +1,15 @@
+[Unit]
+Description=RuneAudio Asynchronous FIFO command queue
+After=multi-user.target
+
+[Service]
+ExecStart=/var/www/command/cmd_async_queue
+Nice=4
+Restart=no
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+
+[Install]
+WantedBy=multi-user.target
