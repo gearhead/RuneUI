@@ -18,6 +18,13 @@ Restart=always
 RestartSec=10
 StartLimitInterval=30
 StartLimitBurst=20
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+ProtectControlGroups=yes
+ProtectHome=true
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
