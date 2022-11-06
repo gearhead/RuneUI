@@ -1,6 +1,6 @@
 # Part of RuneAudio
 # This unit connects an input bluetooth source to the current active alsa output
-# it is initiated in the UI and will run for 90 seconds, this should be enough time to connect
+# it is initiated in the UI and will run for 120 seconds, this should be enough time to connect
 # the connect action is enabled in the UI and initiated on the device connecting to RuneAudio
 [Unit]
 Description=Bluetooth connection agent service
