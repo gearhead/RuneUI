@@ -5055,13 +5055,21 @@ function wrk_sourcecfg($redis, $action, $args=null)
             break;
         case 'umountusb':
             $return = sysCmd('udevil umount '.$args);
-            // for some unknown reason usb devices sometimes get mounted twice check that is is dismounted, if not run again
-            if (wrk_checkMount($args)) {
-                sysCmd('udevil clean');
-                sysCmd('udevil umount '.$args);
-            }
+            // for some unknown reason usb devices sometimes get mounted twice check that it is dismounted, if not run again
             // clean up any invalid mount points
             sysCmd('udevil clean');
+            if (wrk_checkMount($args)) {
+                sysCmd('udevil umount '.$args);
+                // clean up any invalid mount points
+                sysCmd('udevil clean');
+                // udevil is becoming less reliable, if the disk is still mounted dismount with umount
+                //  the code below needs to run as root, umount has the +s flag
+                if (wrk_checkMount($args)) {
+                    sysCmd('umount '.$args);
+                    // clean up any invalid mount points
+                    sysCmd('udevil clean');
+                }
+            }
             break;
     }
     return $return;
@@ -6107,6 +6115,8 @@ function ui_libraryHome($redis, $clientUUID=null)
     $networkMounts = countDirs('/mnt/MPD/NAS');
     // runelog('ui_libraryHome - networkmounts: ',$networkmounts);
     // USB mounts
+    //  first clean udev drives
+    sysCmd('udevil clean');
     $usbMounts = countDirs('/mnt/MPD/USB');
     // runelog('ui_libraryHome - usbmounts: ',$usbmounts);
     // Webradios
@@ -6486,7 +6496,11 @@ function curlGet($url, $proxy = null)
 function countDirs($basepath)
 {
     $scandir = scandir($basepath."/", SCANDIR_SORT_NONE);
-    $count = count(array_diff($scandir, array('..', '.')));
+    if (is_array($scandir)) {
+        $count = count(array_diff($scandir, array('..', '.')));
+    } else {
+        $count = 0;
+    }
     return $count;
 }
 
