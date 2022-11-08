@@ -1100,19 +1100,34 @@ function reset_cmd_queue_encoding($redis)
 //  the initialization vector is calculated in the standard way
 //  the passphrase is the Rune playerID
 {
-    // use the first cypher in the list of possibles
+    // randomise the cipher to use from the list of possibles
+    //
+    // get the cipher array
     //  retry 10 times, wait 1 second in the loop
     $cnt = 10;
-    while (!isset($cipher) && ($cnt-- > 0)) {
-        $cipher = openssl_get_cipher_methods()[0];
-        if (!isset($cipher) || (isset($cipher) && !$cipher)) {
+    while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
+        $cipher_array = openssl_get_cipher_methods();
+        if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
             sleep(1);
-            unset($cipher);
+            unset($cipher_array);
         }
     }
-    if (!isset($cipher) || (isset($cipher) && !$cipher)) {
+    if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
         // still not set, us the last stored value
         $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+    } else {
+        // remove poor quality ciphers from the array
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"ecb")===FALSE; } );
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"des")===FALSE; } );
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc2")===FALSE; } );
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc4")===FALSE; } );
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"md5")===FALSE; } );
+        // ensure the cipher array indexes are sequential
+        $cipher_array = array_values($cipher_array);
+        // determine the highest cipher array index
+        $cipher_array_max_index = count($cipher_array) - 1;
+        // randomly choose a cipher from the cipher array
+        $cipher = $cipher_array[rand(0, $cipher_array_max_index)];
     }
     // determine the initialization vector
     //  when it fails it raises an exception, what a pain
