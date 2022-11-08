@@ -1,11 +1,11 @@
 [Unit]
 Description=RuneAudio Asynchronous FIFO command queue
-After=multi-user.target
+After=multi-user.target network.target sound.target redis.service
 
 [Service]
 ExecStart=/var/www/command/cmd_async_queue
-Nice=4
-Restart=no
+Nice=6
+Restart=always
 MemoryDenyWriteExecute=true
 NoNewPrivileges=true
 ProtectControlGroups=yes
