@@ -1122,6 +1122,9 @@ function reset_cmd_queue_encoding($redis)
         $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc2")===FALSE; } );
         $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc4")===FALSE; } );
         $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"md5")===FALSE; } );
+        // remove AEAD cipher mode (GCM or CCM), these need an authentication tag which complicates things
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"gcm")===FALSE; } );
+        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"ccm")===FALSE; } );
         // ensure the cipher array indexes are sequential
         $cipher_array = array_values($cipher_array);
         // determine the highest cipher array index
