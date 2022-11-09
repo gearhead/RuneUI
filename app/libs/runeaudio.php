@@ -1116,15 +1116,22 @@ function reset_cmd_queue_encoding($redis)
         // still not set, us the last stored value
         $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
     } else {
-        // remove poor quality ciphers from the array
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"ecb")===FALSE; } );
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"des")===FALSE; } );
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc2")===FALSE; } );
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"rc4")===FALSE; } );
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"md5")===FALSE; } );
-        // remove AEAD cipher mode (GCM or CCM), these need an authentication tag which complicates things
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"gcm")===FALSE; } );
-        $cipher_array = array_filter( $cipher_array, function($c) { return stripos($c,"ccm")===FALSE; } );
+        // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
+        // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
+        $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
+        if ($redis->exists('cipher_exclude_list')) {
+            $cipher_exclude_list = $redis->get('cipher_exclude_list');
+            $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
+        }
+        $cipher_exclude_array = explode(' ', $cipher_exclude_list);
+        // need to do some tricks to globalise the variable $cipher_exclude to to make this work
+        //  it is removed as a global after use
+        global $cipher_exclude;
+        foreach ($cipher_exclude_array as $cipher_exclude) {
+            $cipher_array = array_filter( $cipher_array, function($c) { global $cipher_exclude; return stripos($c, $cipher_exclude)===FALSE; } );
+            echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
+        }
+        unset($GLOBALS['cipher_exclude']);
         // ensure the cipher array indexes are sequential
         $cipher_array = array_values($cipher_array);
         // determine the highest cipher array index
