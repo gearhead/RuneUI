@@ -1,0 +1,6 @@
+GPIO=17
+MODE=up
+DIR=falling
+MESSAGE="Play the next song."
+COMMAND="/sbin/mpc next"
+DEBOUNCE=1.0
