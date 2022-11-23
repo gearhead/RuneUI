@@ -562,7 +562,7 @@ function setUIbuttons(activePlayer) {
         document.getElementById('volume').readOnly = true;
         // $('#volume').attr('readonly', true);
         // update (volume knob and) control buttons
-        if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
+        if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
             //document.getElementById("volume").style.color = '#1A242F';
             $('#volume-knob').addClass('disabled');
@@ -617,7 +617,7 @@ function setUIbuttons(activePlayer) {
         }
     } else {
         // this is the menus section only header buttons available
-        if (activePlayer === 'Spotify' || activePlayer === 'Airplay' || activePlayer === 'SpotifyConnect') {
+        if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
             $('#stop').addClass('disabled');
             $('#play').addClass('disabled');
@@ -627,6 +627,8 @@ function setUIbuttons(activePlayer) {
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
         }
+        // force setting the main player UI buttons next time
+        GUI.activePlayer = '';
     }
 }
 
@@ -648,7 +650,7 @@ function renderLibraryHome() {
         divClose = '</div>',
         toggleMPD = '',
         toggleSpotify = '',
-        notMPD = (obj.ActivePlayer === 'Spotify' || obj.ActivePlayer === 'Airplay' || obj.ActivePlayer === 'SpotifyConnect');
+        notMPD = ((obj.ActivePlayer === 'Spotify') || (obj.ActivePlayer === 'Airplay') || (obj.ActivePlayer === 'SpotifyConnect') || (obj.ActivePlayer === 'Bluetooth'));
     if(isLocalHost) {
         content = '';
     } else {
@@ -863,7 +865,7 @@ function refreshState() {
             $('#countdown-display-ss').countdown('destroy');
             $('#countdown-display-sss').countdown('destroy');
         }
-        if (GUI.stream === 'radio') {
+        if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -881,7 +883,7 @@ function refreshState() {
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
         // $('#elapsed').html((GUI.json.elapsed !== undefined)? timeConvert(GUI.json.elapsed) : '00:00');
-        if (GUI.stream === 'radio') {
+        if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -941,18 +943,29 @@ function updateGUI() {
         GUI.activePlayer = activePlayer;
         setUIbuttons(activePlayer);
     }
-    if ((GUI.stream === 'radio')) {
+    if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
         var time = 0;
     } else if (typeof GUI.json.time !== 'undefined') {
         var time = GUI.json.time;
     }
     if (typeof GUI.json.elapsed === 'undefined') {
+        // set it to zero as default
+        GUI.json.elapsed = 0;
+        // try to use the current value displayed in the UI
         var GUIcountdown = $('.countdown-amount').html();
         if (typeof GUIcountdown !== 'undefined') {
             // console.log('Countdown = ', GUIcountdown);
-            var GUIcountdownParts = GUIcountdown.split(':');
-            GUI.json.elapsed = (parseInt(GUIcountdownParts[0])*60) + parseInt(GUIcountdownParts[1]);
-            // console.log('Elapsed = ', GUI.json.elapsed);
+            if (GUIcountdown.includes(':')) {
+                const GUIcountdownParts = GUIcountdown.split(':');
+                if (GUIcountdownParts[0] === '') {
+                    GUIcountdownParts[0] = '0';
+                }
+                if (GUIcountdownParts[1] === '') {
+                    GUIcountdownParts[1] = '0';
+                }
+                GUI.json.elapsed = (parseInt(GUIcountdownParts[0])*60) + parseInt(GUIcountdownParts[1]);
+                // console.log('Elapsed = ', GUI.json.elapsed);
+            }
         }
     }
     if ((typeof GUI.json.song_percent === 'undefined') && (typeof GUI.json.elapsed !== 'undefined') && (typeof time !== 'undefined')) {
@@ -963,13 +976,15 @@ function updateGUI() {
     if ((typeof GUI.json.time !== 'undefined') && (typeof GUI.json.elapsed !== 'undefined')) {
         refreshTimer(parseInt(GUI.json.elapsed), parseInt(GUI.json.time), GUI.json.state);
     }
+    // refresh the state
     refreshState();
     if ($('#section-index').length) {
         // console.log('mainArtURL = ', mainArtURL);
         // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
         // console.log('UI = ', $('#cover-art').css('background-image'));
-        if ((mainArtURL !== '') && ((GUI.mainArtURL === mainArtURL) || !$('#cover-art').css('background-image').includes(mainArtURL))) {
+        if ((mainArtURL !== '') && (GUI.mainArtURL === mainArtURL) && !$('#cover-art').css('background-image').includes(mainArtURL)) {
             // main art has a value its the same as the last time, but the UI has a different value, so force a refresh for all values
+            // console.log('Force a refresh = ', 'true');
             GUI.currentalbum_and_artist = '';
             GUI.currentartist = '';
             GUI.currentsong = '';
@@ -1109,12 +1124,14 @@ function updateGUI() {
             GUI.song_lyrics = song_lyrics;
             $('#lyric-text-overlay').html(song_lyrics);
         }
+        // console.log('mainArtURL = ', mainArtURL);
+        // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
+        // console.log('UI = ', $('#cover-art').css('background-image'));
         if ((mainArtURL !== '') && (GUI.mainArtURL !== mainArtURL)) {
+            // console.log('New mainArtURL = ', 'true');
             GUI.mainArtURL = mainArtURL;
             // $('#cover-art').css( "opacity", 0);
             // $('#cover-art').fadeOut();
-            // `url(${data}?random=${randomId}`);
-            var randomId = new Date().getTime();
             $('#cover-art').css('background-image', 'url(' + mainArtURL + ')');
             // $('#cover-art').fadeIn();
             $('#cover-art-sss').css('background-image', 'url(' + mainArtURL + ')');
@@ -1370,7 +1387,7 @@ function renderUI(text){
         if ((typeof GUI.json.time !== 'undefined') && (typeof GUI.json.elapsed !== 'undefined')) {
             refreshTimer(parseInt(GUI.json.elapsed), parseInt(GUI.json.time), GUI.json.state);
         }
-        if (GUI.stream !== 'radio') {
+        if ((GUI.stream != 'radio') && (GUI.activePlayer != 'Bluetooth')) {
             refreshKnob();
         } else {
             $('#time').val(0, false).trigger('update');
@@ -2034,7 +2051,7 @@ function getDB(options){
 // on release knob
 function onreleaseKnob(value) {
     if (GUI.state !== 'stop' && GUI.state !== '') {
-        if (GUI.stream !== 'radio') {
+        if ((GUI.stream != 'radio') && (GUI.activePlayer != 'Bluetooth')) {
             // console.log('release percent = ', value);
             // console.log(GUI.state);
             window.clearInterval(GUI.currentKnob);
