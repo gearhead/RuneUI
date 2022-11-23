@@ -343,23 +343,44 @@ passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
 redis-cli set passworddate $passworddate
 #
 # make sure that Rune-specific users are created
-declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
+declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa bluealsa-aplay mpdscribble lirc llmnrd udevil)
 for i in "${createusers[@]}" ; do
-    usercnt=$( grep -c "$i" "/etc/passwd" )
+    usercnt=$( grep -c "$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
         # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
-        useradd -L -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
+        useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
     fi
 done
 #
 # make sure that Audio-specific users are member of the audio group
-declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
+declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa bluealsa-aplay mpdscribble)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -c audio )
     if [ "$audiocnt" == "0" ] ; then
         usermod -a -G audio $i
     fi
 done
+#
+# make sure that Device-specific users are member of the audio, disk, floppy, optical and storage groups
+declare -a devusers=(udevil)
+declare -a devgroups=(audio disk floppy optical storage)
+for i in "${devusers[@]}" ; do
+    for j in "${devgroups[@]}" ; do
+        devusercnt=$( groups $i | grep -c $j )
+        if [ "$devusercnt" == "0" ] ; then
+            usermod -a -G $j $i
+        fi
+    done
+done
+# #
+# # some users need root privileges, add the root group
+# declare -a rootusers=(rune_worker)
+# for i in "${rootusers[@]}" ; do
+    # rootcnt=$( groups $i | grep -c root )
+    # if [ "$rootcnt" == "0" ] ; then
+        # usermod -a -G root $i
+    # fi
+# done
 #
 # the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
 # also disable logins by locking the account
