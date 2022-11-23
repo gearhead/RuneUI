@@ -6443,12 +6443,19 @@ function ui_update($redis, $sock=null, $clientUUID=null)
             return readSpopResponse($sock);
             break;
         default:
-            $activePlayerInfo = json_decode($redis->get('act_player_info'), true);
-            if (isset($activePlayerInfo['actPlayer']) && $activePlayerInfo['actPlayer']) {
-                // clear some act_player_info fields
-                unset ($activePlayerInfo['elapsed'], $activePlayerInfo['song_percent']);
-                ui_render('playback', json_encode($activePlayerInfo));
+            // for streaming - airplay and spotify connect
+            $status = json_decode($redis->get('act_player_info'), true);
+            if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
+                $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
+                $status['song_percent'] = min(100, $status['song_percent']);
+            } else if ($status['state'] == 'play') {
+                $status['elapsed'] = "0";
+                $status['song_percent'] = "100";
+            } else {
+                unset($status['elapsed'], $status['song_percent']);
             }
+            ui_render('playback', json_encode($status));
             break;
     }
 }

@@ -136,7 +136,7 @@ do {
     runelog('rune_SDM_wrk job ELAPSED         :', $job['position_ms']);
     // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
     $title = '';
-    unset($status['elapsed'], $status['song_percent']);
+    unset($status['song_percent']);
     $song_line = sysCmd("journalctl -u spotifyd | tail -n 100 | grep -i '<spotify:track:' | tail -n 1");
     if (isset($song_line[0])) {
         $job['track_id'] = get_between_data($song_line[0], '<spotify:track:', '>', 1);
@@ -368,6 +368,17 @@ do {
             $status['bigArtURL'] = $info['artist_arturl'];
         }
         $updateUI = true;
+    }
+    if (isset($status['elapsed']) && isset($status['song_percent'])) {
+        $status['time_last_elapsed'] = microtime(true);
+    } else {
+        if (($status['time'] != 0) && ($status['state'] === 'play')) {
+            $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+            $status['time_last_elapsed'] = microtime(true);
+            $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
+        } else if ($status['state'] != 'play') {
+            $status['time_last_elapsed'] = microtime(true);
+        }
     }
     $active_player = $redis->get('activePlayer');
     if ($updateUI && ($active_player == 'SpotifyConnect')) {

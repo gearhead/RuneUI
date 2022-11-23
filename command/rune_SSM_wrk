@@ -327,8 +327,8 @@ while (true) {
                         fclose($airplay_handle);
                         $airplay_handle = FALSE;
                         if ($status['time'] != 0) {
-                            $status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
-                            $time_last_elapsed = microtime(true);
+                            $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                            $status['time_last_elapsed'] = microtime(true);
                             $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
                         } else {
                             $status['elapsed'] = "0";
@@ -425,7 +425,7 @@ while (true) {
                         if ($redis->get('volume')) {
                             $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep volume: | xargs')[0]);
                             if ($volume) {
-                                $status['volume'] = intval($volume);
+                                $status['volume'] = round($volume);
                             }
                             $redis->set('act_player_info', json_encode($status));
                             ui_render('playback', json_encode($status));
@@ -441,13 +441,14 @@ while (true) {
                         // $progress[1] = current track position timestamp = playposition
                         // $progress[2] = end track timestamp
                         // timestamps @ 44,100Htz - divide by 44100 for seconds (round for full seconds)
-                        $status['elapsed'] = round(($progress[1] - $progress[0])/44100);
+                        // there is a delay of 4 to 5 seconds to actually play music, the UI lags the streaming device by this time
+                        $status['elapsed'] = round((($progress[1] - $progress[0])/44100));
                         $status['time'] = round(($progress[2] - $progress[0])/44100);
                         // if negative results are provided then the timestamp has wrapped so add (2^32)/44100 seconds
                         if ($status['elapsed'] < 0) $status['elapsed'] = $status['elapsed'] + round((2 ** 32)/44100);
                         if ($status['time'] < 0) $status['time'] = $status['time'] + round((2 ** 32)/44100);
                         $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
-                        $time_last_elapsed = microtime(true);
+                        $status['time_last_elapsed'] = microtime(true);
                         runelog('rune_SSM_wrk: Progress: ', $buf);
                         runelog('rune_SSM_wrk: Elapsed : ', $status['elapsed']);
                         runelog('rune_SSM_wrk: Time    : ', $status['time']);
@@ -525,8 +526,8 @@ while (true) {
                             }
                             // (save and) post the playback data to the UI
                             if ($status['time'] != 0) {
-                                $status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
-                                $time_last_elapsed = microtime(true);
+                                $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                                $status['time_last_elapsed'] = microtime(true);
                                 $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
                             } else {
                                 $status['elapsed'] = "0";
@@ -559,8 +560,8 @@ while (true) {
                             }
                             // (save and) post the playback data to the UI
                             if ($status['time'] != 0) {
-                                $status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
-                                $time_last_elapsed = microtime(true);
+                                $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                                $status['time_last_elapsed'] = microtime(true);
                                 $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
                             } else {
                                 $status['elapsed'] = "0";
@@ -572,8 +573,8 @@ while (true) {
                             // clean up the metadata, async and at low priority
                             sysCmdAsync('nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
-                            //$status['elapsed'] = intval($status['elapsed'] + microtime(true) - $time_last_elapsed);
-                            //$time_last_elapsed = microtime(true);
+                            //$status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                            //$status['time_last_elapsed'] = microtime(true);
                             //$status['song_percent'] = round(100*$status['elapsed']/$status['time']);
                             //$redis->set('act_player_info', json_encode($status));
                             //sleep(2);
