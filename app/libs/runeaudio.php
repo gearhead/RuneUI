@@ -3951,76 +3951,59 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'switchao':
-            // record current interface selection, note: $param can be an empty string!
+            // switch audio output to $args
+            $args = trim($args);
+            // record current interface selection, note: $args can be an empty string!
             $oldMpdout = $redis->get('ao');
-            if (!isset($args) || !trim($args)) {
+            if (!isset($args) || !$args) {
                 $ao_default = trim($redis->get('ao_default'));
                 if ($ao_default) {
                     $args = $ao_default;
                 }
             }
-            // save the previous card if it is a 'hw:' type
-            $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
-            if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
-                $redis->set('ao_default', $oldMpdout);
-            }
-            if ($oldMpdout != $args) {
-                $redis->set('ao', $args);
-                // set this card to the default alsa card
-                set_alsa_default_card($args);
-                // also save the card if it is a 'hw:' type
-                $acard = json_decode($redis->hGet('acards', $args), true);
-                if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
-                    $redis->set('ao_default', $oldMpdout);
-                }
-            }
-            if ($args) {
-                // get interface details
-                $interface_details = json_decode($redis->hGet('acards', $args), true);
-                // check for "special" sub_interfaces
-                if (isset($interface_details['integrated_sub']) && $interface_details['integrated_sub']) {
-                    // execute special internal route command
-                    sysCmd($interface_details['route_cmd']);
-                    // TODO: improve this function
-                    sysCmd('amixer -c 0 set PCM unmute');
-                    // $args = $interface_details->sysname;
-                }
-            }
-            // write the MPD conf file, most times this will do nothing
-            // wrk_mpdconf($redis, 'writecfg');
-            // toggle playback state
-            if (wrk_mpdPlaybackStatus($redis) === 'playing') {
-                syscmd('mpc pause');
-                $recover_state = true;
-                // debug
-                runelog('switchao (set recover state):', $recover_state);
-            } else {
-                $recover_state = false;
-            }
-            // switch interface
             // debug
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
-            if ($args) {
-                // only enable the specified card when it has a value
+            if ($args && ($oldMpdout != $args)) {
+                $redis->set('ao', $args);
+                // set this card to the default alsa card
+                set_alsa_default_card($args);
+                // get interface details
+                $acard = json_decode($redis->hGet('acards', $args), true);
+                // save the card if it is a 'hw:' type
+                if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
+                    $redis->set('ao_default', $args);
+                }
+                // check for "special" sub_interfaces
+                if (isset($acard['integrated_sub']) && $acard['integrated_sub']) {
+                    // execute special internal route command
+                    sysCmd($acard['route_cmd']);
+                    // TODO: improve this function
+                    sysCmd('amixer -c 0 set PCM unmute');
+                    // $args = $acard->sysname;
+                }
+                // switch interface
                 syscmd('mpc enable "'.$args.'"');
-            }
-            syscmd('mpc disable "'.$oldMpdout.'"');
-            // restore playback state
-            if ($recover_state) {
-                // debug
-                runelog('switchao (RECOVER STATE!)');
-                syscmd('mpc play');
+                syscmd('mpc disable "'.$oldMpdout.'"');
+                wrk_shairport($redis, $args);
+                wrk_spotifyd($redis, $args);
+            } else {
+                // save the previous card if it is a 'hw:' type
+                $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
+                if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
+                    $redis->set('ao_default', $oldMpdout);
+                }
+                syscmd('mpc enable "'.$oldMpdout.'"');
+                // wrk_shairport($redis, $oldMpdout);
+                // wrk_spotifyd($redis, $oldMpdout);
             }
             // check that MPD only has one output enabled and if not correct it
-            sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
+            // sysCmdAsync('nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
-            wrk_shairport($redis, $args);
-            wrk_spotifyd($redis, $args);
-            if (isset($interface_details['description'])) {
-                $interface_label = $interface_details['description'];
-            } else if (isset($interface_details['extlabel'])) {
-                $interface_label = $interface_details['extlabel'];
+            if (isset($acard['description'])) {
+                $interface_label = $acard['description'];
+            } else if (isset($acard['extlabel'])) {
+                $interface_label = $acard['extlabel'];
             } else {
                 $interface_label = $args;
             }
