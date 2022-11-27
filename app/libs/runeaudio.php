@@ -1129,7 +1129,9 @@ function reset_cmd_queue_encoding($redis)
         global $cipher_exclude;
         foreach ($cipher_exclude_array as $cipher_exclude) {
             $cipher_array = array_filter( $cipher_array, function($c) { global $cipher_exclude; return stripos($c, $cipher_exclude)===FALSE; } );
-            echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
+            // debug
+            // echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
+            runelog('[reset_cmd_queue_encoding] Array length -'.$cipher_exclude.' ', count($cipher_array));
         }
         unset($GLOBALS['cipher_exclude']);
         // ensure the cipher array indexes are sequential
