@@ -7707,27 +7707,31 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                 $retval = sysCmd('systemctl is-active ashuffle');
                 if ($retval[0] == 'active') {
                     // ashuffle already started
-                    if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || ($mpdSingleRepeatRandomStopped)) {
+                    if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || $mpdSingleRepeatRandomStopped) {
                         // nothing to play or active player is not MPD or MPS stopped, MPD single, repeat or random is set, so stop ashuffle
                         sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
                     }
                 } else {
                     // ashuffle not started
-                    if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || ($mpdSingleRepeatRandomStopped)) {
+                    if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || $mpdSingleRepeatRandomStopped) {
                         // nothing to play or active player is not MPD or MPS stopped, MPD single, repeat or random is set, do nothing
+                    } else if (!sysCmd('mpc outputs | grep -ic enabled')[0]) {
+                        //  MPD is not running or has no valid output, do nothing
+                    } else if (!sysCmd('mpc stats | grep -i songs | xargs | cut -d " " -f 2 | xargs')[0]) {
+                        //  MPD is not running or there are no songs in its database, do nothing
                     } else {
                         // start ashuffle
-                        // seems to be a bug somewhere in MPD
+                        // seems to be a bug somewhere in MPD/ashuffle
                         // if ashuffle is started too quickly it queues many, many (far TOO many!) songs in the queue before MPD gets round to start playing one
                         // wait until mpd has been running for a while before starting ashuffle
                         // get the elapsed time that MPD has been running in seconds
-                        $retval = sysCmd('ps -C mpd -o etimes=');
-                        if (!isset($retval) || !is_array($retval) || !$retval) {
+                        $mpd_uptime = sysCmd('ps -C mpd -o etimes= | xargs')[0];
+                        if (!isset($mpd_uptime) || !$mpd_uptime) {
                             // no value, MPD is probably not running
                             $mpd_uptime = 0;
                         } else {
                             // a value has been returned
-                            $mpd_uptime = intval(trim($retval[0]));
+                            $mpd_uptime = intval($mpd_uptime);
                         }
                         if ($mpd_uptime > intval($redis->hGet('globalrandom', 'start_delay'))) {
                             // remove any invalid symlinks in the playlist directory
