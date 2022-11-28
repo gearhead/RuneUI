@@ -33,6 +33,24 @@
  *  date: November 2021
  *
  */
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
+ini_set('error_log', '/var/log/runeaudio/test_ciphers.log');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend
+require_once('/srv/http/app/libs/openredis.php');
+// common include
+define('APP', '/srv/http/app/');
+// reset logfile
+sysCmd('echo "--------------- start: test_ciphers.php ---------------" > /var/log/runeaudio/test_ciphers.log');
+runelog('WORKER test_ciphers.php STARTING...');
+//
+$output = "";
 $cnt = 10;
 while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
     $cipher_array = openssl_get_cipher_methods();
@@ -41,14 +59,19 @@ while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_arra
         unset($cipher_array);
     }
 }
-echo "Array length full ".count($cipher_array)."\n";
 // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
 // remove AEAD ciphers which require an authentication tag (gcm, ccm, ocb, xts, wrap)
 $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
+if ($redis->exists('cipher_exclude_list')) {
+    $cipher_exclude_list = $redis->get('cipher_exclude_list');
+    $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
+}
+$output .= "Old cipher_exclude_list '".$cipher_exclude_list."'\n";
+$output .= "Array length full ".count($cipher_array)."\n";
 $cipher_exclude_array = explode(' ', $cipher_exclude_list);
 foreach ($cipher_exclude_array as $cipher_exclude) {
     $cipher_array = array_filter( $cipher_array, function($c) { global $cipher_exclude; return stripos($c, $cipher_exclude)===FALSE; } );
-    echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
+    $output .= "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
 }
 // ensure the cipher array indexes are sequential
 $cipher_array = array_values($cipher_array);
@@ -84,7 +107,7 @@ foreach ($cipher_array as $cipher) {
             // since it wont work just exit
             // Use '126	ENOKEY	Required key not available' as exit code
             // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine initialization vector, aborting";
+            $output .= "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine initialization vector, aborting";
             exit(126);
         } else if ($ivError) {
             // loop again, so sleep first
@@ -92,17 +115,31 @@ foreach ($cipher_array as $cipher) {
         }
     }
     // the passphrase is the playerid
-    $passphrase = '016c4adb0f4af9d346c380a103b2e1dde5';
-    unset($encoded);
-    $encoded = base64_encode(openssl_encrypt(gzdeflate('test a string', 9), $cipher, $passphrase, 0, $iv));
+    $passphrase = $redis->get('playerid');
+    $teststring = 'Test this string!';
+    unset($encoded, $decoded);
+    $encoded = base64_encode(openssl_encrypt(gzdeflate($teststring, 9), $cipher, $passphrase, 0, $iv));
     if (isset($encoded) && $encoded) {
-        echo "'".$cipher."' OK\n";
+        $decoded = gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv));
+        if (isset($encoded) && $encoded && ($teststring === $decoded)) {
+            $output .= "'".$cipher."' OK\n";
+        } else {
+            $output .= "'".$cipher."' Error\n";
+            if (!in_array($cipher, $cipher_exclude_array)) {
+                $cipher_exclude_array[] = $cipher;
+        }
+        }
     } else {
-        echo "'".$cipher."' Error\n";
+        $output .= "'".$cipher."' Error\n";
         if (!in_array($cipher, $cipher_exclude_array)) {
             $cipher_exclude_array[] = $cipher;
         }
     }
 }
 $cipher_exclude_list = implode(' ', $cipher_exclude_array);
-echo "New cipher_exclude_list '".$cipher_exclude_list."'\n";
+$output .= "New cipher_exclude_list '".$cipher_exclude_list."'\n";
+$redis->set('cipher_exclude_list', $cipher_exclude_list);
+echo $output;
+file_put_contents('/var/log/runeaudio/test_ciphers.log', "\n".$output."\n", FILE_APPEND | LOCK_EX);
+//
+runelog('WORKER test_ciphers.php END...');

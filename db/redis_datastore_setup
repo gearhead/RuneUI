@@ -181,6 +181,7 @@ function redisDatastore($redis,$action) {
             // asynchronous fifo command queue
             $redis->del('cmd_queue');
             $redis->del('cmd_queue_encoding');
+            $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
             // internet services
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
@@ -496,6 +497,8 @@ function redisDatastore($redis,$action) {
                 $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
                 $redis->set('password', $hash);
             }
+            // asynchronous fifo command queue
+            $redis->exists('cipher_exclude_list') || $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
             // Internet services
             $redis->hExists('service', 'internet') || $redis->hSet('service', 'internet', 0);
             $redis->hExists('service', 'webradio') || $redis->hSet('service', 'webradio', 0);

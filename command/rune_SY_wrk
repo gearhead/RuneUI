@@ -190,6 +190,9 @@ if ($playerid_db === '') {
         wrk_netconfig($redis, 'disableWiFi');
     }
     //
+    // check and update the valid ciphers for use in the asynchronous command queue
+    sysCmd('/srv/http/command/test_ciphers.php');
+    //
     // enable mpd to start automatically on boot
     sysCmd('systemctl enable mpd.socket');
     // enable nginx and php-fpm to start automatically on boot
