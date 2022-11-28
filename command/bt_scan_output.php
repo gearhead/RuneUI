@@ -32,7 +32,7 @@
  *  coder: janui
  *  date: August 2022
  */
- // initialisation
+// initialisation
 // report errors: set display_errors to true (=1)
 ini_set('display_errors', '1');
 // report all PHP errors: set error_reporting to -1
