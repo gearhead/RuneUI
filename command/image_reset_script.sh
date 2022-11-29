@@ -269,11 +269,11 @@ git stash
 git add .
 git stash
 git stash
-sudo -u http git pull --no-edit
+git pull --no-edit
 # the following three lines should not be required
 git stash
 git stash
-sudo -u http git pull --no-edit
+git pull --no-edit
 if [ "$1" == "full" ]; then
     # clear the stash stack
     git stash clear
