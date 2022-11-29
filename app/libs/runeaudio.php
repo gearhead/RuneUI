@@ -7843,15 +7843,15 @@ function wrk_check_MPD_outputs($redis)
                 // $outputParts[0] = 'Output' (can be disregarded), $outputParts[1] = <the output number> & $outputParts[2] = <the rest of the information>
                 $oaName = get_between_data($outputParts[2], '(', ')');
                 $outputParts[2] = strtolower($outputParts[2]);
-                if (strpos($outputParts[2], 'bcm2835') || strpos($outputParts[2], 'hdmi')) {
+                if (strpos(' '.$outputParts[2], 'bcm2835') || strpos($outputParts[2], 'hdmi')) {
                     // its a 3,5mm jack or hdmi output, so disable it, don't count it
                     sysCmd('mpc disable '.$outputParts[1]);
                     // save the number of the last one
                     $lastOutput = $outputParts[1];
-                } else if (strpos($outputParts[2], '_stream')) {
+                } else if (strpos(' '.$outputParts[2], '_stream)')) {
                     // its a streamed output, so enable it, don't count it
                     sysCmd('mpc enable '.$outputParts[1]);
-                } else if (strpos($outputParts[2], '(null)')) {
+                } else if (strpos(' '.$outputParts[2], '(null)')) {
                     // its the null output, don't change it, don't count it
                 } else if (!$redis->exists('acards', $oaName)) {
                     // its not listed in acards, so it is inactive, probably a bluetooth output
@@ -7874,23 +7874,22 @@ function wrk_check_MPD_outputs($redis)
             // the rest are disabled
             if ($countMpdEnabled == 0) {
                 // no output enabled, there are no outputs available, no audio cards, USB DACs, fifo or pipe output detected
-                // so enable the 3,5mm output (this may not exist, that's OK)
-                // old style name for older Linux versions
-                sysCmd("mpc enable 'bcm2835 ALSA_1'");
-                // new style name for current Linux versions
-                sysCmd("mpc enable 'bcm2835 Headphones'");
-                // check that we have one connected, if not, enable the saved disabled output if that exists
-                // exclude any stream output when counting the enabled output's
-                $countMpdEnabled = sysCmd('mpc outputs | grep -vi _stream | grep -ci enabled')[0];
-                if (($countMpdEnabled == 0) && isset($lastOutput)) {
+                if (isset($lastOutput)) {
                     sysCmd('mpc enable '.$lastOutput);
+                }
+                $countMpdEnabled = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -ci "enabled"')[0];
+                if ($countMpdEnabled == 0) {
+                    $countMpdStreamEnabled = sysCmd('mpc outputs | grep i "_stream)" | grep -ci "enabled"')[0];
+                    if ($countMpdStreamEnabled == 0) {
+                        sysCmd('mpc enable null');
+                    }
                 }
             }
             // get the name of the enabled audio output for the UI, also set the default audio output for the UI
-            $retval = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -i enabled')[0];
-            if (isset($retval) && trim($retval)) {
+            $retval = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -i enabled');
+            if (isset($retval[0]) && trim($retval[0])) {
                 // a card is enabled
-                $oaName = get_between_data($retval, '(', ')');
+                $oaName = get_between_data($retval[0], '(', ')');
                 if (isset($oaName) && $oaName) {
                     // the card has an audio output name
                     // set this card to the default alsa card
@@ -7903,6 +7902,7 @@ function wrk_check_MPD_outputs($redis)
                         if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                             // its a hardware card, so set it to the audio output default
                             $redis->set('ao_default', $oaName);
+                            sysCmd('mpc disable null');
                         } else {
                             $redis->set('ao_default', '');
                         }
