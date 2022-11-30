@@ -1,4 +1,4 @@
-# high_def config file for bluealsa.service
+# default config file for bluealsa.service
 # this is part of RuneAudio
 
 # Allows additional options to be set
@@ -10,4 +10,4 @@
 # check 'bluealsa --help' for valid options
 
 # OPTIONS="-p a2dp-source -p a2dp-sink -p hfp-hf -p hfp-ag -p hsp-hs -p hsp-ag"
-OPTIONS="-p a2dp-sink -p a2dp-source --sbc-quality=3 --aac-vbr-mode=5 --aac-afterburner --mp3-quality=0 --mp3-vbr-quality=0"
+OPTIONS="-p a2dp-sink -p a2dp-source
