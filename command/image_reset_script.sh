@@ -88,7 +88,9 @@ declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbi
     bluealsa bluetooth-agent bluetoothctl_scan bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff\
     plymouth-lite-start bootsplash systemd-resolved systemd-homed local-browser-w rune_shutdown llmnrd upower systemd-networkd)
 declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd)
-declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk cmd_async_queue upmpdcli chronyd systemd-timesyncd systemd-resolved systemd-homed cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower)
+declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk\
+    cmd_async_queue upmpdcli chronyd systemd-timesyncd systemd-resolved systemd-homed cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay\
+    bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower systemd-networkd)
 declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved systemd-homed getty@tty1 haveged upower bluealsa-monitor)
 # declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-resolved systemd-homed haveged upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
