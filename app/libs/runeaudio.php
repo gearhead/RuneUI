@@ -6068,7 +6068,7 @@ function ui_mpd_fix($redis, $status)
         $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
         $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
         // the name of the file name is always the hash of its path
-        $datafile = md5($musicDir.'/'.trim($status['file']));
+        $datafile = md5($musicDir.'/'.$status['file']);
         $fileName = $artDir.'/'.$datafile.'.mpd';
         // when $datafile is set we can determine a file name
         // ui_notify('Test file name ', $fileName);
@@ -10154,9 +10154,12 @@ function getMusicFileMatadata($redis, $fileName)
     $metadata = json_decode(file_get_contents($fileName), true);
     // remove the album art file name and URL when no longer valid
     if (isset($metadata['albumartfile']) && $metadata['albumartfile']) {
-        clearstatcache(true, $metadata['albumartfile']);
-        if (!file_exists($metadata['albumartfile'])) {
-            unset($metadata['albumartfile'], $metadata['albumarturl']);
+        if (strpos(' '.$metadata['albumartfile'],'http') != 1) {
+            // its not a link to an external source
+            clearstatcache(true, $metadata['albumartfile']);
+            if (!file_exists($metadata['albumartfile'])) {
+                unset($metadata['albumartfile'], $metadata['albumarturl']);
+            }
         }
     } else {
         unset($metadata['albumartfile'], $metadata['albumarturl']);
