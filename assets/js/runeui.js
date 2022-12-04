@@ -1080,7 +1080,8 @@ function updateGUI() {
         // console.log('GUI.currentalbum = ', GUI.currentalbum);
         if ((currentalbum === '') || (currentalbum === null)) {
             var currentalbum = '<span class="notag">[no album]</span>';
-        } else if (GUI.currentalbum !== currentalbum) {
+        }
+        if (GUI.currentalbum !== currentalbum) {
             GUI.currentalbum = currentalbum;
             if (GUI.currentalbum.length > 55) {
                 $('#currentalbum-ss')[0].style.fontSize = "18px";
