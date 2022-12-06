@@ -9,8 +9,5 @@ User=upmpdcli
 ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q 1 -d /var/log/runeaudio/upmpdcli.log -l 2
 Restart=always
 
-
-Restart=always
-
 [Install]
 WantedBy=multi-user.target
