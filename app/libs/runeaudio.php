@@ -198,7 +198,7 @@ function closeMpdSocket($sock, $retainSockVarName = false)
         runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>', '');
     }
     runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET CLOSE >>>>>>', '');
-    if ($retainSockVarName) {
+    if (!$retainSockVarName) {
         // remove the global variable containing the socket resource or object
         unset($$sockVarName);
         unset($GLOBALS[$sockVarName]);
