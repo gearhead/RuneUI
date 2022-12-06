@@ -110,13 +110,13 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
     $sock = array('sockVarName' => $sockVarName, 'type' => $type, 'description' => $sockDesc);
     if ($type === 2) {
         socket_set_nonblock($$sockVarName);
-        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<','');
+        runelog('[open]['.$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (non blocking)** <<<<<<",'');
     } else if ($type === 1) {
         socket_set_block($$sockVarName);
-        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<','');
+        runelog('[open]['.$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **BURST MODE 2 (blocking)** <<<<<<",'');
     } else {
         socket_set_block($$sockVarName);
-        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<','');
+        runelog('[open]['.$sock['description']."]\t>>>>>> OPEN MPD SOCKET - **NORMAL MODE (blocking)** <<<<<<",'');
     }
     // socket_connect(<socket>, <host>, <port>);
     // <port> is not used for AF_UNIX sockets, see the socket_create() usage above
@@ -129,15 +129,15 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
         $header = trim(socket_read($$sockVarName, 20, PHP_NORMAL_READ));
         // the header should contain an 'OK', if not something went wrong
         if (!strpos(' '.$header, 'OK')) {
-            runelog('[open]['.$sock['description'].']\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ', $header);
+            runelog('[open]['.$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
             // ui_notifyError('MPD open error: '.$sock['description'],'Greeting response = '.$header);
             closeMpdSocket($sock);
             return false;
         }
-        runelog('[open]['.$sock['description'].']\t>>>>>> OPEN MPD SOCKET - Greeting response: '.$header.'<<<<<<','');
+        runelog('[open]['.$sock['description']."]\t>>>>>> OPEN MPD SOCKET - Greeting response: ".$header.'<<<<<<','');
         return $sock;
     } else {
-        runelog('[open]['.$sock['description'].']\t>>>>>> MPD SOCKET ERROR: '.socket_last_error($$sockVarName).' <<<<<<','');
+        runelog('[open]['.$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($$sockVarName).' <<<<<<','');
         // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($$sockVarName));
         closeMpdSocket($sock);
         return false;
@@ -149,9 +149,9 @@ function closeMpdSocket($sock, $retainSockVarName = false)
 //  this is used when reopening a timed out socket with the same name
 {
     if (!is_array($sock) || !isset($sock['sockVarName'])) {
-        if (!isset($sock['description'])) {
-            $sock['description'] = 'UNSET SOCKET';
-        }
+        // debug
+        // echo "[close][INVALID SOCKET]\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Terminating >>>>>>";
+        runelog("[close][INVALID SOCKET]\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Terminating >>>>>>",'');
         runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Continuing >>>>>>','');
     }
     // define the socket variable name as global
@@ -161,7 +161,7 @@ function closeMpdSocket($sock, $retainSockVarName = false)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>','');
+        runelog('[close]['.$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name - Continuing >>>>>>",'');
     }
     //
     // code to force the socket to close and close it
@@ -178,11 +178,11 @@ function closeMpdSocket($sock, $retainSockVarName = false)
     }
     catch (Throwable $t) {
         // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
-        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
+        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>", '');
     }
     catch (Exception $e) {
         // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
-        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
+        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>", '');
     }
     try {
         // Code that may throw an Exception or Error.
@@ -191,19 +191,19 @@ function closeMpdSocket($sock, $retainSockVarName = false)
     }
     catch (Throwable $t) {
         // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
-        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>', '');
+        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>", '');
     }
     catch (Exception $e) {
         // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
-        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>', '');
+        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Looks like the socket is already closed - Continuing >>>>>>", '');
     }
-    runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET CLOSE >>>>>>', '');
+    runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET CLOSE >>>>>>", '');
     if (!$retainSockVarName) {
         // remove the global variable containing the socket resource or object
         unset($$sockVarName);
         unset($GLOBALS[$sockVarName]);
     } else {
-        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET NAME RETAINED ON CLOSE >>>>>>', '');
+        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET NAME RETAINED ON CLOSE >>>>>>", '');
     }
 }
 
@@ -214,7 +214,7 @@ function sendMpdCommand(&$sock, $cmd)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
+        runelog('[send]['.$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
         return false;
     }
     // define the socket variable name as global
@@ -224,7 +224,7 @@ function sendMpdCommand(&$sock, $cmd)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[send]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
+        runelog('[send]['.$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
         return false;
     }
     $cmd = trim($cmd)."\n";
@@ -235,19 +235,19 @@ function sendMpdCommand(&$sock, $cmd)
             $sock = openMpdSocket($sock['path'], $sock['type'], $sockVarName);
             if ($sock) {
                 if (socket_write($$sockVarName, $cmd, strlen($cmd)) === false) {
-                    runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR (2nd TRY) ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+                    runelog('[send]['.$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (2nd TRY) (".socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
                     return false;
                 }
             } else {
-                runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR (REOPEN) ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+                runelog('[send]['.$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (REOPEN) (".socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
                 return false;
             }
         } else {
-            runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND ERROR ('.socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
+            runelog('[send]['.$sock['description']."]\t<<<<<< MPD SOCKET SEND ERROR (".socket_strerror(socket_last_error($$sockVarName)).') >>>>>>','');
             return false;
         }
     }
-    runelog('[send]['.$sock['description'].']\t<<<<<< MPD SOCKET SEND : ', $cmd);
+    runelog('[send]['.$sock['description']."]\t<<<<<< MPD SOCKET SEND : ", $cmd);
     return true;
 }
 
@@ -274,7 +274,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[read]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>','');
+        runelog('[read]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Invalid parameters >>>>>>",'');
         return false;
     }
     // define the socket variable name as global
@@ -284,7 +284,7 @@ function readMpdResponse($sock)
         if (!isset($sock['description'])) {
             $sock['description'] = 'UNSET SOCKET';
         }
-        runelog('[read]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>','');
+        runelog('[read]['.$sock['description']."\t<<<<<< MPD SOCKET ERROR: Invalid socket variable name >>>>>>",'');
         return false;
     }
     // initialize vars
@@ -308,7 +308,7 @@ function readMpdResponse($sock)
         $buff = 1024;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         $end = 0;
         while($end === 0) {
             // the next line is php 7 and php 8 compatible TO-DO at some time in the future the php 7 part can be removed
@@ -316,11 +316,11 @@ function readMpdResponse($sock)
                 $read = socket_read($$sockVarName, $buff);
                 if (!isset($read) || $read === false) {
                     $output = socket_strerror(socket_last_error($$sockVarName));
-                    runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED: ',$output);
+                    runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
                     break;
                 }
             } else {
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ INVALID SOCKET: ',$sock['description']);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ INVALID SOCKET: ",$sock['description']);
                 break;
             }
             if (checkEOR($read)) {
@@ -349,7 +349,7 @@ function readMpdResponse($sock)
         $buff = 1310720;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         do {
             // debug
             // $i++;
@@ -359,7 +359,7 @@ function readMpdResponse($sock)
             if ((($phpVersion < 8) && is_resource($$sockVarName)) || (($phpVersion > 7) && is_object($$sockVarName))) {
                 $read = socket_read($$sockVarName, $buff);
             } else {
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ INVALID SOCKET: ',$sock['description']);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ INVALID SOCKET: ",$sock['description']);
                 break;
             }
             // debug
@@ -367,10 +367,10 @@ function readMpdResponse($sock)
             if (!isset($read) || $read === '' || $read === false) {
                 $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED: ',$output);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED: ",$output);
                 break;
             } else {
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SUCCESS : ','');
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ SUCCESS : ",'');
             }
             $output .= $read;
             // usleep(200);
@@ -391,7 +391,7 @@ function readMpdResponse($sock)
         $buff = 4096;
         // debug
         // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type'].']\t<<<<<< MPD READ: ',$socket_activity);
+        // runelog('[read]['.$sock['description'].'][pre-loop]['.$sock['type']."]\t<<<<<< MPD READ: ",$socket_activity);
         do {
             // debug
             // $i++;
@@ -407,10 +407,10 @@ function readMpdResponse($sock)
             if (!isset($read) || $read === '' || $read === false) {
                 $output = socket_strerror(socket_last_error($$sockVarName));
                 // debug
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SOCKET DISCONNECTED : ',$output);
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ SOCKET DISCONNECTED : ",$output);
                 break;
             } else {
-                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type'].']\t<<<<<< MPD READ SUCCESS : ','');
+                runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ SUCCESS : ",'');
             }
             $output .= $read;
             // usleep(200);
