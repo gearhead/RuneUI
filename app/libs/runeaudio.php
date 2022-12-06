@@ -152,7 +152,7 @@ function closeMpdSocket($sock, $retainSockVarName = false)
         // debug
         // echo "[close][INVALID SOCKET]\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Terminating >>>>>>";
         runelog("[close][INVALID SOCKET]\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Terminating >>>>>>",'');
-        runelog('[close]['.$sock['description'].'\t<<<<<< MPD SOCKET ERROR: Invalid parameters - Continuing >>>>>>','');
+        return false;
     }
     // define the socket variable name as global
     $sockVarName = $sock['sockVarName'];
