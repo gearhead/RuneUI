@@ -202,7 +202,7 @@ do {
         ui_render('playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         $status['song_percent'] = 0;
         $status['elapsed'] = 0;
     }
@@ -326,12 +326,12 @@ do {
         $redis->set('act_player_info', json_encode($status));
         ui_render('playback', json_encode($status));
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";
     }
 } while (($active_player == 'SpotifyConnect') && isset($jobID) && $jobID);
 // clean up the metadata, async and at low priority
-sysCmdAsync('nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
 // unlock
 $redis->set('lock_spotify_connect_metadata', '0');
 runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));
