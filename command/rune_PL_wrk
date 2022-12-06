@@ -431,23 +431,13 @@ while (true) {
                 }
                 // start the job to retrieve extra metadata when it is not a radio and coverart is enabled
                 if (!$status['radio'] && $coverartRequired) {
-                    // get the lock status
-                    $lock = $redis->get('lock_mpd_extra_metadata');
-                    runelog('lock status ', $lock);
-                    if ($lock === '0') {
-                        // no lock - start the Async job directly
-                        sysCmdAsync('nice --adjustment=10 /srv/http/command/mpd_extra_metadata_async.php', 0);
-                    } else if (($lock === '9') || ($lock >= 9)) {
-                        // lock limit reached - put the the Async job in the queue
-                        sysCmdAsync('nice --adjustment=10 /srv/http/command/mpd_extra_metadata_async.php');
-                    } else {
-                        // just in case something goes wrong increment the lock value by 1
-                        // when it reaches 9 (this should never happen) it will be processed as if there is no lock
-                        $lock += 1;
-                        $redis->set('lock_mpd_extra_metadata', $lock);
+                    // it may already be running, check first
+                    $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
+                    if ($retval != 'active') {
+                        sysCmd('systemctl start rune_MPDEM_wrk');
+                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                     }
                 }
-
                 // debug information
                 if (isset($socket['sockVarName']) && isset($socket['description'])) {
                     $sockVarName = $socket['sockVarName'];

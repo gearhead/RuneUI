@@ -924,8 +924,12 @@ while (true) {
                 break;
             case 'airplaymetadata':
                 $redis->sAdd('w_lock', $jobID);
-                if (($job->action === 'start') && $redis->hGet('airplay', 'metadataonoff')) {
-                    sysCmd('pgrep -x rune_SSM_wrk || systemctl start rune_SSM_wrk');
+                if ($job->action === 'start') {
+                    if ($redis->hGet('airplay', 'metadataonoff')) {
+                        sysCmd('pgrep -x rune_SSM_wrk || systemctl start rune_SSM_wrk');
+                    }
+                    // stop the MPD extra metadata job
+                    sysCmd('systemctl stop rune_MPDEM_wrk');
                 } else if ($job->action === 'stop') {
                     sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
                 }
@@ -933,8 +937,12 @@ while (true) {
                 break;
             case 'spotifyconnectmetadata':
                 $redis->sAdd('w_lock', $jobID);
-                if (($job->action === 'start') && $redis->hGet('spotifyconnect', 'metadata_enabled')) {
-                    sysCmd('pgrep -x rune_SDM_wrk || systemctl start rune_SDM_wrk');
+                if ($job->action === 'start') {
+                    if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
+                        sysCmd('pgrep -x rune_SDM_wrk || systemctl start rune_SDM_wrk');
+                    }
+                    // stop the MPD extra metadata job
+                    sysCmd('systemctl stop rune_MPDEM_wrk');
                 } else if ($job->action === 'stop') {
                     sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
                 }

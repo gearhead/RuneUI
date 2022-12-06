@@ -27,7 +27,7 @@
  * along with RuneAudio; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
- *  file: command/mpd_extra_metadata_async.php
+ *  file: command/rune_MPDEM_wrk
  *  version: 0.5
  *  coder: janui
  *  date: March 2022
@@ -49,7 +49,7 @@ ini_set('display_errors', '1');
 // report all PHP errors: set error_reporting to -1
 ini_set('error_reporting', -1);
 // set the name of the error log file
-ini_set('error_log', '/var/log/runeaudio/mpd_extra_metadata_async.log');
+ini_set('error_log', '/var/log/runeaudio/rune_MPDEM_wrk.log');
 // common include
 require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend
@@ -59,9 +59,9 @@ require_once('/srv/http/app/libs/openredis.php');
 chdir('/srv/http/app/libs/vendor');
 require_once('getid3/audioinfo.class.php');
 // reset logfile
-sysCmd('echo "--------------- start: mpd_extra_metadata_async.php ---------------" > /var/log/runeaudio/mpd_extra_metadata_async.log');
+sysCmd('echo "--------------- start: rune_MPDEM_wrk ---------------" > /var/log/runeaudio/rune_MPDEM_wrk.log');
 // logging starting message
-runelog('WORKER mpd_extra_metadata_async.php STARTING...');
+runelog('WORKER rune_MPDEM_wrk STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 // get the album art directory and url dir
@@ -76,16 +76,13 @@ $statusCnt = 10;
 $omit_lyrics = $redis->hgetall('omit_lyrics');
 $mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
 //
-// get the lock status
-$lock = $redis->get('lock_mpd_extra_metadata');
-runelog('lock status ', $lock);
-if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
-    // set the lock
-    $redis->set('lock_mpd_extra_metadata', '1');
+$saveFile = '';
+while (true)  {
+    // loop forever
     // process the extra metadata
-    $saveFile = '';
     $status = json_decode($redis->get('act_player_info'), true);
-    while (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
+    while (isset($status['actPlayer']) && isset($status['radio']) && isset($status['file']) && $status['file']
+            && ($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
         // loop while MPD, it is not a webradio and the song has changed
         // so exit if the song is the same at the start and end of the loop
         $saveFile = $status['file'];
@@ -125,6 +122,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
                 $saveFile = '';
                 sleep(1);
                 closeMpdSocket($socket);
+                unset($socket);
                 continue;
             }
         }
@@ -576,24 +574,18 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
         }
         $status = json_decode($redis->get('act_player_info'), true);
     }
+    unset($status);
     // close the socket if its not been done
     if (isset($socket) && $socket) {
         closeMpdSocket($socket);
+        unset($socket);
     }
-    // unlock
-    $redis->set('lock_mpd_extra_metadata', '0');
-} else {
-    runelog("LOCKED!", '');
-    echo "LOCKED!";
-    // just in case something goes wrong increment the lock value by 1
-    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
-    $lock += 1;
-    $redis->set('lock_mpd_extra_metadata', $lock);
+    // unload CPU: 0.5 second sleep
+    usleep(500000);
 }
-runelog('lock status ', $redis->get('lock_mpd_extra_metadata'));
 // close Redis connection
 $redis->close();
 
-runelog('WORKER mpd_extra_metadata_async.php END...');
+runelog('WORKER rune_MPDEM_wrk END...');
 #---
 #End script
