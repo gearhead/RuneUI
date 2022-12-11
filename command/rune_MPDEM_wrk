@@ -32,16 +32,19 @@
  *  coder: janui
  *  date: March 2022
  *  description:
- *      this file replaces app/coverart_ctl.php, app/artist_info_ctl.php and app/lyric_ctl.php these
+ *      this script replaces app/coverart_ctl.php, app/artist_info_ctl.php and app/lyric_ctl.php these
  *      files were previously called by the javascript UI engine (runeaudio.js) to retrieve album art
  *      artist information and lyrics at the moment it was required for display
- *      while operating the UI was blocked which caused poor UI response and the routines were also
- *      called by each active client causing stress on the external data-service providers
+ *      while these scripts were operating the UI was blocked which caused poor UI response and the routines
+ *      were also called by each active client causing stress on the external data-service providers
  *      in the new situation the information retrieved once and is pushed to the UI from the back-end
  *      some caching is applied to improve performance to reduce the load on the external data-service
  *      providers
  *      information for the next track (if known) is pre-retrieved while playing the previous track, this
  *      also helps the UI response
+ *      all the data active data is stored in the redis variable 'act_player_info' which is concurrently updated
+ *      by rune_PL_wrk, updates by rune_PL_wrk have priority
+ *      redis transaction constructs watch and exec are used to eliminate 'act_player_info' update conflicts
  */
 // initialisation
 // report errors: set display_errors to true (=1)
@@ -82,15 +85,18 @@ while (true)  {
     // process the extra metadata
     $status = json_decode($redis->get('act_player_info'), true);
     while (isset($status['actPlayer']) && isset($status['radio']) && isset($status['file']) && $status['file']
-            && ($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
+            && ($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
         // loop while MPD, it is not a webradio and the song has changed
         // so exit if the song is the same at the start and end of the loop
-        $saveFile = $status['file'];
         //
         // main processing
         //
-        // open the MPD socket
+        // use redis watch (and exec) to update act_player_info, any updates from rune_PL_wrk have priority
+        $redis->unwatch();
+        $redis->watch('act_player_info');
+        $saveFile = $status['file'];
         //
+        // open the MPD socket
         $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
         $currsongid = '';
         $nextsongid = '';
@@ -103,20 +109,20 @@ while (true)  {
                 // response is valid
                 $retarray = explode("\n", $retval);
                 foreach ($retarray as $retline) {
-                    if (strpos(' '.$retline, 'songid: ') == 1) {
+                    if (strpos(' '.$retline, 'songid: ') === 1) {
                         // careful, 'songid: ' matches in the 'nextsongid: ' line
                         $currsongid = trim(explode(': ', $retline, 2)[1]);
-                    } else if (strpos(' '.$retline, 'nextsongid: ') == 1) {
+                    } else if (strpos(' '.$retline, 'nextsongid: ') === 1) {
                         $nextsongid = trim(explode(': ', $retline, 2)[1]);
                     }
                 }
             }
         }
         if (!$currsongid && !$nextsongid) {
-            // nothing to do, loop or break the loop
+            // nothing to do, loop or continue the loop
             if ($statusCnt-- <= 0 ) {
-                // on the 10th loop break the loop (10 seconds)
-                break;
+                // on the 10th loop continue the loop (10 seconds)
+                continue;
             } else {
                 $statusCnt = 10;
                 $saveFile = '';
@@ -201,7 +207,7 @@ while (true)  {
             if (!isset($song['file'])) {
                 // can't do anything if the file is not set, wait 1 second and exit the loop
                 sleep(1);
-                break;
+                continue;
             }
             $song['file'] = $mpdRoot.'/'.$song['file'];
             $datafile = md5($song['file']);
@@ -222,7 +228,7 @@ while (true)  {
             }
             if (isset($song['albumarturl'])) {
                 // artfile entry in the array is set
-                if (substr($song['albumarturl'], 0, 4) == 'http') {
+                if (substr($song['albumarturl'], 0, 4) === 'http') {
                     // the name of the arturl is set and it is a web image, so still valid
                     // remove the album art file entry, it should not be there
                     unset($song['albumartfile']);
@@ -359,10 +365,10 @@ while (true)  {
             }
             //
             // only when processing the current song and that albumart has been found update the UI
-            if (($songkey == 'currsong') && $artFound) {
+            if (($songkey === 'currsong') && $artFound) {
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
-                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                if (($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] === $saveFile)) {
                     // the current song is still valid
                     $status['mainArtURL'] = $song['albumarturl'];
                     if ($bigartIsAlbum) {
@@ -388,33 +394,86 @@ while (true)  {
                         }
                     }
                     unset($status['elapsed'], $status['song_percent']);
-                    $redis->set('act_player_info', json_encode($status));
+                    // use redis (watch and) exec to update act_player_info
+                    // use (watch and) exec to update act_player_info
+                    $retval = $redis->multi()
+                        ->set('act_player_info', json_encode($status))
+                        ->exec();
+                    if ($retval) {
+                        // update successful
+                        //  use redis watch (and exec) to update act_player_info, any updates from rune_PL_wrk have priority
+                        $redis->unwatch();
+                        $redis->watch('act_player_info');
+                        // debug
+                        // echo "0-1: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 0-1');
+                    } else {
+                        // act_player_info has changed
+                        //  currently in a double loop, continue at the end of the outside loop
+                        $saveFile = '';
+                        // debug
+                        // echo "0-2: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 0-2');
+                        continue 2;
+                    }
                     ui_render('playback', json_encode($status));
+                    // debug
+                    // echo "0-3: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 0-3');
                     // unload CPU: 0.2 second sleep
                     // usleep(200000);
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
+                    // debug
+                    // echo "0-4: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 0-4');
                     continue 2;
                 }
-            } else if (($songkey == 'nextsong') && $artFound) {
+            } else if (($songkey === 'nextsong') && $artFound) {
                 // when processing the nextsong only update the cover art preload url
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
-                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                if (($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] === $saveFile)) {
                     // the current song is still valid
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
                         unset($status['elapsed'], $status['song_percent']);
-                        $redis->set('act_player_info', json_encode($status));
+                        // use (watch and) exec to update act_player_info
+                        $retval = $redis->multi()
+                            ->set('act_player_info', json_encode($status))
+                            ->exec();
+                        if ($retval) {
+                            // update successful
+                            //  use redis watch (and exec) to update act_player_info, any updates from rune_PL_wrk have priority
+                            $redis->unwatch();
+                            $redis->watch('act_player_info');
+                            // debug
+                            // echo "1-1: ".$saveFile.", ".$status['file']."\n";
+                            runelog('[rune_MPDEM_wrk] 1-1');
+                        } else {
+                            // act_player_info has changed
+                            //  currently in a double loop, continue at the end of the outside loop
+                            $saveFile = '';
+                            // debug
+                            // echo "1-2: ".$saveFile.", ".$status['file']."\n";
+                            runelog('[rune_MPDEM_wrk] 1-2');
+                            continue 2;
+                        }
                         ui_render('playback', json_encode($status));
+                        // debug
+                        // echo "1-3: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 1-3');
                         // unload CPU: 0.2 second sleep
                         // usleep(200000);
                     }
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
+                    // debug
+                    // echo "1-4: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 1-4');
                     continue 2;
                 }
             }
@@ -501,11 +560,11 @@ while (true)  {
                 file_put_contents($song['datafile'], json_encode($song)."\n");
             }
             //
-            if ($songkey == 'currsong') {
+            if ($songkey === 'currsong') {
                 // currnet song
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
-                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                if (($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] === $saveFile)) {
                     // the current song is still valid
                     $status['mainArtURL'] = $song['albumarturl'];
                     if ($bigartIsAlbum) {
@@ -529,7 +588,7 @@ while (true)  {
                     $status['song_lyrics'] = $info['song_lyrics'];
                     $status['artist_bio_summary'] = $info['artist_bio_summary'];
                     $status['artist_similar'] = $info['artist_similar'];
-                    if ($artUrl == substr($info['artist_arturl'], 0, strlen($artUrl))) {
+                    if ($artUrl === substr($info['artist_arturl'], 0, strlen($artUrl))) {
                         // the artist art has not been found, so use the album art
                         $info['artist_arturl'] = $song['albumarturl'];
                     }
@@ -539,41 +598,97 @@ while (true)  {
                         $status['bigArtURL'] = $info['artist_arturl'];
                     }
                     unset($status['elapsed'], $status['song_percent']);
-                    $redis->set('act_player_info', json_encode($status));
+                    // use (watch and) exec to update act_player_info
+                    $retval = $redis->multi()
+                        ->set('act_player_info', json_encode($status))
+                        ->exec();
+                    if ($retval) {
+                        // update successful
+                        //  use redis watch (and exec) to update act_player_info, any updates from rune_PL_wrk have priority
+                        $redis->unwatch();
+                        $redis->watch('act_player_info');
+                        // debug
+                        // echo "3-1: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 3-1');
+                    } else {
+                        // act_player_info has changed
+                        //  currently in a double loop, continue at the end of the outside loop
+                        $saveFile = '';
+                        // debug
+                        // echo "3-2: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 3-2');
+                        continue 2;
+                    }
                     ui_render('playback', json_encode($status));
+                    // debug
+                    // echo "3-3: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 3-2');
                     // unload CPU: 0.2 second sleep
                     // usleep(200000);
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
+                    // debug
+                    // echo "3-3: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 3-4');
                     continue 2;
                 }
-            } else if (($songkey == 'nextsong') && $artFound) {
+            } else if (($songkey === 'nextsong') && $artFound) {
                 // when processing the nextsong only update the cover art preload url
                 // check the the current song is still valid
                 $status = json_decode($redis->get('act_player_info'), true);
-                if (($status['actPlayer'] == 'MPD') && !$status['radio'] && ($status['file'] == $saveFile)) {
+                if (($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] === $saveFile)) {
                     // the current song is still valid
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
                         unset($status['elapsed'], $status['song_percent']);
-                        $redis->set('act_player_info', json_encode($status));
+                        // use (watch and) exec to update act_player_info
+                        $retval = $redis->multi()
+                            ->set('act_player_info', json_encode($status))
+                            ->exec();
+                        if ($retval) {
+                            // update successful
+                            //  use redis watch (and exec) to update act_player_info, any updates from rune_PL_wrk have priority
+                            $redis->unwatch();
+                            $redis->watch('act_player_info');
+                            // debug
+                            // echo "4-1: ".$saveFile.", ".$status['file']."\n";
+                            runelog('[rune_MPDEM_wrk] 4-1');
+                        } else {
+                            // act_player_info has changed
+                            //  currently in a double loop, continue at the end of the outside loop
+                            // debug
+                            // echo "4-2: ".$saveFile.", ".$status['file']."\n";
+                            runelog('[rune_MPDEM_wrk] 4-2');
+                            $saveFile = '';
+                            continue 2;
+                        }
                         ui_render('playback', json_encode($status));
+                        // debug
+                        // echo "4-3: ".$saveFile.", ".$status['file']."\n";
+                        runelog('[rune_MPDEM_wrk] 4-3');
                         // unload CPU: 0.2 second sleep
                         // usleep(200000);
                     }
                 } else {
                     // the song has changed
                     // currently in a double loop, continue at the end of the outside loop
+                    // debug
+                    // echo "4-4: ".$saveFile.", ".$status['file']."\n";
+                    runelog('[rune_MPDEM_wrk] 4-4');
                     continue 2;
                 }
             }
             //
             unset($info);
         }
+        // the 'continue 2' statements above result in executing the following lines only when everything has been processed completely & correctly
+        // unload CPU: 0.5 second sleep
+        usleep(500000);
         $status = json_decode($redis->get('act_player_info'), true);
     }
+    $redis->unwatch();
     unset($status);
     // close the socket if its not been done
     if (isset($socket) && $socket) {

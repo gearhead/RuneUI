@@ -128,6 +128,15 @@ while (true) {
             $status['actPlayer'] = $activePlayer;
             $redis->set('act_player_info', json_encode($status));
             ui_render('playback', json_encode($status));
+            // start the job to retrieve extra metadata when it is not a radio and coverart is enabled
+            if (!$status['radio'] && $coverartRequired) {
+                // it may already be running, check first
+                $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
+                if ($retval != 'active') {
+                    sysCmd('systemctl start rune_MPDEM_wrk');
+                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                }
+            }
             // store next songid
             if (!isset($status['nextsongid']) || !$status['nextsongid']) {
                 $status['nextsongid'] = 0;
@@ -255,6 +264,14 @@ while (true) {
                 } else {
                     $newStatus['radio'] = false;
                 }
+                // the redis variable 'act_player_info' also gets modified in the script rune_MPDEM_wrk, refresh it here
+                //  also update the variable, this acts as a sort of optimistic lock
+                //  updates of 'act_player_info' in this script have priority over updates carried out in rune_MPDEM_wrk
+                //  the updates of act_player_info are tracked in rune_MPDEM_wrk which acts appropriately
+                $retval = $redis->get('act_player_info');
+                $redis->set('act_player_info', $retval);
+                $status = json_decode($retval, true);
+                unset($retval);
                 //
                 // tweaks to only retrieve radio information after a second metadata record
                 // some radio stations only send one metadata record (repeatedly), so really there is actually no metadata supplied
