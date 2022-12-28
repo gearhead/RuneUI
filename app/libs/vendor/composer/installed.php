@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => '__root__',
-        'pretty_version' => 'dev-0.6b_connman',
-        'version' => 'dev-0.6b_connman',
-        'reference' => 'f16de50b9e37190982fdb9b6b189efd6a0296666',
+        'pretty_version' => 'dev-0.6b-dev',
+        'version' => 'dev-0.6b-dev',
+        'reference' => 'aa75b0ffb193f7954f69e14220567a08460b534a',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         '__root__' => array(
-            'pretty_version' => 'dev-0.6b_connman',
-            'version' => 'dev-0.6b_connman',
-            'reference' => 'f16de50b9e37190982fdb9b6b189efd6a0296666',
+            'pretty_version' => 'dev-0.6b-dev',
+            'version' => 'dev-0.6b-dev',
+            'reference' => 'aa75b0ffb193f7954f69e14220567a08460b534a',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -38,9 +38,9 @@
             'dev_requirement' => false,
         ),
         'guzzlehttp/promises' => array(
-            'pretty_version' => '1.5.1',
-            'version' => '1.5.1.0',
-            'reference' => 'fe752aedc9fd8fcca3fe7ad05d419d32998a06da',
+            'pretty_version' => '1.5.2',
+            'version' => '1.5.2.0',
+            'reference' => 'b94b2807d85443f9719887892882d0329d1e2598',
             'type' => 'library',
             'install_path' => __DIR__ . '/../guzzlehttp/promises',
             'aliases' => array(),
@@ -56,9 +56,9 @@
             'dev_requirement' => false,
         ),
         'james-heinrich/getid3' => array(
-            'pretty_version' => 'v1.9.21',
-            'version' => '1.9.21.0',
-            'reference' => '36f5dabb1325415a4b07a401113f8db2eb81eca1',
+            'pretty_version' => 'v1.9.22',
+            'version' => '1.9.22.0',
+            'reference' => '45f20faa0f0a24489740392c5b512ddcc36deccd',
             'type' => 'library',
             'install_path' => __DIR__ . '/../james-heinrich/getid3',
             'aliases' => array(),
