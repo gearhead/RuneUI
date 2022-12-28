@@ -141,7 +141,7 @@ do {
     runelog('spotify_connect_metadata_async job ELAPSED         :', $job['position_ms']);
     // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
     $title = '';
-    unset($status['elapsed'], $status['song_percent']);
+    unset($status['song_percent']);
     // sleep for a half of a second between processing each event, do it here to allow the journal information
     //  to be completed
     usleep(500000);
@@ -213,7 +213,7 @@ do {
         $status['elapsed'] = round($job['position_ms']/1000);
         // calculate the percentage played
         if ($status['time'] != 0) {
-            $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+            $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
         } else {
             $status['song_percent'] = 0;
         }
@@ -276,7 +276,7 @@ do {
         // calculate the percentage played
         if (isset($status['elapsed']) && $status['elapsed']) {
             if ($status['time'] != 0) {
-                $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+                $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
             } else {
                 $status['song_percent'] = 0;
             }

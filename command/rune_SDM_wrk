@@ -264,7 +264,7 @@ do {
             $status['elapsed'] = round($job['position_ms']/1000);
             // calculate the percentage played
             if ($status['time'] != 0) {
-                $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+                $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
             } else {
                 $status['song_percent'] = 0;
             }
@@ -375,7 +375,7 @@ do {
         if (($status['time'] != 0) && ($status['state'] === 'play')) {
             $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
             $status['time_last_elapsed'] = microtime(true);
-            $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
+            $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
         } else if ($status['state'] != 'play') {
             $status['time_last_elapsed'] = microtime(true);
         }

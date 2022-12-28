@@ -1284,10 +1284,6 @@ function _parseFileListResponse($resp)
             }
             $plistLine = strtok("\n");
         }
-        // $end_time = microtime(TRUE);
-        // if (($end_time - $start_time) > 0.1) {
-            // ui_notify_async('ELAPSED', $end_time - $start_time);
-        // }
     }
     return $plistArray;
 }
@@ -1332,13 +1328,13 @@ function _parseStatusResponse($redis, $resp)
             } else {
                 $percent = 0;
             }
-            $plistArray["song_percent"] = $percent;
-            $plistArray["elapsed"] = $time[0];
-            $plistArray["time"] = $time[1];
+            $plistArray['song_percent'] = $percent;
+            $plistArray['elapsed'] = $time[0];
+            $plistArray['time'] = $time[1];
         } else {
-            $plistArray["song_percent"] = 0;
-            $plistArray["elapsed"] = 0;
-            $plistArray["time"] = 0;
+            $plistArray['song_percent'] = 0;
+            // $plistArray['elapsed'] = 0;
+            $plistArray['time'] = 0;
         }
 
          // "audio format" output
@@ -1445,14 +1441,14 @@ if (is_null($resp)) {
         if (isset($res['position'])) {
             $status['elapsed'] = $resp['position'];
         } else {
-            $status['elapsed'] = 0;
+            // $status['elapsed'] = 0;
         }
         $status['time'] = $resp['duration'] / 1000;
         $status['volume'] = 100;
         if ($resp['status'] === 'stopped') {
             $status['song_percent'] = 0;
         } else {
-            $status['song_percent'] = round(100 - (($status['time'] - $status['elapsed']) * 100 / $status['time']));
+            $status['song_percent'] = min(100, round(100 - (($status['time'] - $status['elapsed']) * 100 / $status['time'])));
         }
         $status['uri'] = $resp['uri'];
         $status['popularity'] = $resp['popularity'];
@@ -1802,7 +1798,7 @@ function runelog($title, $data = null, $function_name = null)
         $function_name = '';
     }
     if ($debug_level !== '0') {
-        if(is_array($data) OR is_object($data)) {
+        if(is_array($data) || is_object($data)) {
             if (is_array($data)) error_log($function_name.'### '.$title.' ### $data type = array',0);
             if (is_object($data)) error_log($function_name.'### '.$title.' ### $data type = object',0);
             foreach($data as $key => $value) {
@@ -6427,17 +6423,13 @@ function ui_update($redis, $sock=null, $clientUUID=null)
             return readSpopResponse($sock);
             break;
         default:
-            // for streaming - airplay and spotify connect
+            // for streaming - airplay, spotify connect & bluetooth
             $status = json_decode($redis->get('act_player_info'), true);
             if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
                 $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
-                $status['song_percent'] = round(100*$status['elapsed']/$status['time']);
-                $status['song_percent'] = min(100, $status['song_percent']);
-            } else if ($status['state'] == 'play') {
-                $status['elapsed'] = "0";
-                $status['song_percent'] = "100";
+                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             } else {
-                unset($status['elapsed'], $status['song_percent']);
+                unset($status['song_percent']);
             }
             ui_render('playback', json_encode($status));
             break;

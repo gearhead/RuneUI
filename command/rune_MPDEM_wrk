@@ -84,9 +84,14 @@ while (true)  {
     // loop forever
     // process the extra metadata
     $status = json_decode($redis->get('act_player_info'), true);
-    while (isset($status['actPlayer']) && isset($status['radio']) && isset($status['file']) && $status['file']
-            && ($status['actPlayer'] === 'MPD') && !$status['radio'] && ($status['file'] != $saveFile)) {
-        // loop while MPD, it is not a webradio and the song has changed
+    if (isset($status['radio']) && $status['radio']) {
+        $curSongIsRadio = true;
+    } else {
+        $curSongIsRadio = false;
+    }
+    while (isset($status['actPlayer']) && isset($status['file']) && $status['file']
+            && ($status['actPlayer'] === 'MPD') && $status['file'] && ($status['file'] != $saveFile)) {
+        // loop while MPD and the song has changed
         // so exit if the song is the same at the start and end of the loop
         //
         // main processing
@@ -120,23 +125,23 @@ while (true)  {
         }
         if (!$currsongid && !$nextsongid) {
             // nothing to do, loop or continue the loop
-            if ($statusCnt-- <= 0 ) {
+            $saveFile = '';
+            if ($statusCnt-- >= 0 ) {
                 // on the 10th loop continue the loop (10 seconds)
                 continue;
             } else {
                 $statusCnt = 10;
-                $saveFile = '';
                 sleep(1);
                 closeMpdSocket($socket);
                 unset($socket);
-                continue;
+                break;
             }
         }
         $songinfo = array();
         //
-        // get the current song information and create the 'currsong' cache table entry
+        // get the current song information and create the 'currsong' cache table entry, when not a radio
         //
-        if ($currsongid && $socket && sendMpdCommand($socket, 'playlistid '.$currsongid)) {
+        if (!$curSongIsRadio && $currsongid && $socket && sendMpdCommand($socket, 'playlistid '.$currsongid)) {
             $retval = readMpdResponse($socket);
             if ($retval && strpos($retval, "OK\n")) {
                 // response is valid
@@ -159,6 +164,12 @@ while (true)  {
         } else {
             // mpd socket invalid or send command failed, clear the array element
             unset($songinfo['currsong']);
+        }
+        if (isset($songinfo['currsong']['file']) && strpos(' '.$songinfo['currsong']['file'], 'http') === 1) {
+            if (is_radioUrl($redis, $songinfo['currsong']['file'])) {
+                // it exists and its a radio, remove it from the array
+                unset($songinfo['currsong']);
+            }
         }
         //
         // get the next song information and create the 'nextsong' cache table entry
@@ -186,6 +197,12 @@ while (true)  {
             // mpd socket invalid or send command failed, clear the array
             unset($songinfo['nextsong']);
         }
+        if (isset($songinfo['nextsong']['file']) && strpos(' '.$songinfo['nextsong']['file'], 'http') === 1) {
+            if (is_radioUrl($redis, $songinfo['nextsong']['file'])) {
+                // it exists and its a radio, remove it from the array
+                unset($songinfo['nextsong']);
+            }
+        }
         //
         // close the mpd socket and tidy up
         //
@@ -195,7 +212,7 @@ while (true)  {
         // process the songinfo array, which has one or two entries, current song 'currsong' and in most cases also next song 'nextsong'
         //
         if (!count($songinfo)) {
-            // songinfo array empty, nothing to do, the foreach below will no nothing
+            // songinfo array empty, nothing to do, the foreach below will do nothing
             $saveFile = '';
             sleep(1);
         }
@@ -206,6 +223,7 @@ while (true)  {
             //
             if (!isset($song['file'])) {
                 // can't do anything if the file is not set, wait 1 second and exit the loop
+                $saveFile = '';
                 sleep(1);
                 continue;
             }
@@ -282,14 +300,14 @@ while (true)  {
                     // save the name of the file which caused the error
                     $redis->set('getID3_error', $song['file']);
                     $auOK = false;
-                    echo "Caught Throwable ('{$t->getMessage()}')\n{$t}\n";
+                    echo "[rune_MPDEM_wrk] Caught Throwable ('{$t->getMessage()}')\n{$t}\n";
                 }
                 catch (Exception $e) {
                     // Executed only in PHP 5 and lower, will not match in PHP 7 and higher
                     // save the name of the file which caused the error
                     $redis->set('getID3_error', $song['file']);
                     $auOK = false;
-                    echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
+                    echo "[rune_MPDEM_wrk] Caught Exception ('{$e->getMessage()}')\n{$e}\n";
                 }
                 if ($auOK && is_array($auinfo)) {
                     if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
@@ -393,7 +411,7 @@ while (true)  {
                             $status['audio_sample_depth'] = $song['bits_per_sample'];
                         }
                     }
-                    unset($status['elapsed'], $status['song_percent']);
+                    unset($status['song_percent']);
                     // use redis (watch and) exec to update act_player_info
                     // use (watch and) exec to update act_player_info
                     $retval = $redis->multi()
@@ -414,7 +432,7 @@ while (true)  {
                         // debug
                         // echo "0-2: ".$saveFile.", ".$status['file']."\n";
                         runelog('[rune_MPDEM_wrk] 0-2');
-                        continue 2;
+                        break 2;
                     }
                     ui_render('playback', json_encode($status));
                     // debug
@@ -428,7 +446,7 @@ while (true)  {
                     // debug
                     // echo "0-4: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 0-4');
-                    continue 2;
+                    break 2;
                 }
             } else if (($songkey === 'nextsong') && $artFound) {
                 // when processing the nextsong only update the cover art preload url
@@ -439,7 +457,7 @@ while (true)  {
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
-                        unset($status['elapsed'], $status['song_percent']);
+                        unset($status['song_percent']);
                         // use (watch and) exec to update act_player_info
                         $retval = $redis->multi()
                             ->set('act_player_info', json_encode($status))
@@ -459,7 +477,7 @@ while (true)  {
                             // debug
                             // echo "1-2: ".$saveFile.", ".$status['file']."\n";
                             runelog('[rune_MPDEM_wrk] 1-2');
-                            continue 2;
+                            break 2;
                         }
                         ui_render('playback', json_encode($status));
                         // debug
@@ -474,7 +492,7 @@ while (true)  {
                     // debug
                     // echo "1-4: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 1-4');
-                    continue 2;
+                    break 2;
                 }
             }
             file_put_contents($song['datafile'], json_encode($song)."\n");
@@ -597,7 +615,7 @@ while (true)  {
                     } else {
                         $status['bigArtURL'] = $info['artist_arturl'];
                     }
-                    unset($status['elapsed'], $status['song_percent']);
+                    unset($status['song_percent']);
                     // use (watch and) exec to update act_player_info
                     $retval = $redis->multi()
                         ->set('act_player_info', json_encode($status))
@@ -617,7 +635,7 @@ while (true)  {
                         // debug
                         // echo "3-2: ".$saveFile.", ".$status['file']."\n";
                         runelog('[rune_MPDEM_wrk] 3-2');
-                        continue 2;
+                        break 2;
                     }
                     ui_render('playback', json_encode($status));
                     // debug
@@ -631,7 +649,7 @@ while (true)  {
                     // debug
                     // echo "3-3: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 3-4');
-                    continue 2;
+                    break 2;
                 }
             } else if (($songkey === 'nextsong') && $artFound) {
                 // when processing the nextsong only update the cover art preload url
@@ -642,7 +660,7 @@ while (true)  {
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
-                        unset($status['elapsed'], $status['song_percent']);
+                        unset($status['song_percent']);
                         // use (watch and) exec to update act_player_info
                         $retval = $redis->multi()
                             ->set('act_player_info', json_encode($status))
@@ -662,7 +680,7 @@ while (true)  {
                             // echo "4-2: ".$saveFile.", ".$status['file']."\n";
                             runelog('[rune_MPDEM_wrk] 4-2');
                             $saveFile = '';
-                            continue 2;
+                            break 2;
                         }
                         ui_render('playback', json_encode($status));
                         // debug
@@ -677,7 +695,7 @@ while (true)  {
                     // debug
                     // echo "4-4: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 4-4');
-                    continue 2;
+                    break 2;
                 }
             }
             //

@@ -72,7 +72,8 @@ var GUI = {
     bigArtURL: '',
     song_lyrics: '',
     time: 0,
-    elapsed: 0
+    elapsed: 0,
+    consume: 0
 };
 
 
@@ -222,7 +223,7 @@ function addPlayerScrollbars() {
 }
 
 // update countdown
-function refreshTimer(startFrom, stopTo, state) {
+function refreshTimer(startFrom, stopTo = null, state) {
     // console.log('startFrom = ', startFrom);
     // console.log('state = ', state);
     var display = $('#countdown-display');
@@ -556,6 +557,8 @@ function setPlaybackSource() {
 }
 
 function setUIbuttons(activePlayer) {
+    // console.log('GUI.consume:', GUI.consume);
+    // console.log('GUI.json.consume:', GUI.json.consume);
     if ($('#section-index').length) {
         // this is the playback section all buttons are valid here
         // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
@@ -574,15 +577,34 @@ function setUIbuttons(activePlayer) {
             $('#volumedn').addClass('disabled');
             $('#volumemute').addClass('disabled');
             $('#volumeup').addClass('disabled');
-            $('#repeat').addClass('disabled');
-            $('#random').addClass('disabled');
-            $('#single').addClass('disabled');
-            $('#previous').addClass('disabled');
+            $('#repeat').addClass('hide');
+            $('#random').addClass('hide');
+            $('#single').addClass('hide');
+            $('#previous').addClass('hide');
             $('#stop').addClass('disabled');
             $('#play').addClass('disabled');
             $('#next').addClass('disabled');
         } else {
-            if (typeof GUI.json.volume == 'undefined') {
+            // MPD
+            if (GUI.stream) {
+                // MPD and GUI stream, so MPD radio or MPD stream
+                $('#repeat').addClass('hide');
+                $('#random').addClass('hide');
+                $('#single').addClass('hide');
+            } else {
+                // MPD and not GUI stream, so not MPD radio nor MPD stream
+                $('#repeat').removeClass('hide');
+                $('#random').removeClass('hide');
+                $('#single').removeClass('hide');
+            }
+            if (GUI.consume === '1') {
+                // MPD and consume on
+                $('#previous').addClass('hide');
+            } else {
+                // MPD and consume off
+                $('#previous').removeClass('hide');
+            }
+            if (typeof GUI.json.volume === 'undefined') {
                 // player is MPD but volume control is switched off
                 //document.getElementById("volume").style.color = '#1A242F';
                 $('#volume-knob').addClass('disabled');
@@ -591,9 +613,9 @@ function setUIbuttons(activePlayer) {
                 $('#volume').addClass('disabled');
                 $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
                 $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
-                $('#volumedn').addClass('disabled');
-                $('#volumemute').addClass('disabled');
-                $('#volumeup').addClass('disabled');
+                $('#volumedn').addClass('hide');
+                $('#volumemute').addClass('hide');
+                $('#volumeup').addClass('hide');
             } else {
                 // player is mpd and the volume control is switched on
                 //document.getElementById("volume").style.color = '#e0e7ee';
@@ -603,14 +625,10 @@ function setUIbuttons(activePlayer) {
                 $('#volume').removeClass('disabled');
                 $('#volume-knob').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
                 $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
-                $('#volumedn').removeClass('disabled');
-                $('#volumemute').removeClass('disabled');
-                $('#volumeup').removeClass('disabled');
+                $('#volumedn').removeClass('hide');
+                $('#volumemute').removeClass('hide');
+                $('#volumeup').removeClass('hide');
             }
-            $('#repeat').removeClass('disabled');
-            $('#random').removeClass('disabled');
-            $('#single').removeClass('disabled');
-            $('#previous').removeClass('disabled');
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
@@ -622,10 +640,19 @@ function setUIbuttons(activePlayer) {
             $('#stop').addClass('disabled');
             $('#play').addClass('disabled');
             $('#next').addClass('disabled');
+            $('#previous').addClass('hide');
         } else {
+            // MPD
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
+            if (GUI.consume === '1') {
+                // MPD and consume on
+                $('#previous').addClass('hide');
+            } else {
+                // MPD and consume off
+                $('#previous').removeClass('hide');
+            }
         }
         // force setting the main player UI buttons next time
         GUI.activePlayer = '';
@@ -865,7 +892,7 @@ function refreshState() {
             $('#countdown-display-ss').countdown('destroy');
             $('#countdown-display-sss').countdown('destroy');
         }
-        if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
+        if (GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -883,7 +910,7 @@ function refreshState() {
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
         // $('#elapsed').html((GUI.json.elapsed !== undefined)? timeConvert(GUI.json.elapsed) : '00:00');
-        if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
+        if (GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -935,16 +962,25 @@ function updateGUI() {
     var song_lyrics = ((typeof GUI.json.song_lyrics == 'undefined') ? '' : GUI.json.song_lyrics);
     var artist_bio_summary = ((typeof GUI.json.artist_bio_summary == 'undefined') ? '' : GUI.json.artist_bio_summary);
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
-    // set radio mode if stream is present
-    var stream = ((radioname !== null && radioname !== undefined && radioname !== '') ? 'radio' : '');
-    GUI.stream = stream;
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
+    // set radio mode if stream is present ???
+    if (radioname !== null && radioname !== undefined && radioname !== '') {
+        var stream = 'radio';
+    } else if (activePlayer !== undefined && activePlayer === 'Bluetooth') {
+        var stream = 'bluetooth';
+    } else {
+        var stream = '';
+    }
+    GUI.stream = stream;
+    if (typeof GUI.json.consume !== 'undefined') {
+        GUI.consume = GUI.json.consume;
+    }
     if ((activePlayer !== GUI.activePlayer) || (volume !== GUI.volume)) {
         GUI.activePlayer = activePlayer;
         setUIbuttons(activePlayer);
     }
-    if ((GUI.stream === 'radio') || (GUI.activePlayer === 'Bluetooth')) {
-        var time = 0;
+    if (GUI.stream) {
+        var time = 100;
     } else if (typeof GUI.json.time !== 'undefined') {
         var time = GUI.json.time;
     }
@@ -973,8 +1009,8 @@ function updateGUI() {
             GUI.json.song_percent = parseInt((parseInt(GUI.json.elapsed)*100)/parseInt(time));
         }
     }
-    if ((typeof GUI.json.time !== 'undefined') && (typeof GUI.json.elapsed !== 'undefined')) {
-        refreshTimer(parseInt(GUI.json.elapsed), parseInt(GUI.json.time), GUI.json.state);
+    if (typeof GUI.json.elapsed !== 'undefined') {
+        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
     }
     // refresh the state
     refreshState();
@@ -1111,7 +1147,7 @@ function updateGUI() {
         } else {
             $('#random').removeClass('btn-primary');
         }
-        if (GUI.json.consume === '1') {
+        if (GUI.consume === '1') {
             $('#consume').addClass('btn-primary');
         } else {
             $('#consume').removeClass('btn-primary');
@@ -1161,77 +1197,6 @@ function updateGUI() {
             $('#addinfo-text-ss').html(artist_similar);
             $('#addinfo-text-overlay').html(artist_similar);
         }
-        // if ((GUI.activePlayer === 'MPD') && (GUI.stream !== 'radio')) {
-            // var currentalbum_and_artist = currentalbum + '-' + currentartist;
-            // if (GUI.old_state !== GUI.state || GUI.currentalbum_and_artist !== currentalbum_and_artist) {
-                // GUI.currentalbum_and_artist = currentalbum_and_artist;
-                // GUI.old_state = GUI.state;
-                // if (mainArtURL === '') {
-                    // var covercachenum = Math.floor(Math.random()*1001);
-                    // $('#cover-art').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    // $('#cover-art-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    // $('#cover-art-sss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                    // cache: false
-                // }
-            // }
-            // if (GUI.currentsong !== currentsong) {
-                // GUI.currentsong = currentsong;
-                // $('#lyric-text-overlay').html('');
-                // if (song_lyrics === '') {
-                    // $.ajax({
-                        // url: '/lyric/',
-                        // success: function(data){
-                           // $('#lyric-text-overlay').html(data);
-                        // },
-                        // cache: false
-                    // });
-                // }
-            // }
-            // if (GUI.currentartist !== currentartist) {
-                // if ((artist_bio_summary === '') && (artist_similar === '')) {
-                    // $.ajax({
-                        // url: '/artist_info/',
-                        // success: function(data){
-                            // var info = jQuery.parseJSON(data);
-                            // if (typeof info.artist !== 'undefined' && info.artist.bio.content !== '') {
-                                // $('#artist-bio-ss').html(info.artist.bio.content.substring(0, Math.min(info.artist.bio.content.indexOf("<a href"), 550)) + '... ');
-                                // $('#artist-bio-overlay').html(info.artist.bio.summary);
-                                // $('#artist-bio-full-overlay').html(info.artist.bio.content);
-                            // } else if (typeof info.artist !== 'undefined' && info.artist.bio.summary !== '') {
-                                // $('#artist-bio-ss').html(info.artist.bio.summary.substring(0, Math.min(info.artist.bio.summary.indexOf("<a href"), 550)) + '... ');
-                                // $('#artist-bio-overlay').html(info.artist.bio.summary);
-                                // $('#artist-bio-full-overlay').html(info.artist.bio.summary);
-                            // } else {
-                                // $('#artist-bio-ss').html(currentartist+" - Sorry, No extra information available.");
-                                // $('#artist-bio-overlay').html(currentartist+" - Sorry, No extra information available.");
-                                // $('#artist-bio-full-overlay').html(currentartist+" - Sorry, No extra information available.");
-                            // }
-                            // if (typeof info.artist !== 'undefined' && info.artist.similar.artist !== '') {
-                                // let i = 0;
-                                // let text = "";
-                                // while (typeof info.artist.similar.artist[i] !== 'undefined') {
-                                    // if (typeof info.artist.similar.artist[i].name !== 'undefined' && info.artist.similar.artist[i].name !== '') {
-                                        // if (text === '') {
-                                            // text = "<strong>Similar artists</strong>";
-                                        // }
-                                        // text += "<br>"+info.artist.similar.artist[i].name;
-                                    // }
-                                    // i++;
-                                // }
-                                // $('#addinfo-text-ss').html(text);
-                                // $('#addinfo-text-overlay').html(text);
-                            // } else {
-                                // $('#addinfo-text-ss').html('');
-                                // $('#addinfo-text-overlay').html('');
-                            // }
-                            // $('#artist-image-ss').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                            // $('#artist-image-overlay').css('background-image','url("/coverart/?v=' + covercachenum + '")');
-                        // },
-                        // cache: false
-                    // });
-                // }
-            // }
-        // }
     }
 }
 
@@ -1378,21 +1343,17 @@ function renderUI(text){
     if ($('#section-index').length) {
         // var elapsed = (GUI.json.elapsed !== '' && GUI.json.elapsed !== undefined)? GUI.json.elapsed : 0;
         // var time = (GUI.json.time !== '' && GUI.json.time !== undefined && GUI.json.time !== null)? GUI.json.time : 0;
-        // refreshTimer(parseInt(elapsed), parseInt(time), GUI.json.state);
+        // refreshTimer(parseInt(elapsed), 0, GUI.json.state);
         if (typeof GUI.json.time !== 'undefined') {
             var time = GUI.json.time;
         }
         if (typeof GUI.json.elapsed !== 'undefined') {
             var elapsed = GUI.json.elapsed;
         }
-        if ((typeof GUI.json.time !== 'undefined') && (typeof GUI.json.elapsed !== 'undefined')) {
-            refreshTimer(parseInt(GUI.json.elapsed), parseInt(GUI.json.time), GUI.json.state);
+        if (typeof GUI.json.elapsed !== 'undefined') {
+            refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
         }
-        if ((GUI.stream != 'radio') && (GUI.activePlayer != 'Bluetooth')) {
-            refreshKnob();
-        } else {
-            $('#time').val(0, false).trigger('update');
-        }
+        refreshKnob();
         // console.log('GUI.json.playlist = ' + GUI.json.playlist + ', GUI.playlist = ', GUI.playlist);
         if (GUI.json.playlist !== GUI.playlist) {
             getPlaylistCmd();
@@ -2052,7 +2013,7 @@ function getDB(options){
 // on release knob
 function onreleaseKnob(value) {
     if (GUI.state !== 'stop' && GUI.state !== '') {
-        if ((GUI.stream != 'radio') && (GUI.activePlayer != 'Bluetooth')) {
+        if (!GUI.stream) {
             // console.log('release percent = ', value);
             // console.log(GUI.state);
             window.clearInterval(GUI.currentKnob);
@@ -3668,7 +3629,7 @@ if ($('#section-index').length) {
                     input.val(label);
                 } else {
                     if (label) {
-                        console.log('Selected file: ', label);
+                        // console.log('Selected file: ', label);
                         if (label.indexOf('.tar.gz') > -1) {
                             $('#backup-file').html(' <i class="fa fa-check dx green"></i> ' + label + '');
                             $('#btn-backup-upload').prop('disabled', false);
