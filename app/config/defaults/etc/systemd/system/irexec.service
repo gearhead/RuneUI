@@ -1,7 +1,7 @@
 [Unit]
 Documentation=man:irexec(1)
 Documentation=http://lirc.org/html/configure.html
-Documentation=http://lirc.org/html/configure.html#lircrc_format 
+Documentation=http://lirc.org/html/configure.html#lircrc_format
 Description=Handle events from IR remotes decoded by lircd(8)
 ; the following two lines have been modified for RuneAudio V0.5b
 Requires=lircd.service
