@@ -6434,7 +6434,7 @@ function ui_update($redis, $sock=null, $clientUUID=null)
                 $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             } else {
-                unset($status['song_percent']);
+                unset($status['song_percent'], $status['elapsed']);
             }
             ui_render('playback', json_encode($status));
             break;

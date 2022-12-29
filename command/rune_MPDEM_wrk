@@ -411,7 +411,7 @@ while (true)  {
                             $status['audio_sample_depth'] = $song['bits_per_sample'];
                         }
                     }
-                    unset($status['song_percent']);
+                    unset($status['song_percent'], $status['elapsed']);
                     // use redis (watch and) exec to update act_player_info
                     // use (watch and) exec to update act_player_info
                     $retval = $redis->multi()
@@ -457,7 +457,7 @@ while (true)  {
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
-                        unset($status['song_percent']);
+                        unset($status['song_percent'], $status['elapsed']);
                         // use (watch and) exec to update act_player_info
                         $retval = $redis->multi()
                             ->set('act_player_info', json_encode($status))
@@ -615,7 +615,7 @@ while (true)  {
                     } else {
                         $status['bigArtURL'] = $info['artist_arturl'];
                     }
-                    unset($status['song_percent']);
+                    unset($status['song_percent'], $status['elapsed']);
                     // use (watch and) exec to update act_player_info
                     $retval = $redis->multi()
                         ->set('act_player_info', json_encode($status))
@@ -660,7 +660,7 @@ while (true)  {
                     // set the cover art preload to the next song art url when changed
                     if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                         $status['coverArtPreload'] = $song['albumarturl'];
-                        unset($status['song_percent']);
+                        unset($status['song_percent'], $status['elapsed']);
                         // use (watch and) exec to update act_player_info
                         $retval = $redis->multi()
                             ->set('act_player_info', json_encode($status))

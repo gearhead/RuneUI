@@ -284,6 +284,7 @@ while (true) {
                 //
                 // tweaks to only retrieve radio information after a second metadata record
                 // some radio stations only send one metadata record (repeatedly), so really there is actually no metadata supplied
+                $mpdChangeSong = true;
                 if ($newStatus['radio']) {
                     // its a radio
                     $newStatus['time'] = 100;
@@ -312,6 +313,22 @@ while (true) {
                     } else if ($newStatus['currentsong'] === '') {
                         // skip records when no metadata is passed
                         $newStatus['currentsong'] = $saveCurrentsong;
+                        $mpdChangeSong = false;
+                    } else if (!strpos(' '.$newStatus['currentsong'],' - ')) {
+                        // it is a radio and there is no space-hyphen-space in the song name, this indicates an information message and not an artist/album string
+                        // $saveFile = $newStatus['file'];
+                        $saveRadio = $newStatus['radio'];
+                        $newStatus['currentartist'] = 'Webradio';
+                        $newStatus['currentalbumartist'] = 'Webradio';
+                        $newStatus['currentalbum'] = $newStatus['radioname'];
+                        $newStatus['currentcomposer'] = '...';
+                        $newStatus['song_lyrics'] = ' ';
+                        $newStatus['artist_bio_summary'] = ' ';
+                        $newStatus['artist_similar'] = ' ';
+                        $newStatus['mainArtURL'] = $artUrl.'/radio.png';
+                        $newStatus['bigArtURL'] = $artUrl.'/none.png';
+                        $newStatus['smallArtURL'] = $artUrl.'/none.png';
+                        $status = $newStatus;
                         $mpdChangeSong = false;
                     }
                     if ($newStatus['state'] === 'play') {
@@ -379,7 +396,10 @@ while (true) {
                 } else {
                     // radio is togged, new radio station or new song, replace status
                     $status = array_merge($status, $newStatus);
-                    $mpdChangeSong = true;
+                    if (!$newStatus['radio'] && !$mpdChangeSong) {
+                        // don't switch the changed song status for radios when it is already set to false
+                        $mpdChangeSong = true;
+                    }
                     $saveRadio = $status['radio'];
                     $saveCurrentsong = $status['currentsong'];
                     $saveFile = $status['file'];
