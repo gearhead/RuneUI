@@ -1715,13 +1715,22 @@ while (true) {
         unset($random);
     }
     // Automatically determine the time-zone
-    // Test first after 60 cycles (+/-30 seconds), then every +/-28800 cycles (= every +/-4 hours)
+    // Test first after 60 cycles (+/-30 seconds)
+    //  then after success every +/-57600 cycles (= every +/-8 hours)
+    //  or after failure every +/-240 cycles (= every +/-2 minutes)
     if ($savecpuTimezone-- <= 0) {
         // run the routine, it is here (and not in the start-up routines) because internet needs to be up and be detected
         // it will only change the time-zone when it is set to the initial default value and internet is available
         // it normally does nothing
-        autoset_timezone($redis);
-        $savecpuTimezone = 28600 + rand(0, 400);
+        $retval = autoset_timezone($redis);
+        if ($retval) {
+            // success, set to retry in +/-8 hours
+            $savecpuTimezone = 57400 + rand(0, 400);
+        } else {
+            // failed, retry after +/-2 minutes
+            $savecpuTimezone = 220 + rand(0, 40);
+        }
+        unset($retval);
     }
     // S.M.A.R.T. monitoring tools
     //  will test each attached hard disk and tape unit

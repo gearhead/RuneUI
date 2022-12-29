@@ -6291,7 +6291,10 @@ function autoset_timezone($redis) {
     // experimented with https://ipsidekick.com/ and https://timezoneapi.io, currently using https://ipapi.co/
     //
     $wifiRegDom00 = sysCmd('iw reg get | grep -ic "country 00:"')[0];
+    $sucess = true;
     if ($redis->hget('service', 'internet') && ($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDom00) {
+        // we should change the timezone
+        $sucess = false;
         // // make sure that file_get_contents() times out when nothing is returned
         // // used for https://ipsidekick.com/ and https://timezoneapi.io
         // $opts = array('http' =>
@@ -6347,10 +6350,12 @@ function autoset_timezone($redis) {
                     // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
                     sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
                     ui_notify('Timezone', 'Timezone automatically updated.<br>Current timezone: '.$timeZone);
+                    $sucess = true;
                 }
             }
         }
     }
+    return $sucess;
 }
 
 function wrk_setTimezone($redis, $timeZone)
