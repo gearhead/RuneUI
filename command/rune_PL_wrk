@@ -466,25 +466,30 @@ while (true) {
                         if ($retval['artist_similar']) {
                             $status['artist_similar'] = $retval['artist_similar'];
                         }
-                        if ($retval['artist_arturl']) {
-                            if ($retval['artist_arturl'] == $artUrl.'/none.png') {
-                                $retval['artist_arturl'] = stripcslashes($retval['album_arturl_medium']);
-                            }
-                            if ($bigartIsAlbum) {
-                                $status['smallArtURL'] = $retval['artist_arturl'];
-                            } else {
-                                $status['bigArtURL'] = $retval['artist_arturl'];
-                            }
-                        }
                         if ($retval['album_arturl_large']) {
                             // when 'album_arturl_large' is set, 'album_arturl_medium' and 'album_arturl_small' are also set
                             // album art sourced from discogs is escaped, always remove with stripcslashes
                             if ($bigartIsAlbum) {
-                                $status['mainArtURL'] = stripcslashes($retval['album_arturl_medium']);
-                                $status['bigArtURL'] = stripcslashes($retval['album_arturl_medium']);
+                                $status['mainArtURL'] = trim(stripcslashes($retval['album_arturl_medium']));
+                                $status['bigArtURL'] = trim(stripcslashes($retval['album_arturl_medium']));
                             } else {
-                                $status['mainArtURL'] = stripcslashes($retval['album_arturl_small']);
-                                $status['smallArtURL'] = stripcslashes($retval['album_arturl_small']);
+                                $status['mainArtURL'] = trim(stripcslashes($retval['album_arturl_medium']));
+                                $status['smallArtURL'] = trim(stripcslashes($retval['album_arturl_small']));
+                            }
+                        }
+                        if ($retval['artist_arturl']) {
+                            if ($bigartIsAlbum) {
+                                if (strpos(' '.$retval['artist_arturl'], '/none.png')) {
+                                    $status['smallArtURL'] = trim(stripcslashes($retval['album_arturl_small']));
+                                } else {
+                                    $status['smallArtURL'] = trim(stripcslashes($retval['artist_arturl']));
+                                }
+                            } else {
+                                if (strpos(' '.$retval['artist_arturl'], '/none.png')) {
+                                    $status['bigArtURL'] = trim(stripcslashes($retval['album_arturl_medium']));
+                                } else {
+                                    $status['bigArtURL'] = trim(stripcslashes($retval['artist_arturl']));
+                                }
                             }
                         }
                     } else {
@@ -498,6 +503,13 @@ while (true) {
                         $status['currentsong'] = 'Radio';
                     }
                 }
+                // this is a catchall when the main art url is not set or incorrectly set for radio
+                if (!$status['mainArtURL']) {
+                    $status['mainArtURL'] = $artUrl.'/none.png';
+                }
+                if ($status['radio'] && strpos(' '.$status['mainArtURL'], '/none.png')) {
+                    $status['mainArtURL'] = $artUrl.'/radio.png';
+                }                
                 if (strpos(' '.$status['changed'], 'mixer') && $redis->get('volume')) {
                     if ($redis->get('ao') === 'PianoDACPlus' && $redis->hget('mpdconf', 'mixer_type') === 'hardware') {
                         sysCmd('amixer -D '.json_decode($redis->hget('acards', 'PianoDACPlus'))->mixer_device.' set Subwoofer '.$status['volume'].'%');
