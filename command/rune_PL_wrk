@@ -509,7 +509,7 @@ while (true) {
                 }
                 if ($status['radio'] && strpos(' '.$status['mainArtURL'], '/none.png')) {
                     $status['mainArtURL'] = $artUrl.'/radio.png';
-                }                
+                }
                 if (strpos(' '.$status['changed'], 'mixer') && $redis->get('volume')) {
                     if ($redis->get('ao') === 'PianoDACPlus' && $redis->hget('mpdconf', 'mixer_type') === 'hardware') {
                         sysCmd('amixer -D '.json_decode($redis->hget('acards', 'PianoDACPlus'))->mixer_device.' set Subwoofer '.$status['volume'].'%');
