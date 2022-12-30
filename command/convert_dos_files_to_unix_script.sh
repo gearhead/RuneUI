@@ -114,6 +114,7 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
         rm /home/file.temp
         echo "Tabs to spaces: $f"
     done
+    cp /tmp/composer/* /srv/http/app/libs
 fi
 #
 # When requested, remove trailing whitespace in lines from bin/bash files, but exclude vendor files
