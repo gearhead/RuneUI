@@ -8704,31 +8704,37 @@ function get_makeitpersonal($redis, $url)
     $makeitpersonalUp = $redis->hGet('service', 'makeitpersonal');
     if (!$makeitpersonalUp) {
         // makeitpersonal is down
-        return 0;
-    }
-    // $proxy = $redis->hGetall('proxy');
-    // using a proxy is possible but not implemented
-    $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
-    $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
-    if (strpos(strtolower(' '.$retval), 'invalid params')) {
-        // 'invalid params' returned, error condition, but not fatal
-        // the artist and/or song parameters are probably too long
-        return 0;
-    } else if (strpos(strtolower(' '.$retval), '>oh-noes<')) {
-        // 'oh-noes' returned, error condition in a web page, but not fatal
-        return 0;
-    } else if (strpos(strtolower(' '.$retval), '>oh noes!<')) {
-        // 'oh noes' returned, error condition in a web page, but not fatal
-        return 0;
-    } else if (strpos(strtolower(' '.$retval), 'internal server error')) {
-        // 'Internal Server Error' returned, error condition server response, but not fatal
-        // trim the error message from the return value, it ends in '/html><br>'
-        $retval = trim(get_between_data($retval, '/html><br>'));
-    } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
-        // 'something went wrong' returned, error condition, disable makeitpersonal
-        $redis->hSet('service', 'makeitpersonal', 0);
-        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-        return 0;
+        $retval = 'Lyrics service unavailable';
+    } else {
+        // $proxy = $redis->hGetall('proxy');
+        // using a proxy is possible but not implemented
+        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
+        if (strpos(strtolower(' '.$retval), 'invalid params')) {
+            // 'invalid params' returned, error condition, but not fatal
+            // the artist and/or song parameters are probably too long
+            return 0;
+        } else if (strpos(strtolower(' '.$retval), '>oh-noes<')) {
+            // 'oh-noes' returned, error condition in a web page, but not fatal
+            return 0;
+        } else if (strpos(strtolower(' '.$retval), '>oh noes!<')) {
+            // 'oh noes' returned, error condition in a web page, but not fatal
+            return 0;
+        } else if (strpos(strtolower(' '.$retval), 'internal server error')) {
+            // 'Internal Server Error' returned, error condition server response, but not fatal
+            // trim the error message from the return value, it ends in '/html><br>'
+            $retval = trim(get_between_data($retval, '/html><br>'));
+        } else if (strpos(strtolower(' '.$retval), 'bots have beat this api for the time being')) {
+            // 'Bots have beat this API for the time being, sorry!' returned, error condition in a web page
+            $redis->hSet('service', 'makeitpersonal', 0);
+            // this will be reset each 15 minutes, providing that the makeitpersonal site is up
+            $retval = 'Lyrics service unavailable';
+        } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
+            // 'something went wrong' returned, error condition, disable makeitpersonal
+            $redis->hSet('service', 'makeitpersonal', 0);
+            // this will be reset each 15 minutes, providing that the makeitpersonal site is up
+            return 0;
+        }
     }
     while (substr($retval, 0, 4) == '<br>') {
         // remove leading empty lines
