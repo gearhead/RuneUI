@@ -923,7 +923,7 @@ function addToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
     }
 }
 
-function addNextToQueue($sock, $path)
+function addNextToQueue($redis, $sock, $path)
 {
     $fileext = parseFileStr($path,'.');
     $status = _parseStatusResponse($redis, MpdStatus($sock));
@@ -1387,7 +1387,7 @@ function _parseStatusResponse($redis, $resp)
             $plistArray['bitrate'] = 0;
             $plistArray['audio_sample_rate'] = 0;
             $plistArray['audio'] = $audio_format[0].':'.$audio_format[1].':'.$audio_format[2];
-         }
+        }
         unset($retval);
         // format "audio_sample_depth" string
         $plistArray['audio_sample_depth'] = $audio_format[1];
@@ -1404,6 +1404,11 @@ function _parseStatusResponse($redis, $resp)
             // do nothing
         } else {
             $plistArray['audio_channels'] = "Stereo";
+        }
+        // elapsed is not set when stop is returned, set it to 0
+        if (!isset($plistArray['state']) || ($plistArray['state'] == 'stop')) {
+            $plistArray['elapsed'] = 0;
+            $plistArray['song_percent'] = 0;
         }
     }
     return $plistArray;
@@ -5977,7 +5982,7 @@ class ui_renderQueue
     }
 }
 
-function ui_status($mpd, $status)
+function ui_status($redis, $mpd, $status)
 {
     if (isset($status['song'])) {
         $curTrack = getTrackInfo($mpd, $status['song']);
@@ -6047,6 +6052,170 @@ function ui_status($mpd, $status)
     }
     if (!isset($status['date'])) {
         $status['date'] = '';
+    }
+    //
+    // special radio processing
+    // get stored previous radio details (it could be empty!)
+    $lastRadioDetails = json_decode($redis->get('last_radio_details'), true);
+    // radio's are not always detected correctly, correct them and determine the radio name
+    if (!$status['radioname'] && isset($status['file']) && (strtolower(substr($status['file'], 0, 4)) == 'http')) {
+        // radio name not detected by MPD but the file is has a http prefix, it could still be a radio
+        if (isset($lastRadioDetails['file']) && ($lastRadioDetails['file'] = $status['file'])) {
+            // its the same radio as the previous one
+            $status['radioname'] = $lastRadioDetails['radioname'];
+            // current album is the radio name
+            $status['currentalbum'] = $lastRadioDetails['radioname'];
+        } else {
+            // search the stored radio stations for the url (returns the radio station name or false)
+            $radioName = is_radioUrl($redis, $status['file']);
+            if ($radioName) {
+                // its a radio url
+                $status['radioname'] = $radioName;
+                // current album is also the radio name
+                $status['currentalbum'] = $radioName;
+            }
+        }
+    }
+    // track time is not returned from MPD for radio's set it to a default of 100 (seconds)
+    if ($status['radioname']) {
+        $status['time'] = 100;
+    } else {
+        // its not a radio, remove stored radio information
+        if ($redis->exists('last_radio_details')) {
+            $redis->del('last_radio_details');
+        }
+    }
+    // elapsed time is not returned for some streaming sources like radio (sometimes), calculate it (and the song percent)
+    if ($status['radioname'] && isset($status['file']) && isset($status['state'])) {
+        // its a radio and we have enough information to generate the elapsed time
+        $now = microtime(true);
+        if (!isset($lastRadioDetails['file'])) {
+            // no last radio information, its a new radio
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['file'] != $lastRadioDetails['file']) {
+            // its a different radio station
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['state'] == 'stop') {
+            // its stopped
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['state'] == 'play') {
+            if (!isset($lastRadioDetails['elapsed_time']) || !$lastRadioDetails['elapsed_time']) {
+                // its just started
+                $status['elapsed'] = 0;
+                $status['song_percent'] = 0;
+            } else {
+                // it had already started playing, now playing, could have paused, update the elapsed time
+                $status['elapsed'] = round($lastRadioDetails['elapsed'] + ($now - $lastRadioDetails['elapsed_time']));
+                if (isset($lastRadioDetails['paused_time']) && $lastRadioDetails['paused_time']) {
+                    // it had paused, update the elapsed time
+                    $status['elapsed'] = round($status['elapsed'] - ($now - $lastRadioDetails['paused_time']));
+                }
+                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
+            }
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = $now;
+        } else if ($status['state'] == 'pause') {
+            if (!isset($lastRadioDetails['elapsed_time']) || !$lastRadioDetails['elapsed_time']) {
+                // its just started
+                $status['elapsed'] = 0;
+                $status['song_percent'] = 0;
+            } else {
+                $status['elapsed'] = round($lastRadioDetails['elapsed'] + ($now - $lastRadioDetails['elapsed_time']));
+                if (isset($lastRadioDetails['paused_time']) && $lastRadioDetails['paused_time']) {
+                    // it was previously paused
+                    $status['elapsed'] = round($status['elapsed'] - ($now - $lastRadioDetails['paused_time']));
+                }
+                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));;
+            }
+            $pauseTimeStamp = $now;
+            $elapsedTimeStamp = $now;
+        }
+        // save the last radio information
+        $lastRadioDetails['file'] = $status['file'];
+        $lastRadioDetails['radioname'] = $status['radioname'];
+        $lastRadioDetails['elapsed'] = $status['elapsed'];
+        $lastRadioDetails['elapsed_time'] = $elapsedTimeStamp;
+        $lastRadioDetails['paused_time'] = $pauseTimeStamp;
+        $redis->set('last_radio_details', json_encode($lastRadioDetails));
+    }
+    //
+    // special hardware input processing
+    if (isset($status['file']) && (strtolower(substr($status['file'], 0, 5)) == 'alsa:')) {
+        // its a hardware source
+        // get stored previous radio details (it could be empty!)
+        $lastAlsaDetails = json_decode($redis->get('last_alsa_details'), true);
+        $now = microtime(true);
+        if (!isset($lastAlsaDetails['file'])) {
+            // no last radio information, its a new radio
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['file'] != $lastAlsaDetails['file']) {
+            // its a different radio station
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['state'] == 'stop') {
+            // its stopped
+            $status['elapsed'] = 0;
+            $status['song_percent'] = 0;
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = 0;
+        } else if ($status['state'] == 'play') {
+            if (!isset($lastAlsaDetails['elapsed_time']) || !$lastAlsaDetails['elapsed_time']) {
+                // its just started
+                $status['elapsed'] = 0;
+                $status['song_percent'] = 0;
+            } else {
+                // it had already started playing, now playing, could have paused, update the elapsed time
+                $status['elapsed'] = round($lastAlsaDetails['elapsed'] + ($now - $lastAlsaDetails['elapsed_time']));
+                if (isset($lastAlsaDetails['paused_time']) && $lastAlsaDetails['paused_time']) {
+                    // it had paused, update the elapsed time
+                    $status['elapsed'] = round($status['elapsed'] - ($now - $lastAlsaDetails['paused_time']));
+                }
+                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
+            }
+            $pauseTimeStamp = 0;
+            $elapsedTimeStamp = $now;
+        } else if ($status['state'] == 'pause') {
+            if (!isset($lastAlsaDetails['elapsed_time']) || !$lastAlsaDetails['elapsed_time']) {
+                // its just started
+                $status['elapsed'] = 0;
+                $status['song_percent'] = 0;
+            } else {
+                $status['elapsed'] = round($lastAlsaDetails['elapsed'] + ($now - $lastAlsaDetails['elapsed_time']));
+                if (isset($lastAlsaDetails['paused_time']) && $lastAlsaDetails['paused_time']) {
+                    // it was previously paused
+                    $status['elapsed'] = round($status['elapsed'] - ($now - $lastAlsaDetails['paused_time']));
+                }
+                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));;
+            }
+            $pauseTimeStamp = $now;
+            $elapsedTimeStamp = $now;
+        }
+        // save the last radio information
+        $lastAlsaDetails['file'] = $status['file'];
+        $lastAlsaDetails['radioname'] = $status['radioname'];
+        $lastAlsaDetails['elapsed'] = $status['elapsed'];
+        $lastAlsaDetails['elapsed_time'] = $elapsedTimeStamp;
+        $lastAlsaDetails['paused_time'] = $pauseTimeStamp;
+        $redis->set('last_alsa_details', json_encode($lastAlsaDetails));
+    } else {
+        // its not a hardware source
+        if ($redis->exists('last_alsa_details')) {
+            $redis->del('last_alsa_details');
+        }
     }
     return $status;
 }

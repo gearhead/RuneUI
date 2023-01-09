@@ -46,7 +46,6 @@ var GUI = {
     currentalbum: '',
     currentartist: '',
     currentsong: '',
-    currentalbum_and_artist: '',
     currentknob: null,
     currentpath: '',
     json: 0,
@@ -73,7 +72,8 @@ var GUI = {
     song_lyrics: '',
     time: 0,
     elapsed: 0,
-    consume: 0
+    consume: 0,
+    file: '',
 };
 
 
@@ -230,8 +230,11 @@ function refreshTimer(startFrom, stopTo = null, state) {
     if (typeof display.countdown !== "undefined") {
         display.countdown('destroy');
         display.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-        if (state !== 'play'){
-            // console.log('startFrom = ', startFrom);
+        if (state === 'play'){
+            // console.log('Play startFrom = ', startFrom);
+            display.countdown('resume');
+        } else {
+            // console.log('Not-play  startFrom = ', startFrom);
             display.countdown('pause');
         }
     }
@@ -239,8 +242,11 @@ function refreshTimer(startFrom, stopTo = null, state) {
     if (typeof displayss.countdown !== "undefined") {
         displayss.countdown('destroy');
         displayss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-        if (state !== 'play'){
-            // console.log('startFrom = ', startFrom);
+        if (state === 'play'){
+            // console.log('Play startFrom = ', startFrom);
+            displayss.countdown('resume');
+        } else {
+            // console.log('Not-play  startFrom = ', startFrom);
             displayss.countdown('pause');
         }
     }
@@ -248,8 +254,11 @@ function refreshTimer(startFrom, stopTo = null, state) {
     if (typeof displaysss.countdown !== "undefined") {
         displaysss.countdown('destroy');
         displaysss.countdown({ since: ((state !== 'stop' || state !== undefined)? -(startFrom) : 0), compact: true, format: 'MS' });
-        if (state !== 'play'){
-            // console.log('startFrom = ', startFrom);
+        if (state === 'play'){
+            // console.log('Play startFrom = ', startFrom);
+            displaysss.countdown('resume');
+        } else {
+            // console.log('Not-play  startFrom = ', startFrom);
             displaysss.countdown('pause');
         }
     }
@@ -257,7 +266,7 @@ function refreshTimer(startFrom, stopTo = null, state) {
 
 // update playback progress knob
 function refreshKnob() {
-    window.clearInterval(GUI.currentKnob);
+    // alert("refreshKnob");
     if (typeof GUI.json.song_percent !== 'undefined') {
         var initTime = parseInt(GUI.json.song_percent)*10;
     }
@@ -266,8 +275,9 @@ function refreshKnob() {
         var step = parseInt(1000/delta);
     }
     var el = $('.countdown-amount').html();
-    // console.log('initTime = ' + initTime + ', delta = ' + delta + ', step = ' + step + ', el = ' + el);
+    // console.log('initTime = ' + initTime + ', delta = ' + delta + ', step = ' + step + ', el = ' + el + ', GUI.json.elapsed = ' + GUI.json.elapsed);
     var time = $('#time');
+    window.clearInterval(GUI.currentKnob);
     time.val(initTime, false).trigger('update');
     if (GUI.state === 'play') {
         GUI.currentKnob = setInterval(function() {
@@ -389,7 +399,6 @@ function customScroll(list, destination, speed) {
         scrollcalc = parseInt((destination)*entryheight - centerheight);
         scrolloffset = scrollcalc;
     } else if (list === 'pl') {
-        //var scrolloffset = parseInt((destination + 2)*entryheight - centerheight);
         scrollcalc = parseInt((destination + 2)*entryheight - centerheight);
         scrolloffset = Math.abs(scrollcalc - scrolltop);
         scrolloffset = (scrollcalc > scrolltop ? '+':'-') + '=' + scrolloffset + 'px';
@@ -559,11 +568,39 @@ function setPlaybackSource() {
 function setUIbuttons(activePlayer) {
     // console.log('GUI.consume:', GUI.consume);
     // console.log('GUI.json.consume:', GUI.json.consume);
+    // this is the menus section header buttons
+    if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
+        // most UI knobs are only active for MPD
+        $('#stop').addClass('disabled');
+        $('#play').addClass('disabled');
+        $('#next').addClass('hide');
+        $('#previous').addClass('hide');
+    } else {
+        // MPD, stop and play valid
+        $('#stop').removeClass('disabled');
+        $('#play').removeClass('disabled');
+        if (GUI.state == 'stop') {
+            // hide previous an next when stopped
+            $('#previous').addClass('hide');
+            $('#next').addClass('hide');
+        } else {
+            if ((GUI.consume === '1')) {
+                // not stopped, MPD and consume on, hide previous
+                $('#previous').addClass('hide');
+                // not stopped unhide next
+                $('#next').removeClass('hide');
+            } else {
+                // MPD and consume off, unhide previous
+                $('#previous').removeClass('hide');
+                // not stopped unhide next
+                $('#next').removeClass('hide');
+            }
+        }
+    }
     if ($('#section-index').length) {
-        // this is the playback section all buttons are valid here
+        // this is the playback section all other buttons are valid here
         // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
         document.getElementById('volume').readOnly = true;
-        // $('#volume').attr('readonly', true);
         // update (volume knob and) control buttons
         if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
@@ -580,10 +617,6 @@ function setUIbuttons(activePlayer) {
             $('#repeat').addClass('hide');
             $('#random').addClass('hide');
             $('#single').addClass('hide');
-            $('#previous').addClass('hide');
-            $('#stop').addClass('disabled');
-            $('#play').addClass('disabled');
-            $('#next').addClass('disabled');
         } else {
             // MPD
             if (GUI.stream) {
@@ -597,16 +630,8 @@ function setUIbuttons(activePlayer) {
                 $('#random').removeClass('hide');
                 $('#single').removeClass('hide');
             }
-            if (GUI.consume === '1') {
-                // MPD and consume on
-                $('#previous').addClass('hide');
-            } else {
-                // MPD and consume off
-                $('#previous').removeClass('hide');
-            }
             if (typeof GUI.json.volume === 'undefined') {
                 // player is MPD but volume control is switched off
-                //document.getElementById("volume").style.color = '#1A242F';
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
                 $('#volume-knob button').prop('disabled', true);
@@ -618,7 +643,6 @@ function setUIbuttons(activePlayer) {
                 $('#volumeup').addClass('hide');
             } else {
                 // player is mpd and the volume control is switched on
-                //document.getElementById("volume").style.color = '#e0e7ee';
                 $('#volume-knob').removeClass('disabled');
                 $('#volume-knob').removeClass('nomixer');
                 $('#volume-knob button').prop('disabled', false);
@@ -634,26 +658,6 @@ function setUIbuttons(activePlayer) {
             $('#next').removeClass('disabled');
         }
     } else {
-        // this is the menus section only header buttons available
-        if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
-            // most UI knobs are only active for MPD
-            $('#stop').addClass('disabled');
-            $('#play').addClass('disabled');
-            $('#next').addClass('disabled');
-            $('#previous').addClass('hide');
-        } else {
-            // MPD
-            $('#stop').removeClass('disabled');
-            $('#play').removeClass('disabled');
-            $('#next').removeClass('disabled');
-            if (GUI.consume === '1') {
-                // MPD and consume on
-                $('#previous').addClass('hide');
-            } else {
-                // MPD and consume off
-                $('#previous').removeClass('hide');
-            }
-        }
         // force setting the main player UI buttons next time
         GUI.activePlayer = '';
     }
@@ -856,10 +860,10 @@ function renderLibraryHome() {
 
 // update info and status on Playback tab
 function refreshState() {
+    // alert("refreshState");
     // show UpdateDB icon
     // console.log('dbupdate = ', GUI.json.updating_db);
-    // if (typeof GUI.json.updating_db !== 'undefined') {
-    if (GUI.json.state !== undefined) {
+    if (GUI.state !== undefined) {
         if (GUI.json.updating_db !== undefined) {
             GUI.DBupdate = true;
         } else {
@@ -872,6 +876,7 @@ function refreshState() {
         $('a', '#open-panel-sx').html('<i class="fa fa-music sx"></i> Library');
     }
     var state = GUI.state;
+    // alert("refreshState 1");
     if (state === 'play') {
         $('#play').addClass('btn-primary');
         $('i', '#play').removeClass('fa fa-pause').addClass('fa fa-play');
@@ -884,6 +889,7 @@ function refreshState() {
         $('i', '#play').removeClass('fa fa-play').addClass('fa fa-pause');
         $('#stop').removeClass('btn-primary');
     } else if (state === 'stop') {
+        // alert("refreshState 2");
         $('#play').removeClass('btn-primary');
         $('i', '#play').removeClass('fa fa-pause').addClass('fa fa-play');
         $('#stop').addClass('btn-primary');
@@ -892,6 +898,9 @@ function refreshState() {
             $('#countdown-display-ss').countdown('destroy');
             $('#countdown-display-sss').countdown('destroy');
         }
+        // alert("refreshState 3");
+        refreshTimer(0, 0, 'stop');
+        window.clearInterval(GUI.currentKnob);
         if (GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
@@ -901,15 +910,16 @@ function refreshState() {
             $('#total-ss').html('00:00');
             $('#total-sss').html('00:00');
         }
+        // alert("refreshState 4");
         $('#time').val(0, false).trigger('update');
         $('#format-bitrate').html('&nbsp;');
         $('#format-bitrate-ss').html('&nbsp;');
         $('#format-bitrate-sss').html('&nbsp;');
         $('li', '#playlist-entries').removeClass('active');
     }
+    // alert("refreshState 5");
     if (state !== 'stop') {
         // console.log('GUI.json.elapsed =', GUI.json.elapsed);
-        // $('#elapsed').html((GUI.json.elapsed !== undefined)? timeConvert(GUI.json.elapsed) : '00:00');
         if (GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
@@ -927,6 +937,7 @@ function refreshState() {
         var current = parseInt(GUI.json.song);
         $('#playlist-entries').find('li').eq(current).addClass('active');
     }
+    // alert("refreshState 6");
     if (GUI.json.playlistlength && GUI.json.playlistlength !== '0') {
         if (GUI.json.song) {
             $('#playlist-position span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
@@ -942,13 +953,13 @@ function refreshState() {
         $('#playlist-position-ss span').html('Empty queue, add some music!');
         $('#playlist-position-sss span').html('Empty queue, add some music!');
     }
+    // alert("refreshState end");
 }
 
 // update the Playback UI
 function updateGUI() {
+    // alert("updateGUI");
     var volume = ((typeof GUI.json.volume == 'undefined') ? 0 : GUI.json.volume);
-    // var elapsed = ((typeof GUI.json.elapsed == 'undefined') ? 0 : GUI.json.elapsed);
-    // var time = ((typeof GUI.json.time == 'undefined') ? 0 : GUI.json.time);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
     var currentsong = ((typeof GUI.json.currentsong == 'undefined') ? '' : GUI.json.currentsong);
@@ -963,15 +974,15 @@ function updateGUI() {
     var artist_bio_summary = ((typeof GUI.json.artist_bio_summary == 'undefined') ? '' : GUI.json.artist_bio_summary);
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
-    // set radio mode if stream is present ???
+    var file = ((typeof GUI.json.file == 'undefined') ? '' : GUI.json.file);
+    // set stream mode if radioname is present or active player is Bluetooth
     if (radioname !== null && radioname !== undefined && radioname !== '') {
-        var stream = 'radio';
+        GUI.stream = 'radio';
     } else if (activePlayer !== undefined && activePlayer === 'Bluetooth') {
-        var stream = 'bluetooth';
+        GUI.stream = 'bluetooth';
     } else {
-        var stream = '';
+        GUI.stream = '';
     }
-    GUI.stream = stream;
     if (typeof GUI.json.consume !== 'undefined') {
         GUI.consume = GUI.json.consume;
     }
@@ -979,38 +990,12 @@ function updateGUI() {
         GUI.activePlayer = activePlayer;
         setUIbuttons(activePlayer);
     }
-    if (GUI.stream) {
-        var time = 100;
-    } else if (typeof GUI.json.time !== 'undefined') {
-        var time = GUI.json.time;
-    }
-    if (typeof GUI.json.elapsed === 'undefined') {
-        // set it to zero as default
-        GUI.json.elapsed = 0;
-        // try to use the current value displayed in the UI
-        var GUIcountdown = $('.countdown-amount').html();
-        if (typeof GUIcountdown !== 'undefined') {
-            // console.log('Countdown = ', GUIcountdown);
-            if (GUIcountdown.includes(':')) {
-                const GUIcountdownParts = GUIcountdown.split(':');
-                if (GUIcountdownParts[0] === '') {
-                    GUIcountdownParts[0] = '0';
-                }
-                if (GUIcountdownParts[1] === '') {
-                    GUIcountdownParts[1] = '0';
-                }
-                GUI.json.elapsed = (parseInt(GUIcountdownParts[0])*60) + parseInt(GUIcountdownParts[1]);
-                // console.log('Elapsed = ', GUI.json.elapsed);
-            }
-        }
-    }
     if ((typeof GUI.json.song_percent === 'undefined') && (typeof GUI.json.elapsed !== 'undefined') && (typeof time !== 'undefined')) {
-        if ((GUI.json.elapsed !== 0) && (time !== 0)) {
+        if ((GUI.json.elapsed !== '0') && (time !== '0')) {
             GUI.json.song_percent = parseInt((parseInt(GUI.json.elapsed)*100)/parseInt(time));
+        } else {
+            GUI.json.song_percent = '0';
         }
-    }
-    if (typeof GUI.json.elapsed !== 'undefined') {
-        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
     }
     // refresh the state
     refreshState();
@@ -1021,7 +1006,6 @@ function updateGUI() {
         if ((mainArtURL !== '') && (GUI.mainArtURL === mainArtURL) && !$('#cover-art').css('background-image').includes(mainArtURL)) {
             // main art has a value its the same as the last time, but the UI has a different value, so force a refresh for all values
             // console.log('Force a refresh = ', 'true');
-            GUI.currentalbum_and_artist = '';
             GUI.currentartist = '';
             GUI.currentsong = '';
             GUI.currentalbum = ''
@@ -1032,6 +1016,7 @@ function updateGUI() {
             GUI.coverArtPreload = '';
             GUI.artist_bio_summary = '';
             GUI.artist_similar = '';
+            GUI.file = '';
         }
         // check song update
         // console.log('GUI.json.currentsong = ', GUI.json.currentsong);
@@ -1040,11 +1025,10 @@ function updateGUI() {
         // console.log('GUI.json.currentartist = ', GUI.json.currentartist);
         // console.log('GUI.currentartist = ', GUI.currentartist);
         // console.log('currentartist = ', currentartist);
-        var currentalbum_and_artist = currentalbum + currentartist;
-        // console.log('GUI.currentalbum_and_artist = ', GUI.currentalbum_and_artist);
-        // console.log('currentalbum_and_artist = ', currentalbum_and_artist);
-        if (GUI.currentalbum_and_artist !== currentalbum_and_artist) {
-            GUI.currentalbum_and_artist = currentalbum_and_artist;
+        // console.log('GUI.file = ', GUI.file);
+        // console.log('file = ', file);
+        if (GUI.file !== file) {
+            GUI.file = file;
             countdownRestart(GUI.json.elapsed);
             if ($('#panel-dx').hasClass('active')) {
                 var current = parseInt(GUI.json.song);
@@ -1203,11 +1187,10 @@ function updateGUI() {
 // render the playing queue from the data response
 function getPlaylistPlain(data) {
     var current = parseInt(GUI.json.song) + 1;
-    var state = GUI.json.state;
+    var state = GUI.state;
     var content = '', time = '', artist = '', album = '', title = '', name='', str = '', filename = '', path = '', id = 0, songid = '', bottomline = '', totaltime = 0, playlisttime = 0, pos = 0;
     var i, line, lines = data.split('\n'), infos=[];
     for (i = 0; (line = lines[i]); i += 1) {
-        //infos = line.split(': ');
         infos = line.split(/: (.+)?/);
         if ('Time' === infos[0]) {
             time = parseInt(infos[1]);
@@ -1265,9 +1248,10 @@ function getPlaylistPlain(data) {
     }
     $('.playlist').addClass('hide');
     $('#playlist-entries').removeClass('hide');
-    //$('#playlist-entries').html(content);
     var pl_entries = document.getElementById('playlist-entries');
-    if( pl_entries ){ pl_entries.innerHTML = content; }
+    if (pl_entries) {
+        pl_entries.innerHTML = content;
+    }
     $('#pl-filter-results').addClass('hide').html('');
     $('#pl-filter').val('');
     $('#pl-manage').removeClass('hide');
@@ -1280,7 +1264,7 @@ function getPlaylistCmd(){
     $.ajax({
         url: '/db/?cmd=playlist',
         success: function(data){
-            if ( data.length > 4) {
+            if (data.length > 4) {
                 $('.playlist').addClass('hide');
                 $('#playlist-entries').removeClass('hide');
                 // console.time('getPlaylistPlain timer');
@@ -1329,31 +1313,35 @@ function getPlaylist(text) {
 
 // launch the Playback UI refresh from the data response
 function renderUI(text){
+    // alert("renderUI");
     toggleLoader('close');
     // update global GUI array
     GUI.json = text[0];
     // console.log(JSON.stringify(text[0]));
-    GUI.state = GUI.json.state;
+    if (typeof GUI.json.state !== 'undefined') {
+        if (GUI.state !== GUI.json.state) {
+            GUI.state = GUI.json.state;
+            if (typeof GUI.json.actPlayer !== 'undefined') {
+                setUIbuttons(GUI.json.actPlayer)
+            }
+        }
+    }
     // console.log('current song = ', GUI.json.currentsong);
-    // console.log( 'GUI.state = ', GUI.state );
-    updateGUI();
+    // console.log('GUI.state = ', GUI.state );
     // console.log('GUI.json.elapsed = ', GUI.json.elapsed);
     // console.log('GUI.json.time = ', GUI.json.time);
     // console.log('GUI.json.state = ', GUI.json.state);
+    if (typeof GUI.json.time !== 'undefined') {
+        var time = GUI.json.time;
+    }
+    if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
+        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
+    }
+    updateGUI();
     if ($('#section-index').length) {
-        // var elapsed = (GUI.json.elapsed !== '' && GUI.json.elapsed !== undefined)? GUI.json.elapsed : 0;
-        // var time = (GUI.json.time !== '' && GUI.json.time !== undefined && GUI.json.time !== null)? GUI.json.time : 0;
-        // refreshTimer(parseInt(elapsed), 0, GUI.json.state);
-        if (typeof GUI.json.time !== 'undefined') {
-            var time = GUI.json.time;
+        if ((GUI.state !== 'stop') && (GUI.json.elapsed  !== 'undefined') && (typeof GUI.json.song_percent !== 'undefined')) {
+            refreshKnob();
         }
-        if (typeof GUI.json.elapsed !== 'undefined') {
-            var elapsed = GUI.json.elapsed;
-        }
-        if (typeof GUI.json.elapsed !== 'undefined') {
-            refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
-        }
-        refreshKnob();
         // console.log('GUI.json.playlist = ' + GUI.json.playlist + ', GUI.playlist = ', GUI.playlist);
         if (GUI.json.playlist !== GUI.playlist) {
             getPlaylistCmd();
@@ -2027,8 +2015,6 @@ function onreleaseKnob(value) {
             $('#countdown-display').countdown({since: -seekto, compact: true, format: 'MS'});
             $('#countdown-display-ss').countdown({since: -seekto, compact: true, format: 'MS'});
             $('#countdown-display-sss').countdown({since: -seekto, compact: true, format: 'MS'});
-        } else {
-            $('#time').val(0).trigger('change');
         }
     }
 }
@@ -2053,7 +2039,6 @@ function commandButton(el) {
     // play/pause
     else if (dataCmd === 'play') {
         var state = GUI.state;
-        //if (json.currentsong != null) {
         if (state === 'play') {
             cmd = 'pause';
             if ($('#section-index').length) {
@@ -2076,17 +2061,10 @@ function commandButton(el) {
                 $('#countdown-display-sss').countdown({since: 0, compact: true, format: 'MS'});
             }
         }
-        //$(this).find('i').toggleClass('fa fa-play').toggleClass('fa fa-pause');
         window.clearInterval(GUI.currentKnob);
         sendCmd(cmd);
         // console.log('sendCmd(' + cmd + ');');
         return;
-        // } else {
-            // $(this).addClass('btn-primary');
-            // $('#stop').removeClass('btn-primary');
-            // $('#time').val(0, false).trigger('update');
-            // $('#countdown-display').countdown({since: 0, compact: true, format: 'MS'});
-        // }
     }
     // previous/next
     else if (dataCmd === 'previous' || dataCmd === 'next') {
@@ -2161,74 +2139,6 @@ function libraryHome(text) {
     }
 }
 
-// list of in range wlans
-// function listWLANs(text) {
-    // var i = 0, content = '', inrange = '', stored = '', wlans = text[0];
-    // //console.log(wlans);
-    // $.each(wlans, function(i) {
-        // content += '<p><a href="/network/wlan/' + wlans[i].nic + '/' + wlans[i].ESSID + '" class="btn btn-lg btn-default btn-block" title="See network properties">';
-        // if (wlans[i].connected !== 0) {
-            // content += '<i class="fa fa-check green sx"></i>';
-        // }
-        // if (wlans[i].storedprofile === 1 && wlans[i].encryption === 'on') {
-            // content += '<i class="fa fa-lock sx"></i>';
-        // } else {
-            // if (wlans[i].encryption === 'on') {
-                // content += '<i class="fa fa-rss fa-wifi"></i><i class="fa fa-lock sx"></i>';
-            // } else {
-                // if (wlans[i].storedprofile !== 1 ) {
-                // content += '<i class="fa fa-rss fa-wifi sx"></i>';
-                // }
-            // }
-        // }
-        // content += '<strong>' + wlans[i].ESSID + '</strong></a></p>';
-        // if (wlans[i].origin === 'scan') {
-            // inrange += content;
-        // }
-        // if (wlans[i].storedprofile === 1) {
-            // stored += content;
-        // }
-        // content = '';
-    // });
-    // if (inrange === '') {
-        // inrange = '<p><a class="btn btn-lg btn-default btn-block" href="#"><i class="fa fa-cog fa-spin sx"></i>scanning for networks...</a></p>';
-    // }
-    // document.getElementById('wifiNetworks').innerHTML = inrange;
-    // document.getElementById('wifiStored').innerHTML = stored;
-    // $.ajax({
-        // url: '/command/?cmd=wifiscan',
-        // cache: false
-    // });
-// }
-
-// // draw the NICs details table
-// function nicsDetails(text) {
-    // var i = 0, content = '', nics = text[0];
-    // // console.log(nics);
-    // $.each(nics, function(i) {
-        // if (i === $('#nic-details').data('name')) {
-            // content += '<tr><th>Name:</th><td><strong>' + i + '<strong></td></tr>';
-            // content += '<tr><th>Type:</th><td>wireless</td></tr>';
-            // if (nics[i].currentssid === null) {
-                // content += '<tr><th>Status:</th><td><i class="fa fa-times red sx"></i>no network connected</td></tr>';
-            // } else {
-                // content += '<tr><th>Status:</th><td><i class="fa fa-check green sx"></i>connected</td></tr>';
-                // content += '<tr><th>Associated SSID:</th><td><strong>' + nics[i].currentssid + '</strong></td></tr>';
-            // }
-
-            // content += '<tr><th>Assigned IP:</th><td>' + ((nics[i].ip !== null) ? ('<strong>' + nics[i].ip + '</strong>') : 'none') + '</td></tr>';
-            // content += '<tr><th>Speed:</th><td>' + ((nics[i].speed !== null) ? nics[i].speed : 'unknown') + '</td></tr>';
-            // if (nics[i].currentssid !== null) {
-                // content += '<tr><th>Netmask:</th><td>' + nics[i].netmask + '</td></tr>';
-                // content += '<tr><th>Gateway:</th><td>' + nics[i].gw + '</td></tr>';
-                // content += '<tr><th>DNS1:</th><td>' + nics[i].dns1 + '</td></tr>';
-                // content += '<tr><th>DNS2:</th><td>' + nics[i].dns2 + '</td></tr>';
-            // }
-        // }
-    // });
-    // $('#nic-details tbody').html(content);
-// }
-
 // open the Playback UI refresh channel
 function playbackChannel(){
     var pushstream = new PushStream({
@@ -2298,34 +2208,6 @@ function notifyChannel(){
     pushstream.addChannel('notify');
     pushstream.connect();
 }
-
-// open the in range Wi-Fi networks list channel
-// function wlansChannel(){
-    // var pushstream = new PushStream({
-        // host: window.location.hostname,
-        // port: window.location.port,
-        // modes: GUI.mode
-    // });
-    // pushstream.onmessage = listWLANs;
-    // pushstream.addChannel('wlans');
-    // pushstream.connect();
-    // $.ajax({
-        // url: '/command/?cmd=wifiscan',
-        // cache: false
-    // });
-// }
-
-// // open the NIC details channel
-// function nicsChannel(){
-    // var pushstream = new PushStream({
-        // host: window.location.hostname,
-        // port: window.location.port,
-        // modes: GUI.mode
-    // });
-    // pushstream.onmessage = nicsDetails;
-    // pushstream.addChannel('nics');
-    // pushstream.connect();
-// }
 
 // trigger home overlays
 function overlayTrigger(overlayID) {
@@ -3663,29 +3545,6 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide WiFi security configuration based on select value
-            // var WiFiKey = $('#wifi-security-key');
-            // if ($('#wifi-security').val() !== 'open') {
-                // WiFiKey.removeClass('hide');
-            // }
-            // $('#wifi-security').change(function(){
-                // if ($(this).val() !== 'open') {
-                    // WiFiKey.removeClass('hide');
-                // }
-                // else {
-                    // WiFiKey.addClass('hide');
-                // }
-            // });
-
-            // refresh in range Wi-Fi networks list
-            // if ($('#wifiNetworks').length) {
-                // // open wlans channel
-                // wlansChannel();
-
-                // // open nics channel
-                // nicsChannel();
-            // }
-
             // show/hide WiFi stored profile box
             $('#wifiProfiles').change(function(){
                 if ($(this).prop('checked')) {
@@ -3779,24 +3638,6 @@ if ($('#section-index').length) {
         // ----------------------------------------------------------------------------------------------------
 
         if ($('#section-debug').length) {
-
-            // this code was removed because ZeroClipboard uses Adobe Flash Player.
-            // Adobe Flash Player will no longer be supported form 2021 (EOL).
-            // Replacement code added below...
-            //
-            // ZeroClipboard.config({swfPath: '/assets/js/vendor/ZeroClipboard.swf'});
-            // var client = new ZeroClipboard(document.getElementById('copy-to-clipboard'));
-            // client.on('ready', function(readyEvent){
-                // // alert('ZeroClipboard SWF is ready!');
-                // client.on('aftercopy', function(event){
-                    // // alert('Copied text to clipboard: ' + event.data['text/plain']);
-                    // new PNotify({
-                        // title: 'Copied to clipboard',
-                        // text: 'The debug output was copied successfully in your clipboard.',
-                        // icon: 'fa fa-check'
-                    // });
-                // });
-            // });
 
             $('#copyText').click(function(){
                 $('#text2copy').html(document.getElementById("text2display").innerText);

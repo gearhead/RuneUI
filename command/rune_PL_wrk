@@ -196,8 +196,8 @@ while (true) {
                     }
                     break;
                 }
-                // we use the mpd subscribe and unsubscribe to channels to trigger an idle interrupt, we need to do it twice, but
-                //  only need to react once
+                // we use the mpd subscribe and unsubscribe to channels to trigger an idle interrupt, this triggers two transactions, we
+                //  need to react once
                 if (($newStatus['changed'] == 'subscription:OK') && ($newStatus['changed'] == $saveChanged)) {
                     // the subscription changed type come in 3's or 4's after each other, process the first one and skip any others
                     //  which follow sequentially
@@ -236,7 +236,7 @@ while (true) {
                 $redis->set('pl_length', $newStatus['playlistlength']);
                 //
                 // runelog('---------status data------------',$newStatus);
-                $newStatus = ui_status($socket, $newStatus);
+                $newStatus = ui_status($redis, $socket, $newStatus);
                 // debug
                 // echo "Radioname: ".$newStatus['radioname'].", changed: ".$newStatus['changed'].", playlistlength: ".$newStatus['playlistlength'].", currentsong: ".$newStatus['currentsong']."\n";
                 runelog('$newStatus', "Radioname: ".$newStatus['radioname'].", changed: ".$newStatus['changed'].", playlistlength: ".$newStatus['playlistlength'].", currentsong: ".$newStatus['currentsong']);
@@ -247,36 +247,12 @@ while (true) {
                 //    runelog('---------------- PLAYLIST RENDER ----------------');
                 //}
                 //
-                // set the radio flag and the radioname and currentalbum if required
-                // webradio's sometimes act like they are just playing file as an url, in this case the currentalbum and radioname are not set
-                // whenever the radioname is set, the currentalbum is also set to its value
-                if ((!isset($newStatus['currentalbum']) || !$newStatus['currentalbum']) && (!isset($newStatus['radioname']) || !$newStatus['radioname'])) {
-                    if (isset($radioUrl) && $radioUrl && ($radioUrl === $newStatus['file'])) {
-                        // current file (url) is a radio url
-                        $newStatus['currentalbum'] = $radioName;
-                        $newStatus['radioname'] = $radioName;
-                        $newStatus['radio'] = true;
-                    } else {
-                        // this routine checks whether the file (url) is a registered web radio and returns its name
-                        $radioName = is_radioUrl($redis, $newStatus['file']);
-                        if ($radioName) {
-                            // current file (url) is a radio url
-                            $radioUrl = $newStatus['file'];
-                            $newStatus['currentalbum'] = $radioName;
-                            $newStatus['radioname'] = $radioName;
-                            $newStatus['radio'] = true;
-                        } else {
-                            $radioUrl = '';
-                            $newStatus['radioname'] = '';
-                            $newStatus['radio'] = false;
-                        }
-                    }
-                } else if (isset($newStatus['radioname']) && $newStatus['radioname']) {
-                    // radioname is set, current file (url) is a radio url (this is how it should work)
-                    $newStatus['currentalbum'] = $newStatus['radioname'];
+                // set the radio flag and the radioname if required
+                if (isset($newStatus['radioname']) && $newStatus['radioname']) {
+                    // radioname is set, current file (url) is a radio url
+                    // currentalbum is set to the radio name
                     $newStatus['radio'] = true;
                 } else {
-                    $radioUrl = '';
                     $newStatus['radioname'] = '';
                     $newStatus['radio'] = false;
                 }
@@ -312,16 +288,14 @@ while (true) {
                         $newStatus['bigArtURL'] = $artUrl.'/none.png';
                         $newStatus['smallArtURL'] = $artUrl.'/none.png';
                         $newStatus['elapsed'] = 0;
-                        $newStatus['time_last_elapsed'] = $now;
                         $newStatus['song_percent'] = 0;
                         $status = $newStatus;
                         $mpdChangeSong = false;
-                        $pauseTime = 0;
                     } else if ($newStatus['currentsong'] === '') {
                         // skip records when no metadata is passed
                         $newStatus['currentsong'] = $saveCurrentsong;
                         $mpdChangeSong = false;
-                    } else if (!strpos(' '.$newStatus['currentsong'],' - ')) {
+                    } else if (!strpos(' '.$newStatus['currentsong'], ' - ')) {
                         // it is a radio and there is no space-hyphen-space in the song name, this indicates an information message and not an artist/album string
                         // $saveFile = $newStatus['file'];
                         $saveRadio = $newStatus['radio'];
@@ -337,37 +311,39 @@ while (true) {
                         $newStatus['smallArtURL'] = $artUrl.'/none.png';
                         $status = $newStatus;
                         $mpdChangeSong = false;
-                    }
-                    if ($newStatus['state'] === 'play') {
-                        // (save and) post the playback data to the UI
-                        $status['elapsed'] = round($status['elapsed'] + ($now - $status['time_last_elapsed']));
-                        if ($pauseTime) {
-                            $status['elapsed'] = round($status['elapsed'] - ($now - $pauseTime));
+                    } else {
+                        foreach ($radioSkipMetaStrings as $radioSkipMetaString) {
+                            if ((strpos(strtolower(' '.$newStatus['currentsong']), strtolower(trim($radioSkipMetaString)))) ||
+                                    (strpos(strtolower(' '.$newStatus['radioname']), strtolower(trim($radioSkipMetaString))))) {
+                                // it is a radio which we always omit from metadata search
+                                // $saveFile = $newStatus['file'];
+                                $saveRadio = $newStatus['radio'];
+                                $newStatus['currentartist'] = 'Webradio';
+                                $newStatus['currentalbumartist'] = 'Webradio';
+                                $newStatus['currentalbum'] = $newStatus['radioname'];
+                                $newStatus['currentcomposer'] = '...';
+                                $newStatus['song_lyrics'] = ' ';
+                                $newStatus['artist_bio_summary'] = ' ';
+                                $newStatus['artist_similar'] = ' ';
+                                $newStatus['mainArtURL'] = $artUrl.'/radio.png';
+                                $newStatus['bigArtURL'] = $artUrl.'/none.png';
+                                $newStatus['smallArtURL'] = $artUrl.'/none.png';
+                                $status = $newStatus;
+                                $mpdChangeSong = false;
+                                break;
+                            }
                         }
-                        $status['time_last_elapsed'] = $now;
-                        $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
-                        $pauseTime = 0;
-                        unset($newStatus['elapsed'], $newStatus['time_last_elapsed'], $newStatus['song_percent']);
-                    } else if ($newStatus['state'] === 'pause') {
-                        $status['elapsed'] = round($status['elapsed'] + ($now - $status['time_last_elapsed']));
-                        if ($pauseTime) {
-                            $status['elapsed'] = round($status['elapsed'] - ($now - $pauseTime));
-                        }
-                        $status['time_last_elapsed'] = $now;
-                        $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
-                        $pauseTime = $status['time_last_elapsed'];
-                        unset($newStatus['elapsed'], $newStatus['time_last_elapsed'], $newStatus['song_percent']);
-                    } else if ($newStatus['state'] === 'stop') {
-                        $status['elapsed'] = 0;
-                        $status['time_last_elapsed'] = $now;
-                        $status['song_percent'] = 0;
-                        $pauseTime = 0;
-                        unset($newStatus['elapsed'], $newStatus['time_last_elapsed'], $newStatus['song_percent']);
                     }
                 }
                 if (!$newStatus['radio']) {
                     // its not a radio, try fixing the display data from cached values
-                    if ($newStatus['file'] && ($newStatus['file'] != $mpdFixFile)) {
+                    if ($newStatus['file'] &&
+                            (($newStatus['file'] != $mpdFixFile))
+                            || (!isset($status['mainArtURL']))
+                            || ($status['mainArtURL'] == $artUrl.'/radio.png')
+                            || ($status['mainArtURL'] == $artUrl.'/none.png')
+                            || ($status['mainArtURL'] == $artUrl.'/black.png')
+                            ) {
                         // for this file we have not fixed the MPD info
                         if ($coverartRequired) {
                             // coverart is switched on, so fit it
@@ -376,12 +352,8 @@ while (true) {
                         $mpdFixFile = $newStatus['file'];
                     } else {
                         // the UI remembers the last values
-                        unset($newStatus['bitrate'], $newStatus['audio_sample_rate'], $newStatus['audio_sample_depth']);
+                        unset($newStatus['bitrate'], $newStatus['audio_sample_rate'], $newStatus['audio_sample_depth'], $newStatus['mainArtURL']);
                     }
-                }
-                if (($status['state'] === 'play') && ($newStatus['state'] === 'stop')) {
-                    unset($newStatus['time']);
-                    $newStatus['elapsed'] = 0;
                 }
                 //
                 // determine what has been returned by MPD, it could be a new song or some sort of status change
@@ -437,17 +409,20 @@ while (true) {
                     if (isset($status['currentsong']) && $status['currentsong'] && $coverartRequired) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
+                        // update the active player information before trying to decode the radio metadata and albumart
+                        $redis->set('act_player_info', json_encode($status));
                         $retval = wrk_get_webradio_art($redis, $status['currentsong']);
                         if ($redis->get('activePlayer') != 'MPD') {
                             // no longer MPD, just break the loop
                             break;
                         }
-                        // $rts = time() - $rts;
                     } else {
                         // currentsong has no value or coverart is switched off
                         $retval = false;
                         $status['currentsong'] = '';
                     }
+                    // it takes ages to determine the radio art, refresh the status to update the elapsed time
+                    $status = ui_status($redis, $socket, $status);
                     $status['fileext'] = '';
                     $status['mainArtURL'] = $artUrl.'/radio.png';
                     $status['bigArtURL'] = $artUrl.'/none.png';
