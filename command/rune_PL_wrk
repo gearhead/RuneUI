@@ -51,7 +51,14 @@ $redis->hSet('spotifyconnect', 'last_track_id', '');
 // clear the spotify connect metadata queues
 $redis->del('s_queue');
 $redis->del('s_queue_fifo');
-
+//
+// some radio stations never supply metadata, add them to the array below (case insensitive)
+//  or create a redis variable, e.g.: redis-cli set radio_skip_meta_strings '["BBC World Service","BBC Radio","Your String To Omit"]'
+$radioSkipMetaStrings = array('BBC World Service', 'BBC Radio');
+if ($redis->exists('radio_skip_meta_strings')) {
+    $radioSkipMetaStrings = json_decode($redis->get('radio_skip_meta_strings'), true);
+}
+//
 // --- WORKER MAIN LOOP --- //
 while (true) {
     // connect to redis backend (pconnect reuses existing connections)
