@@ -521,8 +521,8 @@ while (true) {
                     // in all other circumstances do not skip
                     $redis->set('lock_globalrandom', 0);
                 }
-                // start the job to retrieve extra metadata when it is not a radio and coverart is enabled
-                if (!$status['radio'] && $coverartRequired) {
+                // start the job to retrieve extra metadata when coverart is enabled
+                if ($coverartRequired) {
                     // it may already be running, check first
                     $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
                     if ($retval != 'active') {
