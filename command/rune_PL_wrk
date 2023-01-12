@@ -123,20 +123,27 @@ while (true) {
             $newStatus = _parseStatusResponse($redis, MpdStatus($socket));
             if (isset($newStatus) || is_array($newStatus)) {
                 $status = array_merge($status, $newStatus);
+                $status = ui_status($redis, $socket, $status);
+                if (isset($status['radioname']) && $status['radioname']) {
+                    $status['radio'] = true;
+                    $status['mainArtURL'] = $artUrl.'/radio.png';
+                } else {
+                    $status['radio'] = false;
+                }
+                ui_render('playback', json_encode($status));
             } else {
                 // no status returned, assume mpd not yet ready
                 if ($socket) {
                     closeMpdSocket($socket);
                 }
-                ui_render('playback', json_encode($status));
                 continue;
             }
             $newStatus = array();
             $status['actPlayer'] = $activePlayer;
             $redis->set('act_player_info', json_encode($status));
             ui_render('playback', json_encode($status));
-            // start the job to retrieve extra metadata when it is not a radio and coverart is enabled
-            if (!$status['radio'] && $coverartRequired) {
+            // start the job to retrieve extra metadata when coverart is enabled
+            if ($coverartRequired) {
                 // it may already be running, check first
                 $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
                 if ($retval != 'active') {
