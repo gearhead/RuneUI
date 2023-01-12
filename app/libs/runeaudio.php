@@ -8253,8 +8253,10 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     $fileToSave = 0;
     //
     // always remove files which over 3 months (90 days) old
-    // and files without content after 1 month (30 days)
-    // do it once per day!
+    //  and files without content after 1 month (30 days)
+    //  and song files created when the lyrics service was down after 2 days
+    //  do it once per day!
+    //  spread the load by performing the actions on separate runs of this script
     $today = date("Y-m-d");
     if ($today != $redis->hGet('cleancache', '90lowerdate')) {
         // the following command removes all files from the lower directory which are older than 90 days
@@ -8289,6 +8291,20 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             unlink($file);
         }
         $redis->hSet('cleancache', '30lowerdate_song', $today);
+    } else if ($today != $redis->hGet('cleancache', '1lowerdate_song')) {
+        // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
+        // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
+        //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' >> '/tmp/exclude.filelist'");
+        //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song");
+        //  remove the exclude file
+        unlink('/tmp/exclude.filelist');
+        // delete the files
+        foreach ($files as $file) {
+            unlink($file);
+        }
+        $redis->hSet('cleancache', '1lowerdate_song', $today);
     }
     unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
@@ -8696,58 +8712,144 @@ function get_discogs($redis, $url)
     return $retval;
 }
 
-// function to get information from makeitpersonal
-function get_makeitpersonal($redis, $url)
-// returns false or the response from makeitpersonal as an array
-// no authorisation token required
+// function to get lyrics
+function get_lyrics($redis, $searchArtist, $searchSong)
+// returns an array containing the lyrics or a message and a success indicator
 {
+    // makeitpersonal
     $makeitpersonalUp = $redis->hGet('service', 'makeitpersonal');
     if (!$makeitpersonalUp) {
         // makeitpersonal is down
-        $retval = 'Lyrics service unavailable';
+        $retval = 'Lyrics service unavailable<br>';
+        $found = false;
     } else {
+        // no authorisation token required
+        // url format: https://makeitpersonal.co/lyrics?artist=annie+lennox&title=little+bird
+        $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
         $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
-        if (strpos(strtolower(' '.$retval), 'invalid params')) {
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        if (!$retval) {
+            // retval is an empty string
+            $retval = '';
+            // makeitpersonal should always return a value, something wrong so disable it
+            //  makeitpersonal will reset itsself after 15 minutes
+            $redis->hSet('service', 'makeitpersonal', 0);
+            $found = false;
+        } else if (strpos(strtolower(' '.$retval), 'invalid params')) {
             // 'invalid params' returned, error condition, but not fatal
             // the artist and/or song parameters are probably too long
-            return 0;
+            $retval = '';
+            $found = false;
         } else if (strpos(strtolower(' '.$retval), '>oh-noes<')) {
             // 'oh-noes' returned, error condition in a web page, but not fatal
-            return 0;
+            $retval = '';
+            $found = false;
         } else if (strpos(strtolower(' '.$retval), '>oh noes!<')) {
             // 'oh noes' returned, error condition in a web page, but not fatal
-            return 0;
+            $retval = '';
+            $found = false;
         } else if (strpos(strtolower(' '.$retval), 'internal server error')) {
             // 'Internal Server Error' returned, error condition server response, but not fatal
             // trim the error message from the return value, it ends in '/html><br>'
             $retval = trim(get_between_data($retval, '/html><br>'));
+            $found = false;
         } else if (strpos(strtolower(' '.$retval), 'bots have beat this api for the time being')) {
             // 'Bots have beat this API for the time being, sorry!' returned, error condition in a web page
             $redis->hSet('service', 'makeitpersonal', 0);
             // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-            $retval = 'Lyrics service unavailable';
+            $retval = 'Lyrics service unavailable<br>';
+            $found = false;
         } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
             // 'something went wrong' returned, error condition, disable makeitpersonal
             $redis->hSet('service', 'makeitpersonal', 0);
             // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-            return 0;
+            $retval = '';
+            $found = false;
+        } else {
+            while (substr($retval, 0, 4) == '<br>') {
+                // remove leading empty lines
+                $retval = trim(substr($retval, 4));
+            }
+            if (!$retval) {
+                // nothing returned, it should always return something, disable makeitpersonal
+                $redis->hSet('service', 'makeitpersonal', 0);
+                // this will be reset each 15 minutes, providing that the makeitpersonal site is up
+                $retval = '';
+                $found = false;
+            } else {
+                $found = true;
+            }
         }
     }
-    while (substr($retval, 0, 4) == '<br>') {
-        // remove leading empty lines
-        $retval = trim(substr($retval, 4));
+    if ($found) {
+        $return = array();
+        $return['song_lyrics'] = $retval;
+        $return['success'] = $found;
+        $return['service'] = 'makeitpersonal';
+        return $return;
     }
-    if (!$retval) {
-        // nothing returned, it should always return something, disable makeitpersonal
-        $redis->hSet('service', 'makeitpersonal', 0);
-        // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-        return 0;
+    //
+    // chartlyrics
+    $chartlyricsUp = $redis->hGet('service', 'chartlyrics');
+    if (!$chartlyricsUp) {
+        // chartlyrics is down
+        $retval = 'Lyrics service unavailable<br>';
+        $found = false;
+    } else {
+        // no authorisation token required
+        // url format: : http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=abba&song=Lay%20All%20Your%20Love%20on%20Me
+        $url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist='.urlClean($searchArtist).'&song='.urlClean($searchSong);
+        // $proxy = $redis->hGetall('proxy');
+        // using a proxy is possible but not implemented
+        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        $rank = get_between_data($retval, '<LyricRank>', '</LyricRank>');
+        $lyricCorrectUrl = get_between_data($retval, '<LyricCorrectUrl>', '</LyricCorrectUrl>');
+        $covertArtUrl = get_between_data($retval, '<LyricCovertArtUrl>', '</LyricCovertArtUrl>');
+        $retval = get_between_data($retval, '<Lyric>', '</Lyric>');
+        if (!$retval) {
+            // retval is an empty string
+            $retval = '';
+            $found = false;
+        } else if (strpos(strtolower(' '.$retval), 'internal server error')) {
+            // 'Internal Server Error' returned, error condition server response, but not fatal
+            // trim the error message from the return value, it ends in '/html><br>'
+            $retval = trim(get_between_data($retval, '/html><br>'));
+            $found = false;
+        } else if (strpos(strtolower(' '.$retval), 'something went wrong')) {
+            // 'something went wrong' returned, error condition, disable chartlyrics
+            $redis->hSet('service', 'chartlyrics', 0);
+            // this will be reset each 15 minutes, providing that the chartlyrics site is up
+            $retval = '';
+            $found = false;
+        } else {
+            while (substr($retval, 0, 4) == '<br>') {
+                // remove leading empty lines
+                $retval = trim(substr($retval, 4));
+            }
+            if (!$retval) {
+                // nothing returned
+                // this will be reset each 15 minutes, providing that the chartlyrics site is up
+                $retval = '';
+                $found = false;
+            } else {
+                $found = true;
+            }
+        }
     }
+    //
     $return = array();
+    $return['rank'] = $rank;
+    $return['covertArtUrl'] = $covertArtUrl;
     $return['song_lyrics'] = $retval;
+    $return['success'] = $found;
+    $return['service'] = 'chartlyrics';
     return $return;
 }
 
@@ -8913,6 +9015,7 @@ function get_songInfo($redis, $info=array())
     $searchArtists = array();
     // when the album artist is contained in the (track) artist use the album artist
     //  otherwise use the (track) artist
+    $useAlbumArtist = false;
     if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
         $useAlbumArtist = true;
         $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
@@ -8923,8 +9026,8 @@ function get_songInfo($redis, $info=array())
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
-    } else {
-        $useAlbumArtist = false;
+    }
+    if (!$useAlbumArtist || !count($searchArtists)) {
         $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
@@ -8961,29 +9064,28 @@ function get_songInfo($redis, $info=array())
         }
     }
     //
-    // lyrics are sourced from makeitpersonal using artist name and song name as key
+    // lyrics are sourced from makeitpersonal or chartlyrics using artist name and song name as key
     if (!$info['song_lyrics']) {
         foreach ($searchArtists as $searchArtist) {
             foreach ($searchSongs as $searchSong) {
-                // url format: https://makeitpersonal.co/lyrics?artist=annie+lennox&title=little+bird
-                $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
-                $retval = get_makeitpersonal($redis, $url);
-                if ($retval) {
-                    // found the lyrics on makeitpersonal.co, use the data if it is set
-                    if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
-                        $info['song_lyrics'] = $retval['song_lyrics'];
-                        // break both loops
-                        break 2;
-                    } else {
-                        // pause before trying again
-                        sleep(2);
-                    }
+                $retval = get_lyrics($redis, $searchArtist, $searchSong);
+                if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
+                    // we have a value for song lyrics, use it
+                    $info['song_lyrics'] = $retval['song_lyrics'];
+                    // break both loops
+                    break 2;
+                } else {
+                    // pause before trying again
+                    sleep(2);
                 }
             }
         }
     }
     if (!$info['song_lyrics']) {
         $info['song_lyrics'] = 'No lyrics available<br>';
+        if ($retval['service'] == 'chartlyrics') {
+            $info['song_lyrics'] .= 'Add lyrics for this song at <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a>';
+        }
     }
     if ($useAlbumArtist && $info['albumartist'] && $info['song']) {
         $info['song_filename'] = format_artist_song_file_name($info['albumartist'], $info['song']);
