@@ -8809,6 +8809,8 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        $artist = get_between_data($retval, '<LyricArtist>', '</LyricArtist>');
+        $song = get_between_data($retval, '<LyricSong>', '</LyricSong>');
         $rank = get_between_data($retval, '<LyricRank>', '</LyricRank>');
         $lyricCorrectUrl = get_between_data($retval, '<LyricCorrectUrl>', '</LyricCorrectUrl>');
         $covertArtUrl = get_between_data($retval, '<LyricCovertArtUrl>', '</LyricCovertArtUrl>');
@@ -8839,7 +8841,30 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                 $retval = '';
                 $found = false;
             } else {
-                $found = true;
+                // we get a lot of false positive matches from chartlyrics
+                // check that at least 50% of words in the search artist name occur in the returned artist name
+                $searchArtistParts = explode(' ', $searchArtist);
+                $searchArtistPartsCount = count($searchArtistParts);
+                $searchArtistPartsFound = 0;
+                foreach ($searchArtistParts as $part) {
+                    // simple lower case word check
+                    if (stripos(' '.strtolower($artist), strtolower($part))) {
+                        // match
+                        $searchArtistPartsFound++;
+                    } else {
+                        // complex word check after converting special and complex characters to normal characters
+                        if (stripos(' '.squashCharacters(strtolower($artist)), squashCharacters(strtolower($part)))) {
+                            // match
+                            $searchArtistPartsFound++;
+                        }
+                    }
+                }
+                if ($searchArtistPartsFound && ((($searchArtistPartsFound * 100) / $searchArtistPartsCount) > 50)) {
+                    $found = true;
+                } else {
+                    $retval = '';
+                    $found = false;
+                }
             }
         }
     }
