@@ -6055,6 +6055,10 @@ function ui_status($redis, $mpd, $status)
     }
     //
     // special radio processing
+    // delete the previous radio details if it is the first time since reboot
+    if (is_firstTime($redis, 'last_radio_details')) {
+        $redis->del('last_radio_details');
+    }
     // get stored previous radio details (it could be empty!)
     $lastRadioDetails = json_decode($redis->get('last_radio_details'), true);
     // radio's are not always detected correctly, correct them and determine the radio name
@@ -6151,7 +6155,11 @@ function ui_status($redis, $mpd, $status)
     // special hardware input processing
     if (isset($status['file']) && (strtolower(substr($status['file'], 0, 5)) == 'alsa:')) {
         // its a hardware source
-        // get stored previous radio details (it could be empty!)
+        // delete the previous alsa details if it is the first time since reboot
+        if (is_firstTime($redis, 'last_alsa_details')) {
+            $redis->del('last_alsa_details');
+        }
+        // get stored previous alsa details (it could be empty!)
         $lastAlsaDetails = json_decode($redis->get('last_alsa_details'), true);
         $now = microtime(true);
         if (!isset($lastAlsaDetails['file'])) {
@@ -8539,14 +8547,37 @@ function format_artist_file_name($artist)
 function is_radioUrl($redis, $url)
 // the function returns the name of the webradio station (true) or an empty string (false)
 {
+    
     $radios = $redis->hGetall('webradios');
     foreach ($radios as $radioName => $radioUrl) {
         if ($url === $radioUrl) {
             return $radioName;
         }
+        // this code and the function 'create_radioUrlRedirected' below are currently not required
+        //  MPD does not translate a radio URL to its redirected form, it retains the original
+        // if ($redis->exists('webradios_redirected', $radioName)) {
+            // $radioUrlRedirected = $redis->hget('webradios_redirected', $radioName);
+            // if ($url === $radioUrlRedirected) {
+                // return $radioName;
+            // }
+        // }
     }
     return '';
 }
+
+// // function which creates an array of redirected radio URL's
+// function create_radioUrlRedirected($redis)
+// // the function creates a redis hash table of radio url's which differ from their initial value
+// {
+    // $redis->del('webradios_redirected');
+    // $radios = $redis->hGetall('webradios');
+    // foreach ($radios as $radioName => $radioUrl) {
+        // $radioUrlRedirected = sysCmd('curl -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
+        // if (isset($radioUrlRedirected) && $radioUrlRedirected && $radioUrlRedirected != $radioUrl) {
+            // $redis->hSet('webradios_redirected', $radioName, $radioUrlRedirected);
+        // }
+    // }
+// }
 
 // function to get information from last.fm
 function get_lastFm($redis, $url)
