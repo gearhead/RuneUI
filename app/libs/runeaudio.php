@@ -8547,7 +8547,6 @@ function format_artist_file_name($artist)
 function is_radioUrl($redis, $url)
 // the function returns the name of the webradio station (true) or an empty string (false)
 {
-    
     $radios = $redis->hGetall('webradios');
     foreach ($radios as $radioName => $radioUrl) {
         if ($url === $radioUrl) {
