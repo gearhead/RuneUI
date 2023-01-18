@@ -706,17 +706,39 @@ while (true) {
                     if ($checkAudioCnt-- <= 0) {
                         // a value of 5 for $checkAudioCnt means that this code is run every 10 seconds since the do loop has a 2 second cycle
                         $checkAudioCnt = 5;
-                        $audio_channels_number = round(preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' ')), 1);
-                        if ($audio_channels_number == 1) {
-                            $audio_channels = 'Mono';
-                        } else if ($audio_channels_number == 2) {
+                        $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+                        if ($playing) {
+                            $audio_channels_number = round(preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' ')), 1);
+                            if ($audio_channels_number == 1) {
+                                $audio_channels = 'Mono';
+                            } else if ($audio_channels_number == 2) {
+                                $audio_channels = 'Stereo';
+                            } else {
+                                $audio_channels = 'Multichannel';
+                            }
+                            $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
+                            $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
+                            $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
+                            $bitrate = '190';
+                        } else if (substr(json_decode($redis->hGet($redis->get('ao')), true)['device'], 0, 8) == 'bluealsa') {
                             $audio_channels = 'Stereo';
-                        } else {
-                            $audio_channels = 'Multichannel';
+                            $audio_sample_rate = '48000';
+                            $audio_sample_depth = '16';
+                            $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
+                            $bitrate = '190';
+                            $btOptions = strtolower(sysCmd('grep -i "^options" /etc/default/bluealsa')[0]);
+                            if (srtpos(' '.$btOptions, 'low')) {
+                                $bitrate = '115';
+                            } else if (srtpos(' '.$btOptions, 'medium')) {
+                                $bitrate = '163';
+                            } else if (srtpos(' '.$btOptions, 'standard')) {
+                                $bitrate = '190';
+                            } else if (srtpos(' '.$btOptions, 'high')) {
+                                $bitrate = '120';
+                            } else if (srtpos(' '.$btOptions, 'extreme')) {
+                                $bitrate = '240';
+                            }
                         }
-                        $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
-                        $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
-                        $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                         $btDeviceArray = wrk_btcfg($redis, 'status');
                         $btDeviceName = '';
                         foreach ($btDeviceArray as $btDevice) {
@@ -752,6 +774,7 @@ while (true) {
                     $status['audio_sample_rate'] = round($audio_sample_rate/1000, 1);
                     $status['currentalbum'] = $btDeviceName;
                     $status['currentsong'] = 'Streaming';
+                    $status['bitrate'] = $bitrate;
                     ui_render('playback', json_encode($status));
                     $redis->set('act_player_info', json_encode($status));
                 }
