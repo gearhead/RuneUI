@@ -604,10 +604,7 @@ while (true) {
             $sleepUntilTime = microtime(true)+2;
             do {
                 // sometimes shareport sync fails to terminate properly, the code fixes it, timing out after a specified time when nothing is playing.
-                $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-                // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
-                runelog('rune_PL_wrk: $playing:', $playing);
-                if ($playing) {
+                if (is_playing($redis)) {
                     runelog('rune_PL_wrk: Airplay is playing');
                     $airplay_timeout_count = $airplay_timeout;
                 } else {
@@ -647,10 +644,7 @@ while (true) {
             do {
                 runelog('rune_PL_wrk: Spotify Connect idle loop');
                 // sometimes spotifyd gets its stop/start switch mixed up (returning start when stopped) so test for something playing instead of the event 'stop' value
-                $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-                // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
-                runelog('rune_PL_wrk: $playing:', $playing);
-                if ($playing) {
+                if (is_playing($redis)) {
                     runelog('rune_PL_wrk: Spotify Connect is playing');
                     $spotify_connect_timeout_count = $spotify_connect_timeout;
                 } else {
@@ -701,10 +695,7 @@ while (true) {
                 $status = json_decode($redis->get('act_player_info'), true);
                 runelog('rune_PL_wrk: Bluetooth idle loop');
                 // test for something playing instead of a event 'stop' value
-                $playing = trim(strtolower(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]));
-                // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
-                runelog('rune_PL_wrk: $playing:', $playing);
-                if ($playing) {
+                if (is_playing($redis)) {
                     runelog('rune_PL_wrk: Bluetooth is playing');
                     $bluetooth_timeout_count = $bluetooth_timeout;
                     $state = 'play';

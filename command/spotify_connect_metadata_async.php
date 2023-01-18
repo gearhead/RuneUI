@@ -241,9 +241,7 @@ do {
         $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
     }
     //
-    // $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-    // // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
-    // if ($playing) {
+    // if (is_playing($redis)) {
         // // something is playing
         // // restarting a paused track
         // $status['state'] = "play";

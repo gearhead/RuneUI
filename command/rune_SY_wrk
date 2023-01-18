@@ -1741,8 +1741,7 @@ while (true) {
     //  a) someone needs see the error messages and
     //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
     if ($savecpuSmt-- <= 0) {
-        $retval = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-        if ($retval) {
+        if (is_playing($redis)) {
             // something is playing
             // clear the cache otherwise file_exists() returns incorrect values
             clearstatcache(true, '/usr/bin/smartctl');

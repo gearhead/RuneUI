@@ -11340,3 +11340,21 @@ function wrk_btcfg($redis, $action, $param = null)
     }
     return $retval;
 }
+
+// function to test if something is playing
+function is_playing($redis)
+// returns true of false
+{
+    // alsa device, when not playing the command returns an empty string, when playing returns something like:
+    //  access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050
+    if (trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0])) return true;
+    // other devices
+    $device = json_decode($redis->hGet('acards', $redis->get('ao')), true)['device'];
+    if (isset($device) && $device) {
+        // try playing a half second of silence
+        $retval = trim(sysCmd('mpg123 -qc -a '.$device.' /srv/http/app/config/defaults/500-milliseconds-of-silence.mp3 > /dev/null 2>&1 ; echo "$?"')[0]);
+        // a zero is returned when nothing is playing
+        if (!$retval) return true;
+    }
+    return false;
+}
