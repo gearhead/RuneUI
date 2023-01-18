@@ -599,7 +599,7 @@ while (true) {
                 runelog('---------------------------- FORCE UPDATE Airplay ----------------------------------');
                 $status = array_merge($status, initialise_playback_array($redis, 'Airplay'));
             }
-            $airplay_timeout = $redis->hGet('spotifyconnect', 'timeout');
+            $airplay_timeout = $redis->hGet('airplay', 'timeout');
             $airplay_timeout_count = $airplay_timeout;
             $sleepUntilTime = microtime(true)+2;
             do {
