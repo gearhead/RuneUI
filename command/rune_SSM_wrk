@@ -123,6 +123,7 @@ $status['artist_similar'] = ' ';
 $status['mainArtURL'] = $artUrl.'/airplay.png';
 $status['smallArtURL'] = $artUrl.'/black.png';
 $status['bigArtURL'] = $artUrl.'/black.png';
+$status['time_last_elapsed'] = microtime(true);
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
 ui_render('playback', json_encode($status));
@@ -441,19 +442,28 @@ while (true) {
                         // The "airplay_volume" is what's sent by the source (e.g. iTunes) to the player,
                         // and is from 0.00 down to -30.00, with -144.00 meaning "mute". This is linear on the
                         // volume control slider of iTunes or iOS AirPlay
-                        //$status['volume'] = preg_split(',', $buf);
+                        $volume = explode(',', $buf);
+                        $status['volume'] = round(100 * ($volume[1] - $volume[2]) / ($volume[3] - $volume[2]));
+                        $render = $status;
+                        unset($render['elapsed'], $render['song_percent']);
+                        $redis->set('act_player_info', json_encode($status));
+                        ui_render('playback', json_encode($render));
                         // 'mpc volume' returns the correct volume as long as MPD is running (which it should be)
-                        if ($redis->get('volume')) {
-                            $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep volume: | xargs')[0]);
-                            if ($volume) {
-                                $status['volume'] = round($volume);
-                            }
-                            $render = $status;
-                            unset($render['elapsed'], $render['song_percent']);
-                            $redis->set('act_player_info', json_encode($status));
-                            ui_render('playback', json_encode($render));
-                        }
-                        runelog('rune_SSM_wrk: Volume: ', $buf);
+                        // if ($redis->get('volume')) {
+                            // $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep volume: | xargs')[0]);
+                            // if ($volume) {
+                                // $status['volume'] = round($volume);
+                            // }
+                            // $render = $status;
+                            // unset($render['elapsed'], $render['song_percent']);
+                            // $redis->set('act_player_info', json_encode($status));
+                            // ui_render('playback', json_encode($render));
+                        // }
+                        // debug
+                        // var_dump($volume);
+                        // echo "Volume: ".$status['volume']."\n";
+                        runelog('rune_SSM_wrk: Volume buf: ', $buf);
+                        runelog('rune_SSM_wrk: Volume    : ', $status['volume']);
                         break;
                     case 'ssnc prgr':
                         // progress
@@ -491,10 +501,10 @@ while (true) {
                         $redis->set('act_player_info', json_encode($status));
                         ui_render('playback', json_encode($status));
                         // debug
-                        var_dump($progress);
-                        echo "status['time'] ".$status['time']."\n";
-                        echo "status['elapsed'] ".$status['elapsed']."\n";
-                        echo "status['state'] ".$status['state']."\n";
+                        // var_dump($progress);
+                        // echo "status['time'] ".$status['time']."\n";
+                        // echo "status['elapsed'] ".$status['elapsed']."\n";
+                        // echo "status['state'] ".$status['state']."\n";
                         runelog('rune_SSM_wrk: Progress: ', $buf);
                         runelog('rune_SSM_wrk: Time    : ', $status['time']);
                         runelog('rune_SSM_wrk: Elapsed : ', $status['elapsed']);
@@ -512,13 +522,13 @@ while (true) {
                                 // this is a sort of dummy image which airplay sends before sending the real image
                                 //  the image has a black background with a white music note on it
                                 //  instead of using the note image, just use the predefined black image file
-                                $artFileUrl = $artUrl.'/black.png';
-                                $status['mainArtURL'] = $artFileUrl;
-                                if ($albumBig) {
-                                    $status['bigArtURL'] = $artFileUrl;
-                                } else {
-                                    $status['smallArtURL'] = $artFileUrl;
-                                }
+                                // $artFileUrl = $artUrl.'/black.png';
+                                // $status['mainArtURL'] = $artFileUrl;
+                                // if ($albumBig) {
+                                    // $status['bigArtURL'] = $artFileUrl;
+                                // } else {
+                                    // $status['smallArtURL'] = $artFileUrl;
+                                // }
                             } else {
                                 // first determine the image file type
                                 $tmp = ' '.substr($buf, 0, 32);
