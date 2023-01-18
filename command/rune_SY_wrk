@@ -416,7 +416,7 @@ if ($playerid_db === '') {
     $start4 = microtime(true);
     $starttime = ($start4-$start3)+$firstlap;
     runelog('WORKER rune_SY_wrk.php STARTED in '.$starttime.' seconds.');
-    // noid ui_notify_async('system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
+    // noid ui_notify_async($redis, 'system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
     ui_notify('system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
     runelog('--- NORMAL STARTUP');
     // --- NORMAL STARTUP //
@@ -471,8 +471,8 @@ while (true) {
             case 'test':
                 $redis->sAdd('w_lock', $jobID);
                 // send notfy to UI
-                //ui_notify_async('Test', 'text message: jobID='.$jobID, $jobID);
-                // noid ui_notify_async('Test', 'text message: jobID='.$jobID);
+                //ui_notify_async($redis, 'Test', 'text message: jobID='.$jobID, $jobID);
+                // noid ui_notify_async($redis, 'Test', 'text message: jobID='.$jobID);
                 ui_notify('Test', 'text message: jobID='.$jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -502,8 +502,8 @@ while (true) {
                     }
                     $redis->hSet('airplay', 'enable', 1);
                     // send notfy to UI
-                    //ui_notify_async('AirPlay', 'AirPlay feature enabled', $jobID);
-                    // noid ui_notify_async('AirPlay', 'AirPlay feature enabled');
+                    //ui_notify_async($redis, 'AirPlay', 'AirPlay feature enabled', $jobID);
+                    // noid ui_notify_async($redis, 'AirPlay', 'AirPlay feature enabled');
                     ui_notify('AirPlay', 'AirPlay feature enabled');
                 } elseif ($job->action === 'stop') {
                     // stop shairport-sync
@@ -511,8 +511,8 @@ while (true) {
                     sysCmd('systemctl stop shairport-sync');
                     $redis->hSet('airplay', 'enable', 0);
                     // send notfy to UI
-                    //ui_notify_async('AirPlay', 'AirPlay feature disabled', $jobID);
-                    // noid ui_notify_async('AirPlay', 'AirPlay feature disabled');
+                    //ui_notify_async($redis, 'AirPlay', 'AirPlay feature disabled', $jobID);
+                    // noid ui_notify_async($redis, 'AirPlay', 'AirPlay feature disabled');
                     ui_notify('AirPlay', 'AirPlay feature disabled');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -573,8 +573,8 @@ while (true) {
                 break;
              case 'restore':
                 $redis->sAdd('w_lock', $jobID);
-                //ui_notify_async('Working', 'It takes some time....', $jobID);
-                // noid ui_notify_async('Working', 'It takes some time....');
+                //ui_notify_async($redis, 'Working', 'It takes some time....', $jobID);
+                // noid ui_notify_async($redis, 'Working', 'It takes some time....');
                 ui_notify('Working', 'It takes some time....');
                 wrk_restore($redis, $job->args);
                 // a reboot will take place after a successful restore, if it comes back here something has gone wrong
@@ -585,8 +585,8 @@ while (true) {
                 // Clean IMG
                 runelog('Clean IMG');
                 // send notfy to UI
-                //ui_notify_async('Clean IMG', 'Started, this can take a while to complete', $jobID);
-                // noid ui_notify_async('Clean IMG', 'Started, this can take a while to complete');
+                //ui_notify_async($redis, 'Clean IMG', 'Started, this can take a while to complete', $jobID);
+                // noid ui_notify_async($redis, 'Clean IMG', 'Started, this can take a while to complete');
                 ui_notify('Clean IMG', 'Started, this can take a while to complete');
                 // enable OPcache
                 wrk_opcache($redis, 'enable');
@@ -633,8 +633,8 @@ while (true) {
                     sysCmd('systemctl start upmpdcli');
                     $redis->hSet('dlna', 'enable', 1);
                     // send notfy to UI
-                    //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature enabled', $jobID);
-                    // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature enabled');
+                    //ui_notify_async($redis, 'UPnP / DLNA', 'UPnP / DLNA feature enabled', $jobID);
+                    // noid ui_notify_async($redis, 'UPnP / DLNA', 'UPnP / DLNA feature enabled');
                     ui_notify('UPnP / DLNA', 'UPnP / DLNA feature enabled');
                 }
                 // stop upmpdcli
@@ -643,8 +643,8 @@ while (true) {
                     $redis->hSet('dlna', 'enable', 0);
                     sysCmd('systemctl stop upmpdcli');
                     // send notfy to UI
-                    //ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
-                    // noid ui_notify_async('UPnP / DLNA', 'UPnP / DLNA feature disabled');
+                    //ui_notify_async($redis, 'UPnP / DLNA', 'UPnP / DLNA feature disabled', $jobID);
+                    // noid ui_notify_async($redis, 'UPnP / DLNA', 'UPnP / DLNA feature disabled');
                     ui_notify('UPnP / DLNA', 'UPnP / DLNA feature disabled');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -662,8 +662,8 @@ while (true) {
                 $retval = sysCmd('cd /srv/http/ ; git pull --no-edit');
                 //sysCmd("curl -s -X GET 'http://localhost/clear'");
                 // send notfy to UI
-                //ui_notify_async('Git pull', $retval, $jobID);
-                // noid ui_notify_async('Git pull', $retval);
+                //ui_notify_async($redis, 'Git pull', $retval, $jobID);
+                // noid ui_notify_async($redis, 'Git pull', $retval);
                 ui_notify('Git pull', $retval);
                 sysCmd('cd /srv/http/ && git stash; git stash');
                 $gitupdated = 1;
@@ -673,8 +673,8 @@ while (true) {
                     }
                 }
                 if ($gitupdated) {
-                    //ui_notify_async('Update RuneUI', 'Rebooting', $jobID);
-                    // noid ui_notify_async('Update RuneUI', 'Rebooting');
+                    //ui_notify_async($redis, 'Update RuneUI', 'Rebooting', $jobID);
+                    // noid ui_notify_async($redis, 'Update RuneUI', 'Rebooting');
                     ui_notify('Update RuneUI', 'Rebooting');
                     sysCmd('/srv/http/db/redis_datastore_setup check');
                     wrk_sysAcl();
@@ -685,8 +685,8 @@ while (true) {
                     sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
-                    //ui_notify_async('Update RuneUI', 'Wait for the screen to refresh...', $jobID);
-                    // noid ui_notify_async('Update RuneUI', 'Wait for the screen to refresh...');
+                    //ui_notify_async($redis, 'Update RuneUI', 'Wait for the screen to refresh...', $jobID);
+                    // noid ui_notify_async($redis, 'Update RuneUI', 'Wait for the screen to refresh...');
                     ui_notify('Update RuneUI', 'Wait for the screen to refresh...');
                 }
                 unset($retval, $gitupdated, $playernamemenu);
@@ -694,8 +694,8 @@ while (true) {
                 break;
             case 'hostname':
                 $redis->sAdd('w_lock', $jobID);
-                //ui_notify_async('Settings - Change Hostname', 'it takes some time .....', $jobID);
-                // noid ui_notify_async('Settings - Change Hostname', 'it takes some time .....');
+                //ui_notify_async($redis, 'Settings - Change Hostname', 'it takes some time .....', $jobID);
+                // noid ui_notify_async($redis, 'Settings - Change Hostname', 'it takes some time .....');
                 ui_notify('Settings - Change Hostname', 'it takes some time .....');
                 wrk_changeHostname($redis, $job->args);
                 $retval = sysCmd('hostname');
@@ -710,8 +710,8 @@ while (true) {
                 $hash = md5_file('/etc/mpd.conf');
                 $redis->set('mpdconfhash', $hash);
                 // send notfy to UI
-                //ui_notify_async('Hostname', 'Hostname changed to:'.$hn, $jobID);
-                // noid ui_notify_async('Hostname', 'Hostname changed to:'.$hn);
+                //ui_notify_async($redis, 'Hostname', 'Hostname changed to:'.$hn, $jobID);
+                // noid ui_notify_async($redis, 'Hostname', 'Hostname changed to:'.$hn);
                 ui_notify('Hostname', 'Hostname changed to:'.$hn);
                 sleep(3);
                 $redis->sRem('w_lock', $jobID);
@@ -722,8 +722,8 @@ while (true) {
                 wrk_i2smodule($redis, $job->args);
                 // send notification
                 // TODO: make a real check!
-                //ui_notify_async('I&#178;S kernel module', 'Operation completed', $jobID);
-                // noid ui_notify_async('I&#178;S kernel module', 'Operation completed');
+                //ui_notify_async($redis, 'I&#178;S kernel module', 'Operation completed', $jobID);
+                // noid ui_notify_async($redis, 'I&#178;S kernel module', 'Operation completed');
                 ui_notify('I&#178;S kernel module', 'Operation completed');
                 // TODO (rework needed)
                 $ao = $redis->get('ao');
@@ -740,8 +740,8 @@ while (true) {
                 wrk_audio_on_off($redis, $job->args);
                 // send notification
                 // TODO: make a real check!
-                //ui_notify_async('Switching onboard audio mode', 'Operation completed', $jobID);
-                // noid ui_notify_async('Switching onboard audio mode', 'Operation completed');
+                //ui_notify_async($redis, 'Switching onboard audio mode', 'Operation completed', $jobID);
+                // noid ui_notify_async($redis, 'Switching onboard audio mode', 'Operation completed');
                 ui_notify('Switching onboard audio mode', 'Operation completed');
                 // TODO (rework needed)
                 $ao = $redis->get('ao');
@@ -805,8 +805,8 @@ while (true) {
                     runelog('service: MPDSCRIBBLE start');
                     sysCmd('systemctl start mpdscribble');
                     // send notfy to UI
-                    //ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon started', $jobID);
-                    // noid ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon started');
+                    //ui_notify_async($redis, 'Last.FM scrobbling', 'mpdscribble daemon started', $jobID);
+                    // noid ui_notify_async($redis, 'Last.FM scrobbling', 'mpdscribble daemon started');
                     ui_notify('Last.FM scrobbling', 'mpdscribble daemon started');
                     $redis->hSet('lastfm', 'enable', 1);
                 }
@@ -825,8 +825,8 @@ while (true) {
                         sysCmd('systemctl reload-or-restart spopd');
                     }
                     // send notfy to UI
-                    //ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon stopped', $jobID);
-                    // noid ui_notify_async('Last.FM scrobbling', 'mpdscribble daemon stopped');
+                    //ui_notify_async($redis, 'Last.FM scrobbling', 'mpdscribble daemon stopped', $jobID);
+                    // noid ui_notify_async($redis, 'Last.FM scrobbling', 'mpdscribble daemon stopped');
                     ui_notify('Last.FM scrobbling', 'mpdscribble daemon stopped');
                     $redis->hSet('lastfm', 'enable', 0);
                 }
@@ -836,8 +836,8 @@ while (true) {
                 $redis->sAdd('w_lock', $jobID);
                 if ($job->action === 'update') {
                     // send notfy to UI
-                    //ui_notify_async('MPD', 'configuration updated', $jobID);
-                    // noid ui_notify_async('MPD', 'configuration updated');
+                    //ui_notify_async($redis, 'MPD', 'configuration updated', $jobID);
+                    // noid ui_notify_async($redis, 'MPD', 'configuration updated');
                     ui_notify('MPD', 'configuration update started');
                     wrk_mpdconf($redis, 'update', $job->args, $jobID);
                     wrk_mpdconf($redis, 'restart');
@@ -852,8 +852,8 @@ while (true) {
             case 'mpdcfgman':
                 $redis->sAdd('w_lock', $jobID);
                 // send notfy to UI
-                //ui_notify_async('MPD', 'configuration updated', $jobID);
-                // noid ui_notify_async('MPD', 'configuration updated');
+                //ui_notify_async($redis, 'MPD', 'configuration updated', $jobID);
+                // noid ui_notify_async($redis, 'MPD', 'configuration updated');
                 ui_notify('MPD', 'configuration updated');
                 // write mpd.conf file
                 $fh = fopen('/etc/mpd.conf', 'w');
@@ -880,8 +880,8 @@ while (true) {
                 // $job>args contains the playlist name
                 // run the job async with a lower priority
                 sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/remove_playlist_duplicates.sh '."'".$job->args."'");
-                //ui_notify_async('Remove duplicates started for playlist:', $job->args, $jobID);
-                // noid ui_notify_async('Remove duplicates started for playlist:', $job->args);
+                //ui_notify_async($redis, 'Remove duplicates started for playlist:', $job->args, $jobID);
+                // noid ui_notify_async($redis, 'Remove duplicates started for playlist:', $job->args);
                 ui_notify('Remove duplicates started for playlist:', $job->args);
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -890,8 +890,8 @@ while (true) {
                 // $job>args contains the playlist name
                 // run the job async with a lower priority
                 sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/remove_playlist_invalid.sh '."'".$job->args."'");
-                //ui_notify_async('Remove invalid entries started for playlist:', $job->args, $jobID);
-                // noid ui_notify_async('Remove invalid entries started for playlist:', $job->args);
+                //ui_notify_async($redis, 'Remove invalid entries started for playlist:', $job->args, $jobID);
+                // noid ui_notify_async($redis, 'Remove invalid entries started for playlist:', $job->args);
                 ui_notify('Remove invalid entries started for playlist:', $job->args);
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -916,8 +916,8 @@ while (true) {
                 // save the number of files to add
                 $redis->hSet('globalrandom', 'addrandom', $job->args);
                 // call ashuffle to add the specified number of tracks to the queue
-                //ui_notify_async('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)), $jobID);
-                // noid ui_notify_async('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
+                //ui_notify_async($redis, 'Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)), $jobID);
+                // noid ui_notify_async($redis, 'Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
                 ui_notify('Add random tracks', implode("\n", sysCmd('ashuffle -o '.$job->args)));
                 sleep(3);
                 $redis->sRem('w_lock', $jobID);
@@ -961,8 +961,8 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'rerninstall':
-                //ui_notify_async("Install Rern's Addons", 'It takes some time .....', $jobID);
-                ui_notify_async("Install Rern's Addons", 'It takes some time .....');
+                //ui_notify_async($redis, "Install Rern's Addons", 'It takes some time .....', $jobID);
+                ui_notify_async($redis, "Install Rern's Addons", 'It takes some time .....');
                 //ui_notify("Install Rern's Addons", 'It takes some time .....');
                 $redis->sAdd('w_lock', $jobID);
                 sysCmd('systemctl stop addons cronie');
@@ -983,12 +983,12 @@ while (true) {
                 sysCmd('./install.sh >> /home/rern/Rern_Addons.log');
                 sysCmd('sed -i "s,\x1B\[[0-9;]*[a-zA-Z],,g" /home/rern/Rern_Addons.log');
                 $retval = sysCmd('grep -hi -E "installed|please" /home/rern/Rern_Addons.log');
-                //ui_notify_async("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))), $jobID);
-                ui_notify_async("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
+                //ui_notify_async($redis, "Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))), $jobID);
+                ui_notify_async($redis, "Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
                 //ui_notify("Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
                 sleep(3);
-                //ui_notify_async("Rern's Addons", 'You may need to reboot...', $jobID);
-                ui_notify_async("Rern's Addons", 'You may need to reboot...');
+                //ui_notify_async($redis, "Rern's Addons", 'You may need to reboot...', $jobID);
+                ui_notify_async($redis, "Rern's Addons", 'You may need to reboot...');
                 //ui_notify("Rern's Addons", 'You may need to reboot...');
                 sleep(3);
                 unset($retval);
@@ -998,8 +998,8 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'rernremove':
-                //ui_notify_async("Remove Rern's Addons", 'It takes some time .....', $jobID);
-                ui_notify_async("Remove Rern's Addons", 'It takes some time .....');
+                //ui_notify_async($redis, "Remove Rern's Addons", 'It takes some time .....', $jobID);
+                ui_notify_async($redis, "Remove Rern's Addons", 'It takes some time .....');
                 //ui_notify("Remove Rern's Addons", 'It takes some time .....');
                 $redis->sAdd('w_lock', $jobID);
                 sysCmd('systemctl stop addons cronie');
@@ -1014,8 +1014,8 @@ while (true) {
                 sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
                 $redis->del('addons');
                 $redis->del('addo');
-                //ui_notify_async("Remove Rern's Addons", 'You may need to reboot...', $jobID);
-                ui_notify_async("Remove Rern's Addons", 'You may need to reboot...');
+                //ui_notify_async($redis, "Remove Rern's Addons", 'You may need to reboot...', $jobID);
+                ui_notify_async($redis, "Remove Rern's Addons", 'You may need to reboot...');
                 //ui_notify("Remove Rern's Addons", 'You may need to reboot...');
                 sleep(3);
                 $redis->hSet('addons', 'update', '0');
@@ -1028,8 +1028,8 @@ while (true) {
                 $retval = sysCmd("echo -e 'd\n2\nn\np\n2\n\n\nt\n2\n83\np\nw' | fdisk /dev/mmcblk0 | grep -i mmcblk0p2");
                 sysCmd('partprobe /dev/mmcblk0');
                 sysCmd('resize2fs /dev/mmcblk0p2');
-                //ui_notify_async("Extend Linux Partition", implode("\n", $retval), $jobID);
-                ui_notify_async("Extend Linux Partition", implode("\n", $retval));
+                //ui_notify_async($redis, "Extend Linux Partition", implode("\n", $retval), $jobID);
+                ui_notify_async($redis, "Extend Linux Partition", implode("\n", $retval));
                 //ui_notify("Extend Linux Partition", implode("\n", $retval));
                 sleep(3);
                 unset($retval);
@@ -1142,15 +1142,15 @@ while (true) {
                 // reset accesspoint configuration to default settings
                 if ($job->action === 'reset') {
                     $retval = wrk_apconfig($redis, 'reset', $param);
-                    //ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings', $jobID);
-                    // noid ui_notify_async('AccessPoint', 'Configuration reset, a reboot is required to activate the settings');
+                    //ui_notify_async($redis, 'AccessPoint', 'Configuration reset, a reboot is required to activate the settings', $jobID);
+                    // noid ui_notify_async($redis, 'AccessPoint', 'Configuration reset, a reboot is required to activate the settings');
                     ui_notify('AccessPoint', 'Configuration reset');
                 }
                 // write accesspoint configuration
                 if ($job->action === 'config') {
                     $retval = wrk_apconfig($redis, 'writecfg', $param);
-                    //ui_notify_async('AccessPoint', 'Configuration changed', $jobID);
-                    // noid ui_notify_async('AccessPoint', 'Configuration changed');
+                    //ui_notify_async($redis, 'AccessPoint', 'Configuration changed', $jobID);
+                    // noid ui_notify_async($redis, 'AccessPoint', 'Configuration changed');
                     ui_notify('AccessPoint', 'Configuration changed');
                 }
                 // check if reboot is needed !!!
@@ -1185,8 +1185,8 @@ while (true) {
                     sysCmdAsync($redis, 'systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
                     // wrk_opcache($redis, 'forceprime');
                     // send notfy to UI
-                    //ui_notify_async('PHP OpCache', 'cache enabled', $jobID);
-                    // noid ui_notify_async('PHP OpCache', 'cache enabled');
+                    //ui_notify_async($redis, 'PHP OpCache', 'cache enabled', $jobID);
+                    // noid ui_notify_async($redis, 'PHP OpCache', 'cache enabled');
                     ui_notify('PHP OpCache', 'cache enabled');
                 } else {
                     wrk_opcache($redis, 'disable');
@@ -1194,8 +1194,8 @@ while (true) {
                     // restart php-fpm after waiting 5 seconds
                     sysCmdAsync($redis, 'systemctl reload-or-restart php-fpm || systemctl start php-fpm', 5);
                     // send notfy to UI
-                    //ui_notify_async('PHP OpCache', 'cache disabled', $jobID);
-                    // noid ui_notify_async('PHP OpCache', 'cache disabled');
+                    //ui_notify_async($redis, 'PHP OpCache', 'cache disabled', $jobID);
+                    // noid ui_notify_async($redis, 'PHP OpCache', 'cache disabled');
                     ui_notify('PHP OpCache', 'cache disabled');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1214,8 +1214,8 @@ while (true) {
                 runelog("env: SET KERNEL PROFILE", $job->args);
                 sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
                 $redis->set('orionprofile', $job->args);
-                //ui_notify_async('SoundSignature', 'Profile '.$profile.' applied', $jobID);
-                // noid ui_notify_async('SoundSignature', 'Profile '.$profile.' applied');
+                //ui_notify_async($redis, 'SoundSignature', 'Profile '.$profile.' applied', $jobID);
+                // noid ui_notify_async($redis, 'SoundSignature', 'Profile '.$profile.' applied');
                 ui_notify('SoundSignature', 'Profile '.$profile.' applied');
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1230,8 +1230,8 @@ while (true) {
                 wrk_mpdPlaybackStatus($redis);
                 $redis->save();
                 // send notfy to UI
-                //ui_notify_async('Shutdown', 'system shutdown in progress...', $jobID);
-                // noid ui_notify_async('Shutdown', 'system shutdown in progress...');
+                //ui_notify_async($redis, 'Shutdown', 'system shutdown in progress...', $jobID);
+                // noid ui_notify_async($redis, 'Shutdown', 'system shutdown in progress...');
                 ui_notify('Shutdown', 'system shutdown in progress...');
                 sysCmd('/srv/http/command/rune_shutdown poweroff');
                 sysCmd('redis-cli shutdown save; shutdown now --poweroff --no-wall');
@@ -1243,8 +1243,8 @@ while (true) {
                 wrk_mpdPlaybackStatus($redis);
                 $redis->save();
                 // send notfy to UI
-                //ui_notify_async('Reboot', 'system reboot in progress...', $jobID);
-                // noid ui_notify_async('Reboot', 'system reboot in progress...');
+                //ui_notify_async($redis, 'Reboot', 'system reboot in progress...', $jobID);
+                // noid ui_notify_async($redis, 'Reboot', 'system reboot in progress...');
                 ui_notify('Reboot', 'system reboot in progress...');
                 sysCmd('/srv/http/command/rune_shutdown reboot');
                 sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
@@ -1289,8 +1289,8 @@ while (true) {
                         sysCmd('systemctl start spopd');
                     }
                     // send notfy to UI
-                    //ui_notify_async('Spotify', 'Spotify client configured', $jobID);
-                    // noid ui_notify_async('Spotify', 'Spotify client configured');
+                    //ui_notify_async($redis, 'Spotify', 'Spotify client configured', $jobID);
+                    // noid ui_notify_async($redis, 'Spotify', 'Spotify client configured');
                     ui_notify('Spotify', 'Spotify client configured');
                     $redis->hSet('spotify', 'enable',  1);
                 }
@@ -1298,8 +1298,8 @@ while (true) {
                     runelog('service: SPOPD stop');
                     sysCmd('systemctl stop spopd');
                     // send notfy to UI
-                    //ui_notify_async('Spotify', 'Spotify client stopped', $jobID);
-                    // noid ui_notify_async('Spotify', 'Spotify client stopped');
+                    //ui_notify_async($redis, 'Spotify', 'Spotify client stopped', $jobID);
+                    // noid ui_notify_async($redis, 'Spotify', 'Spotify client stopped');
                     ui_notify('Spotify', 'Spotify client stopped');
                     $redis->hSet('spotify', 'enable',  0);
                 }
@@ -1358,8 +1358,8 @@ while (true) {
                     runelog('service: SPOTIFYD start');
                     // start or re-start spotifyd service
                     // send notfy to UI
-                    //ui_notify_async('Spotify Connect', 'Spotify Connect client configured', $jobID);
-                    // noid ui_notify_async('Spotify Connect', 'Spotify Connect client configured');
+                    //ui_notify_async($redis, 'Spotify Connect', 'Spotify Connect client configured', $jobID);
+                    // noid ui_notify_async($redis, 'Spotify Connect', 'Spotify Connect client configured');
                     ui_notify('Spotify Connect', 'Spotify Connect client configured');
                     sysCmd('pgrep spotifyd || systemctl start spotifyd');
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
@@ -1368,8 +1368,8 @@ while (true) {
                 } elseif ($job->action === 'stop') {
                     runelog('service: SPOTIFYD stop');
                     // send notfy to UI
-                    //ui_notify_async('Spotify Connect', 'Spotify Connect client stopped', $jobID);
-                    // noid ui_notify_async('Spotify Connect', 'Spotify Connect client stopped');
+                    //ui_notify_async($redis, 'Spotify Connect', 'Spotify Connect client stopped', $jobID);
+                    // noid ui_notify_async($redis, 'Spotify Connect', 'Spotify Connect client stopped');
                     ui_notify('Spotify Connect', 'Spotify Connect client stopped');
                     sysCmd('pgrep spotifyd && systemctl stop spotifyd');
                     sysCmd('pgrep rune_SDM_wrk && systemctl stop rune_SDM_wrk');
@@ -1393,8 +1393,8 @@ while (true) {
             case 'switchplayer':
                 $redis->sAdd('w_lock', $jobID);
                 if (wrk_startPlayer($redis, $job->args)) {
-                    //ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
-                    // noid ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args);
+                    //ui_notify_async($redis, 'Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
+                    // noid ui_notify_async($redis, 'Switch Player Engine', 'Current active player engine: '.$job->args);
                     ui_notify('Switch Player Engine', 'Current active player engine: '.$job->args);
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1402,8 +1402,8 @@ while (true) {
             case 'stopplayer':
                 $redis->sAdd('w_lock', $jobID);
                 if (wrk_stopPlayer($redis)) {
-                    //ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
-                    // noid ui_notify_async('Switch Player Engine', 'Current active player engine: '.$job->args);
+                    //ui_notify_async($redis, 'Switch Player Engine', 'Current active player engine: '.$job->args, $jobID);
+                    // noid ui_notify_async($redis, 'Switch Player Engine', 'Current active player engine: '.$job->args);
                     ui_notify('Switch Player Engine', 'Current active player engine: '.$redis->get('activePlayer'));
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1416,12 +1416,12 @@ while (true) {
             case 'timezone':
                 $redis->sAdd('w_lock', $jobID);
                 if (wrk_setTimezone($redis, $job->args)) {
-                    //ui_notify_async('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args, $jobID);
-                    // noid ui_notify_async('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args);
+                    //ui_notify_async($redis, 'Timezone', 'Timezone updated.<br>Current timezone: '.$job->args, $jobID);
+                    // noid ui_notify_async($redis, 'Timezone', 'Timezone updated.<br>Current timezone: '.$job->args);
                     ui_notify('Timezone', 'Timezone updated.<br>Current timezone: '.$job->args);
                 } else {
-                    //ui_notify_async('Error', 'Timezone update failed.<br>Timezone unchanged', $jobID);
-                    // noid ui_notify_async('Error', 'Timezone update failed.<br>Timezone unchanged');
+                    //ui_notify_async($redis, 'Error', 'Timezone update failed.<br>Timezone unchanged', $jobID);
+                    // noid ui_notify_async($redis, 'Error', 'Timezone update failed.<br>Timezone unchanged');
                     ui_notifyError('Error', 'Timezone update failed.<br>Timezone unchanged');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1433,8 +1433,8 @@ while (true) {
                     sysCmd('systemctl enable udevil');
                     sysCmd('systemctl start udevil');
                     $redis->set('udevil', 1);
-                    //ui_notify_async('USB-Auto', 'USB-Automount feature enabled', $jobID);
-                    // noid ui_notify_async('USB-Auto', 'USB-Automount feature enabled');
+                    //ui_notify_async($redis, 'USB-Auto', 'USB-Automount feature enabled', $jobID);
+                    // noid ui_notify_async($redis, 'USB-Auto', 'USB-Automount feature enabled');
                     ui_notify('USB-Auto', 'USB-Automount feature enabled');
                 }
                 if ($job->action === 'stop') {
@@ -1442,8 +1442,8 @@ while (true) {
                     sysCmd('systemctl disable udevil');
                     sysCmd('systemctl stop udevil');
                     $redis->set('udevil', 0);
-                    //ui_notify_async('USB-Auto', 'USB-Automount feature disabled', $jobID);
-                    // noid ui_notify_async('USB-Auto', 'USB-Automount feature disabled');
+                    //ui_notify_async($redis, 'USB-Auto', 'USB-Automount feature disabled', $jobID);
+                    // noid ui_notify_async($redis, 'USB-Auto', 'USB-Automount feature disabled');
                     ui_notify('USB-Auto', 'USB-Automount feature disabled');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1454,29 +1454,29 @@ while (true) {
                 $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'));
                 if ($job->action === 'add') {
                     if (addRadio($redis, $mpd, $job->args)) {
-                        //ui_notify_async('Webradio', $job->args->label.' added to the library', $jobID);
-                        // noid ui_notify_async('Webradio', $job->args->label.' added to the library');
+                        //ui_notify_async($redis, 'Webradio', $job->args->label.' added to the library', $jobID);
+                        // noid ui_notify_async($redis, 'Webradio', $job->args->label.' added to the library');
                         ui_notify('Webradio', $job->args->label.' added to the library');
                     }
                 }
                 if ($job->action === 'edit') {
                     if (editRadio($redis, $mpd, $job->args)) {
-                        //ui_notify_async('Webradio', $job->args->label.' modified succesfully', $jobID);
-                        // noid ui_notify_async('Webradio', $job->args->label.' modified succesfully');
+                        //ui_notify_async($redis, 'Webradio', $job->args->label.' modified succesfully', $jobID);
+                        // noid ui_notify_async($redis, 'Webradio', $job->args->label.' modified succesfully');
                         ui_notify('Webradio', $job->args->label.' modified succesfully');
                     }
                 }
                 if ($job->action === 'delete') {
                     if (deleteRadio($redis, $mpd, $job->args)) {
-                        //ui_notify_async('Webradio', $job->args->label.' deleted', $jobID);
-                        // noid ui_notify_async('Webradio', $job->args->label.' deleted');
+                        //ui_notify_async($redis, 'Webradio', $job->args->label.' deleted', $jobID);
+                        // noid ui_notify_async($redis, 'Webradio', $job->args->label.' deleted');
                         ui_notify('Webradio', $job->args->label.' deleted');
                     }
                 }
                 if ($job->action === 'rebuild') {
                     sysCmd('/srv/http/command/webradiodb.sh');
-                    //ui_notify_async('Webradio', 'Library rebuilt', $jobID);
-                    // noid ui_notify_async('Webradio', 'Library rebuilt');
+                    //ui_notify_async($redis, 'Webradio', 'Library rebuilt', $jobID);
+                    // noid ui_notify_async($redis, 'Webradio', 'Library rebuilt');
                     ui_notify('Webradio', 'Library rebuilt');
                 }
                 ui_libraryHome($redis);
@@ -1512,20 +1512,20 @@ while (true) {
                             sysCmd("sed -i -e '/Underclocking placeholder/r /boot/Archimago_underclocking.txt' /boot/config.txt");
                         }
                         $redis->set('underclocking', 1);
-                        //ui_notify_async('Underclocking', 'Enabled.', $jobID);
-                        // noid ui_notify_async('Underclocking', 'Enabled.');
+                        //ui_notify_async($redis, 'Underclocking', 'Enabled.', $jobID);
+                        // noid ui_notify_async($redis, 'Underclocking', 'Enabled.');
                         ui_notify('Underclocking', 'Enabled.');
                     } else {
-                        //ui_notify_async('Failed', 'An image reset is required.', $jobID);
-                        // noid ui_notify_async('Failed', 'An image reset is required.');
+                        //ui_notify_async($redis, 'Failed', 'An image reset is required.', $jobID);
+                        // noid ui_notify_async($redis, 'Failed', 'An image reset is required.');
                         ui_notifyError('Failed', 'An image reset is required.');
                     }
                 } else {
                     // switch underclocking off
                     sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' /boot/config.txt");
                     $redis->set('underclocking', 0);
-                    //ui_notify_async('Underclocking', 'Disabled.', $jobID);
-                    // noid ui_notify_async('Underclocking', 'Disabled.');
+                    //ui_notify_async($redis, 'Underclocking', 'Disabled.', $jobID);
+                    // noid ui_notify_async($redis, 'Underclocking', 'Disabled.');
                     ui_notify('Underclocking', 'Disabled.');
                 }
                 $redis->sRem('w_lock', $jobID);
@@ -1540,33 +1540,33 @@ while (true) {
                 $redis->sAdd('w_lock', $jobID);
                 if ($job->action === 'addRGtagsFlac') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/add_replaygain_flac_to_local.sh silent continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                    //ui_notify_async($redis, "Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Add ReplayGain tags for Flac files", 'Job started');
                     ui_notify("Add ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'updateRGtagsFlac') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/add_replaygain_flac_to_local.sh silent skip continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                    //ui_notify_async($redis, "Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Update ReplayGain tags for Flac files", 'Job started');
                     ui_notify("Update ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'delRGtagsFlac') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/remove_replaygain_flac_from_local.sh silent continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                    //ui_notify_async($redis, "Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Remove ReplayGain tags from Flac files", 'Job started');
                     ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
                 } else if ($job->action === 'addRGtagsAll') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/add_replaygain_all_to_local.sh silent continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Add ReplayGain tags for Flac files", 'Job started');
+                    //ui_notify_async($redis, "Add ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Add ReplayGain tags for Flac files", 'Job started');
                     ui_notify("Add ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'updateRGtagsAll') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/add_replaygain_all_to_local.sh silent skip continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Update ReplayGain tags for Flac files", 'Job started');
+                    //ui_notify_async($redis, "Update ReplayGain tags for Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Update ReplayGain tags for Flac files", 'Job started');
                     ui_notify("Update ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'delRGtagsAll') {
                     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/remove_replaygain_all_from_local.sh silent continue > /dev/null 2>&1', 0);
-                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started', $jobID);
-                    //ui_notify_async("Remove ReplayGain tags from Flac files", 'Job started');
+                    //ui_notify_async($redis, "Remove ReplayGain tags from Flac files", 'Job started', $jobID);
+                    //ui_notify_async($redis, "Remove ReplayGain tags from Flac files", 'Job started');
                     ui_notify("Remove ReplayGain tags from Flac files", 'Job started');
                 }
                 sleep(3);

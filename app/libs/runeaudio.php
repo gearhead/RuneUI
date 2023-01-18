@@ -4100,7 +4100,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $interface_label = $args;
             }
             // notify UI
-            ui_notify_async('Audio output switched', "Current active output:\n".$interface_label, $jobID);
+            ui_notify_async($redis, 'Audio output switched', "Current active output:\n".$interface_label, $jobID);
             break;
         case 'refresh':
             wrk_audioOutput($redis, 'refresh');
@@ -5977,7 +5977,7 @@ function ui_notifyError($title, $text, $type = null, $permanotice = null)
     ui_render('notify', json_encode($output));
 }
 
-function ui_notify_async($title, $text, $type = null, $permanotice = null)
+function ui_notify_async($redis, $title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
