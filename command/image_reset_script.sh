@@ -200,6 +200,9 @@ rm -rf /var/lib/connman/wifi_*
 rm -rf /var/lib/connman/bluetooth_*
 find /var/lib/iwd/ -type f -exec rm -f {} \;
 #
+# remove core dumps
+rm /var/lib/systemd/coredump/*.zst
+#
 # remove current and historical RuneAudio specific udev rules
 # remove the lines for 99-vc4_input.rules and 70-usb-audio.rules after the a couple of image build's
 rm -f /etc/udev/rules.d/99-vc4_input.rules
