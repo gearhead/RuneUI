@@ -174,6 +174,8 @@ while (true) {
                 'currentalbum' => '',
                 'currentsong' => '',
                 'file' => ''));
+            // next line forces radio metadata, required when the radio is first in the queue
+            sysCmdAsync($redis, '/srv/http/command/ui_update_async', 3);
             $saveRadio = 'x';
             $saveCurrentsong = '';
             $saveCurrentartist = '';
@@ -350,6 +352,8 @@ while (true) {
                             || ($status['mainArtURL'] == $artUrl.'/radio.png')
                             || ($status['mainArtURL'] == $artUrl.'/none.png')
                             || ($status['mainArtURL'] == $artUrl.'/black.png')
+                            || (trim($status['artist_bio_summary']) == '')
+                            || (trim($status['song_lyrics']) == '')
                             ) {
                         // for this file we have not fixed the MPD info
                         if ($coverartRequired) {

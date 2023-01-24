@@ -89,6 +89,10 @@ while (true)  {
     } else {
         $curSongIsRadio = false;
     }
+    if ((trim($status['artist_bio_summary']) == '')
+            || (trim($status['song_lyrics']) == '')) {
+        $saveFile = '';
+    }
     while (isset($status['actPlayer']) && isset($status['file'])
             && ($status['actPlayer'] === 'MPD') && $status['file'] && ($status['file'] != $saveFile)) {
         // loop while MPD and the song has changed
