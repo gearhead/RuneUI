@@ -80,8 +80,7 @@ while (true) {
         $mpdPlaying = SysCmd("mpc status | grep -ic '\[playing\]'")[0];
         if (!$mpdPlaying) {
             // mpd not playing
-            $musicPlaying = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-            if ($musicPlaying) {
+            if (is_playing($redis)) {
                 // but music is playing, therefore its Bluetooth, switch the player to Bluetooth
                 wrk_startPlayer($redis, "Bluetooth");
                 sleep(5);
