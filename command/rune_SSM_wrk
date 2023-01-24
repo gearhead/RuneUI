@@ -109,7 +109,7 @@ $status['playlistlength'] = "1";
 $status['state'] = "play";
 $status['time'] = "0";
 $status['elapsed'] = "0";
-$status['song_percent'] = "100";
+$status['song_percent'] = "0";
 $status['currentalbumartist'] = "Airplay";
 $status['currentartist'] = "Airplay";
 $status['currentalbum'] = "-----";
@@ -200,12 +200,15 @@ while (true) {
                 //  this is a cosmetic tweak which makes the UI behave as expected, it is required because we do not know the order in which
                 //  the information from Airplay is received and therefore cannot make it dependant on receiving a specific metadata item
                 $now = microtime(true);
-                if (($status['elapsed'] + $now - $status['time_last_elapsed']) >= $status['time']) {
-                    // song has finished, stop the countdown
-                    $status['time_last_elapsed'] = $now;
-                    $status['elapsed'] = 0;
+                if (!isset($status['time']) || !$status['time'] || ((($status['elapsed'] + $now - $status['time_last_elapsed']) >= $status['time']))) {
+                    // song not yet started or has finished, stop the countdown
                     $status['time'] = 0;
+                    $status['elapsed'] = 0;
+                    $status['song_percent'] = 0;
                     $status['state'] = 'stop';
+                    $status['time_last_elapsed'] = $now;
+                    $redis->set('act_player_info', json_encode($status));
+                    ui_render('playback', json_encode($status));
                 } else {
                     // otherwise, make sure the countdown is running
                     $status['state'] = 'play';
@@ -254,8 +257,12 @@ while (true) {
                         runelog('rune_SSM_wrk: Currentartist: ', $status['currentartist']);
                         break;
                     case 'core astm':
-                        // song time in milliseconds - also see 'ssnc prgr' progress
-                        $status['time'] = empty($buf) ? '0' : round(intval($buf) / 1000);
+                        // song time in milliseconds - only use it if it is set to a positive value, also see 'ssnc prgr' progress
+                        $timeMiliseconds = intval($buf);
+                        if ($timeMiliseconds > 0) {
+                            $status['time'] = round($timeMiliseconds / 1000);
+                        }
+                        unset($timeMiliseconds);
                         runelog('rune_SSM_wrk: Song time $buf: ', $buf);
                         break;
                     case 'core asal':
@@ -295,7 +302,34 @@ while (true) {
                     case 'ssnc mden':
                         // metadata end
                         runelog('rune_SSM_wrk: Metadata end: ', $buf);
-                        // get artist info, artist art & lyrics
+                        //
+                        // now get the artist art and song information (also done after album art - see below)
+                        $info = array();
+                        $info['artist'] = $status['currentartist'];
+                        $info['albumartist'] = $status['currentalbumartist'];
+                        $info['song'] = $status['currentsong'];
+                        $retval = get_artistInfo($redis, $info);
+                        if ($retval) {
+                            $info = array_merge($info, $retval);
+                        }
+                        $retval = get_songInfo($redis, $info);
+                        if ($retval) {
+                            $info = array_merge($status, $retval);
+                        }
+                        $status['song_lyrics'] = $info['song_lyrics'];
+                        $status['artist_bio_summary'] = $info['artist_bio_summary'];
+                        $status['artist_similar'] = $info['artist_similar'];
+                        if ($albumBig) {
+                            $status['smallArtURL'] = $info['artist_arturl'];
+                        } else {
+                            $status['bigArtURL'] = $info['artist_arturl'];
+                        }
+                        if (strpos(' '.$status['smallArtURL'], '/none.png')) {
+                            $status['smallArtURL'] = $status['mainArtURL'];
+                        }
+                        if (strpos(' '.$status['smallArtURL'], '/none.png')) {
+                            $status['smallArtURL'] = $status['mainArtURL'];
+                        }
                         //
                         // save and post the playback data to the UI
                         $render = $status;
@@ -392,9 +426,9 @@ while (true) {
                         $status['playlist'] = "1";
                         $status['playlistlength'] = "1";
                         $status['state'] = "play";
-                        $status['time'] = "0";
-                        $status['elapsed'] = "0";
-                        $status['song_percent'] = "100";
+                        // $status['time'] = "0";
+                        // $status['elapsed'] = "0";
+                        // $status['song_percent'] = "0";
                         $status['currentalbumartist'] = "Airplay";
                         $status['currentartist'] = "Airplay";
                         $status['currentalbum'] = "-----";
@@ -474,13 +508,13 @@ while (true) {
                         // $progress[1] = current track position timestamp = playposition
                         // $progress[2] = end track timestamp
                         // timestamps @ 44,100Htz - divide by 44100 for seconds (round for full seconds)
-                        // there is a delay of 4 to 5 seconds to actually play music, the UI lags the streaming device by this time
+                        // there can be a delay of 4 to 5 seconds to actually play music, the UI lags the streaming device by this time
+                        // if negative results are provided then the timestamp has wrapped so add (2^32)/44100 seconds
                         if ($progress[0] < 0) $progress[0] = $progress[0] + round((2 ** 32) / 44100);
                         if ($progress[1] < 0) $progress[1] = $progress[1] + round((2 ** 32) / 44100);
                         if ($progress[2] < 0) $progress[2] = $progress[2] + round((2 ** 32) / 44100);
                         $status['elapsed'] = round((($progress[1] - $progress[0]) / 44100));
                         $status['time'] = round(($progress[2] - $progress[0]) / 44100);
-                        // if negative results are provided then the timestamp has wrapped so add (2^32)/44100 seconds
                         if ($status['elapsed'] < 0) {
                             $status['elapsed'] = 0;
                             $status['time'] = 0;
@@ -572,7 +606,7 @@ while (true) {
                             ui_render('playback', json_encode($render));
                             // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                             //
-                            // now get the artist art and song information
+                            // now get the artist art and song information (also done after metadata end - see above)
                             $info = array();
                             $info['artist'] = $status['currentartist'];
                             $info['albumartist'] = $status['currentalbumartist'];
@@ -594,10 +628,10 @@ while (true) {
                                 $status['bigArtURL'] = $info['artist_arturl'];
                             }
                             if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                                $status['smallArtURL'] = $artFileUrl;
+                                $status['smallArtURL'] = $status['mainArtURL'];
                             }
                             if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                                $status['smallArtURL'] = $artFileUrl;
+                                $status['smallArtURL'] = $status['mainArtURL'];
                             }
                             $render = $status;
                             unset($render['elapsed'], $render['song_percent']);
