@@ -988,7 +988,7 @@ function updateGUI() {
     }
     if ((activePlayer !== GUI.activePlayer) || (volume !== GUI.volume)) {
         GUI.activePlayer = activePlayer;
-        setUIbuttons(activePlayer);
+        setPlaybackSource();
     }
     if ((typeof GUI.json.song_percent === 'undefined') && (typeof GUI.json.elapsed !== 'undefined') && (typeof time !== 'undefined')) {
         if ((GUI.json.elapsed !== '0') && (time !== '0')) {
