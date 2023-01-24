@@ -178,11 +178,11 @@ function closeMpdSocket($sock, $retainSockVarName = false)
     }
     catch (Throwable $t) {
         // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
-        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>", '');
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
     }
     catch (Exception $e) {
         // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
-        runelog('[close]['.$sock['description']."]\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>", '');
+        runelog('[close]['.$sock['description'].']\t<<<<<< MPD SOCKET ERROR: Failed to set $linger - Continuing >>>>>>', '');
     }
     try {
         // Code that may throw an Exception or Error.
