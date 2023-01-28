@@ -49,12 +49,12 @@ require_once('/srv/http/app/libs/openredis.php');
 //  the cipher is the first one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
 //  the passphrase is the Rune playerID
-if (is_firstTime($redis, 'cmd_queue_encoding')) {
-    // delete any existing command queue entries
-    $redis->del('cmd_queue');
-    // reset the encryption data
-    reset_cmd_queue_encoding($redis);
-}
+// if (is_firstTime($redis, 'cmd_queue_encoding')) {
+    // // delete any existing command queue entries
+    // $redis->del('cmd_queue');
+    // // reset the encryption data
+    // reset_cmd_queue_encoding($redis);
+// }
 // encode
 //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
 // decode
