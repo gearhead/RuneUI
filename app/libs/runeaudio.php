@@ -1191,22 +1191,41 @@ function reset_cmd_queue_encoding($redis)
 //  the initialization vector is calculated in the standard way
 //  the passphrase is the Rune playerID
 {
+    // the passphrase is the md5 of player id plus the current time
+    $passphrase = md5($redis->get('playerid').microtime(true));
     // randomise the cipher to use from the list of possibles
     //
-    // get the cipher array
-    //  retry 10 times, wait 1 second in the loop
-    $cnt = 10;
-    while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
-        $cipher_array = openssl_get_cipher_methods();
-        if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-            sleep(1);
-            unset($cipher_array);
+    if (is_firstTime($redis, 'cmd_queue_cipher_array')) {
+        // create the cipher array, run only once after a boot
+        //  retry 20 times, wait 1 second in the loop
+        $cnt = 20;
+        while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
+            $cipher_array = openssl_get_cipher_methods();
+            if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
+                sleep(1);
+                unset($cipher_array);
+            }
         }
     }
     if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-        // still not set, us the last stored value
-        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+        // still not set
+        // unset the is_first_time state of 'cmd_queue_cipher_array'
+        unset_is_firstTime($redis, 'cmd_queue_cipher_array');
+        // try to use the last stored array or cipher
+        $cipher_array = array();
+        if ($redis->hExists('cmd_queue_encoding', 'cipher_array')) {
+            $cipher_array = json_decode($redis->hGet('cmd_queue_encoding', 'cipher_array'), true);
+        } else if ($redis->hExists('cmd_queue_encoding', 'cipher')) {
+            $cipher_array[] = $redis->hGet('cmd_queue_encoding', 'cipher');
+        } else {
+            // cant do anything, abort with an error
+            // Use '126	ENOKEY	Required key not available' as exit code
+            // exit(126) will be interpreted as a failure (error) completion in bash
+            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cypher array, aborting\n";
+            exit(126);
+        }
     } else {
+        // this is only run once after a boot
         // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
         // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
         $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
@@ -1227,10 +1246,7 @@ function reset_cmd_queue_encoding($redis)
         unset($GLOBALS['cipher_exclude']);
         // ensure the cipher array indexes are sequential
         $cipher_array = array_values($cipher_array);
-        // determine the highest cipher array index
-        $cipher_array_max_index = count($cipher_array) - 1;
-        // randomly choose a cipher from the cipher array
-        $cipher = $cipher_array[rand(0, $cipher_array_max_index)];
+        $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
     }
     // determine the initialization vector
     //  when it fails it raises an exception, what a pain
@@ -1239,18 +1255,49 @@ function reset_cmd_queue_encoding($redis)
     $ivError = true;
     while ($ivError) {
         try {
-            // Code that may throw an Exception or Error.
-            // Connect to redis
+            // Code that may throw an Exception or Error
+            //
+            // determine the highest cipher array index
+            $cipher_array_max_index = count($cipher_array) - 1;
+            // randomly choose a cipher from the cipher array
+            $cipherIndex = rand(0, $cipher_array_max_index);
+            $cipher = $cipher_array[$cipherIndex];
+            // the next line can throw an exception or error
             $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length($cipher));
-            $ivError = false;
+            // try using the cipher to encode and decode the string 'Test'
+            $test = base64_encode(openssl_encrypt(gzdeflate('Test', 9), $cipher, $passphrase, 0, $iv));
+            $test = trim(gzinflate(openssl_decrypt(base64_decode($test), $cipher, $passphrase, 0, $iv)));
+            if ($test == 'Test') {
+                $ivError = false;
+                // break the loop
+                break;
+            } else {
+                echo "Warning: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Encode/decode invalid cipher: '$cipher'\n";
+                // remove the invalid entry form the array and save it
+                unset($cipher_array[$cipherIndex]);
+                $cipher_array = array_values($cipher_array);
+                $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
+                $ivError = true;
+                $cnt--;
+            }
         }
         catch (Throwable $t) {
             // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+            echo "Warning: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Thrown invalid cipher: '$cipher'\n";
+            // remove the invalid entry form the array and save it
+            unset($cipher_array[$cipherIndex]);
+            $cipher_array = array_values($cipher_array);
+            $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
             $ivError = true;
             $cnt--;
         }
         catch (Exception $e) {
             // Executed only in PHP 5 and lower, will not be reached in PHP 7 and higher
+            echo "Warning: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Exception invalid cipher: '$cipher'\n";
+            // remove the invalid entry form the array and save it
+            unset($cipher_array[$cipherIndex]);
+            $cipher_array = array_values($cipher_array);
+            $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
             $ivError = true;
             $cnt--;
         }
@@ -1258,15 +1305,13 @@ function reset_cmd_queue_encoding($redis)
             // since it wont work just exit
             // Use '126	ENOKEY	Required key not available' as exit code
             // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine initialization vector, aborting";
+            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine initialization vector, aborting\n";
             exit(126);
         } else if ($ivError) {
             // loop again, so sleep first
             sleep(1);
         }
     }
-    // the passphrase is the playerid
-    $passphrase = $redis->get('playerid');
     // save the values if the queue is (still) empty
     if (!$redis->lLen('cmd_queue')) {
         $redis->hSet('cmd_queue_encoding', 'cipher', $cipher);
@@ -8076,6 +8121,38 @@ function is_firstTime($redis, $subject)
         $returnVal = true;
         // create the file
         touch($fileName);
+    }
+    return $returnVal;
+}
+
+// function to unset the check of a subject which is the first one since reboot
+function unset_is_firstTime($redis, $subject)
+// returns true or false
+// true on success
+// false on failure
+{
+    // this function removes '/tmp/<subject>.firsttime'
+    // the /tmp directory is a tmpfs memory disk which is recreated at each reboot/boot
+    $fileName = '/tmp/'.trim($subject).'.firsttime';
+    // clear the static cache otherwise the file_exists() returns an incorrect value
+    clearstatcache(true, $fileName);
+    if (file_exists($fileName)) {
+        // the file exists so not the first time
+        // remove the file
+        unlink($fileName);
+        // check that the unlink is successful
+        // clear the static cache otherwise the file_exists() returns an incorrect value
+        clearstatcache(true, $fileName);
+        if (file_exists($fileName)) {
+            // the file still exists, failure
+            $returnVal = false;
+        } else {
+            // the file does not exist, success
+            $returnVal = true;
+        }
+    } else {
+        // the  file does not exist, do nothing, return true
+        $returnVal = true;
     }
     return $returnVal;
 }
