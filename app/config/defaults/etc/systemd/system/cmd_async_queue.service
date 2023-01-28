@@ -8,8 +8,6 @@ Nice=6
 Restart=always
 MemoryDenyWriteExecute=true
 NoNewPrivileges=true
-ProtectControlGroups=yes
-ProtectKernelModules=yes
 
 [Install]
 WantedBy=multi-user.target
