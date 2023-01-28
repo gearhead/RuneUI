@@ -500,10 +500,12 @@ while (true) {
                     }
                 }
                 // this is a catchall when the main art url is not set or incorrectly set for radio
-                if (!$status['mainArtURL']) {
+                if (!isset($status['mainArtURL']) || !trim($status['mainArtURL'])) {
+                    $status['mainArtURL'] = $artUrl.'/none.png';
+                } else if (isset($status['mainArtURL']) && strpos(' '.$status['mainArtURL'], '/black.png')) {
                     $status['mainArtURL'] = $artUrl.'/none.png';
                 }
-                if ($status['radio'] && strpos(' '.$status['mainArtURL'], '/none.png')) {
+                if (isset($status['radio']) && $status['radio'] && strpos(' '.$status['mainArtURL'], '/none.png')) {
                     $status['mainArtURL'] = $artUrl.'/radio.png';
                 }
                 if (strpos(' '.$status['changed'], 'mixer') && $redis->get('volume')) {
