@@ -1175,7 +1175,7 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
             $redis->lPush('cmd_queue', $encoded);
         } while ($iv != $redis->hGet('cmd_queue_encoding', 'cipher_iv'));
         // start the Asynchronous FIFO command queue service to process the data
-        //  it stops when all entries have been processed, starting it while it is still running is not a problem
+        //  it loops forever, starting it while it is still running is not a problem
         sysCmd('systemctl start cmd_async_queue');
     }
 }

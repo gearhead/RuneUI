@@ -140,8 +140,6 @@ while (true) {
             }
             $newStatus = array();
             $status['actPlayer'] = $activePlayer;
-            $redis->set('act_player_info', json_encode($status));
-            ui_render('playback', json_encode($status));
             // start the job to retrieve extra metadata when coverart is enabled
             if ($coverartRequired) {
                 // it may already be running, check first
@@ -166,17 +164,21 @@ while (true) {
                 $status['playlistlength'] = 0;
             }
             $redis->set('pl_length', $status['playlistlength']);
+            $redis->set('act_player_info', json_encode($status));
+            ui_render('playback', json_encode($status));
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value
             set_last_mpd_volume($redis);
-            $status = array_merge($status, array('currentartist' => '',
-                'currentalbumartist' => '',
-                'currentalbum' => '',
-                'currentsong' => '',
-                'file' => ''));
+            // $status = array_merge($status, array('currentartist' => '',
+                // 'currentalbumartist' => '',
+                // 'currentalbum' => '',
+                // 'currentsong' => '',
+                // 'file' => ''));
             // next line forces radio metadata, required when the radio is first in the queue
+            //  a radio may already have completed its initial state change and may never change its state again
+            //  the command queues an update to the UI to happen in 3 seconds, this will trigger a state change in 'monitorMpdState(..)' below
             sysCmdAsync($redis, '/srv/http/command/ui_update_async', 3);
-            $saveRadio = 'x';
+            $saveRadio = 'x??x';
             $saveCurrentsong = '';
             $saveCurrentartist = '';
             $saveCurrentalbum = '';
@@ -189,6 +191,7 @@ while (true) {
                 // idle LOOP
                 //
                 runelog('rune_PL_wrk: enter idle loop');
+                // wait for a state change
                 $newStatus = monitorMpdState($redis, $socket);
                 // if we have lost the connection to mpd then break the loop
                 if (!$newStatus || !is_array($newStatus)) {

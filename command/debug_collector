@@ -188,6 +188,9 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     $output .= "###### Filesystem mounts (cat /proc/mounts) ######\n";
+    $command = sysCmd('cat /proc/mounts');
+    $output .= implode("\n", $command)."\n\n\n";
+    unset($command);
     $output .=  file_get_contents('/proc/mounts')."\n\n";
     $output .= "###### Filesystem mounts - free space (df -h) ######\n";
     $command = sysCmd('df -h');

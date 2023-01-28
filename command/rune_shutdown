@@ -59,7 +59,7 @@ if [[ "$enablesplash" != "0" ]] ; then
     fi
     ply-image "$splash"
 fi
-# reset any lock's
+# reset any redis lock's
 locks=$( redis-cli --scan --pattern lock_* | sort -u )
 for lock in $locks ; do
     redis-cli set "$lock" 0
@@ -76,8 +76,8 @@ rmdir /mnt/MPD/USB/*
 # udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
 udevil clean
 # unmount the persistent cache subsystem
-umount /home/cache
 umount /srv/http/tmp/art
+umount /home/cache
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
