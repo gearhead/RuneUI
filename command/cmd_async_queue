@@ -90,8 +90,8 @@ while (true) {
         // decode the encoded command
         $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
         // debug
-        runelog('cmd_async_queue - decoded command', $command);
         // echo "Decoded command: ".$command."\n";
+        runelog('cmd_async_queue - decoded command', $command);
         if (strlen($command) && !in_array($command, $cycleCommands)) {
             // debug
             runelog('cmd_async_queue - running command', $command);

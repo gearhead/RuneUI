@@ -82,7 +82,7 @@ while ($redisError) {
             // since nothing will work without redis just exit
             // Use '111 ECONNREFUSED Connection refused' as exit code
             // exit(111) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/openredis.php] Failed to connect to Redis aborting";
+            echo "Error: [app/libs/openredis.php] Failed to connect to Redis aborting\n";
             exit(111);
         }
     } else if ($redisError) {
