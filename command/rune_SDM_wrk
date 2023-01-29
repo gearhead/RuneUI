@@ -74,6 +74,17 @@ if ($redis->get('remoteSSbigart') === 'album') {
 } else {
     $bigartIsAlbum = false;
 }
+// determine whether mpc can correctly determine the volume
+//  when a simple control is available for the active audio card the volume can be determined
+$mixer = $redis->hGet('spotifyconnect', 'mixer');
+$card = preg_replace('/[^0-9]/', '',$redis->hGet('spotifyconnect', 'device'));
+if ($mixer == 'PCM' && strlen($card)) {
+    // the card has a PCM 'softvol' (software volume) control or there is no card number available (maybe Bluetooth)
+    $alsaVolume = false;
+} else {
+    // the card has a simple control and a card number
+    $alsaVolume = true;
+}
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
 $lastEvent = '';
@@ -182,10 +193,19 @@ do {
         $status['state'] = "stop";
         $status['time'] = "0";
         $status['elapsed'] = "0";
-        $status['song_percent'] = "100";
-        $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
-        $status['volume'] = $lastvolume;
-        sysCmd('mpc volume '.$lastvolume);
+        $status['song_percent'] = "0";
+        $status['time_last_elapsed'] = microtime(true);
+        if ($alsaVolume) {
+            $lastvolume = preg_replace('/[^0-9]/', '', $redis->hGet('spotifyconnect', 'lastvolume'));
+            if (isset($lastvolume) && strlen($lastvolume)) {
+                $status['volume'] = $lastvolume;
+                sysCmd('mpc volume '.$lastvolume);
+            } else {
+                $status['volume'] = 0;
+            }
+        } else {
+            $status['volume'] = 0;
+        }
         $status['currentalbumartist'] = "SpotifyConnect";
         $status['currentartist'] = "SpotifyConnect";
         $status['currentalbum'] = "-----";
@@ -204,6 +224,7 @@ do {
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         $status['song_percent'] = 0;
         $status['elapsed'] = 0;
+        $status['time_last_elapsed'] = microtime(true);
     }
     if ($job['event'] != 'endofqueue') {
         $eventQueue = true;
@@ -262,6 +283,7 @@ do {
         }
         if ($job['position_ms']) {
             $status['elapsed'] = round($job['position_ms']/1000);
+            $status['time_last_elapsed'] = microtime(true);
             // calculate the percentage played
             if ($status['time'] != 0) {
                 $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
@@ -271,6 +293,7 @@ do {
             $updateUI = true;
         }
     }
+    // debug
     // if ($lastEvent != $job['event']) {
         // echo '$job-event :'.$job['event'].
             // ' $trackChanged :'.$trackChanged.
@@ -284,14 +307,12 @@ do {
     if ((4*intval(++$cnt/4)) == $cnt) {
         $cnt = 0;
         // calculate the volume, get the actual volume from alsa
-        $card = preg_replace('/[^0-9]/', '',$redis->hGet('spotifyconnect', 'device'));
-        $mixer = $redis->hGet('spotifyconnect', 'mixer');
-        if ($mixer != 'PCM') {
-            // PCM is the 'softvol' (software volume) control
-            // cant get a volume value, just skip the code
-            $retval = sysCmd('amixer -c '.$card.' get '.$mixer.' | grep "%"');
-            if (isset($retval[0]) && $retval[0]) {
-                $lastvolume = get_between_data($retval[0], '[', '%');
+        if ($alsaVolume) {
+            // its an alsa device with simple control
+            //  $card and $mixer have valid values
+            $retval = sysCmd('amixer -c '.$card.' get '.$mixer.' | grep "%"')[0];
+            if (isset($retval) && $retval) {
+                $lastvolume = get_between_data($retval, '[', '%');
                 if (is_numeric($lastvolume) && ($lastvolume >= 0) && ($lastvolume <= 100)) {
                     if ($status['volume'] != $lastvolume) {
                         $status['volume'] = $lastvolume;
@@ -301,7 +322,18 @@ do {
                     }
                 }
             } else {
-                $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
+                $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
+                if ($status['volume'] != $lastvolume) {
+                    $status['volume'] = $lastvolume;
+                    $updateUI = true;
+                }
+            }
+        } else {
+            // it is a PCM which is the 'softvol' (software volume) control or Bluetooth
+            //  cant get a volume value from alsa, just set the volume to zero
+            if ($status['volume'] != 0) {
+                $status['volume'] = 0;
+                $updateUI = true;
             }
         }
         if ($eventQueue) {
@@ -313,7 +345,7 @@ do {
                     $updateUI = true;
                 }
             } else {
-                if ($status['state'] != "pause") {
+                if ($status['state'] == "play") {
                     $status['state'] = "pause";
                     $updateUI = true;
                 }
@@ -367,16 +399,14 @@ do {
         }
         $updateUI = true;
     }
-    if (isset($status['elapsed']) && isset($status['song_percent'])) {
-        $status['time_last_elapsed'] = microtime(true);
-    } else {
-        if (($status['time'] != 0) && ($status['state'] === 'play')) {
-            $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
-            $status['time_last_elapsed'] = microtime(true);
-            $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
-        } else if ($status['state'] != 'play') {
-            $status['time_last_elapsed'] = microtime(true);
-        }
+    $now = microtime(true);
+    if (isset($status['time']) && isset($status['elapsed']) && isset($status['time_last_elapsed'])
+            && $status['time'] && $status['elapsed'] && ($status['state'] === 'play')) {
+        $status['elapsed'] = round($status['elapsed'] + $now - $status['time_last_elapsed']);
+        $status['time_last_elapsed'] = $now;
+        $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
+    } else if ($status['state'] != 'play') {
+        $status['time_last_elapsed'] = $now;
     }
     $active_player = $redis->get('activePlayer');
     if ($updateUI && ($active_player == 'SpotifyConnect')) {
@@ -385,7 +415,7 @@ do {
         $redis->set('act_player_info', json_encode($status));
         ui_render('playback', json_encode($status));
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
+        // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";
     }
     // unload CPU: 0.5 second sleep
