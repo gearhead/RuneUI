@@ -11427,16 +11427,10 @@ function is_playing($redis)
     if (trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0])) return true;
     // other devices
     $device = json_decode($redis->hGet('acards', $redis->get('ao')), true)['device'];
-    if (isset($device) && $device) {
-        if (substr($device, 0, 3) == 'hw:') {
-            // using plughw: insted of hw: causes automatic reformatting supported by the device
-            $device = str_replace('hw:', 'plughw:', $device);
-        } else {
-            // otherwise use cd format (equivalent to: -f S16_LE -c2 -r44100)
-            $device = $device.' -f cd';
-        }
+    if (isset($device) && $device && strpos(' '.$device, 'bluealsa')) {
+        // output device is Bluetooth
         // try playing a half second of silence with aplay
-        $retval = trim(sysCmd('aplay -q -D '.$device.' /srv/http/app/config/defaults/500-milliseconds-of-silence.mp3 > /dev/null 2>&1 ; echo "$?" | xargs')[0]);
+        $retval = trim(sysCmd('aplay -N -f cd -q -D '.$device.' /srv/http/app/config/defaults/500-milliseconds-of-silence.mp3 > /dev/null 2>&1 ; echo "$?" | xargs')[0]);
         // a zero is returned when nothing is playing
         if ($retval) {
             return true;
