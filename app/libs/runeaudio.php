@@ -11430,7 +11430,7 @@ function is_playing($redis)
     if (isset($device) && $device && strpos(' '.$device, 'bluealsa')) {
         // output device is Bluetooth
         // try playing a half second of silence with aplay
-        $retval = trim(sysCmd('aplay -N -f cd -q -D '.$device.' /srv/http/app/config/defaults/500-milliseconds-of-silence.mp3 > /dev/null 2>&1 ; echo "$?" | xargs')[0]);
+        $retval = trim(sysCmd('aplay -N -f cd -q -D '.$device.' /srv/http/app/config/defaults/silence100ms.mp3 > /dev/null 2>&1 ; echo "$?" | xargs')[0]);
         // a zero is returned when nothing is playing
         if ($retval) {
             return true;
