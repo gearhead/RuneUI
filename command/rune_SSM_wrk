@@ -192,8 +192,6 @@ while (true) {
                     $redis->set('act_player_info', json_encode($status));
                 }
             }
-            // metadata is identified by two decoded values: the type and the code depending on the
-            // values of the decoded values various actions will take place for specific metadata records
             if (preg_match('#</item>#', $airplay_meta_line)) {
                 // this bit of code detects that the elapsed time greater than the track time (track has therefore finished playing)
                 //  it sets the counters to zero and the state to stop, which caused the ui to stop the countdown and display zero's
@@ -213,21 +211,171 @@ while (true) {
                     // otherwise, make sure the countdown is running
                     $status['state'] = 'play';
                 }
+                // metadata is identified by two decoded values: the type and the code depending on the
+                // values of the decoded values various actions will take place for specific metadata records
                 $tag = $type.' '.$code;
                 runelog('rune_SSM_wrk: Airplay tag: ', $tag);
+                // debug, set $debugMetadata to true to debug of false
+                $debugMetadata = true;
+                if ($debugMetadata) {
+                    if (($type != 'core') && ($code === 'phbt')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core phbt' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'phb0')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core phb0' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'ofps')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ofps' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'ofmt')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ofmt' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'styp')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core styp' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'svna')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core svna' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'ascp')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ascp' should be '$type $code'\n";
+                    } else if (($type != 'xesam') && ($code === 'composer')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'xesam composer' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asdk')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdk' should be '$type $code'\n";
+                    } else if (($type != 'sps') && ($code === 'songdatakind')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'sps songdatakind' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'caps')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core caps' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'astn')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astn' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'astc')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astc' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asdn')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdn' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asdc')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdc' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asar')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asar' should be '$type $code'\n";
+                    } else if (($type != 'xesam') && ($code === 'albumArtist')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'xesam albumArtist' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'astm')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astm' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asal')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asal' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'minm')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core minm' should be '$type $code'\n";
+                    } else if (($type != 'core') && ($code === 'asgn')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asgn' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'stal')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc stal' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'mdst')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc mdst' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'mden')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc mden' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'prsm')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc prsm' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'clip')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc clip' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'svip')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc svip' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'snua')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc snua' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'acre')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc acre' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'daid')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc daid' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'dapo')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc dapo' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pend')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pend' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'flsr')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc flsr' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pfls')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pfls' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pbeg')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pbeg' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pcst')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pcst' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pcen')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pcen' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'snam')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc snam' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'pvol')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pvol' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'prgr')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc prgr' should be '$type $code'\n";
+                    } else if (($type != 'ssnc') && ($code === 'PICT')) {
+                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc PICT' should be '$type $code'\n";
+                    }
+                }
                 switch ($tag) {
+                    case 'ssnc pffr':
+                    case 'core ascr':
+                        // unknown
+                        runelog("rune_SSM_wrk: Unknown '".$type." ".$code."' ", $buf);
+                        break;
+                    case 'core phbt':
+                        // FramePosition
+                        // FramePosition/FirstFramePosition metadata is generated only if the progress_interval in the metadata section
+                        //  of the configuration file is non-zero. The progress interval can also be set by a new
+                        //  SetFramePositionUpdateInterval method in the D-Bus interface.
+                        // FramePosition/FirstFramePosition metadata is of the form <RTP Frame number>/<Local Time> where the local time,
+                        //  in nanoseconds (a 64-bit number), is the precise time that frame should be played. The metadata is generated
+                        //  when the frame is placed in the output buffer, and is thus generated audio_backend_buffer_desired_length_in_seconds
+                        //  (usually 0.2 seconds) before the time in question.
+                        // $redis->hSet('airplay','Frame_Position', trim($buf));
+                        runelog('rune_SSM_wrk: FramePosition: ', $buf);
+                        break;
+                    case 'core phb0':
+                        // FirstFramePosition
+                        // FramePosition/FirstFramePosition metadata is generated only if the progress_interval in the metadata section
+                        //  of the configuration file is non-zero. The progress interval can also be set by a new
+                        //  SetFramePositionUpdateInterval method in the D-Bus interface.
+                        // FramePosition/FirstFramePosition metadata is of the form <RTP Frame number>/<Local Time> where the local time,
+                        //  in nanoseconds (a 64-bit number), is the precise time that frame should be played. The metadata is generated
+                        //  when the frame is placed in the output buffer, and is thus generated audio_backend_buffer_desired_length_in_seconds
+                        //  (usually 0.2 seconds) before the time in question.
+                        // $redis->hSet('airplay','First_Frame_Position', trim($buf));
+                        runelog('rune_SSM_wrk: FirstFramePosition: ', $buf);
+                        break;
+                    case 'core ofps':
+                        // OutputRate
+                        $redis->hSet('airplay','Output_Rate', trim($buf));
+                        runelog('rune_SSM_wrk: Airplay OutputRate: ', $buf);
+                        break;
+                    case 'core ofmt':
+                        // OutputFormat
+                        $redis->hSet('airplay','Output_Format', trim($buf));
+                        runelog('rune_SSM_wrk: Airplay OutputFormat: ', $buf);
+                        break;
+                    case 'core styp':
+                        // StreamType
+                        $redis->hSet('airplay','Stream_Type', trim($buf));
+                        runelog('rune_SSM_wrk: Airplay StreamType: ', $buf);
+                        break;
+                    case 'core svna':
+                        // ServiceName
+                        $redis->hSet('airplay','ServiceName', trim($buf));
+                        runelog('rune_SSM_wrk: Airplay ServiceName: ', $buf);
+                        break;
                     case 'core mper':
                         // persistent ID
                         $redis->hSet('airplay','persistent_ID', trim($buf));
                         runelog('rune_SSM_wrk: Airplay persistent ID: ', $buf);
                         break;
                     case 'core ascp':
+                    case 'xesam composer':
                         // composer
                         $status['currentcomposer'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Airplay composer: ', $buf);
                         break;
                     case 'core asdk':
-                        // Song data kind
+                    case 'sps songdatakind':
+                        // song data kind
+                        // derived from the asdk metadata token, to the metadata bundle presented in the D-Bus interface. If 0 it seems to
+                        //  indicate an item of a specific duration such as an audio track; if 1 it seems to mean the stream is of unknown
+                        //  duration, for example an internet radio stream.
+                        $songDataKind = intval(trim($buf));
+                        $redis->hSet('airplay','song_data_kind', $songDataKind);
+                        if ($songDataKind) {
+                            $status['radioname'] = 'Airplay Radio';
+                        } else {
+                            unset($status['radioname']);
+                        }
                         runelog('rune_SSM_wrk: Airplay song data kind: ', $buf);
                         break;
                     case 'core caps':
@@ -251,6 +399,7 @@ while (true) {
                         runelog('rune_SSM_wrk: Airplay song track disc count: ', $buf);
                         break;
                     case 'core asar':
+                    case 'xesam albumArtist':
                         // artist
                         $status['currentalbumartist'] = empty($buf) ? 'Unknown' : trim($buf);
                         $status['currentartist'] = $status['currentalbumartist'];
@@ -651,7 +800,10 @@ while (true) {
                         }
                         break;
                     default:
-                        runelog('rune_SSM_wrk: Undefined: ', substr($buf, 0, 32));
+                        if ($debugMetadata) {
+                            echo "rune_SSM_wrk: Unknown metadata coding '$type $code'\n";
+                        }
+                        runelog("rune_SSM_wrk: Undefined '".$type." ".$code."': ", substr($buf, 0, 32));
                         break;
                 }
                 $buf = '';
