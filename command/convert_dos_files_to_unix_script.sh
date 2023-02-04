@@ -185,6 +185,12 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
     cd /home
 fi
 #
+# Make sure that the required locales are available
+#
+sed -i '/^#en_US.UTF-8 UTF-8/s|#en_|en_|g' /etc/locale.gen
+locale-gen
+locale -a
+#
 # Check file protections and ownership
 #
 # art cache needs to be cleaned and dismounted first
