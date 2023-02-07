@@ -10,4 +10,4 @@
 # check 'bluealsa --help' for valid options
 
 # OPTIONS="-p a2dp-source -p a2dp-sink -p hfp-hf -p hfp-ag -p hsp-hs -p hsp-ag"
-OPTIONS="-p a2dp-sink -p a2dp-source
+OPTIONS="-p a2dp-sink -p a2dp-source"
