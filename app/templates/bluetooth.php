@@ -21,8 +21,8 @@
                 <span class="help-block">To discover and connect a Bluetooth output device, click on <strong>Connect output devices</strong>.
                     Then you should enable pairing on the Bluetooth output device (e.g. a Bluetooth speaker
                     or headphones).
-                    The Bluetooth devices will be listed below. New and trusted devices will automatically be paired and connected.<br>
-                    Click on <strong>Refresh</strong> to refresh the data</span>
+                    A list of registered output Bluetooth devices is shown below.Trusted devices will automatically be paired and connected when detected.<br>
+                    Click on <strong>Refresh</strong> to refresh the list</span>
             </div>
             <?php $outCnt = 0; foreach ($this->devices as $device) : ?>
                 <?php if (!$device['sink'] && $device['paired']) continue; else $outCnt++; // all unpaired or sinks will be shown ?>
@@ -54,7 +54,7 @@
                 $outDev .= '</p></div>'; ?>
                 <?=$outDev ?>
             <?php endforeach; ?>
-            <?php if ($outCnt == 0)  echo '<label class="control-label col-sm-2">&nbsp;<br><i>&nbsp;</i></label><div class="col-sm-10"><p>&nbsp;No output devices<br></p></div>'; ?>
+            <?php if ($outCnt == 0)  echo '<label class="control-label col-sm-2">&nbsp;<br><i>&nbsp;</i></label><div class="col-sm-10"><p>&nbsp;No output Bluetooth devices registered<br></p></div>'; ?>
         </form>
         <div class="col-sm-offset-2 col-sm-10">
         <?php if ($outCnt != 0) : ?>
@@ -69,8 +69,8 @@
                 <i>Notes: Detection of Bluetooth output devices will terminate 2 minutes after clicking 'Connect output devices'.
                 Switching off an active Bluetooth output device will cause RuneAudio to revert to the previously selected output device.
                 You should leave all detected Bluetooth devices in the list, untrust those which you do not want to use.
-                All output devices are disconnected and automatically become blocked when an input device is connected, they will be unblocked when the input device is disconnected.
-                Concurrent Bluetooth input and output is not possible</i></span>
+                Concurrent Bluetooth input and output is not possible. All output devices are disconnected and automatically become blocked
+                when an input Bluetooth device is connected, they will be unblocked when the input device is disconnected</i></span>
         <?php endif ?>
         </div>
         <legend>Bluetooth input</legend>
@@ -79,13 +79,15 @@
                 <a href="/network" class="btn btn-default btn-lg">Cancel</a>
                 <a href="/bluetooth" class="btn btn-primary btn-lg"><i class="fa fa-refresh sx"></i>Refresh</a>
                 <button type="submit" class="btn btn-primary btn-lg" name="input_connect" value="input_connect">Connect input</button>
-                <span class="help-block">Click on <strong>Connect input</strong> to add a Bluetooth input device,
+                <span class="help-block">Click on <strong>Connect input</strong> to add a new Bluetooth input device,
                     then use your input device (e.g. your smart-phone) to initiate the Bluetooth pairing action.
                     This RuneAudio player will be displayed as a Bluetooth device with the name
-                    <strong><?=$this->hostname ?></strong>. Connecting an input device will cause all output devices to be disconnected and blocked.<br>
-                    Reconnecting a known Bluetooth input device is also initiated from the input device (e.g. your smart-phone),
-                    a list of known devices is shown below.<br>
-                    Click on <strong>Refresh</strong> to refresh the data</span>
+                    <strong><?=$this->hostname ?></strong>. Connecting an input device will cause all output Bluetooth devices to be
+                    disconnected and blocked.<br>
+                    Reconnecting a registered Bluetooth input device is also initiated from the input device (e.g. your smart-phone),
+                    a list of the registered Bluetooth input devices is shown below. There is no need to click on <strong>Connect input</strong>
+                    when reconnecting a registered Bluetooth input device.<br>
+                    Click on <strong>Refresh</strong> to refresh the list</span>
             </div>
             <?php $inCnt = 0; foreach ($this->devices as $device) : ?>
                 <?php if (!$device['source'] || !$device['paired']) continue; else $inCnt++; // all paired sources will be shown ?>
@@ -115,7 +117,7 @@
                 $inDev .= '</p></div>'; ?>
                 <?=$inDev ?>
             <?php endforeach; ?>
-            <?php if ($inCnt == 0)  echo '<label class="control-label col-sm-2">&nbsp;<br><i>&nbsp;</i></label><div class="col-sm-10"><p>&nbsp;No input devices<br></p></div>'; ?>
+            <?php if ($inCnt == 0)  echo '<label class="control-label col-sm-2">&nbsp;<br><i>&nbsp;</i></label><div class="col-sm-10"><p>&nbsp;No input Bluetooth devices registered<br></p></div>'; ?>
         </form>
         <div class="col-sm-offset-2 col-sm-10">
         <?php if ($inCnt != 0) : ?>
@@ -143,8 +145,10 @@
                         <?php endforeach; ?>
                     </select>
                     <span class="help-block">Choose the Bluetooth output device quality.<br>
-                        <i>Notes: Some output devices may not be able to process higher quality audio, these may not be connected correctly or may give poor sound quality.
-                        You should then use the Default quality configuration</i></span>
+                        <i>Notes:<br>
+                        Changing this value will disconnect all your output Bluetooth devices.
+                        Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality.
+                        If this happens you should then use the Default quality configuration</i></span>
                 </div>
             </div>
             <!--
