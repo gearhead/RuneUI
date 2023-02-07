@@ -187,7 +187,8 @@
                     <span class="help-block">If specified, MPD will adjust the volume of songs played using ReplayGain tags (see <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a>).
                     Setting this to "album" will adjust volume using the album's ReplayGain tags, while setting it to "track" will adjust it using the track ReplayGain tags.
                     "auto" uses the track ReplayGain tags if random play is activated otherwise the album ReplayGain tags.
-                    Currently only FLAC, Ogg Vorbis, Musepack, and MP3 (through ID3v2 ReplayGain tags, not APEv2) are supported</span>
+                    Currently only FLAC, Ogg Vorbis, Musepack, and MP3 (through ID3v2 ReplayGain tags, not APEv2) are supported.<br>
+                    <i>For best results the volume control should be enabled</i></span>
                 </div>
             </div>
             <div class="form-group">
