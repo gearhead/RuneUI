@@ -49,6 +49,7 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: bt_status_async.php ---------------" > /var/log/runeaudio/bt_status_async.log');
 runelog('WORKER bt_status_async.php STARTING...');
 
+wrk_btcfg($redis, 'quality_options');
 wrk_btcfg($redis, 'status');
 
 runelog('WORKER bt_status_async.php END...');

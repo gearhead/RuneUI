@@ -11412,6 +11412,7 @@ function wrk_btcfg($redis, $action, $param = null)
                     $quality_options[] = $parts[1];
                 }
             }
+            rsort($quality_options);
             $redis->hset('bluetooth', 'quality_options', json_encode($quality_options));
             break;
     }

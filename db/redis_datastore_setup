@@ -204,7 +204,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('bluetooth', 'def_volume', '40');
             $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hSet('bluetooth', 'quality', 'default');
-            $redis->hSet('bluetooth', 'quality_options', json_encode(array('high_def', 'default')));
+            $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
             $redis->hSet('bluetooth', 'timeout', 20);
             $redis->set('bluetooth_status', json_encode(array()));
             $redis->del('bluetooth_on');
@@ -521,7 +521,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('bluetooth', 'def_volume') || $redis->hSet('bluetooth', 'def_volume', '40');
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hExists('bluetooth', 'quality') || $redis->hSet('bluetooth', 'quality', 'high_def');
-            $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('high_def', 'default')));
+            $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
             $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
             $redis->exists('bluetooth_status') || $redis->set('bluetooth_status', json_encode(array()));
             $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
