@@ -3927,7 +3927,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
                         $output .="\tmixer_type \t\"hardware\"\n";
                         $output .="\tmixer_device \t\"".substr($card_decoded['device'], 0, 4)."\"\n";
-                        if ($mpdcfg['replaygain'] != 'off') {
+                        if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off')) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
                             $output .="\treplay_gain_handler \"mixer\"\n";
                         }
@@ -11169,9 +11169,9 @@ function wrk_btcfg($redis, $action, $param = null)
             foreach ($deviceArray as &$device) {
                 // note $device is by reference and can be modified
                 if (($sourceConnected == 1) && $device['source'] && $device['connected']) {
-                    if ($redis->hGet('bluetooth', 'source_dev') == '') {
+                    // if ($redis->hGet('bluetooth', 'source_dev') == '') {
                         // wrk_btcfg($redis, 'set_volume');
-                    }
+                    // }
                     $redis->hSet('bluetooth', 'source_dev', $device['device']);
                 }
                 if ($sourceConnected) {
