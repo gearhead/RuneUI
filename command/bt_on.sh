@@ -54,17 +54,26 @@ until [ $? -eq 0 ] || (( count-- <= 0 )); do
     sleep 2
     timeout 5 bluealsa-cli list-services
 done
-systemctl start bluealsa-aplay bt_mon_switch
+systemctl start bluealsa-aplay
+systemctl start bt_mon_switch
 timeout 5 bluetoothctl discoverable off
 timeout 5 bluetoothctl pairable off
-[ $? -ne 0 ] || redis-cli set bluetooth_on 1 ; systemctl enable bluetooth bluealsa bluealsa-aplay bt_mon_switch
-#
-# set up the redis variable containing the Bluetooth Quality options
-id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
-# start a system worker background job (rune_SY_wrk > btcfg > action:quality_options)
-#   by writing the command to the worker redis hash and fifo queue
-redis-cli hset w_queue "$id" '{"wrkcmd":"btcfg","action":"quality_options","args":null}'
-redis-cli lpush w_queue_fifo "$id"
+if [ $? -eq 0 ]; then
+    # every thing is up, so change the redis indicator
+    redis-cli set bluetooth_on 1
+    # enable all the bluetooth service to start on boot
+    systemctl enable bluetooth
+    systemctl enable bluealsa
+    systemctl enable bluealsa-aplay
+    systemctl enable bt_mon_switch
+    #
+    # set up the redis variable containing the Bluetooth Quality options
+    id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+    # start a system worker background job (rune_SY_wrk > btcfg > action:quality_options)
+    #   by writing the command to the worker redis hash and fifo queue
+    redis-cli hset w_queue "$id" '{"wrkcmd":"btcfg","action":"quality_options","args":null}'
+    redis-cli lpush w_queue_fifo "$id"
+fi
 
 #---
 #End script
