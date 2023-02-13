@@ -1193,6 +1193,13 @@ function reset_cmd_queue_encoding($redis)
 {
     // the passphrase is the md5 of player id plus the current time
     $passphrase = md5($redis->get('playerid').microtime(true));
+    // get the ciphers which we do not use
+    $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
+    if ($redis->exists('cipher_exclude_list')) {
+        $cipher_exclude_list = $redis->get('cipher_exclude_list');
+        $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
+    }
+    $cipher_exclude_array = explode(' ', $cipher_exclude_list);
     // randomise the cipher to use from the list of possibles
     //
     if (is_firstTime($redis, 'cmd_queue_cipher_array')) {
@@ -1228,12 +1235,6 @@ function reset_cmd_queue_encoding($redis)
         // this is only run once after a boot
         // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
         // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
-        $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
-        if ($redis->exists('cipher_exclude_list')) {
-            $cipher_exclude_list = $redis->get('cipher_exclude_list');
-            $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
-        }
-        $cipher_exclude_array = explode(' ', $cipher_exclude_list);
         // need to do some tricks to globalise the variable $cipher_exclude to to make this work
         //  it is removed as a global after use
         global $cipher_exclude;
@@ -1288,6 +1289,9 @@ function reset_cmd_queue_encoding($redis)
             unset($cipher_array[$cipherIndex]);
             $cipher_array = array_values($cipher_array);
             $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
+            // save the invalid entry in the cipher exclude list
+            $cipher_exclude_list .= ' '.$cipher;
+            $redis->set('cipher_exclude_list', $cipher_exclude_list);
             $ivError = true;
             $cnt--;
         }
@@ -1298,6 +1302,9 @@ function reset_cmd_queue_encoding($redis)
             unset($cipher_array[$cipherIndex]);
             $cipher_array = array_values($cipher_array);
             $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
+            // save the invalid entry in the cipher exclude list
+            $cipher_exclude_list .= ' '.$cipher;
+            $redis->set('cipher_exclude_list', $cipher_exclude_list);
             $ivError = true;
             $cnt--;
         }
