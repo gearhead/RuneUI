@@ -43,11 +43,11 @@
 # setup
 set force_conservative 1  ;# recommended, but can be set to 0
 if {$force_conservative} {
-	set send_slow {1 .1}
-	proc send {ignore arg} {
-		sleep .1
-		exp_send -s -- $arg
-	}
+    set send_slow {1 .1}
+    proc send {ignore arg} {
+        sleep .1
+        exp_send -s -- $arg
+    }
 }
 set timeout -1
 #
