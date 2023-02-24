@@ -38,6 +38,25 @@ echo "rune_shutdown started"
 echo "Stop MPD, services and unmount shares..."
 # stop the player
 mpc stop
+# set the MPD output to a hardware device, when it is set to Bluetooth it will fail on reboot
+# on reboot when MPD has started a full configuration takes place, this is enough to enable it to start
+hw_device=$( redis-cli get ao_default )
+if [[ $hw_device != "" ]] ; then
+    # enable only the default device, everything else will be disabled
+    mpc enable only "$hw_device"
+    # save the current device
+    redis-cli set oa "$hw_device"
+else
+    # otherwise enable the null device
+    mpc enable null
+fi
+# always enable HTTPd streaming if configured
+hostname=$( redis-cli get hostname )
+streamname="${hostname}_stream"
+httpd=$( mpc outputs | grep -ic "$streamname" )
+if [[ $httpd == "1" ]] ; then
+    mpc enable "$streamname"
+fi
 # sleep 1
 # stop MPD, don't wait for completion
 #mpd --kill &
