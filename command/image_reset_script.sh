@@ -486,6 +486,10 @@ rm /srv/http/.config/chromium/Singleton*
 #
 # make sure that all files are unix format and have the correct ownerships and protections
 /srv/http/command/convert_dos_files_to_unix_script.sh
+# generate locales for a full image reset
+if [ "$1" == "full" ] ; then
+    locale-gen
+fi
 #
 # for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
 if [ "$1" == "full" ]; then

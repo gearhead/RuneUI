@@ -188,7 +188,10 @@ fi
 # Make sure that the required locales are available
 #
 sed -i '/^#en_US.UTF-8 UTF-8/s|#en_|en_|g' /etc/locale.gen
-locale-gen
+locales=$( locale -a | grep -ic en_US.UTF8 )
+if [[ $locales != "1" ]] ; then
+    locale-gen
+fi
 locale -a
 #
 # Check file protections and ownership
