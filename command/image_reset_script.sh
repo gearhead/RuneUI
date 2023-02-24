@@ -36,8 +36,7 @@ set +e # continue on errors
 cd /home
 #
 # Image reset script
-if [ "$1" == "full" ];
-then
+if [ "$1" == "full" ] ; then
     echo "Running full cleanup and image initialisation for a distribution image"
 else
     echo "Running quick image initialisation"
@@ -58,7 +57,7 @@ systemctl start bluetooth
 # loop until bluetoothctl gives a non-error response (give up after 20 seconds)
 count=3
 timeout 5 bluetoothctl devices
-until [ $? -eq 0 ] || (( count-- <= 0 )); do
+until [ $? -eq 0 ] || (( count-- <= 0 )) ; do
     # loop for 3 times to allow the bluetooth service to start
     # echo $count
     # echo $?
@@ -68,8 +67,7 @@ done
 # now get a list of bluetooth devices
 btdevices=$( timeout 5 bluetoothctl devices )
 # for each device disconnect and remove (now max 25 seconds since starting the bluetooth sevice)
-for i in "$btdevices"
-do
+for i in "$btdevices" ; do
     # echo $i
     btmac=$( echo $i | cut -d ' ' -f 2 )
     # echo $btmac
@@ -96,54 +94,45 @@ declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind sy
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 #
 # unmask masked services, do this first otherwise other settings are ignored for masked services
 alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
-for i in $alreadymasked
-do
+for i in $alreadymasked ; do
    systemctl unmask "$i"
 done
 # disable specified services
-for i in "${disable_arr[@]}"
-do
+for i in "${disable_arr[@]}" ; do
    systemctl disable "$i"
 done
 #
 # enable specified services
-for i in "${enable_arr[@]}"
-do
+for i in "${enable_arr[@]}" ; do
    systemctl enable "$i"
 done
 # mask specified services
-for i in "${mask_arr[@]}"
-do
+for i in "${mask_arr[@]}" ; do
    systemctl mask "$i"
 done
 # unmask specified services
-for i in "${unmask_arr[@]}"
-do
+for i in "${unmask_arr[@]}" ; do
    systemctl unmask "$i"
 done
 # for a distribution image disable systemd audit to reduce log files. Switch it on for a development image
-if [ "$1" == "full" ];
-then
+if [ "$1" == "full" ] ; then
     systemctl mask systemd-journald-audit.socket
 else
     systemctl unmask systemd-journald-audit.socket
 fi
 #
 # stop specified services
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 # stop twice, rune_SY_wrk will try to restart some services (e.g. ashuffle)
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 #
@@ -216,8 +205,8 @@ ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
 # copy any existing files to the new location and delete the old location
-if [ -d "/etc/X11/xorg.conf.d" ]; then
-    if [ ! -d "/usr/share/X11/xorg.conf.d" ]; then
+if [ -d "/etc/X11/xorg.conf.d" ] ; then
+    if [ ! -d "/usr/share/X11/xorg.conf.d" ] ; then
         mkdir -p /usr/share/X11/xorg.conf.d
     fi
     cp -n /etc/X11/xorg.conf.d/* /usr/share/X11/xorg.conf.d/
@@ -226,8 +215,8 @@ fi
 #
 # the standard location of /etc/php/fpm.d has moved to /etc/php/php-fpm.d
 # copy any existing files to the new location and delete the old location
-if [ -d "/etc/php/fpm.d" ]; then
-    if [ ! -d "/etc/php/php-fpm.d" ]; then
+if [ -d "/etc/php/fpm.d" ] ; then
+    if [ ! -d "/etc/php/php-fpm.d" ] ; then
         mkdir -p /etc/php/php-fpm.d
     fi
     cp -n /etc/php/fpm.d/* /etc/php/php-fpm.d/
@@ -305,7 +294,7 @@ md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5afterGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
-if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
+if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ] ; then
     set +x
     echo "#######################################################################################"
     echo "## This script or another essential file has been changed during the git pull update ##"
@@ -335,7 +324,7 @@ redis-cli set playerid ""
 redis-cli set hwplatformid ""
 #
 # install raspi-rotate, only when xwindows is installed
-if [ -f "/bin/xinit" ]; then
+if [ -f "/bin/xinit" ] ; then
     /srv/http/command/raspi-rotate-install.sh
 fi
 #
@@ -416,7 +405,7 @@ cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
 # modify /boot/config.txt if this is a 'all platform version'
-if [ -f "/boot/initramfs-v7-linux.img" ]; then
+if [ -f "/boot/initramfs-v7-linux.img" ] ; then
     # remove lines containing [pi02] before a line starting with initramfs
     sed -i '/^\[pi02\]/{N;s/\[pi02\]\ninitramfs/initramfs/}' /boot/config.txt
     # remove lines containing [pi0] before a line starting with initramfs
@@ -444,18 +433,18 @@ ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
 #
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
-if [ "$volitileFound" == "0" ]; then
+if [ "$volitileFound" == "0" ] ; then
     # no uncommented line containing 'Storage=volatile' found
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
 # modify the /etc/php/php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
-if [ -f "/etc/php/php.ini" ]; then
+if [ -f "/etc/php/php.ini" ] ; then
     sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=32' /etc/php/php.ini
 fi
 #
 # add waveshare LDC touchscreen overlays, only when xwindows is installed
-if [ -f "/bin/xinit" ]; then
+if [ -f "/bin/xinit" ] ; then
     /srv/http/command/waveshare_install.sh
 fi
 #
@@ -470,7 +459,7 @@ sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/*.servi
 # sed -i 's|.*User=mpd.*|#User=mpd|g' /usr/lib/systemd/system/mpd.service
 #
 # some fixes for the ply-image binary location (required for 0.5b)
-if [ -e /usr/bin/ply-image ]; then
+if [ -e /usr/bin/ply-image ] ; then
     rm /usr/local/bin/ply-image
 else
     cp /usr/local/bin/ply-image /usr/bin/ply-image
@@ -492,7 +481,7 @@ if [ "$1" == "full" ] ; then
 fi
 #
 # for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
-if [ "$1" == "full" ]; then
+if [ "$1" == "full" ] ; then
     # remove uglify-js if required
     # pacman -Q uglify-js && pacman -Rsn uglify-js --noconfirm
     # removing dos2unix if required
@@ -519,10 +508,10 @@ hostnamectl --static --transient --pretty set-hostname runeaudio
 # clean up /etc/motd
 linuxbuilddate=$( uname -v )
 i="0"
-while [ $i -lt 5 ]; do
+while [ $i -lt 5 ] ; do
     linuxbuilddate=${linuxbuilddate#*[[:space:]]*}
     osdate=$( date -d "$linuxbuilddate" +%Y%m%d )
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] ; then
         i="5"
     else
         i=$[$i+1]
@@ -534,8 +523,8 @@ patchlevel=$( redis-cli get patchlevel | xargs )
 release=$( redis-cli get release | xargs )
 archarmver=$( uname -msr | xargs )
 gitbranch=$( git --git-dir=/srv/http/.git branch --show-current | xargs )
-if [ "$gitbranch" == "$release" ]; then
-    if [ "${gitbranch:3:1}" == "a" ]; then
+if [ "$gitbranch" == "$release" ] ; then
+    if [ "${gitbranch:3:1}" == "a" ] ; then
         experimental="Alpha"
     else
         experimental="Beta"
@@ -574,17 +563,17 @@ sync
 #   we need to be very careful with this action, it will only be removed when we are absolutely sure it the
 #   partition which needs removing
 partitions=$( fdisk /dev/mmcblk0 -l | grep -ic mmcblk0p )
-if [ "$partitions" == "3" ]; then
+if [ "$partitions" == "3" ] ; then
     # looks like the cache partition has previously been created, first check it
     lines=$( fdisk /dev/mmcblk0 -l | grep -iE 'mmcblk0p3|disk ' | xargs )
-    if [[ "$lines" == *" 1G 83 Linux"* ]]; then
+    if [[ "$lines" == *" 1G 83 Linux"* ]] ; then
         # the partition size is correct
         tot_sectors=$( sed 's/^.*.bytes, //' <<< "$lines" )
         tot_sectors=$( sed 's/ sectors.*//' <<< "$tot_sectors" )
         end_sector=$( sed 's/^.*.mmcblk0p3 //' <<< "$lines" )
         end_sector=$( echo $end_sector | cut -d ' ' -f 2 )
         reserved_sectors=$(( $tot_sectors-$end_sector ))
-        if [ "$reserved_sectors" == "35" ]; then
+        if [ "$reserved_sectors" == "35" ] ; then
             # on creation we reserved 34 free sectors at the end of the disk, so this is the cache partition
             # unmount the overlay
             umount overlay_art_cache
@@ -647,7 +636,7 @@ mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the compressed distribution image will then be very small
-if [ "$1" == "full" ]; then
+if [ "$1" == "full" ] ; then
     echo "Zero filling the file system"
     # zero fill the file system
     cd /boot
