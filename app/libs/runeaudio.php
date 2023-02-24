@@ -4060,10 +4060,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .="\tencoder \t\t\"flac\"\n";
                     $output .="\tcompression \t\t\"0\"\n";
                 } else {
-                    $output .="\tencoder \t\t\"lame\"\n";
-                    $output .="\tquality \t\t\"0\"\n";
+                    $output .="\tencoder \t\"lame\"\n";
+                    $output .="\tquality \t\"0\"\n";
                 }
-                $output .="\talways_on \t\t\"yes\"\n";
+                $output .="\talways_on \t\"yes\"\n";
                 $output .="\ttags \t\t\"yes\"\n";
                 $output .="}\n";
             }
