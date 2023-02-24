@@ -3882,7 +3882,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             if ($lastAo != $ao) {
                 // save the audio output
                 $redis->Set('ao', $ao);
-                $redis->Set('ao_detault', $ao);
+                $redis->Set('ao_default', $ao);
                 // set this card to the default alsa card
                 set_alsa_default_card($ao);
             }
