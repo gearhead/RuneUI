@@ -66,7 +66,7 @@
                 More than one output device can be trusted.<br>
                 Click on <strong>Forget</strong> to forget a device.<br>
                 Use the Audio Output selector in the <a href="/mpd/">MPD menu</a> to use the connected device.<br>
-                <i>Notes: Detection of Bluetooth output devices will terminate 2 minutes after clicking 'Connect output devices'.
+                <i>Notes: Detection of Bluetooth output devices will terminate 10 minutes after clicking 'Connect output devices'.
                 Switching off an active Bluetooth output device will cause RuneAudio to revert to the previously selected output device.
                 You should leave all detected Bluetooth devices in the list, untrust those which you do not want to use.
                 Concurrent Bluetooth input and output is not possible. All output devices are disconnected and automatically become blocked
@@ -136,7 +136,7 @@
         <legend>Bluetooth configuration</legend>
         <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Quality</label>
+                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Audio Quality</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_quality" class="selectpicker" name="bluetooth_quality" data-style="btn-default btn-lg">
                         <?php foreach ($this->quality_options as $qualOpt) : ?>
@@ -144,11 +144,22 @@
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device quality.<br>
-                        <i>Notes:<br>
-                        Changing this value will disconnect all your output Bluetooth devices.
-                        Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality.
-                        If this happens you should then use the Default quality configuration</i></span>
+                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported, all are enabled regardless of the chosen configuration.<br>
+                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices. You can experiment to determine which profile gives you the best performance.
+                        Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality or no sound.
+                        If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Audio Sample Rate</label>
+                <div class="col-sm-10">
+                    <select id="bluetooth_samplerate" class="selectpicker" name="bluetooth_samplerate" data-style="btn-default btn-lg">
+                        <option value="44100" <?php if($this->config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>
+                        <option value="48000" <?php if($this->config['samplerate'] == '48000'): ?> selected <?php endif ?>>48,000Hz</option>
+                    </select>
+                    <span class="help-block">Choose the Bluetooth output device audio sample rate.<br>
+                        Most Bluetooth devices support 48,000Hz and 44,100Hz sample rates, but some can only process 41,100Hz sampling. The default is 48,000Hz, change it if required.<br>
+                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices.</i></span>
                 </div>
             </div>
             <!--
@@ -163,11 +174,11 @@
             </div>
             -->
             <div class="form-group">
-                <label class="control-label col-sm-2" for="bluetooth_timeout">Bluetooth Stream Time&#8209;out</label>
+                <label class="control-label col-sm-2" for="bluetooth_timeout">Bluetooth Input Stream Time&#8209;out</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_timeout" name="bluetooth_timeout" value="<?php echo $this->config['timeout']; ?>" min="15" max="120" placeholder="20" autocomplete="off">
                     <span class="help-block">Enter a value between <strong>15</strong> and <strong>120</strong>.
-                    This is the number of seconds of stopped or paused play after which Bletooth will assume that the play stream has finished.
+                    This is the number of seconds of stopped or paused Bluetooth input streaming after which Bletooth will assume that the play stream has finished.
                     After a time-out the Bluetooth player will be terminated</span>
                 </div>
             </div>

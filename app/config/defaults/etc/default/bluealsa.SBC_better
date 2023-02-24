@@ -1,0 +1,13 @@
+# better sbc config file for bluealsa.service
+# this is part of RuneAudio
+
+# Allows additional options to be set
+
+# Note that all output profiles are enable by default unless at least one
+# profile is specified
+
+# see: https://manpages.debian.org/unstable/bluez-alsa-utils/bluealsa.8.en.html
+# check 'bluealsa --help' for valid options
+
+# OPTIONS="-p a2dp-source -p a2dp-sink -p hfp-hf -p hfp-ag -p hsp-hs -p hsp-ag"
+OPTIONS="-p a2dp-sink -p a2dp-source -c MP3 --sbc-quality=xq"

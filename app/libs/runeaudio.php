@@ -3984,24 +3984,31 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // add Bluetooth output devices for all known connections
             $btDevices = wrk_btcfg($redis, 'status');
+            $btconfig = $redis->hgetall('bluetooth');
             foreach ($btDevices as $btDevice) {
                 if ($btDevice['sink'] && $btDevice['device']) {
-                    $output .="audio_output {\n";
-                    $output .="\tname \t\t\"".$btDevice['name']."\"\n";
-                    $output .="\ttype \t\t\"alsa\"\n";
-                    $output .="\tdevice \t\t\"bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp\"\n";
+                    $output .= "audio_output {\n";
+                    $output .= "\tname \t\t\"".$btDevice['name']."\"\n";
+                    $output .= "\ttype \t\t\"alsa\"\n";
+                    $output .= "\tdevice \t\t\"bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp\"\n";
                     // hardware mixer, wont work
-                    // $output .="\tmixer_control \t\"".$btDevice['name']." - A2DP \"\n";
-                    // $output .="\tmixer_type \t\"hardware\"\n";
-                    // $output .="\tmixer_device \t\"bluealsa:".$btDevice['device']."\"\n";
+                    // $output .= "\tmixer_control \t\"".$btDevice['name']." - A2DP \"\n";
+                    // $output .= "\tmixer_type \t\"hardware\"\n";
+                    // $output .= "\tmixer_device \t\"bluealsa:".$btDevice['device']."\"\n";
                     //
                     // software mixer
-                    $output .="\tmixer_type \t\"software\"\n";
+                    $output .= "\tmixer_type \t\"software\"\n";
                     //
-                    $output .="\tauto_resample \t\"no\"\n";
-                    $output .="\tauto_format \t\"no\"\n";
-                    $output .="\tenabled \t\"no\"\n";
-                    $output .="}\n";
+                    if (isset($btconfig['samplerate'])) {
+                        $output .= "\tallowed_formats \"".$btconfig['samplerate'].":16:*\"\n";
+                    } else {
+                        $output .= "\tallowed_formats \"48000:16:*\"\n";
+                    }
+                    $output .= "\tauto_resample \t\"no\"\n";
+                    $output .= "\tauto_format \t\"no\"\n";
+                    // never set Bluetooth to enabled
+                    $output .= "\tenabled \t\"no\"\n";
+                    $output .= "}\n";
                 }
             }
             // add null output devices to acards
@@ -11362,9 +11369,16 @@ function wrk_btcfg($redis, $action, $param = null)
                 break;
             }
             $resetBluetooth = false;
+            $configItems = array();
             $configItems = json_decode($param, true);
             foreach ($configItems as $configKey => $configValue) {
-                $redis->hSet('bluetooth', $configKey, $configValue);
+                if (!isset($configValue) || !$configValue) {
+                    // value is not set of space/zero
+                    // echo "error '".$configKey."' space/zero\n";
+                    continue;
+                } else {
+                    $redis->hSet('bluetooth', $configKey, $configValue);
+                }
                 switch ($configKey) {
                     // setting default volume is done with bluealsa-cli, maybe the code below will be relevant in a future version
                     // case 'def_volume':
@@ -11401,6 +11415,41 @@ function wrk_btcfg($redis, $action, $param = null)
                         //  there is a file for each quality setting
                         sysCmd('ln -sfT /etc/default/bluealsa.'.$configValue.' /etc/default/bluealsa');
                         $resetBluetooth = true;
+                        break;
+                    case 'samplerate':
+                        // all of the files '/etc/default/bluealsa.*' need to have an extra switch removed or added
+                        //  the switch --a2dp-force-audio-cd should be present for samplerate 44100 and omitted for 48000
+                        if ($configValue == '44100') {
+                            // get the files without the switch
+                            $bluealsaConfigFiles = sysCmd("grep -lv -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // add the switch per file, only in the line beginning with 'OPTIONS='
+                                echo sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-force-audio-cd/' ".$bluealsaConfigFile)."\n";
+                            }
+                        } else if ($configValue == '48000') {
+                            // get the files with the switch
+                            $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                echo sysCmd("sed -i '/^OPTIONS=/s/--a2dp-force-audio-cd //' ".$bluealsaConfigFile)."\n";
+                            }
+                        } else {
+                            // invalid value
+                            //echo "samplerate error invalid:'".$configValue."'\n";
+                            break;
+                        }
+                        // MPD configuration can be modified on the fly, mpd.conf file will be modified on the next change or reboot
+                        $btDevices = wrk_btcfg($redis, 'status');
+                        foreach ($btDevices as $btDevice) {
+                            if ($btDevice['sink'] && $btDevice['device'] && $btDevice['name']) {
+                                // mpc outputset "<device>" allowed_formats=["48000:16:*"|"44100:16:*"]
+                                sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:*"');
+                            }
+                        }
+                        $resetBluetooth = true;
+                        break;
+                    case 'timeout':
+                        // don't need to do anything, the key value is updated above
                         break;
                 }
             }

@@ -64,6 +64,9 @@ if (isset($_POST)) {
         if (isset($_POST['bluetooth_quality']) && ($_POST['bluetooth_quality'] != $redis->hGet('bluetooth', 'quality'))) {
             $bt_config['quality'] = $_POST['bluetooth_quality'];
         }
+        if (isset($_POST['bluetooth_samplerate']) && ($_POST['bluetooth_samplerate'] != $redis->hGet('bluetooth', 'samplerate'))) {
+            $bt_config['samplerate'] = $_POST['bluetooth_samplerate'];
+        }
         if (isset($_POST['bluetooth_def_volume']) && ($_POST['bluetooth_def_volume'] != $redis->hGet('bluetooth', 'def_volume'))) {
             $bt_config['def_volume'] = $_POST['bluetooth_def_volume'];
         }
@@ -96,7 +99,12 @@ while (!$template->bluetooth && ($cnt-- > 0)) {
     }
 }
 $template->config = $redis->hgetall('bluetooth');
+if (!isset($template->config['samplerate'])) {
+    $redis->hSet('bluetooth', 'samplerate', '48000');
+    $template->config['samplerate'] = '48000';
+}
 $template->devices = wrk_btcfg($redis, 'status');
+$template->samplerate = wrk_btcfg($redis, 'status');
 // get the quality options, these are stored in files '/etc/default/bluealsa.<name>'
 //  name is not empty and is the name of the quality option
 if (isset($template->config['quality_options'])) {
