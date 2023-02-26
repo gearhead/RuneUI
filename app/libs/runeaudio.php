@@ -4119,6 +4119,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // debug
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
+            $startBluetooth = false;
             if ($args && ($oldMpdout != $args)) {
                 $redis->set('ao', $args);
                 // set this card to the default alsa card
@@ -4128,6 +4129,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // save the card if it is a 'hw:' type
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $args);
+                }
+                if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
+                    // enable the null output, its needed when a bluetooth connection is lost
+                    sysCmd('mpc enable null');
+                    $startBluetooth = true;
+                } else {
+                    sysCmd('mpc disable null');
                 }
                 // check for "special" sub_interfaces
                 if (isset($acard['integrated_sub']) && $acard['integrated_sub']) {
@@ -4149,8 +4157,18 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $oldMpdout);
                 }
                 syscmd('mpc enable "'.$oldMpdout.'"');
+                if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
+                    sysCmd('mpc enable null');
+                } else {
+                    sysCmd('mpc disable null');
+                }
                 // wrk_shairport($redis, $oldMpdout);
                 // wrk_spotifyd($redis, $oldMpdout);
+            }
+            if ($startBluetooth && sysCmd('mpc status | grep -ic "[playing]"')[0]) {
+                // bluealsa needs a pause and play to successfully switch when already playing
+                sysCmd('mpc pause');
+                sysCmd('mpc play');
             }
             // check that MPD only has one output enabled and if not correct it
             // sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
@@ -11071,17 +11089,14 @@ function wrk_btcfg($redis, $action, $param = null)
             // if the current ao (audio output) points to a Bluetooth device check that it is valid and if not, correct it
             $ao = $redis->get('ao');
             $ao_default = $redis->get('ao_default');
-            if (strpos(' '.$ao, 'bluealsa')) {
-                // ao points to a bluealsa device
-                if (!$redis->hExists('acards', $ao)) {
-                    // the ao device no longer exists in acards, so it is invalid
-                    if ($ao_default) {
-                        // a default value for ao exists, switch to this value
-                        wrk_mpdconf($redis, 'switchao', $ao_default);
-                    } else {
-                        // no default value for ao exists, switch to a null string
-                        wrk_mpdconf($redis, 'switchao', '');
-                    }
+            if (!$redis->hExists('acards', $ao)) {
+                // the ao device no longer exists in acards, so it is invalid
+                if ($ao_default) {
+                    // a default value for ao exists, switch to this value
+                    wrk_mpdconf($redis, 'switchao', $ao_default);
+                } else {
+                    // no default value for ao exists, switch to a null string
+                    wrk_mpdconf($redis, 'switchao', '');
                 }
             }
             break;
