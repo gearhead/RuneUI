@@ -2143,16 +2143,16 @@ function wrk_avahiconfig($redis, $hostname)
     if (md5_file($file) === md5_file($newfile)) {
         // nothing has changed, set avahiconfchange off
         $redis->set('avahiconfchange', 0);
-        syscmd('rm -f '.$newfile);
+        sysCmd('rm -f '.$newfile);
     } else {
         // avahi configuration has changed, set avahiconfchange on
         $redis->set('avahiconfchange', 1);
-        syscmd('cp '.$newfile.' '.$file);
-        syscmd('rm -f '.$newfile);
+        sysCmd('cp '.$newfile.' '.$file);
+        sysCmd('rm -f '.$newfile);
         // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
-        syscmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+        sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
         // and line beginning with ::1 (IPv6)
-        syscmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+        sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
     }
 }
 
@@ -4089,13 +4089,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             if (($redis->get('mpdconfhash') !== md5_file('/tmp/mpd.conf')) || ($redis->get('mpdconfhash') !== md5_file('/etc/mpd.conf'))) {
                 // mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
                 $redis->set('mpdconfchange', 1);
-                syscmd('cp /tmp/mpd.conf /etc/mpd.conf');
-                syscmd('rm -f /tmp/mpd.conf');
+                sysCmd('cp /tmp/mpd.conf /etc/mpd.conf');
+                sysCmd('rm -f /tmp/mpd.conf');
                 // update hash
                 $redis->set('mpdconfhash', md5_file('/etc/mpd.conf'));
             } else {
                 // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
-                syscmd('rm -f /tmp/mpd.conf');
+                sysCmd('rm -f /tmp/mpd.conf');
             }
             break;
         case 'update':
@@ -4146,8 +4146,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // $args = $acard->sysname;
                 }
                 // switch interface
-                syscmd('mpc enable "'.$args.'"');
-                syscmd('mpc disable "'.$oldMpdout.'"');
+                sysCmd('mpc enable "'.$args.'"');
+                sysCmd('mpc disable "'.$oldMpdout.'"');
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
             } else {
@@ -4156,7 +4156,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $oldMpdout);
                 }
-                syscmd('mpc enable "'.$oldMpdout.'"');
+                sysCmd('mpc enable "'.$oldMpdout.'"');
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
                     sysCmd('mpc enable null');
                 } else {
@@ -4565,15 +4565,15 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     // check whether the spotifyd.conf file has changed
     if (md5_file('/etc/spotifyd.conf') == md5_file('/tmp/spotifyd.conf')) {
         // nothing has changed
-        syscmd('rm -f /tmp/spotifyd.conf');
+        sysCmd('rm -f /tmp/spotifyd.conf');
     } else {
         // spotifyd configuration has changed
         if ($redis->get('activePlayer') === 'SpotifyConnect') {
             runelog('Stop SpotifyConnect player');
             wrk_stopPlayer($redis);
         }
-        syscmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
-        syscmd('rm -f /tmp/spotifyd.conf');
+        sysCmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
+        sysCmd('rm -f /tmp/spotifyd.conf');
         // stop spotifyd & rune_SDM_wrk
         sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
         sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
@@ -4750,12 +4750,12 @@ function wrk_shairport($redis, $ao, $name = null)
     if (md5_file($file) === md5_file($newfile)) {
         // nothing has changed, set sssconfchange off
         $redis->set('sssconfchange', 0);
-        syscmd('rm -f '.$newfile);
+        sysCmd('rm -f '.$newfile);
     } else {
         // mpd configuration has changed, set sssconfchange on
         $redis->set('sssconfchange', 1);
-        syscmd('cp '.$newfile.' '.$file);
-        syscmd('rm -f '.$newfile);
+        sysCmd('cp '.$newfile.' '.$file);
+        sysCmd('rm -f '.$newfile);
     }
     // libio
     $file = '/etc/libao.conf';
@@ -4773,12 +4773,12 @@ function wrk_shairport($redis, $ao, $name = null)
     if (md5_file($file) === md5_file($newfile)) {
         // nothing has changed, set libaoconfchange off
         $redis->set('libaoconfchange', 0);
-        syscmd('rm -f '.$newfile);
+        sysCmd('rm -f '.$newfile);
     } else {
         // mpd configuration has changed, set libaoconfchange on
         $redis->set('libaoconfchange', 1);
-        syscmd('cp '.$newfile.' '.$file);
-        syscmd('rm -f '.$newfile);
+        sysCmd('cp '.$newfile.' '.$file);
+        sysCmd('rm -f '.$newfile);
     }
     // restart only if the conf files have changed
     if (($redis->get('sssconfchange')) OR ($redis->get('libaoconfchange'))) {
