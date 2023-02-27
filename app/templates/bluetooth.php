@@ -20,8 +20,9 @@
                 <button type="submit" class="btn btn-primary btn-lg" name="output_list" value="output_list">Connect output devices</button>
                 <span class="help-block">To discover and connect a Bluetooth output device, click on <strong>Connect output devices</strong>.
                     Then you should enable pairing on the Bluetooth output device (e.g. a Bluetooth speaker
-                    or headphones).
-                    A list of registered output Bluetooth devices is shown below.Trusted devices will automatically be paired and connected when detected.<br>
+                    or headphones). It can take a while to discover Bluetooth devices.
+                    A list of registered output Bluetooth devices is shown below. Trusted devices will automatically be paired and connected
+                    when detected.<br>
                     Click on <strong>Refresh</strong> to refresh the list</span>
             </div>
             <?php $outCnt = 0; foreach ($this->devices as $device) : ?>
@@ -144,14 +145,15 @@
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported, all are enabled regardless of the chosen configuration.<br>
+                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported, all are enabled regardless of the chosen configuration profile.<br>
+                        The codec specific profiles modify that codec only, leaving the other codecs at default values.<br>
                         <i>Notes: Changing this value will disconnect all your output Bluetooth devices. You can experiment to determine which profile gives you the best performance.
                         Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality or no sound.
                         If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Audio Sample Rate</label>
+                <label class="control-label col-sm-2" for="bluetooth_samplerate">Bluetooth Output Audio Sample Rate</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_samplerate" class="selectpicker" name="bluetooth_samplerate" data-style="btn-default btn-lg">
                         <option value="44100" <?php if($this->config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>

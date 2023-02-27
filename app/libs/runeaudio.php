@@ -11378,7 +11378,7 @@ function wrk_btcfg($redis, $action, $param = null)
             sysCmd('systemctl stop bluetoothctl_scan ; pkill bluetoothctl');
             break;
         case 'config':
-            // configuration details chained
+            // configuration details changed
             if (!isset($param) || !$param) {
                 $retval = false;
                 break;
@@ -11387,12 +11387,10 @@ function wrk_btcfg($redis, $action, $param = null)
             $configItems = array();
             $configItems = json_decode($param, true);
             foreach ($configItems as $configKey => $configValue) {
-                if (!isset($configValue) || !$configValue) {
-                    // value is not set of space/zero
+                if (!isset($configValue) || !strlen(trim($configValue))) {
+                    // value is not set
                     // echo "error '".$configKey."' space/zero\n";
                     continue;
-                } else {
-                    $redis->hSet('bluetooth', $configKey, $configValue);
                 }
                 switch ($configKey) {
                     // setting default volume is done with bluealsa-cli, maybe the code below will be relevant in a future version
@@ -11429,24 +11427,28 @@ function wrk_btcfg($redis, $action, $param = null)
                         // change the symlink to point to the requested file version
                         //  there is a file for each quality setting
                         sysCmd('ln -sfT /etc/default/bluealsa.'.$configValue.' /etc/default/bluealsa');
-                        $resetBluetooth = true;
+                        if ($redis->hget('bluetooth', $configKey) != $configValue) {
+                            $resetBluetooth = true;
+                        }
                         break;
                     case 'samplerate':
                         // all of the files '/etc/default/bluealsa.*' need to have an extra switch removed or added
                         //  the switch --a2dp-force-audio-cd should be present for samplerate 44100 and omitted for 48000
                         if ($configValue == '44100') {
                             // get the files without the switch
-                            $bluealsaConfigFiles = sysCmd("grep -lv -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
+                            $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // add the switch per file, only in the line beginning with 'OPTIONS='
-                                echo sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-force-audio-cd/' ".$bluealsaConfigFile)."\n";
+                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-force-audio-cd/' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
                             }
                         } else if ($configValue == '48000') {
                             // get the files with the switch
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                echo sysCmd("sed -i '/^OPTIONS=/s/--a2dp-force-audio-cd //' ".$bluealsaConfigFile)."\n";
+                                sysCmd("sed -i '/^OPTIONS=/s/--a2dp-force-audio-cd //' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
                             }
                         } else {
                             // invalid value
@@ -11525,10 +11527,14 @@ function is_playing($redis)
     $device = json_decode($redis->hGet('acards', $redis->get('ao')), true)['device'];
     if (isset($device) && $device && strpos(' '.$device, 'bluealsa')) {
         // output device is Bluetooth
-        // try playing a half second of silence with aplay
-        $retval = trim(sysCmd('aplay -N -f cd -q -D '.$device.' /srv/http/app/config/defaults/silence100ms.mp3 > /dev/null 2>&1 ; echo "$?" | xargs')[0]);
-        // a zero is returned when nothing is playing
-        if ($retval) {
+        //  look at the cpu usage of bluealsa, it is almost zero when nothing is playing and significantly higher when playing
+        //  but a paused input continues to use the high cpu, so this method is not foolproof
+        $bluealsaCpu1 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
+        // wait a half second
+        usleep(500000);
+        // get the cpu time again
+        $bluealsaCpu2 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
+        if (($bluealsaCpu2 - $bluealsaCpu1) > 1) {
             return true;
         }
     }
