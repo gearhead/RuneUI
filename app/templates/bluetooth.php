@@ -162,6 +162,18 @@
                         <i>Notes: Changing this value will disconnect all your output Bluetooth devices.</i></span>
                 </div>
             </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="bluetooth_native_volume_control">Bluetooth Output Native Volume Control</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input id="bluetooth_native_volume_control" name="bluetooth_native_volume_control" type="checkbox" value="1"<?php if((isset($this->config['native_volume_control'])) && ($this->config['native_volume_control'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle the Bluetooth output native volume control.<br>
+                        Native volume control is enabled by default. If the volume control fails to work try switching the native volume control off, the inbuilt bluealsa volume control will then be used.<br>
+                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices.</i></span>
+                </div>
+            </div>
             <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_def_volume">Bluetooth Default Volume Level</label>

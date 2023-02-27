@@ -11461,15 +11461,35 @@ function wrk_btcfg($redis, $action, $param = null)
                                 sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:*"');
                             }
                         }
-                        $resetBluetooth = true;
+                        break;
+                    case 'native_volume_control':
+                        // all of the files '/etc/default/bluealsa.*' need to have the switch --a2dp-volume will be added or removed
+                        if ($configValue) {
+                            // get the files without the switch
+                            $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-volume' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // add the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-source/-p a2dp-source --a2dp-volume/' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        } else {
+                            // get the files with the switch
+                            $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-volume' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/--a2dp-volume //' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        }
                         break;
                     case 'timeout':
-                        // don't need to do anything, the key value is updated above
+                        // don't need to do anything, the key value is updated below
                         break;
                 }
+                $redis->hSet('bluetooth', $configKey, $configValue);
             }
-            if ($resetBluetooth) {
-                // a reset is required, its not always required
+            if ($resetBluetooth && $redis->get('bluetooth_on')) {
+                // a reset is required to activate the saved values, its not always required
                 wrk_btcfg($redis, 'reset');
             }
             break;

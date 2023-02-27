@@ -70,6 +70,18 @@ if (isset($_POST)) {
         if (isset($_POST['bluetooth_def_volume']) && ($_POST['bluetooth_def_volume'] != $redis->hGet('bluetooth', 'def_volume'))) {
             $bt_config['def_volume'] = $_POST['bluetooth_def_volume'];
         }
+        $native_volume_control = $redis->hGet('bluetooth', 'native_volume_control');
+        if (isset($_POST['bluetooth_native_volume_control'])) {
+            $redis->set('test', $_POST['bluetooth_native_volume_control']);
+            if (($_POST['bluetooth_native_volume_control'] == '1') && !$native_volume_control) {
+                $bt_config['native_volume_control'] = 1;
+            } else if (($_POST['bluetooth_native_volume_control'] == '0') && $native_volume_control) {
+                $bt_config['native_volume_control'] = 0;
+            }
+        } else if ($native_volume_control) {
+            $redis->set('test', 'unset');
+            $bt_config['native_volume_control'] = 0;
+        }
         if (isset($_POST['bluetooth_timeout']) && ($_POST['bluetooth_timeout'] != $redis->hGet('bluetooth', 'timeout'))) {
             $bt_config['timeout'] = $_POST['bluetooth_timeout'];
         }
@@ -99,10 +111,16 @@ while (!$template->bluetooth && ($cnt-- > 0)) {
     }
 }
 $template->config = $redis->hgetall('bluetooth');
+// remove the next lines after the next build
 if (!isset($template->config['samplerate'])) {
     $redis->hSet('bluetooth', 'samplerate', '48000');
     $template->config['samplerate'] = '48000';
 }
+if (!isset($template->config['native_volume_control'])) {
+    $redis->hSet('bluetooth', 'native_volume_control', 1);
+    $template->config['native_volume_control'] = 1;
+}
+// end remove
 $template->devices = wrk_btcfg($redis, 'status');
 $template->samplerate = wrk_btcfg($redis, 'status');
 // get the quality options, these are stored in files '/etc/default/bluealsa.<name>'
