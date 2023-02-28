@@ -11439,7 +11439,7 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // add the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-force-audio-cd/' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-source/-p a2dp-source --a2dp-force-audio-cd/' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         } else if ($configValue == '48000') {
@@ -11447,7 +11447,7 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-force-audio-cd' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/--a2dp-force-audio-cd //' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/ --a2dp-force-audio-cd//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         } else {
@@ -11479,7 +11479,67 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-volume' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/--a2dp-volume //' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/ --a2dp-volume//' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        }
+                        break;
+                    case 'aptX_HD_codec':
+                        // all of the files '/etc/default/bluealsa.*' need to have the switch -c aptX-HD will be added or removed
+                        if ($configValue) {
+                            // get the files without the switch
+                            $bluealsaConfigFiles = sysCmd("grep -L -- ' -c aptX-HD' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // add the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/-c MP3/-c MP3 -c aptX-HD/' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        } else {
+                            // get the files with the switch
+                            $bluealsaConfigFiles = sysCmd("grep -l -- ' -c aptX-HD' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/ -c aptX-HD//' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        }
+                        break;
+                    case 'FastStream_codec':
+                        // all of the files '/etc/default/bluealsa.*' need to have the switch '-c FastStream' added or removed
+                        if ($configValue) {
+                            // get the files without the switch
+                            $bluealsaConfigFiles = sysCmd("grep -L -- ' -c FastStream' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // add the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/-c MP3/-c MP3 -c FastStream/' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        } else {
+                            // get the files with the switch
+                            $bluealsaConfigFiles = sysCmd("grep -l -- ' -c FastStream' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/ -c FastStream//' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        }
+                        break;
+                    case 'LDAC_codec':
+                        // all of the files '/etc/default/bluealsa.*' need to have the switches '-c LDAC --ldac-abr' added or removed
+                        if ($configValue) {
+                            // get the files without the switch
+                            $bluealsaConfigFiles = sysCmd("grep -L -- ' -c LDAC --ldac-abr' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // add the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/-c MP3/-c MP3 -c LDAC --ldac-abr/' ".$bluealsaConfigFile);
+                                $resetBluetooth = true;
+                            }
+                        } else {
+                            // get the files with the switch
+                            $bluealsaConfigFiles = sysCmd("grep -l -- ' -c LDAC' /etc/default/bluealsa.*");
+                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                sysCmd("sed -i '/^OPTIONS=/s/ -c LDAC --ldac-abr//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         }

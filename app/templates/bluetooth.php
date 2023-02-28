@@ -145,7 +145,7 @@
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported for input and output as default, all are enabled
+                    <span class="help-block">Choose the Bluetooth device audio quality profile. The 'SBC', 'MP3' and 'AAC' codecs are supported for input and output as default, all are enabled
                         regardless of the chosen configuration profile. Some additional codecs can be switched on below.<br>
                         The codec-specific profiles modify that codec only, leaving the other codecs at default values.<br>
                         <i>Notes: Changing this value will disconnect all your output Bluetooth devices. You can experiment to determine which profile gives you the best performance.
@@ -155,7 +155,44 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="bluetooth_samplerate">Bluetooth Output Audio Sample Rate</label>
+                <label class="control-label col-sm-2" for="bluetooth_aptX_HD_codec">Enable Bluetooth Input/Output 'aptX-HD' codec</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input id="bluetooth_aptX_HD_codec" name="bluetooth_aptX_HD_codec" type="checkbox" value="1"<?php if((isset($this->config['aptX_HD_codec'])) && ($this->config['aptX_HD_codec'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle Bluetooth Input/Output <strong>aptX-HD</strong> codec.<br>
+                        Default is <strong>Off</strong>. Check your Bluetooth device specification, there is no point in turning this on unless it is explicitly supported.<br>
+                        <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="bluetooth_FastStream_codec">Enable Bluetooth Input/Output 'FastStream' codec</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input id="bluetooth_FastStream_codec" name="bluetooth_FastStream_codec" type="checkbox" value="1"<?php if((isset($this->config['FastStream_codec'])) && ($this->config['FastStream_codec'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle Bluetooth Input/Output <strong>FastStream</strong> codec.<br>
+                        Default is <strong>Off</strong>. Check your Bluetooth device specification, there is no point in turning this on unless it is explicitly supported.<br>
+                        <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="bluetooth_LDAC_codec">Enable Bluetooth Input 'LDAC' codec</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input id="bluetooth_LDAC_codec" name="bluetooth_LDAC_codec" type="checkbox" value="1"<?php if((isset($this->config['LDAC_codec'])) && ($this->config['LDAC_codec'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle Bluetooth Input <strong>LDAC</strong> codec.<br>
+                        Default is <strong>Off</strong>. Check your Bluetooth device specification, there is no point in turning this on unless it is explicitly supported.<br>
+                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices. When <strong>On</strong>, it is enabled with 'adaptive bit rate'.
+                        A 44,100Hz sample rate is preferable for LDAC, see below</i></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-2" for="bluetooth_samplerate">Bluetooth Input/Output Audio Sample Rate</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_samplerate" class="selectpicker" name="bluetooth_samplerate" data-style="btn-default btn-lg">
                         <option value="44100" <?php if($this->config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>

@@ -70,25 +70,53 @@ if (isset($_POST)) {
         if (isset($_POST['bluetooth_def_volume']) && ($_POST['bluetooth_def_volume'] != $redis->hGet('bluetooth', 'def_volume'))) {
             $bt_config['def_volume'] = $_POST['bluetooth_def_volume'];
         }
+        if (isset($_POST['bluetooth_timeout']) && ($_POST['bluetooth_timeout'] != $redis->hGet('bluetooth', 'timeout'))) {
+            $bt_config['timeout'] = $_POST['bluetooth_timeout'];
+        }
         $native_volume_control = $redis->hGet('bluetooth', 'native_volume_control');
         if (isset($_POST['bluetooth_native_volume_control'])) {
-            $redis->set('test', $_POST['bluetooth_native_volume_control']);
             if (($_POST['bluetooth_native_volume_control'] == '1') && !$native_volume_control) {
                 $bt_config['native_volume_control'] = 1;
             } else if (($_POST['bluetooth_native_volume_control'] == '0') && $native_volume_control) {
                 $bt_config['native_volume_control'] = 0;
             }
         } else if ($native_volume_control) {
-            $redis->set('test', 'unset');
             $bt_config['native_volume_control'] = 0;
         }
-        if (isset($_POST['bluetooth_timeout']) && ($_POST['bluetooth_timeout'] != $redis->hGet('bluetooth', 'timeout'))) {
-            $bt_config['timeout'] = $_POST['bluetooth_timeout'];
+        $aptX_HD_codec = $redis->hGet('bluetooth', 'aptX_HD_codec');
+        if (isset($_POST['bluetooth_aptX_HD_codec'])) {
+            if (($_POST['bluetooth_aptX_HD_codec'] == '1') && !$aptX_HD_codec) {
+                $bt_config['aptX_HD_codec'] = 1;
+            } else if (($_POST['bluetooth_aptX_HD_codec'] == '0') && $aptX_HD_codec) {
+                $bt_config['aptX_HD_codec'] = 0;
+            }
+        } else if ($aptX_HD_codec) {
+            $bt_config['aptX_HD_codec'] = 0;
+        }
+        $FastStream_codec = $redis->hGet('bluetooth', 'FastStream_codec');
+        if (isset($_POST['bluetooth_FastStream_codec'])) {
+            if (($_POST['bluetooth_FastStream_codec'] == '1') && !$FastStream_codec) {
+                $bt_config['FastStream_codec'] = 1;
+            } else if (($_POST['bluetooth_FastStream_codec'] == '0') && $FastStream_codec) {
+                $bt_config['FastStream_codec'] = 0;
+            }
+        } else if ($FastStream_codec) {
+            $bt_config['FastStream_codec'] = 0;
+        }
+        $LDAC_codec = $redis->hGet('bluetooth', 'LDAC_codec');
+        if (isset($_POST['bluetooth_LDAC_codec'])) {
+            if (($_POST['bluetooth_LDAC_codec'] == '1') && !$LDAC_codec) {
+                $bt_config['LDAC_codec'] = 1;
+            } else if (($_POST['bluetooth_LDAC_codec'] == '0') && $LDAC_codec) {
+                $bt_config['LDAC_codec'] = 0;
+            }
+        } else if ($LDAC_codec) {
+            $bt_config['LDAC_codec'] = 0;
         }
         if (count($bt_config)) {
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'config', 'args' => json_encode($bt_config)));
         }
-        unset($bt_config);
+        unset($bt_config, $native_volume_control, $aptX_HD_codec, $FastStream_codec, $LDAC_codec);
     }
 }
 
@@ -119,6 +147,18 @@ if (!isset($template->config['samplerate'])) {
 if (!isset($template->config['native_volume_control'])) {
     $redis->hSet('bluetooth', 'native_volume_control', 1);
     $template->config['native_volume_control'] = 1;
+}
+if (!isset($template->config['aptX_HD_codec'])) {
+    $redis->hSet('bluetooth', 'aptX_HD_codec', 0);
+    $template->config['aptX_HD_codec'] = 0;
+}
+if (!isset($template->config['FastStream_codec'])) {
+    $redis->hSet('bluetooth', 'FastStream_codec', 0);
+    $template->config['FastStream_codec'] = 0;
+}
+if (!isset($template->config['LDAC_codec'])) {
+    $redis->hSet('bluetooth', 'LDAC_codec', 0);
+    $template->config['LDAC_codec'] = 0;
 }
 // end remove
 $template->devices = wrk_btcfg($redis, 'status');
