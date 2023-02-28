@@ -137,7 +137,7 @@
         <legend>Bluetooth configuration</legend>
         <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Output Audio Quality</label>
+                <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Input/Output Audio Quality</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_quality" class="selectpicker" name="bluetooth_quality" data-style="btn-default btn-lg">
                         <?php foreach ($this->quality_options as $qualOpt) : ?>
@@ -145,11 +145,12 @@
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported, all are enabled regardless of the chosen configuration profile.<br>
-                        The codec specific profiles modify that codec only, leaving the other codecs at default values.<br>
+                    <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported for input and output as default, all are enabled
+                        regardless of the chosen configuration profile. Some additional codecs can be switched on below.<br>
+                        The codec-specific profiles modify that codec only, leaving the other codecs at default values.<br>
                         <i>Notes: Changing this value will disconnect all your output Bluetooth devices. You can experiment to determine which profile gives you the best performance.
-                        For more information about Bluetooth audio there is a good article <strong><a href="https://habr.com/en/post/456182/" target="_blank">here</a></strong>.
-                        Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality or no sound.
+                        For more information about Bluetooth audio there is an interesting article <strong><a href="https://habr.com/en/post/456182/" target="_blank">here</a></strong>.
+                        Some Bluetooth devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality or no sound.
                         If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
                 </div>
             </div>
@@ -160,9 +161,10 @@
                         <option value="44100" <?php if($this->config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>
                         <option value="48000" <?php if($this->config['samplerate'] == '48000'): ?> selected <?php endif ?>>48,000Hz</option>
                     </select>
-                    <span class="help-block">Choose the Bluetooth output device audio sample rate.<br>
-                        Most Bluetooth devices support 48,000Hz and 44,100Hz sample rates, but some can only process 41,100Hz sampling. The default is 48,000Hz, change it if required.<br>
-                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices.</i></span>
+                    <span class="help-block">Choose the Bluetooth audio sample rate.<br>
+                        Most Bluetooth devices support 48,000Hz and 44,100Hz sample rates, but some can only process 41,100Hz sampling. 44,100Hz sampling should give
+                        better results for Apple devices, however, Airplay is always a better choice than Bluetooth for streamed audio input. The default is 48,000Hz, change it if required.<br>
+                        <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -174,7 +176,7 @@
                     </label>
                     <span class="help-block">Toggle the Bluetooth output native volume control.<br>
                         Native volume control is enabled by default. If the volume control fails to work try switching the native volume control off, the inbuilt bluealsa volume control will then be used.<br>
-                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices.</i></span>
+                        <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
                 </div>
             </div>
             <!--

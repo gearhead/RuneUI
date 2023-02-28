@@ -188,7 +188,7 @@
                     Setting this to "album" will adjust volume using the album's ReplayGain tags, while setting it to "track" will adjust it using the track ReplayGain tags.
                     "auto" uses the track ReplayGain tags if random play is activated otherwise the album ReplayGain tags.
                     Currently only FLAC, Ogg Vorbis, Musepack, and MP3 (through ID3v2 ReplayGain tags, not APEv2) are supported.<br>
-                    <i>For best results the volume control should be enabled</i></span>
+                    <i>Note: Enabling this feature means your audio will no longer be bit perfect. For best results the volume control should be enabled, a hardware volume control will then be used if available</i></span>
                 </div>
             </div>
             <div class="form-group">
