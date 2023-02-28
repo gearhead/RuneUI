@@ -11524,8 +11524,14 @@ function is_playing($redis)
     //  access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050
     if (trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0])) return true;
     // other devices
-    $device = json_decode($redis->hGet('acards', $redis->get('ao')), true)['device'];
-    if (isset($device) && $device && strpos(' '.$device, 'bluealsa')) {
+    $ao = trim($redis->get('ao'));
+    if (isset($ao) && $ao) {
+        $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+        if (isset($acard['device']) && trim($acard['device'])) {
+            $device = trim($acard['device']);
+        }
+    }
+    if (isset($device) && $device && (strpos(' '.$device, 'bluealsa:') == 1)) {
         // output device is Bluetooth
         //  look at the cpu usage of bluealsa, it is almost zero when nothing is playing and significantly higher when playing
         //  but a paused input continues to use the high cpu, so this method is not foolproof
