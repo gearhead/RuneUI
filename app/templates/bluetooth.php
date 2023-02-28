@@ -148,6 +148,7 @@
                     <span class="help-block">Choose the Bluetooth output device audio quality. SBC, MP3 and AAC codecs are supported, all are enabled regardless of the chosen configuration profile.<br>
                         The codec specific profiles modify that codec only, leaving the other codecs at default values.<br>
                         <i>Notes: Changing this value will disconnect all your output Bluetooth devices. You can experiment to determine which profile gives you the best performance.
+                        For more information about Bluetooth audio there is a good article <strong><a href="https://habr.com/en/post/456182/" target="_blank">here</a></strong>.
                         Some output devices may not be able to process higher quality audio, problems could include difficult connectivity and/or poor sound quality or no sound.
                         If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
                 </div>
