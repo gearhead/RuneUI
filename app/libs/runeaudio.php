@@ -11578,10 +11578,18 @@ function wrk_btcfg($redis, $action, $param = null)
 function is_playing($redis)
 // returns true of false
 {
-    // alsa device, when not playing the command returns an empty string, when playing returns something like:
+    // alsa output device, when not playing the command returns an empty string, when playing returns something like:
     //  access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050
+    //  Note: when Bluetooth is input, output is generally an alsa hardware card
     if (trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0])) return true;
     // other devices
+    //  MPD as player
+    //  generic via mpd, if MPD says its playing, then it is playing
+    if (trim(sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0])) return true;
+    //  now, since it is not playing, when MPD is the player it is not playing
+    if ($redis->get('activePlayer') == 'MPD') return false;
+    // other devices
+    //  Bluetooth output
     $ao = trim($redis->get('ao'));
     if (isset($ao) && $ao) {
         $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
