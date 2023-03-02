@@ -356,9 +356,9 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Clear current queue</h3>
             </div>
             <div class="modal-body">
-                Or clear all songs from queue (<strong>Clear</strong>).<br>
+                Clear all songs from queue (<strong>Clear</strong>).<br>
                 Or clear the queue except the current song (<strong>Crop</strong>).<br>
-                This will clear the songs before the current song (<strong>Clear Played</strong>).<br>
+                Or clear the songs listed before the current song (<strong>Clear Played</strong>).<br>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
