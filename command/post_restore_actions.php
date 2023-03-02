@@ -62,10 +62,11 @@ wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
 if ($redis->get('bluetooth_on')) {
-    wrk_netconfig($redis, 'enableBT');
+    wrk_btcfg($redis, 'enable');
 } else {
-    wrk_netconfig($redis, 'disableBT');
+    wrk_btcfg($redis, 'disable');
 }
+wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');
 } else {
