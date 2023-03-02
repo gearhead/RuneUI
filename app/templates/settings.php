@@ -376,12 +376,23 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label class="control-label col-sm-2" for="spotifyconnect_autoplay">Autoplay</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_autoplay" name="features[spotifyconnect][autoplay]" type="checkbox" value="true"<?php if(isset($this->spotifyconnect['autoplay']) && $this->spotifyconnect['autoplay'] === 'true'): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Switch Autoplay per track <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> play similar songs after the current Spotify playlist has finished. The selection is based on the previously played tracks</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="control-label col-sm-2" for="spotifyconnect_volume_normalisation">Volume Normalisation</label>
                         <div class="col-sm-10">
-                            <select id="spotifyconnect_volume_normalisation" class="selectpicker" name="features[spotifyconnect][volume_normalisation]" data-style="btn-default btn-lg">
-                                <option value="true"  <?php if($this->spotifyconnect['volume_normalisation'] === 'true'): ?>  selected <?php endif ?>> ON</option>
-                                <option value="false" <?php if($this->spotifyconnect['volume_normalisation'] === 'false'): ?> selected <?php endif ?>> OFF</option>
-                            </select>
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_volume_normalisation" name="features[spotifyconnect][volume_normalisation]" type="checkbox" value="true"<?php if(isset($this->spotifyconnect['volume_normalisation']) && $this->spotifyconnect['volume_normalisation'] === 'true'): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
                             <span class="help-block">Switch Volume Normalisation per track <strong>ON</strong> or <strong>OFF</strong></span>
                         </div>
                     </div>

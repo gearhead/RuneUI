@@ -4467,9 +4467,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    runelog('wrk_spotifyd acard name         : ', $acard['name']);
-    runelog('wrk_spotifyd acard type         : ', $acard['type']);
-    runelog('wrk_spotifyd acard device       : ', $acard['device']);
+    runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
+    runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
+    runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
     //
     !empty($acard['device']) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
     //
@@ -4494,10 +4494,10 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'volume_control', $volume_control);
     //
     $spotifyd_conf  = "############################################################\n";
-    $spotifyd_conf .= "# Auto generated spotifyd.conf file\n";
+    $spotifyd_conf .= "# RuneAudio auto generated spotifyd.conf file, do not edit\n";
     $spotifyd_conf .= "# Configuration File for Spotifyd\n";
     $spotifyd_conf .= "# A spotify playing daemon - Spotify Connect Receiver\n";
-    $spotifyd_conf .= '# See: https://github.com/Spotifyd/spotifyd#configuration'."\n";
+    $spotifyd_conf .= '# See: https://spotifyd.github.io/spotifyd/config/File.html'."\n";
     $spotifyd_conf .= '# Also see: /srv/http/app/config/defaults/spotifyd.conf'."\n";
     $spotifyd_conf .= "############################################################\n";
     $spotifyd_conf .= "#\n";
@@ -4509,26 +4509,22 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     foreach ($sccfg as $param => $value) {
         $value = trim($value);
         switch ($param) {
-        case "username":
-            // no break;
-        case "password":
-            // no break;
         case "backend":
-            // no break;
         case "device":
-            // no break;
-        case "mixer":
-            // no break;
-        case "onevent":
-            // no break;
         case "device_name":
+        case "device_type":
+        case "initial_volume":
+        case "mixer":
+        case "onevent":
+        case "password":
+        case "username":
             if ($value) {
                 $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
             }
             break;
-        case "use_mpris":
-            // no break;
+        case "autoplay":
         case "bitrate":
+        case "use_mpris":
             if ($value) {
                 $spotifyd_conf .= $param." = ".$value."\n";
             }
@@ -4539,10 +4535,12 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         case "volume_normalisation":
             if ($value == 'true') {
                 $spotifyd_conf .= "volume-normalisation = ".$value."\n";
+            } else {
+                $spotifyd_conf .= "volume-normalisation = false\n";
             }
             break;
         case "normalisation_pregain":
-            if ($sccfg['volume_normalisation'] == 'true') {
+            if (isset($sccfg['volume_normalisation']) && $sccfg['volume_normalisation'] == 'true') {
                 $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
             } else {
                 $spotifyd_conf .= "normalisation-pregain = 0\n";

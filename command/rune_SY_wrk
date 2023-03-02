@@ -1338,24 +1338,16 @@ while (true) {
                     unset($spotifyConnectCache);
                 }
                 // write Spotify Connect data to Redis datastore
-                isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
-                isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
-                isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
+                isset($job->args->autoplay) && $redis->hSet('spotifyconnect', 'autoplay', $job->args->autoplay);
                 isset($job->args->bitrate) && $redis->hSet('spotifyconnect', 'bitrate', $job->args->bitrate);
-                isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);
-                isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
-                isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
+                isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
                 isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
-                // isset($job->args->ao) && $redis->hSet('spotifyconnect', 'ao', $job->args->ao);
                 isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
-                // isset($job->args->backend) && $redis->hSet('spotifyconnect', 'backend', $job->args->backend);
-                // isset($job->args->device) && $redis->hSet('spotifyconnect', 'device', $job->args->device);
-                // isset($job->args->mixer) && $redis->hSet('spotifyconnect', 'mixer', $job->args->mixer);
-                // isset($job->args->volume_control) && $redis->hSet('spotifyconnect', 'volume_control', $job->args->volume_control);
-                // isset($job->args->onevent) && $redis->hSet('spotifyconnect', 'onevent', $job->args->onevent);
-                // isset($job->args->cache_path) && $redis->hSet('spotifyconnect', 'cache_path', $job->args->cache_path);
-                // isset($job->args->last_track_id) && $redis->hSet('spotifyconnect', 'last_track_id', $job->args->last_track_id);
-                // create a new spotifyd config file
+                isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
+                isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
+                isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
+                isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
+                isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);
                 wrk_spotifyd($redis);
                 // stop and/or start spotifyd
                 if ($job->action === 'start') {
