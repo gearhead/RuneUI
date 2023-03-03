@@ -99,7 +99,9 @@ $startTimeExpired = false;
 $cnt = 3;
 // make sure we have the last track ID
 $last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
+$last_jobevent = '';
 do {
+    $active_player = $redis->get('activePlayer');
     // pop the jobID from the work fifo queue
     $jobID = $redis->rPop('s_queue_fifo');
     if (!isset($jobID) || !$jobID) {
@@ -137,15 +139,18 @@ do {
     // if (in_array($job['event'],$skipEvents)) {
         // continue;
     // }
-    // event: stop, start, change, load, play, pause, preload, endoftrack, volumeset, unavailable, preloading
-    // track_id: the current Spotify track ID
-    // duration_ms: track time in milliseconds
-    // position_ms: track current position in milliseconds
-    runelog('rune_SDM_wrk job PLAYER_EVENT    :', $job['event']);
-    runelog('rune_SDM_wrk job TRACK_ID        :', $job['track_id']);
-    runelog('rune_SDM_wrk job TIME            :', $job['duration_ms']);
-    runelog('rune_SDM_wrk job ELAPSED         :', $job['position_ms']);
-    // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
+    if (($job['event'] != 'endofqueue') || $last_jobevent != 'endofqueue' ) {
+        // event: stop, start, change, load, play, pause, preload, endoftrack, volumeset, unavailable, preloading
+        // track_id: the current Spotify track ID
+        // duration_ms: track time in milliseconds
+        // position_ms: track current position in milliseconds
+        runelog('rune_SDM_wrk job PLAYER_EVENT    :', $job['event']);
+        runelog('rune_SDM_wrk job TRACK_ID        :', $job['track_id']);
+        runelog('rune_SDM_wrk job TIME            :', $job['duration_ms']);
+        runelog('rune_SDM_wrk job ELAPSED         :', $job['position_ms']);
+        // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
+        $last_jobevent = $job['event'];
+    }
     $title = '';
     unset($status['song_percent'], $status['elapsed']);
     $song_line = sysCmd("journalctl -u spotifyd | tail -n 100 | grep -i '<spotify:track:' | tail -n 1");
