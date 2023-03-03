@@ -76,14 +76,32 @@ while (true) {
         continue;
     }
     if ($redis->get('activePlayer') === 'MPD') {
-        // when the active player is MPD and it is not playing, but output is playing then it is Bluetooth
+        // when the active player is MPD and it is not playing, but output is playing something then it is Bluetooth
         $mpdPlaying = SysCmd("mpc status | grep -ic '\[playing\]'")[0];
         if (!$mpdPlaying) {
             // mpd not playing
             if (is_playing($redis)) {
-                // but music is playing, therefore its Bluetooth, switch the player to Bluetooth
-                wrk_startPlayer($redis, "Bluetooth");
-                sleep(5);
+                // but something is playing, therefore its likely to Bluetooth
+                // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
+                if (!isset($devices)) {
+                    // this routine is expensive to run, so only run it when required
+                    $devices = wrk_btcfg($redis, 'status');
+                    $source_connected = false;
+                    $sink_connected = false;
+                    foreach ($devices as $device) {
+                        if ($device['connected'] && $device['source']) {
+                            $source_connected = true;
+                        }
+                        if ($device['connected'] && $device['sink']) {
+                            $sink_connected = true;
+                        }
+                    }
+                }
+                if ($source_connected) {
+                    // Bluetooth source is connected, switch the player to Bluetooth
+                    wrk_startPlayer($redis, "Bluetooth");
+                    sleep(5);
+                }
                 continue;
             }
         }
@@ -101,9 +119,27 @@ while (true) {
                 // last message again contains the warning
                 if ($lastJournalMessage != $newLastJournalMessage) {
                     // both messages contain the warning and have different time stamps
-                    //  the alsa output is in use (locked) by another player, switch the player to Bluetooth
-                    wrk_startPlayer($redis, "Bluetooth");
-                    sleep(5);
+                    //  the alsa output is in use (locked) by another player, looks like a Bluetooth input
+                    // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
+                    if (!isset($devices)) {
+                        // this routine is expensive to run, so only run it when required
+                        $devices = wrk_btcfg($redis, 'status');
+                        $source_connected = false;
+                        $sink_connected = false;
+                        foreach ($devices as $device) {
+                            if ($device['connected'] && $device['source']) {
+                                $source_connected = true;
+                            }
+                            if ($device['connected'] && $device['sink']) {
+                                $sink_connected = true;
+                            }
+                        }
+                    }
+                    if ($source_connected) {
+                        // Bluetooth source is connected, switch the player to Bluetooth
+                        wrk_startPlayer($redis, "Bluetooth");
+                        sleep(5);
+                    }
                     continue;
                 }
             }
@@ -112,18 +148,36 @@ while (true) {
     if (($redis->get('activePlayer') != 'Bluetooth') && ($delayCnt-- <= 0)) {
         // the player is not Bluetooth, run through the Bluetooth outputs
         // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
-        $devices = wrk_btcfg($redis, 'status');
-        foreach ($devices as $device) {
-            // sometime trusted auto-connect wont work, do it manually here
-            if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
-                // attempt to connect
-                wrk_btcfg($redis, 'connect', $device['device']);
+        // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
+        if (!isset($devices)) {
+            // this routine is expensive to run, so only run it when required
+            $devices = wrk_btcfg($redis, 'status');
+            $source_connected = false;
+            $sink_connected = false;
+            foreach ($devices as $device) {
+                if ($device['connected'] && $device['source']) {
+                    $source_connected = true;
+                }
+                if ($device['connected'] && $device['sink']) {
+                    $sink_connected = true;
+                }
             }
         }
-        // set delay count to 20: this routing runs every 1 minute (20x3 = 60 seconds)
+        if (!$source_connected) {
+            foreach ($devices as $device) {
+                // sometime trusted auto-connect wont work, do it manually here
+                if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
+                    // attempt to connect
+                    wrk_btcfg($redis, 'connect', $device['device']);
+                }
+            }
+        }
+        // set delay count to 5: this routing runs every 15 second (5x3 = 15 seconds)
         //  the main loop cycles every 3 seconds
-        $delayCnt = 20;
+        $delayCnt = 5;
     }
+    // unset the device array
+    unset($devices, $source_connected, $sink_connected);
 }
 //
 runelog('WORKER bt_mon_switch.php END...');
