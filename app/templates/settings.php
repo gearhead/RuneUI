@@ -325,7 +325,7 @@
                             <?php if($this->activePlayer === 'SpotifyConnect'): ?><input id="spotifyconnect" name="features[spotifyconnect][enable]" type="hidden" value="1"><?php endif; ?>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'SpotifyConnect'): ?>disabled<?php endif; ?>"></a>
                         </label>
-                        <?php if($this->oa): ?>
+                        <?php if($this->ao): ?>
                             <span class="help-block">Toggle the capability of receiving wireless streaming of audio via Spotify Connect.
                                 You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
                         <?php else: ?>

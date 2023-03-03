@@ -325,7 +325,7 @@ $template->samba = $redis->hGetAll('samba');
 $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
 $template->i2smodule_select = $redis->get('i2smodule_select');
-if ($redis->get('oa')) {
+if ($redis->get('ao')) {
     $template->ao = true;
 } else {
     $template->ao = false;
