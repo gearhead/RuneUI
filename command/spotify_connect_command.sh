@@ -60,7 +60,7 @@ fi
 #
 # we only use the metadata PLAYER_EVENT, TRACK_ID, DURATION_MS, and POSITION_MS
 # write the values to the spotify connect redis hash and fifo queue
-redis-cli hset s_queue "$PLAYER_EVENT$id" "{\"event\":\"$PLAYER_EVENT\",\"track_id\":\"$TRACK_ID\",\"duration_ms\":\"$DURATION_MS\",\"position_ms\":\"$POSITION_MS\"}"
+redis-cli hset s_queue "$PLAYER_EVENT$id" "{\"event\":\"$PLAYER_EVENT\",\"track_id\":\"$TRACK_ID\",\"duration_ms\":\"$DURATION_MS\",\"position_ms\":\"$POSITION_MS\",\"volume\":\"$VOLUME\"}"
 redis-cli lpush s_queue_fifo "$PLAYER_EVENT$id"
 #---
 #End script

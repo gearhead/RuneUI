@@ -34,19 +34,20 @@
  *
  */
 //
-// this routing reads the play event information from spotifyd and uses it to generate metadata and album art,
-//  however much of the data supplied by spotifyd is wrong and unusable
-//  this routine is the result of much trial and error experimentation and searching for patterns in the way
-//  which data is made available
-// spotifyd writes some correct information in its log, this contains the spotify track-id, duration in
-//  milliseconds and the name of the track - this is accurate
-//  this change is written to the log exactly 30 seconds before the track starts playing, except in the following
-//  circumstances:
-//      a 'load' player event is received just before or just after the change, any event thereafter signals a
-//          start of play
-//      a 'change' player event is received before 30 seconds have elapsed signals the start of play
-// volume level is determined on each cycle by examining the alsa volume level
-// playing/paused is determined by examining the alsa status
+// this routing reads the play event information from spotifyd and uses it to generate metadata and album art
+// the events are processed as follows:
+//  change:         -unset elapsed and song_percent, set to stopped then display results
+//  endofqueue:     -ignore (internally generated)
+//  endoftrack:     -unset elapsed and song_percent, set to stopped then display results
+//  load:           -ignore
+//  pause:          -unset elapsed and song_percent, set to paused then display results
+//  play:           -search for metadata, determine elapsed and song_percent then display results
+//  preload:        -ignore
+//  preloading:     -search for metadata, but do not display results (this caches the display data for the next song)
+//  start:          -initialize data, display switching
+//  stop:           -display switching, initiate player-end switch
+//  unavailable:    -ignore
+//  volumeset:      unset elapsed and song_percent, set the volume then display results
 //
 // initialisation
 // report errors: set display_errors to true (=1)
@@ -87,21 +88,32 @@ if ($mixer == 'PCM' && strlen($card)) {
 }
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
-$lastEvent = '';
-$error = false;
-$eventQueue = false;
 $updateUI = false;
-$trackChanged = false;
-$loadEvent = false;
-$startAfterLoadEvent = false;
-$startNewTrack = false;
-$startTimeExpired = false;
-$cnt = 3;
+//
 // make sure we have the last track ID
 $last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
-$last_jobevent = '';
 do {
-    $active_player = $redis->get('activePlayer');
+    if (isset($job['event'])) {
+        $lastEvent = $job['event'];
+    } else {
+        $lastEvent = 'endofqueue';
+    }
+    if (isset($status['time'])) {
+        $lastTime = $status['time'];
+    } else {
+        $lastTime = 0;
+    }
+    if (isset($status['elapsed'])) {
+        $lastElapsed = $status['elapsed'];
+    } else {
+        $lastElapsed = 0;
+    }
+    $job = array();
+    $job['event'] = 'endofqueue';
+    $job['track_id'] = $last_track_id;
+    $job['duration_ms'] = '0';
+    $job['position_ms'] = '0';
+    $job['volume'] = '0';
     // pop the jobID from the work fifo queue
     $jobID = $redis->rPop('s_queue_fifo');
     if (!isset($jobID) || !$jobID) {
@@ -109,79 +121,48 @@ do {
         // in some cases an entry is added to the s_queue without adding an entry to the fifo queue
         //  this should never happen, even so add an entry to the fifo queue for
         //  any entries in the work queue
-        foreach ($redis->hGetAll('s_queue') as $jobID => $job) {
+        foreach ($redis->hGetAll('s_queue') as $jobID => $jobinfo) {
             if (isset($jobID) && $jobID) {
                 $redis->lPush('s_queue_fifo', $jobID);
             }
         }
-        // run through the loop one more time, this should set the playing indicator and volume level, maybe a change of track
-        $job = array();
-        $job['event'] = 'endofqueue';
-        $job['track_id'] = $last_track_id;
-        $job['duration_ms'] = '0';
-        $job['position_ms'] = '0';
-        // echo '$jobID :'.$jobID.' event : '.$job['event']."\n";
     } else {
         // read the job information from the work queue
         // not end of queue
         if ($redis->hExists('s_queue', $jobID)) {
-            $job = json_decode($redis->hGet('s_queue', $jobID), true);
+            $job = array_merge($job, json_decode($redis->hGet('s_queue', $jobID), true));
             $redis->hDel('s_queue', $jobID);
         } else {
             // no work queue entry for the fifo queue entry, this should never happen!
             //  something went wrong, just skip and get the next one
+            // unload CPU: 0.5 second sleep before looping
+            usleep(500000);
+            $active_player = $redis->get('activePlayer');
             continue;
         }
     }
-    // PLAYER_EVENT: <one of the values: start, stop, play, pause, change, volumeset, load, preload, endoftrack, unavailable, preloading>
+    // PLAYER_EVENT: <one of the values: start, stop, play, pause, change, volumeset, load, preload, endoftrack, unavailable, preloading, endofqueue>
     // ignore the following events
-    // $skipEvents = array('load', 'preload', 'unavailable', 'preloading');
-    // if (in_array($job['event'],$skipEvents)) {
-        // continue;
-    // }
-    if (($job['event'] != 'endofqueue') || $last_jobevent != 'endofqueue' ) {
-        // event: stop, start, change, load, play, pause, preload, endoftrack, volumeset, unavailable, preloading
-        // track_id: the current Spotify track ID
-        // duration_ms: track time in milliseconds
-        // position_ms: track current position in milliseconds
-        runelog('rune_SDM_wrk job PLAYER_EVENT    :', $job['event']);
-        runelog('rune_SDM_wrk job TRACK_ID        :', $job['track_id']);
-        runelog('rune_SDM_wrk job TIME            :', $job['duration_ms']);
-        runelog('rune_SDM_wrk job ELAPSED         :', $job['position_ms']);
-        // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
-        $last_jobevent = $job['event'];
-    }
-    $title = '';
-    unset($status['song_percent'], $status['elapsed']);
-    $song_line = sysCmd("journalctl -u spotifyd | tail -n 100 | grep -i '<spotify:track:' | tail -n 1");
-    if (isset($song_line[0])) {
-        $job['track_id'] = get_between_data($song_line[0], '<spotify:track:', '>', 1);
-        $title = get_between_data($song_line[0], '<', '>', 1);
-        // escape the backslash and double quote, not a single quote
-        $title = str_replace('\\', '\\\\', $title);
-        $title = str_replace('"', '\\"', $title);
-        $song_line = sysCmd('journalctl -u spotifyd | tail -n 100 | grep -i "'.$title.'> (" | tail -n 1');
-        if (isset($song_line[0])) {
-            $duration_ms = get_between_data($song_line[0], '> (', ' ms)', 1);
-        } else {
-            $song_line = sysCmd('journalctl -u spotifyd | tail -n 100 | grep -i "> (" | tail -n 1');
-            if (isset($song_line[0])) {
-                $duration_ms = get_between_data($song_line[0], '> (', ' ms)', 1);
-            } else {
-                $duration_ms = 0;
-            }
-        }
-    } else {
+    $skipEvents = array('endofqueue', 'load', 'preload', 'unavailable');
+    if (in_array($job['event'], $skipEvents)) {
+        // unload CPU: 0.5 second sleep when there is nothing to do
+        usleep(500000);
+        $active_player = $redis->get('activePlayer');
         continue;
     }
-    $duration_ms = intval($duration_ms);
-    runelog('rune_SDM_wrk fixed TRACK_ID      :', $job['track_id']);
-    runelog('rune_SDM_wrk fixed TIME          :', $duration_ms);
-    runelog('rune_SDM_wrk fixed TITLE         :', $title);
-    // echo $job['event']." ".$job['track_id']." ".$duration_ms." ".$title." Fixed\n";
-    // check for first time
-    if (($last_track_id == '')) {
-        // first time start
+    // event: stop, start, change, load, play, pause, preload, endoftrack, volumeset, unavailable, preloading
+    // track_id: the current Spotify track ID
+    // duration_ms: track time in milliseconds
+    // position_ms: track current position in milliseconds
+    runelog('[rune_SDM_wrk] job PLAYER_EVENT    :', $job['event']);
+    runelog('[rune_SDM_wrk] job TRACK_ID        :', $job['track_id']);
+    runelog('[rune_SDM_wrk] job TIME            :', $job['duration_ms']);
+    runelog('[rune_SDM_wrk] job ELAPSED         :', $job['position_ms']);
+    runelog('[rune_SDM_wrk] job VOLUME          :', $job['volume']);
+    // echo "E:".$job['event'].", ID:".$job['track_id'].", D:".$job['duration_ms'].", P:".$job['position_ms'].", V:".$job['volume']." \n";
+    //
+    // first-time start event or stop event
+    if (($last_track_id == '') || ($job['event'] == 'start') || ($job['event'] == 'stop')) {
         $last_track_id = '*';
         // initialise the status array
         initialise_playback_array($redis, 'Spotify connect');
@@ -227,91 +208,203 @@ do {
         // echo $job['event']." ".$job['track_id']." Init\n";
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
-        $status['song_percent'] = 0;
-        $status['elapsed'] = 0;
+        if ($job['event'] == 'stop') {
+            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'stopplayer'));
+            $redis->del('s_queue');
+            $redis->del('s_queue_fifo');
+            $updateUI = false;
+        } else if ($job['event'] == 'start') {
+            $updateUI = false;
+        }
+    }
+    //
+    // 'elapsed' and 'song_percent' are always unset unless explicitly set by stop, start or play events
+    // unset($status['elapsed'], $status['song_percent']);
+    //
+    // pause event
+    if ($job['event'] == 'pause') {
+        $status['state'] = "pause";
+        // the play event delivers the song duration (time) and the elapsed (elapsed and song_percent) information
         $status['time_last_elapsed'] = microtime(true);
-    }
-    if ($job['event'] != 'endofqueue') {
-        $eventQueue = true;
-    }
-    if ($last_track_id != $job['track_id']) {
-        $trackChanged = true;
-        $last_track_id = $job['track_id'];
-        // save the last track ID
-        $redis->hSet('spotifyconnect', 'last_track_id', $last_track_id);
-        // set start time to + 30 seconds
-        $startTime = microtime(true)+30;
-        // get the Spotify metadata based on the track ID
-        $spotifyInfo = wrk_getSpotifyMetadata($redis, $job['track_id']);
-        // var_dump($retval);
-        if (($spotifyInfo['title'] == '-') && $title != '') {
-            $spotifyInfo['title'] = $title;
+        if ($job['duration_ms'] > 0) {
+            $status['time'] = round($job['duration_ms'] / 1000);
+            $status['elapsed'] = round($job['position_ms'] / 1000);
+            $status['song_percent'] = min(100, round((100 * $job['position_ms']) / $job['duration_ms']));
+        } else {
+            // this should not happen
+            $status['time'] = "0";
+            $status['elapsed'] = "0";
+            $status['song_percent'] = "0";
         }
-        // now get the artist art and song information
-        $info = array();
-        $info['artist'] = $spotifyInfo['artist'];
-        $info['albumartist'] = $spotifyInfo['artist'];
-        $info['song'] = $spotifyInfo['title'];
-        $retval = get_artistInfo($redis, $info);
-        if ($retval) {
-            $info = array_merge($info, $retval);
-        }
-        $retval = get_songInfo($redis, $info);
-        if ($retval) {
-            $info = array_merge($status, $retval);
-        }
-        // clean up the metadata, async and at low priority
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
-    } else if ($trackChanged && ($startTime < microtime(true))) {
-        $startTimeExpired = true;
+        $updateUI = true;
     }
-    if ($job['event'] == 'load') {
-        $loadEvent = true;
-        // only valid for 4 seconds
-        $loadEventTimer = microtime(true)+4;
-    } else if ($loadEvent && ($loadEventTimer < microtime(true))) {
-        $loadEvent = false;
-    } else if ($loadEvent && $trackChanged && ($job['event'] != 'endofqueue')){
-        $startAfterLoadEvent = true;
-    }
-    if ($job['event'] == 'change') {
-        $startNewTrack = true;
-        // only valid for 4 seconds
-        $startNewTrackTimer = microtime(true)+4;
-    } if ($startNewTrack && ($startNewTrackTimer < microtime(true))) {
-        // no longer valid
-        $startNewTrack = false;
-    }
-    if ((($job['event'] == 'pause') || ($job['event'] == 'play')) && ($job['event'] != $lastEvent)) {
-        if (!isset($status['time']) || !$status['time']) {
-            $status['time'] = round($job['duration_ms']/1000);
-        }
-        if ($job['position_ms']) {
-            $status['elapsed'] = round($job['position_ms']/1000);
+    //
+    // change or endoftrack event
+    if (($job['event'] == 'change') || ($job['event'] == 'endoftrack')) {
+        if (($lastEvent == 'change') || ($lastEvent == 'endoftrack')) {
+            // endoftrack and change are often sent sequentially after each other, skip the second one
+            $updateUI = false;
+        } else {
+            $status['state'] = "stop";
+            $status['elapsed'] = "0";
+            $status['song_percent'] = "0";
             $status['time_last_elapsed'] = microtime(true);
-            // calculate the percentage played
-            if ($status['time'] != 0) {
-                $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
-            } else {
-                $status['song_percent'] = 0;
-            }
             $updateUI = true;
         }
     }
-    // debug
-    // if ($lastEvent != $job['event']) {
-        // echo '$job-event :'.$job['event'].
-            // ' $trackChanged :'.$trackChanged.
-            // ' $loadEvent :'.$loadEvent.
-            // ' $startAfterLoadEvent :'.$startAfterLoadEvent.
-            // ' $startNewTrack :'.$startNewTrack.
-            // ' $startTimeExpired :'.$startTimeExpired."\n";
-    // }
-    $lastEvent = $job['event'];
-    // do the following every 4 cycle = +/-2 seconds
-    if ((4*intval(++$cnt/4)) == $cnt) {
-        $cnt = 0;
-        // calculate the volume, get the actual volume from alsa
+    //
+    // preloading or play event
+    if (($job['event'] == 'preloading') || ($job['event'] == 'play')) {
+        // preloading the next track of starting to play the new track
+        if (($lastEvent == 'play') && ($lastTime == $status['time']) && ($lastElapsed == $status['elapsed'])) {
+            // sometimes almost duplicate play events are sent, ignore the second one
+            $updateUI = false;
+        } else {
+            // a valid preload or play event
+            $status['time_last_elapsed'] = microtime(true);
+            if (!isset($spotifyInfo['track_id'])) {
+                // its not in the cache, get the spotify info
+                $spotifyInfo[$job['track_id']] = wrk_getSpotifyMetadata($redis, $job['track_id']);
+                // when nothing is returned try to create some metadata from the jounal file
+                if ($spotifyInfo[$job['track_id']]['title'] == '-') {
+                    // no metadata returned
+                    $spotifyInfo[$job['track_id']] = wrk_getSpotifydJournalMetadata($redis, $job['track_id']);
+                }
+                $cachedIDs[] = $job['track_id'];
+                if ($job['event'] == 'play') {
+                    // push the known data to the UI, this is an overhead because it's done again below
+                    //  but it helps with the responsiveness of the UI
+                    if ($job['duration_ms'] > 0) {
+                        $status['time'] = round($job['duration_ms'] / 1000);
+                        $status['elapsed'] = round($job['position_ms'] / 1000);
+                        $status['song_percent'] = min(100, round((100 * $job['position_ms']) / $job['duration_ms']));
+                    } else {
+                        // this should not happen
+                        $status['time'] = "0";
+                        $status['elapsed'] = "0";
+                        $status['song_percent'] = "0";
+                    }
+                    $status['state'] = "play";
+                    $status['currentartist'] = $spotifyInfo[$job['track_id']]['artist'];
+                    $status['currentalbumartist'] = $spotifyInfo[$job['track_id']]['artist'];
+                    $status['currentalbum'] = $spotifyInfo[$job['track_id']]['album'];
+                    $status['currentsong'] = $spotifyInfo[$job['track_id']]['title'];
+                    $status['mainArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                    $status['bigArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                    $status['smallArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                    $status['song_lyrics'] = ' ';
+                    $status['artist_bio_summary'] = ' ';
+                    $status['artist_similar'] = ' ';
+                    // save JSON response for extensions
+                    $redis->set('act_player_info', json_encode($status));
+                    ui_render('playback', json_encode($status));
+                    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                }
+                // now get the artist art and song information, this can take a while to retrieve
+                $info = array();
+                $info['artist'] = $spotifyInfo[$job['track_id']]['artist'];
+                $info['albumartist'] = $spotifyInfo[$job['track_id']]['artist'];
+                $info['song'] = $spotifyInfo[$job['track_id']]['title'];
+                $retval = get_artistInfo($redis, $info);
+                if ($retval) {
+                    $info = array_merge($info, $retval);
+                }
+                $retval = get_songInfo($redis, $info);
+                if ($retval) {
+                    $info = array_merge($info, $retval);
+                }
+                $spotifyInfo[$job['track_id']] = array_merge($spotifyInfo[$job['track_id']], $info);
+                unset ($info);
+            } else {
+                // the track ID is cached, make sure the list of cached track ID's is in the correct order
+                foreach ($cachedIDs as $key => $value) {
+                    // remove the track ID from the array
+                    if ($value == $job['track_id']) {
+                        unset($cachedIDs[$key]);
+                    }
+                }
+                // add the track ID again in the last position of the array (the newest)
+                $cachedIDs[] = $job['track_id'];
+            }
+            if ($job['event'] == 'preloading') {
+                // if its preloading then clean the cache and continue
+                while (count($cachedIDs) > 3) {
+                    // trim the first track ID (the oldest)
+                    $firstCacheKey = array_key_first($cachedIDs);
+                    $cachedID = $cachedIDs[$firstCacheKey];
+                    unset($spotifyInfo[$cachedID], $cachedIDs[$firstCacheKey]);
+                }
+                // renumber the array [0] to [2]
+                $cachedIDs = array_values($cachedIDs);
+                $updateUI = false;
+            } else {
+                // the play event supplies the duration (time) and position (elapsed), the time that these were received
+                //  is stored in $status['time_last_elapsed']
+                $status['time'] = round($job['duration_ms'] / 1000);
+                $status['elapsed'] = round($job['position_ms'] / 1000);
+                // adjust the elapsed time based on the elapsed time since the last update, the time that this is recalculated
+                //  is stored in $status['time_last_elapsed']
+                $now = microtime(true);
+                if ($status['time'] > 0) {
+                    $status['elapsed'] = round($status['elapsed'] + $now - $status['time_last_elapsed']);
+                    $status['song_percent'] = min(100, round((100 * $status['elapsed']) / $status['time']));
+                    $status['time_last_elapsed'] = $now;
+                } else {
+                    // this should not happen
+                    $status['time'] = "0";
+                    $status['elapsed'] = "0";
+                    $status['song_percent'] = "0";
+                }
+                $status['state'] = "play";
+                // its a play event and we have all the available data
+                $status['currentartist'] = trim($spotifyInfo[$job['track_id']]['artist']);
+                $status['currentalbumartist'] = trim($spotifyInfo[$job['track_id']]['artist']);
+                $status['currentalbum'] = trim($spotifyInfo[$job['track_id']]['album']);
+                $status['currentsong'] = trim($spotifyInfo[$job['track_id']]['title']);
+                $status['mainArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                if ($bigartIsAlbum) {
+                    $status['bigArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                } else {
+                    $status['smallArtURL'] = $spotifyInfo[$job['track_id']]['albumart_url'];
+                }
+                $status['song_lyrics'] = $spotifyInfo[$job['track_id']]['song_lyrics'];
+                $status['artist_bio_summary'] = $spotifyInfo[$job['track_id']]['artist_bio_summary'];
+                $status['artist_similar'] = $spotifyInfo[$job['track_id']]['artist_similar'];
+                if ($artUrl == substr($spotifyInfo[$job['track_id']]['artist_arturl'], 0, strlen($artUrl))) {
+                    // the artist art has not been found, so use the album art
+                    $spotifyInfo[$job['track_id']]['artist_arturl'] = $status['mainArtURL'];
+                }
+                if ($bigartIsAlbum) {
+                    $status['smallArtURL'] = $spotifyInfo[$job['track_id']]['artist_arturl'];
+                } else {
+                    $status['bigArtURL'] = $spotifyInfo[$job['track_id']]['artist_arturl'];
+                }
+                if ($status['currentartist'] == '') {
+                    $status['currentartist'] = 'SpotifyConnect';
+                }
+                if ($status['currentalbumartist'] == '') {
+                    $status['currentalbumartist'] = 'SpotifyConnect';
+                }
+                if ($status['currentalbum'] == '') {
+                    $status['currentalbum'] = 'SpotifyConnect';
+                }
+                if ($status['currentsong'] == '') {
+                    $status['currentsong'] = 'SpotifyConnect';
+                }
+                $updateUI = true;
+            }
+        }
+    }
+    //
+    // volumeset event
+    if ($job['event'] == 'volumeset') {
+        if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
+            $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+            $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
+            $status['time_last_elapsed'] = microtime(true);
+        } else {
+            unset($status['elapsed'], $status['song_percent'], $status['time_last_elapsed']);
+        }
         if ($alsaVolume) {
             // its an alsa device with simple control
             //  $card and $mixer have valid values
@@ -323,96 +416,22 @@ do {
                         $status['volume'] = $lastvolume;
                         // save the last set volume
                         $redis->hSet('spotifyconnect', 'lastvolume', $status['volume']);
-                        $updateUI = true;
                     }
                 }
             } else {
                 $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
                 if ($status['volume'] != $lastvolume) {
                     $status['volume'] = $lastvolume;
-                    $updateUI = true;
                 }
             }
         } else {
             // it is a PCM which is the 'softvol' (software volume) control or Bluetooth
-            //  cant get a volume value from alsa, just set the volume to zero
-            if ($status['volume'] != 0) {
-                $status['volume'] = 0;
-                $updateUI = true;
-            }
-        }
-        if ($eventQueue) {
-            // determine playing/pause status
-            if (is_playing($redis)) {
-                // something is playing
-                if ($status['state'] != "play") {
-                    $status['state'] = "play";
-                    $updateUI = true;
-                }
-            } else {
-                if ($status['state'] == "play") {
-                    $status['state'] = "pause";
-                    $updateUI = true;
-                }
-            }
-        } else {
-            // when no event queue display the UI in paused mode, so
-            //  no countdown timer, but the other information shown OK
-            if ($status['state'] != "pause") {
-                $status['state'] = "pause";
-                $updateUI = true;
-            }
-        }
-    }
-    // update the metadata when the track starts to play
-    if ($trackChanged && (!$eventQueue || $startAfterLoadEvent || $startNewTrack || $startTimeExpired)) {
-        $trackChanged = false;
-        $loadEvent = false;
-        $startAfterLoadEvent = false;
-        $startNewTrack = false;
-        $startTimeExpired = false;
-        if (isset($retval['duration_in_sec']) && $retval['duration_in_sec']) {
-            $status['time'] = abs(round(floatval($retval['duration_in_sec'])));
-        } else {
-            $status['time'] = round($duration_ms/1000);
-        }
-        // start of track elapsed & percentage played
-        $status['elapsed'] = 0;
-        $status['song_percent'] = 0;
-        // information from spotify
-        $status['currentartist'] = $spotifyInfo['artist'];
-        $status['currentalbumartist'] = $spotifyInfo['artist'];
-        $status['currentalbum'] = $spotifyInfo['album'];
-        $status['currentsong'] = $spotifyInfo['title'];
-        $status['mainArtURL'] = $spotifyInfo['albumart_url'];
-        if ($bigartIsAlbum) {
-            $status['bigArtURL'] = $spotifyInfo['albumart_url'];
-        } else {
-            $status['smallArtURL'] = $spotifyInfo['albumart_url'];
-        }
-        $status['song_lyrics'] = $info['song_lyrics'];
-        $status['artist_bio_summary'] = $info['artist_bio_summary'];
-        $status['artist_similar'] = $info['artist_similar'];
-        if ($artUrl == substr($info['artist_arturl'], 0, strlen($artUrl))) {
-            // the artist art has not been found, so use the album art
-            $info['artist_arturl'] = $status['mainArtURL'];
-        }
-        if ($bigartIsAlbum) {
-            $status['smallArtURL'] = $info['artist_arturl'];
-        } else {
-            $status['bigArtURL'] = $info['artist_arturl'];
+            //  cant get a volume value from alsa, calculate it from the parameters
         }
         $updateUI = true;
     }
-    $now = microtime(true);
-    if (isset($status['time']) && isset($status['elapsed']) && isset($status['time_last_elapsed'])
-            && $status['time'] && $status['elapsed'] && ($status['state'] === 'play')) {
-        $status['elapsed'] = round($status['elapsed'] + $now - $status['time_last_elapsed']);
-        $status['time_last_elapsed'] = $now;
-        $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
-    } else if ($status['state'] != 'play') {
-        $status['time_last_elapsed'] = $now;
-    }
+    //
+    // Check that spotify connect is still running, and if it is update the UI if requested
     $active_player = $redis->get('activePlayer');
     if ($updateUI && ($active_player == 'SpotifyConnect')) {
         $updateUI = false;
@@ -421,11 +440,11 @@ do {
         ui_render('playback', json_encode($status));
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
         // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
-        // echo $job['event']." ".$job['track_id']." Main\n";
+        // unload CPU: 0.5 second sleep after updating the UI
+        usleep(500000);
     }
-    // unload CPU: 0.5 second sleep
-    usleep(500000);
-} while (($active_player == 'SpotifyConnect') && !$error);
+    echo "E:".$job['event'].", ID:".$job['track_id'].", D:".$job['duration_ms'].", P:".$job['position_ms'].", V:".$job['volume']." \n";
+} while ($active_player == 'SpotifyConnect');
 runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));
 // close Redis connection
 $redis->close();

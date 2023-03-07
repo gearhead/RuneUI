@@ -10329,10 +10329,61 @@ function add_udev_rules($rulesFileName)
     sysCmd('sync');
 }
 
-// fucntion to retrieve Spotify metadata based on a track ID
+// function to retrieve Spotify metadata from the spotifyd journal based on a track ID
+function wrk_getSpotifydJournalMetadata($redis, $track_id)
+// track ID is returned by programs like spotifyd
+// this routine examines the spotifyd journal file for a subset of required information
+//  it us used as a sort of failover when the screen scraping function wrk_getSpotifyMetadata()
+//  has timed out
+// the results are returned in an array containing:
+//  array['artist'] > artist name
+//  array['album'] > album name
+//  array['title'] > song title
+//  array['albumart_url'] > URL pointing to the album art
+//  array['duration_in_sec'] > the track duration in seconds
+//  array['year'] > release year
+//  $retval['date'] > today's date
+// all are returned with a default value except:
+//  array['title'] > song title
+{
+    // get the album art directory and url dir
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+    // set the variables to default values
+    $retval = array();
+    $retval['artist'] = 'Spotify';
+    $retval['album'] = 'Spotify Connect';
+    $retval['title'] = '-';
+    $retval['albumart_url'] = $artUrl.'/spotify-connect.png';
+    $retval['duration_in_sec'] = '';
+    $retval['year'] = '';
+    $retval['date'] = date("Ymd");
+    //
+    $cnt = 5;
+    while (($retval['title'] == '-') && $cnt-- >= 0) do {
+        // look for lines in the journal containing the $trac_id and the text 'loading <', if
+        //  there are more, the first one is fine
+        $spotifydJournalData = sysCmd("journalctl -u spotifyd | grep -i '".$track_id."' | grep -i 'loading <'")[0];
+        if (isset($spotifydJournalData) && $spotifydJournalData) {
+            // the title is between the strings 'ing <' and '> with'
+            $title = get_between_data($spotifydJournalData, 'ing <', '> with');
+            if (isset($title) && $title) {
+                // title found
+                $retval['title'] = $title;
+                continue;
+            }
+        }
+        sleep(4);
+    }
+    return $retval;
+}
+
+// function to retrieve Spotify metadata based on a track ID
 function wrk_getSpotifyMetadata($redis, $track_id)
 // track ID is returned by programs like spotifyd
 // this routine uses open Spotify URL's, and the returned web pages are screen-scraped
+//  when too many calls are made to spotify it will block the calling URL, this is a sort of time-out
+//  after a time-out failure we suspend calling spotify for an hour
 // the results are returned in an array containing:
 //  array['artist'] > artist name
 //  array['album'] > album name
