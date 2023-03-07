@@ -554,9 +554,9 @@ function setPlaybackSource() {
         $('#overlay-playsource a').addClass('inactive');
         var source = activePlayer.toLowerCase();
         $('#playsource-' + source).removeClass('inactive');
-        // update (volume knob and) control buttons
-        setUIbuttons(activePlayer);
     }
+    // update (volume knob and) control buttons
+    setUIbuttons(activePlayer);
     // style the queue
     $('#playlist-entries').removeClass(function(index, css) {
         return (css.match (/(^|\s)playlist-\S+/g) || []).join(' ');
