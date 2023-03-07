@@ -10426,7 +10426,6 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             return $cache;
         } else {
             $retval = array_merge($retval, $cache);
-
         }
     }
     if ($redis->hGet('spotifyconnect', 'metadata_timeout_restart_time') >= microtime(true)) {
