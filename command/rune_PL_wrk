@@ -731,22 +731,16 @@ while (true) {
                             $bitrate = '190';
                         } else if (substr(json_decode($redis->hGet($redis->get('ao')), true)['device'], 0, 8) == 'bluealsa') {
                             $audio_channels = 'Stereo';
-                            $audio_sample_rate = '48000';
+                            $audio_sample_rate = $redis->hGet('bluetooth', 'quality');
                             $audio_sample_depth = '16';
                             $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
-                            $bitrate = '190';
-                            $btOptions = strtolower(sysCmd('grep -i "^options" /etc/default/bluealsa')[0]);
-                            if (srtpos(' '.$btOptions, 'low')) {
-                                $bitrate = '115';
-                            } else if (srtpos(' '.$btOptions, 'medium')) {
-                                $bitrate = '163';
-                            } else if (srtpos(' '.$btOptions, 'standard')) {
-                                $bitrate = '190';
-                            } else if (srtpos(' '.$btOptions, 'high')) {
-                                $bitrate = '120';
-                            } else if (srtpos(' '.$btOptions, 'extreme')) {
-                                $bitrate = '240';
-                            }
+                            $bitrate = '~190';
+                            // $btQuality = $redis->hget('bluetooth', 'quality');
+                            // if (srtpos(' '.$btQuality, 'better')) {
+                                // $bitrate = '120';
+                            // } else if (srtpos(' '.$btQuality, 'best')) {
+                                // $bitrate = '240';
+                            // }
                         }
                         $btDeviceArray = wrk_btcfg($redis, 'status');
                         $btDeviceName = '';
