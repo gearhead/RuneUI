@@ -10360,8 +10360,8 @@ function wrk_getSpotifydJournalMetadata($redis, $track_id)
     $retval['date'] = date("Ymd");
     //
     $cnt = 5;
-    while (($retval['title'] == '-') && $cnt-- >= 0) do {
-        // look for lines in the journal containing the $trac_id and the text 'loading <', if
+    while (($retval['title'] == '-') && ($cnt-- >= 0)) {
+        // look for lines in the journal containing the $track_id and the text 'Loading <', if
         //  there are more, the first one is fine
         $spotifydJournalData = sysCmd("journalctl -u spotifyd | grep -i '".$track_id."' | grep -i 'loading <'")[0];
         if (isset($spotifydJournalData) && $spotifydJournalData) {
