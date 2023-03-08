@@ -942,7 +942,11 @@ function refreshState() {
     }
     // alert("refreshState 6");
     if (GUI.json.playlistlength && GUI.json.playlistlength !== '0') {
-        if (GUI.json.song) {
+        if ((GUI.activePlayer !== undefined) && (GUI.activePlayer != 'MPD')) {
+            $('#playlist-position span').html('Streaming');
+            $('#playlist-position-ss span').html('Streaming');
+            $('#playlist-position-sss span').html('Streaming');
+        } else if (GUI.json.song) {
             $('#playlist-position span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
             $('#playlist-position-ss span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
             $('#playlist-position-sss span').html('Queue position ' + (parseInt(GUI.json.song) + 1) + '/' + GUI.json.playlistlength);
