@@ -10337,14 +10337,17 @@ function wrk_getSpotifydJournalMetadata($redis, $track_id)
 //  has timed out
 // the results are returned in an array containing:
 //  array['artist'] > artist name
+//  array['albumartist'] > album name
 //  array['album'] > album name
 //  array['title'] > song title
 //  array['albumart_url'] > URL pointing to the album art
 //  array['duration_in_sec'] > the track duration in seconds
 //  array['year'] > release year
-//  $retval['date'] > today's date
+//  array['date'] > today's date
 // all are returned with a default value except:
 //  array['title'] > song title
+//  array['duration_in_sec'] > the track duration in seconds
+//  array['date'] > today's date
 {
     // get the album art directory and url dir
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
@@ -10352,6 +10355,7 @@ function wrk_getSpotifydJournalMetadata($redis, $track_id)
     // set the variables to default values
     $retval = array();
     $retval['artist'] = 'Spotify';
+    $retval['albumartist'] = 'Spotify';
     $retval['album'] = 'Spotify Connect';
     $retval['title'] = '-';
     $retval['albumart_url'] = $artUrl.'/spotify-connect.png';
@@ -10360,17 +10364,35 @@ function wrk_getSpotifydJournalMetadata($redis, $track_id)
     $retval['date'] = date("Ymd");
     //
     $cnt = 5;
-    while (($retval['title'] == '-') && ($cnt-- >= 0)) {
+    while ($cnt-- >= 0) {
+        // title
         // look for lines in the journal containing the $track_id and the text 'Loading <', if
-        //  there are more, the first one is fine
-        $spotifydJournalData = sysCmd("journalctl -u spotifyd | grep -i '".$track_id."' | grep -i 'loading <'")[0];
-        if (isset($spotifydJournalData) && $spotifydJournalData) {
-            // the title is between the strings 'ing <' and '> with'
-            $title = get_between_data($spotifydJournalData, 'ing <', '> with');
-            if (isset($title) && $title) {
-                // title found
-                $retval['title'] = $title;
-                continue;
+        //  there are more than one, the first one is fine
+        if ($retval['title'] == '-') {
+            $spotifydJournalData = sysCmd("journalctl -u spotifyd | grep -i '".$track_id."' | grep -i 'loading <'")[0];
+            if (isset($spotifydJournalData) && $spotifydJournalData) {
+                // the title is between the strings 'ing <' and '> with'
+                $title = get_between_data($spotifydJournalData, 'ing <', '> with');
+                if (isset($title) && $title) {
+                    // title found
+                    $retval['title'] = $title;
+                }
+            }
+        }
+        // duration_in_seconds
+        // look for lines in the journal containing the $retval['title'] and the text 'ms) loaded', if
+        //  there are more than one, the first one is fine
+        if ($retval['title'] != '-') {
+            $spotifydJournalData = sysCmd("journalctl -u spotifyd | grep -i '<".$retval['title'].">' | grep -i 'ms) loaded'")[0];
+            if (isset($spotifydJournalData) && $spotifydJournalData) {
+                // the duration in ms is between the strings '(' and ' ms)'
+                $duration_in_ms = trim(get_between_data($spotifydJournalData, '(', 'ms)'));
+                if (isset($duration_in_ms)) {
+                    // duration found
+                    $retval['duration_in_sec'] = round(intval($duration_in_ms) / 1000);
+                    // found all the available information, break the loop
+                    break;
+                }
             }
         }
         sleep(4);
@@ -10385,7 +10407,8 @@ function wrk_getSpotifyMetadata($redis, $track_id)
 //  when too many calls are made to spotify it will block the calling URL, this is a sort of time-out
 //  after a time-out failure we suspend calling spotify for an hour
 // the results are returned in an array containing:
-//  array['artist'] > artist name
+//  array['artist'] > artist name(s)
+//  array['albumartist'] > artist name
 //  array['album'] > album name
 //  array['title'] > song title
 //  array['albumart_url'] > URL pointing to the album art
@@ -10452,10 +10475,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -i -E 'og:title|og:image|og:description|music:duration|music:album|music:musician'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician'."'";
-        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician'."'";
-        runelog('wrk_getSpotifyMetadata track command:', $command);
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -i -E 'og:title|og:image|og:description|music:duration|music:album'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
         foreach ($trackInfoLines as $workline) {
@@ -10463,36 +10487,49 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
             // then strip the html out of the response
             $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
+            $line = preg_replace('/\<[\s]*meta name[\s]*="/', '', $line);
             $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
             $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
             $line = preg_replace('/"[\s]*\>/', '', $line);
             $line = preg_replace('/[\s]*"[\s]*/', '', $line);
             $line = trim($line);
+            if (!strpos(' '.$line, '=')) {
+                continue;
+            }
+            // debug
+            // echo "Title line: ".$line."\n";
+            runelog('[wrk_getSpotifyMetadata] Title line: '.$line);
             // result is <identifier>=<value>
             $lineparts = explode('=', $line, 2);
             if ($lineparts[0] === 'og:title') {
                 $retval['title'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata track title:', $retval['title']);
+                runelog('[wrk_getSpotifyMetadata] track title:', $retval['title']);
                 $timeout = false;
             } elseif ($lineparts[0] === 'og:image') {
                 $retval['albumart_url'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata track albumart_url:', $retval['albumart_url']);
+                runelog('[wrk_getSpotifyMetadata] track albumart_url:', $retval['albumart_url']);
             } elseif ($lineparts[0] === 'og:description') {
                 $description = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata description:', $description);
-                $retval['artist'] = get_between_data($description, '', ' · ');
+                $retval['artist'] = trim(get_between_data($description, '', ' · '));
+                if (strpos(' '.$retval['artist'], '، ')) {
+                    $retval['albumartist'] = trim(get_between_data($retval['artist'], '', '، '));
+                    $retval['artist'] = str_replace('،', ',', $retval['artist']);
+                } else if (strpos(' '.$retval['artist'], ', ')) {
+                    $retval['albumartist'] = trim(get_between_data($retval['artist'], '', ', '));
+                } else {
+                    $retval['albumartist'] = $retval['artist'];
+                }
                 $retval['year'] = substr($description, -4);
-                runelog('wrk_getSpotifyMetadata artist:', $retval['artist']);
-                runelog('wrk_getSpotifyMetadata yeat:', $retval['year']);
+                runelog('[wrk_getSpotifyMetadata] description:', $description);
+                runelog('[wrk_getSpotifyMetadata] albumartist:', $retval['albumartist']);
+                runelog('[wrk_getSpotifyMetadata] artist:', $retval['artist']);
+                runelog('[wrk_getSpotifyMetadata] year:', $retval['year']);
             } elseif ($lineparts[0] === 'music:duration') {
                 $retval['duration_in_sec'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata track duration_in_sec:', $retval['duration_in_sec']);
+                runelog('[wrk_getSpotifyMetadata] track duration_in_sec:', $retval['duration_in_sec']);
             } elseif ($lineparts[0] === 'music:album') {
                 $retval['album_url'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata track album_url:', $retval['album_url']);
-            } elseif ($lineparts[0] === 'music:musician') {
-                $retval['artist_url'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata track artist_url:', $retval['artist_url']);
+                runelog('[wrk_getSpotifyMetadata] track album_url:', $retval['album_url']);
             }
             unset($lineparts);
         }
@@ -10509,16 +10546,17 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     //
     // get the album name
     if (!isset($retval['album_url']) || !$retval['album_url']) {
-        runelog('wrk_getSpotifyMetadata ALBUM_URL:', 'Empty');
+        runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', 'Empty');
     } else if ($retval['date'] == date("Ymd")) {
         // do nothing
     } else {
         // album name is still the default
-        runelog('wrk_getSpotifyMetadata ALBUM_URL:', $retval['album_url']);
+        runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
         // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-        runelog('wrk_getSpotifyMetadata album command:', $command);
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -vi country | grep -vi canonical';
+        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:description'."'";
+        runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
         foreach ($albumInfoLines as $workline) {
@@ -10526,67 +10564,34 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
             // then strip the html out of the response
             $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
+            $line = preg_replace('/\<[\s]*meta name[\s]*="/', '', $line);
             $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
             $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
             $line = preg_replace('/"[\s]*\>/', '', $line);
             $line = preg_replace('/[\s]*"[\s]*/', '', $line);
             $line = trim($line);
+            if (!strpos(' '.$line, '=')) {
+                continue;
+            }
+            // debug
+            // echo "Album line: ".$line."\n";
+            runelog('[wrk_getSpotifyMetadata] Album line: '.$line);
             // result is <identifier>=<value>
             $lineparts = explode('=', $line);
             if ($lineparts[0] === 'og:title') {
-                $retval['date'] = date("Ymd");
                 $retval['album'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata album title:', $retval['album']);
+                runelog('[wrk_getSpotifyMetadata] album title:', $retval['album']);
                 $timeout = false;
-                unset($retval['album_url']);
+                unset($retval['album_url'], $retval['date']);
+            } elseif ($lineparts[0] === 'og:description') {
+                $description = trim($lineparts[1]);
+                $retval['albumartist'] = trim(get_between_data($description, '', ' · '));
+                runelog('[wrk_getSpotifyMetadata] description:', $description);
+                runelog('[wrk_getSpotifyMetadata] albumartist:', $retval['albumartist']);
             }
             unset($lineparts);
         }
         unset($albumInfoLines, $workline, $line);
-        if ($timeout) {
-            // timeout for an hour (= current timestamp + 60x60 seconds)
-            $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
-        } else {
-            // cache the track ID information for the next time
-            file_put_contents($cacheFile, json_encode($retval)."\n");
-        }
-        return $retval;
-    }
-
-    // get the artist name
-    if (!isset($retval['artist_url']) || !$retval['artist_url']) {
-        runelog('wrk_getSpotifyMetadata ARTIST_URL:', 'Empty');
-    } else if ($retval['date'] == date("Ymd")) {
-        // do nothing
-    } else {
-        runelog('wrk_getSpotifyMetadata ARTIST_URL:', $retval['artist_url']);
-        // curl -s '<ARTIST_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['artist_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-        //$command = 'curl -s '."'".$artist_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i '."'".'og:title'."'";
-        runelog('wrk_getSpotifyMetadata artist command:', $command);
-        $artistInfoLines = sysCmd($command);
-        $timeout = true;
-        foreach ($artistInfoLines as $workline) {
-            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
-            // then strip the html out of the response
-            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
-            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
-            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
-            $line = preg_replace('/"[\s]*\>/', '', $line);
-            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
-            $line = trim($line);
-            // result is <identifier>=<value>
-            $lineparts = explode('=', $line);
-            if ($lineparts[0] === 'og:title') {
-                $retval['artist'] = trim($lineparts[1]);
-                runelog('wrk_getSpotifyMetadata artist title:', $retval['artist']);
-                $timeout = false;
-                unset($retval['artist_url'], $retval['date']);
-            }
-            unset($lineparts);
-        }
-        unset($artistInfoLines, $workline, $line);
         if ($timeout) {
             // timeout for an hour (= current timestamp + 60x60 seconds)
             $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
@@ -10604,7 +10609,8 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
 // track ID is returned by programs like spotifyd
 // this routine uses the Spotify API, which requires a registered API user ID and Secret
 // the results are returned in an array containing:
-//  array['artist'] > artist name
+//  array['artist'] > artist name(s)
+//  array['albumartist'] > artist name
 //  array['album'] > album name
 //  array['title'] > song title
 //  array['albumart_url'] > URL pointing to the album art
@@ -10678,7 +10684,17 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
     $retval = array();
     if (isset($metadata['name'])) {
         // track name is valid, assume the rest is OK and use the results
-        $retval['artist'] = $metadata['artists'][0]['name']; // just use the first artist name, there are optionally more
+        // there can be more artist names, string the first 4 together
+        $retval['artist'] = '';
+        for ($i = 0; $i <= 4; $i++) {
+            $metadata['artists'][$i]['name'] = trim($metadata['artists'][$i]['name']);
+            if (isset($metadata['artists'][$i]['name']) && $metadata['artists'][$i]['name']) {
+                $retval['artist'] .= $metadata['artists'][$i]['name'].', ';
+            }
+        }
+        // remove trailing commas and spaces
+        $retval['artist'] = trim($retval['artist'], " ,");
+        $retval['albumartist'] = $metadata['artists'][0]['name']; // just use the first artist name for albumartist
         $retval['album'] = $metadata['album']['name'];
         $retval['title'] = $metadata['name'];
         $retval['albumart_url'] = $metadata['album']['images'][1]['url']; // [0] = 640x640px, [1] = 300x300px, [2] = 64x64px
