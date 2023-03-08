@@ -1,14 +1,15 @@
 [Unit]
 Description=Weston Kiosk Mode
 After=network.target
+Wants=seatd.service
 
 [Service]
 Type=notify
 #User=http
 # cannot run as http, so chown after start
 #Group=http
-#RuntimeDirectory=weston
-#RuntimeDirectoryMode=0700
+RuntimeDirectory=weston
+RuntimeDirectoryMode=0700
 Environment="XDG_RUNTIME_DIR=/run/weston"
 #ExecStart=/usr/bin/weston --tty=1 --log=/var/log/runeaudio/weston.log --config=/srv/http/.config/weston.ini
 ExecStart=/usr/bin/weston --config=/srv/http/.config/weston.ini
