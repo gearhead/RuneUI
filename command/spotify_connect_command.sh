@@ -52,6 +52,7 @@ if [ "$PLAYER_EVENT" == "start" ]; then
     #   crashing as the output device is in use, the background worker job will change the MPD
     #   player state to paused, but only when it is currently playing
     mpc pause
+    mpc volume 0
     # switch player by starting a system worker background job (rune_SY_wrk > switchplayer)
     #   by writing the command to the worker redis hash and fifo queue
     redis-cli hset w_queue "$id" '{"wrkcmd":"switchplayer","action":null,"args":"SpotifyConnect"}'

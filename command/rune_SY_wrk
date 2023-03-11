@@ -949,6 +949,8 @@ while (true) {
                     sysCmd('systemctl stop rune_MPDEM_wrk');
                 } else if ($job->action === 'stop') {
                     sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+                    $redis->del('s_queue');
+                    $redis->del('s_queue_fifo');
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;

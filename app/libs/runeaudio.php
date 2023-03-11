@@ -4392,6 +4392,7 @@ function wrk_mpdRestorePlayerStatus($redis)
     // disable start global random
     $redis->hSet('globalrandom', 'wait_for_play', 1);
     $mpd_playback_lastnumber = $redis->get('mpd_playback_lastnumber');
+    // should it be here? // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
     if (wrk_mpdPlaybackStatus($redis, 'laststate') === 'playing') {
         // seems to be a bug somewhere in MPD
         // if play is requested too quickly after start it goes into pause or does nothing
@@ -4578,7 +4579,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         }
         sysCmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
         sysCmd('rm -f /tmp/spotifyd.conf');
-        // stop spotifyd & rune_SDM_wrk
+        // stop spotifyd & rune_SDM_wrk, they should already have stopped using the function wrk_stopPlayer($redis);
         sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
         sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
@@ -4586,10 +4587,10 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         sysCmd('systemctl daemon-reload');
         if ($redis->hGet('spotifyconnect', 'enable')) {
             runelog('restart spotifyd');
-            sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
+            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start'));
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
+            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+            // no need to start this, spotifyconnect is disconnected //wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
         }
     }
 }
@@ -10434,6 +10435,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // set the variables to default values
     $retval = array();
     $retval['artist'] = 'Spotify';
+    $retval['albumartist'] = 'Spotify';
     $retval['album'] = 'Spotify Connect';
     $retval['title'] = '-';
     $retval['albumart_url'] = $artUrl.'/none.png';
@@ -10480,10 +10482,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -i -E 'og:title|og:image|og:description|music:duration|music:album'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
-        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -10502,7 +10504,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                 continue;
             }
             // debug
-            // echo "Title line: ".$line."\n";
+            echo "Title line: ".$line."\n";
             runelog('[wrk_getSpotifyMetadata] Title line: '.$line);
             // result is <identifier>=<value>
             $lineparts = explode('=', $line, 2);
@@ -10538,7 +10540,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             }
             unset($lineparts);
         }
-        unset($trackInfoLines, $workline, $line);
+        unset($trackInfoLines, $workline, $line, $description);
         if ($timeout) {
             // timeout for an hour (= current timestamp + 60x60 seconds)
             $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));
@@ -10558,9 +10560,9 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
         // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:description'."'";
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -vi country | grep -vi canonical';
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -i -E '."'".'og:title|og:description'."'";
+        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
@@ -10596,7 +10598,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
             }
             unset($lineparts);
         }
-        unset($albumInfoLines, $workline, $line);
+        if (isset($description) && strpos(' '.$description, ' · Single · ')) {
+            $retval['album'] = trim($retval['album'].' (Single)');
+        }
+        unset($albumInfoLines, $workline, $line, $description);
         if ($timeout) {
             // timeout for an hour (= current timestamp + 60x60 seconds)
             $redis->hSet('spotifyconnect', 'metadata_timeout_restart_time', microtime(true) + (60*60));

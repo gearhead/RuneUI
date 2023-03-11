@@ -38,6 +38,6 @@
 #   set the volume to the last set mpd volume
 sleep 1
 lastvolume=$( redis-cli get lastmpdvolume )
-mpc volume $lastvolume
+mpc volume $lastvolume > /dev/null
 #---
 #End script
