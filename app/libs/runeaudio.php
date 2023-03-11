@@ -4557,6 +4557,13 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             if ($value != '') {
                 $spotifyd_conf .= "# Disable the cache, it uses too much memory\n";
                 $spotifyd_conf .= "# ".$param." = ".'"'.$value.'"'."\n";
+                if (isset($sccfg['max_cache_size']) && $sccfg['max_cache_size']) {
+                    $spotifyd_conf .= "# Maximum cache size, defined in bytes\n";
+                    $spotifyd_conf .= "# max_cache_size = ".'"'.$sccfg['max_cache_size'].'"'."\n";
+                } else {
+                    $spotifyd_conf .= "# Maximum cache size 50Kb, defined in bytes\n";
+                    $spotifyd_conf .= "# max_cache_size = 50000\n";
+                }
             }
             break;
         default:
