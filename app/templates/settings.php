@@ -393,7 +393,8 @@
                                 <input id="spotifyconnect_volume_normalisation" name="features[spotifyconnect][volume_normalisation]" type="checkbox" value="true"<?php if(isset($this->spotifyconnect['volume_normalisation']) && $this->spotifyconnect['volume_normalisation'] === 'true'): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">Switch Volume Normalisation per track <strong>ON</strong> or <strong>OFF</strong></span>
+                            <span class="help-block">Switch Volume Normalisation per track <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> the volume is continually adjusted so that quiet passages are played louder, there is a time lag in adjusting the volume which can have undesirable effects. Our advise it to leave this swiched <strong>Off</strong></span>
                         </div>
                     </div>
                     <div class="form-group">
