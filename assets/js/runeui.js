@@ -654,6 +654,9 @@ function setUIbuttons(activePlayer) {
                 $('#volumedn').removeClass('hide');
                 $('#volumemute').removeClass('hide');
                 $('#volumeup').removeClass('hide');
+                $('#volumedn').removeClass('disabled');
+                $('#volumemute').removeClass('disabled');
+                $('#volumeup').removeClass('disabled');
             }
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
