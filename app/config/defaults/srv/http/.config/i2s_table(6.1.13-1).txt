@@ -10,7 +10,7 @@ allo-boss-dac-pcm512x-audio|Allo Piano 2.0
 allo-piano-dac-plus-pcm512x-audio|Allo Piano 2.1 DAC Plus
 allo-piano-dac-plus-pcm512x-audio,glb_mclk|Allo Piano 2.1 DAC Plus with Kali Reclocker
 allo-piano-dac-pcm512x-audio|Allo Piano DAC
-i2s-dac|AOIDE DAC II ESS ES9018K2M I2S DAC
+rpi-dac|AOIDE DAC II ESS ES9018K2M I2S DAC
 hifiberry-dacplus|AOIDE Zero DAC+
 hifiberry-dacplus|AOIDE ZPOD DAC
 applepi-dac|Apple PecanPi DAC
@@ -20,22 +20,19 @@ audioinjector-bare-i2s|Audioinjector Audio bare i2s soundcard
 audioinjector-isolated-soundcard|Audioinjector audioinjector.net isolated soundcard
 audioinjector-addons|Audioinjector Octo soundcard
 audioinjector-wm8731-audio|Audioinjector Stereo soundcard
-audioinjector-ultra|Audioinjector Ultra 2 soundcard
+audioinjector-ultra|Audioinjector Ultra 2 sound card
 audioinjector-wm8731-audio|Audioinjector WM8731 Audio
 audioinjector-wm8731-audio|Audioinjector Zero soundcard
-i2s-dac|AUDIOPHONICS I-Sabre DAC ES9018K2M
-i2s-dac|AUDIOPHONICS I-Sabre DAC ES9023
-i2s-dac|AUDIOPHONICS I-Sabre DAC ES9023 / AMP
+rpi-dac|AUDIOPHONICS I-Sabre DAC ES9018K2M
+rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023
+rpi-dac|AUDIOPHONICS I-Sabre DAC ES9023 / AMP
 i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9028Q2M
 i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9038Q2M
 hifiberry-dac|AUDIOPHONICS I-TDA1387 TCXO DAC
 audiosense-pi|AudioSense-Pi add-on soundcard
 pisound|Blokas Labs pisound card
 chipdip-dac|Chip Dip audio card
-cirrus-wm5102|Cirrus Logic Audio Card
-dacberry400|Dacberry400 soundcard
 akkordion-iqdacplus|Digital Dreamtime Akkordion
-dionaudio-kiwi|Dion Audio KIWI STREAMER
 dionaudio-loco|Dionaudio Loco DAC-AMP
 dionaudio-loco-v2|Dionaudio Loco V2 DAC-AMP
 fe-pi-audio|Fe-Pi Audio Sound Card
@@ -45,11 +42,10 @@ hifiberry-amp|HiFiBerry Amp+
 hifiberry-amp100|HifiBerry AMP100 audio card
 hifiberry-amp100,slave|HifiBerry AMP100 audio card in slave mode
 hifiberry-dacplus|HiFiBerry Amp2
-hifiberry-amp3|HiFiBerry Amp3
 hifiberry-dac|HiFiBerry DAC
 hifiberry-dacplus|HiFiBerry DAC Plus
 hifiberry-dacplusadc|HiFiBerry DAC Plus ADC
-i2s-dac|HiFiBerry DAC Plus Lite
+rpi-dac|HiFiBerry DAC Plus Lite
 hifiberry-dacplus|HiFiBerry DAC Plus Pro
 hifiberry-dacplus|HiFiBerry DAC Plus Pro XLR
 hifiberry-dacplus|HiFiBerry DAC Plus RTC
@@ -102,39 +98,33 @@ hifiberry-dacplus|PiFi DAC Plus
 pifi-dac-zero|PiFi DAC Zero
 pifi-mini-210|PiFi Mini stereo amplifier
 hifiberry-dac|Pirate Audio, all models, no screen support
-proto-codec|PROTO Audio Codec card
-rpi-codeczero|Raspberry Pi Codec Zero sound card
-rpi-dacpro|Raspberry Pi DAC Pro sound card
-rpi-dacplus|Raspberry Pi DAC+ card
-rpi-digiampplus|Raspberry Pi DigiAMP+ sound card
 hifiberry-dacplus|RaspiDAC3
 hifiberry-dacplus|RaspyPlay4
 rra-digidac1-wm8741-audio|Red Rocks Audio DigiDAC1 soundcard
-i2s-dac|RPi DAC
+rpi-cirrus-wm5102|RPi Cirrus WM5102
+rpi-dac|RPi DAC
+rpi-proto|RPi Proto audio card
 superaudioboard|SuperAudioBoard sound card
 wm8960-soundcard|Waveshare wm8960 soundcard
-i2s-dac|X10-DAC BOARD
+rpi-dac|X10-DAC BOARD
 hifiberry-dacplus|X400 V3.0 DAC+AMP Expansion Board
-i2s-dac|Generic AK4399 (Alternative 1)
+rpi-dac|Generic AK4399 (Alternative 1)
 hifiberry-dac|Generic AK4399 (Alternative 2)
-i2s-dac|Generic AK4452 (Alternative 1)
+rpi-dac|Generic AK4452 (Alternative 1)
 hifiberry-dac|Generic AK4452 (Alternative 2)
-i2s-dac|Generic AK449x (Alternative 1)
+rpi-dac|Generic AK449x (Alternative 1)
 hifiberry-dac|Generic AK449x (Alternative 2)
-i2s-dac|Generic ES9018 (Alternative 1)
+rpi-dac|Generic ES9018 (Alternative 1)
 hifiberry-dac|Generic ES9018 (Alternative 2)
-i2s-dac|Generic ES9023 (Alternative 1)
-hifiberry-dac|Generic ES9023 (Alternative 2)
+rpi-dac|Generic ES9023
 i-sabre-q2m|Generic ES9028
 i-sabre-q2m|Generic ES9038
-i2s-dac|Generic passive I2S DAC soundcard
-i2s-dac|Generic PCM1794 (Alternative 1)
-hifiberry-dac|Generic PCM1794 (Alternative 2)
+rpi-dac|Generic PCM1794
 hifiberry-dac|Generic PCM510x
 hifiberry-dacplus|Generic PCM512x (Alternative 1)
 allo-boss-dac-pcm512x-audio|Generic PCM512x (Alternative 2)
 hifiberry-amp|Generic TAS5713
-i2s-dac|Generic TAS5756M (Alternative 1)
+rpi-dac|Generic TAS5756M (Alternative 1)
 hifiberry-dacplus|Generic TAS5756M (Alternative 2)
 justboom-dac|Generic TAS5756M (Alternative 3)
 iqaudio-dacplus|Generic TAS5756M (Alternative 4)
