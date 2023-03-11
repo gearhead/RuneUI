@@ -4513,7 +4513,6 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         case "device":
         case "device_name":
         case "device_type":
-        case "initial_volume":
         case "mixer":
         case "onevent":
         case "password":
@@ -4527,6 +4526,13 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         case "use_mpris":
             if ($value) {
                 $spotifyd_conf .= $param." = ".$value."\n";
+            }
+            break;
+        case "initial_volume":
+            if (isset($sccfg['save_last_volume']) && $sccfg['save_last_volume']) {
+                $spotifyd_conf .= "initial_volume = ".'"'.$sccfg['lastvolume'].'"'."\n";
+            } else {
+                $spotifyd_conf .= "initial_volume = ".'"'.$value.'"'."\n";
             }
             break;
         case "volume_control":
@@ -5592,8 +5598,7 @@ function wrk_startPlayer($redis, $newPlayer)
             //  state is paused then its real previous state was playing
             $redis->set('mpd_playback_laststate', 'playing');
         }
-        // sysCmd('rm /srv/http/tmp/spotify-connect/spotify-connect-cover.*');
-        ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\"}");
+        ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'disconnect_sources');

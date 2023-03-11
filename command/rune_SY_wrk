@@ -1345,6 +1345,7 @@ while (true) {
                 isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
                 isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
                 isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
+                isset($job->args->save_last_volume) && $redis->hSet('spotifyconnect', 'save_last_volume', $job->args->save_last_volume);
                 isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
                 isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
                 isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);

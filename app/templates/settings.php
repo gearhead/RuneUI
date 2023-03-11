@@ -401,7 +401,18 @@
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="number" id="spotifyconnect_normalisation_pregain" name="features[spotifyconnect][normalisation_pregain]" value="<?php echo $this->spotifyconnect['normalisation_pregain']; ?>" min="-20" max="0" placeholder="-10" autocomplete="off">
                             <span class="help-block">Enter a value between <strong>0</strong> (zero) and <strong>-20</strong>. This value is active only when <i>Volume Normalisation</i> is <strong>ON</strong>.<br>
-                            When <i>Volume Normalisation</i> is selected the output volume will need to be reduced to prevent clipping. A value of -10dB is advised as a starting point. When modifying, change it in small steps (and turn your amplifier down!)</span>
+                            When <i>Volume Normalisation</i> is selected the output volume will need to be reduced by a fixed amount selected here to prevent clipping. A value of -10dB is advised as a starting point. When modifying, change it in small steps (and turn your amplifier down!)</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="spotifyconnect_save_last_volume">Preserve Previous Volume Level</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_save_last_volume" name="features[spotifyconnect][save_last_volume]" type="checkbox" value="1"<?php if(isset($this->spotifyconnect['save_last_volume']) && $this->spotifyconnect['save_last_volume'] == 1): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Switch Preserve Previous Volume Level <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> the volume level set in the previous Spotify Connect session will be used as the initial volume in a new session</span>
                         </div>
                     </div>
                     <div class="form-group">
