@@ -35,9 +35,12 @@
 # after starting spotify connect the volume is set to a new level
 #   this happens when starting spotify, not when starting a stream
 # this routine is called from the spotifyd.service file in the ExecStartPost section
-#   set the volume to the last set mpd volume
-sleep 1
-lastvolume=$( redis-cli get lastmpdvolume )
-mpc volume $lastvolume > /dev/null
+#   set the volume to the last set mpd volume when the player is MPD
+activeplayer=$( redis-cli get activePlayer )
+if [ "$activeplayer" == "MPD" ] ; then
+    sleep 1
+    lastvolume=$( redis-cli get lastmpdvolume )
+    mpc volume $lastvolume > /dev/null
+fi
 #---
 #End script
