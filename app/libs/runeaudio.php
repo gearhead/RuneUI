@@ -4530,11 +4530,14 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             }
             break;
         case "initial_volume":
-            if (isset($sccfg['save_last_volume']) && $sccfg['save_last_volume']) {
-                $spotifyd_conf .= "initial_volume = ".'"'.$sccfg['lastvolume'].'"'."\n";
-            } else {
-                $spotifyd_conf .= "initial_volume = ".'"'.$value.'"'."\n";
-            }
+            // if (isset($sccfg['save_last_volume']) && $sccfg['save_last_volume']) {
+                // $spotifyd_conf .= "initial_volume = ".'"'.$sccfg['lastvolume'].'"'."\n";
+            // } else {
+                // $spotifyd_conf .= "initial_volume = ".'"'.$value.'"'."\n";
+            // }
+            // use the last MPD volume, it gets set when spotifyd starts, not when the stream starts
+            $spotifyd_conf .= "# initial_volume gets used when spotifyd starts, not when the stream starts\n";
+            $spotifyd_conf .= "initial_volume = ".'"'.$redis->get('lastmpdvolume').'"'."\n";
             break;
         case "volume_control":
             $spotifyd_conf .= "volume-control = ".'"'.$value.'"'."\n";

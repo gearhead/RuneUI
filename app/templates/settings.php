@@ -529,10 +529,10 @@
                 <?php endif ?>
             </div>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="smallScreenSaver">Splash screens</label>
+                <label class="control-label col-sm-2" for="enable-splash">Splash screens</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="smallScreenSaver" name="features[local_browser][enable-splash]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable-splash'])) && ($this->local_browser['enable-splash'])): ?> checked="checked" <?php endif ?>>
+                        <input id="enable-splash" name="features[local_browser][enable-splash]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable-splash'])) && ($this->local_browser['enable-splash'])): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Optionally switch the Splash screens ON/OFF. <i>These are the console messages: RuneAudio starting, restarting and shutting down</i></span>
