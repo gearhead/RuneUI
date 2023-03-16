@@ -2149,6 +2149,18 @@ function libraryHome(text) {
     }
 }
 
+// Display the modal screen
+function renderModal(text){
+    // alert("renderModal");
+    // console.log('renderModal, text[0] = ', text[0]);
+    toggleLoader('close');
+    var modal = text[0];
+    $('#' + modal.id).on('hidden.bs.modal', function(){
+           $(this).find('input').val('');
+        });
+    $('#' + modal.id).modal();
+}
+
 // open the Playback UI refresh channel
 function playbackChannel(){
     var pushstream = new PushStream({
@@ -2216,6 +2228,18 @@ function notifyChannel(){
     });
     pushstream.onmessage = renderMSG;
     pushstream.addChannel('notify');
+    pushstream.connect();
+}
+
+// open the modal screen trigger channel
+function modalChannel(){
+    var pushstream = new PushStream({
+        host: window.location.hostname,
+        port: window.location.port,
+        modes: GUI.mode
+    });
+    pushstream.onmessage = renderModal;
+    pushstream.addChannel('modal');
     pushstream.connect();
 }
 
@@ -2346,6 +2370,9 @@ if ($('#section-index').length) {
         PNotify.prototype.options.stack.spacing2 = 10;
         // open notify channel
         notifyChannel();
+
+        // open the modal channel
+        modalChannel();
 
         // use the property name to generate the prefixed event name
         var visProp = getHiddenProp();
@@ -3208,6 +3235,67 @@ if ($('#section-index').length) {
         // system display off
         $('#syscmd-display_off').click(function(){
             $.post('/settings/', { 'syscmd' : 'display_off' });
+        });
+
+        // security sec-linux_password change of value
+        $('#sec-linux_password').keyup(function(){
+            var newpass = $('#sec-linux_password').val();
+            var newpassval = newpass.replace(/\s/g,'');
+            if ((newpass === newpassval) && (newpass.length >= 4)) {
+                // enable the save button
+                $('#security-linux_password_save').removeClass('disabled');
+            } else {
+                // disable the save button
+                $('#security-linux_password_save').addClass('disabled');
+            }
+        });
+        // security sec-ap_password change of value
+        $('#sec-ap_password').keyup(function(){
+            var newpass = $('#sec-ap_password').val();
+            var newpassval = newpass.replace(/\s/g,'');
+            if (newpass && (newpass === newpassval) && (newpass.length >= 8) && (newpass.length <= 63)) {
+                // enable the save button
+                $('#security-ap_password_save').removeClass('disabled');
+            } else {
+                // disable the save button
+                $('#security-ap_password_save').addClass('disabled');
+            }
+        });
+        // security linux_password_save
+        $('#security-linux_password_save').click(function(){
+            var newpass = $('#sec-linux_password').val();
+            var newpassval = newpass.replace(/\s/g,'');
+            if ((newpass === newpassval) && (newpass.length >= 4)) {
+                $.post('/settings/',
+                    {
+                        'syscmd' : 'security',
+                        'action' : 'linux_password_save',
+                        'args'   : newpass
+                    });
+            }
+            $('#sec-linux_password').val('');
+        });
+        // security linux_password_randomise
+        $('#security-linux_password_randomise').click(function(){
+            $.post('/settings/',
+                {
+                    'syscmd' : 'security',
+                    'action' : 'linux_password_randomise',
+                    'args'   : ''
+                });
+        });
+        // security ap_password_save
+        $('#security-ap_password_save').click(function(){
+            var newpass = $('#sec-ap_password').val();
+            var newpassval = newpass.replace(/\s/g,'');
+            if (newpass && (newpass === newpassval) && (newpass.length >= 8) && (newpass.length <= 63)) {
+                $.post('/settings/',
+                    {
+                        'syscmd' : 'security',
+                        'action' : 'ap_password_save',
+                        'args'   : newpass
+                    });
+            }
         });
 
         // social share overlay

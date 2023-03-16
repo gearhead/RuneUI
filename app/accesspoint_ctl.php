@@ -46,6 +46,10 @@ waitSyWrk($redis,$jobID);
 
 $template->enable = $redis->hGet('AccessPoint', 'enable');
 $template->accesspoint = $redis->hGetAll('AccessPoint');
+if (!isset($template->accesspoint['passphrase']) || !$template->accesspoint['passphrase'] || ($template->accesspoint['passphrase'] == 'RuneAudio')) {
+    $template->accesspoint['enable-NAT'] = 0;
+    $redis->hSet('AccessPoint', 'enable-NAT', 0);
+}
 $template->hostname = $redis->get('hostname');
 $nics = json_decode($redis->Get('network_interfaces'), true);
 $template->wifiavailable = 0;

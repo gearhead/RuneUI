@@ -1255,6 +1255,15 @@ while (true) {
                 sysCmd('export DISPLAY=:0; xset dpms force off');
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'security':
+                $redis->sAdd('w_lock', $jobID);
+                if (!isset($job->args)) {
+                    // no password given
+                    $job->args = '';
+                }
+                wrk_security($redis, $job->action, $job->args);
+                $redis->sRem('w_lock', $jobID);
+                break;
             case 'spotify':
                 $redis->sAdd('w_lock', $jobID);
                 if ($job->action === 'start') {
@@ -1646,6 +1655,20 @@ while (true) {
             // clear the screen if splash screens are on and local browser is off
             sysCmd('/usr/bin/ply-image /srv/http/tmp/art/black.png');
             $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'reset_linux_root_password')) {
+            // when requested required set up the Linux root password so that its modification will be prompted in the UI
+            wrk_security($redis, 'reset_linux_root_password');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_linux_root_password')) {
+            // prompt the UI to change the Linux root password
+            $data['id'] = 'modal-security_linux_password';
+            ui_render('modal', json_encode($data));
+            unset($data);
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'reset_linux_root_password')) {
+            // when requested required set up the Linux root password so that its modification will be prompted in the UI
+            wrk_security($redis, 'reset_linux_root_password');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'wifi_boot_initialise')) {
             // run boot-initialise for Wi-Fi networks
             wrk_netconfig($redis, 'boot-initialise');
@@ -1664,6 +1687,13 @@ while (true) {
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation
             wrk_ashuffle($redis, 'changewindow');
+            // the access point test below needs more time, so delay by 120 seconds
+            $savecpuOneTimeActions = 120 + rand(0, 10);
+        } else if (is_firstTime($redis, 'check_access_point_password') && wrk_security($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_access_point_password')) {
+            // prompt the UI to change the Access Point password
+            $data['id'] = 'modal-security_ap_password';
+            ui_render('modal', json_encode($data));
+            unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else {
             $savecpuOneTimeActions = 10000000;

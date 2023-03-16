@@ -652,38 +652,60 @@
                         Real-time monitoring is carried out when the player is active. If something starts to go amiss with your hard-disk drive you will alerted every 1,5 minutes via the UI</span>
                     </div>
                 </div>
-            </div>
-        </fieldset>
-    </form>
-<!-- <form class="form-horizontal" method="post">
-        <fieldset>
-            <legend>Backup / Restore configuration</legend>
-            <p>&nbsp;</p>
-            <div class="form-group">
-                <label class="col-sm-2 control-label">Backup player config</label>
-                <div class="col-sm-10">
-                    <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="backup" id="syscmd-backup">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Resetting the Linux root password</label>
+                    <div class="col-sm-10">
+                        <span class="help-block">If you have forgotten your Linux root password or need to assign a new password after randomising the password, these are the steps.<br>
+                        1. Shut down RuneAudio<br>
+                        2. Remove the Micro-SD card and plug it into your PC<br>
+                        3. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
+                        4. Open the Micro-SD card in your file manager (Mac Finder or Windows File Explorer), on a Mac its the first disk partition which you need<br>
+                        5. Open the folder called 'password'. There is a file in the folder called readme, this contains instructions similar to these<br>
+                        6. Create a file in the 'password' directory. The file can have any name except 'readme', its content is ignored and can be empty<br>
+                        7. Restart RuneAudio with the modified Micro-SD card and RuneAudio will prompt for a new Linux root password<br>
+                        8. The file created in the 'password' directory will automatically be deleted</span>
+                    </div>
                 </div>
-            </div>
-                    </fieldset>
-    </form>
-    <form class="form-horizontal" method="post">
-        <fieldset>
-            <div class="form-group" >
-                <label class="col-sm-2 control-label" for="port">Configuration file</label>
-                <div class="col-sm-10">
-                    <div class="fileupload fileupload-new" data-provides="fileupload">
-                      <span class="btn btn-file"><span class="fileupload-new">restore</span><span class="fileupload-exists">Change</span><input type="file" /></span>
-                      <span class="fileupload-preview"></span>
-                      <a href="#" class="close fileupload-exists" data-dismiss="fileupload" style="float: none">×</a>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Resetting Wi-Fi configuration</label>
+                    <div class="col-sm-10">
+                        <span class="help-block">If you use RuneAudio in a Wi-Fi-only configuration and you have lost all connectivity, these are the steps.<br>
+                        1. Shut down RuneAudio<br>
+                        2. Remove the Micro-SD card and plug it into your PC<br>
+                        3. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
+                        4. Open the Micro-SD card in your file manager (Mac Finder or Windows File Explorer), on a Mac its the first disk partition which you need<br>
+                        5. Open the folder called 'wifi'. There is a file in the folder called readme, this contains the instructions which you need.<br>
+                        6. There is also a sub-folder called 'examples', this contains example Wi-Fi configuration files<br>
+                        7. Create one or more files in the 'wifi' directory containing the configuration details. The file can have any name except 'readme'<br>
+                        8. Restart RuneAudio with the modified Micro-SD card and RuneAudio will initialise the Wi-Fi configuration as specified in the file(s)<br>
+                        9. The file(s) created in the 'wifi' directory will automatically be deleted</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Bulk Import of Webradio's</label>
+                    <div class="col-sm-10">
+                        <span class="help-block">If you would like to add all your currenly defined webradio's, these are the steps.<br>
+                        1. On your current RuneAudio installation use one of the two methods below to save your current webradio files:<br>
+                        &nbsp;A. Using Linux CLI login:<br>
+                        &nbsp;&nbsp;a. Log into your RuneAudio player with SSH (see the forum for details)<br>
+                        &nbsp;&nbsp;b. Download/copy all the files contained in the directory /mnt/MPD/Webradio to your PC<br>
+                        &nbsp;B. Using Samba:<br>
+                        &nbsp;&nbsp;a. Within RuneAudio switch Samba <strong>On</strong> in the settings menu, read/write access should be <strong>Off</strong><br>
+                        &nbsp;&nbsp;b. On you PC connect to a network drive with the specification '\\RuneAudio\MusicStoreWebradio' for Windows or '//RuneAudio/MusicStoreWebradio' for MAC<br>
+                        &nbsp;&nbsp;c. Copy the files from the network drive to your PC<br>
+                        &nbsp;&nbsp;d. Disconnect the network drive<br>
+                        &nbsp;&nbsp;e. Switch Samba <strong>Off</strong> if required<br>
+                        2. Shut down your new RuneAudio<br>
+                        3. Remove the Micro-SD card and plug it into your PC<br>
+                        4. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
+                        5. Open the Micro-SD card in your file manager (Mac Finder or Windows File Explorer), on a Mac its the first disk partition which you need<br>
+                        6. Open the folder called 'webradios'. There is a file in the folder called readme, this contains the instructions about the webradio file format<br>
+                        7. Copy all of your webradio files into the 'webradios' folder<br>
+                        8. Restart RuneAudio with the modified Micro-SD card and RuneAudio will load all the webradio files<br>
+                        9. The file(s) created in the 'webradios' directory will automatically be deleted</span>
                     </div>
                 </div>
             </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button class="btn btn-primary btn-lg" value="restore" name="syscmd" type="submit">Restore config</button>
-                </div>
-            </div>
         </fieldset>
-    </form> -->
+    </form>
 </div>

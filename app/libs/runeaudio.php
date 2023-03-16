@@ -11698,3 +11698,107 @@ function is_playing($redis)
     }
     return false;
 }
+
+function wrk_security($redis, $action, $args=null)
+{
+    $retval = true;
+    switch ($action) {
+        case 'check_linux_root_password':
+            $today = date('Y-m-d');
+            $passwordInfo = sysCmd('passwd -S root | xargs')[0];
+            $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
+            if (($today != $passwordDate) && ($redis->get('passworddate') == $passwordDate)) {
+                $retval = false;
+            }
+            break;
+        case 'check_access_point_password':
+            $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
+            $ap = false;
+            foreach ($networkInterfaces as $networkInterface) {
+                if (($networkInterface['type'] == 'AP') && ($networkInterface['technology']== 'wifi')) {
+                    $ap = true;
+                    break;
+                }
+            }
+            if ($ap && ($redis->hGet('AccessPoint', 'passphrase') == 'RuneAudio')) {
+                $retval = false;
+            }
+            break;
+        case 'reset_linux_root_password':
+            // if a reset file has been created in /boot/password, set the redis variable 'passworddate'
+            //  to the last changed password date for the root password
+            $fileList = scandir('/boot/password');
+            foreach ($fileList as $fileName) {
+                if ($fileName == '.') {
+                    continue;
+                }
+                if ($fileName == '..') {
+                    continue;
+                }
+                if ($fileName == 'readme') {
+                    continue;
+                }
+                sysCmd('rm -r /boot/password/*');
+                sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
+                $passwordInfo = sysCmd('passwd -S root | xargs')[0];
+                $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
+                $redis->set('passworddate', $passwordDate);
+                break;
+            }
+            break;
+        case 'linux_password_save':
+            // strip whitespace from the password
+            $newpass = preg_replace('/\s/', '', $args);
+            $passwordInfo = sysCmd('passwd -S root | xargs')[0];
+            if (strpos(' '.$passwordInfo, $redis->get('passworddate')) && ($args == $newpass) && (strlen($args) >= 4)) {
+                // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 4
+                sysCmd('echo -e "'.$args.'\n'.$args.'" | passwd root');
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
+                ui_notify('Security', 'Linux root password changed');
+            } else {
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
+                ui_notifyError('Security', 'Linux root password change failed, you will get a new reminder');
+            }
+            break;
+        case 'linux_password_randomise':
+            // generate a randomised password
+            srand(preg_replace('/[^0-9]/', '', microtime(true)));
+            $args = preg_replace('/\s/', '', md5(rand()));
+            $passwordInfo = sysCmd('passwd -S root | xargs')[0];
+            if (strpos(' '.$passwordInfo, $redis->get('passworddate')) && isset($args) && (strlen($args) >= 4)) {
+                // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 4
+                sysCmd('echo -e "'.$args.'\n'.$args.'" | passwd root');
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
+                ui_notify('Security', 'Linux root password changed');
+            } else {
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
+                ui_notifyError('Security', 'Linux root password change failed, invalid format. You will get a new reminder');
+            }
+            break;
+        case 'ap_password_save':
+            $newpass = preg_replace('/\s/', '', $args);
+            if (isset($args) && ($args == $newpass) && (strlen($args) >= 8) && (strlen($args) <= 63) && ($args != $redis->hGet('AccessPoint', 'passphrase'))) {
+                $redis->hSet('AccessPoint', 'passphrase', $args);
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate');
+                ui_notify('Security', 'Access Point password changed, reboot to activate');
+            } else {
+                // send notfy to UI
+                //ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder', $jobID);
+                // noid ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder');
+                ui_notifyError('Security', 'Access Point password change failed, invalid format. You will get a new reminder');
+            }
+            break;
+    }
+    unset($today, $newpass, $passwordInfo, $passwordDate, $networkInterfaces);
+    return $retval;
+}

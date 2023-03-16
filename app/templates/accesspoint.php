@@ -33,8 +33,8 @@
                     </label>
                     <span class="help-block">Toggle starting a wireless AccessPoint on startup.<br>
                         <i>Note: The Access Point will start only when a normal Wi-Fi network cannot be connected.<br>
-                        The Access Point is designed for setting up the RuneAudio Wi-Fi network configuration when no wired connection is available.<br>
-                        If you do not intend to use it, you should <strong>switch it off</strong> and/or <strong>change the passphrase</strong> (password)</i></span>
+                        The Access Point is designed for setting up (or recovering) the RuneAudio Wi-Fi network configuration when no wired connection is available.<br>
+                        If you do not intend to use it, you should <strong>switch it off</strong> and/or <strong>change the password</strong> (passphrase)</i></span>
                 </div>
                 <div class="<?php if(!$this->enable): ?>hide<?php endif ?>" id="accesspointSettings">
                     <div class="form-group">
@@ -45,10 +45,12 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="col-sm-2 control-label" for="settings[passphrase]">Passphrase</label>
+                        <label class="col-sm-2 control-label" for="settings[passphrase]">Password (Passphrase)</label>
                         <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="passphrase" name="settings[passphrase]" <?php if (isset($this->accesspoint['passphrase'])): ?>value="<?=$this->accesspoint['passphrase'] ?>" placeholder="Passphrase" data-parsley-trigger="change"<?php else: ?>value="RuneAudio" placeholder="Passphrase" data-parsley-trigger="change"<?php endif; ?> required />
-                            <span class="help-block">Set the Passphrase (password), default is 'RuneAudio'<?php if ((isset($this->enable)) && ($this->enable) && isset($this->accesspoint['passphrase']) && ($this->accesspoint['passphrase'] == 'RuneAudio')): ?>, <strong>please change it NOW!</strong><?php endif; ?></span>
+                            <input class="form-control osk-trigger input-lg" type="text" id="passphrase" name="settings[passphrase]" <?php if (isset($this->accesspoint['passphrase'])): ?>value="<?=$this->accesspoint['passphrase'] ?>" <?php else: ?>value="RuneAudio" <?php endif; ?> placeholder="Passphrase" minlength="8" maxlength="63" pattern="^\S+$" data-parsley-trigger="change" required />
+                            <span class="help-block">Set the Password (Passphrase), default is 'RuneAudio'
+                            <?php if ((isset($this->enable)) && ($this->enable) && isset($this->accesspoint['passphrase']) && ($this->accesspoint['passphrase'] == 'RuneAudio')): ?>, <strong>please change it NOW!</strong><?php endif; ?><br>
+                            Minimum length 8 characters, maximum 63, no tabs or spaces</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -87,15 +89,17 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="col-sm-2 control-label">enable NAT</label>
+                        <label class="col-sm-2 control-label">Enable NAT</label>
                         <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="enable-NAT" name="settings[enable-NAT]" type="checkbox" value="1"<?php if($this->accesspoint['enable-NAT']): ?> checked="checked" <?php endif ?><?php if (isset($this->accesspoint['passphrase']) && ($this->accesspoint['passphrase'] == 'RuneAudio')): ?> disabled<?php endif; ?>>
+                                <input id="enable-NAT" name="settings[enable-NAT]" type="checkbox" value="1"<?php if($this->accesspoint['enable-NAT']): ?> checked="checked" <?php endif ?><?php if (!isset($this->accesspoint['passphrase']) || !$this->accesspoint['passphrase'] || ($this->accesspoint['passphrase'] == 'RuneAudio')): ?> disabled<?php endif; ?>>
                                     <span><span>NO</span><span>YES</span></span><a class="btn btn-primary"></a>
                             </label>
                             <span class="help-block">If you would like to share your Ethernet connection over this Wi-Fi Access Point set this to <strong>YES</strong>.<br>
-                                In order to switch this on, you must <strong>change the passphrase</strong> (password)!<br>
-                                <i>This requires a wired network connection to operate</i></span>
+                                <?php if (!isset($this->accesspoint['passphrase']) || !$this->accesspoint['passphrase'] || ($this->accesspoint['passphrase'] == 'RuneAudio')): ?>
+                                In order to switch this on, you must <strong>change the password</strong> (passphrase)!<br>
+                                <?php endif; ?>
+                                <i>NAT is not capable of Wi-Fi to Wi-Fi connectivity, a wired network connection is required in order to operate</i></span>
                         </div>
                     </div>
                 </div>

@@ -274,6 +274,13 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'restore') {
             sysCmd('/srv/http/command/restore.php');
         }
+        if ($_POST['syscmd'] === 'security') {
+            if (isset($_POST['action']) && strpos('|linux_password_save|ap_password_save|', $_POST['action']) && isset($_POST['args'])) {
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => $_POST['syscmd'], 'action' => $_POST['action'], 'args' => $_POST['args']));
+            } else if (isset($_POST['action']) && strpos('|linux_password_randomise|', $_POST['action'])) {
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => $_POST['syscmd'], 'action' => $_POST['action']));
+            }
+        }
     }
 }
 if (isset($jobID)) {

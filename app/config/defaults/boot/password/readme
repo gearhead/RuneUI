@@ -1,0 +1,13 @@
+RuneAudio reset Linux root password at boot
+===========================================
+
+To reset the Linux root password, create a file in the /boot/password directory. This
+'readme' file which you are now reading is located in the correct directory.
+
+This action should be carried out on your PC after inserting the Micro-SD card, the
+directory then appears as /password, (for Mac users, this is in the first disk partition).
+
+The file can have any name except 'readme', its content is ignored and can be empty.
+
+After creating the file on the micro-SD card, replacing the card in your RuneAudio player
+and restarting RuneAudio it will prompt for a new Linux root password.
