@@ -305,13 +305,6 @@ if ($playerid_db === '') {
     // initialize OrionProfile
     runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
     $hwplatformid = $redis->get('hwplatformid');
-    // the following lines can be removed after the next kernel upgrade 05-07-2022
-    $armVer = strtolower(trim(sysCmd('uname -m | xargs')[0]));
-    if (($hwplatformid != '01') && ($armVer == 'armv6l')) {
-        $hwplatformid = '01';
-        $redis->set('hwplatformid', $hwplatformid);
-    }
-    // remove to here
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/orion_optimize.sh "'.$redis->get('orionprofile').'" "'.$hwplatformid.'"');
     // reset usb storage (also starts samba)
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/usbmount');
