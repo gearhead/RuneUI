@@ -636,12 +636,11 @@
             <div class="boxed-group">
                 <p>Some notes concerning features and options</p>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Patched Linux kernel for audio output up to 384k</label>
+                    <label class="col-sm-2 control-label">Patched HiFiBerry DAC driver for audio output up to 384kHz</label>
                     <div class="col-sm-10">
-                        <span class="help-block">This version of RuneAudio includes a patched kernel which allows alsa to stream at a sample-rate up to 384k.
-                        This is twice as high as the normal maximum rate of 192k.
-                        Where necessary the parameters for selecting and setting up hardware audio cards have been adapted to give the best performance.<br>
-                        If you manually update the kernel, not only will you lose the 384k feature but some of the setting for hardware audio cards will no longer be optimal</span>
+                        <span class="help-block">The Linux kernel now supports 384kHz audio sample rate as standard. We previously patched the kernel top achieve this.<br>
+                        There is still a patch included for the HiFiBerry DAC driver to support 384kHz audio sample rate, normally it has a maximum rate of 192kHz even though the TI PCM510x chips support 384kHz.
+                        The MPD settings are adjusted when the HiFiBerry DAC driver is used in combination with audio cards with other DAC chips when they support lower maximum sample rates</span>
                     </div>
                 </div>
                 <div class="form-group">

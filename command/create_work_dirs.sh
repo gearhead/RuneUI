@@ -196,7 +196,7 @@ touch /run/bluealsa-monitor/asoundrc
 #
 # get the total memory
 memory=$( grep -i MemTotal /proc/meminfo | xargs  | cut -d ' ' -f 2 )
-# the size of the http-tmp is based on using luakit as local browser
+# the size of the http-tmp is based the the available memory and on using luakit as local browser
 if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
     # memory has a value and its numeric
     if [ "$memory" -gt "1200000" ]; then

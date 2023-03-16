@@ -94,7 +94,7 @@
                     </label>
                     <span class="help-block">Enable/Disable starting a wireless AccessPoint on startup.<br>
                         <i>Notes: The Access Point will start only when a valid Wi-Fi network connection is available and a normal Wi-Fi network cannot be connected.
-                        The Access Point is designed for setting up the RuneAudio Wi-Fi network configuration when no wired connection is available.
+                        The Access Point is designed for setting up (and recovering) the RuneAudio Wi-Fi network configuration when no wired connection is available.
                         The default setting is ON when on-board Wi-Fi is available.
                         If you do not intend to use the Access Point, you should <strong>switch it off</strong>.
                         A <strong>reboot</strong> is required to activate a changed setting!</i></span>
