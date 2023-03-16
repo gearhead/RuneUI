@@ -11727,23 +11727,29 @@ function wrk_security($redis, $action, $args=null)
         case 'reset_linux_root_password':
             // if a reset file has been created in /boot/password, set the redis variable 'passworddate'
             //  to the last changed password date for the root password
-            $fileList = scandir('/boot/password');
-            foreach ($fileList as $fileName) {
-                if ($fileName == '.') {
-                    continue;
+            clearstatcache(true, '/boot/password');
+            if (is_dir('/boot/password')) {
+                $fileList = scandir('/boot/password');
+                foreach ($fileList as $fileName) {
+                    if ($fileName == '.') {
+                        continue;
+                    }
+                    if ($fileName == '..') {
+                        continue;
+                    }
+                    if ($fileName == 'readme') {
+                        continue;
+                    }
+                    sysCmd('rm -r /boot/password/*');
+                    sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
+                    $passwordInfo = sysCmd('passwd -S root | xargs')[0];
+                    $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
+                    $redis->set('passworddate', $passwordDate);
+                    break;
                 }
-                if ($fileName == '..') {
-                    continue;
-                }
-                if ($fileName == 'readme') {
-                    continue;
-                }
-                sysCmd('rm -r /boot/password/*');
+            } else {
+                sysCmd('mkdir /boot/password');
                 sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
-                $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-                $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
-                $redis->set('passworddate', $passwordDate);
-                break;
             }
             break;
         case 'linux_password_save':
@@ -11799,6 +11805,6 @@ function wrk_security($redis, $action, $args=null)
             }
             break;
     }
-    unset($today, $newpass, $passwordInfo, $passwordDate, $networkInterfaces);
+    unset($today, $newpass, $passwordInfo, $passwordDate, $networkInterfaces, $fileList);
     return $retval;
 }
