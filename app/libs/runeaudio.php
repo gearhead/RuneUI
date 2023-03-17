@@ -11775,8 +11775,8 @@ function wrk_security($redis, $action, $args=null)
             srand(preg_replace('/[^0-9]/', '', microtime(true)));
             $args = preg_replace('/\s/', '', md5(rand()));
             $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-            if (strpos(' '.$passwordInfo, $redis->get('passworddate')) && isset($args) && (strlen($args) >= 4)) {
-                // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 4
+            if (strpos(' '.$passwordInfo, $redis->get('passworddate')) && isset($args) && (strlen($args) >= 8) && (strlen($args) <= 255)) {
+                // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 8 and less than or equal to 255
                 sysCmd('echo -e "'.$args.'\n'.$args.'" | passwd root');
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
@@ -11791,7 +11791,10 @@ function wrk_security($redis, $action, $args=null)
             break;
         case 'ap_password_save':
             $newpass = preg_replace('/\s/', '', $args);
-            if (isset($args) && ($args == $newpass) && (strlen($args) >= 8) && (strlen($args) <= 63) && ($args != $redis->hGet('AccessPoint', 'passphrase'))) {
+            $oldpass = $redis->hGet('AccessPoint', 'passphrase');
+            if (isset($args) && ($args == $newpass) && (strlen($args) >= 8) && (strlen($args) <= 63) && ($args != $oldpass) && ($oldpass == 'RuneAudio')) {
+                // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 8 and less than or equal to 255
+                //  and it is different to the existing password
                 $redis->hSet('AccessPoint', 'passphrase', $args);
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate', $jobID);

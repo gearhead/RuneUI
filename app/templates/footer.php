@@ -28,9 +28,9 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Change the Linux root password</h3>
             </div>
             <div class="modal-body">
-                You change the default Linux root password. Anyone who reads the Forum knows the password and it could used to connect to your player and make changes.<br>
-                Below you can choose a new password or randomise the password. A randomised password is fine if you never want to log in and modify the RuneAudio software. No-one knows the value of a randomised password this effectively disables logins.<br><br>
-                <input id="sec-linux_password" class="form-control osk-trigger" type="text" title="Enter the new Password (minimum 4 characters, no spaces)" placeholder="Enter the new Password (minimum 4 characters, no spaces)" value="">
+                You should change the default Linux root password. Anyone who reads the RuneAudio Forum knows the default password and it could used to connect to your player and make changes.<br>
+                Below you can choose a new password or randomise the password. A randomised password is best if you never want to log in and modify the RuneAudio software. No-one knows the value of a randomised password this effectively disables logins.<br><br>
+                <input id="sec-linux_password" class="form-control osk-trigger" type="text" title="Enter the new Password (minimum 8 characters, no spaces)" placeholder="Enter the new Password (minimum 8 characters, no spaces)" value="">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default btn-lg" title="Remind me later" data-dismiss="modal"> Remind me Later</button>
@@ -40,7 +40,6 @@
             <div class="modal-body">
                 <i>The RuneAudio player is not a secure piece of software, many of its components explicitly state this fact. It should always be used behind your firewall/router and never exposed to external internet.
                 Changing this password will help to reduce security risks.<br>
-                After changing the password this screen will not be shown again.<br>
                 A randomised or forgotten password can be changed later, see the Forum for details</i>
             </div>
         </div>
@@ -54,7 +53,7 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Change the Wi-Fi Access Point password</h3>
             </div>
             <div class="modal-body">
-                It is important to change the default Wi-Fi Access Point (AP) password. Anyone who reads the Forum knows the default Access Point password and it could be used gain access to your network.<br>
+                It is important to change the default Wi-Fi Access Point (AP) password. Anyone who reads the RuneAudio Forum knows the default Access Point password and it could be used gain access to your network.<br>
                 You can also change the password any time in the <strong>Network > Access Point</strong> menu.<br><br>
                 <input id="sec-ap_password" class="form-control osk-trigger" type="text" title="Enter the new Password (minimum 8 characters, no spaces)" placeholder="Enter the new Password (minimum 8 characters, no spaces)" value="">
             </div>
