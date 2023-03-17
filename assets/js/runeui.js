@@ -3241,7 +3241,7 @@ if ($('#section-index').length) {
         $('#sec-linux_password').keyup(function(){
             var newpass = $('#sec-linux_password').val();
             var newpassval = newpass.replace(/\s/g,'');
-            if ((newpass === newpassval) && (newpass.length >= 8) && (newpass.length <= 255) {
+            if ((newpass === newpassval) && (newpass.length >= 8) && (newpass.length <= 255)) {
                 // enable the save button
                 $('#security-linux_password_save').removeClass('disabled');
             } else {
