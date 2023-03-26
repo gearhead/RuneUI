@@ -463,7 +463,7 @@ while (true) {
                 }
                 do {
                     $message = $redis->rPop('w_message');
-                    // debug 
+                    // debug
                     // echo "Message : $message\n";
                     runelog('Message : '.$message);
                     if (isset($message) && $message) {

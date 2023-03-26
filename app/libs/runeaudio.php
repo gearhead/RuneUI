@@ -6115,7 +6115,7 @@ function ui_notify($redis, $title, $text, $type = null, $permanotice = null)
         // UI is available, display any queued messages, the messages are then sent in fifo ourder
         do {
             $message = $redis->rPop('w_message');
-            // debug 
+            // debug
             // echo "Message : $message\n";
             runelog('Message : '.$message);
             if (isset($message) && $message) {
@@ -6157,7 +6157,7 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
         // UI is available, display any queued messages, the messages are then sent in fifo ourder
         do {
             $message = $redis->rPop('w_message');
-            // debug 
+            // debug
             // echo "Message : $message\n";
             runelog('Message : '.$message);
             if (isset($message) && $message) {
