@@ -3,7 +3,7 @@
 
 [Unit]
 Description=Rune Audio Amixer-WebUI Service
-After=audio.target
+After=sound.target
 
 [Service]
 User=http
