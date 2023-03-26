@@ -107,10 +107,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     if (addNextToQueue($redis, $mpd, $_POST['path'])) {
                         ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
                     } else {
-                        ui_notifyError('Failed to insert next in queue', $_POST['path']);
+                        ui_notifyError($redis, 'Failed to insert next in queue', $_POST['path']);
                     }
                 } else {
-                    ui_notifyError('Failed to insert next in queue, no path set');
+                    ui_notifyError($redis, 'Failed to insert next in queue, no path set');
                 }
             }
             break;
@@ -134,9 +134,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $proxy = $redis->hGetall('proxy');
                     $lastfm_apikey = $redis->get('lastfm_apikey');
                     if (ui_lastFM_similar($redis, trim($artist), trim($title), $lastfm_apikey, $proxy)) {
-                        ui_notify('Added similar tracks', 'As listed by last.fm');
+                        ui_notify($redis, 'Added similar tracks', 'As listed by last.fm');
                     } else {
-                        ui_notifyError('Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
+                        ui_notifyError($redis, 'Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
                     }
                 }
                 unset($artist, $title, $proxy, $lastfm_apikey);
@@ -160,9 +160,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $proxy = $redis->hGetall('proxy');
                         $lastfm_apikey = $redis->get('lastfm_apikey');
                         if (ui_lastFM_similar($redis, $status['currentartist'], $status['currentsong'], $lastfm_apikey, $proxy)) {
-                            ui_notify('Added similar tracks', 'As listed by last.fm');
+                            ui_notify($redis, 'Added similar tracks', 'As listed by last.fm');
                         } else {
-                            ui_notifyError('Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
+                            ui_notifyError($redis, 'Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
                         }
                     }
                 }
@@ -197,18 +197,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'bookmark':
             if (isset($_POST['path'])) {
                 if (saveBookmark($redis, $_POST['path'])) {
-                    ui_notify('Bookmark saved', $_POST['path'].' added to bookmarks');
+                    ui_notify($redis, 'Bookmark saved', $_POST['path'].' added to bookmarks');
                     ui_libraryHome($redis);
                 } else {
-                    ui_notifyError('Error saving bookmark', 'please try again later');
+                    ui_notifyError($redis, 'Error saving bookmark', 'please try again later');
                 }
             }
             if (isset($_POST['id'])) {
                 if (deleteBookmark($redis,$_POST['id'])) {
-                    ui_notify('Bookmark deleted', '"' . $_POST['name'] . '" successfully removed');
+                    ui_notify($redis, 'Bookmark deleted', '"' . $_POST['name'] . '" successfully removed');
                     ui_libraryHome($redis);
                 } else {
-                    ui_notifyError('Error deleting bookmark', 'Please try again later');
+                    ui_notifyError($redis, 'Error deleting bookmark', 'Please try again later');
                 }
             }
             break;
@@ -526,21 +526,21 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         if (file_exists($playlistFileName)) {
                             // Note: file_exists() will not detect a broken symlink
                             // file exists
-                            ui_notifyError('Error', 'Playlist name already in use: '.$playlist);
+                            ui_notifyError($redis, 'Error', 'Playlist name already in use: '.$playlist);
                         } else {
                             sendMpdCommand($mpd, 'save "'.$playlist.'"');
                             $response = readMpdResponse($mpd);
                             if (strpos(' '.$response, 'OK')) {
-                                ui_notify('Saved', $playlist);
+                                ui_notify($redis, 'Saved', $playlist);
                             } else {
-                                ui_notifyError('Error', $response);
+                                ui_notifyError($redis, 'Error', $response);
                             }
                         }
                     } else {
-                        ui_notifyError('Error', 'No playlist name given');
+                        ui_notifyError($redis, 'Error', 'No playlist name given');
                     }
                 } else {
-                    ui_notifyError('Error', 'No playlist name given');
+                    ui_notifyError($redis, 'Error', 'No playlist name given');
                 }
             }
             break;
@@ -558,25 +558,25 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $newPlaylistFileName = $playlistDirectory.'/'.$playlist.'.m3u';
                         clearstatcache(true, $newPlaylistFileName);
                         if ($oldname === $redis->hGet('globalrandom', 'playlist')) {
-                            ui_notifyError('Error', 'This playlist is currently used for Random Play and cannot be renamed: '.$oldname);
+                            ui_notifyError($redis, 'Error', 'This playlist is currently used for Random Play and cannot be renamed: '.$oldname);
                         } else if (file_exists($newPlaylistFileName)) {
                             // Note: file_exists() will not detect a broken symlink
                             // file exists
-                            ui_notifyError('Error', 'New playlist name already in use: '.$newname);
+                            ui_notifyError($redis, 'Error', 'New playlist name already in use: '.$newname);
                         } else {
                             sendMpdCommand($mpd, 'rename "'.$oldname.'" "'.$newname.'"');
                             $response = readMpdResponse($mpd);
                             if (strpos(' '.$response, 'OK')) {
-                                ui_notify('Renamed', 'From: '.$oldname.', to: '.$newname);
+                                ui_notify($redis, 'Renamed', 'From: '.$oldname.', to: '.$newname);
                             } else {
-                                ui_notifyError('Error', $response);
+                                ui_notifyError($redis, 'Error', $response);
                             }
                         }
                     } else {
-                        ui_notifyError('Error', 'No new playlist name given');
+                        ui_notifyError($redis, 'Error', 'No new playlist name given');
                     }
                 } else {
-                    ui_notifyError('Error', 'No new playlist name given');
+                    ui_notifyError($redis, 'Error', 'No new playlist name given');
                 }
             }
             break;
@@ -597,19 +597,19 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'pl-ashuffle-start':
             if ($activePlayer === 'MPD') {
                 $redis->hSet('globalrandom', 'enable', 1);
-                ui_notify('Global Random', 'Started');
+                ui_notify($redis, 'Global Random', 'Started');
             }
             break;
         case 'pl-ashuffle-stop':
             if ($activePlayer === 'MPD') {
                 $redis->hSet('globalrandom', 'enable', 0);
-                ui_notify('Global Random', 'Stopped');
+                ui_notify($redis, 'Global Random', 'Stopped');
             }
             break;
         case 'pl-ashuffle-reset':
             if ($activePlayer === 'MPD') {
                 $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ashufflereset', 'args' => $playlist));
-                ui_notify('Global Random', 'Adding songs from your full collection');
+                ui_notify($redis, 'Global Random', 'Adding songs from your full collection');
                 $redis->hSet('globalrandom', 'enable', 1);
                 waitSyWrk($redis, $jobID);
                 unset($jobID);
@@ -620,9 +620,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['playlist'])) {
                     $playlist = trim($_POST['playlist']);
                     $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'pl_ashuffle', 'args' => $playlist));
-                    ui_notify('Global Random', 'Adding songs from playlist: '.$playlist);
+                    ui_notify($redis, 'Global Random', 'Adding songs from playlist: '.$playlist);
                     waitSyWrk($redis, $jobID);
-                    ui_notify('Global Random', 'To add songs from your full collection, reset Random Play in the MPD menu or in the playlist UI');
+                    ui_notify($redis, 'Global Random', 'To add songs from your full collection, reset Random Play in the MPD menu or in the playlist UI');
                 }
                 unset($jobID);
             }

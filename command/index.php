@@ -55,7 +55,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
         $notification->text = 'Switch player backend started...';
         wrk_notify($redis, 'startjob', $notification, $jobID);
     } else {
-        ui_notify('Spotify not enabled', 'Enable and configure it under the Settings screen');
+        ui_notify($redis, 'Spotify not enabled', 'Enable and configure it under the Settings screen');
     }
 } else if (isset($_GET['cmd']) && $_GET['cmd']) {
     // debug

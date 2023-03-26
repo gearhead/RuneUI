@@ -61,7 +61,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     wrk_mpdconf($redis, 'refreshsoundcards');
-    ui_notify('Audio Output', 'configuration changed.');
+    ui_notify($redis, 'Audio Output', 'configuration changed.');
     // unlock
     $redis->set('lock_refresh_ao', '0');
 } else {

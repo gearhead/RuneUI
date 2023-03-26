@@ -448,7 +448,7 @@ while (true) {
                     $status['currentalbumartist'] = '';
                     $status['currentartist'] = '';
                     if ($retval) {
-                        // ui_notify('Radio success ', $rts.' seconds, change status '.$status['changed']);
+                        // ui_notify($redis, 'Radio success ', $rts.' seconds, change status '.$status['changed']);
                         if ($retval['song']) {
                             $status['currentsong'] = $retval['song'];
                         }
@@ -492,7 +492,7 @@ while (true) {
                             }
                         }
                     } else {
-                        // ui_notify('Radio fail ', $rts.' seconds, change status '.$status['changed']);
+                        // ui_notify($redis, 'Radio fail ', $rts.' seconds, change status '.$status['changed']);
                     }
                     if (!$status['currentartist']) {
                         $status['currentartist'] = 'Streaming';

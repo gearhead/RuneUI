@@ -130,7 +130,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
         // the header should contain an 'OK', if not something went wrong
         if (!strpos(' '.$header, 'OK')) {
             runelog('[open]['.$sock['description']."]\t>>>>>> MPD OPEN SOCKET ERROR REPORTED - Greeting response: ", $header);
-            // ui_notifyError('MPD open error: '.$sock['description'],'Greeting response = '.$header);
+            // ui_notifyError($redis, 'MPD open error: '.$sock['description'],'Greeting response = '.$header);
             closeMpdSocket($sock);
             return false;
         }
@@ -138,7 +138,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
         return $sock;
     } else {
         runelog('[open]['.$sock['description']."]\t>>>>>> MPD SOCKET ERROR: ".socket_last_error($$sockVarName).' <<<<<<','');
-        // ui_notifyError('MPD sock: '.$sock['description'],'socket error = '.socket_last_error($$sockVarName));
+        // ui_notifyError($redis, 'MPD sock: '.$sock['description'],'socket error = '.socket_last_error($$sockVarName));
         closeMpdSocket($sock);
         return false;
     }
@@ -519,7 +519,7 @@ function openSpopSocket($host, $port, $type = null)
             return $sock;
         } else {
             runelog("[error][".$sock['resource']."]\t>>>>>> SPOP SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-            // ui_notifyError('SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
+            // ui_notifyError($redis, 'SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     // create blocking socket connection
@@ -533,7 +533,7 @@ function openSpopSocket($host, $port, $type = null)
             return $sock;
         } else {
             runelog("[error][".$sock."]\t<<<<<<<<<<<< SPOP SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
-            // ui_notifyError('SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
+            // ui_notifyError($redis, 'SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
             return false;
         }
     }
@@ -564,7 +564,7 @@ function sendSpopCommand($sock, $cmd)
     $cmd = $cmd."\n";
     socket_write($sockResource, $cmd, strlen($cmd));
     runelog("SPOP COMMAND: (socket=".$sockResource.")", $cmd);
-    //ui_notify('COMMAND GIVEN','CMD = '.$cmd,'.9');
+    //ui_notify($redis, 'COMMAND GIVEN','CMD = '.$cmd,'.9');
 }
 
 // detect end of SPOP response
@@ -1962,17 +1962,35 @@ function runelog($title, $data = null, $function_name = null)
 
 function waitSyWrk($redis, $jobID)
 {
+    $redis->set('waitSyWrk', '1');
     if (is_array($jobID)) {
-        foreach ($jobID as $job) {
-            do {
+        $cntQueued = 2;
+        while (($cntQueued > 1)) {
+            $cntQueued = 0;
+            foreach ($jobID as $job) {
+                if ($redis->hExists('w_queue', $job)) {
+                    $cntQueued++;
+                    $saveJobID = $job;
+                    $inQueue = true;
+                }
+            }
+            if ($cntQueued == 1) {
+                do {
+                    usleep(650000);
+                } while ($redis->sIsMember('w_lock', $saveJobID));
+                break;
+            } else {
                 usleep(650000);
-            } while ($redis->sIsMember('w_lock', $job));
+            }
         }
     } elseif (!empty($jobID)) {
         do {
             usleep(650000);
         } while ($redis->sIsMember('w_lock', $jobID));
     }
+    // delay setting waitSyWrk off by 1 second to allow the UI to activate
+    sysCmdAsync($redis, 'redis-cli set waitSyWrk 0', 1);
+    // $redis->set('waitSyWrk', '0');
 }
 
 function getmac($nicname)
@@ -2161,6 +2179,17 @@ function wrk_control($redis, $action, $data)
     $jobID = "";
     // accept $data['action'] $data['args'] from controller
     switch ($action) {
+        case 'noduplicates':
+            // when noduplicates is specified a job is added only when no other $data['wrkcmd'] job exists
+            foreach ($redis->hGetAll('w_queue') as $key => $wjob) {
+                $wjob = json_decode($wjob, true);
+                if ($wjob['wrkcmd'] == $data['wrkcmd']) {
+                    $jobID = $key;
+                    // break while and switch
+                    break 2;
+                }
+            }
+            // no break, treat as newjob
         case 'newjob':
             // generate random jobid
             $jobID = wrk_jobID();
@@ -2280,7 +2309,7 @@ function wrk_backup($redis, $bktype = null)
             // $cmdstring .= " '".$fileName."'";
         // }
     // }
-    ui_notify('Backup', $cmdstring);
+    ui_notify($redis, 'Backup', $cmdstring);
     // save the redis database
     $redis->save();
     // run the backup
@@ -2298,11 +2327,11 @@ function wrk_restore($redis, $backupfile)
     $lenDestDir = strlen($fileDestDir);
     if (substr($backupfile, 0, $lenDestDir) === $fileDestDir) {
         // only allow a restore from the backup directory
-        ui_notify('Restore backup starting', 'please wait for a restart...');
+        ui_notify($redis, 'Restore backup starting', 'please wait for a restart...');
         sysCmd('/srv/http/command/restore.sh '.$backupfile);
         // a reboot will be initiated in restore.sh, it will never come back here
     } else {
-        ui_notifyError('Error', 'Attempted to restore from the incorrect directory: '.$backupfile);
+        ui_notifyError($redis, 'Error', 'Attempted to restore from the incorrect directory: '.$backupfile);
         // delete the backup file, OK if this fails
         unlink($backupfile);
     }
@@ -3846,7 +3875,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         break;
                 }
             }
-            // ui_notify('MPD', 'config file part one finished');
+            // ui_notify($redis, 'MPD', 'config file part one finished');
             // remove Bluetooth cards form acards
             wrk_btcfg($redis, 'remove_bt_acards');
             // get acards
@@ -4019,7 +4048,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .="\ttype \t\t\"null\"\n";
             $output .="\tenabled \t\"no\"\n";
             $output .="}\n";
-            // ui_notify('MPD', 'config file part two finished');
+            // ui_notify($redis, 'MPD', 'config file part two finished');
             // add the snapcast fifo output if requested
             if (isset($snapcastPath) && $snapcastPath) {
                 $output .="audio_output {\n";
@@ -4080,7 +4109,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .= "\n";
                 $output .= file_get_contents('/home/your-extra-mpd.conf');
             }
-            // ui_notify('MPD', 'config file part three finished');
+            // ui_notify($redis, 'MPD', 'config file part three finished');
             // write mpd.conf file to /tmp location
             $fh = fopen('/tmp/mpd.conf', 'w');
             fwrite($fh, $output);
@@ -4102,7 +4131,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             foreach ($args as $param => $value) {
                 $redis->hSet('mpdconf', $param, $value);
             }
-            // ui_notify('MPD', 'redis database updated');
+            // ui_notify($redis, 'MPD', 'redis database updated');
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'switchao':
@@ -4181,7 +4210,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $interface_label = $args;
             }
             // notify UI
-            ui_notify_async($redis, 'Audio output switched', "Current active output:\n".$interface_label, $jobID);
+            //ui_notify_async($redis, 'Audio output switched', "Current active output:\n".$interface_label, $jobID);
+            ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
             break;
         case 'refresh':
             wrk_audioOutput($redis, 'refresh');
@@ -4214,7 +4244,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if ($retval[0] === 'active') {
                     // do nothing
                 } else {
-                    ui_notify('MPD', 'restarting MPD, it takes a while');
+                    ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
                     // reload systemd daemon to activate any changed unit files
                     sysCmd('systemctl daemon-reload');
                     // start mpd
@@ -4273,7 +4303,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // if ($activePlayer === 'MPD') {
                 // $retval = sysCmd('systemctl is-active mpd');
                 // if ($redis->get('mpdconfchange')) {
-                    // ui_notify('MPD', 'restarting MPD, it takes a while');
+                    // ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
                     // // reload systemd daemon to activate any changed unit files
                     // sysCmd('systemctl daemon-reload');
                     // // restart mpd
@@ -4306,7 +4336,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // $activePlayer = $redis->get('activePlayer');
             // if ($activePlayer === 'MPD') {
                 // $retval = sysCmd('systemctl is-active mpd');
-                // ui_notify('MPD', 'restarting MPD, it takes a while');
+                // ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
                 // // reload systemd daemon to activate any changed unit files
                 // sysCmd('systemctl daemon-reload');
                 // // restart mpd
@@ -4599,7 +4629,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             runelog('restart spotifyd');
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start'));
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
             // no need to start this, spotifyconnect is disconnected //wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
         }
     }
@@ -4842,7 +4872,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // no special characters allowed in the mount name
                 $mp['error'] = '"'.$mp['name'].'" Invalid Mount Name - no special characters allowed';
                 if (!$quiet) {
-                    ui_notifyError($type.' mount', $mp['error']);
+                    ui_notifyError($redis, $type.' mount', $mp['error']);
                     sleep(3);
                 }
                 $redis->hMSet('mount_'.$id, $mp);
@@ -4857,7 +4887,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // spaces or special characters are not normally valid in an IP Address
                 $mp['error'] = 'Warning "'.$mp['address'].'" IP Address seems incorrect - contains space(s) and/or special character(s) - continuing';
                 if (!$quiet) {
-                    ui_notifyError($type.' mount', $mp['error']);
+                    ui_notifyError($redis, $type.' mount', $mp['error']);
                     sleep(3);
                 }
             }
@@ -4865,7 +4895,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // special characters are not normally valid as a remote directory name
                 $mp['error'] = 'Warning "'.$mp['remotedir'].'" Remote Directory seems incorrect - contains special character(s) - continuing';
                 if (!$quiet) {
-                    ui_notifyError($type.' mount', $mp['error']);
+                    ui_notifyError($redis, $type.' mount', $mp['error']);
                     sleep(3);
                 }
             }
@@ -4873,7 +4903,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // normally valid as a remote directory name should be specified
                 $mp['error'] = 'Warning "'.$mp['remotedir'].'" Remote Directory seems incorrect - empty - continuing';
                 if (!$quiet) {
-                    ui_notifyError($type.' mount', $mp['error']);
+                    ui_notifyError($redis, $type.' mount', $mp['error']);
                     sleep(3);
                 }
             }
@@ -4897,7 +4927,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                     $options2 = 'ro,nocto,noexec';
                 } else {
                     // mount options provided so use them
-                    if (!$quiet) ui_notify($type.' mount', 'Attempting to use saved/predefined mount options');
+                    if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting to use saved/predefined mount options');
                     $options2 = $mp['options'];
                 }
                 // janui nfs mount string modified, old invalid options removed, no longer use nfsvers='xx' - let it auto-negotiate
@@ -4919,7 +4949,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                     $options2 = 'cache=loose,noserverino,ro,sec=ntlmssp,noexec';
                 } else {
                     // mount options provided so use them
-                    if (!$quiet) ui_notify($type.' mount', 'Attempting to use saved/predefined mount options');
+                    if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting to use saved/predefined mount options');
                     $options2 = $mp['options'];
                     // clean up the mount options
                     // remove leading and trailing white-space and commas
@@ -4977,7 +5007,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                 // save the mount information
                 $redis->hMSet('mount_'.$id, $mp);
                 if (!$quiet) {
-                    ui_notify($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
+                    ui_notify($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
                     sleep(3);
                 }
                 return 1;
@@ -4993,7 +5023,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                     // save the mount information
                     $redis->hMSet('mount_'.$id, $mp);
                     if (!$quiet) {
-                        ui_notify($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
+                        ui_notify($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
                         sleep(3);
                     }
                     return 1;
@@ -5004,9 +5034,9 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
             unset($retval);
             if ($unresolved OR $noaddress OR $quick) {
                 if (!$quiet) {
-                    ui_notifyError($type.' mount', $mp['error']);
+                    ui_notifyError($redis, $type.' mount', $mp['error']);
                     sleep(3);
-                    ui_notifyError($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Failed');
+                    ui_notifyError($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Failed');
                     sleep(3);
                 }
                 if(!empty($mp['name'])) sysCmd("rmdir '/mnt/MPD/NAS/".$mp['name']."'");
@@ -5019,31 +5049,31 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                     //
                     switch ($i) {
                         case 1:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting automatic negotiation');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting automatic negotiation');
                             $options1 = 'cache=loose,noserverino,ro,noexec';
                             break;
                         case 2:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=3.1.1');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=3.1.1');
                             $options1 = 'cache=loose,noserverino,ro,vers=3.1.1,noexec';
                             break;
                         case 3:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=3.02');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=3.02');
                             $options1 = 'cache=loose,noserverino,ro,vers=3.02,noexec';
                             break;
                         case 4:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=3.0');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=3.0');
                             $options1 = 'cache=loose,noserverino,ro,vers=3.0,noexec';
                             break;
                         case 5:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=2.1');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=2.1');
                             $options1 = 'cache=loose,noserverino,ro,vers=2.1,noexec';
                             break;
                         case 6:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=2.0');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=2.0');
                             $options1 = 'cache=loose,noserverino,ro,vers=2.0,noexec';
                             break;
                         case 7:
-                            if (!$quiet) ui_notify($type.' mount', 'Attempting vers=1.0');
+                            if (!$quiet) ui_notify($redis, $type.' mount', 'Attempting vers=1.0');
                             $options1 = 'cache=loose,noserverino,ro,vers=1.0,noexec';
                             break;
                         default:
@@ -5106,7 +5136,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                             // save the mount information
                             $redis->hMSet('mount_'.$id, $mp);
                             if (!$quiet) {
-                                ui_notify($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
+                                ui_notify($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
                                 sleep(3);
                             }
                             return 1;
@@ -5122,7 +5152,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
                                 // save the mount information
                                 $redis->hMSet('mount_'.$id, $mp);
                                 if (!$quiet) {
-                                    ui_notify($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
+                                    ui_notify($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Mounted');
                                     sleep(3);
                                 }
                                 return 1;
@@ -5137,9 +5167,9 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
             // mount failed
             if(!empty($mp['name'])) sysCmd("rmdir '/mnt/MPD/NAS/".$mp['name']."'");
             if (!$quiet) {
-                ui_notifyError($type.' mount', $mp['error']);
+                ui_notifyError($redis, $type.' mount', $mp['error']);
                 sleep(3);
-                ui_notifyError($type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Failed');
+                ui_notifyError($redis, $type.' mount', '//'.$mp['address'].'/'.$mp['remotedir'].' Failed');
                 sleep(3);
             }
             return 0;
@@ -6055,10 +6085,38 @@ function ui_notify($title, $text, $type = null, $permanotice = null)
             $output = array('title' => $title, 'text' => $text);
         }
     }
-    ui_render('notify', json_encode($output));
+    $cnt = 3;
+    do {
+        // loop, sleeping for half a second until the UI is active
+        //  timeout/continue after 1,5 seconds ($cnt = 3 x 0,5)
+        usleep(500000);
+        // sleep(1);
+    } while ($redis->get('waitSyWrk') && --$cnt >= 0);
+    if ($redis->get('waitSyWrk')) {
+        // still no UI, queue the message and start a job to process it
+        $redis->lPush('w_message', base64_encode(json_encode($output)));
+        // using nodupliates ensures that only one job is queued to process the queued messages
+        wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
+    } else {
+        // UI is available, display any queued messages, the messages are then sent in fifo ourder
+        do {
+            $message = $redis->rPop('w_message');
+            // debug 
+            // echo "Message : $message\n";
+            runelog('Message : '.$message);
+            if (isset($message) && $message) {
+                ui_render('notify', base64_decode($message));
+                // sleep for 0,5 second between sending messages
+                usleep(500000);
+                // sleep(1);
+            }
+        } while (isset($message) && $message);
+        // display the current message
+        ui_render('notify', json_encode($output));
+    }
 }
 
-function ui_notifyError($title, $text, $type = null, $permanotice = null)
+function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '', 'icon' => 'fa fa-exclamation');
@@ -6069,7 +6127,35 @@ function ui_notifyError($title, $text, $type = null, $permanotice = null)
             $output = array('title' => $title, 'text' => $text, 'icon' => 'fa fa-exclamation');
         }
     }
-    ui_render('notify', json_encode($output));
+    $cnt = 3;
+    do {
+        // loop, sleeping for half a second until the UI is active
+        //  timeout/continue after 1,5 seconds ($cnt = 3 x 0,5)
+        usleep(500000);
+        // sleep(1);
+    } while ($redis->get('waitSyWrk') && --$cnt >= 0);
+    if ($redis->get('waitSyWrk')) {
+        // still no UI, queue the message and start a job to process it
+        $redis->lPush('w_message', base64_encode(json_encode($output)));
+        // using nodupliates ensures that only one job is queued to process the queued messages
+        wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
+    } else {
+        // UI is available, display any queued messages, the messages are then sent in fifo ourder
+        do {
+            $message = $redis->rPop('w_message');
+            // debug 
+            // echo "Message : $message\n";
+            runelog('Message : '.$message);
+            if (isset($message) && $message) {
+                ui_render('notify', base64_decode($message));
+                // sleep for 0,5 second between sending messages
+                usleep(500000);
+                // sleep(1);
+            }
+        } while (isset($message) && $message);
+        // display the current message
+        ui_render('notify', json_encode($output));
+    }
 }
 
 function ui_notify_async($redis, $title, $text, $type = null, $permanotice = null)
@@ -6427,13 +6513,13 @@ function ui_mpd_fix($redis, $status)
         $datafile = md5($musicDir.'/'.$status['file']);
         $fileName = $artDir.'/'.$datafile.'.mpd';
         // when $datafile is set we can determine a file name
-        // ui_notify('Test file name ', $fileName);
+        // ui_notify($redis, 'Test file name ', $fileName);
         $metadata = getMusicFileMatadata($redis, $fileName);
         if ($metadata) {
-            // ui_notify('Test metadata found ', $fileName);
+            // ui_notify($redis, 'Test metadata found ', $fileName);
             // avarage bit rate, always update it when a value is available, MPD returns the actual bit rate at that moment
             if (isset($metadata['avg_bit_rate']) && $metadata['avg_bit_rate']) {
-                // ui_notify('Test bitrate ', $metadata['avg_bit_rate']);
+                // ui_notify($redis, 'Test bitrate ', $metadata['avg_bit_rate']);
                 $status['bitrate'] = intval($metadata['avg_bit_rate']/1000);
             }
             // sample rate, fix it if missing
@@ -6450,7 +6536,7 @@ function ui_mpd_fix($redis, $status)
             }
             // album art, add it if available
             if (isset($metadata['albumarturl']) && $metadata['albumarturl']) {
-                // ui_notify('Test album url ', $metadata['albumarturl']);
+                // ui_notify($redis, 'Test album url ', $metadata['albumarturl']);
                 // available
                 $status['mainArtURL'] = $metadata['albumarturl'];
                 if ($redis->get('remoteSSbigart') === 'album') {
@@ -6710,7 +6796,7 @@ function autoset_timezone($redis) {
                     // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
                     // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
                     sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
-                    ui_notify('Timezone', 'Timezone automatically updated.<br>Current timezone: '.$timeZone);
+                    ui_notify($redis, 'Timezone', 'Timezone automatically updated.<br>Current timezone: '.$timeZone);
                     $sucess = true;
                 }
             }
@@ -6809,7 +6895,7 @@ function ui_mpd_response($mpd, $notify = null)
     // --- TODO: check this condition
     if (strpos($response, "OK") && isset($notify)) {
         runelog('send UI notify: ', $notify);
-        ui_notify($notify['title'].'', $notify['text']);
+        ui_notify($redis, $notify['title'].'', $notify['text']);
     }
     echo $response;
 }
@@ -11762,12 +11848,12 @@ function wrk_security($redis, $action, $args=null)
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
-                ui_notify('Security', 'Linux root password changed');
+                ui_notify($redis, 'Security', 'Linux root password changed');
             } else {
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
-                ui_notifyError('Security', 'Linux root password change failed, you will get a new reminder');
+                ui_notifyError($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
             }
             break;
         case 'linux_password_randomise':
@@ -11781,12 +11867,12 @@ function wrk_security($redis, $action, $args=null)
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
-                ui_notify('Security', 'Linux root password changed');
+                ui_notify($redis, 'Security', 'Linux root password changed');
             } else {
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
-                ui_notifyError('Security', 'Linux root password change failed, invalid format. You will get a new reminder');
+                ui_notifyError($redis, 'Security', 'Linux root password change failed, invalid format. You will get a new reminder');
             }
             break;
         case 'ap_password_save':
@@ -11799,12 +11885,12 @@ function wrk_security($redis, $action, $args=null)
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate');
-                ui_notify('Security', 'Access Point password changed, reboot to activate');
+                ui_notify($redis, 'Security', 'Access Point password changed, reboot to activate');
             } else {
                 // send notfy to UI
                 //ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder', $jobID);
                 // noid ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder');
-                ui_notifyError('Security', 'Access Point password change failed, invalid format. You will get a new reminder');
+                ui_notifyError($redis, 'Security', 'Access Point password change failed, invalid format. You will get a new reminder');
             }
             break;
     }

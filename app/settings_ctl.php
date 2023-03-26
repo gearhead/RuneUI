@@ -63,17 +63,8 @@ if (isset($_POST)) {
         // submit worker job
         if ($redis->get('i2smodule_select') !== $_POST['i2smodule_select']) {
             $redis->set('i2smodule_select', $_POST['i2smodule_select']);
-            $notification = new stdClass();
             list($i2smodule, $i2sselectedname) = explode('|', $_POST['i2smodule_select'], 2);
-            if ($i2smodule !== 'none') {
-                $notification->title = 'Loading I&#178;S kernel module';
-            } else {
-                $notification->title = 'Unloading I&#178;S kernel module';
-            }
-            $job = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'i2smodule', 'args' => $i2smodule));
-            $notification->text = 'Please wait';
-            wrk_notify($redis, 'startjob', $notification, $job);
-            $jobID[] = $job;
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'i2smodule', 'args' => $i2smodule));
         }
 
         // autoswitch optimized kernel profile for BerryNOS mini DAC
@@ -88,35 +79,21 @@ if (isset($_POST)) {
             if (!$redis->get('audio_on_off')) {
                 $redis->set('audio_on_off', 1);
                 // submit worker job
-                $notification = new stdClass();
-                $job = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'audio_on_off', 'args' => $_POST['audio_on_off']));
-                $notification->text = 'Please wait';
-                wrk_notify($redis, 'startjob', $notification, $job);
-                $jobID[] = $job;
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'audio_on_off', 'args' => $_POST['audio_on_off']));
             }
         } else {
             if ($redis->get('audio_on_off')) {
                 $redis->set('audio_on_off', 0);
                 // submit worker job
-                $notification = new stdClass();
-                $job = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'audio_on_off', 'args' => $_POST['audio_on_off']));
-                $notification->text = 'Please wait';
-                wrk_notify($redis, 'startjob', $notification, $job);
-                $jobID[] = $job;
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'audio_on_off', 'args' => $_POST['audio_on_off']));
             }
         }
-
     }
     // ----- KERNEL -----
     if (isset($_POST['kernel'])) {
         // submit worker job
         if ($redis->get('kernel') !== $_POST['kernel']) {
-            $job = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'kernelswitch', 'args' => $_POST['kernel']));
-            $notification = new stdClass();
-            $notification->title = 'Kernel switch';
-            $notification->text = 'Kernel switch started...';
-            wrk_notify($redis, 'startjob', $notification, $job);
-            $jobID[] = $job;
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'kernelswitch', 'args' => $_POST['kernel']));
         }
     }
     // ----- FEATURES -----
@@ -217,13 +194,17 @@ if (isset($_POST)) {
         }
         if ((isset($_POST['features']['samba']['enable'])) && ($_POST['features']['samba']['enable'])) {
             // create worker job (start samba)
-            if ((!isset($_POST['features']['samba']['readwrite'])) || (empty($_POST['features']['samba']['readwrite']))) $_POST['features']['samba']['readwrite'] = 0;
-            if (($_POST['features']['samba']['readwrite'] != $redis->hGet('samba', 'readwrite')) OR ($redis->hGet('samba', 'enable') != $_POST['features']['samba']['enable'])) {
+            if ((!isset($_POST['features']['samba']['readwrite'])) || (empty($_POST['features']['samba']['readwrite']))) $_POST['features']['samba']['readwrite'] = '0';
+            if (($_POST['features']['samba']['readwrite'] != $redis->hGet('samba', 'readwrite')) || ($redis->hGet('samba', 'enable') != $_POST['features']['samba']['enable'])) {
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaonoff', 'action' => $_POST['features']['samba']['enable'], 'args' => $_POST['features']['samba']['readwrite']));
             }
         } else {
             // create worker job (stop samba)
-            $redis->hGet('samba','enable') == 0 || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaonoff', 'action' => $_POST['features']['samba']['enable'], 'args' => $_POST['features']['samba']['readwrite']));
+            $_POST['features']['samba']['enable'] = '0';
+            $_POST['features']['samba']['readwrite'] = '0';
+            if (($_POST['features']['samba']['readwrite'] != $redis->hGet('samba', 'readwrite')) || ($redis->hGet('samba', 'enable') != $_POST['features']['samba']['enable'])) {
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambaonoff', 'action' => $_POST['features']['samba']['enable'], 'args' => $_POST['features']['samba']['readwrite']));
+            }
         }
         if ((isset($_POST['features']['spotify']['enable'])) && ($_POST['features']['spotify']['enable'])) {
             // create worker job (start Spotify)
