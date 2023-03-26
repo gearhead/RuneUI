@@ -647,47 +647,34 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'gitpull':
-                $redis->sAdd('w_lock', $jobID);
+                $redis->sRem('w_lock', $jobID);
+                ui_notify($redis, 'Git pull', ' Starting, please wait...' );
                 // Update RuneUI
                 runelog('Update RuneUI');
-                // preparation: set up git user-name and email (set to player ID)
-                sysCmd('cd /srv/http/ ; git config user.name "'.$redis->get('playerid').'"');
-                sysCmd('cd /srv/http/ ; git config user.email "'.$redis->get('playerid').'@runeaudio.com"');
-                sysCmd('cd /srv/http/ ; git config pull.rebase false');
-                // git stash x2, git add ., stash x2 then git pull
-                sysCmd('cd /srv/http/ ; git stash ; git stash ; git add . ; git stash ; git stash');
-                $retval = sysCmd('cd /srv/http/ ; git pull --no-edit');
-                //sysCmd("curl -s -X GET 'http://localhost/clear'");
-                // send notfy to UI
-                //ui_notify_async($redis, 'Git pull', $retval, $jobID);
-                // noid ui_notify_async($redis, 'Git pull', $retval);
-                ui_notify('Git pull', $retval);
-                sysCmd('cd /srv/http/ && git stash; git stash');
+                // run the git_pull script
+                $retval = sysCmd('/srv/http/command/git_pull.sh');
                 $gitupdated = 1;
                 foreach($retval as $line) {
                     if (strpos(' '.strtolower($line),'already up to date')) {
                         $gitupdated = 0;
+                        break;
                     }
                 }
                 if ($gitupdated) {
-                    //ui_notify_async($redis, 'Update RuneUI', 'Rebooting', $jobID);
-                    // noid ui_notify_async($redis, 'Update RuneUI', 'Rebooting');
-                    ui_notify('Update RuneUI', 'Rebooting');
-                    sysCmd('/srv/http/db/redis_datastore_setup check');
+                    ui_notify($redis, 'Git pull', $retval);
+                    ui_notify($redis, 'Update RuneUI', 'Updated, preparing reboot, please wait...');
                     wrk_sysAcl();
-                    $playernamemenu = $redis->get('playernamemenu');
-                    wrk_playernamemenu($playernamemenu);
+                    sysCmd('/srv/http/db/redis_datastore_setup check');
+                    wrk_playernamemenu($redis->get('playernamemenu'));
                     $redis->set('dev', 0);
                     sysCmd('systemctl daemon-reload');
-                    sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
+                    // sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
+                    ui_notify($redis, 'Update RuneUI', 'Rebooting');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
-                    //ui_notify_async($redis, 'Update RuneUI', 'Wait for the screen to refresh...', $jobID);
-                    // noid ui_notify_async($redis, 'Update RuneUI', 'Wait for the screen to refresh...');
-                    ui_notify('Update RuneUI', 'Wait for the screen to refresh...');
+                    ui_notify($redis, 'Update RuneUI', 'No changes, already up to date');
                 }
-                unset($retval, $gitupdated, $playernamemenu);
-                $redis->sRem('w_lock', $jobID);
+                unset($retval, $gitupdated);
                 break;
             case 'hostname':
                 $redis->sAdd('w_lock', $jobID);
