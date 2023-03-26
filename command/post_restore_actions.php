@@ -46,6 +46,8 @@ require_once('/srv/http/app/libs/openredis.php');
 // define APP global
 define('APP', '/srv/http/app/');
 
+// set the variables which are machine dependant, the backup could have been made on a different model
+wrk_setHwPlatform($redis, true);
 // run routines which set up /boot/config.txt, the local browser setup, other files are fixed on startup
 wrk_audio_on_off($redis, $redis->get('audio_on_off'));
 wrk_i2smodule($redis, $redis->get('i2smodule'));
@@ -61,12 +63,15 @@ wrk_changeHostname($redis, $redis->get('hostname'));
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
+// set up Bluetooth
 if ($redis->get('bluetooth_on')) {
     wrk_btcfg($redis, 'enable');
 } else {
     wrk_btcfg($redis, 'disable');
 }
-wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
+wrk_btcfg($redis, 'quality_options');
+wrk_btcfg($redis, 'config', $redis->hgetall('bluetooth'));
+// set up Wi-Fi
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');
 } else {

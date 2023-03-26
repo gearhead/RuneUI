@@ -49,7 +49,7 @@ rm -f /home/config.txt.diff
 hostnm=$( redis-cli get hostname )
 hostnm=${hostnm,,}
 ohostnm=$( hostnamectl hostname )
-if [ "$hostnm" != "$ohostnm" ]; then
+if [ "$hostnm" != "$ohostnm" ] ; then
     /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'simplemessage'
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
@@ -69,8 +69,7 @@ redis-cli hset airplay enable '0'
 redis-cli hset dlna enable '0'
 set +e
 count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
-if [ $count -gt 2 ]
-then
+if [ $count -gt 2 ] ; then
     redis-cli set playernamemenu '1'
 else
     redis-cli set playernamemenu '0'
