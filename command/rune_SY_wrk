@@ -261,13 +261,8 @@ if ($playerid_db === '') {
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/create_work_dirs.sh');
     //
-    // check HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
-    $retval = sysCmd('hostname');
-    $hn = trim($retval[0]);
-    if (strtolower($hn) != strtolower(trim($redis->get('hostname')))) {
-        wrk_changeHostname($redis, $redis->get('hostname'));
-    }
-    unset($retval);
+    // check ans set HOSTNAME
+    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/sethost_async.php');
     //
     // store the memory and number of cores
     $redis->set('cores', preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]));
@@ -279,39 +274,32 @@ if ($playerid_db === '') {
     // activate rune udev rules
     add_udev_rules('/srv/http/app/config/defaults/etc/udev/rules.d/99-runeaudio.rules');
     //
-    // read activePlayer state
-    $activePlayer = $redis->get('activePlayer');
-    if ($activePlayer === 'MPD') {
-        // stop spotify, if started
-        sysCmd('pgrep -x spopd && systemctl stop spopd');
-        // Refresh the MPD config file and start/restart MPD if required
-        wrk_mpdconf($redis, 'refresh');
-        // ashuffle gets started automatically
-    } else if ($activePlayer === 'Spotify') {
-        // stop MPD
-        wrk_mpdconf($redis,'stop');
-        // start spotify, if not started
-        sysCmd('pgrep -x spopd || systemctl start spopd');
-    } else {
-        // stop spotify, if started
-        sysCmd('pgrep -x spopd && systemctl stop spopd');
-        // reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
-        $redis->set('activePlayer', 'MPD');
-        // Refresh the MPD config file and start/restart MPD if required
-        wrk_mpdconf($redis,'refresh');
-        // ashuffle gets started automatically
-    }
+    // check and set the active player
+    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/setplayer_async.php');
     //
     // initialize OrionProfile
-    runelog('env: SET KERNEL PROFILE',$redis->get('orionprofile'));
+    $orionprofile = $redis->get('orionprofile');
     $hwplatformid = $redis->get('hwplatformid');
-    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/orion_optimize.sh "'.$redis->get('orionprofile').'" "'.$hwplatformid.'"');
+    runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
+    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
     // reset usb storage (also starts samba)
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/usbmount');
     // set the mpd volume - important on the first boot, subsequently less so as MPD remembers the last volume level
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/set_mpd_volume.php');
     // check that MPD only has one output enabled and if not correct it
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
+    // start spotifyd (Spotify Connect)
+    if ($redis->hGet('spotifyconnect', 'enable')) {
+        runelog('service: SPOTIFYD start','');
+        // start spotifyd if it is not already started
+        sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/wrk_spotifyd_async.php');
+    }
+    // start shairport-sync (Airplay)
+    if ($redis->hGet('airplay', 'enable')) {
+        runelog('service: SHAIRPORT-SYNC start','');
+        // start shairport-sync if it is not already started
+        sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/wrk_shairport_async.php');
+    }
     // check the availability of internet and services
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/internet_available_async.sh');
     // refresh nics, this will start the AP if required
@@ -334,22 +322,6 @@ if ($playerid_db === '') {
                 break;
         }
         if ($loadi2s === true) wrk_i2smodule($redis, $redis->get('i2smodule'));
-    }
-    //
-    // start shairport-sync (Airplay)
-    if ($redis->hGet('airplay', 'enable')) {
-        // start shairport-sync if it is not already started
-        runelog('service: SHAIRPORT-SYNC start','');
-        sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
-    }
-    //
-    // start spotifyd (Spotify Connect)
-    if ($redis->hGet('spotifyconnect', 'enable')) {
-        runelog('service: SPOTIFYD start','');
-        // start spotifyd if it is not already started
-        sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
-        $redis->hSet('spotifyconnect', 'last_track_id', '');
-        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
     }
     //
     // start udevil
@@ -387,13 +359,13 @@ if ($playerid_db === '') {
         $redis->set('act_player_info', json_encode(array()));
     }
     // start rune_PL_wrk
-    sysCmd('pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk');
+    sysCmdAsync($redis, 'pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk', 0);
     //
-    // start the local browser
+    // start the local browser when required
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, '/usr/bin/xinit');
     if (($redis->hGet('local_browser', 'enable')) && (file_exists('/usr/bin/xinit'))) {
-        sysCmdAsync($redis, 'systemctl start local-browser; /srv/http/command/ui_update_async 5000000');
+        sysCmdAsync($redis, 'systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
     } else {
         sysCmdAsync($redis, 'systemctl stop local-browser');
         $redis->hSet('local_browser', 'enable', 0);
@@ -401,7 +373,7 @@ if ($playerid_db === '') {
     sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
         // display the first boot message
-        sysCmd("ply-image '/usr/share/bootsplash/runeaudio_first_time.png'");
+        sysCmdAsync($redis, "ply-image '/usr/share/bootsplash/runeaudio_first_time.png'", 0);
         $redis->set('first_time_boot', 0);
     }
     //
