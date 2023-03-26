@@ -115,9 +115,21 @@ umount /home/cache
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
 sync
-# blank the local browser screen
-export DISPLAY=:0
-xset dpms force off
-# echo a message to clear any error status which could have been generated
+if [ "$shutdownmode" == "poweroff" ] ; then
+    # blank the local browser screen
+    export DISPLAY=:0
+    xset dpms force off
+fi
+date
 echo "rune_shutdown finished"
 } > /var/log/runeaudio/rune_shutdown.log 2>&1
+# debug
+#} > /home/rune_shutdown.log 2>&1
+# this routine is also designed to run automatically on reboot or shutdown commands
+#   unfortunately there appears to be no way to delay the other shut-down actions which run concurrently
+#   the result is unreliable shutdown, decided not to implement this, maybe later...
+#   if you want to try it enable rune_shutdown (systemctl enable rune_shutdown)
+#   the two lines below do nothing when the systemd unit rune_shutdown is disabled but are required when the unit is enabled
+pgrep rune_shutdown && systemctl stop rune_shutdown &
+pgrep rune_shutdown && systemctl stop rune_shutdown
+exit 0
