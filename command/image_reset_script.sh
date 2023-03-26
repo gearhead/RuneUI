@@ -80,11 +80,11 @@ done
 rm -rf /var/lib/bluetooth/*
 #
 # set up services and stop them
-# systemctl stops after an erroneous entry, use arrays to run through all entries individually
+# systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
 declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbindd winbind udevil upmpdcli hostapd shairport-sync\
     local-browser rune_SSM_wrk rune_PL_wrk cmd_async_queue dhcpcd php-fpm ntpd bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor\
     bluealsa bluetooth-agent bluetoothctl_scan bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff\
-    plymouth-lite-start bootsplash systemd-resolved systemd-homed local-browser-w rune_shutdown llmnrd upower systemd-networkd)
+    plymouth-lite-start bootsplash systemd-resolved systemd-homed local-browser-w llmnrd upower systemd-networkd rune_shutdown)
 declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd)
 declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk\
     cmd_async_queue upmpdcli chronyd systemd-timesyncd systemd-resolved systemd-homed cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay\
@@ -103,6 +103,7 @@ alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cu
 for i in $alreadymasked ; do
    systemctl unmask "$i"
 done
+#
 # disable specified services
 for i in "${disable_arr[@]}" ; do
    systemctl disable "$i"
@@ -112,10 +113,12 @@ done
 for i in "${enable_arr[@]}" ; do
    systemctl enable "$i"
 done
+#
 # mask specified services
 for i in "${mask_arr[@]}" ; do
    systemctl mask "$i"
 done
+#
 # unmask specified services
 for i in "${unmask_arr[@]}" ; do
    systemctl unmask "$i"
@@ -131,6 +134,7 @@ fi
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
+#
 # stop twice, rune_SY_wrk will try to restart some services (e.g. ashuffle)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"

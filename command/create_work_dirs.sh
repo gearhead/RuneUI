@@ -27,7 +27,7 @@
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 #  file: command/create_work_dirs.sh
-#  version: 1.3
+#  version: 0.6
 #  coder: janui
 #  date: December 2020
 #

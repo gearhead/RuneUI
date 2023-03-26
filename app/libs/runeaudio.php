@@ -2205,7 +2205,7 @@ function wrk_control($redis, $action, $data)
             break;
     }
     // debug
-    runelog('[wrk] wrk_control($redis,'.$action.',$data) jobID='.$jobID, $data, 'wrk_control');
+    runelog('[wrk] wrk_control($redis,'.$action.',$data) jobID='.$jobID, json_encode($data), 'wrk_control');
     return $jobID;
 }
 
@@ -5303,8 +5303,22 @@ function wrk_sourcecfg($redis, $action, $args=null)
     return $return;
 }
 
-function wrk_getHwPlatform($redis)
+function wrk_getHwPlatform($redis, $reset=false)
 {
+    if ($reset) {
+        // remove the redis variables set in this routine
+        //
+        $redis->del('soxrmpdonoff');
+        $redis->del('bluetooth_on');
+        $redis->del('wifi_on');
+        $redis->hDel('airplay', 'soxronoff');
+        $redis->hDel('airplay', 'metadataonoff');
+        $redis->hDel('airplay', 'artworkonoff');
+        $redis->hDel('airplay', 'enable');
+        $redis->hDel('airplay', 'metadata_enabled');
+        $redis->hDel('spotifyconnect', 'metadata_enabled');
+        $redis->hDel('AccessPoint', 'enable');
+    }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
     foreach($fileData as $line) {
@@ -5524,9 +5538,9 @@ function wrk_getHwPlatform($redis)
     return $arch;
 }
 
-function wrk_setHwPlatform($redis)
+function wrk_setHwPlatform($redis, $reset=false)
 {
-    $arch = wrk_getHwPlatform($redis);
+    $arch = wrk_getHwPlatform($redis, $reset);
     runelog('arch= ', $arch);
     $playerid = wrk_playerID($arch);
     $redis->set('playerid', $playerid);
@@ -6074,7 +6088,7 @@ function deleteRadio($redis, $mpd, $data)
     return $return;
 }
 
-function ui_notify($title, $text, $type = null, $permanotice = null)
+function ui_notify($redis, $title, $text, $type = null, $permanotice = null)
 {
     if (is_object($permanotice)) {
         $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
@@ -8394,6 +8408,15 @@ function wrk_check_MPD_outputs($redis)
                 $redis->set('ao_default', '');
             }
         }
+    }
+    $ao = $redis->get('ao');
+    $spotifyconnectAo = $redis->hGet('spotifyconnect', 'ao');
+    $airplayAo = $redis->hGet('airplay', 'ao');
+    if ($ao && ($ao != $spotifyconnectAo)) {
+        wrk_spotifyd($redis, $ao);
+    }
+    if ($ao && ($ao != $airplayAo)) {
+        wrk_shairport($redis, $ao);
     }
 }
 
