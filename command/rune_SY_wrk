@@ -1219,9 +1219,11 @@ while (true) {
                 //ui_notify_async($redis, 'Shutdown', 'system shutdown in progress...', $jobID);
                 // noid ui_notify_async($redis, 'Shutdown', 'system shutdown in progress...');
                 ui_notify('Shutdown', 'system shutdown in progress...');
-                sysCmd('/srv/http/command/rune_shutdown poweroff');
-                sysCmd('redis-cli shutdown save; shutdown now --poweroff --no-wall');
                 $redis->sRem('w_lock', $jobID);
+                // $redis->set('shutdownmode', 'poweroff');
+                // sysCmd('/srv/http/command/rune_shutdown poweroff');
+                // sysCmd('redis-cli shutdown save ; shutdown now --poweroff --no-wall');
+                sysCmd('/srv/http/command/rune_shutdown "poweroff" ; shutdown now --poweroff --no-wall');
                 break;
             case 'reboot':
                 $redis->sAdd('w_lock', $jobID);
@@ -1232,9 +1234,11 @@ while (true) {
                 //ui_notify_async($redis, 'Reboot', 'system reboot in progress...', $jobID);
                 // noid ui_notify_async($redis, 'Reboot', 'system reboot in progress...');
                 ui_notify('Reboot', 'system reboot in progress...');
-                sysCmd('/srv/http/command/rune_shutdown reboot');
-                sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
                 $redis->sRem('w_lock', $jobID);
+                // $redis->set('shutdownmode', 'reboot');
+                // sysCmd('/srv/http/command/rune_shutdown reboot');
+                // sysCmd('redis-cli shutdown save ; shutdown now --reboot --no-wall');
+                sysCmd('/srv/http/command/rune_shutdown "reboot" ; shutdown now --reboot --no-wall');
                 break;
             case 'display_off':
                 $redis->sAdd('w_lock', $jobID);
