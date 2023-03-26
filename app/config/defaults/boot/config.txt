@@ -223,6 +223,14 @@ display_auto_detect=1
 #       no display
 #config_hdmi_boost=4
 #
+##  Infrared remote control ##
+#   Use GPIO pin as rc-core style infrared receiver input. The rc-core-
+#   based gpio_ir_recv driver maps received keys directly to a
+#   /dev/input/event* device, all decoding is done by the kernel - LIRC is
+#   not required! The key mapping and other decoding parameters can be
+#   configured by "ir-keytable" tool, see: /boot/overlays/README
+#dtoverlay=gpio-ir,<param>=<val>
+#
 ##  Some overclocking settings ##
 #   The values below are valid for the B+ model
 #   Overclocking is not required for the Pi 2B, 3B, 3B+, 4B and Zero 2W models
