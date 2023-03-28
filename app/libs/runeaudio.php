@@ -4210,7 +4210,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $interface_label = $args;
             }
             // notify UI
-            //ui_notify_async($redis, 'Audio output switched', "Current active output:\n".$interface_label, $jobID);
             ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
             break;
         case 'refresh':
@@ -6172,86 +6171,86 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
     }
 }
 
-function ui_notify_async($redis, $title, $text, $type = null, $permanotice = null)
-{
-    if (is_object($permanotice)) {
-        $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
-    } else {
-        if ($permanotice === 1) {
-            $output = array('title' => $title, 'text' => $text, 'permanotice' => '');
-        } else {
-            $output = array('title' => $title, 'text' => $text);
-        }
-    }
-    $output = json_encode($output);
-    runelog('notify (async) JSON string: ', $output);
-    if (!strpos(' '.$output,"'")) {
-        sysCmdAsync($redis, '/srv/http/command/ui_notify.php \''.$output.'\'');
-    } else {
-        sysCmdAsync($redis, '/srv/http/command/ui_notify.php "'.$output.'"');
-    }
-}
+// function ui_notify_async($redis, $title, $text, $type = null, $permanotice = null)
+// {
+    // if (is_object($permanotice)) {
+        // $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
+    // } else {
+        // if ($permanotice === 1) {
+            // $output = array('title' => $title, 'text' => $text, 'permanotice' => '');
+        // } else {
+            // $output = array('title' => $title, 'text' => $text);
+        // }
+    // }
+    // $output = json_encode($output);
+    // runelog('notify (async) JSON string: ', $output);
+    // if (!strpos(' '.$output,"'")) {
+        // sysCmdAsync($redis, '/srv/http/command/ui_notify.php \''.$output.'\'');
+    // } else {
+        // sysCmdAsync($redis, '/srv/http/command/ui_notify.php "'.$output.'"');
+    // }
+// }
 
-function wrk_notify($redis, $action, $notification, $jobID = null)
-{
-    switch ($action) {
-        case 'raw':
-            // debug
-            runelog('wrk_notify (raw)', $notification);
-            break;
-        case 'startjob':
-            if (!empty($notification)) {
-                if (is_object($notification)) {
-                    $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'icon' => 'fa fa-cog fa-spin', 'permanotice' => $jobID));
-                    // debug
-                    runelog('wrk_notify (startjob) jobID='.$jobID, $notification);
-                }
-                if (wrk_notify_check($notification)) {
-                    if (empty($redis->hGet('notifications', $jobID)) && empty($redis->hGet('notifications', 'permanotice_'.$jobID))) {
-                        $redis->hSet('notifications', $jobID, $notification);
-                    }
-                }
-            }
-            break;
-        case 'endjob':
-            $notification = $redis->hGet('notifications', $jobID);
-            if (!empty($notification)) {
-                $notification = json_decode($notification);
-                $notification = json_encode(array('title' => $notification->title, 'text' => '', 'permanotice' => $jobID, 'permaremove' => $jobID));
-                // debug
-                runelog('wrk_notify (endjob) jobID='.$jobID, $notification);
-                $redis->hDel('notifications', $jobID);
-            }
-            break;
-        case 'kernelswitch':
-            // debug
-            runelog('wrk_notify (kernelswitch) jobID='.$jobID, $notification);
-            if (!empty($notification)) {
-                $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'custom' => 'kernelswitch'));
-                if (wrk_notify_check($notification)) {
+// function wrk_notify($redis, $action, $notification, $jobID = null)
+// {
+    // switch ($action) {
+        // case 'raw':
+            // // debug
+            // runelog('wrk_notify (raw)', $notification);
+            // break;
+        // case 'startjob':
+            // if (!empty($notification)) {
+                // if (is_object($notification)) {
+                    // $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'icon' => 'fa fa-cog fa-spin', 'permanotice' => $jobID));
+                    // // debug
+                    // runelog('wrk_notify (startjob) jobID='.$jobID, $notification);
+                // }
+                // if (wrk_notify_check($notification)) {
                     // if (empty($redis->hGet('notifications', $jobID)) && empty($redis->hGet('notifications', 'permanotice_'.$jobID))) {
-                        $redis->hSet('notifications', 'permanotice_kernelswitch', $notification);
+                        // $redis->hSet('notifications', $jobID, $notification);
                     // }
-                }
-            }
-            break;
-    }
-    if (wrk_notify_check($notification)) ui_render('notify', $notification);
-}
+                // }
+            // }
+            // break;
+        // case 'endjob':
+            // $notification = $redis->hGet('notifications', $jobID);
+            // if (!empty($notification)) {
+                // $notification = json_decode($notification);
+                // $notification = json_encode(array('title' => $notification->title, 'text' => '', 'permanotice' => $jobID, 'permaremove' => $jobID));
+                // // debug
+                // runelog('wrk_notify (endjob) jobID='.$jobID, $notification);
+                // $redis->hDel('notifications', $jobID);
+            // }
+            // break;
+        // case 'kernelswitch':
+            // // debug
+            // runelog('wrk_notify (kernelswitch) jobID='.$jobID, $notification);
+            // if (!empty($notification)) {
+                // $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'custom' => 'kernelswitch'));
+                // if (wrk_notify_check($notification)) {
+                    // // if (empty($redis->hGet('notifications', $jobID)) && empty($redis->hGet('notifications', 'permanotice_'.$jobID))) {
+                        // $redis->hSet('notifications', 'permanotice_kernelswitch', $notification);
+                    // // }
+                // }
+            // }
+            // break;
+    // }
+    // if (wrk_notify_check($notification)) ui_render('notify', $notification);
+// }
 
-function wrk_notify_check($notification)
-{
-    if (json_decode($notification) !== null) {
-        $notification = json_decode($notification);
-        if (isset($notification->title) && isset($notification->text)) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
+// function wrk_notify_check($notification)
+// {
+    // if (json_decode($notification) !== null) {
+        // $notification = json_decode($notification);
+        // if (isset($notification->title) && isset($notification->text)) {
+            // return true;
+        // } else {
+            // return false;
+        // }
+    // } else {
+        // return false;
+    // }
+// }
 
 class ui_renderQueue
 {
@@ -6902,17 +6901,17 @@ function ui_update($redis, $sock=null, $clientUUID=null)
     }
 }
 
-function ui_mpd_response($mpd, $notify = null)
-{
-    runelog('ui_mpd_response invoked');
-    $response = json_encode(readMpdResponse($mpd));
-    // --- TODO: check this condition
-    if (strpos($response, "OK") && isset($notify)) {
-        runelog('send UI notify: ', $notify);
-        ui_notify($redis, $notify['title'].'', $notify['text']);
-    }
-    echo $response;
-}
+// function ui_mpd_response($mpd, $notify = null)
+// {
+    // runelog('ui_mpd_response invoked');
+    // $response = json_encode(readMpdResponse($mpd));
+    // // --- TODO: check this condition
+    // if (strpos($response, "OK") && isset($notify)) {
+        // runelog('send UI notify: ', $notify);
+        // ui_notify($redis, $notify['title'].'', $notify['text']);
+    // }
+    // echo $response;
+// }
 
 function curlPost($url, $data, $proxy = null)
 {
@@ -11869,13 +11868,9 @@ function wrk_security($redis, $action, $args=null)
                 // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 4
                 sysCmd('echo -e "'.$args.'\n'.$args.'" | passwd root');
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
                 ui_notify($redis, 'Security', 'Linux root password changed');
             } else {
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
                 ui_notifyError($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
             }
             break;
@@ -11888,13 +11883,9 @@ function wrk_security($redis, $action, $args=null)
                 // the password has never been changed, it has no whitepace in it and it has a length equal to or greater than 8 and less than or equal to 255
                 sysCmd('echo -e "'.$args.'\n'.$args.'" | passwd root');
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Linux root password changed', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Linux root password changed');
                 ui_notify($redis, 'Security', 'Linux root password changed');
             } else {
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Linux root password change failed, you will get a new reminder');
                 ui_notifyError($redis, 'Security', 'Linux root password change failed, invalid format. You will get a new reminder');
             }
             break;
@@ -11906,13 +11897,9 @@ function wrk_security($redis, $action, $args=null)
                 //  and it is different to the existing password
                 $redis->hSet('AccessPoint', 'passphrase', $args);
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Access Point password changed, reboot to activate');
                 ui_notify($redis, 'Security', 'Access Point password changed, reboot to activate');
             } else {
                 // send notfy to UI
-                //ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder', $jobID);
-                // noid ui_notify_async($redis, 'Security', 'Access Point password change failed, you will get a new reminder');
                 ui_notifyError($redis, 'Security', 'Access Point password change failed, invalid format. You will get a new reminder');
             }
             break;

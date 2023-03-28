@@ -720,6 +720,7 @@ while (true) {
                 unset($action);
                 break;
             case 'kernelswitch':
+                $redis->sRem('w_lock', $jobID);
                 runelog('env: SWITCH KERNEL', $job->args);
                 if (wrk_kernelswitch($redis, $job->args)) {
                     if ($job->args === 'linux-rune-rpi_3.12.13-rt21_wosa') {
@@ -727,11 +728,11 @@ while (true) {
                         $redis->set('i2smodule', 'none');
                         $redis->set('orionprofile', 'OrionV2');
                     }
-                    ui_notify($redis, 'Linux Kernel switch', 'Completed, reboot required');
+                    ui_notify($redis, 'Linux Kernel switch', 'Completed, rebooting now...');
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     ui_notify($redis, 'Linux Kernel switch', 'Failed');
                 }
-                $redis->sRem('w_lock', $jobID);
                 break;
             case 'lastfm':
                 if ($job->action === 'start') {
@@ -1291,12 +1292,12 @@ while (true) {
                 break;
             case 'artworkSC':
                 $redis->hSet('spotifyconnect', 'metadata_enabled', $job->action);
-                wrk_spotifyd($redis);
                 $redis->sRem('w_lock', $jobID);
+                wrk_spotifyd($redis);
                 break;
             case 'sourcecfg':
-                if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
                 $redis->sRem('w_lock', $jobID);
+                if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
                 break;
             case 'switchplayer':
                 $redis->sRem('w_lock', $jobID);
@@ -1365,19 +1366,19 @@ while (true) {
                 sysCmd('systemctl reload-or-restart '.$job->args);
                 $redis->sRem('w_lock', $jobID);
                 break;
-            case 'ui_notify':
-                $redis->sRem('w_lock', $jobID);
-                // TODO: rework needed (fix bug in /srv/http/index.php)
-                if (!isset($job->delay_us)) {
-                    $job->delay_us = 1000000;
-                }
-                runelog('delay_us '.$job->delay_us);
-                usleep($job->delay_us);
-                // send notify to RuneUI
-                foreach ($job->args as $raw_notification) {
-                    wrk_notify($redis, 'raw', $raw_notification);
-                }
-                break;
+            // case 'ui_notify':
+                // $redis->sRem('w_lock', $jobID);
+                // // TODO: rework needed (fix bug in /srv/http/index.php)
+                // if (!isset($job->delay_us)) {
+                    // $job->delay_us = 1000000;
+                // }
+                // runelog('delay_us '.$job->delay_us);
+                // usleep($job->delay_us);
+                // // send notify to RuneUI
+                // foreach ($job->args as $raw_notification) {
+                     //wrk_notify($redis, 'raw', $raw_notification);
+                // }
+                // break;
             case 'underclocking':
                 if ($job->action === 1) {
                     $redis->set('underclocking', 1);
@@ -1452,7 +1453,7 @@ while (true) {
         $redis->hDel('w_queue', $jobID);
         $redis->sRem('w_lock', $jobID);
         // emit endjob notification
-        wrk_notify($redis, 'endjob', '', $jobID);
+        //wrk_notify($redis, 'endjob', '', $jobID);
         runelog('(loop) delete job_queue', $jobID);
     } while ($jobID != ""); // end while loop
     //

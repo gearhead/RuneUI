@@ -86,7 +86,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -97,7 +98,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $pos = $status['playlistlength'];
                     addToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -105,7 +107,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
                     if (addNextToQueue($redis, $mpd, $_POST['path'])) {
-                        ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
+                        ui_notify($redis, 'Inserted next in queue', $_POST['path']);
+                        //ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
                     } else {
                         ui_notifyError($redis, 'Failed to insert next in queue', $_POST['path']);
                     }
@@ -119,7 +122,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -128,7 +132,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                     // Get the last track and try to use LastFM to populate a similar playlist
                     list($artist, $title) = explode(' - ', sysCmd('/bin/mpc playlist | tail -1')[0], 2);
                     $proxy = $redis->hGetall('proxy');
@@ -149,7 +154,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     addToQueue($mpd, $_POST['path']);
                     sendMpdCommand($mpd, 'play');
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', 'As listed by last.fm');
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                     // Get the current track and try to use LastFM to populate a similar playlist
                     $curTrack = getTrackInfo($mpd, $status['song']);
                     if (isset($curTrack[0]['Title'])) {
@@ -174,7 +180,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     sendMpdCommand($mpd, "update \"".html_entity_decode($_POST['path'])."\"");
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'MPD update DB path:', 'text' => $_POST['path']));
+                    ui_notify($redis, 'MPD update DB path', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'MPD update DB path:', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -183,7 +190,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     sendMpdCommand($mpd, "rescan \"".html_entity_decode($_POST['path'])."\"");
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'MPD rescan DB path:', 'text' => $_POST['path']));
+                    ui_notify($redis, 'MPD update DB path', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'MPD rescan DB path:', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -198,6 +206,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if (isset($_POST['path'])) {
                 if (saveBookmark($redis, $_POST['path'])) {
                     ui_notify($redis, 'Bookmark saved', $_POST['path'].' added to bookmarks');
+                    // ui_notify($redis, 'Bookmark saved', $_POST['path'].' added to bookmarks');
                     ui_libraryHome($redis);
                 } else {
                     ui_notifyError($redis, 'Error saving bookmark', 'please try again later');
@@ -375,7 +384,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addAlbumToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -386,7 +396,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $pos = $status['playlistlength'] ;
                     addAlbumToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
                 unset($status, $pos);
             }
@@ -396,7 +407,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addAlbumToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -405,7 +417,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addArtistToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -416,7 +429,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $pos = $status['playlistlength'] ;
                     addArtistToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
                 unset($status, $pos);
             }
@@ -426,7 +440,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addArtistToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -435,7 +450,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addGenreToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -446,7 +462,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $pos = $status['playlistlength'] ;
                     addGenreToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
                 unset($status, $pos);
             }
@@ -456,7 +473,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addGenreToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -465,7 +483,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addComposerToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
@@ -476,7 +495,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $pos = $status['playlistlength'] ;
                     addComposerToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
                 }
                 unset($status, $pos);
             }
@@ -486,7 +506,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($_POST['path'])) {
                     addComposerToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
-                    ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
                 }
             }
             break;
