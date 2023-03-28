@@ -553,7 +553,7 @@
                             <input id="scrobbling-lastfm" name="features[lastfm][enable]" type="checkbox" value="1"<?php if((isset($this->lastfm['enable'])) && ($this->lastfm['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Send to Last.fm informations about the music you are listening to (requires a Last.fm account)</span>
+                        <span class="help-block">Send to Last.fm information about the music you are listening to (requires a Last.fm account)</span>
                     </div>
                 </div>
                 <div class="<?php if((!isset($this->lastfm['enable'])) || (!$this->lastfm['enable'])): ?>hide<?php endif ?>" id="lastfmAuth">
