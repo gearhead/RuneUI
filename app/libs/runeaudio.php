@@ -2741,6 +2741,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $profilearray = array();
             $counter = -1;
             $directory = '/boot/wifi';
+            $fileFound = false;
             $fileNames = array_diff(scandir($directory), array('..', '.', 'readme', 'examples'));
             if (count($fileNames) == 0) {
                 // no files found, exit the switch case
@@ -2754,6 +2755,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     sysCmd('rmdir --ignore-fail-on-non-empty \''.$directory.DIRECTORY_SEPARATOR.$fileName.'\'');
                     continue;
                 }
+                $fileFound = true;
                 // load the file data into an array, ignoring empty lines and removing any <cr> or <lf>
                 // $filerecords = file($directory.DIRECTORY_SEPARATOR.$fileName, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                 $filerecords = file($directory.DIRECTORY_SEPARATOR.$fileName);
@@ -2844,6 +2846,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('mkdir -p /boot/wifi/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            if ($fileFound) {
+                // set access point to default values
+                wrk_apconfig($redis, 'reset');
+            }
             // restart connman to pick up the new config files
             sysCmd('systemctl restart connman');
             // run refresh_nics to finish off

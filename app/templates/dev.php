@@ -674,11 +674,27 @@
                         2. Remove the Micro-SD card and plug it into your PC<br>
                         3. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
                         4. Open the Micro-SD card in your file manager (Mac Finder or Windows File Explorer), on a Mac its the first disk partition which you need<br>
-                        5. Open the folder called 'wifi'. There is a file in the folder called readme, this contains the instructions which you need.<br>
+                        5. Open the folder called 'wifi'. There is a file in the folder called readme, this contains the instructions which you need<br>
                         6. There is also a sub-folder called 'examples', this contains example Wi-Fi configuration files<br>
                         7. Create one or more files in the 'wifi' directory containing the configuration details. The file can have any name except 'readme'<br>
                         8. Restart RuneAudio with the modified Micro-SD card and RuneAudio will initialise the Wi-Fi configuration as specified in the file(s)<br>
                         9. The file(s) created in the 'wifi' directory will automatically be deleted</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Resetting Access Point configuration</label>
+                    <div class="col-sm-10">
+                        <span class="help-block">If you use RuneAudio in a Wi-Fi-only configuration and you have lost all connectivity, you can recover by using
+                        the Access Point. Normally you should disable the Access Point and/or change its password, so you may need to reset it to its default
+                        configuration, these are the steps<br>
+                        1. Shut down RuneAudio<br>
+                        2. Remove the Micro-SD card and plug it into your PC<br>
+                        3. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
+                        4. Open the Micro-SD card in your file manager (Mac Finder or Windows File Explorer), on a Mac its the first disk partition which you need<br>
+                        5. Open the folder called 'wifi'. There is a file in the folder called readme, this contains the instructions which you need<br>
+                        6. Create one empty file in the 'wifi' directory. The file can have any name except 'readme'<br>
+                        7. Restart RuneAudio with the modified Micro-SD card and RuneAudio will initialise the Access Point configuration to default values<br>
+                        8. The file created in the 'wifi' directory will automatically be deleted</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -694,7 +710,7 @@
                         &nbsp;&nbsp;b. On you PC connect to a network drive with the specification '\\RuneAudio\MusicStoreWebradio' for Windows or '//RuneAudio/MusicStoreWebradio' for MAC<br>
                         &nbsp;&nbsp;c. Copy the files from the network drive to your PC<br>
                         &nbsp;&nbsp;d. Disconnect the network drive<br>
-                        &nbsp;&nbsp;e. Switch Samba <strong>Off</strong> if required<br>
+                        &nbsp;&nbsp;e. Switch Samba <strong>Off</strong> (if required)<br>
                         2. Shut down your new RuneAudio<br>
                         3. Remove the Micro-SD card and plug it into your PC<br>
                         4. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
