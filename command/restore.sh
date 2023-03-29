@@ -31,8 +31,11 @@
 #  coder: janui
 #  date: October 2020
 #
+{
+# continue on errors
 set -x # echo commands
 set +e # continue on errors
+echo "restore started"
 
 /srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
 # regenerate webradios
@@ -105,6 +108,10 @@ systemctl start connman
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 # run the shutdown script and reboot
 /srv/http/command/rune_shutdown reboot
+echo "restore finished"
+} > /var/log/runeaudio/restore.log 2>&1
+# debug
+#} > /home/restore.log 2>&1
 reboot
 #---
 #End script
