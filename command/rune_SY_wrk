@@ -210,8 +210,7 @@ if ($playerid_db === '') {
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
-    sysCmd('/srv/http/command/rune_shutdown reboot');
-    sysCmd('redis-cli shutdown save; shutdown now --reboot --no-wall');
+    sysCmd('/srv/http/command/rune_shutdown reboot ; shutdown now --reboot --no-wall');
     // should never get here
     // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
