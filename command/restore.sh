@@ -35,38 +35,52 @@ set -x # echo commands
 set +e # continue on errors
 
 /srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
+# regenerate webradios
 /srv/http/command/webradiodb.sh
+# create a reference list of valid redis variables
+/srv/http/command/create_redis_ref_list.php
+# shutdown redis
 redis-cli shutdown save
+# stop most rune systemd units
 systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
-## To-Do: make the backup and restore lines match, use some kind of dynamic list, not hard coded
+# restore the backup
 bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
+# refresh systemd and restart redis
 systemctl daemon-reload
 systemctl start redis
-## try to recover changes in the /boot/config.txt
+# try to recover changes in the /boot/config.txt
 patch -lN /boot/config.txt /home/config.txt.diff
 rm -f /home/config.txt.diff
+# delete any redis variables not included in the reference list
+#   variable name and type must be valid, otherwise delete
+/srv/http/command/work_redis_ref_list.php
 ## /srv/http/command/convert_dos_files_to_unix_script.sh fast
 hostnm=$( redis-cli get hostname )
 hostnm=${hostnm,,}
 ohostnm=$( hostnamectl hostname )
 if [ "$hostnm" != "$ohostnm" ] ; then
-    /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'simplemessage'
+    /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'permanotice'
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
 rm -f $1
-// delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
+# delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
 redis-cli del lastmpdvolume
+# generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
+# regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+# refresh audio aoutputs
 /srv/http/command/refresh_ao
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+# run some php based pot restore actions
 /srv/http/command/post_restore_actions.php
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
 redis-cli hset spotifyconnect enable '0'
 redis-cli hset airplay enable '0'
 redis-cli hset dlna enable '0'
+# set up the player name in the UI
 set +e
 count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
 if [ $count -gt 2 ] ; then
@@ -74,17 +88,23 @@ if [ $count -gt 2 ] ; then
 else
     redis-cli set playernamemenu '0'
 fi
+# sev dev mode off
 redis-cli set dev '0'
+# set debug off
 redis-cli set debug '0'
+# regenerate webradios
 /srv/http/command/webradiodb.sh
-systemctl stop connman
 # clean up the connman cache files, these will be recreated with restart
+#  stopping connman will also terminate network connections
+systemctl stop connman
 find /var/lib/connman/* -type d -exec rm -R '{}' \;
 rm -r /var/lib/iwd/*
+# start connman and refresh the network information
 systemctl start connman
 /srv/http/command/refresh_nics
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
-/srv/http/command/rune_shutdown
+# run the shutdown script and reboot
+/srv/http/command/rune_shutdown reboot
 reboot
 #---
 #End script
