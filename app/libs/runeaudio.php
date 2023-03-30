@@ -7765,6 +7765,10 @@ function refresh_nics($redis)
                 ($networkInfo[$macAddress.'_'.$ssidHex]['security'] != 'OPEN')) {
             // write the configured wifi networks to an array for autoconnect optimisation
             // autoconnect is never automatically set for OPEN security
+            if (!isset($strength) || !$strength) {
+                // strength is not set, probably a restore from backup, set strength to a default value of 3
+                $strength = 3;
+            }
             $optimiseWifi[] = array('connmanString' => $connmanString
                 , 'strength' => $strength
                 , 'macAddress' => $macAddress
