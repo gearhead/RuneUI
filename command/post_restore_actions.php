@@ -69,8 +69,8 @@ if ($redis->get('bluetooth_on')) {
 } else {
     wrk_btcfg($redis, 'disable');
 }
+wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 wrk_btcfg($redis, 'quality_options');
-wrk_btcfg($redis, 'config', $redis->hgetall('bluetooth'));
 // set up Wi-Fi
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');
