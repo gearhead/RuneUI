@@ -64,6 +64,8 @@ hostnm=$( redis-cli get hostname )
 hostnm=${hostnm,,}
 ohostnm=$( hostnamectl hostname )
 if [ "$hostnm" != "$ohostnm" ] ; then
+    # reset UI message queueing, this is normally done in rune_SY_wrk, but this job could crash because redis was stopped
+    redis-cli set waitSyWrk 0
     /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'permanotice'
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
@@ -72,6 +74,8 @@ rm -f $1
 redis-cli del lastmpdvolume
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
+# reset UI message queueing, again
+redis-cli set waitSyWrk 0
 # reset the passworddate
 redis-cli set passworddate $passworddate
 # regenerate audio card details
@@ -80,7 +84,7 @@ redis-cli set passworddate $passworddate
 # refresh audio aoutputs
 /srv/http/command/refresh_ao
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# run some php based pot restore actions
+# run some php based post restore actions
 /srv/http/command/post_restore_actions.php
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
@@ -103,13 +107,14 @@ redis-cli set debug '0'
 /srv/http/command/webradiodb.sh
 # clean up the connman cache files, these will be recreated with restart
 #  stopping connman will also terminate network connections
+#  send a last message
+/srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 systemctl stop connman
 find /var/lib/connman/* -type d -exec rm -R '{}' \;
 rm -r /var/lib/iwd/*
 # start connman and refresh the network information
 systemctl start connman
 /srv/http/command/refresh_nics
-/srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 # run the shutdown script and reboot
 /srv/http/command/rune_shutdown reboot
 echo "restore finished"
