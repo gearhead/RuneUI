@@ -40,6 +40,8 @@ echo "restore started"
 /srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
+# save the passworddate
+passworddate=$( redis-cli get passworddate )
 # create a reference list of valid redis variables
 /srv/http/command/create_redis_ref_list.php
 # shutdown redis
@@ -70,6 +72,8 @@ rm -f $1
 redis-cli del lastmpdvolume
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
+# reset the passworddate
+redis-cli set passworddate $passworddate
 # regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
