@@ -72,35 +72,35 @@ sysCmd('rm -f '.$fileDestDir.'backup*');
 $isError = false;
 if ($fileError) {
     if (isset($errorMessages[$fileError])) {
-        ui_notifyError('Error', $errorMessages[$fileError]);
+        ui_notifyError($redis, 'Error', $errorMessages[$fileError]);
     } else {
-        ui_notifyError('Error', 'Unknown error, error number: '.$fileError);
+        ui_notifyError($redis, 'Error', 'Unknown error, error number: '.$fileError);
     }
     $isError = true;
 } else if ($fileSize === 0) {
-    ui_notifyError('Error', 'Empty file.');
+    ui_notifyError($redis, 'Error', 'Empty file.');
     $isError = true;
 } else if (strpos($fileType, 'image')) {
-    ui_notifyError('Error', 'Invalid file contents.');
+    ui_notifyError($redis, 'Error', 'Invalid file contents.');
     $isError = true;
 } else if (preg_match('/[^a-zA-Z0-9\-_ .]/', $fileName)) {
-    ui_notifyError('Error', 'Invalid characters in the file name: '.$fileName);
-    ui_notifyError('Error', 'Invalid characters : '.preg_replace('/[a-zA-Z0-9\-_ .]/', '' ,$fileName));
+    ui_notifyError($redis, 'Error', 'Invalid characters in the file name: '.$fileName);
+    ui_notifyError($redis, 'Error', 'Invalid characters : '.preg_replace('/[a-zA-Z0-9\-_ .]/', '' ,$fileName));
     $isError = true;
 } else if (mb_strlen($fileName,"UTF-8") > 225) {
-    ui_notifyError('Error', 'File name too long.');
+    ui_notifyError($redis, 'Error', 'File name too long.');
     $isError = true;
 } else if (substr($fileName, -7) != '.tar.gz') {
-    ui_notifyError('Error', 'File extension incorrect, expected: .tar.gz');
+    ui_notifyError($redis, 'Error', 'File extension incorrect, expected: .tar.gz');
     $isError = true;
 } else if (!move_uploaded_file($fileTmp, $fileDest)) {
-    ui_notifyError('Error', 'Invalid upload, cannot process file.');
+    ui_notifyError($redis, 'Error', 'Invalid upload, cannot process file.');
     $isError = true;
 } else if (strpos(' '.sysCmd('bsdtar -tf')[0], 'bsdtar: Error')) {
-    ui_notifyError('Error', 'File content is not a valid archive format.');
+    ui_notifyError($redis, 'Error', 'File content is not a valid archive format.');
     $isError = true;
 } else {
-    ui_notify('Success', 'File is valid and was successfully uploaded, restore and restart will follow...');
+    ui_notify($redis, 'Success', 'File is valid and was successfully uploaded, restore and restart will follow...');
     // start a job in the back-end (as root) to process the backup file
     $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'restore', 'args' => $fileDest));
 }
