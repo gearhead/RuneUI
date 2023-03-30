@@ -1542,10 +1542,17 @@ while (true) {
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation
             wrk_ashuffle($redis, 'changewindow');
-            // the access point test below needs more time, so delay by 120 seconds
-            $savecpuOneTimeActions = 120 + rand(0, 10);
-        } else if (is_firstTime($redis, 'check_access_point_password') && wrk_security($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_access_point_password')) {
-            // prompt the UI to change the Access Point password
+            // the access point test below needs more time, so delay by +/-2 minutes (=120 seconds, = 240 cycles)
+            $savecpuOneTimeActions = 230 + rand(0, 20);
+        } else if (wrk_security($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_access_point_password') && is_firstTime($redis, 'check_access_point_password')) {
+            // prompt the UI to change the Access Point password, only when linux password has been changed
+            $data['id'] = 'modal-security_ap_password';
+            ui_render('modal', json_encode($data));
+            unset($data);
+            // the access point test below needs more time, so delay by +/-15 minutes (= 900 seconds, = 1800 cycles)
+            $savecpuOneTimeActions = 1750 + rand(0, 100);
+        } else if (is_firstTime($redis, 'check_access_point_password') && !wrk_security($redis, 'check_access_point_password')) {
+            // prompt the UI to change the Access Point password, regardless of status of linux password
             $data['id'] = 'modal-security_ap_password';
             ui_render('modal', json_encode($data));
             unset($data);
