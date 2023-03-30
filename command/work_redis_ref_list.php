@@ -96,6 +96,15 @@ $cntDel = 0;
 foreach ($rediskeys as $rediskey) {
     $cntCheck++;
     $keyAndType = $rediskey.' '.$redis->type($rediskey);
+    // some variables never get deleted
+    if (substr($rediskey, 0, 8) == 'mountidx') {
+        // network mount variable
+        continue;
+    }
+    if (substr($rediskey, 0, 6) == 'mount_') {
+        // network mount variable
+        continue;
+    }
     if (!in_array($keyAndType, $refListArray)) {
         $redis->del($rediskey);
         // debug
