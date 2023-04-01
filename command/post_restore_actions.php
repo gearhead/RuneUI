@@ -63,6 +63,13 @@ wrk_changeHostname($redis, $redis->get('hostname'));
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
+// set up ashuffle configuration, it wont be started
+$playlistName = $redis->hGet('globalrandom', 'playlist');
+if (isset($playlistName) && $playlistName) {
+    wrk_ashuffle($redis, 'set', $playlistName);
+} else {
+    wrk_ashuffle($redis, 'reset');
+}
 // set up Bluetooth
 if ($redis->get('bluetooth_on')) {
     wrk_btcfg($redis, 'enable');
