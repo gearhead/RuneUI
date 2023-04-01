@@ -665,7 +665,7 @@
             </div>
         </fieldset>
     </form>
-    <form class="form-horizontal" id="restore" method="post">
+    <form enctype="multipart/form-data" class="form-horizontal" id="restore" method="post">
         <fieldset>
             <div class="form-group">
                 <label class="control-label col-sm-2">Restore player config</label>
