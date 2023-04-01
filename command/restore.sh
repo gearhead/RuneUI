@@ -74,6 +74,11 @@ rm -f $1
 redis-cli del lastmpdvolume
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
+# unset any locks
+locks=$( redis-cli --scan --pattern lock_* | sort -u )
+for lock in $locks ; do
+    redis-cli set "$lock" 0
+done
 # reset UI message queueing, again
 redis-cli set waitSyWrk 0
 # reset the passworddate
