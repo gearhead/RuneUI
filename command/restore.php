@@ -68,6 +68,8 @@ $fileDest = $fileDestDir.$fileName;
 unlink($fileDest);
 // remove any other backup files in the destination directory
 sysCmd('rm -f '.$fileDestDir.'backup*');
+// force the UI notifications/messages to be queued
+$redis->set('waitSyWrk', '1');
 // check for errors and security issues
 $isError = false;
 if ($fileError) {
@@ -107,9 +109,12 @@ if ($fileError) {
 // clean up if there was an error
 if ($isError) {
     unlink($fileDest);
+    sleep(5);
 } else {
     if (isset($jobID)) {
         waitSyWrk($redis, $jobID);
     }
 }
-
+sleep(1);
+// release queued UI notifications/messages
+$redis->set('waitSyWrk', '0');
