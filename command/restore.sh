@@ -47,7 +47,7 @@ passworddate=$( redis-cli get passworddate )
 # shutdown redis
 redis-cli shutdown save
 # stop most rune systemd units
-systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk
+systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync spopd smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk cmd_async_queue
 # restore the backup
 bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
 # refresh systemd and restart redis
@@ -81,7 +81,7 @@ for lock in $locks ; do
 done
 # possibly an old setup value for mpd mixer_type type has been restored, valid values are now 'hardware', 'disabled' and 'hide'
 mpdMixer=$( redis-cli hget mpdconf mixer_type )
-if [ "$mpdMixer" != "hardware" ] && [ "$mpdMixer" != "disabled" ] && { "$mpdMixer" != "hide" ] ; then
+if [ "$mpdMixer" != "hardware" ] && [ "$mpdMixer" != "disabled" ] && [ "$mpdMixer" != "hide" ] ; then
     # set software to hardware
     redis-cli hset mpdconf mixer_type hardware
 fi
@@ -92,7 +92,7 @@ redis-cli set passworddate $passworddate
 # regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# refresh audio aoutputs
+# refresh audio outputs
 /srv/http/command/refresh_ao
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # run some php based post restore actions
