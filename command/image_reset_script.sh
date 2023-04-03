@@ -123,12 +123,6 @@ done
 for i in "${unmask_arr[@]}" ; do
    systemctl unmask "$i"
 done
-# for a distribution image disable systemd audit to reduce log files. Switch it on for a development image
-if [ "$1" == "full" ] ; then
-    systemctl mask systemd-journald-audit.socket
-else
-    systemctl unmask systemd-journald-audit.socket
-fi
 #
 # stop specified services
 for i in "${stop_arr[@]}" ; do
