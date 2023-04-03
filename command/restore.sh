@@ -79,6 +79,12 @@ locks=$( redis-cli --scan --pattern lock_* | sort -u )
 for lock in $locks ; do
     redis-cli set "$lock" 0
 done
+# possibly an old setup value for mpd mixer_type type has been restored, valid values are now 'hardware', 'disabled' and 'hide'
+mpdMixer=$( redis-cli hget mpdconf mixer_type )
+if [ "$mpdMixer" != "hardware" ] && [ "$mpdMixer" != "disabled" ] && { "$mpdMixer" != "hide" ] ; then
+    # set software to hardware
+    redis-cli hset mpdconf mixer_type hardware
+fi
 # reset UI message queueing, again
 redis-cli set waitSyWrk 0
 # reset the passworddate
