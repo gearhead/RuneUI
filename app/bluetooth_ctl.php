@@ -161,6 +161,7 @@ if (!isset($template->config['LDAC_codec'])) {
     $template->config['LDAC_codec'] = 0;
 }
 // end remove
+$template->codecs = strtolower(trim(explode(':', sysCmd('bluealsa --help | grep -i a2dp-source:')[0], 2)[1]));
 $template->devices = wrk_btcfg($redis, 'status');
 $template->samplerate = wrk_btcfg($redis, 'status');
 // get the quality options, these are stored in files '/etc/default/bluealsa.<name>'

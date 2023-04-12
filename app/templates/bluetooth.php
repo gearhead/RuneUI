@@ -154,6 +154,7 @@
                         If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
                 </div>
             </div>
+            <?php if (strpos(' '.$this->codecs, 'aptx-hd')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_aptX_HD_codec">Enable Bluetooth Input/Output 'aptX-HD' codec</label>
                 <div class="col-sm-10">
@@ -166,6 +167,8 @@
                         <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
                 </div>
             </div>
+            <?php endif ?>
+            <?php if (strpos(' '.$this->codecs, 'faststream')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_FastStream_codec">Enable Bluetooth Input/Output 'FastStream' codec</label>
                 <div class="col-sm-10">
@@ -178,6 +181,8 @@
                         <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
                 </div>
             </div>
+            <?php endif ?>
+            <?php if (strpos(' '.$this->codecs, 'ldac')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_LDAC_codec">Enable Bluetooth Input 'LDAC' codec</label>
                 <div class="col-sm-10">
@@ -191,6 +196,7 @@
                         A 44,100Hz sample rate is preferable for LDAC, see below</i></span>
                 </div>
             </div>
+            <?php endif ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_samplerate">Bluetooth Input/Output Audio Sample Rate</label>
                 <div class="col-sm-10">
