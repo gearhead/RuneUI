@@ -10439,15 +10439,15 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['song_lyrics'] = ' ';
     $status['artist_bio_summary'] = ' ';
     $status['artist_similar'] = ' ';
-    if ($redis->get('volume')) {
-        if (!empty($redis->get('lastmpdvolume'))) {
-            $status['volume'] = $redis->get('lastmpdvolume');
-        } else {
-            $status['volume'] = '0';
-        }
+    $volume = intval($redis->get('lastmpdvolume'));
+    if ($redis->get('volume') && strlen($volume)) {
+        $status['volume'] = $volume;
+    } else {
+        $status['volume'] = '0';
     }
-    if (!empty($redis->hGet('mpdconf', 'crossfade'))) {
-        $status['xfade'] = $redis->hGet('mpdconf', 'crossfade');
+    $xfade = intval($redis->hGet('mpdconf', 'crossfade'));
+    if (strlen($xfade)) {
+        $status['xfade'] = $xfade;
     } else {
         $status['xfade'] = '0';
     }
