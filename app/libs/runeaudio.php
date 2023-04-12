@@ -1589,7 +1589,7 @@ if (is_null($resp)) {
         $status['song'] = $resp['current_track'] -1;
         if (isset($res['position'])) {
             $status['elapsed'] = $resp['position'];
-        } else {
+        // } else {
             // $status['elapsed'] = 0;
         }
         $status['time'] = $resp['duration'] / 1000;
@@ -4616,6 +4616,17 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     if (md5_file('/etc/spotifyd.conf') == md5_file('/tmp/spotifyd.conf')) {
         // nothing has changed
         sysCmd('rm -f /tmp/spotifyd.conf');
+        if ($redis->hGet('spotifyconnect', 'enable')) {
+            // when nothing has changed check that spotifyd is running
+            runelog('start spotifyd');
+            sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
+        } else {
+            // stop spotifyd & rune_SDM_wrk, they should already have stopped
+            runelog('stop spotifyd');
+            sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
+            sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+            $redis->hSet('spotifyconnect', 'last_track_id', '');
+        }
     } else {
         // spotifyd configuration has changed
         if ($redis->get('activePlayer') === 'SpotifyConnect') {
@@ -4624,7 +4635,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         }
         sysCmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
         sysCmd('rm -f /tmp/spotifyd.conf');
-        // stop spotifyd & rune_SDM_wrk, they should already have stopped using the function wrk_stopPlayer($redis);
+        // stop spotifyd & rune_SDM_wrk, they should already have stopped using the function wrk_stopPlayer()
         sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
         sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
@@ -4640,7 +4651,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     }
 }
 
-function wrk_shairport($redis, $ao, $name = null)
+function wrk_shairport($redis, $ao = null, $name = null)
 {
     if (!isset($name) || empty($name) || !$name) {
         $name = trim($redis->hGet('airplay', 'device_name'));
@@ -4656,13 +4667,16 @@ function wrk_shairport($redis, $ao, $name = null)
     $redis->hSet('airplay', 'device_name', $name);
     //
     if (!isset($ao) || empty($ao) || !$ao) {
-        $ao = trim($redis->get('ao'));
+        $ao = trim($redis->hGet('airplay', 'ao'));
         if ($ao == '') {
-            $ao = end($redis->hKeys('acards'));
-            if ($ao != '') {
-                $redis->set('ao', $ao);
-                // set this card to the default alsa card
-                set_alsa_default_card($ao);
+            $ao = trim($redis->get('ao'));
+            if ($ao == '') {
+                $ao = end($redis->hKeys('acards'));
+                if ($ao != '') {
+                    $redis->set('ao', $ao);
+                    // set this card to the default alsa card
+                    set_alsa_default_card($ao);
+                }
             }
         }
     } else {
@@ -4837,13 +4851,23 @@ function wrk_shairport($redis, $ao, $name = null)
             runelog('Stop Airplay player');
             wrk_stopPlayer($redis);
         }
-        sysCmd('systemctl stop rune_SSM_wrk shairport-sync');
+        sysCmd('pgrep -x shairport-sync && systemctl stop shairport-sync');
+        sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
         // update systemd
         sysCmd('systemctl daemon-reload');
         if ($airplay['enable']) {
             runelog('restart shairport-sync');
             sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
-            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
+        }
+    } else {
+        // nothing has changed, check that shairport-sync is running or stopped as required
+        if ($airplay['enable']) {
+            runelog('start shairport-sync');
+            sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
+        } else {
+            runelog('stop shairport-sync');
+            sysCmd('pgrep -x shairport-sync && systemctl stop shairport-sync');
+            sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
         }
     }
     $redis->set('sssconfchange', 0);

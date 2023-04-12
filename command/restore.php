@@ -89,7 +89,7 @@ if ($fileError) {
     ui_notifyError($redis, 'Error', 'Invalid characters in the file name: '.$fileName);
     ui_notifyError($redis, 'Error', 'Invalid characters : '.preg_replace('/[a-zA-Z0-9\-_ .]/', '' ,$fileName));
     $isError = true;
-} else if (mb_strlen($fileName,"UTF-8") > 225) {
+} else if (mb_strlen($fileName, "UTF-8") > 225) {
     ui_notifyError($redis, 'Error', 'File name too long.');
     $isError = true;
 } else if (substr($fileName, -7) != '.tar.gz') {
