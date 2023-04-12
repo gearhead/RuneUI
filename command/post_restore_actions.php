@@ -76,6 +76,16 @@ if ($redis->get('bluetooth_on')) {
 } else {
     wrk_btcfg($redis, 'disable');
 }
+$bluetoothCodecs = strtolower(trim(explode(':', sysCmd('bluealsa --help | grep -i a2dp-source:')[0], 2)[1]));
+if (!strpos(' '.this->codecs, 'aptx-hd')) {
+    $redis-hSet('bluetooth', 'aptX_HD_codec', 0);
+}
+if (!strpos(' '.this->codecs, 'faststream')) {
+    $redis-hSet('bluetooth', 'FastStream_codec', 0);
+}
+if (!strpos(' '.this->codecs, 'ldac')) {
+    $redis-hSet('bluetooth', 'LDAC_codec', 0);
+}
 wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 wrk_btcfg($redis, 'quality_options');
 // set up Wi-Fi
