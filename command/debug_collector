@@ -304,8 +304,13 @@ function debug_data($redis, $fp=null)
     }
     $output .= "\n\n\n";
     $output .= "###### mpd version (mpd --version) ######\n";
-    $command = implode("\n", sysCmd("mpd --version | grep -v '^$'"));
+    $command = implode("\n", sysCmd("mpd --version 2>&1 | grep -v '^$'"));
     $output .= $command;
+    unset($command);
+    if ($fp) {
+        gzwrite($fp, $output);
+        $output = '';
+    }
     $output .= "\n\n\n";
     $output .= "###### MPD configuration (cat /etc/mpd.conf) ######\n";
     $output .= file_get_contents('/etc/mpd.conf');
