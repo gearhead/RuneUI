@@ -85,10 +85,10 @@ declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbi
     local-browser rune_SSM_wrk rune_PL_wrk cmd_async_queue dhcpcd php-fpm ntpd bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor\
     bluealsa bluetooth-agent bluetoothctl_scan bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff\
     plymouth-lite-start bootsplash systemd-resolved systemd-homed local-browser-w llmnrd upower systemd-networkd rune_shutdown)
-declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd)
+declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd mpdversion)
 declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk\
     cmd_async_queue upmpdcli chronyd systemd-timesyncd systemd-resolved systemd-homed cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay\
-    bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower systemd-networkd)
+    bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower systemd-networkd mpdversion)
 declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved systemd-homed getty@tty1 haveged upower bluealsa-monitor)
 # declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-resolved systemd-homed haveged upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
@@ -402,6 +402,8 @@ cp -RTv /srv/http/app/config/defaults/srv/. /srv
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
+# generate a default mpd --version file
+mpd --version | grep -v '^$' > /srv/http/.config/mpdversion.txt
 # modify /boot/config.txt if this is a 'all platform version'
 if [ -f "/boot/initramfs-v7-linux.img" ] ; then
     # remove lines containing [pi02] before a line starting with initramfs

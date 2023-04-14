@@ -3663,17 +3663,15 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             sysCmd('/srv/http/db/redis_datastore_setup mpdreset');
             sysCmd('/srv/http/db/redis_acards_details');
             wrk_audioOutput($redis, 'refresh');
-            unset($retval);
-            $retval = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4 -d' '");
-            $redis->hSet('mpdconf', 'version', trim(reset($retval)));
-            unset($retval);
+            $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
+            $redis->hSet('mpdconf', 'version', $mpdversion);
             // if MPD has been built with SoXr support use it
             // it was introduced in v0.19 but is difficult to detect, search for soxr in the binary
             // for v0.20 and higher SoXr is reported in the --version list if it was included in the build
-            if ($redis->hGet('mpdconf', 'version') >= '0.20.00') {
+            if ($mpdversion >= '0.20.00') {
                 // MPD version is higher than 0.20
-                $count = sysCmd('mpd --version | grep -c "soxr"');
-            } elseif ($redis->hGet('mpdconf', 'version') >= '0.19.00') {
+                $count = sysCmd('grep -ic "soxr" /srv/http/.config/mpdversion.txt');
+            } elseif ($mpdversion >= '0.19.00') {
                 // MPD version is higher than 0.19 but lower than 0.20
                 $count = sysCmd('grep -hc "soxr" /usr/bin/mpd');
             } else {
@@ -3686,7 +3684,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else {
                 $redis->hDel('mpdconf', 'soxr');
             }
-            unset($count);
+            unset($count, $mpdversion);
             // set mpd zeroconfig name to hostname
             $redis->hSet('mpdconf', 'zeroconf_name', $redis->get('hostname'));
             wrk_mpdconf($redis, 'writecfg');

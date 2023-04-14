@@ -83,9 +83,7 @@ if ($redis->hGet('addons', 'addo') != '') {
 }
 
 // determine the actual mpd player version
-$retval = sysCmd("mpd --version | grep -o 'Music Player Daemon.*' | cut -f4 -d' '");
-$mpdversion = trim($retval[0]);
-unset($retval);
+$mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
 
 // read registered HW architecture
 $arch_db = $redis->get('hwplatformid');

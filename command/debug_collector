@@ -304,8 +304,7 @@ function debug_data($redis, $fp=null)
     }
     $output .= "\n\n\n";
     $output .= "###### mpd version (mpd --version) ######\n";
-    $command = implode("\n", sysCmd("mpd --version 2>&1 | grep -v '^$'"));
-    $output .= $command;
+    $output .= file_get_contents('/srv/http/.config/mpdversion.txt');
     unset($command);
     if ($fp) {
         gzwrite($fp, $output);
