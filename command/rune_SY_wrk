@@ -336,26 +336,14 @@ if ($playerid_db === '') {
     }
     //
     // start php-fpm if required
-    $retval = sysCmd('systemctl is-active php-fpm');
-    if ($retval[0] === 'active') {
-        // do nothing
-    } else {
-        sysCmd('systemctl start php-fpm');
-        if ($redis->get('first_time_boot')) {
-            // workaround for nginx needing restart with php7.x (normally it now seems to work fine without, but not the first time boot)
-            sysCmd('systemctl restart nginx');
-        }
+    sysCmd('pgrep php-fpm || systemctl start php-fpm');
+    if ($redis->get('first_time_boot')) {
+        // workaround for nginx needing restart with php7.x (normally it now seems to work fine without, but not the first time boot)
+        sysCmd('systemctl restart nginx');
     }
     unset($retval);
     // sometimes on the armv6 image nginx fails to start automatically, if it is not running start it
     sysCmd('pgrep nginx || systemctl start nginx');
-    //
-    // PHP OPCache
-    if (!$redis->get('dev')) {
-        // prime PHP OPCache
-        runelog('prime PHP OPCache');
-        sysCmdAsync($redis, "curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
-    }
     //
     // clear the current song data on the first pass after startup
     if (is_firstTime($redis, 'clear_act_player_info')) {
@@ -373,7 +361,14 @@ if ($playerid_db === '') {
         sysCmdAsync($redis, 'systemctl stop local-browser');
         $redis->hSet('local_browser', 'enable', 0);
     }
-    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+    //
+    // PHP OPCache
+    if (!$redis->get('dev')) {
+        // prime PHP OPCache
+        runelog('prime PHP OPCache');
+        sysCmdAsync($redis, "curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
+    }
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
         // display the first boot message
         sysCmdAsync($redis, "ply-image '/usr/share/bootsplash/runeaudio_first_time.png'", 0);
