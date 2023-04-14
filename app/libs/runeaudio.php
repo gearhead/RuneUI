@@ -2026,7 +2026,7 @@ function wrk_xorgconfig($redis, $action, $args)
             } else {
                 wrk_xorgconfig($redis, 'overscan', 0);
             }
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
         case 'stop':
             // stop the local browser
@@ -2040,7 +2040,7 @@ function wrk_xorgconfig($redis, $action, $args)
                 sysCmd('systemctl stop local-browser');
                 sysCmd('systemctl daemon-reload');
                 sysCmd('systemctl start local-browser');
-                sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             }
             break;
         case 'enable-splash':
@@ -2886,7 +2886,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // run the refresh nics routine async don't wait until it finishes
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/refresh_nics');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
             break;
         case 'enableWifi':
             // run the command file to disable Wi-Fi, a reboot is required
@@ -4206,7 +4206,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 sysCmd('mpc play');
             }
             // check that MPD only has one output enabled and if not correct it
-            // sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/check_MPD_outputs_async.php');
+            // sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
             if (isset($acard['description'])) {
                 $interface_label = $acard['description'];
@@ -4272,7 +4272,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
             }
             // set process priority
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             unset($activePlayer, $retval);
             break;
         case 'forcestop':
@@ -4331,7 +4331,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            // sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
         case 'forcerestart':
@@ -4363,7 +4363,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // }
             // }
             // // set process priority
-            // sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            // sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             // unset($activePlayer, $retval);
             break;
     }
@@ -5281,7 +5281,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis, 'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
         case 'umountall':
             wrk_mpdconf($redis,'forcestop');
@@ -5296,7 +5296,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
             wrk_mpdconf($redis,'start');
             // ashuffle gets started automatically
             // set process priority
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
         case 'mountall':
             // Note: wrk_sourcemount() will not do anything for existing mounts
@@ -5713,7 +5713,7 @@ function wrk_startPlayer($redis, $newPlayer)
     usleep(500000);
     sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
     // set process priority
-    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
 
 function wrk_stopPlayer($redis)
@@ -6002,7 +6002,7 @@ function wrk_changeHostname($redis, $newhostname)
     }
     $redis->set('avahiconfchange', 0);
     // set process priority
-    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
 
 function wrk_upmpdcli($redis, $name = null, $queueowner = null)
@@ -6034,7 +6034,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null)
         sysCmd('systemctl reload-or-restart upmpdcli');
     }
     // set process priority
-    sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
 
 function alsa_findHwMixerControl($cardID)
@@ -8229,7 +8229,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
                             sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
-                            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/rune_prio nice');
+                            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                         }
                     }
                 }
@@ -11511,7 +11511,7 @@ function wrk_btcfg($redis, $action, $param = null)
             }
             if (!$mpdConfigured) {
                 // the output device is not included in the MPD configuration file
-                sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/refresh_ao', 0);
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_ao', 0);
             }
             wrk_btcfg($redis, 'correct_bt_ao');
             $redis->set('bluetooth_status', json_encode($deviceArray));
@@ -11519,11 +11519,11 @@ function wrk_btcfg($redis, $action, $param = null)
             break;
         case 'status_async':
             // runs the status option asynchronously in the queue
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/bt_status_async.php');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_status_async.php');
             break;
         case 'status_async_now':
             // runs the status option asynchronously now
-            sysCmdAsync($redis, 'nice --adjustment=4 /srv/http/command/bt_status_async.php', 0);
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_status_async.php', 0);
             break;
         case 'check_bt_mpd_output':
             // check that mpd.conf contains an output for a specific or all output Bluetooth device(s)
