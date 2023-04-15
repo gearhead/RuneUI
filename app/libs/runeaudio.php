@@ -4153,7 +4153,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
             $startBluetooth = false;
-            if ($args && ($oldMpdout != $args)) {
+            if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
                 $redis->set('ao', $args);
                 // set this card to the default alsa card
                 set_alsa_default_card($args);
@@ -4183,7 +4183,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 sysCmd('mpc disable "'.$oldMpdout.'"');
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
-            } else {
+            } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
                 // save the previous card if it is a 'hw:' type
                 $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
@@ -4197,6 +4197,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 // wrk_shairport($redis, $oldMpdout);
                 // wrk_spotifyd($redis, $oldMpdout);
+            } else {
+                sysCmd('mpc enable null');
             }
             if ($startBluetooth && sysCmd('mpc status | grep -ic "[playing]"')[0]) {
                 // bluealsa needs a pause and play to successfully switch when already playing
@@ -4214,7 +4216,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $interface_label = $args;
             }
             // notify UI
-            ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+            if ($interface_label) {
+                ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+            }
             break;
         case 'refresh':
             wrk_audioOutput($redis, 'refresh');

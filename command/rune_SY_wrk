@@ -692,19 +692,20 @@ while (true) {
                 ui_notify($redis, 'Hostname', 'Hostname changed to:'.$hn);
                 break;
             case 'i2smodule':
-                runelog('env: SET I2S MODULE', $job->args);
-                wrk_i2smodule($redis, $job->args);
-                // check that MPD only has one output enabled and if not correct it
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
-                $redis->sRem('w_lock', $jobID);
-                // send notification
-                ui_notify($redis, 'I&#178;S kernel module', 'Completed, set to '.$job->args);
+                if (isset($job->args) && trim($job->args)) {
+                    wrk_i2smodule($redis, trim($job->args));
+                    // check that MPD only has one output enabled and if not correct it
+                    $redis->sRem('w_lock', $jobID);
+                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
+                    // send notification
+                    ui_notify($redis, 'I&#178;S kernel module', 'Completed, set to '.$job->args);
+                }
                 break;
             case 'audio_on_off':
                 wrk_audio_on_off($redis, $job->args);
                 // check that MPD only has one output enabled and if not correct it
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
                 $redis->sRem('w_lock', $jobID);
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
                 // send notification
                 if ($job->args) {
                     $action = 'Enabled';
@@ -1146,10 +1147,10 @@ while (true) {
             case 'orionprofile':
                 $hwplatformid = $redis->get('hwplatformid');
                 $profile = $job->args." ".$hwplatformid;
-                runelog("env: SET KERNEL PROFILE", $job->args);
+                runelog("env: SET KERNEL PROFILE", $profile);
                 $redis->set('orionprofile', $job->args);
-                sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
                 $redis->sRem('w_lock', $jobID);
+                sysCmd("/srv/http/command/orion_optimize.sh ".$profile);
                 ui_notify($redis, 'SoundSignature', 'Profile '.$profile.' applied');
                 break;
             case 'phprestart':
