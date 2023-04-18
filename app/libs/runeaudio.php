@@ -3967,9 +3967,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
                         $output .="\tmixer_type \t\"hardware\"\n";
                         $output .="\tmixer_device \t\"".substr($card_decoded['device'], 0, 4)."\"\n";
-                        if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off')) {
+                        if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
-                            $output .="\treplay_gain_handler \"mixer\"\n";
+                            $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                         }
                     } else {
                         if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
