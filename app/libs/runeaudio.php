@@ -4199,14 +4199,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // wrk_spotifyd($redis, $oldMpdout);
             } else {
                 sysCmd('mpc enable null');
+                // check that MPD only has one output enabled and if not correct it
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
             }
             if ($startBluetooth && sysCmd('mpc status | grep -ic "[playing]"')[0]) {
                 // bluealsa needs a pause and play to successfully switch when already playing
                 sysCmd('mpc pause');
                 sysCmd('mpc play');
             }
-            // check that MPD only has one output enabled and if not correct it
-            // sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
             // set notify label
             if (isset($acard['description'])) {
                 $interface_label = $acard['description'];
