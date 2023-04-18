@@ -1507,6 +1507,10 @@ while (true) {
             // clear the screen if splash screens are on and local browser is off
             sysCmd('/usr/bin/ply-image /srv/http/tmp/art/black.png');
             $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'wifi_boot_initialise')) {
+            // run boot-initialise for Wi-Fi networks
+            wrk_netconfig($redis, 'boot-initialise');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'reset_linux_root_password')) {
             // when requested required set up the Linux root password so that its modification will be prompted in the UI
             wrk_security($redis, 'reset_linux_root_password');
@@ -1516,14 +1520,6 @@ while (true) {
             $data['id'] = 'modal-security_linux_password';
             ui_render('modal', json_encode($data));
             unset($data);
-            $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'reset_linux_root_password')) {
-            // when requested required set up the Linux root password so that its modification will be prompted in the UI
-            wrk_security($redis, 'reset_linux_root_password');
-            $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'wifi_boot_initialise')) {
-            // run boot-initialise for Wi-Fi networks
-            wrk_netconfig($redis, 'boot-initialise');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
