@@ -3661,6 +3661,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'reset':
             // default MPD config
             sysCmd('/srv/http/db/redis_datastore_setup mpdreset');
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             sysCmd('/srv/http/db/redis_acards_details');
             wrk_audioOutput($redis, 'refresh');
             $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
@@ -4135,6 +4138,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             foreach ($args as $param => $value) {
                 $redis->hSet('mpdconf', $param, $value);
             }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             // ui_notify($redis, 'MPD', 'redis database updated');
             wrk_mpdconf($redis, 'writecfg');
             break;
@@ -4155,6 +4161,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $startBluetooth = false;
             if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
                 $redis->set('ao', $args);
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
                 // set this card to the default alsa card
                 set_alsa_default_card($args);
                 // get interface details

@@ -792,18 +792,18 @@ while (true) {
                 unset($file, $newArray, $fp, $action);
                 break;
             case 'mpdcfg':
-                $redis->sRem('w_lock', $jobID);
                 // send notfy to UI
                 ui_notify($redis, 'MPD', 'Configuration update started, please wait, it can take a while...');
                 if ($job->action === 'update') {
                     wrk_mpdconf($redis, 'update', $job->args, $jobID);
                     wrk_mpdconf($redis, 'restart');
                 } else if ($job->action === 'reset') {
-                    wrk_mpdconf($redis, 'reset');
+                    wrk_mpdconf($redis, 'reset', '', $jobID);
                     wrk_mpdconf($redis, 'restart');
                 } else if ($job->action === 'switchao') {
                     wrk_mpdconf($redis, 'switchao', $job->args, $jobID);
                 }
+                $redis->sRem('w_lock', $jobID);
                 // send notfy to UI
                 ui_notify($redis, 'MPD', 'Configuration update completed');
                 break;
