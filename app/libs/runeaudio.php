@@ -3779,6 +3779,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         // --- Consume ---
                         // do nothing
                         break;
+                    case 'replaygainhandler':
+                        // --- Replay Gain Handler ---
+                        // do nothing
+                        break;
                     case 'mixer_type':
                         // --- Mixer type ---
                         $hwmixer = 0;
