@@ -647,14 +647,21 @@ while (true) {
                 ui_notify($redis, 'Git pull', ' Starting, please wait...' );
                 // Update RuneUI
                 runelog('Update RuneUI');
+                // stop the player if running
+                if (strpos(' '.strtolower(implode("<br>", sysCmd('mpc'))), '[playing]')) {
+                    $player_stopped = true;
+                    sysCmd('mpc pause');
+                    ui_notify($redis, 'Update RuneUI', 'Pausing play, please wait...');
+                } else {
+                    $player_stopped = false;
+                }
                 // run the git_pull script
                 $retval = sysCmd('/srv/http/command/git_pull.sh');
-                $gitupdated = 1;
-                foreach($retval as $line) {
-                    if (strpos(' '.strtolower($line),'already up to date')) {
-                        $gitupdated = 0;
-                        break;
-                    }
+                $retval = implode("<br>", $retval);
+                if (strpos(' '.strtolower($retval),'already up to date')) {
+                    $gitupdated = false;
+                } else {
+                    $gitupdated = true;
                 }
                 if ($gitupdated) {
                     ui_notify($redis, 'Git pull', $retval);
@@ -668,9 +675,14 @@ while (true) {
                     ui_notify($redis, 'Update RuneUI', 'Rebooting');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
-                    ui_notify($redis, 'Update RuneUI', 'No changes, already up to date');
+                    if ($player_stopped) {
+                        ui_notify($redis, 'Update RuneUI', "No changes, already up to date.<br>Restarting play");
+                        sysCmd('mpc play');
+                    } else {
+                        ui_notify($redis, 'Update RuneUI', 'No changes, already up to date');
+                    }
                 }
-                unset($retval, $gitupdated);
+                unset($retval, $gitupdated, $player_stopped);
                 break;
             case 'hostname':
                 $redis->sRem('w_lock', $jobID);
