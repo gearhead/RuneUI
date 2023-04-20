@@ -469,7 +469,7 @@ function redisDatastore($redis,$action) {
             // // RuneAudio Libs & config
             $transaction->exec();
             // network mounts - 'mount_*'
-            sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
+            // sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
             break;
         case 'opcachecheck':
             // all RuneAudio php scripts
