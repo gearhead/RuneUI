@@ -1292,8 +1292,8 @@ while (true) {
                 wrk_spotifyd($redis);
                 break;
             case 'sourcecfg':
-                $redis->sRem('w_lock', $jobID);
                 if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
+                $redis->sRem('w_lock', $jobID);
                 break;
             case 'switchplayer':
                 $redis->sRem('w_lock', $jobID);
