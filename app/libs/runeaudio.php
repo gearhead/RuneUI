@@ -8378,7 +8378,7 @@ function wrk_check_MPD_outputs($redis)
             foreach ($outputs as $output) {
                 $outputParts = explode(' ', $output, 3);
                 // $outputParts[0] = 'Output' (can be disregarded), $outputParts[1] = <the output number> & $outputParts[2] = <the rest of the information>
-                $oaName = get_between_data($outputParts[2], '(', ')');
+                $aoName = get_between_data($outputParts[2], '(', ')');
                 $outputParts[2] = strtolower($outputParts[2]);
                 if (strpos(' '.$outputParts[2], 'bcm2835') || strpos($outputParts[2], 'hdmi')) {
                     // its a 3,5mm jack or hdmi output, so disable it, don't count it
@@ -8390,7 +8390,7 @@ function wrk_check_MPD_outputs($redis)
                     sysCmd('mpc enable '.$outputParts[1]);
                 } else if (strpos(' '.$outputParts[2], '(null)')) {
                     // its the null output, don't change it, don't count it
-                } else if (!$redis->exists('acards', $oaName)) {
+                } else if (!$redis->exists('acards', $aoName)) {
                     // its not listed in acards, so it is inactive, probably a bluetooth output
                     //  disable it, don't count it
                     sysCmd('mpc disable '.$outputParts[1]);
@@ -8426,19 +8426,19 @@ function wrk_check_MPD_outputs($redis)
             $retval = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -i enabled');
             if (isset($retval[0]) && trim($retval[0])) {
                 // a card is enabled
-                $oaName = get_between_data($retval[0], '(', ')');
-                if (isset($oaName) && $oaName) {
+                $aoName = get_between_data($retval[0], '(', ')');
+                if (isset($aoName) && $aoName) {
                     // the card has an audio output name
                     // set this card to the default alsa card
-                    set_alsa_default_card($oaName);
-                    if ($redis->hExists('acards', $oaName)) {
+                    set_alsa_default_card($aoName);
+                    if ($redis->hExists('acards', $aoName)) {
                         // the card is listed in acards, so set it as the active audio output
-                        $redis->set('ao', $oaName);
+                        $redis->set('ao', $aoName);
                         // set the default audio output to the same value as the audio output when it is a hw type
-                        $acard = json_decode($redis->hGet('acards', $oaName), true);
+                        $acard = json_decode($redis->hGet('acards', $aoName), true);
                         if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                             // its a hardware card, so set it to the audio output default
-                            $redis->set('ao_default', $oaName);
+                            $redis->set('ao_default', $aoName);
                             sysCmd('mpc disable null');
                         } else {
                             $redis->set('ao_default', '');
