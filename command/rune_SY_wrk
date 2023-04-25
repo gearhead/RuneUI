@@ -676,11 +676,12 @@ while (true) {
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     if ($player_stopped) {
-                        ui_notify($redis, 'Update RuneUI', "No changes, already up to date.<br>Restarting play");
+                        ui_notify($redis, 'Update RuneUI', "Finished.<br>No changes, already up to date.<br>Restarting play");
                         sysCmd('mpc play');
                     } else {
-                        ui_notify($redis, 'Update RuneUI', 'No changes, already up to date');
+                        ui_notify($redis, 'Update RuneUI', 'Finished.<br>No changes, already up to date');
                     }
+                    ui_notify($redis, 'Update RuneUI', "Don't forget to switch 'dev mode' off");
                 }
                 unset($retval, $gitupdated, $player_stopped);
                 break;
