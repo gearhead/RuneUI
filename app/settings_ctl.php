@@ -295,7 +295,7 @@ $template->sysstate['runeOS'] = trim(sysCmd("cat /etc/motd | grep -i 'RuneOS:' |
 $template->sysstate['buildversion'] = $redis->get('buildversion')."-".$redis->get('patchlevel');
 $template->sysstate['release'] = $redis->get('release');
 // the next line won't work, file protection issue with /opt/vc/bin/vcgencmd
-$template->sysstate['cpuTemp'] = trim(preg_replace('/[^0-9.]/', '', sysCmd('/opt/vc/bin/vcgencmd measure_temp | grep temp')[0]));
+$template->sysstate['cpuTemp'] = trim(preg_replace('/[^0-9.]/', '', sysCmd('vcgencmd measure_temp | grep temp')[0]));
 // collect the rest of the UI variables
 $template->hostname = $redis->get('hostname');
 $template->ntpserver = $redis->get('ntpserver');

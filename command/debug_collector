@@ -84,14 +84,14 @@ function debug_data($redis, $fp=null)
     $output .= "Git Branch:\t".$redis->hget('git', 'branch')."\n";
     $output .= "PlayerID:\t".$redis->get('playerid')."\n\n\n";
     $output .= "###### CPU temperature, throttling & power supply voltage status ######\n";
-    $command = sysCmd("/opt/vc/bin/vcgencmd measure_temp");
+    $command = sysCmd("vcgencmd measure_temp");
     $output .= "CPU Temperature: \t   ".preg_replace('/[^0-9.]/', '', $command[0])."'C\n";
     unset($command);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
     }
-    $command = sysCmd("/opt/vc/bin/vcgencmd get_throttled");
+    $command = sysCmd("vcgencmd get_throttled");
     $command = explode("0x", $command[0], 2);
     if ($command[1] == 0) {
         $output .= "Status:\t\t\t   No issues to report\n";
@@ -104,7 +104,7 @@ function debug_data($redis, $fp=null)
         // echo $throttled."\n";
         $throttled=array_reverse(str_split($throttled));
         // echo implode($throttled)."\n";
-        $command = sysCmd("/opt/vc/bin/vcgencmd get_config int | grep -i temp_limit");
+        $command = sysCmd("vcgencmd get_config int | grep -i temp_limit");
         $output .= "Temperature limit: \t   ".preg_replace('/[^0-9.]/', '', $command[0])."'C\n";
         $output .= "Temperature status:\t";
         if ($throttled[3]) {
