@@ -1563,6 +1563,10 @@ while (true) {
             ui_render('modal', json_encode($data));
             unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'ssh_keygen')) {
+            // regenerate any missing ssh keys
+            sysCmdAsync($redis, 'nice --adjustment=10 ssh-keygen -A');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
         } else {
             $savecpuOneTimeActions = 10000000;
         }
