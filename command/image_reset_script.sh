@@ -297,8 +297,8 @@ if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5after
     set +x
     echo "#######################################################################################"
     echo "## This script or another essential file has been changed during the git pull update ##"
-    echo "##                  Exiting! - You need to run this script again!!                   ##"
-    echo "##                             -----------------------------------                   ##"
+    echo "##                   Exiting! - You need to run this script again                    ##"
+    echo "##                              ---------------------------------                    ##"
     echo "#######################################################################################"
     exit
 fi
@@ -312,11 +312,11 @@ vcgencmdPath=$( find /opt -name vcgencmd )
 if [ "$vcgencmdPath" == "" ] ; then
     if [ ! -f /usr/bin/vcgencmd ] ; then
         set +x
-        echo "##########################################################################"
-        echo "##                  Error: raspberrypi-firmware missing                 ##"
-        echo "## Exiting! - Install raspberrypi-firmware then run this script again!! ##"
-        echo "##            ----------------------------      ----------------------- ##"
-        echo "##########################################################################"
+        echo "########################################################################"
+        echo "##                 Error: raspberrypi-firmware missing                ##"
+        echo "## Exiting! - Install raspberrypi-firmware then run this script again ##"
+        echo "##            ----------------------------      --------------------- ##"
+        echo "########################################################################"
         exit
     fi
 else
