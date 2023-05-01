@@ -303,6 +303,32 @@ if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5after
     exit
 fi
 #
+# set up raspberrypi-firmware so that it works from systemd
+#   systemd will only look in the $PATH=/usr/local/sbin:/usr/local/bin:/usr/bin when run as root
+#   the raspberrypi-firmware utilities are installed in /opt/... directory tree
+#   this routine will set up sysmlinks to the routines in /usr/local/bin
+#   it looks like a systemd bug, maybe this will not be needed in the future
+vcgencmdPath=$( find /opt -name vcgencmd )
+if [ "$vcgencmdPath" == "" ] ; then
+    if [ ! -f /usr/bin/vcgencmd ] ; then
+        set +x
+        echo "##########################################################################"
+        echo "##                  Error: raspberrypi-firmware missing                 ##"
+        echo "## Exiting! - Install raspberrypi-firmware then run this script again!! ##"
+        echo "##            ----------------------------      ----------------------- ##"
+        echo "##########################################################################"
+        exit
+    fi
+else
+    firmwareDir=${vcgencmdPath%/*}
+    # echo $firmwareDir
+    for fullFilename in $firmwareDir/* ; do
+        firmwareName=$(basename ${fullFilename})
+        # echo "ln -s $fullFilename /usr/bin/$firmwareName"
+        ln -sf "$fullFilename" "/usr/bin/$firmwareName"
+    done
+fi
+#
 # redis reset
 # remove the redis variables used for:
 #   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
