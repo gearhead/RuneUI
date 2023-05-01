@@ -4057,7 +4057,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .="audio_output {\n";
             $output .="\tname \t\t\"null\"\n";
             $output .="\ttype \t\t\"null\"\n";
-            $output .="\tenabled \t\"no\"\n";
+            $output .="\tenabled \t\"yes\"\n";
             $output .="}\n";
             // ui_notify($redis, 'MPD', 'config file part two finished');
             // add the snapcast fifo output if requested

@@ -93,6 +93,10 @@ redis-cli set passworddate $passworddate
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # refresh audio outputs
+i2smodule=$( redis-cli get i2smodule | xargs )
+if [ "$i2smodule" != "" ] ; then
+    dtoverlay $i2smodule
+fi
 /srv/http/command/refresh_ao
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # run some php based post restore actions
