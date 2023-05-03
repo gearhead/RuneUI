@@ -6797,7 +6797,9 @@ function autoset_timezone($redis) {
     //
     $wifiRegDom00 = sysCmd('iw reg get | grep -ic "country 00:"')[0];
     $sucess = true;
-    if ($redis->hget('service', 'internet') && ($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDom00) {
+    if (!$redis->hget('service', 'internet')) {
+        $sucess = false;
+    } else if (($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDom00) {
         // we should change the timezone
         $sucess = false;
         // // make sure that file_get_contents() times out when nothing is returned
