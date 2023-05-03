@@ -42,6 +42,10 @@ echo "restore started"
 /srv/http/command/webradiodb.sh
 # save the passworddate
 passworddate=$( redis-cli get passworddate )
+# save the timezone
+timezone=$( redis-cli get timezone )
+# save the Wi-Fi regulatory domain
+regdom=$( redis-cli get regdom )
 # create a reference list of valid redis variables
 /srv/http/command/create_redis_ref_list.php
 # shutdown redis
@@ -89,6 +93,10 @@ fi
 redis-cli set waitSyWrk 0
 # reset the passworddate
 redis-cli set passworddate $passworddate
+# reset the timezone
+redis-cli set timezone $timezone 
+# reset the Wi-Fi regulatory domain
+redis-cli set regdom $regdom 
 # regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
