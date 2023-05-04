@@ -92,11 +92,11 @@ fi
 # reset UI message queueing, again
 redis-cli set waitSyWrk 0
 # reset the passworddate
-redis-cli set passworddate $passworddate
+redis-cli set passworddate "$passworddate"
 # reset the timezone
-redis-cli set timezone $timezone 
+redis-cli set timezone "$timezone"
 # reset the Wi-Fi regulatory domain
-redis-cli set regdom $regdom 
+redis-cli set regdom "$regdom"
 # regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
