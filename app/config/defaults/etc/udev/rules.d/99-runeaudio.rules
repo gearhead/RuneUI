@@ -17,16 +17,16 @@ KERNEL=="input*",ATTRS{name}=="vc4",ENV{LIBINPUT_IGNORE_DEVICE}="1"
 #
 # adding or removing audio card ('card0' to 'card9') will trigger running /srv/http/command/refresh_ao
 # provides plug & play audio card functionality (e.g. usb, bluetooth)
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao"
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao async"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao async"
 #
 #
 # the following lines were previously in the file 80-net-setup-link.rules
 #
 # adding or removing network interface will trigger running /srv/http/command/refresh_nics
 # provides plug & play network dongle functionality
-SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics"
-SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics"
+SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics async"
+SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics async"
 #
 #
 # following rules to connect a connected BT device (phone, speaker, etc) to the alsa subsystem
