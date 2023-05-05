@@ -804,9 +804,9 @@ function renderLibraryHome() {
     }
     // Composer list (static)
     if(isLocalHost) {
-        content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-users"></i><h3>Composer</h3></div>' + divClose;
+        content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-user-pen"></i><h3>Composer</h3></div>' + divClose;
     } else {
-        content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-users"></i><h3>Composer</h3>browse MPD database by composer</div>' + divClose;
+        content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-user-pen"></i><h3>Composer</h3>browse MPD database by composer</div>' + divClose;
     }
     // Genre list (static)
     if(isLocalHost) {
