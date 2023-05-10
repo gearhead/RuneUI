@@ -133,9 +133,11 @@ redis-cli set debug '0'
 #  send a last message
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
 systemctl stop connman
-find /var/lib/connman/* -type d -exec rm -R '{}' \;
+systemctl stop iwd
+find /var/lib/connman/* -type d -exec rm -r '{}' \;
 rm -r /var/lib/iwd/*
 # start connman and refresh the network information
+systemctl start iwd
 systemctl start connman
 /srv/http/command/refresh_nics
 # run the shutdown script and reboot

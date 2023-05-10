@@ -182,11 +182,14 @@ rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
-rm -f /var/lib/connman/*.service
-rm -rf /var/lib/connman/ethernet_*
-rm -rf /var/lib/connman/wifi_*
-rm -rf /var/lib/connman/bluetooth_*
-find /var/lib/iwd/ -type f -exec rm -f {} \;
+# for the connman and iwd user files, connman and iwd need to be stopped
+systemctl stop connman
+systemctl stop iwd
+find /var/lib/connman/* -type d -exec rm -r '{}' \;
+rm -r /var/lib/iwd/*
+# start connman and refresh the network information
+systemctl start iwd
+systemctl start connman
 #
 # remove core dumps
 rm /var/lib/systemd/coredump/*.zst
