@@ -3091,16 +3091,20 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // delete a connection, also removes the stored profile and configuration files
             // wifi
             if (isset($args['ssidHex']) && isset($storedProfiles[$ssidHexKey])) {
+                sysCmd('systemctl stop connman ; systemctl stop iwd');
                 unset($storedProfiles[$ssidHexKey]);
                 unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
-                sysCmd('rmdir --ignore-fail-on-non-empty \'/var/lib/connman/wifi_*'.$args['ssidHex'].'*\'');
+                sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
                 sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
+                sysCmd('systemctl start iwd ; systemctl start connman');
             }
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
+                sysCmd('systemctl stop connman');
                 unset($storedProfiles[$macAddressKey]);
                 unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
-                sysCmd('rmdir --ignore-fail-on-non-empty \'/var/lib/connman/ethernet_'.$args['macAddress'].'*\'');
+                sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+                sysCmd('systemctl start connman');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
             break;
