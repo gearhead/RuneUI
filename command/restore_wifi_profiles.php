@@ -64,24 +64,29 @@ runelog('WORKER restore_wifi_profiles.php STARTING...');
 define('APP', '/srv/http/app/');
 //
 $storedProfiles = json_decode($redis->get('network_storedProfiles'), true);
-for each ($storedProfiles as $storedProfile) {
+foreach ($storedProfiles as $storedProfile) {
     if (!isset($storedProfile['technology']) || ($storedProfile['technology'] != 'wifi')) {
+        // its not a wifi profile, don't process this one
         continue;
     }
     if (!isset($storedProfile['ssid']) || !isset($storedProfile['passphrase'])) {
+        // the ssid or passphase is missing, ignore this one
         continue;
     }
     $profileFileName = '/boot/wifi/'.$storedProfile['ssid'].'profile';
     clearstatcache(true, $profileFileName);
-    if (file_exists($profileFileName) {
+    if (file_exists($profileFileName)) {
+        // the profile file already exits so skip this one
         continue;
     }
-    $profielFileContent = "Name=$storedProfile['ssid']\nPassphrase=$storedProfile['passphrase']\n";
+    // the current profile is OK, generate the profile file content
+    $profielFileContent = "Name=".$storedProfile['ssid']."\nPassphrase=".$storedProfile['passphrase']."\n";
     if (isset($storedProfile['hidden']) && $storedProfile['hidden']) {
         $profielFileContent .= "Hidden=true\n";
     } else {
         $profielFileContent .= "Hidden=false\n";
     }
+    // write the profile file
     file_put_contents($profileFileName, $profielFileContent);
     unset($profileFileName, $profielFileContent);
 }
@@ -89,7 +94,6 @@ unset($storedProfiles, $storedProfile);
 //
 // close Redis connection
 $redis->close();
-echo "Completed, $cnt redis keys registered in the reference list\n";
 runelog('WORKER restore_wifi_profiles.php END...');
 #---
 #End script

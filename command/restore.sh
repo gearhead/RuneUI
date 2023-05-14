@@ -79,6 +79,7 @@ if [ "$hostnm" != "$ohostnm" ] ; then
     /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'permanotice'
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
+# delete the restore file
 rm -f $1
 # delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
 redis-cli del lastmpdvolume
