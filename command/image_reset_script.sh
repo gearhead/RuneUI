@@ -185,8 +185,9 @@ rm -rf /var/lib/bluetooth/*
 # for the connman and iwd user files, connman and iwd need to be stopped
 systemctl stop connman
 systemctl stop iwd
-find /var/lib/connman/* -type d -exec rm -r '{}' \;
-rm -r /var/lib/iwd/*
+rm -rf /var/lib/connman/*
+rm -rf /var/lib/iwd/*
+cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
 # start connman and refresh the network information
 systemctl start iwd
 systemctl start connman

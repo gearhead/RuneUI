@@ -40,6 +40,9 @@ echo "restore started"
 /srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+# generate Wi-Fi profile files in /boot/wifi for the current Wi-Fi profiles in redis
+/srv/http/command/restore_wifi_profiles.php
 # save the passworddate
 passworddate=$( redis-cli get passworddate )
 # save the timezone
@@ -48,6 +51,7 @@ timezone=$( redis-cli get timezone )
 regdom=$( redis-cli get regdom )
 # create a reference list of valid redis variables
 /srv/http/command/create_redis_ref_list.php
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # shutdown redis
 redis-cli shutdown save
 # stop most rune systemd units
@@ -57,9 +61,11 @@ bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.co
 # refresh systemd and restart redis
 systemctl daemon-reload
 systemctl start redis
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # try to recover changes in the /boot/config.txt
 patch -lN /boot/config.txt /home/config.txt.diff
 rm -f /home/config.txt.diff
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # delete any redis variables not included in the reference list
 #   variable name and type must be valid, otherwise delete
 /srv/http/command/work_redis_ref_list.php
@@ -109,7 +115,7 @@ fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # run some php based post restore actions
 /srv/http/command/post_restore_actions.php
-/srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
 redis-cli hset spotifyconnect enable '0'
 redis-cli hset airplay enable '0'
@@ -128,17 +134,11 @@ redis-cli set dev '0'
 redis-cli set debug '0'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
-# clean up the connman cache files, these will be recreated with restart
-#  stopping connman will also terminate network connections
-#  send a last message
+/srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
+# generate Wi-Fi profile files in /boot/wifi for the restored Wi-Fi profiles in redis
+/srv/http/command/restore_wifi_profiles.php
+# refresh the nic's
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
-systemctl stop connman
-systemctl stop iwd
-find /var/lib/connman/* -type d -exec rm -r '{}' \;
-rm -r /var/lib/iwd/*
-# start connman and refresh the network information
-systemctl start iwd
-systemctl start connman
 /srv/http/command/refresh_nics
 # run the shutdown script and reboot
 /srv/http/command/rune_shutdown reboot

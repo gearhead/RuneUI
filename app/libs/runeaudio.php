@@ -2731,7 +2731,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'boot-initialise':
             // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
             // the routine looks in the directory /boot/wifi for any files, all files will be processed, except:
-            //      a file called readme and the directory /boot/wifi/examples and its contents
+            //  a file called readme and the directory /boot/wifi/examples and its contents
             // it steps through the files and or directories and deletes them after processing (regardless of success)
             // any file with lines containing 'Name=<value>' and 'Passphrase=<value>' will be used to set up a Wi-Fi profile
             // the optional value 'Hidden=[true]|[false]' will also be processed if present
@@ -3119,29 +3119,30 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // stop connman, otherwise it may recreate the configuration files after deletion
-            sysCmd('systemctl stop connman');
+            sysCmd('systemctl stop connman ; systemctl stop iwd');
             // clear the network array
             $redis->set('network_info', json_encode(array()));
             // clear the stored profiles
             $redis->set('network_storedProfiles', json_encode(array()));
-            // delete all connman config files
-            sysCmd('rm -r /var/lib/connman/*');
+            // delete all connman & iwd config files
+            sysCmd('rm -rf /var/lib/iwd/*');
+            sysCmd('rm -rf /var/lib/connman/*');
             // restore the default connman configuration file
             sysCmd('mkdir -p /var/lib/connman');
+            sysCmd('mkdir -p /var/lib/iwd');
             sysCmd('cp /srv/http/app/config/defaults/var/lib/connman/settings /var/lib/connman/settings');
             sysCmd('chmod 600 /var/lib/connman/settings');
             // restore the default boot-initialise Wi-Fi files
+            sysCmd('rm -rf /boot/wifi');
             sysCmd('mkdir -p /boot/wifi/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme/* /boot/wifi/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples /boot/wifi/examples');
             // restore the standard service and config files
-            sysCmd('mkdir /etc/systemd/system/');
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/connman.service /etc/systemd/system/connman.service');
             sysCmd('mkdir /etc/connman/');
             sysCmd('cp /srv/http/app/config/defaults/etc/connman/* /etc/connman/');
             // start connman
-            sysCmd('systemctl daemon-reload');
-            sysCmd('systemctl start connman');
+            sysCmd('systemctl daemon-reload ; systemctl start iwd ; systemctl start connman');
             // set automatic Wi-Fi optimisation
             $redis->set('network_autoOptimiseWifi', 1);
             // run refresh_nics

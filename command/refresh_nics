@@ -74,9 +74,7 @@ if (!$redis->hGet('service', 'internet')) {
 //
 // refresh the network arrays and save them in redis
 $networkInterfaces = refresh_nics($redis);
-if ($networkInterfaces) {
-    // do nothing
-} else {
+if (!$networkInterfaces) {
     // refresh_nics returned false so use the last stored value from redis
     $networkInterfaces = json_decode($redis->Get('network_interfaces'), true);
 }
