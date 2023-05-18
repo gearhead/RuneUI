@@ -182,14 +182,24 @@ rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
-# for the connman and iwd user files, connman and iwd need to be stopped
+#
+# remove the network configuration files, these could contain Wi-Fi passwords
+#   for the connman and iwd user files, connman needs to be stopped
 systemctl stop connman
-systemctl stop iwd
+# get the networks known to iwd
+networks=$( iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
+# forget each network known to iwd
+for i in "$networks" ; do
+    # echo "'$i'"
+    wctl known-networks "$i" forget
+done
+# delete the connman configuration files
 rm -rf /var/lib/connman/*
+# delete the iwd configuration files (there should be none after forgetting the known networks)
 rm -rf /var/lib/iwd/*
+# copy the default connman config file
 cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
-# start connman and refresh the network information
-systemctl start iwd
+# start connman which will refresh the network information
 systemctl start connman
 #
 # remove core dumps

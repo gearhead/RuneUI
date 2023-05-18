@@ -3091,12 +3091,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // delete a connection, also removes the stored profile and configuration files
             // wifi
             if (isset($args['ssidHex']) && isset($storedProfiles[$ssidHexKey])) {
-                sysCmd('systemctl stop connman ; systemctl stop iwd');
+                sysCmd('systemctl stop connman');
                 unset($storedProfiles[$ssidHexKey]);
                 unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
                 sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
+                sysCmd("iwctl known-networks '".$args['ssid']."' forget");
                 sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
-                sysCmd('systemctl start iwd ; systemctl start connman');
+                sysCmd('systemctl start connman');
             }
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
@@ -3119,11 +3120,16 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // stop connman, otherwise it may recreate the configuration files after deletion
-            sysCmd('systemctl stop connman ; systemctl stop iwd');
+            sysCmd('systemctl stop connman');
             // clear the network array
             $redis->set('network_info', json_encode(array()));
             // clear the stored profiles
             $redis->set('network_storedProfiles', json_encode(array()));
+            // instruct iwd to forget all its known networks
+            $iwdNetworks = sysCmd("iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'");
+            foreach ($iwdNetworks as $iwdNetwork) {
+                sysCmd("iwctl known-networks '".$iwdNetwork."' forget");
+            }
             // delete all connman & iwd config files
             sysCmd('rm -rf /var/lib/iwd/*');
             sysCmd('rm -rf /var/lib/connman/*');
@@ -3142,7 +3148,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('mkdir /etc/connman/');
             sysCmd('cp /srv/http/app/config/defaults/etc/connman/* /etc/connman/');
             // start connman
-            sysCmd('systemctl daemon-reload ; systemctl start iwd ; systemctl start connman');
+            sysCmd('systemctl daemon-reload ; systemctl start connman');
             // set automatic Wi-Fi optimisation
             $redis->set('network_autoOptimiseWifi', 1);
             // run refresh_nics
