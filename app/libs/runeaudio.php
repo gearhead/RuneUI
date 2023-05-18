@@ -9280,9 +9280,15 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     }
     //
     $return = array();
-    $return['rank'] = $rank;
-    $return['covertArtUrl'] = $covertArtUrl;
-    $return['song_lyrics'] = $retval;
+    if (isset($rank)) {
+        $return['rank'] = $rank;
+    }
+    if (isset($covertArtUrl)) {
+        $return['covertArtUrl'] = $covertArtUrl;
+    }
+    if (isset($retval)) {
+        $return['song_lyrics'] = $retval;
+    }
     $return['success'] = $found;
     $return['service'] = 'chartlyrics';
     return $return;
