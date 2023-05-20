@@ -275,7 +275,6 @@ while (true) {
                 if ($newStatus['radio']) {
                     // its a radio
                     $newStatus['time'] = 100;
-                    $now = microtime(true);
                     if ($newStatus['file'] != $saveFile) {
                         // it is a radio and it is not the same as the last radio, so this is the first information from the webradio
                         // $saveFile = $newStatus['file'];

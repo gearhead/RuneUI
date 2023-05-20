@@ -96,7 +96,7 @@ if [ "$mpdMixer" != "hardware" ] && [ "$mpdMixer" != "disabled" ] && [ "$mpdMixe
     # set software to hardware
     redis-cli hset mpdconf mixer_type hardware
 fi
-# reset UI message queueing, again
+# reset UI message queueing (again)
 redis-cli set waitSyWrk 0
 # reset the passworddate
 redis-cli set passworddate "$passworddate"

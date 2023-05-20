@@ -848,6 +848,8 @@ function renderLibraryHome() {
             content += divOpen + '<div id="home-dirble" class="home-block' + toggleMPD + '" data-plugin="Dirble" data-path="Dirble"><i class="fa fa-globe"></i><h3>Dirble</h3>radio stations open directory</div>' + divClose;
         }
     }
+
+    // Jamendo block
     if (chkKey(obj.Jamendo)) {
         // Jamendo
         if(isLocalHost) {

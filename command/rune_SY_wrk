@@ -137,14 +137,14 @@ if ($playerid_db === '') {
     // reset netconf to defaults
     runelog('reset netconf to defaults');
     // read system network interfaces details
-    wrk_netconfig($redis,'reset');
+    wrk_netconfig($redis, 'reset');
     // reset USB mounts
     runelog('invoke USB mounts reset');
     sysCmd('/srv/http/command/usbmount');
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_mpdconf($redis, 'stop');
-    wrk_sourcecfg($redis,'reset');
+    wrk_sourcecfg($redis, 'reset');
     // reset Webradios
     $redis->del('webradios');
     sysCmd('rm /mnt/MPD/Webradio/*');
@@ -746,17 +746,17 @@ while (true) {
             case 'lastfm':
                 if ($job->action === 'start') {
                     if ($job->args->user != $redis->hGet('lastfm', 'user') OR $job->args->pass != $redis->hGet('lastfm', 'pass')) {
-                    // mpdscribble.conf
-                    $file = '/etc/mpdscribble.conf';
-                    $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
-                    $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
-                    // Commit changes to /etc/mpdscribble.conf
-                    $fp = fopen($file, 'w');
-                    fwrite($fp, implode("", $newArray));
-                    fclose($fp);
-                    unset($newArray);
-                    // write LastFM auth data to Redis datastore
-                    setLastFMauth($redis, $job->args);
+                        // mpdscribble.conf
+                        $file = '/etc/mpdscribble.conf';
+                        $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
+                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
+                        // Commit changes to /etc/mpdscribble.conf
+                        $fp = fopen($file, 'w');
+                        fwrite($fp, implode("", $newArray));
+                        fclose($fp);
+                        unset($newArray);
+                        // write LastFM auth data to Redis datastore
+                        setLastFMauth($redis, $job->args);
                     }
                     // check if spotify is configured
                     if ($redis->hGet('spotify','enable') === '1') {
