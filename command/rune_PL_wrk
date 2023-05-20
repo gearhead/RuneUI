@@ -80,25 +80,14 @@ while (true) {
     $activePlayer = $redis->get('activePlayer');
     $proxy = $redis->hGetall('proxy');
     $lastfm_apikey = $redis->get('lastfm_apikey');
-    // if ($activePlayer === 'MPD') {
-        runelog('rune_PL_wrk: open MPD local UNIX socket');
-        //$socket = openMpdSocket('/run/mpd/socket', 0);
-        $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-        if (!$socket) {
-            $redis->close();
-            sleep(5);
-            continue;
-        }
-    // } else if ($activePlayer === 'Spotify') {
-        // runelog('rune_PL_wrk: open SPOP socket');
-        // $socket = openSpopSocket('localhost', 6602, 1);
-        // if (!$socket) {
-            // $redis->close();
-            // sleep(5);
-            // continue;
-        // }
-    // }
-
+    runelog('rune_PL_wrk: open MPD local UNIX socket');
+    //$socket = openMpdSocket('/run/mpd/socket', 0);
+    $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+    if (!$socket) {
+        $redis->close();
+        sleep(5);
+        continue;
+    }
     if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect")) {
         // exit script
         // die();

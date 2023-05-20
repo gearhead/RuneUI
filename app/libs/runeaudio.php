@@ -5820,47 +5820,6 @@ function wrk_playerID($arch)
     return $playerid;
 }
 
-// function wrk_switchplayer($redis, $playerengine)
-// {
-    // switch ($playerengine) {
-        // case 'MPD':
-            // $retval = sysCmd('systemctl is-active mpd');
-            // if ($retval[0] === 'active') {
-                // // do nothing
-            // } else {
-                // $return = sysCmd('systemctl start mpd');
-            // }
-            // unset($retval);
-            // // ashuffle gets started automatically
-            // usleep(500000);
-            // if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl start mpdscribble');
-            // if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl start upmpdcli');
-            // $redis->set('activePlayer', 'MPD');
-            // wrk_mpdRestorePlayerStatus($redis);
-            // $return = sysCmd('systemctl stop spopd');
-            // $return = sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-            // // set process priority
-            // sysCmdAsync($redis, 'rune_prio nice');
-            // break;
-
-        // case 'Spotify':
-            // $return = sysCmd('systemctl start spopd');
-            // usleep(500000);
-            // if ($redis->hGet('lastfm','enable') === '1') sysCmd('systemctl stop mpdscribble');
-            // if ($redis->hGet('dlna','enable') === '1') sysCmd('systemctl stop upmpdcli');
-            // sysCmd('systemctl stop ashuffle');
-            // wrk_mpdPlaybackStatus($redis);
-            // $redis->set('activePlayer', 'Spotify');
-            // $return = sysCmd('systemctl stop mpd');
-            // $redis->set('mpd_playback_status', 'stop');
-            // $return = sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-            // // set process priority
-            // sysCmdAsync($redis, 'rune_prio nice');
-            // break;
-    // }
-    // return $return;
-// }
-
 function wrk_sysAcl()
 {
     sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh fast');
