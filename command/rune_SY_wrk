@@ -1383,6 +1383,34 @@ while (true) {
                 wrk_llmnrd($redis);
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'hwinput':
+                if ($job->action == 'start') {
+                    $redis->hSet('hw_input', 'enable', 1);
+                    ui_notify($redis, "Hardware Input", 'Enabled');
+                } else if ($job->action == 'stop') {
+                    $redis->hSet('hw_input', 'enable', 0);
+                    ui_notify($redis, "Hardware Input", 'Disabled');
+                } else {
+                    if (isset($job->args)) {
+                        wrk_hwinput($redis, $job->action, $job->args);
+                    } else {
+                        wrk_hwinput($redis, $job->action);
+                    }
+                }
+                sleep(1);
+                $redis->sRem('w_lock', $jobID);
+                wrk_mpdconf($redis, 'refreshhwinput');
+                break;
+            case 'cdinput':
+                if (isset($job->args)) {
+                    wrk_CD($redis, $job->action, $job->args);
+                } else {
+                    wrk_CD($redis, $job->action);
+                }
+                sleep(1);
+                $redis->sRem('w_lock', $jobID);
+                wrk_CD($redis);
+                break;
         } // end switch
         // delete processed job from the w_queue
         $redis->hDel('w_queue', $jobID);
@@ -1462,6 +1490,9 @@ while (true) {
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'CD_detect')) {
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
             // check that the redis database is up to date

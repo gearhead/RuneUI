@@ -175,7 +175,10 @@ while (true)  {
                 unset($songinfo['currsong']);
             }
         } else if (strpos(' '.$songinfo['currsong']['file'], 'alsa:') === 1) {
-            // hardware input, don't process it, remove it from the array
+            // hardware alsa input, don't process it, remove it from the array
+            unset($songinfo['currsong']);
+        } else if (strpos(' '.$songinfo['currsong']['file'], 'cdda:') === 1) {
+            // hardware CD input, don't process it, remove it from the array
             unset($songinfo['currsong']);
         }
         //
@@ -214,7 +217,10 @@ while (true)  {
                 unset($songinfo['nextsong']);
             }
         } else if (strpos(' '.$songinfo['nextsong']['file'], 'alsa:') === 1) {
-            // hardware input, don't process it, remove it from the array
+            // hardware alsa input, don't process it, remove it from the array
+            unset($songinfo['nextsong']);
+        } else if (strpos(' '.$songinfo['nextsong']['file'], 'cdda:') === 1) {
+            // hardware CD input, don't process it, remove it from the array
             unset($songinfo['nextsong']);
         }
         //

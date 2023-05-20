@@ -23,3 +23,10 @@ SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics async"
 #
 SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="add", RUN+="/srv/http/command/bt-connect.php add"
 SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="remove", RUN+="/srv/http/command/bt-connect.php remove"
+#
+#
+# following rules to detect a CD insertion or eject and removal/power on/off of the CD drive
+#
+#
+KERNEL=="sr[0-9]", SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ENV{DISK_MEDIA_CHANGE}=="1", ACTION=="change", RUN+="/srv/http/command/CD_detect inserted async"
+KERNEL=="sr[0-9]", SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ACTION=="remove", RUN+="/srv/http/command/CD_detect ejected async"

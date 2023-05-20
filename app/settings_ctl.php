@@ -169,6 +169,32 @@ if (isset($_POST)) {
             $redis->get('udevil') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'udevil', 'action' => 'stop'));
         }
         if (isset($_POST['features']['hwinput']) && $_POST['features']['hwinput']) {
+            // create worker job (start hwinput)
+            $redis->hGet('hw_input', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'hwinput', 'action' => 'start'));
+        } else {
+            // create worker job (stop hwinput)
+            $redis->hGet('hw_input', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'hwinput', 'action' => 'stop'));
+        }
+        if (isset($_POST['features']['cdautoplay']) && $_POST['features']['cdautoplay']) {
+            $cdautoplay = $_POST['features']['cdautoplay'];
+        } else {
+            $cdautoplay = 'None';
+        }
+        if ($cdautoplay != $redis->hGet('CD', 'autoplay')) {
+            if (isset($_POST['features']['cdinput']) && $_POST['features']['cdinput']) {
+                // create worker job (start cdinput) with arguments containing UI values
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'start', 'args' => array('autoplay' => $cdautoplay)));
+            } else {
+                // create worker job (stop cdinput) with arguments containing UI values
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'stop', 'args' => array('autoplay' => $cdautoplay)));
+            }
+        } else if (isset($_POST['features']['cdinput']) && $_POST['features']['cdinput']) {
+            // create worker job (start cdinput) when stopped
+            $redis->hGet('CD', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'start'));
+        } else {
+            // create worker job (stop cdinput) when started
+            $redis->hGet('CD', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'stop'));
+        }
         if (isset($_POST['features']['coverart']) && $_POST['features']['coverart']) {
             if ($redis->get('coverart') != 1) {
                 $redis->set('coverart', 1);
@@ -309,6 +335,9 @@ if ($redis->get('ao')) {
 } else {
     $template->ao = false;
 }
+$template->hwinput = $redis->hGet('hw_input', 'enable');
+$template->cdinput = $redis->hGet('CD', 'enable');
+$template->cdautoplay = $redis->hGet('CD', 'autoplay');
 // the following code is for a manually edited /boot/config.txt containing a I2S-Settings dtoverlay value
 if ($template->i2smodule == 'none') {
     $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];

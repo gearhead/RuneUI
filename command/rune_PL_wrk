@@ -337,9 +337,46 @@ while (true) {
                             }
                         }
                     }
-                }
-                if (!$newStatus['radio']) {
-                    // its not a radio, try fixing the display data from cached values
+                } else if (isset($newStatus['file']) && ((strtolower(substr($newStatus['file'], 0, 5)) == 'alsa:') || (strtolower(substr($newStatus['file'], 0, 5)) == 'cdda:'))) {
+                    // its an alsa hw source or a CD source
+                    //  there is no metadata available
+                    $newStatus['currentartist'] = 'Hardware Source';
+                    $newStatus['currentalbumartist'] = $newStatus['currentartist'];
+                    if (strtolower(substr($newStatus['file'], 0, 5)) == 'alsa:') {
+                        // its an alsa hw source
+                        $newStatus['time'] = 100;
+                        $hwCard = trim(get_between_data($newStatus['file'], 'hw:', ','));
+                        $hwCardInfo = sysCmd('arecord -l -c '.$hwCard.' | grep -i "card '.$hwCard.'" | xargs')[0];
+                        $hwCardDesc = trim(get_between_data($hwCardInfo, '[', ']'));
+                        $newStatus['currentsong'] = $hwCardDesc;
+                        $newStatus['currentalbum'] = $newStatus['file'];
+                        unset($hwCard, $hwCardInfo, $hwCardDesc);
+                    } else {
+                        // its a hardware cd source, track number may be available
+                        $cdDevice = get_between_data($newStatus['file'], '//', '/');
+                        if (isset($cdDevice) && trim($cdDevice)) {
+                            $cdTrack = trim(get_between_data($newStatus['file'], $cdDevice.'/'));
+                        }
+                        if (isset($cdTrack) && $cdTrack) {
+                            $newStatus['currentsong'] = 'CD Track #'.$cdTrack;
+                        } else {
+                            $newStatus['currentsong'] = 'CD All Tracks';
+                        }
+                        unset($cdDevice, $cdTrack);
+                        $newStatus['currentalbum'] = $newStatus['file'];
+                    }
+                    $newStatus['currentcomposer'] = '...';
+                    $newStatus['song_lyrics'] = ' ';
+                    $newStatus['artist_bio_summary'] = ' ';
+                    $newStatus['artist_similar'] = ' ';
+                    $newStatus['mainArtURL'] = $artUrl.'/none.png';
+                    $newStatus['bigArtURL'] = $artUrl.'/none.png';
+                    $newStatus['smallArtURL'] = $artUrl.'/none.png';
+                    $status = $newStatus;
+                    $mpdChangeSong = false;
+                } else {
+                // if (!$newStatus['radio']) {
+                    // its not a radio, a alsa hw source nor a hardware CD source, try fixing the display data from cached values
                     if ($newStatus['file'] &&
                             (($newStatus['file'] != $mpdFixFile))
                             || (!isset($status['mainArtURL']))

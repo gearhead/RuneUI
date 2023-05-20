@@ -1,0 +1,69 @@
+#!/usr/bin/php
+<?php
+/*
+ * Copyright (C) 2013-2014 RuneAudio Team
+ * http://www.runeaudio.com
+ *
+ * RuneUI
+ * copyright (C) 2013-2014 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+ *
+ * RuneOS
+ * copyright (C) 2013-2014 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+ *
+ * RuneAudio website and logo
+ * copyright (C) 2013-2014 - ACX webdesign (Andrea Coiutti)
+ *
+ * This Program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This Program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RuneAudio; see the file COPYING. If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.txt>.
+ *
+ *  file: command/CD_detect
+ *  version: 0,6
+ *  coder: janui
+ *  date: May 2023
+ *
+ */
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
+ini_set('error_log', '/var/log/runeaudio/CD_detect.log');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: CD_detect ---------------" > /var/log/runeaudio/CD_detect.log');
+// logging starting message
+runelog('WORKER CD_detect STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+//  the second parameter has a value of 'async' when asynchronous is requested
+if (isset($argv[2]) && ($argv[2] === 'async')) {
+    runelog('running asynchronously');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect '.$argv[1]);
+    // close Redis connection
+    $redis->close();
+    runelog('WORKER CD_detect END...');
+    exit;
+}
+runelog('CD change');
+wrk_CD($redis, $argv[1]);
+
+// close Redis connection
+$redis->close();
+
+runelog('WORKER CD_detect END...');
