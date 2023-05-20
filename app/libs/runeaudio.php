@@ -3139,7 +3139,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('cp /srv/http/app/config/defaults/var/lib/connman/settings /var/lib/connman/settings');
             sysCmd('chmod 600 /var/lib/connman/settings');
             // restore the default boot-initialise Wi-Fi files
-            sysCmd('rm -rf /boot/wifi');
             sysCmd('mkdir -p /boot/wifi/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
