@@ -498,284 +498,6 @@ function getPlayQueue($sock)
 }
 
 // Spotify support
-function openSpopSocket($host, $port, $type = null)
-// connection types: 0 = normal (blocking), 1 = burst mode (blocking), 2 = burst mode 2 (non blocking)
-{
-    $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-    // create non blocking socket connection
-    if ($type === 1 OR $type === 2) {
-        if ($type === 2) {
-            socket_set_nonblock($sock);
-            runelog('opened **BURST MODE 2 (non blocking)** socket resource: ',$sock);
-        } else {
-            runelog('opened **BURST MODE (blocking)** socket resource: ',$sock);
-        }
-        $sock = array('resource' => $sock, 'type' => $type);
-        $connection = socket_connect($sock['resource'], $host, $port);
-        if ($connection) {
-            // skip SPOP greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs, for reporting
-            $header = rtrim(socket_read($sock['resource'], 20, PHP_NORMAL_READ), "\n\r\0");
-            runelog("[open][".$sock['resource']."]\t>>>>>> OPEN SPOP SOCKET greeting response: ".$header."<<<<<<",'');
-            return $sock;
-        } else {
-            runelog("[error][".$sock['resource']."]\t>>>>>> SPOP SOCKET ERROR: ".socket_last_error($sock['resource'])." <<<<<<",'');
-            // ui_notifyError($redis, 'SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
-            return false;
-        }
-    // create blocking socket connection
-    } else {
-        runelog('opened **NORMAL MODE (blocking)** socket resource: ',$sock);
-        $connection = socket_connect($sock, $host, $port);
-        if ($connection) {
-            // skip SPOP greeting response (first 20 bytes or until the first \n, \r or \0) - trim the trailing \n, \r or \0, but not spaces/tabs, for reporting
-            $header = rtrim(socket_read($sock, 11, PHP_NORMAL_READ), "\n\r\0");
-            runelog("[open][".$sock['resource']."]\t>>>>>> OPEN SPOP SOCKET greeting response: ".$header."<<<<<<",'');
-            return $sock;
-        } else {
-            runelog("[error][".$sock."]\t<<<<<<<<<<<< SPOP SOCKET ERROR: ".socket_strerror(socket_last_error($sock))." >>>>>>>>>>>>",'');
-            // ui_notifyError($redis, 'SPOP sock: '.$sock['resource'],'socket error = '.socket_last_error($sock));
-            return false;
-        }
-    }
-}
-
-function closeSpopSocket($sock)
-{
-     if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-    } else {
-        $sockResource = $sock;
-    }
-    sendSpopCommand($sock, 'bye');
-    // socket_shutdown($sock, 2);
-    // debug
-    runelog("[close][".$sock."]\t<<<<<< CLOSE SPOP SOCKET (".socket_strerror(socket_last_error($sock)).") >>>>>>",'');
-    socket_close($sockResource);
-}
-
-
-function sendSpopCommand($sock, $cmd)
-{
-     if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-    } else {
-        $sockResource = $sock;
-    }
-    $cmd = $cmd."\n";
-    socket_write($sockResource, $cmd, strlen($cmd));
-    runelog("SPOP COMMAND: (socket=".$sockResource.")", $cmd);
-    //ui_notify($redis, 'COMMAND GIVEN','CMD = '.$cmd,'.9');
-}
-
-// detect end of SPOP response
-function checkSpopEOR($chunk)
-{
-    if (strpos($chunk, "\n") !== false) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-function readSpopResponse($sock)
-{
-    if ((is_array($sock)) && (isset($sock['resource']))) {
-        $sockResource = $sock['resource'];
-        $sockType = $sock['type'];
-    } else {
-        $sockResource = $sock;
-        $sockType = 0;
-    }
-    // initialize vars
-    $output = '';
-    $read = '';
-    $read_monitor = array();
-    $write_monitor  = NULL;
-    $except_monitor = NULL;
-    // debug
-    // socket monitoring
-    // iteration counter
-    // $i = 0;
-    // timestamp
-    // $starttime = microtime(true);
-    // runelog('START timestamp:', $starttime);
-    if ($sockType === 2) {
-        // handle burst mode 2 (nonblocking) socket session
-        $read_monitor = array($sockResource);
-        $buff = 1024;
-        $end = 0;
-        // debug
-        // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
-        while($end === 0) {
-            if (is_resource($sockResource) === true) {
-                $read = socket_read($sockResource, $buff);
-            } else {
-                break;
-            }
-            if (checkSpopEOR($read) === true) {
-                ob_start();
-                echo $read;
-                // flush();
-                ob_flush();
-                ob_end_clean();
-                $end = 1;
-                break;
-            }
-            if (strpos($read, "\n")) {
-                ob_start();
-                echo $read;
-                // flush();
-                ob_flush();
-                ob_end_clean();
-            } else {
-                continue;
-            }
-            usleep(200);
-        }
-    } elseif ($sockType === 1) {
-        // handle burst mode 1 (blocking) socket session
-        $read_monitor = array($sockResource);
-        $buff = 1310720;
-        // debug
-        // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
-        do {
-            // debug
-            // $i++;
-            // $elapsed = microtime(true);
-            // read data from socket
-            if (is_resource($sockResource) === true) {
-                $read = socket_read($sockResource, $buff);
-            } else {
-                break;
-            }
-            // debug
-            // runelog('socket_read status', $read);
-            if ($read === '' OR $read === false) {
-                $output = socket_strerror(socket_last_error($sockResource));
-                // debug
-                runelog('socket disconnected!!!', $output);
-                break;
-            }
-            $output .= $read;
-            // usleep(200);
-            // debug
-            // runelog('_1_socket_activity (in-loop): iteration='.$i.' ', $socket_activity);
-            // runelog('_1_buffer length:', strlen($output));
-            // runelog('_1_iteration:', $i);
-            // runelog('_1_timestamp:', $elapsed);
-        } while (checkSpopEOR($read) === false);
-        // debug
-        // runelog('END timestamp:', $elapsed);
-        // runelog('RESPONSE length:', strlen($output));
-        // runelog('EXEC TIME:', $elapsed - $starttime);
-        return $output;
-    } else {
-        // handle normal mode (blocking) socket session
-        $read_monitor = array($sockResource);
-        $buff = 4096;
-        // debug
-        // $socket_activity = socket_select($read_monitor, $write_monitor, $except_monitor, NULL);
-        // runelog('socket_activity (pre-loop):', $socket_activity);
-        do {
-            // debug
-            // $i++;
-            // $elapsed = microtime(true);
-            if (is_resource($sockResource) === true) {
-                $read = socket_read($sockResource, $buff, PHP_NORMAL_READ);
-            } else {
-                break;
-            }
-            // debug
-            // runelog('socket_read status', $read);
-            if ($read === '' OR $read === false) {
-                $output = socket_strerror(socket_last_error($sockResource));
-                // debug
-                runelog('socket disconnected!!!', $output);
-                break;
-            }
-            $output .= $read;
-            // usleep(200);
-            // debug
-            // runelog('read buffer content (0 mode)', $read);
-            // runelog('_0_buffer length:', strlen($output));
-            // runelog('_0_iteration:', $i);
-            // runelog('_0_timestamp:', $elapsed);
-        } while (checkSpopEOR($read) === false);
-        // debug
-        // runelog('END timestamp:', $elapsed);
-        // runelog('RESPONSE length:', strlen($output));
-        // runelog('EXEC TIME:', $elapsed - $starttime);
-        return $output;
-    }
-}
-
-function sendSpopIdle($sock)
-{
-    sendSpopCommand($sock,'idle');
-    $response = readSpopResponse($sock);
-    return $response;
-}
-
-function monitorSpopState($sock)
-{
-    if ($change == sendSpopIdle($sock)) {
-        $status = _parseSpopStatusResponse(SpopStatus($sock));
-        runelog('monitorSpopState()', $status);
-        return $status;
-    }
-}
-
-function SpopStatus($sock)
-{
-    sendSpopCommand($sock, "status");
-    $status = readSpopResponse($sock);
-    return $status;
-}
-
-function getSpopPlayQueue($sock)
-{
-    sendSpopCommand($sock, 'qpls');
-    $playqueue = readSpopResponse($sock);
-    //return _parseFileListResponse($playqueue);
-    return $playqueue;
-}
-
-function getSpopQueue($sock)
-{
-    $queue = '';
-    sendSpopCommand($sock, 'qls');
-    $playqueue = readSpopResponse($sock);
-    //return _parseFileListResponse($playqueue);
-    $pl = json_decode($playqueue);
-    foreach ($pl->tracks as $track) {
-        $queue .= "file: ".$track->uri."\n";
-        $queue .= "Time: ".($track->duration / 1000)."\n";
-        $queue .= "Track: ".$track->index."\n";
-        $queue .= "Title: ".$track->title."\n";
-        $queue .= "Artist: ".$track->artist."\n";
-        $queue .= "AlbumArtist: ".$track->artist."\n";
-        $queue .= "Album: ".$track->album."\n";
-        $queue .= "Date:\n";
-        $queue .= "Genre:\n";
-        $queue .= "Pos: ".$track->index."\n";
-        $queue .= "Id: ".$track->index."\n";
-    }
-    return $queue;
-}
-
-function spopDB($sock, $plid = null)
-{
-    if (isset($plid)) {
-        sendSpopCommand($sock,"ls ".$plid);
-    } else {
-        sendSpopCommand($sock, 'ls');
-    }
-    $response = readSpopResponse($sock);
-    return $response;
-}
-
 function getMpdOutputs($mpd)
 {
     if (sendMpdCommand($mpd, 'outputs')) {
@@ -1556,53 +1278,6 @@ function _parseStatusResponse($redis, $resp)
         }
     }
     return $plistArray;
-}
-
-function _parseSpopStatusResponse($resp)
-{
-if (is_null($resp)) {
-        return null;
-    } else {
-        $status = array();
-        $resp = json_decode($resp, true);
-        if ($resp['status'] === 'playing') {
-            $status['state'] = 'play';
-        } else if ($resp['status'] === 'stopped') {
-            $status['state'] = 'stop';
-        } else if ($resp['status'] === 'paused') {
-            $status['state'] = 'pause';
-        }
-        if ($resp['repeat'] === false) {
-            $status['repeat'] = '0';
-        } else {
-            $status['repeat'] = '1';
-        }
-        if ($resp['shuffle'] === false) {
-            $status['random'] = '0';
-        } else {
-            $status['random'] = '1';
-        }
-        $status['playlistlength'] = $resp['total_tracks'];
-        $status['currentartist'] = $resp['artist'];
-        $status['currentalbum'] = $resp['album'];
-        $status['currentsong'] = $resp['title'];
-        $status['song'] = $resp['current_track'] -1;
-        if (isset($res['position'])) {
-            $status['elapsed'] = $resp['position'];
-        // } else {
-            // $status['elapsed'] = 0;
-        }
-        $status['time'] = $resp['duration'] / 1000;
-        $status['volume'] = 100;
-        if ($resp['status'] === 'stopped') {
-            $status['song_percent'] = 0;
-        } else {
-            $status['song_percent'] = min(100, round(100 - (($status['time'] - $status['elapsed']) * 100 / $status['time'])));
-        }
-        $status['uri'] = $resp['uri'];
-        $status['popularity'] = $resp['popularity'];
-        return $status;
-    }
 }
 
 // function to structure an MPD response into an array indexed by the information elements
@@ -6623,13 +6298,13 @@ function ui_libraryHome($redis, $clientUUID=null)
     } else {
         $dirbleAmount = '';
     }
-    // Spotify
-    if ($redis->hGet('spotify', 'enable')) {
-        $spotify = 1;
-        // runelog('ui_libraryHome - spotify: ',$spotify);
-    } else {
-        $spotify = '';
-    }
+    // Hardware input devices
+    if ($redis->hGet('hw_input', 'enable')) {
+        $hwInput = json_decode($redis->hGet('hw_input', 'status'), true);
+        if (is_array($hwInput) && count($hwInput)) {
+        } else {
+            $hwInput = 0;
+        }
     // Check current player backend
     $activePlayer = $redis->get('activePlayer');
     // Bookmarks
@@ -6648,8 +6323,11 @@ function ui_libraryHome($redis, $clientUUID=null)
     }
     // runelog('ui_libraryHome - bookmarks: ',$bookmarks);
     // $jsonHome = json_encode(array_merge($bookmarks, array(0 => array('networkMounts' => $networkmounts)), array(0 => array('USBMounts' => $usbmounts)), array(0 => array('webradio' => $webradios)), array(0 => array('Dirble' => $dirble->amount)), array(0 => array('ActivePlayer' => $activePlayer))));
-    // $jsonHome = json_encode(array_merge($bookmarks, array(0 => array('networkMounts' => $networkmounts)), array(0 => array('USBMounts' => $usbmounts)), array(0 => array('webradio' => $webradios)), array(0 => array('Spotify' => $spotify)), array(0 => array('Dirble' => $dirble->amount)), array(0 => array('ActivePlayer' => $activePlayer))));
-    $jsonHome = json_encode(array('internetAvailable' => $internetAvailable, 'bookmarks' => $bookmarks, 'localStorages' => $localStorages, 'networkMounts' => $networkMounts, 'USBMounts' => $usbMounts, 'webradio' => $webradios, 'Spotify' => $spotify, 'Dirble' => $dirbleAmount, 'Jamendo' => $jamendo, 'ActivePlayer' => $activePlayer, 'clientUUID' => $clientUUID));
+    // $jsonHome = json_encode(array_merge($bookmarks, array(0 => array('networkMounts' => $networkmounts)), array(0 => array('USBMounts' => $usbmounts)), array(0 => array('webradio' => $webradios)), array(0 => array('Dirble' => $dirble->amount)), array(0 => array('ActivePlayer' => $activePlayer))));
+    $jsonHome = json_encode(array('internetAvailable' => $internetAvailable, 'bookmarks' => $bookmarks,
+                'localStorages' => $localStorages, 'networkMounts' => $networkMounts, 'USBMounts' => $usbMounts,
+                'webradio' => $webradios, 'Dirble' => $dirbleAmount, 'Jamendo' => $jamendo,
+                'ActivePlayer' => $activePlayer, 'clientUUID' => $clientUUID, 'HWinput' => $hwInput, 'CDinput' => $cdInput));
     // Encode UI response
     runelog('ui_libraryHome - JSON: ', $jsonHome);
     ui_render('library', $jsonHome);
@@ -6897,12 +6575,6 @@ function ui_update($redis, $sock=null, $clientUUID=null)
             // // return MPD response
             // return readMpdResponse($sock);
             // break;
-        case 'Spotify':
-            sendSpopCommand($sock, 'repeat');
-            sendSpopCommand($sock, 'repeat');
-             // return SPOP response
-            return readSpopResponse($sock);
-            break;
         default:
             // for streaming - airplay, spotify connect & bluetooth
             $status = json_decode($redis->get('act_player_info'), true);
@@ -10380,7 +10052,7 @@ function check_opcache($redis)
 
 // function to initialise the playback array
 function initialise_playback_array($redis, $playerType = 'MPD')
-// $playerType can have the following values: 'MPD' (default), 'Spotify', 'Airplay', 'Spotify connect', 'Bluetooth'
+// $playerType can have the following values: 'MPD' (default), 'Airplay', 'Spotify connect', 'Bluetooth'
 {
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
     $playerTypeLower = strtolower($playerType);
@@ -10405,8 +10077,6 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['file'] = '';
     $status['fileext'] = '';
     if ($playerTypeLower === 'mpd') {
-        $status['mainArtURL'] = $artUrl.'/none.png';
-    } else if ($playerTypeLower === 'spotify') {
         $status['mainArtURL'] = $artUrl.'/none.png';
     } else {
         $status['mainArtURL'] = $artUrl.'/'.str_replace(' ', '-', $playerTypeLower).'.png';

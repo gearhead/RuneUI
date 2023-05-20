@@ -159,9 +159,6 @@ if (isset($tplfile)) {
 if ($activePlayer === 'MPD') {
     // close MPD connection
     closeMpdSocket($mpd);
-} elseif ($activePlayer === 'Spotify') {
-    // close SPOP connection
-    closeSpopSocket($spop);
 }
 // notifications
 $notifications = $redis->hGetAll('notifications');

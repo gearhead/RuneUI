@@ -571,7 +571,7 @@ function setUIbuttons(activePlayer) {
     // console.log('GUI.consume:', GUI.consume);
     // console.log('GUI.json.consume:', GUI.json.consume);
     // this is the menus section header buttons
-    if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
+    if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
         // most UI knobs are only active for MPD
         $('#stop').addClass('disabled');
         $('#play').addClass('disabled');
@@ -604,7 +604,7 @@ function setUIbuttons(activePlayer) {
         // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
         document.getElementById('volume').readOnly = true;
         // update (volume knob and) control buttons
-        if ((activePlayer === 'Spotify') || (activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
+        if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
             //document.getElementById("volume").style.color = '#1A242F';
             $('#volume-knob').addClass('disabled');
@@ -685,8 +685,7 @@ function renderLibraryHome() {
         divOpen = '<div class="col-lg-3 col-md-4 col-sm-6">',
         divClose = '</div>',
         toggleMPD = '',
-        toggleSpotify = '',
-        notMPD = ((obj.ActivePlayer === 'Spotify') || (obj.ActivePlayer === 'Airplay') || (obj.ActivePlayer === 'SpotifyConnect') || (obj.ActivePlayer === 'Bluetooth'));
+        notMPD = ((obj.ActivePlayer === 'Airplay') || (obj.ActivePlayer === 'SpotifyConnect') || (obj.ActivePlayer === 'Bluetooth'));
     if(isLocalHost) {
         content = '';
     } else {
@@ -813,31 +812,6 @@ function renderLibraryHome() {
         content += divOpen + '<div id="home-genre" class="home-block' + toggleMPD + '" data-path="Genres" data-browsemode="genre"><i class="fa fa-tags"></i><h3>Genres</h3></div>' + divClose;
     } else {
         content += divOpen + '<div id="home-genre" class="home-block' + toggleMPD + '" data-path="Genres" data-browsemode="genre"><i class="fa fa-tags"></i><h3>Genres</h3>browse MPD database by genre</div>' + divClose;
-    }
-
-    // Spotify block
-    if (chkKey(obj.Spotify)) {
-        if(isLocalHost) {
-            if (obj.Spotify === '0') {
-                //content += divOpen + '<a id="home-spotify" class="home-block' + toggleSpotify + '" href="/settings/#features-management"><i class="fa fa-spotify"></i><h3>Spotify<span id="home-count-spotify"></span></h3></a>' + divClose;
-            } else {
-                if (obj.ActivePlayer !== 'Spotify') {
-                    content += divOpen + '<div id="home-spotify-switch" class="home-block"><i class="fa fa-spotify"></i><h3>Spotify</h3></div>' + divClose;
-                } else {
-                    content += divOpen + '<div id="home-spotify" class="home-block' + toggleSpotify + '" data-plugin="Spotify" data-path="Spotify"><i class="fa fa-spotify"></i><h3>Spotify</div>' + divClose;
-                }
-            }
-        } else {
-            if (obj.Spotify === '0') {
-                //content += divOpen + '<a id="home-spotify" class="home-block' + toggleSpotify + '" href="/settings/#features-management"><i class="fa fa-spotify"></i><h3>Spotify<span id="home-count-spotify"></span></h3>click to configure</a>' + divClose;
-            } else {
-                if (obj.ActivePlayer !== 'Spotify') {
-                    content += divOpen + '<div id="home-spotify-switch" class="home-block"><i class="fa fa-spotify"></i><h3>Spotify</h3>click to switch renderer</div>' + divClose;
-                } else {
-                    content += divOpen + '<div id="home-spotify" class="home-block' + toggleSpotify + '" data-plugin="Spotify" data-path="Spotify"><i class="fa fa-spotify"></i><h3>Spotify</h3>music for everyone</div>' + divClose;
-                }
-            }
-        }
     }
 
     // Dirble block
@@ -1598,33 +1572,6 @@ function parseResponse(options) {
             }
         break;
 
-        case 'Spotify':
-        // Spotify plugin
-            if (querytype === '') {
-            // folders
-                content = '<li id="db-' + (i + 1) + '" class="db-spotify db-folder" data-path="';
-                content += inputArr.index;
-                content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-spotify-pl"></i><span><i class="fa fa-folder-open"></i>';
-                content += (inputArr.name !== '') ? inputArr.name : 'Favorites';
-                content += ' (';
-                content += inputArr.tracks;
-                content += ')</span></li>';
-            } else if (querytype === 'tracks') {
-            // playlists
-                content = '<li id="db-' + (i + 1) + '" class="db-spotify" data-path="';
-                content += inputArr.index;
-                content += '" data-plid="';
-                content += inpath;
-                content += '" data-type="spotify-track"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-spotify"></i><i class="fa fa-spotify db-icon"></i><span class="sn">';
-                content += inputArr.title + ' <span>' + timeConvert(inputArr.duration/1000) + '</span></span>';
-                content += ' <span class="bl">';
-                content +=  inputArr.artist;
-                content += ' - ';
-                content +=  inputArr.album;
-                content += '</span></li>';
-            }
-        break;
-
         case 'Dirble':
         // Dirble plugin
             if (querytype === '' || querytype === 'childs') {
@@ -1684,40 +1631,6 @@ function populateDB(options){
 
     if (plugin !== '') {
     // plugins
-        if (plugin === 'Spotify') {
-        // Spotify plugin
-            $('#database-entries').removeClass('hide');
-            $('#db-level-up').removeClass('hide');
-            $('#home-blocks').addClass('hide');
-            if (path) {
-                GUI.currentpath = path;
-            }
-            document.getElementById('database-entries').innerHTML = '';
-            data = (querytype === 'tracks') ? data.tracks : data.playlists;
-
-            data.sort(function(a, b){
-                if (path === 'Spotify' && querytype === '') {
-                    nameA = a.hasOwnProperty('name')?a.name.toLowerCase():'';
-                    nameB = b.hasOwnProperty('name')?b.name.toLowerCase():'';
-                } else if (querytype === 'tracks') {
-                    nameA = a.hasOwnProperty('title')?a.title.toLowerCase():'';
-                    nameB = b.hasOwnProperty('title')?b.title.toLowerCase():'';
-                } else {
-                    return 0;
-                }
-                return nameA.localeCompare(nameB);
-            });
-            for (i = 0; (row = data[i]); i += 1) {
-                content += parseResponse({
-                    inputArr: row,
-                    respType: 'Spotify',
-                    i: i,
-                    querytype: querytype,
-                    inpath: args
-                });
-            }
-            document.getElementById('database-entries').innerHTML = content;
-        }
         if (plugin === 'Dirble') {
         // Dirble plugin
             $('#database-entries').removeClass('hide');
@@ -1911,20 +1824,7 @@ function getDB(options){
 
     if (plugin !== '') {
     // plugins
-        if (plugin === 'Spotify') {
-        // Spotify plugin
-            $.post('/db/?cmd=spotify', { 'plid': args }, function(data){
-                populateDB({
-                    data: data,
-                    path: path,
-                    plugin: plugin,
-                    querytype: querytype,
-                    uplevel: uplevel,
-                    args: args
-                });
-            }, 'json');
-        }
-        else if (plugin === 'Dirble') {
+        if (plugin === 'Dirble') {
         // Dirble plugin
             if (querytype === 'childs') {
                 $.post('/db/?cmd=dirble', { 'querytype': 'childs', 'args': args }, function(data){
@@ -2766,9 +2666,7 @@ if ($('#section-index').length) {
         // click on Library home block
         $('#home-blocks').on('click', '.home-block', function(e) {
             if (!$(this).hasClass('inactive')) {
-                if ($(this).is('#home-spotify-switch')) {
-                    $('#overlay-playsource-open').trigger('click');
-                } else if ($(e.target).is('span.block-remove')) {
+                if ($(e.target).is('span.block-remove')) {
                     var bookmarkID = $(this).attr('id');
                     bookmarkID = bookmarkID.replace('home-bookmark-', '');
                     var bookmarkName = $(this).find('h3').text();
@@ -2809,11 +2707,7 @@ if ($('#section-index').length) {
             if ($(e.target).hasClass('db-action')) {
             // actions context menu
                 e.preventDefault();
-                if (el.data('type') === 'spotify-track') {
-                    path = el.data('plid') + '-' + el.data('path');
-                } else {
-                    path = el.data('path');
-                }
+                path = el.data('path');
                 GUI.DBentry[0] = path;
                 // console.log('getDB path = ', GUI.DBentry);
             } else {
@@ -2859,16 +2753,6 @@ if ($('#section-index').length) {
                             uplevel: 0,
                             browsemode: 'genre'
                         });
-                    } else if (el.hasClass('db-spotify')) {
-                    // Spotify playlists
-                        path = GUI.currentpath    + '/' + el.find('span').text();
-                        getDB({
-                            path: path,
-                            plugin: 'Spotify',
-                            args: el.data('path').toString(),
-                            querytype: 'tracks'
-                        });
-                        GUI.plugin = 'Spotify';
                     } else if (el.hasClass('db-dirble')) {
                     // Dirble folders
                         path = GUI.currentpath + '/' + el.find('span').text();
@@ -2920,20 +2804,11 @@ if ($('#section-index').length) {
                 el.addClass('active');
                 var path = el.data('path');
                 // console.log('doubleclicked path = ', path);
-                if (el.hasClass('db-spotify')) {
-                    path = el.attr('data-plid') + '-' + el.attr('data-path');
-                    getDB({
-                        cmd: 'spaddplay',
-                        path: path,
-                        querytype: 'spotify-track'
-                    });
-                } else {
-                    path = (el.hasClass('db-dirble')) ? path.split(' | ')[1] : path;
-                    getDB({
-                        cmd: 'addplay',
-                        path: path
-                    });
-                }
+                path = (el.hasClass('db-dirble')) ? path.split(' | ')[1] : path;
+                getDB({
+                    cmd: 'addplay',
+                    path: path
+                });
             }
         });
 
@@ -3312,28 +3187,9 @@ if ($('#section-index').length) {
                     url: '/command/?switchplayer=MPD',
                     cache: false
                 });
-                // close switch buttons layer
-                $('#overlay-playsource-close').trigger('click');
             }
-        });
-        $('#playsource-spotify').click(function(){
-            if ($(this).hasClass('inactive')) {
-                if (GUI.libraryhome.Spotify === '1') {
-                    GUI.forceGUIupdate = true;
-                    $.ajax({
-                        url: '/command/?switchplayer=Spotify',
-                        cache: false
-                    });
-                    // close switch buttons layer
-                    $('#overlay-playsource-close').trigger('click');
-                } else {
-                    new PNotify({
-                        title: 'Spotify not enabled',
-                        text: 'Enable and configure it under the Settings screen',
-                        icon: 'fa fa-exclamation-circle'
-                    });
-                }
-            }
+            // close switch buttons layer
+            $('#overlay-playsource-close').trigger('click');
         });
 
         // on screen keyboard
@@ -3557,17 +3413,6 @@ if ($('#section-index').length) {
                 } else {
                     $('#dlnaQobuzName').addClass('hide');
                     $('#dlnaQobuzBox').removeClass('boxed-group');
-                }
-            });
-
-            // show/hide Spotify auth form
-            $('#spotify').change(function(){
-                if ($(this).prop('checked')) {
-                    $('#spotifyAuth').removeClass('hide');
-                    $('#spotifyBox').addClass('boxed-group');
-                } else {
-                    $('#spotifyAuth').addClass('hide');
-                    $('#spotifyBox').removeClass('boxed-group');
                 }
             });
 

@@ -76,7 +76,6 @@ if (($redis->get('volume') == 1) && ($template->activePlayer == 'MPD')) {
 $template->UIorder = str_split($redis->get('UIorder'));
 $template->volume['dynamic'] = $redis->get('dynVolumeKnob');
 $template->dev = $redis->get('dev');
-$template->spotify = $redis->hGet('spotify', 'enable');
 $template->spotifyconnect = $redis->hGet('spotifyconnect', 'enable');
 $template->airplay = $redis->hGet('airplay', 'enable');
 $template->dlna = $redis->hGet('dlna', 'enable');

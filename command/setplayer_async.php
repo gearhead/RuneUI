@@ -48,28 +48,11 @@ sysCmd('export DISPLAY=:0 ; xrandr');
 // force alsa to reload all card profiles (should not be required, but some audio devices seem to need it)
 sysCmd('alsactl kill rescan');
 
-// read activePlayer state
-$activePlayer = $redis->get('activePlayer');
-if ($activePlayer === 'MPD') {
-    // stop spotify, if started
-    sysCmd('pgrep -x spopd && systemctl stop spopd');
-    // Refresh the MPD config file and start/restart MPD if required
-    wrk_mpdconf($redis, 'refresh');
-    // ashuffle gets started automatically
-} else if ($activePlayer === 'Spotify') {
-    // stop MPD
-    wrk_mpdconf($redis, 'stop');
-    // start spotify, if not started
-    sysCmd('pgrep -x spopd || systemctl start spopd');
-} else {
-    // stop spotify, if started
-    sysCmd('pgrep -x spopd && systemctl stop spopd');
-    // reset activePlayer state to MPD (default) & check MPD process, it can be started earlier
-    $redis->set('activePlayer', 'MPD');
-    // Refresh the MPD config file and start/restart MPD if required
-    wrk_mpdconf($redis, 'refresh');
-    // ashuffle gets started automatically
-}
+// reset activePlayer state to MPD (default)
+$redis->set('activePlayer', 'MPD');
+// Refresh the MPD config file and start/restart MPD if required
+wrk_mpdconf($redis, 'refresh');
+// ashuffle gets started automatically
 
 runelog('WORKER setplayer_async.php END...');
 #---

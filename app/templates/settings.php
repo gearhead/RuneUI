@@ -243,39 +243,6 @@
                     </div>
                 </div>
             </div>
-            <!--
-            <div <?php if((isset($this->spotify['enable'])) && ($this->spotify['enable'])): ?>class="boxed-group"<?php endif ?> id="spotifyBox">
-                <div class="form-group">
-                    <label for="spotify" class="control-label col-sm-2">Spotify</label>
-                    <div class="col-sm-10">
-                        <label class="switch-light well" onclick="">
-                            <input id="spotify" name="features[spotify][enable]" type="checkbox" value="1"<?php if((isset($this->spotify['enable'])) && ($this->spotify['enable'])): ?> checked="checked" <?php endif ?> <?php if($this->activePlayer === 'Spotify'): ?>disabled readonly<?php endif; ?>>
-                            <?php if($this->activePlayer === 'Spotify'): ?><input id="spotify" name="features[spotify][enable]" type="hidden" value="1"><?php endif; ?>
-                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'Spotify'): ?>disabled<?php endif; ?>"></a>
-                        </label>
-                        <span class="help-block">Due to the Spotify upgrade of May 2018 the Spotify client no longer works<br>
-                        <i>Enable Spotify client. You must have a <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong> account</i></span>
-                    </div>
-                </div>
-                <div class="<?php if($this->spotify['enable'] != 1): ?>hide<?php endif ?>" id="spotifyAuth">
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="spotify-usr">Username</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="spotify_user" name="features[spotify][user]" value="<?php echo $this->spotify['user']; ?>" data-trigger="change" placeholder="user" autocomplete="off">
-                            <span class="help-block">Insert your Spotify <i>username</i></span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="spotify-pasw">Password</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="password" id="spotify_pass" name="features[spotify][pass]" value="<?php echo $this->spotify['pass']; ?>" placeholder="pass" autocomplete="off">
-                            <span class="help-block">Insert your Spotify <i>password</i> (case sensitive)<br>
-                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            -->
             <div <?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?>class="boxed-group"<?php endif ?> id="dlnaBox">
                 <div class="form-group">
                     <label for="dlna" class="control-label col-sm-2">UPnP/DLNA</label>

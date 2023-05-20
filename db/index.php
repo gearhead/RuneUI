@@ -57,9 +57,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if ($activePlayer === 'MPD') {
                     // MPD
                     echo json_encode(browseDB($mpd, $_POST['browsemode']));
-                } elseif ($activePlayer === 'Spotify') {
-                    // SPOP
-                    echo json_encode('home');
                 }
             }
             break;
@@ -77,8 +74,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 // echo $resp;
                 echo getPlayQueue($mpd);
                 // echo trim(getPlayQueue($mpd), "\x7f..\xff\x0..\x1f");
-            } elseif ($activePlayer === 'Spotify') {
-                echo getSpopQueue($spop);
             }
             break;
         case 'add':
@@ -294,61 +289,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     echo curlGet('http://api.jamendo.com/v3.0/radios/stream?client_id='.$apikey.'&format=json&name='.$_POST['args'], $proxy);
                 }
                 unset($apikey, $proxy, $jam_channels, $channel, $station);
-            }
-            break;
-        case 'spotify':
-            if ($activePlayer === 'Spotify') {
-                if (isset($_POST['plid'])) {
-                    echo spopDB($spop, $_POST['plid']);
-                } else {
-                    echo spopDB($spop);
-                }
-            }
-            break;
-        case 'spadd':
-            if ($activePlayer === 'Spotify') {
-                if ($_POST['querytype'] === 'spotify-playlist') {
-                    sendSpopCommand($spop, 'add '.$_POST['path']);
-                } else {
-                    $path = explode('-', $_POST['path']);
-                    sendSpopCommand($spop, 'add '.$path[0].' '.$path[1]);
-                }
-                $redis->hSet('spotify', 'lastcmd', 'add');
-                $redis->hIncrBy('spotify', 'plversion', 1);
-                unset($path);
-            }
-            break;
-        case 'spaddplay':
-            if ($activePlayer === 'Spotify') {
-                $status = _parseSpopStatusResponse(SpopStatus($spop));
-                $trackid = $status['playlistlength'] + 1;
-                if ($_POST['querytype'] === 'spotify-playlist') {
-                    sendSpopCommand($spop, 'add '.$_POST['path']);
-                } else {
-                    $path = explode('-', $_POST['path']);
-                    sendSpopCommand($spop, 'add '.$path[0].' '.$path[1]);
-                }
-                $redis->hSet('spotify', 'lastcmd', 'add');
-                $redis->hIncrBy('spotify', 'plversion', 1);
-                usleep(300000);
-                sendSpopCommand($spop, 'goto '.$trackid);
-                unset($path);
-            }
-            break;
-        case 'spaddreplaceplay':
-            if ($activePlayer === 'Spotify') {
-                sendSpopCommand($spop, 'qclear');
-                if ($_POST['querytype'] === 'spotify-playlist') {
-                    sendSpopCommand($spop, 'add '.$_POST['path']);
-                } else {
-                    $path = explode('-', $_POST['path']);
-                    sendSpopCommand($spop, 'add '.$path[0].' '.$path[1]);
-                }
-                $redis->hSet('spotify', 'lastcmd', 'add');
-                $redis->hIncrBy('spotify', 'plversion', 1);
-                usleep(300000);
-                sendSpopCommand($spop, 'play');
-                unset($path);
             }
             break;
         case 'addradio':
@@ -658,9 +598,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
 if ($activePlayer === 'MPD') {
     // close MPD connection
     closeMpdSocket($mpd);
-} elseif ($activePlayer === 'Spotify') {
-    // close SPOP connection
-    closeSpopSocket($spop);
 }
 // close Redis connection
 $redis->close();

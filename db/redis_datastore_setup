@@ -280,11 +280,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('dlna', 'radioname', '');
             $redis->hSet('dlna', 'file', '');
             $redis->set('udevil', 1);
-            $redis->hSet('spotify', 'enable', 0);
-            $redis->hSet('spotify', 'user', 'user');
-            $redis->hSet('spotify', 'pass', 'pass');
-            $redis->hSet('spotify', 'plversion', 1);
-            $redis->hSet('spotify', 'lastcmd', '');
             $redis->set('coverart', 1);
             $redis->set('UIorder', 'TAV');
             $redis->set('artist-info', 1);
@@ -598,11 +593,6 @@ function redisDatastore($redis,$action) {
             $redis->hExists('dlna', 'loglevel') || $redis->hSet('dlna', 'loglevel', 2);
             $redis->hExists('dlna', 'radioname') || $redis->hSet('dlna', 'radioname', '');
             $redis->hExists('dlna', 'file') || $redis->hSet('dlna', 'file', '');
-            $redis->hExists('spotify', 'enable') || $redis->hSet('spotify', 'enable', 0);
-            $redis->hExists('spotify', 'user') || $redis->hSet('spotify', 'user', 'user');
-            $redis->hExists('spotify', 'pass') || $redis->hSet('spotify', 'pass', 'pass');
-            $redis->hExists('spotify', 'plversion') || $redis->hSet('spotify', 'plversion', 1);
-            $redis->hExists('spotify', 'lastcmd') || $redis->hSet('spotify', 'lastcmd', '');
             // ashuffle global random
             $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'enable') || $redis->hSet('globalrandom', 'enable', 0);
