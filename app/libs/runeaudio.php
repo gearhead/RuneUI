@@ -3141,8 +3141,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // restore the default boot-initialise Wi-Fi files
             sysCmd('rm -rf /boot/wifi');
             sysCmd('mkdir -p /boot/wifi/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme/* /boot/wifi/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples /boot/wifi/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
             // restore the standard service and config files
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/connman.service /etc/systemd/system/connman.service');
             sysCmd('mkdir /etc/connman/');
