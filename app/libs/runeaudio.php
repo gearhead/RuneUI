@@ -32,9 +32,8 @@
  *
  */
 
-// Expected MPD & SPOP Open Response messages
+// Expected MPD Open Response message
 // MPD: "OK MPD x.xx.xx\n" (14 to 15 bytes, as of version 0.22.0)
-// SPOP: "spop x.x.x\n" (11 bytes, as of version 0.0.1)
 // Where x is a numeric vanue (version number)
 
 function is_localhost()

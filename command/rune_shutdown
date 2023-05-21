@@ -100,7 +100,7 @@ if [ "$shutdownmode" != "" ] ; then
     systemctl stop redis
 fi
 # stop most of the systemd units which can be stopped
-systemctl stop spotifyd shairport-sync spopd samba smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk udevil systemd-udevd bluetooth bluealsa avahi-daemon llmnrd cmd_async_queue
+systemctl stop spotifyd shairport-sync samba smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk udevil systemd-udevd bluetooth bluealsa avahi-daemon llmnrd cmd_async_queue
 # unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*

@@ -45,7 +45,6 @@ for pid in $(pgrep -w mpd); do
 done;
 renice -1 $(pgrep -w mpd)
 renice -1 $(pgrep -w shairport-sync)
-renice -1 $(pgrep -w spopd)
 renice -1 $(pgrep -w spotifyd)
 renice -1 $(pgrep -w upmpdcli)
 # lower priority
@@ -107,7 +106,6 @@ renice 0 $(pgrep -w rune_SY_wrk)
 renice 0 $(pgrep -w shairport-sync)
 renice 0 $(pgrep -w smb)
 renice 0 $(pgrep -w smbd)
-renice 0 $(pgrep -w spopd)
 renice 0 $(pgrep -w spotifyd)
 renice 0 $(pgrep -w sshd)
 renice 0 $(pgrep -w upmpdcli)
