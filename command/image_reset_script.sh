@@ -27,7 +27,7 @@
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 #  file: command/image_reset_script.sh
-#  version: 1.3
+#  version: 0.5
 #  coder: janui
 #  date: October 2020
 #
@@ -182,25 +182,6 @@ rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
-#
-# remove the network configuration files, these could contain Wi-Fi passwords
-#   for the connman and iwd user files, connman needs to be stopped
-systemctl stop connman
-# get the networks known to iwd
-networks=$( iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
-# forget each network known to iwd
-for i in "$networks" ; do
-    # echo "'$i'"
-    wctl known-networks "$i" forget
-done
-# delete the connman configuration files
-rm -rf /var/lib/connman/*
-# delete the iwd configuration files (there should be none after forgetting the known networks)
-rm -rf /var/lib/iwd/*
-# copy the default connman config file
-cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
-# start connman which will refresh the network information
-systemctl start connman
 #
 # remove core dumps
 rm /var/lib/systemd/coredump/*.zst
@@ -428,6 +409,30 @@ usermod -L -s /usr/bin/bash spotifyd
 # add system group netdev if it is not defined
 grep -i netdev /etc/group || groupadd --system netdev
 #
+# add waveshare LDC touchscreen overlays, only when xwindows is installed
+if [ -f "/bin/xinit" ] ; then
+    /srv/http/command/waveshare_install.sh
+fi
+#
+# remove the network configuration files, these could contain Wi-Fi passwords
+#   for the connman and iwd user files, connman needs to be stopped
+systemctl stop connman
+# get the networks known to iwd
+networks=$( iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
+# forget each network known to iwd
+for i in "$networks" ; do
+    # echo "'$i'"
+    wctl known-networks "$i" forget
+done
+# delete the connman configuration files
+rm -rf /var/lib/connman/*
+# delete the iwd configuration files (there should be none after forgetting the known networks)
+rm -rf /var/lib/iwd/*
+# copy the default connman config file
+cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+# start connman which will refresh the network information
+systemctl start connman
+#
 # reset the service and configuration files to the distribution standard
 # the following commands should also be run after a system update or any package updates
 rm -f /etc/nginx/nginx.conf
@@ -469,11 +474,6 @@ fi
 # modify the /etc/php/php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
 if [ -f "/etc/php/php.ini" ] ; then
     sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=32' /etc/php/php.ini
-fi
-#
-# add waveshare LDC touchscreen overlays, only when xwindows is installed
-if [ -f "/bin/xinit" ] ; then
-    /srv/http/command/waveshare_install.sh
 fi
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
