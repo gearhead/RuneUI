@@ -680,6 +680,12 @@ if [ "$1" == "full" ] ; then
     cd /home
 fi
 #
+# remove connman wired network configuration files
+#   dont stop connman
+rm -rf /var/lib/connman/*
+# copy the default connman config file
+cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+#
 # shutdown & poweroff
 shutdown -P now
 #---
