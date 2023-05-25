@@ -1672,17 +1672,17 @@ while (true) {
     // Restart every +/-43200 cycles (= every +/-6 hours)
     if ($savecpuSps-- <= 0) {
         $savecpuSps = 43100 + rand(0, 200);
-        // see which player is active
-        if ($redis->get('activePlayer') === 'Airplay') {
-            // Airplay is active so try again in after +/-7200 cycles (= +/-1 hour)
-            $savecpuSps = 7100 + rand(0, 200);
-        } else {
-            // Airplay is not running so stop and restart it
-            sysCmd('systemctl stop shairport-sync');
-            sysCmd('systemctl daemon-reload');
-            sysCmd('systemctl start shairport-sync');
+        if ($redis->hGet('airplay', 'enable')) {
+            // airplay is enabled
+            // see which player is active
+            if ($redis->get('activePlayer') === 'Airplay') {
+                // Airplay is active so try again in after +/-7200 cycles (= +/-1 hour)
+                $savecpuSps = 7100 + rand(0, 200);
+            } else {
+                // Airplay is not running so stop and restart it
+                sysCmdAsync($redis, 'nice --adjustment=10 systemctl daemon-reload ; systemctl restart shairport-sync');
+            }
         }
-    }
     }
     // Reload (or preferably restart) avahi-daemon initially after 4 seconds and thereafter restart every 1,5 hours
     // Reloading after 4 seconds is required because comnnman creates one of the required config files
