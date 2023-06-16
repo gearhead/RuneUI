@@ -82,7 +82,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     addToQueue($mpd, $_POST['path']);
                     // send MPD response to UI
                     ui_notify($redis, 'Added to queue', $_POST['path']);
-                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    }
                 }
             }
             break;
@@ -94,7 +94,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     addToQueue($mpd, $_POST['path'], 1, $pos);
                     // send MPD response to UI
                     ui_notify($redis, 'Added to queue', $_POST['path']);
-                    //ui_mpd_response($mpd, array('title' => 'Added to queue', 'text' => $_POST['path']));
+                    }
                 }
             }
             break;
@@ -118,7 +118,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     addToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
                     // send MPD response to UI
                     ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
-                    //ui_mpd_response($mpd, array('title' => 'Queue cleared<br> Added to queue', 'text' => $_POST['path']));
+                    }
                 }
             }
             break;

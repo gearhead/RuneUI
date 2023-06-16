@@ -81,7 +81,6 @@ while (true) {
     $proxy = $redis->hGetall('proxy');
     $lastfm_apikey = $redis->get('lastfm_apikey');
     runelog('rune_PL_wrk: open MPD local UNIX socket');
-    //$socket = openMpdSocket('/run/mpd/socket', 0);
     $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     if (!$socket) {
         $redis->close();
@@ -567,12 +566,8 @@ while (true) {
                 }
                 // start the job to retrieve extra metadata when coverart is enabled
                 if ($coverartRequired) {
-                    // it may already be running, check first
-                    $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
-                    if ($retval != 'active') {
-                        sysCmd('systemctl start rune_MPDEM_wrk');
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
-                    }
+                    sysCmd('pgrep rune_MPDEM_wrk || systemctl start rune_MPDEM_wrk');
+                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                 }
                 // debug information
                 if (isset($socket['sockVarName']) && isset($socket['description'])) {
