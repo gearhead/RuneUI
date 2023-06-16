@@ -235,6 +235,7 @@
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="rescan"><i class="fa fa-refresh sx"></i> Update this folder</a></li>
@@ -245,6 +246,7 @@
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="lastfmadd"><i class="fa fa-lastfm sx"></i> Add and add similar</a></li>
@@ -263,6 +265,7 @@
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="wredit"><i class="fa fa-edit sx"></i> Edit</a></li>
