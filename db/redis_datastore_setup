@@ -173,9 +173,7 @@ function redisDatastore($redis,$action) {
             $redis->set('first_time_boot', 0);
             $redis->set('overlay_art_cache', 0);
             $redis->del('cleancache');
-            $redis->hSet('omit_lyrics', 'classical', true);
-            $redis->hSet('omit_lyrics', 'baroque', true);
-            // $redis->hSet('omit_lyrics', 'christmas', true); // example for more entries, lower case
+            $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -494,7 +492,8 @@ function redisDatastore($redis,$action) {
             $redis->exists('underclocking') || $redis->set('underclocking', 0);
             $redis->exists('first_time_boot') || $redis->set('first_time_boot', 0);
             $redis->exists('overlay_art_cache') || $redis->set('overlay_art_cache', 0);
-            $redis->exists('omit_lyrics') || $redis->hSet('omit_lyrics', 'classical', true);
+            $redis->exists('omit_lyrics') || $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
+
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing

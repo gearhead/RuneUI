@@ -76,7 +76,7 @@ if ($redis->get('remoteSSbigart') === 'album') {
     $bigartIsAlbum = false;
 }
 $statusCnt = 10;
-$omit_lyrics = $redis->hgetall('omit_lyrics');
+$omit_lyrics = explode(' ', $redis->get('omit_lyrics'));
 $mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
 //
 $saveFile = '';
@@ -527,13 +527,11 @@ while (true)  {
             // some lyrics are omitted since they almost never exits, default is a single entry containing 'classical'
             $omit_string = '';
             if (isset($song['genre'])) {
-                foreach ($omit_lyrics as $omit_lyric => $omit_valid) {
-                    if ($omit_valid) {
-                        if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
-                            // found a genre with omitted lyrics
-                            $omit_string = $omit_lyric;
-                            break;
-                        }
+                foreach ($omit_lyrics as $omit_lyric) {
+                    if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
+                        // found a genre with omitted lyrics
+                        $omit_string = $omit_lyric;
+                        break;
                     }
                 }
             }
