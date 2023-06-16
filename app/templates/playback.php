@@ -253,6 +253,15 @@
             <li><a href="javascript:;" data-cmd="lastfmaddreplaceplay"><i class="fa fa-lastfm sx"></i> Add, replace, play and add similar</a></li>
         </ul>
     </div>
+    <div id="context-menu-hw" class="context-menu">
+        <ul class="dropdown-menu" role="menu">
+            <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
+            <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
+            <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
+            <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
+        </ul>
+    </div>
     <div id="context-menu-dirble" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="wradd"><i class="fa fa-plus-circle sx"></i> Add</a></li>

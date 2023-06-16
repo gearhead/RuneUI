@@ -79,9 +79,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'add':
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
-                    addToQueue($mpd, $_POST['path']);
-                    // send MPD response to UI
-                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    if ($_POST['path'] == 'cdda://') {
+                        wrk_CD($redis, 'playCD', 'Add');
+                        ui_notify($redis, 'CD added to queue', $_POST['path']);
+                    } else {
+                        addToQueue($mpd, $_POST['path']);
+                        // send MPD response to UI
+                        ui_notify($redis, 'Added to queue', $_POST['path']);
                     }
                 }
             }
@@ -89,11 +93,15 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'addplay':
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
-                    $status = _parseStatusResponse($redis, MpdStatus($mpd));
-                    $pos = $status['playlistlength'];
-                    addToQueue($mpd, $_POST['path'], 1, $pos);
-                    // send MPD response to UI
-                    ui_notify($redis, 'Added to queue', $_POST['path']);
+                    if ($_POST['path'] == 'cdda://') {
+                        wrk_CD($redis, 'playCD', 'AddPlay');
+                        ui_notify($redis, 'CD added to queue', $_POST['path']);
+                    } else {
+                        $status = _parseStatusResponse($redis, MpdStatus($mpd));
+                        $pos = $status['playlistlength'];
+                        addToQueue($mpd, $_POST['path'], 1, $pos);
+                        // send MPD response to UI
+                        ui_notify($redis, 'Added to queue', $_POST['path']);
                     }
                 }
             }
@@ -101,11 +109,35 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'addnext':
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
-                    if (addNextToQueue($redis, $mpd, $_POST['path'])) {
-                        ui_notify($redis, 'Inserted next in queue', $_POST['path']);
-                        //ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
+                    if ($_POST['path'] == 'cdda://') {
+                        wrk_CD($redis, 'playCD', 'AddNext');
+                        ui_notify($redis, 'CD inserted next in queue', $_POST['path']);
                     } else {
-                        ui_notifyError($redis, 'Failed to insert next in queue', $_POST['path']);
+                        if (addNextToQueue($redis, $mpd, $_POST['path'])) {
+                            ui_notify($redis, 'Inserted next in queue', $_POST['path']);
+                            //ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
+                        } else {
+                            ui_notifyError($redis, 'Failed to insert next in queue', $_POST['path']);
+                        }
+                    }
+                } else {
+                    ui_notifyError($redis, 'Failed to insert next in queue, no path set');
+                }
+            }
+            break;
+        case 'addnextplay':
+            if ($activePlayer === 'MPD') {
+                if (isset($_POST['path'])) {
+                    if ($_POST['path'] == 'cdda://') {
+                        wrk_CD($redis, 'playCD', 'AddNextPlay');
+                        ui_notify($redis, 'CD inserted next in queue', $_POST['path']);
+                    } else {
+                        if (addNextToQueueAndPlay($redis, $mpd, $_POST['path'])) {
+                            ui_notify($redis, 'Inserted next in queue', $_POST['path']);
+                            //ui_mpd_response($mpd, array('title' => 'Inserted next in queue', 'text' => $_POST['path']));
+                        } else {
+                            ui_notifyError($redis, 'Failed to insert next in queue', $_POST['path']);
+                        }
                     }
                 } else {
                     ui_notifyError($redis, 'Failed to insert next in queue, no path set');
@@ -115,9 +147,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'addreplaceplay':
             if ($activePlayer === 'MPD') {
                 if (isset($_POST['path'])) {
-                    addToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
-                    // send MPD response to UI
-                    ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
+                    if ($_POST['path'] == 'cdda://') {
+                        wrk_CD($redis, 'playCD', 'ClearAddPlay');
+                        ui_notify($redis, 'Queue cleared<br> CD added to queue', $_POST['path']);
+                    } else {
+                        addToQueue($mpd, $_POST['path'], 1, 0, 1); // last argument is for the "clear" command
+                        // send MPD response to UI
+                        ui_notify($redis, 'Queue cleared<br> Added to queue', $_POST['path']);
                     }
                 }
             }
@@ -587,6 +623,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 }
                 unset($jobID);
             }
+            break;
+        case 'eject':
+            ui_notify($redis, 'CD Input', 'Eject requested');
+            wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'eject'));
             break;
     }
 } else {

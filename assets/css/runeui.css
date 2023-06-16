@@ -6690,7 +6690,7 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 180px;
+    width: 210px;
     margin: 0;
     text-align: center
 }
@@ -8053,7 +8053,7 @@ ul.parsley-error-list li {
     }
     #menu-top .playback-controls {
         left: 50%;
-        width: 180px;
+        width: 210px;
         margin: 0 0 0 -90px
     }
     #menu-bottom li a {

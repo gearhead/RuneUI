@@ -73,6 +73,11 @@ if (($redis->get('volume') == 1) && ($template->activePlayer == 'MPD')) {
     $template->volume['disabled'] = 1;
     $template->volume['divclass'] = 'nomixer';
 }
+if (count(json_decode($redis->hGet('CD', 'status'), true)) > 0) {
+    $template->ejectOff = 0;
+} else {
+    $template->ejectOff = 1;
+}
 $template->UIorder = str_split($redis->get('UIorder'));
 $template->volume['dynamic'] = $redis->get('dynVolumeKnob');
 $template->dev = $redis->get('dev');

@@ -277,6 +277,11 @@ function redisDatastore($redis,$action) {
             $redis->hSet('dlna', 'loglevel', 2);
             $redis->hSet('dlna', 'radioname', '');
             $redis->hSet('dlna', 'file', '');
+            $redis->hSet('CD', 'enable', 0);
+            $redis->hSet('CD', 'autoplay', 'None');
+            $redis->hSet('CD', 'status', json_encode(array()));
+            $redis->hSet('hw_input', 'enable', 0);
+            $redis->hSet('hw_input', 'status', json_encode(array()));
             $redis->set('udevil', 1);
             $redis->set('coverart', 1);
             $redis->set('UIorder', 'TAV');
@@ -592,6 +597,11 @@ function redisDatastore($redis,$action) {
             $redis->hExists('dlna', 'loglevel') || $redis->hSet('dlna', 'loglevel', 2);
             $redis->hExists('dlna', 'radioname') || $redis->hSet('dlna', 'radioname', '');
             $redis->hExists('dlna', 'file') || $redis->hSet('dlna', 'file', '');
+            $redis->hExists('CD', 'enable') || $redis->hSet('CD', 'enable', 0);
+            $redis->hExists('CD', 'autoplay') || $redis->hSet('CD', 'autoplay', 'None');
+            $redis->hExists('CD', 'status') || $redis->hSet('CD', 'status', json_encode(array()));
+            $redis->hExists('hw_input', 'enable') || $redis->hSet('hw_input', 'enable', 0);
+            $redis->hExists('hw_input', 'status') || $redis->hSet('hw_input', 'status', json_encode(array()));
             // ashuffle global random
             $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'enable') || $redis->hSet('globalrandom', 'enable', 0);

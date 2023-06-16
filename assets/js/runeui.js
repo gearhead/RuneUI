@@ -598,6 +598,12 @@ function setUIbuttons(activePlayer) {
                 $('#next').removeClass('hide');
             }
         }
+        if ((typeof GUI.libraryhome.CDinput !== 'undefined') && (typeof GUI.libraryhome.CDinput.status !== 'undefined') && Object.keys(GUI.libraryhome.CDinput.status).length) {
+            $('#eject').removeClass('hide');
+            $('#eject').removeClass('disabled');
+        } else {
+            $('#eject').addClass('hide');
+        }
     }
     if ($('#section-index').length) {
         // this is the playback section all other buttons are valid here
@@ -830,6 +836,48 @@ function renderLibraryHome() {
             content += divOpen + '<div id="home-jamendo" class="home-block' + toggleMPD + '" data-plugin="Jamendo" data-path="Jamendo"><i class="fa fa-play-circle-o"></i><h3>Jamendo<span id="home-count-jamendo"></span></h3></div>' + divClose;
         } else {
             content += divOpen + '<div id="home-jamendo" class="home-block' + toggleMPD + '" data-plugin="Jamendo" data-path="Jamendo"><i class="fa fa-play-circle-o"></i><h3>Jamendo<span id="home-count-jamendo"></span></h3>world\'s largest platform for free music</div>' + divClose;
+        }
+    }
+
+    // HW Input block
+    if (chkKey(obj.HWinput)) {
+        // HWinput
+        if (chkKey(GUI.libraryhome.HWinput.status)) {
+            GUI.libraryhome.HWinput.HWdevices = Object.keys(GUI.libraryhome.HWinput.status).length;
+        } else {
+            GUI.libraryhome.HWinput.HWdevices = 0;
+        }
+        if(isLocalHost) {
+            content += divOpen + '<div id="home-hwinput" class="home-block' + toggleMPD + '" data-plugin="HWinput" data-path="HWinput"><i class="fa fa-wave-square"></i><h3>HW Input (' + GUI.libraryhome.HWinput.HWdevices + ')</h3></div>' + divClose;
+        } else {
+            content += divOpen + '<div id="home-hwinput" class="home-block' + toggleMPD + '" data-plugin="HWinput" data-path="HWinput"><i class="fa fa-wave-square"></i><h3>HW Input (' + GUI.libraryhome.HWinput.HWdevices + ')</h3>browse locally connected hardware input devices</div>' + divClose;
+        }
+    }
+
+    // CD Input block
+    if (chkKey(obj.CDinput)) {
+        // CDinput
+        // console.log('GUI.libraryhome.CDinput.model:', GUI.libraryhome.CDinput.model);
+        if (typeof GUI.libraryhome.CDinput.status !== 'undefined') {
+            // valid status, number of cd tracks includes the CD itself (can return zero)
+            GUI.libraryhome.CDinput.CDtracks = Object.keys(GUI.libraryhome.CDinput.status).length;
+        } else {
+            GUI.libraryhome.CDinput.CDtracks = 0;
+        }
+        if (GUI.libraryhome.CDinput.CDtracks > 0) {
+            // there are CD tracks, number of cd tracks includes the CD itself, reduce it by 1
+            GUI.libraryhome.CDinput.CDtracks--;
+            // eject on
+            $('#eject').removeClass('hide');
+            $('#eject').removeClass('disabled');
+        } else {
+            // eject off
+            $('#eject').addClass('hide');
+        }
+        if(isLocalHost) {
+            content += divOpen + '<div id="home-cdinput" class="home-block' + toggleMPD + '" data-plugin="CDinput" data-path="CDinput"><i class="fa fa-compact-disc"></i><h3>CD-Drive (' + GUI.libraryhome.CDinput.CDtracks + ')</h3></div>' + divClose;
+        } else {
+            content += divOpen + '<div id="home-cdinput" class="home-block' + toggleMPD + '" data-plugin="CDinput" data-path="CDinput"><i class="fa fa-compact-disc"></i><h3>CD-Drive (' + GUI.libraryhome.CDinput.CDtracks + ')</h3>browse locally connected CD-drive</div>' + divClose;
         }
     }
 
@@ -1200,7 +1248,22 @@ function getPlaylistPlain(data) {
             songid = infos[1];
             if (title === '') {
                 filename = str.split('/').pop();
-                title = filename;
+                if (str.substring(0, 7) === 'cdda://') {
+                    title = '<i class="fa fa-compact-disc"></i> CD Track #' + filename;
+                    if ((typeof GUI.libraryhome.CDinput.status[filename] != 'undefined') && GUI.libraryhome.CDinput.status[filename].time) {
+                        time = GUI.libraryhome.CDinput.status[filename].time;
+                    }
+                } else if (str.substring(0, 7) === 'alsa://') {
+                    if ((typeof GUI.libraryhome.HWinput.status[str] !== 'undefined') && GUI.libraryhome.HWinput.status[str].name) {
+                        title = '<i class="fa fa-wave-square"></i> Hardware input: ' + GUI.libraryhome.HWinput.status[str].name + ' - ' + GUI.libraryhome.HWinput.status[str].sysname;
+                        artist = GUI.libraryhome.HWinput.status[str].description;
+                        album = str;
+                    } else {
+                        title = '<i class="fa fa-wave-square"></i> Hardware input: ' + str;
+                    }
+                } else {
+                    title = filename;
+                }
             }
             if ((str.substring(0, 4).toLowerCase() === 'http') && (artist === '') && (album === '') && (name === '')) {
                 name = title;
@@ -1222,6 +1285,8 @@ function getPlaylistPlain(data) {
                     title = '<i class="fa fa-microphone"></i>' + name;
                 }
                 bottomline = 'URL: ' +  str;
+                totaltime = '';
+            } else if (typeof time === 'undefined' || !time) {
                 totaltime = '';
             } else {
                 totaltime = '<span>' + timeConvert2(time) + '</span>';
@@ -1572,6 +1637,28 @@ function parseResponse(options) {
             }
         break;
 
+        case 'CDinput':
+        // CD input plugin
+            content = '<li id="db-' + (i + 1) + '" data-path="';
+            content += inputArr.file;
+            content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-hw"></i><i class="fa fa-compact-disc db-icon"></i><span class="sn">';
+            content += inputArr.name + ' <span>' + timeConvert(inputArr.time) + '</span>';
+            content += '<span class="bl">';
+            content +=  inputArr.file;
+            content += '</span></li>';
+        break;
+
+        case 'HWinput':
+        // HW input plugin
+            content = '<li id="db-' + (i + 1) + '" data-path="';
+            content += inputArr.file;
+            content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-hw"></i><i class="fa fa-wave-square db-icon"></i><span class="sn">';
+            content += inputArr.name + ' <span>' + inputArr.sysname + '</span>';
+            content += '<span class="bl">';
+            content +=  inputArr.file + ' - '+ inputArr.description;
+            content += '</span></li>';
+        break;
+
         case 'Dirble':
         // Dirble plugin
             if (querytype === '' || querytype === 'childs') {
@@ -1631,11 +1718,81 @@ function populateDB(options){
 
     if (plugin !== '') {
     // plugins
+        if (plugin === 'CDinput') {
+        // CD input plugin
+            $('#database-entries').removeClass('hide');
+            $('#db-level-up').removeClass('hide');
+            $('#home-blocks').addClass('hide');
+            $('#db-search').addClass('hide');
+            if (path) {
+                if (querytype === 'search') {
+                    GUI.currentpath = 'CDinput';
+                } else {
+                    GUI.currentpath = path;
+                }
+            }
+            content = '<legend>&nbsp;CD Input';
+            if ((typeof GUI.libraryhome.CDinput.model != 'undefined') && GUI.libraryhome.CDinput.model) {
+                content += ' - ' + GUI.libraryhome.CDinput.model + ' (' + GUI.libraryhome.CDinput.device + ')';
+            }
+            if ((typeof GUI.libraryhome.CDinput.error != 'undefined') && GUI.libraryhome.CDinput.error) {
+                content += '<br><i>&nbsp;' + GUI.libraryhome.CDinput.error + '</i>';
+            }
+            content += '</legend>';
+            if ((typeof GUI.libraryhome.CDinput.status !== 'undefined') && Object.keys(GUI.libraryhome.CDinput.status).length) {
+                for (i = 0; (row = GUI.libraryhome.CDinput.status[i]); i += 1) {
+                    content += parseResponse({
+                        inputArr: row,
+                        respType: 'CDinput',
+                        i: i,
+                        querytype: querytype
+                    });
+                }
+            }
+            document.getElementById('database-entries').innerHTML = content;
+        }
+        if (plugin === 'HWinput') {
+        // HW input plugin
+            $('#database-entries').removeClass('hide');
+            $('#db-level-up').removeClass('hide');
+            $('#home-blocks').addClass('hide');
+            $('#db-search').addClass('hide');
+            if (path) {
+                if (querytype === 'search') {
+                    GUI.currentpath = 'HWinput';
+                } else {
+                    GUI.currentpath = path;
+                }
+            }
+            content = '<legend>&nbsp;Hardware Input';
+            if ((typeof GUI.libraryhome.HWinput.format != 'undefined') && GUI.libraryhome.HWinput.format) {
+                content += '<br>&nbsp;Predefined format: ' + GUI.libraryhome.HWinput.format;
+            }
+            if ((typeof GUI.libraryhome.HWinput.error != 'undefined') && GUI.libraryhome.HWinput.error) {
+                content += '<br><i>&nbsp;' + GUI.libraryhome.HWinput.error + '</i>';
+            }
+            content += '</legend>';
+            if ((typeof GUI.libraryhome.HWinput.status != 'undefined') && Object.keys(GUI.libraryhome.HWinput.status).length) {
+                for ( var key in GUI.libraryhome.HWinput.status) {
+                    // console.log('key ', key);
+                    row = GUI.libraryhome.HWinput.status[key];
+                    // console.log('row ', row);
+                    content += parseResponse({
+                        inputArr: row,
+                        respType: 'HWinput',
+                        i: i,
+                        querytype: querytype
+                    });
+                }
+            }
+            document.getElementById('database-entries').innerHTML = content;
+        }
         if (plugin === 'Dirble') {
         // Dirble plugin
             $('#database-entries').removeClass('hide');
             $('#db-level-up').removeClass('hide');
             $('#home-blocks').addClass('hide');
+            $('#db-search').removeClass('hide');
             if (path) {
                 if (querytype === 'search') {
                     GUI.currentpath = 'Dirble';
@@ -1678,6 +1835,7 @@ function populateDB(options){
             $('#database-entries').removeClass('hide');
             $('#db-level-up').removeClass('hide');
             $('#home-blocks').addClass('hide');
+            $('#db-search').removeClass('hide');
             if (path) {
                 GUI.currentpath = path;
             }
@@ -1713,6 +1871,7 @@ function populateDB(options){
             $('#database-entries').removeClass('hide');
             $('#db-level-up').removeClass('hide');
             $('#home-blocks').addClass('hide');
+            $('#db-search').removeClass('hide');
             if (path) {
                 GUI.currentpath = path;
             }
@@ -1856,6 +2015,24 @@ function getDB(options){
                     });
                 }, 'json');
             }
+        }
+        else if (plugin === 'CDinput') {
+        // CD input plugin
+            populateDB({
+                data: 0,
+                path: path,
+                plugin: plugin,
+                querytype: querytype
+            });
+        }
+        else if (plugin === 'HWinput') {
+        // HW input plugin
+            populateDB({
+                data: 0,
+                path: path,
+                plugin: plugin,
+                querytype: querytype
+            });
         }
         else if (plugin === 'Jamendo') {
         // Jamendo plugin
@@ -2048,6 +2225,12 @@ function libraryHome(text) {
     if (GUI.forceGUIupdate === true) {
         GUI.forceGUIupdate = false;
         renderLibraryHome();
+    }
+    if ((typeof GUI.libraryhome.CDinput !== 'undefined') && (typeof GUI.libraryhome.CDinput.status !== 'undefined') && Object.keys(GUI.libraryhome.CDinput.status).length) {
+        $('#eject').removeClass('hide');
+        $('#eject').removeClass('disabled');
+    } else {
+        $('#eject').addClass('hide');
     }
 }
 
@@ -2299,6 +2482,11 @@ if ($('#section-index').length) {
         $('.btn-cmd').click(function(){
             var el = $(this);
             commandButton(el);
+        });
+        // eject button
+        $('#eject').click(function(){
+            $('#eject').addClass('disabled');
+            $.post('/db/?cmd=eject', '');
         });
 
         var intervalId;
@@ -3380,6 +3568,17 @@ if ($('#section-index').length) {
                 } else {
                     $('#local_browserName').addClass('hide');
                     $('#local_browserBox').removeClass('boxed-group');
+                }
+            });
+
+            // show/hide CD input form
+            $('#cdinput').change(function(){
+                if ($(this).prop('checked')) {
+                    $('#cdDetails').removeClass('hide');
+                    $('#cdBox').addClass('boxed-group');
+                } else {
+                    $('#cdDetails').addClass('hide');
+                    $('#cdBox').removeClass('boxed-group');
                 }
             });
 

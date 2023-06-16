@@ -50,17 +50,35 @@ runelog('WORKER CD_detect STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 
-// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+$cdTracks = json_decode($redis->hGet('CD', 'status'), true);
+$actPlayerInfo = json_decode($redis->get('act_player_info'), true);
+if (isset($argv[1]) && isset($cdTracks) && isset($actPlayerInfo['file']) && isset($actPlayerInfo['state']) &&
+        ($argv[1] == 'changed') &&
+        is_array($cdTracks) && count($cdTracks) &&
+        ($actPlayerInfo['state'] != 'stop') &&
+        (substr($actPlayerInfo['file'], 0, 7) == 'cdda://')) {
+    // the eject button on the cd-drive has been activated while a CD is playing
+    // close the CD-tray
+    sysCmd('eject --trayclose');
+    ui_notify($redis, 'CD Input', 'Eject requested');
+    $action = 'eject';
+} else {
+    $action = $argv[1];
+}
+
+// this routine can be called to run asynchronously (e.g. when called from udev, to prevent a timeout)
 //  the second parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[2]) && ($argv[2] === 'async')) {
     runelog('running asynchronously');
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect '.$argv[1]);
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect '.$action);
     // close Redis connection
     $redis->close();
     runelog('WORKER CD_detect END...');
     exit;
 }
-runelog('CD change');
+// debug
+// ui_notify($redis, "CD_detect", $argv[1]);
+runelog('CD_detect', $argv[1]);
 wrk_CD($redis, $argv[1]);
 
 // close Redis connection

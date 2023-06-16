@@ -74,7 +74,7 @@ if (isset($argv[1]) && ($argv[1] === 'async')) {
         // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
         sysCmd('alsactl kill rescan');
         wrk_mpdconf($redis, 'refreshsoundcards');
-        wrk_mpdconf($redis, 'refreshhwinput');
+        wrk_hwinput($redis, 'refresh');
         ui_notify($redis, 'Audio Output', 'configuration changed.');
         // unlock
         $redis->set('lock_refresh_ao', '0');

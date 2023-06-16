@@ -1384,32 +1384,21 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'hwinput':
-                if ($job->action == 'start') {
-                    $redis->hSet('hw_input', 'enable', 1);
-                    ui_notify($redis, "Hardware Input", 'Enabled');
-                } else if ($job->action == 'stop') {
-                    $redis->hSet('hw_input', 'enable', 0);
-                    ui_notify($redis, "Hardware Input", 'Disabled');
+                if (isset($job->args)) {
+                    wrk_hwinput($redis, $job->action, $job->args, '', $jobID);
                 } else {
-                    if (isset($job->args)) {
-                        wrk_hwinput($redis, $job->action, $job->args);
-                    } else {
-                        wrk_hwinput($redis, $job->action);
-                    }
+                    wrk_hwinput($redis, $job->action, '', '', $jobID);
                 }
-                sleep(1);
                 $redis->sRem('w_lock', $jobID);
-                wrk_mpdconf($redis, 'refreshhwinput');
                 break;
             case 'cdinput':
+                // wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
                 if (isset($job->args)) {
-                    wrk_CD($redis, $job->action, $job->args);
+                    wrk_CD($redis, $job->action, $job->args, '', $jobID);
                 } else {
-                    wrk_CD($redis, $job->action);
+                    wrk_CD($redis, $job->action, '', '', $jobID);
                 }
-                sleep(1);
                 $redis->sRem('w_lock', $jobID);
-                wrk_CD($redis);
                 break;
         } // end switch
         // delete processed job from the w_queue
@@ -1492,7 +1481,8 @@ while (true) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'CD_detect')) {
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect delete_from_queue');
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect refresh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
             // check that the redis database is up to date

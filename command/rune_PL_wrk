@@ -339,30 +339,55 @@ while (true) {
                 } else if (isset($newStatus['file']) && ((strtolower(substr($newStatus['file'], 0, 5)) == 'alsa:') || (strtolower(substr($newStatus['file'], 0, 5)) == 'cdda:'))) {
                     // its an alsa hw source or a CD source
                     //  there is no metadata available
-                    $newStatus['currentartist'] = 'Hardware Source';
                     $newStatus['currentalbumartist'] = $newStatus['currentartist'];
                     if (strtolower(substr($newStatus['file'], 0, 5)) == 'alsa:') {
-                        // its an alsa hw source
+                        // // its an alsa hw source
+                        // if (!$hwSource) {
+                            // // its a new hw source
+                            // $hwSource = $newStatus['file'];
+                        // }
+                        $newStatus['currentartist'] = 'Hardware Source';
                         $newStatus['time'] = 100;
                         $hwCard = trim(get_between_data($newStatus['file'], 'hw:', ','));
                         $hwCardInfo = sysCmd('arecord -l -c '.$hwCard.' | grep -i "card '.$hwCard.'" | xargs')[0];
                         $hwCardDesc = trim(get_between_data($hwCardInfo, '[', ']'));
                         $newStatus['currentsong'] = $hwCardDesc;
                         $newStatus['currentalbum'] = $newStatus['file'];
-                        unset($hwCard, $hwCardInfo, $hwCardDesc);
-                    } else {
-                        // its a hardware cd source, track number may be available
-                        $cdDevice = get_between_data($newStatus['file'], '//', '/');
-                        if (isset($cdDevice) && trim($cdDevice)) {
-                            $cdTrack = trim(get_between_data($newStatus['file'], $cdDevice.'/'));
+                        $rateParts = explode(':', $newStatus['audio']);
+                        if ((count($rateParts) == 3) && $rateParts[0] && $rateParts[1] && $rateParts[2]) {
+                            $newStatus['bitrate'] = $rateParts[0] * $rateParts[1] * $rateParts[2] / 1000;
+                            if (strlen($newStatus['bitrate']) > 3) {
+                                $newStatus['bitrate'] = round($newStatus['bitrate']);
+                            }
+                        } else {
+                            $newStatus['bitrate'] = 1536;
                         }
+                        unset($hwCard, $hwCardInfo, $hwCardDesc, $rateParts);
+                    } else {
+                        // // its a cd source, track number may be available
+                        // if (!$cdSource) {
+                            // // its a new cd track
+                            // $cdSource = $newStatus['file'];
+                        // }
+                        $newStatus['currentartist'] = 'CD Source';
+                        $cdDeviceParts = explode('/', $newStatus['file']);
+                        $cdTrack = end($cdDeviceParts);
                         if (isset($cdTrack) && $cdTrack) {
                             $newStatus['currentsong'] = 'CD Track #'.$cdTrack;
                         } else {
                             $newStatus['currentsong'] = 'CD All Tracks';
                         }
-                        unset($cdDevice, $cdTrack);
                         $newStatus['currentalbum'] = $newStatus['file'];
+                        $rateParts = explode(':', $newStatus['audio']);
+                        if ((count($rateParts) == 3) && $rateParts[0] && $rateParts[1] && $rateParts[2]) {
+                            $newStatus['bitrate'] = $rateParts[0] * $rateParts[1] * $rateParts[2] / 1000;
+                            if (strlen($newStatus['bitrate']) > 3) {
+                                $newStatus['bitrate'] = round($newStatus['bitrate']);
+                            }
+                        } else {
+                            $newStatus['bitrate'] = 1411;
+                        }
+                        unset($cdDeviceParts, $cdTrack, $rateParts);
                     }
                     $newStatus['currentcomposer'] = '...';
                     $newStatus['song_lyrics'] = ' ';
