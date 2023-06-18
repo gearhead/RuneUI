@@ -154,14 +154,7 @@ function redisDatastore($redis,$action) {
             break;
         case 'reset':
             // kernel
-            $bit = ' '.sysCmd('uname -m')[0];
-            if (strpos($bit, '64')) {
-                $bit = ' (64 bit)';
-            } else if (strpos($bit, '7')) {
-                $bit = ' (32 bit)';
-            } else {
-                $bit = '';
-            }
+            $bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
             $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
@@ -481,14 +474,7 @@ function redisDatastore($redis,$action) {
             break;
         case 'check':
             // kernel
-            $bit = ' '.sysCmd('uname -m')[0];
-            if (strpos($bit, '64')) {
-                $bit = ' (64 bit)';
-            } else if (strpos($bit, '7')) {
-                $bit = ' (32 bit)';
-            } else {
-                $bit = '';
-            }
+            $bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
             $redis->exists('kernel') || $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
