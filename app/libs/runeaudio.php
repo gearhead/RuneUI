@@ -11700,7 +11700,7 @@ function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
                 // open the MPD socket
                 $socket = openMpdSocket($bindToAdderess, 0);
                 // get the mpd status
-                $status = _parseMpdresponse(MpdStatus($sock));
+                $status = _parseMpdresponse(MpdStatus($socket));
                 // initiate a MPD command list
                 sendMpdCommand($socket, 'command_list_begin');
                 if (strpos(' '.$args, 'Clear')) {
@@ -11944,7 +11944,7 @@ function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
                     $redis->hSet('CD', 'error', trim(explode(':', $cdInfo, 2)[1], ". \n\r\t\v\x00"));
                 } else if (strpos($cdInfoLower, 'no cdrom drives')) {
                     // Error message
-                    $redis->hSet('CD', 'error', $cdInfo);
+                    $redis->hSet('CD', 'error', trim($cdInfo, ". \n\r\t\v\x00"));
                 } else if (strpos($cdInfoLower, '[') && strpos($cdInfoLower, '.')) {
                     // CD track line or the total line
                     if (strpos($cdInfoLower, 'total')) {
@@ -12034,7 +12034,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                 // open the MPD socket
                 $socket = openMpdSocket($bindToAdderess, 0);
                 // get the mpd status
-                $status = _parseMpdresponse(MpdStatus($sock));
+                $status = _parseMpdresponse(MpdStatus($socket));
                 // initiate a MPD command list
                 sendMpdCommand($socket, 'command_list_begin');
                 if (strpos(' '.$args, 'Clear')) {
@@ -12066,7 +12066,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                 readMpdResponse($socket);
                 // close the socket
                 closeMpdSocket($socket);
-                unset($socket, $status, $tracks, $track, $beginAdd, $playFrom);
+                unset($socket, $status, $beginAdd, $playFrom);
             }
             break;
  */
@@ -12104,7 +12104,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                     unset($command, $retval, $pos);
                 }
                 closeMpdSocket($socket);
-                unset($cdTracks, $socket, $key, $cdInfo, $cnt, $found);
+                unset($socket, $cnt, $found);
             }
             break;
         case 'refresh':
@@ -12114,17 +12114,17 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             // when a Hardware device is no longer active (has been played) remove it from the queue
             // get the registered hardware devices
             $hwDevices = json_decode($redis->hGet('hw_input', 'status'), true);
-            if (isset($cdTracks) && is_array($cdTracks) && count($cdTracks)) {
+            if (isset($hwDevices) && is_array($hwDevices) && count($hwDevices)) {
                 // there is at least one hardware device
-                // open the mpd socket
-                $socket = openMpdSocket($bindToAdderess, 0);
-                $status = _parseMpdresponse(MpdStatus($sock));
                 // repeat max 10 times
                 $cnt = 10;
                 $found = true;
                 while (($cnt-- > 0) && $found) {
                     $found = false;
                     foreach ($hwDevices as $hwDevice) {
+                        // open the mpd socket
+                        $socket = openMpdSocket($bindToAdderess, 0);
+                        $status = _parseMpdresponse(MpdStatus($socket));
                         // for each track build up a mpd protocol command to retrieve its position in the queue
                         $command = 'playlistsearch "(file == '."'".$hwDevice['file']."'".')"';
                         // send the command
@@ -12134,22 +12134,24 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         if ($retval) {
                             // the response is valid, extract the queue position
                             $pos = $retval['Pos'];
-                            if (isset($pos) && is_numeric($pos) && ($pos < $status['song'])) {
-                                // the queue position is valid and it has been played before the current song
+                            if (isset($pos) && is_numeric($pos)) {
                                 $found = true;
-                                // create a command to delete it
-                                $command = 'delete '.$pos;
-                                // send the command
-                                sendMpdCommand($socket, $command);
-                                // get the response, don't do anything with it
-                                readMpdResponse($socket);
+                                if (isset($status['song']) && ($pos < $status['song'])) {
+                                    // the queue position is valid and it has been played before the current song
+                                    // create a command to delete it
+                                    $command = 'delete '.$pos;
+                                    // send the command
+                                    sendMpdCommand($socket, $command);
+                                    // get the response, don't do anything with it
+                                    readMpdResponse($socket);
+                                }
                             }
                         }
-                        unset($command, $retval, $pos);
+                        closeMpdSocket($socket);
+                        unset($command, $retval, $pos, $socket);
                     }
-                closeMpdSocket($socket);
-                unset($cdTracks, $socket, $key, $cdInfo, $cnt, $found);
                 }
+                unset($hwDevices, $hwDevice, $cnt, $found);
             }
             // no break, collect the hardware device information
             // break;
@@ -12258,7 +12260,9 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $hwInput[$file]['name'] = get_between_data($hwInputDevice, ': ', ' [', 2);
                         $hwInput[$file]['description'] = get_between_data($hwInputDevice, '[', ']', 2);
                         $hwInput[$file]['file'] = $file;
+                        unset($format, $channels, $rate, $preferred, $selected, $forced, $file);
                     }
+                    unset($sysname, $card, $device, $hwplug);
                 }
             }
             $hwInputDevicesOld = json_decode($redis->hGet('hw_input', 'status'), true);
@@ -12282,7 +12286,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             }
             $redis->hSet('hw_input', 'status', json_encode($hwInput));
             ui_libraryHome($redis);
-            unset($hwInput, $hwInputOld, $hwInputDevices, $hwInputDevice, $sysname, $card, $index);
+            unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found);
             break;
     }
 }

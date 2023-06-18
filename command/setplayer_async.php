@@ -53,6 +53,8 @@ $redis->set('activePlayer', 'MPD');
 // Refresh the MPD config file and start/restart MPD if required
 wrk_mpdconf($redis, 'refresh');
 // ashuffle gets started automatically
+// refresh any hardware input cards, the card number(s) can change after a reboot
+wrk_hwinput($redis, 'refresh');
 
 runelog('WORKER setplayer_async.php END...');
 #---

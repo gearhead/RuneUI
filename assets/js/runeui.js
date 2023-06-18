@@ -1012,6 +1012,8 @@ function updateGUI() {
     // set stream mode if radioname is present or active player is Bluetooth
     if (radioname !== null && radioname !== undefined && radioname !== '') {
         GUI.stream = 'radio';
+    } else if (file !== null && (file.substring(0, 7) === 'alsa://')) {
+        GUI.stream = 'HWinput';
     } else if (activePlayer !== undefined && activePlayer === 'Bluetooth') {
         GUI.stream = 'bluetooth';
     } else {
