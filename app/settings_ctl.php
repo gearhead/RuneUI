@@ -293,8 +293,15 @@ if (isset($_POST['syscmd']) && ($_POST['syscmd'] === 'backup')) {
     $redis->hDel('w_msg', $backupJobID);
 }
 // collect system status
-$bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
-$template->sysstate['kernel'] = trim(file_get_contents('/proc/version')).$bit;
+$bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+$release = trim(sysCmd('uname -sr')[0]);
+$machine = trim(sysCmd('uname -m')[0]);
+if (strpos(' '.strtolower($release), 'arch')) {
+    $os = 'ARCH';
+} else {
+    $os = 'RPiOS';
+}
+$template->sysstate['kernel'] = $release.' '.$os.' '.$machine.' '.$bit;
 $template->sysstate['time'] = implode('\n', sysCmd('date'));
 $template->sysstate['uptime'] = date('d:H:i:s', strtok(file_get_contents('/proc/uptime'), ' ' ));
 $template->sysstate['HWplatform'] = $redis->get('hwplatform')." (".$redis->get('hwplatformid').")";

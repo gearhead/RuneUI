@@ -154,8 +154,15 @@ function redisDatastore($redis,$action) {
             break;
         case 'reset':
             // kernel
-            $bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
-            $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
+            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $release = trim(sysCmd('uname -sr')[0]);
+            $machine = trim(sysCmd('uname -m')[0]);
+            if (strpos(' '.strtolower($release), 'arch')) {
+                $os = 'ARCH';
+            } else {
+                $os = 'RPiOS';
+            }
+            $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
@@ -474,8 +481,15 @@ function redisDatastore($redis,$action) {
             break;
         case 'check':
             // kernel
-            $bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
-            $redis->exists('kernel') || $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
+            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $release = trim(sysCmd('uname -sr')[0]);
+            $machine = trim(sysCmd('uname -m')[0]);
+            if (strpos(' '.strtolower($release), 'arch')) {
+                $os = 'ARCH';
+            } else {
+                $os = 'RPiOS';
+            }
+            $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');

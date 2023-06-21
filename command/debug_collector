@@ -56,9 +56,16 @@ function debug_data($redis, $fp=null)
     $output .= "###### System info ######\n";
     $output .=  file_get_contents('/proc/version')."\n";
     $output .= "Hardware model:\t".implode('\n', sysCmd("cat /proc/device-tree/model | tr -dc '[[:print:]]'"))."\n";
-    $bit = ' ('.sysCmd('getconf LONG_BIT')[0].'bit)';
-    $output .= "Linux version:\t".implode('\n', sysCmd('uname -rm')).$bit."\n";
-    unset($bit);
+    $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+    $release = trim(sysCmd('uname -sr')[0]);
+    $machine = trim(sysCmd('uname -m')[0]);
+    if (strpos(' '.strtolower($release), 'arch')) {
+        $os = 'ARCH';
+    } else {
+        $os = 'RPiOS';
+    }
+    $output .= "Linux version:\t".$release.' '.$os.' '.$machine.' '.$bit."\n";
+    unset($bit, $release, $machine, $os);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
