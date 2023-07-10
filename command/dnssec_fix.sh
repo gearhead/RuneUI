@@ -11,34 +11,36 @@
 #
 # first check that systemd-resolved is running, if not just exit (some other fix has been implemented)
 resolved_active=$( systemctl is-active systemd-resolved.service )
-if [ "$resolved_active" != "active" ];
-then
+if [ "$resolved_active" != "active" ] ; then
     exit
 fi
 # check that a timesync has taken place, maybe there is no intenet connection
 timesync_yes=$( timedatectl show -a | grep -i NTPSynchronized | grep -ci yes )
-# also check that DNSSEC is still switched off, maybe this routine has already been run
-dnssec_yes=$( resolvectl status | grep -i 'dnssec setting' | grep -ci yes )
-if [ "$timesync_yes" = "0" ];
-then
+if [ "$timesync_yes" = "0" ] ; then
     # not timesync'd
-    if [ "$dnssec_yes" != "0" ];
-    then
+    dnssec_yes=$( resolvectl dnssec | grep -i 'link' | grep -ci yes )
+    if [ "$dnssec_yes" != "0" ] ; then
         # dnssec switched on, so switch it off
-        # normally we would not get here
-        sed -i '/DNSSEC=/c\DNSSEC=no' /etc/systemd/resolved.conf
-        # restart systemd resolve
-        systemctl restart systemd-resolved.service
+        dnssec_links=$( resolvectl dnssec | grep -i 'link' | grep -i yes | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs)
+        dnssec_links_arr=($dnssec_links)
+        for link in "${dnssec_links_arr[@]}" ; do
+            resolvectl dnssec $link off
+        done
     fi
 else
     # timesync ok
-    if [ "$dnssec_yes" = "0" ];
-    then
+    dnssec_no=$( resolvectl dnssec | grep -i 'link' | grep -ci no )
+    if [ "$dnssec_no" != "0" ] ; then
         # dnssec switched off, so switch it on
-        sed -i '/DNSSEC=/c\DNSSEC=yes' /etc/systemd/resolved.conf
-        # restart systemd resolve
-        systemctl restart systemd-resolved.service
-        # switch it off in the configuration file for the next reboot
-        sed -i '/DNSSEC=/c\DNSSEC=no' /etc/systemd/resolved.conf
+        dnssec_links=$( resolvectl dnssec | grep -i 'link' | grep -i no | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs )
+        dnssec_links_arr=($dnssec_links)
+        for link in "${dnssec_links_arr[@]}" ; do
+            resolvectl dnssec $link on
+        done
+        # make sure dnssec is off in the resolved config file for the next boot
+        dnssec_config_on =$( grep -ic '^[\s]*dnssec[\s]*\=[\s]*yes' /etc/systemd/resolved.conf )
+        if [ "$dnssec_config_on" != "0" ] ; then
+            sed -i '/^[\s]*DNSSEC=/c\DNSSEC=no' /etc/systemd/resolved.conf
+        fi
     fi
 fi
