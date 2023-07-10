@@ -31,9 +31,24 @@
 #  coder: Simone De Gregori
 #
 #####################################
-ver="1.3"
+#
+# usage: /srv/http/command/orion_optimize.sh <profile_name> <hardware_id>
+# where (all parameters are required):
+#   profile_name = one of the predefined profiles
+#   hardware_id = 01 to 10 (01 is RPi single processor, 08 = is RPi multiprocessor)
+#
 set +x # echo no commands to cli
 set +e # continue on errors
+#
+####################
+# check parameters #
+####################
+# only validate the presence of the parameters
+if [ "$1" == "" ] || [ "$2" == "" ] ; then
+    echo "Orion Optimize Script"
+    echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
+    exit 1
+fi
 
 ####################
 # common functions #
@@ -181,13 +196,21 @@ if [ "$1" == "default" ]; then
     echo "Linux DEFAULT sound signature profile"
 elif [ "$1" == "RuneAudio" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        # try to use bfq as scheduler, it has focus on low latency, its complex, has higher overhead
+        # if it is not available use kyber, it is a simple, low overhead, low latency scheduler, similar to noop but has completely different algorithm
+        schedulers=$( cat /sys/block/mmcblk0/queue/scheduler )
+        if [[ $schedulers == *"bfq"* ]] ; then
+            echo -n bfq > /sys/block/mmcblk0/queue/scheduler
+        else
+            echo -n kyber > /sys/block/mmcblk0/queue/scheduler
+        fi
         echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
         echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
         echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
@@ -265,7 +288,8 @@ elif [ "$1" == "ACX" ]; then
     echo "(ACX) sound signature profile"
 elif [ "$1" == "Dynobot" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
@@ -288,7 +312,8 @@ elif [ "$1" == "Dynobot" ]; then
     echo "(Dynobot for Pi2, 3 and 4) sound signature profile"
 elif [ "$1" == "Frost_dk" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
@@ -311,13 +336,21 @@ elif [ "$1" == "Frost_dk" ]; then
     echo "(Frost_dk for Pi2, 3 and 4) sound signature profile"
 elif [ "$1" == "janui" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        # try to use bfq as scheduler, it has focus on low latency, its complex, has higher overhead
+        # if it is not available use kyber, it is a simple, low overhead, low latency scheduler, similar to noop but has completely different algorithm
+        schedulers=$( cat /sys/block/mmcblk0/queue/scheduler )
+        if [[ $schedulers == *"bfq"* ]]; then
+            echo -n bfq > /sys/block/mmcblk0/queue/scheduler
+        else
+            echo -n kyber > /sys/block/mmcblk0/queue/scheduler
+        fi
         echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
         echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
         echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
@@ -334,15 +367,4 @@ elif [ "$1" == "janui" ]; then
         modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
     fi
     echo "(janui) sound signature profile"
-fi
-
-# dev
-if [ "$1" == "dev" ]; then
-echo "flush DEV sound profile 'fake'"
-fi
-
-if [ "$1" == "" ]; then
-echo "Orion Optimize Script v$ver"
-echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
-exit 1
 fi
