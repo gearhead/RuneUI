@@ -647,9 +647,13 @@ function addToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
 function addNextToQueue($redis, $sock, $path)
 {
     $status = _parseStatusResponse($redis, MpdStatus($sock));
-    if (!isset($status['playlistlength']) || !isset($status['nextsong'])) {
+    if (!isset($status['playlistlength']) || !$status['playlistlength']) {
         // failed to get a valid status so return with an error
         return false;
+    }
+    if (!isset($status['nextsong']) || !$status['nextsong']) {
+        // currently playing the last song in the queue
+        $status['nextsong'] = $status['playlistlength'];
     }
     $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
     $filename = $musicDir.'/'.$path;
@@ -676,7 +680,11 @@ function addNextToQueue($redis, $sock, $path)
         // get the status again to in order to determine the number of songs added
         $status = _parseStatusResponse($redis, MpdStatus($sock));
         // move the previous last entry up to the current last entry in the queue to the next play position
-        $cmdlist = "move ".$moveStart.":".$status['playlistlength']." ".$status['nextsong'];
+        if (isset($status['nextsong']) && $status['nextsong'] && ($moveStart != $status['nextsong'])) {
+            // we were not playing the last song in the queue when songs were added, they need to be moved
+            $cmdlist = "move ".$moveStart.":".$status['playlistlength']." ".$status['nextsong'];
+            sendMpdCommand($sock, $cmdlist);
+        }
     } else {
         $fileext = parseFileStr($path,'.');
         if (($fileext == 'm3u') || ($fileext == 'pls') || ($fileext == 'cue')) {
@@ -685,28 +693,39 @@ function addNextToQueue($redis, $sock, $path)
             // load the first song in the playlist, it gets added to the end of the queue
             $cmdlist .= "load \"".html_entity_decode($path)."\" 0:1\n";
             // move the last entry in the queue to the next play position
-            $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+            if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
+                // we were not playingthe last song in the queue when songs were added, they need to be moved
+                $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+            }
             $cmdlist .= "command_list_end";
+            sendMpdCommand($sock, $cmdlist);
         } else {
             // its a song file
             $cmdlist = "command_list_begin\n";
             // add the song in the playlist, it gets added to the end of the queue
             $cmdlist .= "add \"".html_entity_decode($path)."\"\n";
             // move the last entry in the queue to the next play position
-            $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+            if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
+                // we were not playing the last song in the queue when songs were added, they need to be moved
+                $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+            }
             $cmdlist .= "command_list_end";
+            sendMpdCommand($sock, $cmdlist);
         }
     }
-    sendMpdCommand($sock, $cmdlist);
     return true;
 }
 
 function addNextToQueueAndPlay($redis, $sock, $path)
 {
     $status = _parseStatusResponse($redis, MpdStatus($sock));
-    if (!isset($status['playlistlength']) || !isset($status['nextsong'])) {
+    if (!isset($status['playlistlength']) || !$status['playlistlength']) {
         // failed to get a valid status so return with an error
         return false;
+    }
+    if (!isset($status['nextsong']) || !$status['nextsong']) {
+        // currently playing the last song in the queue
+        $status['nextsong'] = $status['playlistlength'];
     }
     $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
     $filename = $musicDir.'/'.$path;
@@ -716,7 +735,7 @@ function addNextToQueueAndPlay($redis, $sock, $path)
         //  assume that no songs are added or deleted during the operation
         //  do it in 2 steps:
         //      add the songs from the directory to the end of the queue and wait until completed
-        //      then move the added songs to the next song position and play the first added entry
+        //      then move the added songs to the next song position
         // remember the position at which the songs will be added
         $moveStart = $status['playlistlength'];
         // set up the command
@@ -734,11 +753,17 @@ function addNextToQueueAndPlay($redis, $sock, $path)
         $status = _parseStatusResponse($redis, MpdStatus($sock));
         $cmdlist = "command_list_begin\n";
         // move the previous last entry up to the current last entry in the queue to the next play position
-        $cmdlist .= "move ".$moveStart.":".$status['playlistlength']." ".$status['nextsong']."\n";
-        // play the first added song
-        $cmdlist .= "play ".$status['nextsong']."\n";
+        if (isset($status['nextsong']) && $status['nextsong'] && ($moveStart != $status['nextsong'])) {
+            // we were not playing the last song in the queue when songs were added, they need to be moved
+            $cmdlist .= "move ".$moveStart.":".$status['playlistlength']." ".$status['nextsong']."\n";
+            $cmdlist .= "play ".$status['nextsong']."\n";
+        } else {
+            $cmdlist .= "play ".$moveStart."\n";
+        }
         // terminate the command
         $cmdlist .= "command_list_end";
+        // run the command
+        sendMpdCommand($sock, $cmdlist);
     } else {
         $fileext = parseFileStr($path,'.');
         if (($fileext == 'm3u') || ($fileext == 'pls') || ($fileext == 'cue')) {
@@ -747,21 +772,36 @@ function addNextToQueueAndPlay($redis, $sock, $path)
             // load the first song in the playlist, it gets added to the end of the queue
             $cmdlist .= "load \"".html_entity_decode($path)."\" 0:1\n";
             // move the last entry in the queue to the next play position
-            $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
-            $cmdlist .= "play ".$status['nextsong']."\n";
+            if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
+                // we were not playingthe last song in the queue when songs were added, they need to be moved
+                $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+                $cmdlist .= "play ".$status['nextsong']."\n";
+            } else {
+                $cmdlist .= "play ".$status['playlistlength']."\n";
+            }
+            // terminate the command
             $cmdlist .= "command_list_end";
+            // run the command
+            sendMpdCommand($sock, $cmdlist);
         } else {
             // its a song file
             $cmdlist = "command_list_begin\n";
             // add the song in the playlist, it gets added to the end of the queue
             $cmdlist .= "add \"".html_entity_decode($path)."\"\n";
             // move the last entry in the queue to the next play position
-            $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
-            $cmdlist .= "play ".$status['nextsong']."\n";
+            if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
+                // we were not playing the last song in the queue when songs were added, they need to be moved
+                $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
+                $cmdlist .= "play ".$status['nextsong']."\n";
+            } else {
+                $cmdlist .= "play ".$status['playlistlength']."\n";
+            }
+            // terminate the command
             $cmdlist .= "command_list_end";
+            // run the command
+            sendMpdCommand($sock, $cmdlist);
         }
     }
-    sendMpdCommand($sock, $cmdlist);
     return true;
 }
 
