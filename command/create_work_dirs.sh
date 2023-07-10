@@ -51,7 +51,9 @@ function enable_overlay_art_cache {
     if [ "$partitions" == "2" ]; then
         # standard number of partitions are there, try to create the cache partition
         # first do a dry run to create a third partition contiguously after partition 2 and collect some data
-        lines=$( echo -e 'n\np\n3\n\n+1G\ny\nt\n3\n83\np\n\n\nq' | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3|disk ' | xargs )
+        end_last_partition=$( fdisk /dev/mmcblk0 -l | grep -i mmcblk0p | tail -n 1 | xargs | cut -d ' ' -f 3 | xargs )
+        start_new_partition=$(( $end_last_partition+1 ))
+        lines=$( echo -e "n\np\n3\n$start_new_partition\n+1G\ny\nt\n3\n83\np\n\n\nq" | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3|disk ' | xargs )
         if [[ "$lines" == *" 1G 83 Linux"* ]]; then
             # echo $lines
             # echo "OK"
