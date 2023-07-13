@@ -49,7 +49,7 @@ fi
 if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # Install dos2unix if required
-    if [ "$os" .eq. "arch" ] ; then
+    if [ "$os" == "arch" ] ; then
         pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
     elif [ ! -f /bin/dos2unix ] ; then
         apt install dos2unix
@@ -202,7 +202,7 @@ fi
 #
 sed -i '/^#en_US.UTF-8 UTF-8/s|#en_|en_|g' /etc/locale.gen
 locales=$( locale -a | grep -ic en_US.UTF8 )
-if [[ $locales != "1" ]] ; then
+if [[ "$locales" != "1" ]] ; then
     locale-gen
 fi
 locale -a
