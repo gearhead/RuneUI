@@ -35,6 +35,13 @@ set -x # echo all commands to cli
 set +e # continue on errors
 cd /home
 #
+# determine the OS
+if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+    os="RPiOS"
+elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+    os="ARCH"
+fi
+#
 # Image reset script
 if [ "$1" == "full" ] ; then
     echo "Running full cleanup and image initialisation for a distribution image"
@@ -81,17 +88,21 @@ rm -rf /var/lib/bluetooth/*
 #
 # set up services and stop them
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
-declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbindd winbind udevil upmpdcli hostapd shairport-sync\
-    local-browser rune_SSM_wrk rune_PL_wrk cmd_async_queue dhcpcd php-fpm ntpd bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor\
-    bluealsa bluetooth-agent bluetoothctl_scan bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff\
-    plymouth-lite-start bootsplash systemd-resolved systemd-homed local-browser-w llmnrd upower systemd-networkd rune_shutdown)
-declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman amixer-webui udevil llmnrd mpdversion)
-declare -a stop_arr=(ashuffle mpd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk\
-    cmd_async_queue upmpdcli chronyd systemd-timesyncd systemd-resolved systemd-homed cronie udevil bt_mon_switch bt_scan_output bluealsa-aplay\
-    bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth amixer-webui local-browser-w llmnrd haveged upower systemd-networkd mpdversion)
-declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved systemd-homed getty@tty1 haveged upower\
-    bluealsa-monitor rsyncd rsyncd@)
-# declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-resolved systemd-homed haveged upower bluealsa-monitor rsyncd rsyncd@) # this one will enable console login
+declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
+    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
+    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff\
+    plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd\
+    systemd-homed systemd-networkd udevil upmpdcli upower winbind winbindd)
+declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
+    systemd-resolved systemd-timesyncd udevil)
+declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
+    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile\
+    haveged llmnrd local-browser local-browser-w mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
+    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil\
+    upmpdcli upower winbind winbindd)
+declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed\
+    systemd-logind upower)
+# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
@@ -149,9 +160,10 @@ udevil clean
 #
 # set up connman
 # delete the file/link at /etc/resolv.conf
+#   Note this section can be removed in the next release
 rm -f /etc/resolv.conf
 # symlink it to connman's dynamically created resolv.conf
-ln -sfT /run/connman/resolv.conf /etc/resolv.conf
+# ln -sfT /run/connman/resolv.conf /etc/resolv.conf
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons cronie
@@ -185,13 +197,6 @@ rm -rf /var/lib/bluetooth/*
 #
 # remove core dumps
 rm /var/lib/systemd/coredump/*.zst
-#
-# remove current and historical RuneAudio specific udev rules
-# remove the lines for 99-vc4_input.rules and 70-usb-audio.rules after the a couple of image build's
-rm -f /etc/udev/rules.d/99-vc4_input.rules
-rm -f /etc/udev/rules.d/70-usb-audio.rules
-rm -f /etc/udev/rules.d/99-a2dp.rules
-rm -f /etc/udev/rules.d/99-runeaudio.rules
 #
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
@@ -360,7 +365,15 @@ passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
 redis-cli set passworddate $passworddate
 #
 # make sure that Rune-specific users are created
-declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa bluealsa-aplay mpdscribble lirc llmnrd udevil)
+#   first the user http, this has a specific default account
+usercnt=$( grep -c "http:" "/etc/passwd" )
+if [ "$usercnt" == "0" ] ; then
+    # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
+    useradd -U -c "http webserver user" -d /srv/http -s /usr/bin/nologin "http"
+fi
+#   now the rest of the users, these are used by systemd
+#   note: remove user llmnrd from the list on the next release
+declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
@@ -370,7 +383,7 @@ for i in "${createusers[@]}" ; do
 done
 #
 # make sure that Audio-specific users are member of the audio group
-declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa bluealsa-aplay mpdscribble)
+declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -c audio )
     if [ "$audiocnt" == "0" ] ; then
@@ -435,7 +448,6 @@ systemctl start connman
 #
 # reset the service and configuration files to the distribution standard
 # the following commands should also be run after a system update or any package updates
-rm -f /etc/nginx/nginx.conf
 rm -f /etc/samba/*.conf
 #rm -f /etc/netctl/*
 # copy default settings and services
@@ -458,11 +470,73 @@ touch /run/bluealsa-monitor/asoundrc
 rm /etc/udev/rules.d/99-runeaudio.rules
 rm /etc/udev/rules.d/70-bluealsa.rules
 rm /etc/udev/rules.d/90-touchscreen.rules
+# if certain udev rules files are not present use the defaults, otherwise remove the defaults (these files could be created in the image)
+for f in /etc/udev/rules.d/*.default ;  do
+    f1=${f::-8}
+    if [ -f "$f1" ] ; then
+        # the file is present delete the default
+        rm "$f"
+    else
+        # the file is missing rename the default
+        mv "$f" "$f1"
+    fi
+done
 # make appropriate links
-ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
+#
+# set specific files for arch and rpios version compatibility
+#  python plugin for amixer-webui
+pythonPlugin=$( find /usr/lib -name python_plugin.so | wc -w | xargs )
+python3Plugin=$( find /usr/lib -name python3_plugin.so | wc -w | xargs )
+if [ $pythonPlugin -eq 1 ] && [ $python3Plugin -ne 1 ] ; then
+    # echo 'python'
+    sed -i '/^plugins = python/c\plugins = python' /srv/http/amixer/amixer-webui.ini
+elif [ $pythonPlugin -ne 1 ] && [ $python3Plugin -eq 1 ] ; then
+    # echo 'python3'
+    sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini
+fi
+#   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+if [ "$os" == "RPiOS" ] ; then
+    php_path=$( find /usr/*bin -name php-fpm* )
+    php_exe=$(basename -- "$php_path")
+    php_ver=${php_exe:7:10}
+    if [ "$php_ver" != "7.4" ] ; then
+        set +x
+        echo "########################################################################"
+        echo "##              Error: PHP version has changed for RPiOS              ##"
+        echo "## Exiting! - Old version was 7.4, new version is $php_ver                 ##"
+        echo "##      This script (image_reset_script.sh) needs to be modified      ##"
+        echo "##                   ---------------------              --------      ##"
+        echo "########################################################################"
+        exit
+        # when this error occurs look at all occurrences of the old version number in this script, they will need to be changed
+        # also the contents of /srv/http/app/config/defaults/etc/php will need to change
+        # and the files /srv/http/app/config/defaults//etc/systemd/system/php-fpm.service* will need to be modified
+    fi
+fi
+for f in /etc/php/*.* ;  do
+    if [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/7.4" ] ; then
+        # echo $f
+        rm -r "$f"
+    elif [ "$os" == "RPiOS" ] && [ "$f" != "/etc/php/7.4" ] ; then
+        # echo $f
+        rm -r "$f"
+    fi
+done
+#   php-fpm.service
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+if [ "$os" == "ARCH" ] ; then
+    cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
+    rm /etc/systemd/system/php-fpm.service.ARCH
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+elif [ "$os" == "RPiOS" ] ; then
+    cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+    rm /etc/systemd/system/php-fpm.service.ARCH
+fi
 #
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
@@ -482,9 +556,6 @@ chgmod 644 /usr/share/upmpdcli/runeaudio.png
 #
 # modify all standard .service files which specify the wrong PIDFile location
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/*.service
-# sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/nmb.service
-# sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/winbind.service
-# sed -i 's|.*User=mpd.*|#User=mpd|g' /usr/lib/systemd/system/mpd.service
 #
 # some fixes for the ply-image binary location (required for 0.5b)
 if [ -e /usr/bin/ply-image ] ; then
@@ -509,18 +580,20 @@ if [ "$1" == "full" ] ; then
     ssh-keygen -A
 fi
 #
-# for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
+# for a distribution image remove the pacman or apt history. It makes a lot of space free, but that history is useful when developing
 if [ "$1" == "full" ] ; then
-    # remove uglify-js if required
-    # pacman -Q uglify-js && pacman -Rsn uglify-js --noconfirm
-    # removing dos2unix if required
-    # pacman -Q dos2unix && pacman -Rsn dos2unix --noconfirm
-    # remove pacman history and no longer installed packages from the package database
-    pacman -Sc --noconfirm
-    # remove ALL files from the package cache
-    # pacman -Scc --noconfirm
-    # rank mirrors and refresh repo's
-    /srv/http/command/rank_mirrors.sh
+    if [ "$os" == "ARCH" ] ; then
+        # remove pacman history and no longer installed packages from the package database
+        pacman -Sc --noconfirm
+        # remove ALL files from the package cache
+        # pacman -Scc --noconfirm
+        # rank mirrors and refresh repo's
+        /srv/http/command/rank_mirrors.sh
+    elif [ "$od" == "RPiOS" ] ; then
+        apt clean
+        apt autoclean
+        apt autoremove
+    fi
     # remove composer saved files and composer.phar
     rm /srv/http/app/libs/composer.phar
     rm /srv/http/app/libs/*.save
@@ -546,11 +619,10 @@ while [ $i -lt 5 ] ; do
         i=$[$i+1]
     fi
 done
-osver=$( uname -r | xargs )
 buildversion=$( redis-cli get buildversion | xargs )
 patchlevel=$( redis-cli get patchlevel | xargs )
 release=$( redis-cli get release | xargs )
-archarmver=$( uname -msr | xargs )
+linuxver=$( uname -sr | xargs )
 gitbranch=$( git --git-dir=/srv/http/.git branch --show-current | xargs )
 if [ "$gitbranch" == "$release" ] ; then
     if [ "${gitbranch:3:1}" == "a" ] ; then
@@ -570,7 +642,7 @@ if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
 fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($archarmver)"
+line3="Hw-env: Raspberry Pi ($linuxver $os)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd

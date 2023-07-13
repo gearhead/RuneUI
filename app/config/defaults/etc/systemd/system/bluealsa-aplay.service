@@ -1,26 +1,57 @@
 [Unit]
-Description=Bluealsa audio player
-Documentation=https://github.com/Arkq/bluez-alsa/
-Wants=bluealsa.service
+Description=BlueALSA player service
+Documentation=man:bluealsa-aplay(1)
+Requisite=dbus.service
+
+# In order to customize BlueALSA player D-Bus service one should create an
+# override for this systemd unit file. Please note, that in the override file
+# one will have to explicitly clear the ExecStart before setting it again.
+# See the bluez-alsa wiki for more options.
+#
+# $ sudo systemctl edit bluealsa-aplay
+# [Service]
+# ExecStart=
+# ExecStart=@bindir@/bluealsa-aplay -S --pcm=my-playback-pcm
 
 [Service]
 Type=simple
-;default to all devices - can be overridden in the EnvironmentFile
+User=bluealsa
+Group=audio
 Environment="BT_ADDR=00:00:00:00:00:00"
 EnvironmentFile=-/etc/default/bluealsa-aplay
 ExecStart=/usr/bin/bluealsa-aplay $OPTIONS $BT_ADDR
 Restart=on-failure
-ProtectSystem=strict
-ProtectHome=true
+
+# Sandboxing
+CapabilityBoundingSet=
+DeviceAllow=char-alsa rw
+DevicePolicy=closed
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
 PrivateTmp=true
-;PrivateDevices=true
+PrivateUsers=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
 RemoveIPC=true
 RestrictAddressFamilies=AF_UNIX
-; Also non-privileged can user be used
-; this example assumes a user called 'bluealsa-aplay' exists in the group 'audio'
-;User=bluealsa-aplay
-;Group=audio
-;NoNewPrivileges=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+UMask=0077
 
 [Install]
 WantedBy=bluetooth.target
+

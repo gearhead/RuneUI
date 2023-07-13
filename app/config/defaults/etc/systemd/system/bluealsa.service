@@ -1,26 +1,60 @@
 [Unit]
-Description=Bluealsa daemon
-Documentation=https://github.com/Arkq/bluez-alsa/
-After=dbus-org.bluez.service
-Requires=dbus-org.bluez.service
+Description=BlueALSA service
+Documentation=man:bluealsa(8)
+Requisite=dbus.service
+After=bluetooth.service
+
+# In order to customize BlueALSA D-Bus service one should create an override
+# for this systemd unit file. Please note, that in the override file one will
+# have to explicitly clear the ExecStart before setting it again. See the
+# bluez-alsa wiki for more options.
+#
+# $ sudo systemctl edit bluealsa
+# [Service]
+# ExecStart=
+# ExecStart=@bindir@/bluealsa -S --keep-alive=5 -p a2dp-sink
 
 [Service]
 Type=dbus
 BusName=org.bluealsa
+User=bluealsa
 EnvironmentFile=-/etc/default/bluealsa
 ExecStart=/usr/bin/bluealsa $OPTIONS
 Restart=on-failure
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
+
+# Sandboxing
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
 PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=false
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
 RemoveIPC=true
 RestrictAddressFamilies=AF_UNIX AF_BLUETOOTH
-; Also non-privileged can user be used
-; this example assumes a user and group called 'bluealsa' exist
-;User=bluealsa
-;Group=bluealsa
-;NoNewPrivileges=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+UMask=0077
+
+# Setup state directory for persistent storage
+ReadWritePaths=/var/lib/bluealsa
+StateDirectory=bluealsa
 
 [Install]
 WantedBy=bluetooth.target

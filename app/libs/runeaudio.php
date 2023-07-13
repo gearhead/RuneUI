@@ -2075,24 +2075,24 @@ function wrk_opcache($redis, $action)
             sysCmd('systemctl reload php-fpm');
             break;
         case 'enable':
-            $fileName = '/etc/php/conf.d/opcache.ini';
-            // clear the file cache otherwise file_exists() returns incorrect values
-            clearstatcache(true, $fileName);
-            if (!file_exists($fileName)) {
-                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=1\n" > "'.$fileName.'"');
-            } else {
-                sysCmd("sed -i '/^pcache.enable=/c\pcache.enable=1' '".$fileName."'");
+            $fileNames = sysCmd('find /etc -name opcache.ini');
+            foreach ($fileNames as $fileName) {
+                // clear the file cache otherwise file_exists() returns incorrect values
+                clearstatcache(true, $fileName);
+                if (file_exists($fileName)) {
+                    sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=1' '".$fileName."'");
+                }
             }
             $redis->set('opcache', 1);
             break;
         case 'disable':
-            $fileName = '/etc/php/conf.d/opcache.ini';
-            // clear the file cache otherwise file_exists() returns incorrect values
-            clearstatcache(true, $fileName);
-            if (!file_exists($fileName)) {
-                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=0\n" > "'.$fileName.'"');
-            } else {
-                sysCmd("sed -i '/^pcache.enable=/c\pcache.enable=0' '".$fileName."'");
+            $fileNames = sysCmd('find /etc -name opcache.ini');
+            foreach ($fileNames as $fileName) {
+                // clear the file cache otherwise file_exists() returns incorrect values
+                clearstatcache(true, $fileName);
+                if (file_exists($fileName)) {
+                    sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=0' '".$fileName."'");
+                }
             }
             $redis->set('opcache', 0);
             break;
@@ -2147,17 +2147,18 @@ function wrk_opcache($redis, $action)
             $memory = $opCacheConfiguration['directives']['opcache.memory_consumption'] * (9.5367431640625*10**-7);
             // total memory rounded to units of 8MB, plus 8MB
             $memory = (round($memory/8)*8) + 8;
-            //
-            $fileName = '/etc/php/conf.d/opcache.ini';
-            // clear the file cache otherwise file_exists() returns incorrect values
-            clearstatcache(true, $fileName);
-            if (!file_exists($fileName)) {
-                sysCmd('echo -en "opcache.enable=1\npcache.enable_cli=1\nopcache.memory_consumption='.$memory.'\n" > "'.$fileName.'"');
-            } else {
-                if (sysCmd('grep -ic "opcache.memory_consumption=" "'.$fileName.'"')[0]) {
-                    sysCmd("sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=".$memory."' '".$fileName."'");
-                } else {
-                    sysCmd('echo -en "opcache.memory_consumption='.$memory.'\n" >> "'.$fileName.'"');
+            // the opcache config file can be in different places depending on ARCH or RPiOS and the PHP version
+            //  modify any files found
+            $fileNames = sysCmd('find /etc -name opcache.ini');
+            foreach ($fileNames as $fileName) {
+                // clear the file cache otherwise file_exists() returns incorrect values
+                clearstatcache(true, $fileName);
+                if (file_exists($fileName)) {
+                    if (sysCmd('grep -ic "opcache.memory_consumption=" "'.$fileName.'"')[0]) {
+                        sysCmd("sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=".$memory."' '".$fileName."'");
+                    } else {
+                        sysCmd('echo -en "opcache.memory_consumption='.$memory.'\n" >> "'.$fileName.'"');
+                    }
                 }
             }
             break;
@@ -5577,9 +5578,33 @@ function wrk_NTPsync($ntpserver)
 function wrk_restartSamba($redis)
 // restart Samba
 {
+    // on RPiOS smbd, nmbd and winbindd services are used, while on ARCH they are smb, nmb and winbind
+    //  the latest standard uses smb, nmb and winbind, Debian (and RIPiOS) will support both in the future
+    //  depending on the available files set up the stop, start, enable and disable systemctl command strings
+    // no need for clearstatcache() the service files are static
+    if (file_exists('/usr/lib/systemd/system/smb.service')) {
+        $serviceNames = array("smb", "nmb", "winbind");
+    } else if (file_exists('/usr/lib/systemd/system/smbd.service')) {
+        $serviceNames = array("smbd", "nmbd", "winbindd");
+    } else if (file_exists('/etc/systemd/system/smb.service')) {
+        $serviceNames = array("smb", "nmb", "winbind");
+    } else if (file_exists('/etc/systemd/system/smbd.service')) {
+        $serviceNames = array("smbd", "nmbd", "winbindd");
+    } else if (file_exists('/lib/systemd/system/smb.service')) {
+        $serviceNames = array("smb", "nmb", "winbind");
+    } else if (file_exists('/lib/systemd/system/smbd.service')) {
+        $serviceNames = array("smbd", "nmbd", "winbindd");
+    } else {
+        $serviceNames = array("smb", "nmb", "winbind");
+    }
+    $sambaStopCommand = 'systemctl stop '.$serviceNames[0].' ; systemctl stop '.$serviceNames[1].' ; systemctl stop '.$serviceNames[2];
+    $sambaDisableCommand = 'systemctl disable '.$serviceNames[0].' ; systemctl disable '.$serviceNames[1].' ; systemctl disable '.$serviceNames[2];
+    $sambaStartCommand = 'systemctl start '.$serviceNames[0].' ; systemctl start '.$serviceNames[1].' ; systemctl start '.$serviceNames[2];
+    $sambaEnableCommand = 'systemctl enable '.$serviceNames[0].' ; systemctl enable '.$serviceNames[1].' ; systemctl enable '.$serviceNames[2];
+    //
     runelog('Samba Stopping...', '');
-    sysCmd('systemctl stop smb ; systemctl stop nmb ; systemctl stop winbind');
-    sysCmd('systemctl disable smb ; systemctl disable nmb ; systemctl disable winbind');
+    sysCmd($sambaStopCommand);
+    sysCmd($sambaDisableCommand);
     runelog('Samba Dev Mode   :', $redis->get('dev'));
     runelog('Samba Enable     :', $redis->hGet('samba', 'enable'));
     runelog('Samba Read/Write :', $redis->hGet('samba', 'readwrite'));
@@ -5614,11 +5639,11 @@ function wrk_restartSamba($redis)
             }
         }
     }
-    if (($redis->get('dev')) OR ($redis->hGet('samba', 'enable'))) {
+    if ($redis->get('dev') || $redis->hGet('samba', 'enable')) {
         runelog('Samba Restarting...', '');
         sysCmd('systemctl daemon-reload');
-        sysCmd('systemctl start nmb ; systemctl start smb ; systemctl start winbind');
-        sysCmd('systemctl enable nmb ; systemctl enable smb ; systemctl enable winbind');
+        sysCmd($sambaStartCommand);
+        sysCmd($sambaEnableCommand);
     }
 }
 
@@ -7118,31 +7143,25 @@ function refresh_nics($redis)
             // refresh network list for wifi
             sysCmd('iwctl station '.$nic.' scan');
             // sleep (1);
-        } else if (strpos($deviceInfoLine, 'ssid ')) {
-            $networkInterfaces[$nic]['ssid'] = trim(explode(' ', trim($deviceInfoLine))[1]);
-        } else if (strpos($deviceInfoLine, 'type ')) {
-            $networkInterfaces[$nic]['type'] = trim(explode(' ', trim($deviceInfoLine))[1]);
-        }
-        if ($networkInterfaces[$nic]['speed'] === 'Unknown') {
-            $speed = sysCmd('iw dev '.$nic." station dump | grep -i 'rx bitrate' | sed 's,[ ]\+, ,g'");
-            if ((isset($speed[0])) && (strpos(' '.$speed[0], ':'))) {
-                $speed = trim(explode(':', preg_replace('!\s+!', ' ', $speed[0]),2)[1]);
-                if ($speed) {
-                    $networkInterfaces[$nic]['speed'] = $speed;
+            if ($networkInterfaces[$nic]['speed'] === 'Unknown') {
+                $speed = sysCmd('iw dev '.$nic." station dump | grep -i 'rx bitrate' | sed 's,[ ]\+, ,g'");
+                if ((isset($speed[0])) && (strpos(' '.$speed[0], ':'))) {
+                    $speed = trim(explode(':', preg_replace('!\s+!', ' ', $speed[0]),2)[1]);
+                    if ($speed) {
+                        $networkInterfaces[$nic]['speed'] = $speed;
+                    }
                 }
             }
-        }
-        // set Wi-Fi nic power management off and save its state
-        $retval = sysCmd('iw dev '.$nic.' get power_save | cut -d ":" -f 2 | xargs');
-        if (isset($retval[0])) {
-            $networkInterfaces[$nic]['power_management'] = $retval[0];
-        }
-        if (!isset($retval[0]) || ($retval[0] != 'off')) {
+            // set Wi-Fi nic power management off and save its state
             sysCmd('iw dev '.$nic.' set power_save off');
             $retval = sysCmd('iw dev '.$nic.' get power_save | cut -d ":" -f 2 | xargs');
             if (isset($retval[0])) {
                 $networkInterfaces[$nic]['power_management'] = $retval[0];
             }
+        } else if (strpos($deviceInfoLine, 'ssid ')) {
+            $networkInterfaces[$nic]['ssid'] = trim(explode(' ', trim($deviceInfoLine))[1]);
+        } else if (strpos($deviceInfoLine, 'type ')) {
+            $networkInterfaces[$nic]['type'] = trim(explode(' ', trim($deviceInfoLine))[1]);
         }
         unset($retval);
     }

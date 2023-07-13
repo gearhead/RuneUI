@@ -289,8 +289,10 @@ max_usb_current=1
 #       noise) by setting arm_boost on (arm_boost=1)
 [pi4]
 # Conditional for Model 4
+# The Pi 4 is very fast, we don't need the extra speed of arm_boost for RuneAudio, switch it off
 arm_boost=0
 [all]
 # Conditional end
 #
-initramfs initramfs-linux.img followkernel
+# The next line should not be required, uncomment it if the hardware fails to boot
+#initramfs initramfs-linux.img followkernel

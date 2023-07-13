@@ -39,12 +39,21 @@ cd /home
 #   fast > a quick version which just sets the privileges
 #   cleanfiles > a full version will also clear trailing whitespace from source files and uglify the javascript files
 #
+if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+    os='rpios'
+elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+    os='arch'
+fi
 # Convert important files from dos format to unix format script
 # Don't run if fast parameter is selected
 if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # Install dos2unix if required
-    pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
+    if [ "$os" .eq. "arch" ] ; then
+        pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
+    elif [ ! -f /bin/dos2unix ] ; then
+        apt install dos2unix
+    fi
     #
     # Dos2Unix conversion
     # exclude binary files, keep the date, keep the old file name
@@ -179,7 +188,11 @@ set -x # echo all commands to cli
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
     # Install uglify-js if required
-    pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
+    if [ "$os" .eq. "arch" ] ; then
+        pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
+    elif [ ! -f /bin/uglifyjs ] ; then
+        apt install uglifyjs
+    fi
     cd /srv/http/
     uglifyjs --verbose --mangle --warn --validate --webkit --ie8 assets/js/runeui.js --output assets/js/runeui.min.js
     cd /home

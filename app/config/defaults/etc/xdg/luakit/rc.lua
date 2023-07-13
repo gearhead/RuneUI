@@ -90,7 +90,7 @@ local formfiller = require "formfiller"
 local proxy = require "proxy"
 
 -- Add cache control (clear-data, clear-favicon-db)
-local clear_data = require "clear_data"
+-- local clear_data = require "clear_data"
 
 -- Add quickmarks support & manager
 local quickmarks = require "quickmarks"
@@ -106,7 +106,7 @@ local undoclose = require "undoclose"
 local tabhistory = require "tabhistory"
 
 -- Add command to list open tabs
-local tabmenu = require "tabmenu"
+-- local tabmenu = require "tabmenu"
 
 -- Add gopher protocol support (this module needs luasocket)
 -- local gopher = require "gopher"
