@@ -545,10 +545,12 @@ if [ "$volitileFound" == "0" ] ; then
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
-# modify the /etc/php/php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
-if [ -f "/etc/php/php.ini" ] ; then
-    sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=32' /etc/php/php.ini
-fi
+# modify the php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
+#   the file can be in various places, there could be duplicates
+php_ini_files=$( grep -Ril '^[\s]*opcache.memory_consumption=' /etc/php | grep -i 'php.ini$' )
+for f in $php_ini_files ; do
+    sed -i '/^[\s]*opcache.memory_consumption=/c\opcache.memory_consumption=32' "$f"
+done
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
