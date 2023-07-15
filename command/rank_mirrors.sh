@@ -45,20 +45,6 @@ for server in ${servers[@]}; do # download from each mirror
     timeout $sec wget -q --no-cache -P $tmpdir $server/$dlfile &
     wait
     dl=$( du -c $tmpdir | grep total | awk '{print $1}' ) # get downloaded amount
-    # info=$( wget --timeout=3s --no-cache -P  $tmpdir $server/$dlfile 2>&1 | grep -i 'saved' | xargs )
-    # info=$( echo $info | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs )
-    # speed=$( echo $info | cut -d ' ' -f 1 )
-    # speed_unit=$( echo $info | cut -d ' ' -f 2 )
-    # # echo "$speed $speed_unit"
-    # if [ "$speed" == "" ] ; then
-        # speed=0
-    # elif [ "$speed_unit" == "" ] ; then
-        # speed=0
-    # elif [ "$speed_unit" == "MB/s" ] ; then
-        # speed=$( awk "BEGIN {print $speed*1000}" )
-        # speed_unit="KB/s"
-    # fi
-    # # echo "$speed $speed_unit"
     ping=$( ping -4 -c 3 -w 3 ${server/http*\:\/\/} | tail -1 | cut -d'/' -f5 )
     if [[ -n $ping ]]; then
         latency=$( printf %.0f $ping )
@@ -68,6 +54,22 @@ for server in ${servers[@]}; do # download from each mirror
 
     server0='Server = '$server'/$arch/$repo'
     speed=$(( dl / sec ))
+    # if [ "$speed" == "1" ] ; then
+        # info=$( wget --timeout=3s --no-cache -P  $tmpdir $server/$dlfile 2>&1 | grep -i 'saved' | xargs )
+        # info=$( echo $info | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs )
+        # speed=$( echo $info | cut -d ' ' -f 1 )
+        # speed_unit=$( echo $info | cut -d ' ' -f 2 )
+        # # echo "$speed $speed_unit"
+        # if [ "$speed" == "" ] ; then
+            # speed=0
+        # elif [ "$speed_unit" == "" ] ; then
+            # speed=0
+        # elif [ "$speed_unit" == "MB/s" ] ; then
+            # speed=$( awk "BEGIN {print $speed*1000}" )
+            # speed_unit="KB/s"
+        # fi
+        # # echo "$speed $speed_unit"
+    # fi
     dl_server="$dl_server$server0 $speed $latency\n"
     printf "%6d. %-23s :%7d kB/s%5s ms\n" $i ${server/archlinux*}.. $speed $latency
 
