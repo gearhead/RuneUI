@@ -1184,9 +1184,9 @@ while (true) {
                     // clear the spotify connect last track ID
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
                     // make sure that avahi allows other stacks
-                    if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf")[0] > 0) {
+                    if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf | xargs")[0]) {
                         sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
-                        sysCmd('systemctl restart avahi-daemon');
+                        sysCmd('systemctl reload avahi-daemon');
                     }
                     unset($spotifyConnectCache);
                 }
@@ -1675,27 +1675,17 @@ while (true) {
         }
     }
     // Reload (or preferably restart) avahi-daemon initially after 4 seconds and thereafter restart every 1,5 hours
-    // Reloading after 4 seconds is required because comnnman creates one of the required config files
-    //  after 4 seconds connman has completed its startup.
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
     //  It looks like it is related to renewing the DHCP lease on the router
-    // A second problem is that avahi-daemon uses the file '/etc/resolv.conf' which is a symlink pointing to '/run/connman/resolv.conf'
-    //  The file '/run/connman/resolv.conf' is created by connman when it starts, so avahi-daemon should wait until connman has started
-    //  However this would delay publishing the zeroconfig runeaudio name. It seems to publish the zeroconfig runeaudio name regardless
-    //  of the error about a missing '/etc/resolv.conf'.
     // Reload initially after (+/-4 seconds) then restart every +/-10800 cycles (+/-1,5 hours)
-    // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, delay the restart and try again in one hour
+    // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, just reload
     if ($savecpuAvd-- <= 0) {
         $activePlayer = $redis->get('activePlayer');
-        if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay')) {
-            // try again in one hour
-            $savecpuAvd = 7100 + rand(0, 200);
-            if (is_firstTime($redis, 'reload_avahi_daemon')) {
-                // first time (4 seconds), so reload
-                sysCmdAsync($redis, 'nice --adjustment=10 systemctl reload avahi-daemon', 0);
-            }
+        $savecpuAvd = 10700 + rand(0, 200);
+        if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay') || is_firstTime($redis, 'restart_avahi_daemon')) {
+            // reload avahi-daemon
+            sysCmdAsync($redis, 'nice --adjustment=10 systemctl reload avahi-daemon');
         } else {
-            $savecpuAvd = 10700 + rand(0, 200);
             // restart avahi-daemon
             sysCmdAsync($redis, 'nice --adjustment=10 systemctl restart avahi-daemon');
         }
