@@ -403,6 +403,15 @@ for i in "${devusers[@]}" ; do
     done
 done
 # #
+# # make sure that Video-specific users are member of the video group
+# declare -a videousers=(http)
+# for i in "${videousers[@]}" ; do
+    # videocnt=$( groups $i | grep -c video )
+    # if [ "$videocnt" == "0" ] ; then
+        # usermod -a -G video $i
+    # fi
+# done
+# #
 # # some users need root privileges, add the root group
 # declare -a rootusers=(rune_worker)
 # for i in "${rootusers[@]}" ; do
