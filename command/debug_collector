@@ -59,11 +59,7 @@ function debug_data($redis, $fp=null)
     $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
     $release = trim(sysCmd('uname -sr')[0]);
     $machine = trim(sysCmd('uname -m')[0]);
-    if (strpos(' '.strtolower($release), 'arch')) {
-        $os = 'ARCH';
-    } else {
-        $os = 'RPiOS';
-    }
+    $os = $redis->get('os');
     $output .= "Linux version:\t".$release.' '.$os.' '.$machine.' '.$bit."\n";
     unset($bit, $release, $machine, $os);
     if ($fp) {

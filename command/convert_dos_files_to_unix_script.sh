@@ -40,16 +40,16 @@ cd /home
 #   cleanfiles > a full version will also clear trailing whitespace from source files and uglify the javascript files
 #
 if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
-    os='rpios'
+    os='RPiOS'
 elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
-    os='arch'
+    os='ARCH'
 fi
 # Convert important files from dos format to unix format script
 # Don't run if fast parameter is selected
 if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # Install dos2unix if required
-    if [ "$os" == "arch" ] ; then
+    if [ "$os" == "ARCH" ] ; then
         pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
     elif [ ! -f /bin/dos2unix ] ; then
         apt install dos2unix
@@ -188,7 +188,7 @@ set -x # echo all commands to cli
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
     # Install uglify-js if required
-    if [ "$os" .eq. "arch" ] ; then
+    if [ "$os" .eq. "ARCH" ] ; then
         pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
     elif [ ! -f /bin/uglifyjs ] ; then
         apt install uglifyjs

@@ -1775,12 +1775,6 @@ function wrk_xorgconfig($redis, $action, $args)
             break;
         case 'zoomfactor':
             $redis->hSet('local_browser', $action, $args);
-            // remove the next lines after the next image is produced
-            // modify the zoom factor in /etc/X11/xinit/xinitrc
-            $filePathName = '/etc/X11/xinit/xinitrc';
-            // replace the line with '/usr/bin/chromium' without a zoom factor parameter ???
-            sysCmd('sed -i "\|^[\s]*.sudo -u http /usr/bin/chromium|c\sudo -u http /usr/bin/chromium http://localhost/" "'.$filePathName.'"');
-            // remove up to here
             // modify the zoom factor for the chromium browser in /srv/http/.config/chromium-flags.conf
             // chromium scale factor is a decimal 1 = 100% ( we store it as a decimal)
             $filePathName = '/srv/http/.config/chromium-flags.conf';

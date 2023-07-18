@@ -296,11 +296,7 @@ if (isset($_POST['syscmd']) && ($_POST['syscmd'] === 'backup')) {
 $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
 $release = trim(sysCmd('uname -sr')[0]);
 $machine = trim(sysCmd('uname -m')[0]);
-if (strpos(' '.strtolower($release), 'arch')) {
-    $os = 'ARCH';
-} else {
-    $os = 'RPiOS';
-}
+$os = $redis->get('os');
 $template->sysstate['kernel'] = $release.' '.$os.' '.$machine.' '.$bit;
 $template->sysstate['time'] = implode('\n', sysCmd('date'));
 $template->sysstate['uptime'] = date('d:H:i:s', strtok(file_get_contents('/proc/uptime'), ' ' ));

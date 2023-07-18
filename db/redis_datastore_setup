@@ -153,7 +153,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
             break;
         case 'reset':
-            // kernel
+            // os & kernel
             $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
             $release = trim(sysCmd('uname -sr')[0]);
             $machine = trim(sysCmd('uname -m')[0]);
@@ -162,6 +162,7 @@ function redisDatastore($redis,$action) {
             } else {
                 $os = 'RPiOS';
             }
+            $redis->set('os', $os);
             $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
@@ -327,6 +328,18 @@ function redisDatastore($redis,$action) {
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
             // local browser
+            //  determine which browser is installed, chromium is default if both are installed
+            $filename = '/usr/bin/chromium';
+            clearstatcache(true, $filename);
+            if (file_exists($filename)) {
+                $redis->hSet('local_browser', 'browser', 'chromium');
+            } else {
+                $filename = '/usr/bin/luakit';
+                clearstatcache(true, $filename);
+                if (file_exists($filename)) {
+                    $redis->hSet('local_browser', 'browser', 'luakit');
+                }
+            }
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'zoomfactor', 1);
             $redis->hSet('local_browser', 'rotate', 'NORMAL');
@@ -480,7 +493,7 @@ function redisDatastore($redis,$action) {
             unset($scripts, $script);
             break;
         case 'check':
-            // kernel
+            // os & kernel
             $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
             $release = trim(sysCmd('uname -sr')[0]);
             $machine = trim(sysCmd('uname -m')[0]);
@@ -489,6 +502,7 @@ function redisDatastore($redis,$action) {
             } else {
                 $os = 'RPiOS';
             }
+            $redis->exists('os') || $redis->set('os', $os);
             $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
@@ -638,6 +652,20 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             // local browser
+            //  if not defined determine which browser is installed, chromium is default if both are installed
+            if (!$redis->hExists('local_browser', 'browser')) {
+                $filename = '/usr/bin/chromium';
+                clearstatcache(true, $filename);
+                if (file_exists($filename)) {
+                    $redis->hSet('local_browser', 'browser', 'chromium');
+                } else {
+                    $filename = '/usr/bin/luakit';
+                    clearstatcache(true, $filename);
+                    if (file_exists($filename)) {
+                        $redis->hSet('local_browser', 'browser', 'luakit');
+                    }
+                }
+            }
             $redis->exists('local_browser') || $redis->set('local_browser', 0);
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
             $redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', 1);
