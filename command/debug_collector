@@ -516,8 +516,8 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
-    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|loaded|loading" | grep -i -v "audit" | head -n 200');
+    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|fatal|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
+    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|fatal|loaded|loading" | grep -i -v "audit" | head -n 200');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($fp) {
