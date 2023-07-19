@@ -62,17 +62,17 @@ if [ "$browser" == "luakit" ] ; then
     sudo -u http /usr/bin/luakit
 fi
 
-# optionally use chromium
-# chromium will first need to be installed with the command: pacman -Sy chromium
+# optionally use chromium-browser/chromium
+# chromium will first need to be installed with the command: pacman -Sy chromium, apt install chromium-browser or apt install chromium
 # UI controls are already implemented
 # the chromium configuration/parameter file for the user http is: /srv/http/.config/chromium-flags.conf
-#  this parameter file is automatically applied in ARCH Linux, for RPiOS its contents needs to be manually added
-if [ "$browser" == "chromium" ] ; then
+#  this parameter file is automatically applied in ARCH Linux, for RPiOS its contents need to be manually added
+if [ "$browser" == "chromium-browser" ] || [ "$browser" == "chromium" ] ; then
     os=$( redis-cli get os )
     if [ "$os" == "ARCH" ] ; then
         chromium_flags=""
     else
         chromium_flags=$( grep -v '^\(#.*\)\?$' /srv/http/.config/chromium-flags.conf | xargs )
     fi
-    sudo -u http  /usr/bin/chromium $chromium_flags http://localhost/
+    sudo -u http  /usr/bin/$browser $chromium_flags http://localhost/
 fi

@@ -91,6 +91,8 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     find /etc -type f -name *.conf -exec dos2unix -k -s -o {} \;
     # the file /srv/http/assets/css/runeui.css
     dos2unix -k -s -o /srv/http/assets/css/runeui.css
+    # the file /srv/http/.config/chromium-flags.conf
+    dos2unix -k -s -o /srv/http/.config/chromium-flags.conf
     #
     # Convert leading tabs to 4 spaces in the files
     #

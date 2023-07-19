@@ -1784,12 +1784,12 @@ function wrk_xorgconfig($redis, $action, $args)
                 sysCmd('mkdir "'.$filePath.'"; chown http:http "'.$filePath.'"');
                 sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http:http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
-            if (sysCmd('grep -ic force-device-scale-factor "'.$filePathName.'"')[0]) {
+            if (sysCmd('grep -ic "^[\s]*--force-device-scale-factor[\s]*=" "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
-                sysCmd('sed -i "/force-device-scale-factor/c\--force-device-scale-factor='.$args.'" "'.$filePathName.'"');
+                sysCmd('sed -i "/^[\s]*--force-device-scale-factor[\s]*=/c\--force-device-scale-factor='.$args.'" "'.$filePathName.'"');
             } else {
                 // scale factor line is missing, add it
-                sysCmd('echo "--force-device-scale-factor='.$args.'" >> "'.$filePathName.'"');
+                sysCmd('echo "--force-device-scale-factor='.$args.'\n" >> "'.$filePathName.'"');
             }
             // modify the zoom factor for the luakit browser in /srv/http/.config/luakit/userconf.lua
             // luakit scale factor is a percentage  ( we store it as a decimal)
