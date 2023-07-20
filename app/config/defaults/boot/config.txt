@@ -167,6 +167,7 @@ display_auto_detect=1
 #dtparam=i2c_arm=on
 #dtparam=spi=on
 #dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=20
+#dtoverlay=pitft35-resistive,drm,rotate=90,speed=32000000,fps=20
 #   RPi FT5406 LCD card
 #   rotation 0 (normal), 90, 180 or 270 degrees
 #lcd_rotate=0
