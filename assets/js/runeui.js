@@ -2241,11 +2241,14 @@ function renderModal(text){
     // alert("renderModal");
     // console.log('renderModal, text[0] = ', text[0]);
     toggleLoader('close');
-    var modal = text[0];
-    $('#' + modal.id).on('hidden.bs.modal', function(){
-           $(this).find('input').val('');
-        });
-    $('#' + modal.id).modal();
+    if (!isLocalHost) {
+        // don't display these pop-ups on the local browser
+        var modal = text[0];
+        $('#' + modal.id).on('hidden.bs.modal', function(){
+               $(this).find('input').val('');
+            });
+        $('#' + modal.id).modal();
+    }
 }
 
 // open the Playback UI refresh channel
