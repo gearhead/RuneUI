@@ -21,11 +21,11 @@ SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics async"
 # following rules to connect a connected BT device (phone, speaker, etc) to the alsa subsystem
 #
 #
-SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="add", RUN+="/srv/http/command/bt-connect.php add"
-SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="remove", RUN+="/srv/http/command/bt-connect.php remove"
+#SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="add", RUN+="/srv/http/command/bt_connect.php add"
+#SUBSYSTEM=="bluetooth", ENV{DEVTYPE}=="link", ACTION=="remove", RUN+="/srv/http/command/bt_connect.php remove"
 #
 #
-# following rules to detect a CD insertion or eject and removal/power on/off of the CD drive
+# following rules to detect a CD insertion/eject and connection/removal/power on/off of the CD drive
 #
 #
 # power on, USB plug in, insert, eject
