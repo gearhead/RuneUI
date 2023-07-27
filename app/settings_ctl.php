@@ -378,18 +378,12 @@ $template->kernel = trim(sysCmd('uname -sr')[0]).$bit;
 $redis->set('kernel', $template->kernel);
 unset($bit);
 $template->pwd_protection = $redis->get('pwd_protection');
-$memory = $redis->get('memoryKb');
-$template->memory = $memory;
+$template->memory = $redis->get('memoryKb');
 $cores = $redis->get('cores');
 $template->cores = $cores;
-// check if a local browser is supported, by checking that X11 is isntalled
-clearstatcache(true, '/usr/bin/xinit');
-if (file_exists('/usr/bin/xinit')) {
+// check if a local browser is supported, hardware must be multiprocessor
+if ($redis->get('cores') > 1) {
     $template->local_browseronoff = true;
-    if ($memory < 400000) {
-        // old PI models with less than 512MB cannot run the local browser even if X11 is installed
-        $template->local_browseronoff = false;
-    }
 } else {
     $template->local_browseronoff = false;
 }
