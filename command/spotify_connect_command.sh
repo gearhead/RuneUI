@@ -43,7 +43,7 @@ set -e # fail on errors
 # VOLUME: <the volume level, the scale in unknown , used in the in the volumeset event>
 # all player events are processed
 # get an ID for the queues
-id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+id=$( cat /proc/sys/kernel/random/uuid | md5sum | cut -d ' ' -f 1 )
 # get the event value
 # start event
 if [ "$PLAYER_EVENT" == "start" ]; then

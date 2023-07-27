@@ -68,7 +68,7 @@ if [ $? -eq 0 ]; then
     systemctl enable bt_mon_switch
     #
     # set up the redis variable containing the Bluetooth Quality options
-    id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+    id=$( cat /proc/sys/kernel/random/uuid | md5sum | cut -d ' ' -f 1 )
     # start a system worker background job (rune_SY_wrk > btcfg > action:quality_options)
     #   by writing the command to the worker redis hash and fifo queue
     redis-cli hset w_queue "$id" '{"wrkcmd":"btcfg","action":"quality_options","args":null}'
