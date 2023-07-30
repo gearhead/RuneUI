@@ -647,7 +647,7 @@ function addToQueue($sock, $path, $addplay = null, $pos = null, $clear = null)
 function addNextToQueue($redis, $sock, $path)
 {
     $status = _parseStatusResponse($redis, MpdStatus($sock));
-    if (!isset($status['playlistlength']) || !$status['playlistlength']) {
+    if (!isset($status['playlistlength']) || !is_numeric($status['playlistlength'])) {
         // failed to get a valid status so return with an error
         return false;
     }
@@ -719,7 +719,7 @@ function addNextToQueue($redis, $sock, $path)
 function addNextToQueueAndPlay($redis, $sock, $path)
 {
     $status = _parseStatusResponse($redis, MpdStatus($sock));
-    if (!isset($status['playlistlength']) || !$status['playlistlength']) {
+    if (!isset($status['playlistlength']) || !is_numeric($status['playlistlength'])) {
         // failed to get a valid status so return with an error
         return false;
     }
