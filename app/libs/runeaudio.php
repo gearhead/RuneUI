@@ -3254,7 +3254,7 @@ function wrk_i2smodule($redis, $args)
         $return = fwrite($fp, implode("", $newArray));
         fclose($fp);
     } else {
-        if (wrk_mpdPlaybackStatus($redis) === 'playing') {
+        if (wrk_mpdPlaybackStatus($redis) === 'play') {
             //$mpd = openMpdSocket('/run/mpd/socket', 0);
             $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
             sendMpdCommand($mpd, 'kill');
@@ -3987,11 +3987,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if ($retval[0] === 'active') {
                     // do nothing
                 } else {
-                    ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
+                    ui_notify($redis, 'MPD', 'starting MPD');
                     // reload systemd daemon to activate any changed unit files
                     sysCmd('systemctl daemon-reload');
                     // start mpd
-                    sysCmd('systemctl start mpd.socket');
+                    start_mpd($redis);
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
                 }
@@ -4014,6 +4014,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             unset($activePlayer, $retval);
             break;
         case 'forcestop':
+            ui_notify($redis, 'MPD', 'stopping MPD');
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
             sysCmd('mpc stop');
             sysCmd('systemctl stop mpd');
@@ -4028,6 +4029,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // don't stop mpd if its configuration or unit file has not been changed
                 if ($redis->get('mpdconfchange')) {
                     // the configuration file has changed
+                    ui_notify($redis, 'MPD', 'stopping MPD');
                     $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
                     sysCmd('mpc stop');
                     sysCmd('systemctl stop mpd');
@@ -4113,54 +4115,50 @@ function wrk_mpdPlaybackStatus($redis, $action = null)
 //  the last state and last playing song number (songid) are updated if there are valid values
 {
     // sometimes MPD is still starting up
-    // loop 5 times or until mpc returns a value
+    // loop until the MPD socket can be opened, max 5 times with a 2 second sleep
     $cnt = 5;
-    do {
-        $retval = sysCmd("mpc status | grep '^\[' | cut -d '[' -f 2 | cut -d ']' -f 1");
-        if (isset($retval[0])) {
-            $status = trim($retval[0]);
-            unset($retval);
-            $retval = sysCmd("mpc status | grep '^\[' | cut -d '#' -f 2 | cut -d '/' -f 1");
-            $number = trim($retval[0]);
-            unset($retval);
-        } else {
-            $status = '';
-            $number = '';
-            sleep(1);
-            $cnt--;
+    $status = '';
+    $number = '';
+    $sock = false;
+    $bindToAddress = $redis->hGet('mpdconf', 'bind_to_address');
+    while (!$sock && ($cnt-- >= 0)) {
+        $sock = openMpdSocket($bindToAddress, 0);
+        if (!$sock) {
+            sleep(2);
         }
-    } while (!$status && ($cnt >= 0));
-    unset($retval);
-    if (isset($action)) {
-        switch ($action) {
-            case 'record':
-                return $redis->set('mpd_playback_laststate', wrk_mpdPlaybackStatus($redis));
-                break;
-            case 'laststate':
-                $mpdlaststate = $redis->get('mpd_playback_laststate');
-                if (!empty($status)) {
-                    $redis->set('mpd_playback_laststate', $status);
-                    $redis->set('mpd_playback_lastnumber', $number);
-                } else {
-                    $redis->set('mpd_playback_laststate', 'stopped');
-                    $redis->set('mpd_playback_lastnumber', '');
-                }
-                return $mpdlaststate;
-                break;
-        }
-    } else {
-        if (!empty($status)) {
-            // do nothing
-        } else {
-            $status = 'stopped';
-            $number = '';
-        }
-        runelog('wrk_mpdPlaybackStatus (current state):', $status);
-        runelog('wrk_mpdPlaybackStatus (current number):', $number);
-        $redis->set('mpd_playback_laststate', $status);
-        $redis->set('mpd_playback_lastnumber', $number);
     }
-    return $status;
+    if ($sock) {
+        // there is a valid MPD socket, get the MPD status
+        $mpdstatus = _parseStatusResponse($redis, MpdStatus($sock));
+        if (isset($mpdstatus['state']) && $mpdstatus['state']) {
+            $status = $mpdstatus['state'];
+            if (isset($mpdstatus['songid']) && $mpdstatus['songid']) {
+                $number = $mpdstatus['songid'];
+            }
+        }
+        closeMpdSocket($sock);
+    }
+    unset($sock, $cnt, $mpdstatus);
+    //
+    if (isset($action) && ($action == 'laststate')) {
+        // return the last state
+        $state = $redis->get('mpd_playback_laststate');
+    } else {
+        // return the current state (it may have a false value)
+        $state = $status;
+    }
+    if ($status) {
+        // when we have a valid current state save it
+        $redis->set('mpd_playback_laststate', $status);
+        if ($number) {
+            // when we have a valid current number save it
+            $redis->set('mpd_playback_lastnumber', $number);
+        }
+    }
+    runelog('wrk_mpdPlaybackStatus (current state):', $status);
+    runelog('wrk_mpdPlaybackStatus (current number):', $number);
+    runelog('wrk_mpdPlaybackStatus (returned state):', $state);
+    return $state;
 }
 
 function wrk_mpdRestorePlayerStatus($redis)
@@ -4168,47 +4166,151 @@ function wrk_mpdRestorePlayerStatus($redis)
     // disable start global random
     $redis->hSet('globalrandom', 'wait_for_play', 1);
     $mpd_playback_lastnumber = $redis->get('mpd_playback_lastnumber');
-    // should it be here? // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-    if (wrk_mpdPlaybackStatus($redis, 'laststate') === 'playing') {
-        // seems to be a bug somewhere in MPD
-        // if play is requested too quickly after start it goes into pause or does nothing
-        // solve by repeat play commands (no effect if already playing)
+    if (wrk_mpdPlaybackStatus($redis, 'laststate') === 'play') {
+        // MPD can take a while to start up
+        // attached USB storage devices could still be off-line, they will come on-line eventually
+        //  if play is requested too quickly after startup it may not work
+        //  solve by repeat play commands (no effect if already playing)
+        //  this may seem inefficient and a problem for performance, but nothing will work correctly until MPD
+        //      is up and running and USB storage is on-line
         $loops = 24;
         $sleepSeconds = 2;
-        for ($mpd_play_count = 0; $mpd_play_count < $loops; $mpd_play_count++) {
-            // wait before looping
-            sleep($sleepSeconds);
-            switch (wrk_mpdPlaybackStatus($redis)) {
-                case 'paused':
-                    // it was playing, now paused, so set to play
-                    sysCmd('mpc play || mpc play');
-                    break;
-                case 'playing':
-                    // it was playing, now playing, so do nothing and exit the loop
-                    $mpd_play_count = $loops;
-                    break;
-                default:
-                    // it was playing, now not paused or playing, so start the track which was last playing
-                    sysCmd('mpc play '.$mpd_playback_lastnumber.' || mpc play '.$mpd_playback_lastnumber);
-                    if ($mpd_play_count == ($loops - 2)) {
-                        // one more loop to go, so next time play the first track in the playlist, no effect if the playlist is empty
-                        $mpd_playback_lastnumber = '1';
+        $bindToAddress = $redis->hGet('mpdconf', 'bind_to_address');
+        while ($loops-- > 0) {
+            $status = wrk_mpdPlaybackStatus($redis);
+            // wrk_mpdPlaybackStatus() will set laststate to the actual current state, when we are in this loop set the laststate to play
+            //  another job may call this routine while this loop is still running and then laststate could then be set to stop which could
+            //      override the expected results
+            $redis->set('mpd_playback_laststate', 'play');
+            switch ($status) {
+                // note: running wrk_mpdPlaybackStatus updates the last song number
+                case 'pause':
+                    // it was playing, now paused, start the current song
+                    $sock = openMpdSocket($bindToAddress, 0);
+                    if ($sock) {
+                        if ($mpd_playback_lastnumber == $redis->get('mpd_playback_lastnumber')) {
+                            // the paused song is the same as the last song, play from the paused playtime
+                            sendMpdCommand($sock, 'play');
+                        } else {
+                            // the current paused song number is not the same as the last song number, play the last song from the beginning
+                            sendMpdCommand($sock, 'playid '.$mpd_playback_lastnumber);
+                        }
+                        closeMpdSocket($sock);
                     }
                     break;
+                case 'play':
+                    // it was playing, now playing, so do nothing and exit the loop
+                    $loops = 0;
+                    break;
+                case 'stop':
+                    // it was playing, now stopped, so start the track which was last playing
+                    $sock = openMpdSocket($bindToAddress, 0);
+                    if ($sock) {
+                        // could add code here to determine if the music file is accessible
+                        sendMpdCommand($sock, 'playid '.$mpd_playback_lastnumber);
+                        closeMpdSocket($sock);
+                    }
+                    break;
+                default:
+                    // MPD is not (yet) running, extra sleep
+                    sleep($sleepSeconds);
+                    break;
+            }
+            // sleep between loops
+            sleep($sleepSeconds);
+        }
+        if (($loops <= 0) && (wrk_mpdPlaybackStatus($redis) != 'play')) {
+            // gone through all the loops and it is still not playing, play the first entry in the queue
+            //  if the queue is empty it has no effect
+            //  if the USB storage deveic for track 1 is still off-line, MPD will sequentially try all the subsequent tracks in the queue until one plays
+            // again laststate needs to be set to play, see above
+            $redis->set('mpd_playback_laststate', 'play');
+            $sock = openMpdSocket($bindToAddress, 0);
+            if ($sock) {
+                sendMpdCommand($sock, 'play 0');
+                closeMpdSocket($sock);
             }
         }
     }
-    // make sure the audio output is set to the selected card (when streaming players are selected the MPD audio output is set to null)
+    // make sure the audio output is set to the selected card
     // get the selected audio output
     $audioOutput = $redis->get('ao');
     // enable the selected audio output (then selected and possibly null activated)
     if (isset($audioOutput) && $audioOutput) {
-        sysCmd('mpc output enable '.$audioOutput);
-        //      socket version: sendMpdCommand($sock, 'outputset '.$audioOutput.' 1');
+        // check that the card is still valid
+        if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
+            // the card is defined in mpd.conf, enable it
+            //
+            // socket version is complex, the number of the audio output must be determined, mpc does it easily
+            // $sock = openMpdSocket($bindToAddress, 0);
+            // if ($sock) {
+                // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                // closeMpdSocket($sock);
+            // }
+            sysCmd('mpc output enable "'.$audioOutput.'"');
+        } else {
+            // the card is invalid, its not defined in mpd.conf
+            // try the default card name, this should be a hardware card and almost always valid
+            $audioOutput = $redis->get('ao_default');
+            if (isset($audioOutput) && $audioOutput) {
+                // check that the card is still valid
+                if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
+                    // the card is defined in mpd.conf, enable it
+                    //
+                    // socket version is complex, the number of the audio output must be determined, mpc does it easily
+                    // $sock = openMpdSocket($bindToAddress, 0);
+                    // if ($sock) {
+                        // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                        // closeMpdSocket($sock);
+                    // }
+                    sysCmd('mpc output enable "'.$audioOutput.'"');
+                } else {
+                    // the default card is also invalid
+                    $audioOutput = '';
+                }
+            }
+        }
     }
-    // disable the null audio output (then only the selected audio output selected activated)
-    sysCmd('mpc output disable null');
-    //      socket version: sendMpdCommand($sock, 'outputset null 0');
+    // disable the null audio output when the audio card is a valid hardware card, otherwise enable it
+    if (isset($audioOutput) && $audioOutput) {
+        // the audio output is valid
+        if (sysCmd("aplay -l | grep -ic '".$audioOutput."' | xargs")[0]) {
+            // its a hardware card, disable null
+            //
+            // socket version is complex, the number of the audio output must be determined, mpc does it easily
+            // $sock = openMpdSocket($bindToAddress, 0);
+            // if ($sock) {
+                // sendMpdCommand($sock, 'disableoutput '.$audioOutputNumber);
+                // closeMpdSocket($sock);
+            // }
+            sysCmd('mpc output disable "null"');
+            // set the redis variables ao and ao_default to this value
+            $redis->set('ao_default', $audioOutput);
+            $redis->set('ao', $audioOutput);
+        } else {
+            // its not a hardware card, enable null
+            //
+            // socket version is complex, the number of the audio output must be determined, mpc does it easily
+            // $sock = openMpdSocket($bindToAddress, 0);
+            // if ($sock) {
+                // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                // closeMpdSocket($sock);
+            // }
+            sysCmd('mpc output enable "null"');
+            // set the redis variable ao to this value
+            $redis->set('ao', $audioOutput);
+        }
+    } else {
+        // the audio output is invalid, enable null
+        //
+        // socket version is complex, the number of the audio output must be determined, mpc does it easily
+        // $sock = openMpdSocket($bindToAddress, 0);
+        // if ($sock) {
+            // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+            // closeMpdSocket($sock);
+        // }
+        sysCmd('mpc output enable "null"');
+    }
     // allow global random to start
     $redis->hSet('globalrandom', 'wait_for_play', 0);
 }
@@ -5411,12 +5513,12 @@ function wrk_startPlayer($redis, $newPlayer)
         // }
         $redis->hSet('spotifyconnect', 'last_track_id', '');
         sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-        if (($newPlayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'paused')) {
+        if (($newPlayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'pause')) {
             // to-do: work out a better way to do this
             // we need to pause MPD very early to allow spotify connect to start correctly
             //  this means that we need to assume that if the stopped player is MDP and it's saved
             //  state is paused then its real previous state was playing
-            $redis->set('mpd_playback_laststate', 'playing');
+            $redis->set('mpd_playback_laststate', 'play');
         }
         ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
@@ -12344,4 +12446,41 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found);
             break;
     }
+}
+
+// function to start MPD, it checks that the connected USB storage devices are mounted before starting MPD
+function start_mpd($redis)
+// no parameters
+{
+    if (sysCmd('pgrep -x mpd 2>&1 || echo 0 | xargs')[0]) {
+        // MPD is already running
+        return;
+    }
+    // when udevil is not enabled the USB storage will never be mounted, don't wait
+    if ($redis->get('udevil')) {
+        // udevil is enabled, check that it is all mounted
+        $loop=true;
+        // set a limit of 30 cycles of the outside loop
+        $limit=30;
+        // within the loop sleep for 2 seconds before trying again
+        $sleepSeconds=2;
+        while ($loop && ($limit-- > 0)) {
+            // get the connected USB devices
+            $usbDevices = sysCmd('dir -1 /dev/sd*');
+            // get the mounted USB devices
+            $mountedUsbDevices = sysCmd('grep -i /dev/sd /proc/mounts | cut -d " " -f 1 | xargs')[0];
+            // disable the outside loop
+            $loop = false;
+            foreach ($usbDevices as $usbDevice) {
+                // loop through all the connected USB devices
+                if (!strpos(' '.$mountedUsbDevices, $usbDevice)) {
+                    // the USB device has not been mounted, enable the outside loop, sleep then break the inner loop
+                    $loop = true;
+                    sleep($sleepSeconds);
+                    break;
+                }
+            }
+        }
+    }
+    sysCmd('pgrep -x mpd || systemctl start mpd.socket');
 }

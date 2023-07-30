@@ -45,7 +45,6 @@ redis-cli del shutdownmode
 enablesplash=$( redis-cli hget local_browser enable-splash )
 hw_device=$( redis-cli get ao_default )
 hostname=$( redis-cli get hostname )
-sleepTime=$( redis-cli hget mpdconf state_file_interval )
 locks=$( redis-cli --scan --pattern lock_* | sort -u )
 for lock in $locks ; do
     redis-cli set "$lock" 0
@@ -83,15 +82,11 @@ httpd=$( mpc outputs | grep -ic "$streamname" )
 if [ "$httpd" == "1" ] ; then
     mpc enable "$streamname"
 fi
-# sleep for the MPD state file refresh interval plus 1 second
-#   otherwise MPD could start on the next boot with an invalid output
-#   in which case it will hang
-if [[ $sleepTime != "" ]] ; then
-    ((sleepTime++))
-    sleep $sleepTime
-fi
 # stop mpd & related jobs
-systemctl stop ashuffle upmpdcli mpdscribble mpd
+declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 # stop webserver & local browser
 systemctl stop nginx local-browser
 if [ "$shutdownmode" != "" ] ; then
