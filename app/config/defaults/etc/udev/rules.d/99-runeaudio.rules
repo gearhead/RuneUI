@@ -6,8 +6,8 @@
 #
 # adding or removing audio card ('card0' to 'card9') will trigger running /srv/http/command/refresh_ao
 # provides plug & play audio card functionality (e.g. usb, bluetooth)
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao async"
-KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao async"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao async udev"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao async udev"
 #
 #
 # the following lines were previously in the file 80-net-setup-link.rules

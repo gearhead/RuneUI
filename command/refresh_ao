@@ -48,7 +48,12 @@ sysCmd('echo "--------------- start: refresh_ao ---------------" > /var/log/rune
 runelog('WORKER refresh_ao STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
-
+//
+// when udev calls this routine it sets the second parameter to udev
+if (isset($argv[2]) && ($argv[2] === 'udev')) {
+    ui_notify($redis, 'Audio Output', 'configuration change detected.');
+}
+//
 // this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
 //  the first parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[1]) && ($argv[1] === 'async')) {
@@ -75,7 +80,6 @@ if (isset($argv[1]) && ($argv[1] === 'async')) {
         sysCmd('alsactl kill rescan');
         wrk_mpdconf($redis, 'refreshsoundcards');
         wrk_hwinput($redis, 'refresh');
-        ui_notify($redis, 'Audio Output', 'configuration changed.');
         // unlock
         $redis->set('lock_refresh_ao', '0');
     } else {
