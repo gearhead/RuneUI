@@ -208,7 +208,7 @@ if ($playerid_db === '') {
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
-    sysCmd('/srv/http/command/rune_shutdown reboot ; shutdown now --reboot --no-wall');
+    sysCmd('/srv/http/command/rune_shutdown reboot ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
     // should never get here
     // invoke rune_SY_wrk respawn
     sysCmd('systemctl restart rune_SY_wrk');
@@ -1143,28 +1143,22 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'poweroff':
+                $redis->sRem('w_lock', $jobID);
                 // save the playback status
                 wrk_mpdPlaybackStatus($redis);
-                $redis->sRem('w_lock', $jobID);
-                // $redis->save();
                 // send notfy to UI
                 ui_notify($redis, 'Shutdown', 'system shutdown in progress...');
-                // $redis->set('shutdownmode', 'poweroff');
-                // sysCmd('/srv/http/command/rune_shutdown poweroff');
-                // sysCmd('redis-cli shutdown save ; shutdown now --poweroff --no-wall');
-                sysCmd('/srv/http/command/rune_shutdown "poweroff" ; shutdown now --poweroff --no-wall');
+                // run the shutdown script, close redis with a buffer flush and shutdown
+                sysCmd('/srv/http/command/rune_shutdown "poweroff" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --poweroff --no-wall');
                 break;
             case 'reboot':
+                $redis->sRem('w_lock', $jobID);
                 // save the playback status
                 wrk_mpdPlaybackStatus($redis);
-                $redis->sRem('w_lock', $jobID);
-                // $redis->save();
                 // send notfy to UI
                 ui_notify($redis, 'Reboot', 'system reboot in progress...');
-                // $redis->set('shutdownmode', 'reboot');
-                // sysCmd('/srv/http/command/rune_shutdown reboot');
-                // sysCmd('redis-cli shutdown save ; shutdown now --reboot --no-wall');
-                sysCmd('/srv/http/command/rune_shutdown "reboot" ; shutdown now --reboot --no-wall');
+                // run the shutdown script, close redis  with a buffer flush and reboot
+                sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
                 break;
             case 'display_off':
                 sysCmd('systemctl stop local-browser');

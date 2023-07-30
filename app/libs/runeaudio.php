@@ -1990,7 +1990,7 @@ function wrk_backup($redis, $bktype = null)
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
         // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null;".
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; systemctl stop redis ; \\\n".
             " bsdtar -czpf '".$filepath."'".
             " /mnt/MPD/Webradio".
             " /var/lib/redis/rune.rdb".
@@ -2002,8 +2002,8 @@ function wrk_backup($redis, $bktype = null)
             " /var/lib/connman/ethernet_*.config".
             " /etc/mpd.conf".
             " /etc/samba".
-            " /home/config.txt.diff".
-            "";
+            " /home/config.txt.diff ; \\\n".
+            "systemctl start redis";
     }
     // // add the names of the distribution files
     // $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');

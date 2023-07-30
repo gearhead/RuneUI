@@ -699,6 +699,7 @@ iw reg set 00
 sync
 redis-cli save
 redis-cli shutdown save
+systemctl stop redis
 sync
 #
 # unmount the overlay cache filesystem and remove the cache disk partition

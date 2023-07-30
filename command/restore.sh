@@ -54,6 +54,7 @@ regdom=$( redis-cli get regdom )
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # shutdown redis
 redis-cli shutdown save
+systemctl stop redis
 # stop most rune systemd units
 systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk cmd_async_queue
 # restore the backup
