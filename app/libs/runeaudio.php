@@ -1725,7 +1725,7 @@ function getmac($nicname)
     return trim($mac);
 }
 
-function wrk_xorgconfig($redis, $action, $args)
+function wrk_localBrowser($redis, $action, $args)
 {
     switch ($action) {
         case 'start':
@@ -1734,11 +1734,11 @@ function wrk_xorgconfig($redis, $action, $args)
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
             sysCmd('systemctl start local-browser');
-            wrk_xorgconfig($redis, 'enable-splash', 1);
+            wrk_localBrowser($redis, 'enable-splash', 1);
             if (sysCmd("grep -ic '#disable_overscan=1' '/boot/config.txt'")[0]) {
-                wrk_xorgconfig($redis, 'overscan', 1);
+                wrk_localBrowser($redis, 'overscan', 1);
             } else {
-                wrk_xorgconfig($redis, 'overscan', 0);
+                wrk_localBrowser($redis, 'overscan', 0);
             }
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
@@ -1747,7 +1747,7 @@ function wrk_xorgconfig($redis, $action, $args)
             $redis->hSet('local_browser', 'enable', $args);
             // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
             sysCmd('export DISPLAY=:0; xset dpms force off; systemctl stop local-browser');
-            wrk_xorgconfig($redis, 'enable-splash', 0);
+            wrk_localBrowser($redis, 'enable-splash', 0);
             break;
         case 'restart':
             if ($redis->hGet('local_browser', 'enable')) {
@@ -1808,12 +1808,12 @@ function wrk_xorgconfig($redis, $action, $args)
                 // scale factor line is missing, add it
                 sysCmd('echo "settings.webview.zoom_level = '.round($args*100).'" >> "'.$filePathName.'"');
             }
-            wrk_xorgconfig($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'restart', 1);
             break;
         case 'rotate':
             $redis->hSet('local_browser', $action, $args);
             sysCmd('/srv/http/command/raspi-rotate-screen.sh '.$args);
-            wrk_xorgconfig($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'restart', 1);
             break;
         case 'overscan':
             $redis->hSet('local_browser', $action, $args);
@@ -1849,7 +1849,7 @@ function wrk_xorgconfig($redis, $action, $args)
             $filePathName = '/etc/X11/xinit/xinitrc';
             // replace the line with 'matchbox-window-manager' adding or removing the '-use cursor no' clause
             sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
-            wrk_xorgconfig($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'restart', 1);
             break;
     }
 }

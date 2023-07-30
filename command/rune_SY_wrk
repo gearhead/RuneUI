@@ -540,14 +540,14 @@ while (true) {
                     if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
                         // strip any leading & trailing zero's
                         $zoomfactor = trim($zoomfactor, '0');
-                        wrk_xorgconfig($redis, $job->action, $zoomfactor);
+                        wrk_localBrowser($redis, $job->action, $zoomfactor);
                     } else {
                         $redis->sRem('w_lock', $jobID);
                         ui_notifyError($redis, 'Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
                         break;
                     }
                 } else {
-                    wrk_xorgconfig($redis, $job->action, $job->args);
+                    wrk_localBrowser($redis, $job->action, $job->args);
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
