@@ -575,7 +575,7 @@ elif [ $left_ptr_size -lt $left_ptr_size_org ] ; then
     # the active file is smaller than the saved original file, copy saved original to active
 fi
 #   now set the file up as a hidden cursor (default)
-cp cp /usr/share/icons/Adwaita/cursors/left_ptr.transparent /usr/share/icons/Adwaita/cursors/left_ptr
+cp /usr/share/icons/Adwaita/cursors/left_ptr.transparent /usr/share/icons/Adwaita/cursors/left_ptr
 #
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
