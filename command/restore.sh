@@ -56,7 +56,11 @@ regdom=$( redis-cli get regdom )
 redis-cli shutdown save
 systemctl stop redis
 # stop most rune systemd units
-systemctl stop redis udevil ashuffle upmpdcli mpdscribble mpd spotifyd shairport-sync smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk cmd_async_queue
+declare -a stop_arr=(ashuffle cmd_async_queue mpd mpdscribble nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk\
+    rune_SSM_wrk shairport-sync smb smbd spotifyd udevil upmpdcli)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 # restore the backup
 bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
 # refresh systemd and restart redis
