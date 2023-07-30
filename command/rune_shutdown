@@ -88,14 +88,19 @@ for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 # stop webserver & local browser
-systemctl stop nginx local-browser
+systemctl stop local-browser
+systemctl stop nginx
 if [ "$shutdownmode" != "" ] ; then
     # force redis to save all its variables to disk and stop it
     redis-cli shutdown save
     systemctl stop redis
 fi
 # stop most of the systemd units which can be stopped
-systemctl stop spotifyd shairport-sync samba smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk rune_SDM_wrk rune_MPDEM_wrk udevil systemd-udevd bluetooth bluealsa avahi-daemon llmnrd cmd_async_queue
+declare -a stop_arr=(amixer-webui avahi-daemon bluealsa-aplay bluealsa bluetooth cmd_async_queue llmnrd nmb nmbd\
+     rune_MPDEM_wrk rune_PL_wrkrune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd spotifyd systemd-udevd udevil)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 # unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
