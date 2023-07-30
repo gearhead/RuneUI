@@ -272,7 +272,8 @@ if ($playerid_db === '') {
     }
     //
     // store the memory and number of cores
-    $redis->set('cores', preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]));
+    $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
+    $redis->set('cores', $cores);
     $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo')[0]));
     //
     // set the Wi-Fi regulatory domain based on the current time zone
@@ -281,6 +282,10 @@ if ($playerid_db === '') {
     // clean up any invalid udev mount points
     sysCmd('udevil clean');
     //
+    // clear the current song data on the first pass after startup
+    if (is_firstTime($redis, 'clear_act_player_info')) {
+        $redis->set('act_player_info', json_encode(array()));
+    }
     //
     // start mpd and wait for completion
     wrk_mpdconf($redis, 'start');
@@ -290,18 +295,20 @@ if ($playerid_db === '') {
     //
     // check and set the active player
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/setplayer_async.php');
+    // set the mpd volume - important on the first boot, subsequently less so as MPD remembers the last volume level
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/set_mpd_volume.php');
+    // check that MPD only has one output enabled and if not correct it
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
+    // start rune_PL_wrk
+    sysCmdAsync($redis, 'pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk', 0);
     //
     // initialize OrionProfile
     $orionprofile = $redis->get('orionprofile');
     $hwplatformid = $redis->get('hwplatformid');
     runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
-    // reset usb storage (also starts samba)
+    // collect USB storage information for the UI (also starts samba)
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount');
-    // set the mpd volume - important on the first boot, subsequently less so as MPD remembers the last volume level
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/set_mpd_volume.php');
-    // check that MPD only has one output enabled and if not correct it
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
         runelog('service: SPOTIFYD start','');
@@ -320,53 +327,23 @@ if ($playerid_db === '') {
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
     // refresh the bluetooth status
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_status_async.php');
-    // set process priority (to nice)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
     //
-    // load i2smodule
-    $kernel = $redis->get('kernel');
-    $loadi2s = false;
-    if ($redis->get('i2smodule') !== 'none') {
-        switch($arch_db) {
-            case '01':
-                if ($kernel !== 'linux-rune-3.6.11-18-ARCH+') $loadi2s = true;
-                break;
-            case '10':
-                $loadi2s = true;
-                break;
-        }
-        if ($loadi2s === true) wrk_i2smodule($redis, $redis->get('i2smodule'));
+    // load i2smodule, not relevant for Raspberry Pi
+    if ($arch_db === '10') {
+        wrk_i2smodule($redis, $redis->get('i2smodule'));
     }
     //
-    // start udevil
-    if ($redis->get('udevil')) {
-        runelog("service: UDEVIL start",'');
-        sysCmd('pgrep -x udevil || systemctl start udevil');
-        // clean up any invalid mount points
-        sysCmd('udevil clean');
-    }
-    //
-    // start php-fpm if required
+    // start php-fpm and nginx if required
     sysCmd('pgrep php-fpm || systemctl start php-fpm');
     if ($redis->get('first_time_boot')) {
         // workaround for nginx needing restart with php7.x (normally it now seems to work fine without, but not the first time boot)
         sysCmd('systemctl restart nginx');
     }
-    unset($retval);
     // sometimes on the armv6 image nginx fails to start automatically, if it is not running start it
     sysCmd('pgrep nginx || systemctl start nginx');
     //
-    // clear the current song data on the first pass after startup
-    if (is_firstTime($redis, 'clear_act_player_info')) {
-        $redis->set('act_player_info', json_encode(array()));
-    }
-    // start rune_PL_wrk
-    sysCmdAsync($redis, 'pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk', 0);
-    //
-    // start the local browser when required
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/usr/bin/xinit');
-    if (($redis->hGet('local_browser', 'enable')) && (file_exists('/usr/bin/xinit'))) {
+    // start the local browser when required, hardware must be a multiprocessor
+    if ($redis->hGet('local_browser', 'enable') && ($cores > 1)) {
         sysCmdAsync($redis, 'systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
     } else {
         sysCmdAsync($redis, 'systemctl stop local-browser');
