@@ -694,7 +694,7 @@ function addNextToQueue($redis, $sock, $path)
             $cmdlist .= "load \"".html_entity_decode($path)."\" 0:1\n";
             // move the last entry in the queue to the next play position
             if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
-                // we were not playingthe last song in the queue when songs were added, they need to be moved
+                // we were not playing the last song in the queue when songs were added, they need to be moved
                 $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
             }
             $cmdlist .= "command_list_end";
@@ -773,7 +773,7 @@ function addNextToQueueAndPlay($redis, $sock, $path)
             $cmdlist .= "load \"".html_entity_decode($path)."\" 0:1\n";
             // move the last entry in the queue to the next play position
             if (isset($status['nextsong']) && $status['nextsong'] && ($status['playlistlength'] != $status['nextsong'])) {
-                // we were not playingthe last song in the queue when songs were added, they need to be moved
+                // we were not playing the last song in the queue when songs were added, they need to be moved
                 $cmdlist .= "move ".$status['playlistlength']." ".$status['nextsong']."\n";
                 $cmdlist .= "play ".$status['nextsong']."\n";
             } else {
@@ -1661,7 +1661,7 @@ function runelog($title, $data = null, $function_name = null)
         $function_name = '';
     }
     if ($debug_level !== '0') {
-        if(is_array($data) || is_object($data)) {
+        if (is_array($data) || is_object($data)) {
             if (is_array($data)) error_log($function_name.'### '.$title.' ### $data type = array',0);
             if (is_object($data)) error_log($function_name.'### '.$title.' ### $data type = object',0);
             foreach($data as $key => $value) {
@@ -4107,7 +4107,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
     }
 }
 
-function wrk_mpdPlaybackStatus($redis = null, $action = null)
+function wrk_mpdPlaybackStatus($redis, $action = null)
+// returns the current MPD status, or when $action = laststate the previously recorded MPD state
+//  MPD state values are 'stop', 'play', 'pause'
+//  the last state and last playing song number (songid) are updated if there are valid values
 {
     // sometimes MPD is still starting up
     // loop 5 times or until mpc returns a value
@@ -4676,11 +4679,6 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
             }
             // strip special characters, spaces, tabs, etc. (hex 00 to 20 and 7F), from the options string
             $mp['options'] = preg_replace("|[\\x00-\\x20\\x7F]|", "", $mp['options']);
-            // bug fix: remove the following lines in the next version
-            if (!strpos(' '.$mp['options'], ',')) {
-                $mp['options'] = '';
-            }
-            // end bug fix
             // trim leasing and trailing whitespace from username and password
             $mp['username'] = trim($mp['username']);
             $mp['password'] = trim($mp['password']);
@@ -5219,9 +5217,9 @@ function wrk_getHwPlatform($redis, $reset=false)
                     case "0d":
                         // 0d = Pi3B+
                     case "0e":
-                        // 0d = Pi3A+
+                        // 0e = Pi3A+
                     case "11":
-                        // 0d = Pi4B+
+                        // 11 = Pi4B+
                     case "12":
                         // 12 = PiZero 2 W
                     case "13":

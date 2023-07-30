@@ -366,6 +366,7 @@ if ($playerid_db === '') {
         runelog('prime PHP OPCache');
         sysCmdAsync($redis, "curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
     }
+    // set process priority (to nice)
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
         // display the first boot message
