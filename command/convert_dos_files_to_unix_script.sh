@@ -226,6 +226,8 @@ chmod 644 /etc/nginx/html/50x.html
 chmod 777 /run
 chmod 755 /srv/http/command/*
 chmod 755 /srv/http/db/*
+chmod 444 /srv/http/db/audio_allowed_formats_table*.txt
+chmod 444 /srv/http/.config/i2s_table*.txt
 # remount art cache
 set +x # echo no commands to cli
 sync
