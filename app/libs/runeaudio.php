@@ -6617,17 +6617,29 @@ function autoset_timezone($redis) {
     // it uses the external IP-address of the connected network to determine the location
     //  and this is used to automatically set the timezone and the Wi-Fi regulatory domain
     // the timezone will only be changed when internet is available, the current timezone is set to the
-    //  distribution default timezone (Pacific/Pago_Pago) and the Wi-Fi regulatory domain = 00
+    //  distribution default timezone (Pacific/Pago_Pago) and the Wi-Fi regulatory domain is set to 00
     //  Pago Pago is GMT -11 hours, so any time adjustment can only go forward, it's Wi-Fi regulatory domain is AS
     // experimented with https://ipsidekick.com/ and https://timezoneapi.io, currently using https://ipapi.co/
+    // there seems to be a new standard for regulatory domain which is not exclusively based on letter codes
+    //  numeric codes like 'country 98: DFS-FCC' which appears to be a group code for 'FCC' regulated domains
     //
-    $wifiRegDom00 = sysCmd('iw reg get | grep -ic "country 00:"')[0];
-    $sucess = true;
-    if (!$redis->hget('service', 'internet')) {
-        $sucess = false;
-    } else if (($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDom00) {
-        // we should change the timezone
-        $sucess = false;
+    $retval = strtolower(trim(sysCmd('iw reg get | grep -i country')[0]));
+    if (strpos(' '.$retval, 'unset') || is_numeric(get_between_data($retval, 'country ', ':')) || !$redis->exists('regdom')) {
+        // the regulatory domain is unset, numeric or unsaved
+        $wifiRegDomUnset = true;
+    } else if ($redis->exists('regdom')) {
+        $regdom = $redis->get('regdom');
+        if ($regdom && !is_numeric($regdom)) {
+            // the regulatory domain has been saved, but is invalid, treat as unset
+            $wifiRegDomUnset = true;
+        }
+    } else {
+        // the regulatory domain has been set
+        $wifiRegDomUnset = false;
+    }
+    $sucess = false;
+    if ($redis->hget('service', 'internet') && ($redis->get('timezone') === 'Pacific/Pago_Pago') && $wifiRegDomUnset) {
+        // we should automatically change the timezone
         // // make sure that file_get_contents() times out when nothing is returned
         // // used for https://ipsidekick.com/ and https://timezoneapi.io
         // $opts = array('http' =>
@@ -6674,7 +6686,7 @@ function autoset_timezone($redis) {
                 $result = sysCmd('timedatectl set-timezone '."'".$timeZone."' | xargs")[0];
                 $result = ' '.strtolower($result);
                 if (strpos($result, 'failed') || strpos($result, 'invalid')) {
-                    sysCmd("timedatectl set-timezone 'Pacific/Pago_Pago'");
+                    sysCmd("timedatectl set-timezone 'Pacific/Pago_Pago' ; iw reg set 00");
                 } else {
                     $redis->set('timezone', $timeZone);
                     $redis->set('regdom', $countryCode);
@@ -6701,11 +6713,15 @@ function wrk_setTimezone($redis, $timeZone)
         // save the time zone in redis
         $redis->set('timezone', $timeZone);
         if (!$redis->exists('regdom')) {
-            // it's not been set automatically, so set it to '00'
+            // give the saved regulatory domain a value (00 = unset)
             $redis->set('regdom', '00');
         }
         // set the Wi-Fi regulatory domain based on the current time zone
-        wrk_setRegDom($redis);
+        $return = wrk_setRegDom($redis);
+        if ($return) {
+            // returned value is true, its a valid country code, save it
+            $redis->set('regdom', $return);
+        }
         $retval = true;
     } else {
         $retval = false;
@@ -6718,20 +6734,31 @@ function wrk_setRegDom($redis)
 // set the Wi-Fi regulatory domain based on the current time zone
 // no parameters
 {
-    if (!$redis->exists('regdom')) {
-        // it's not been set automatically or manually yet, don't reset it
+    // when regdom exists an automatic regulatory domain country code change has taken place
+    if ($redis->exists('regdom')) {
+        // automatic or manual regulatory domain country code change has taken place
+        $timeZone = $redis->get('timezone');
+        // determine the country code from the timezone
+        $tz = new DateTimeZone($timeZone);
+        $countryCode = timezone_location_get($tz)['country_code'];
+        // set the Wi-Fi regulatory domain, the standard is 00 and is compatible with most countries
+        // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
+        // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
+        sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
+        $retval = trim(sysCmd('iw reg get | grep -i country')[0]);
+        $newCountryCode = get_between_data($retval, 'country ', ':');
+        if (!is_numeric($newCountryCode)) {
+            // regulatory domain country code change has taken place with a two letter country code, save it
+            $redis->set('regdom', $newCountryCode);
+        }
+    } else {
+        sysCmd('iw reg set 00');
+        $newCountryCode = '00';
+    }
+    if ($newCountryCode == '00') {
         return false;
     }
-    $timeZone = $redis->get('timezone');
-    // determine the country code from the timezone
-    $tz = new DateTimeZone($timeZone);
-    $countryCode = timezone_location_get($tz)['country_code'];
-    // set the Wi-Fi regulatory domain, the standard is 00 and is compatible with most countries
-    // setting it will could allow more Wi-Fi power to be used (never less) and sometimes improve the usable frequency ranges
-    // not all country codes have a specificity specified regulatory domain profile, so if it fails, set to the default (00)
-    sysCmd('iw reg set '.$countryCode.' || iw reg set 00');
-    $newCountryCode = trim(sysCmd('iw reg get')[0]);
-    $redis->set('regdom', $newCountryCode);
+    return $newCountryCode;
 }
 
 function ui_update($redis, $sock=null, $clientUUID=null)
