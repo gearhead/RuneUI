@@ -11717,7 +11717,7 @@ function wrk_security($redis, $action, $args=null)
         case 'check_linux_root_password':
             $today = date('Y-m-d');
             $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-            $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
+            $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
             if (($today != $passwordDate) && ($redis->get('passworddate') == $passwordDate)) {
                 $retval = false;
             }
@@ -11754,7 +11754,7 @@ function wrk_security($redis, $action, $args=null)
                     sysCmd('rm -r /boot/password/*');
                     sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
                     $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-                    $passwordDate = get_between_data($passwordInfo, 'root P ', ' -1 -1');
+                    $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
                     $redis->set('passworddate', $passwordDate);
                     break;
                 }
