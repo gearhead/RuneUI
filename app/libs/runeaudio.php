@@ -1831,15 +1831,19 @@ function wrk_xorgconfig($redis, $action, $args)
         case 'mouse_cursor':
             $redis->hSet('local_browser', $action, $args);
             if ($args){
-                // switch mouse cursor on
+                // switch mouse cursor on for X11
                 $usecursorno = '';
                 // modify the udev rules for vc4 screens
                 sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"0\"/\=\"1\"/g' '/etc/udev/rules.d/99-runeaudio_local_browser.rules'");
+                // and for weston/luakit
+                sysCmd('cp /usr/share/icons/Adwaita/cursors/left_ptr.orig /usr/share/icons/Adwaita/cursors/left_ptr');
             } else {
-                // switch mouse cursor off
+                // switch mouse cursor off for X11
                 $usecursorno = '-use_cursor no ';
                 // modify the udev rules for vc4 screens
                 sysCmd("sed -i '/LIBINPUT_IGNORE_DEVICE/s/\=\"1\"/\=\"0\"/g' '/etc/udev/rules.d/99-runeaudio_local_browser.rules'");
+                // and for weston/luakit
+                sysCmd('cp /usr/share/icons/Adwaita/cursors/left_ptr.transparent /usr/share/icons/Adwaita/cursors/left_ptr');
             }
             // modify the mouse on/off setting in /etc/X11/xinit/xinitrc
             $filePathName = '/etc/X11/xinit/xinitrc';

@@ -547,6 +547,36 @@ elif [ "$os" == "RPiOS" ] ; then
     rm /etc/systemd/system/php-fpm.service.ARCH
 fi
 #
+# set up transparent cursor for Weston / Wayland / luakit
+#   get the size of the active cursor pointer file
+if [ -f /usr/share/icons/Adwaita/cursors/left_ptr ] ; then
+    # get the size of the file
+    declare -i left_ptr_size=$( ls -l /usr/share/icons/Adwaita/cursors/left_ptr | xargs | cut -d ' ' -f 5 )
+else
+    left_ptr_size=0
+fi
+#   get the size of the saved cursor pointer file
+if [ -f /usr/share/icons/Adwaita/cursors/left_ptr.original ] ; then
+    # get the size of the file
+    declare -i left_ptr_size_orig=$( ls -l /usr/share/icons/Adwaita/cursors/left_ptr.original | xargs | cut -d ' ' -f 5 )
+else
+    left_ptr_size_orig=0
+fi
+#   check that we have a correctly saved original left_ptr file
+if [ $left_ptr_size -lt 60000 ] && [ $left_ptr_size_orig -lt 60000 ] ; then
+    # we don't have an original left_ptr file, use the backup one (there could be a newer on available!!)
+    cp /usr/share/icons/Adwaita/cursors/left_ptr.backup /usr/share/icons/Adwaita/cursors/left_ptr
+    cp /usr/share/icons/Adwaita/cursors/left_ptr.backup /usr/share/icons/Adwaita/cursors/left_ptr.orig
+elif [ $left_ptr_size_orig -lt $left_ptr_size ] ; then
+    # the saved original file is smaller than the active file, copy active to saved original
+    cp cp /usr/share/icons/Adwaita/cursors/left_ptr /usr/share/icons/Adwaita/cursors/left_ptr.orig
+elif [ $left_ptr_size -lt $left_ptr_size_org ] ; then
+    cp cp /usr/share/icons/Adwaita/cursors/left_ptr.orig /usr/share/icons/Adwaita/cursors/left_ptr
+    # the active file is smaller than the saved original file, copy saved original to active
+fi
+#   now set the file up as a hidden cursor (default)
+cp cp /usr/share/icons/Adwaita/cursors/left_ptr.transparent /usr/share/icons/Adwaita/cursors/left_ptr
+#
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
 if [ "$volitileFound" == "0" ] ; then
