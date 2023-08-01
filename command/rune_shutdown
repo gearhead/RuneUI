@@ -88,7 +88,9 @@ for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 # stop webserver & local browser
-systemctl stop local-browser
+pgrep -x xinit && systemctl stop local-browser
+pgrep -x weston && systemctl stop local-browser-w ; sleep 2
+pgrep -x weston && systemctl stop weston ; pkill -15 weston
 systemctl stop nginx
 if [ "$shutdownmode" != "" ] ; then
     # force redis to save all its variables to disk and stop it

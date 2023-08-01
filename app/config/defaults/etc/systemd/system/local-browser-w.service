@@ -16,7 +16,7 @@ Environment="GDK_BACKEND=wayland"
 ExecStartPre=/bin/sleep 2
 ExecStart=/usr/bin/luakit localhost
 ExecStartPost=/srv/http/command/ui_update_async 5000000
-ExecStop=/usr/bin/pkill -15 luakit ; /srv/http/command/kill_weston.sh
+ExecStop=/usr/bin/pkill -15 luakit ; /bin/sleep 2 ; /srv/http/command/kill_weston.sh
 #ExecStopPost=/usr/bin/pkill -15 weston
 TimeoutSec=infinity
 Restart=on-failure

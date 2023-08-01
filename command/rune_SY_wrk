@@ -344,10 +344,9 @@ if ($playerid_db === '') {
     //
     // start the local browser when required, hardware must be a multiprocessor
     if ($redis->hGet('local_browser', 'enable') && ($cores > 1)) {
-        sysCmdAsync($redis, 'systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
+        sysCmdAsync($redis, '/srv/http/command/local_browser_start_async.php');
     } else {
-        sysCmdAsync($redis, 'systemctl stop local-browser');
-        $redis->hSet('local_browser', 'enable', 0);
+        sysCmdAsync($redis, '/srv/http/command/local_browser_stop_async.php');
     }
     //
     // PHP OPCache
@@ -1324,7 +1323,7 @@ while (true) {
                 }
                 break;
             case 'kill_weston':
-                sysCmd('pkill -15 weston');
+                sysCmd('systemctl stop weston ; pkill -15 weston');
                 // ui_notify($redis, 'Kill weston', '');
                 $redis->sRem('w_lock', $jobID);
                 break;

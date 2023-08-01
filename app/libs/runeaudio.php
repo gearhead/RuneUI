@@ -1730,12 +1730,25 @@ function wrk_localBrowser($redis, $action, $args=null)
     switch ($action) {
         case 'start':
             // start the local browser
-            $redis->hSet('local_browser', 'enable', $args);
+            if (isset($args) && is_numeric($args)) {
+                $redis->hSet('local_browser', 'enable', $args);
+                wrk_localBrowser($redis, 'enable-splash', $args);
+            }
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
-            sysCmd('systemctl start local-browser');
-            wrk_localBrowser($redis, 'enable-splash', 1);
-            if (sysCmd("grep -ic '#disable_overscan=1' '/boot/config.txt'")[0]) {
+            $windows = $redis->hGet('local_browser', 'windows');
+            if ($windows = 'xorg') {
+                sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
+            } else if ($windows = 'weston') {
+                if (is_firstTime($redis, 'weston_start')) {
+                    wrk_localBrowser($redis, 'configure_weston_ini');
+                }
+                sysCmd('pgrep -x weston || systemctl start local-browser-w ; /srv/http/command/ui_update_async 5000000');
+            } else {
+                ui_notifyError($redis, 'Local Browser', 'Start-up failed, incorrectly configured');
+                break;
+            }
+            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '/boot/config.txt'")[0]) {
                 wrk_localBrowser($redis, 'overscan', 1);
             } else {
                 wrk_localBrowser($redis, 'overscan', 0);
@@ -1744,17 +1757,18 @@ function wrk_localBrowser($redis, $action, $args=null)
             break;
         case 'stop':
             // stop the local browser
-            $redis->hSet('local_browser', 'enable', $args);
+            if (isset($args) && is_numeric($args)) {
+                $redis->hSet('local_browser', 'enable', $args);
+                wrk_localBrowser($redis, 'enable-splash', $args);
+            }
             // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
-            sysCmd('export DISPLAY=:0; xset dpms force off; systemctl stop local-browser');
-            wrk_localBrowser($redis, 'enable-splash', 0);
+            sysCmd('pgrep -x xinit && export DISPLAY=:0 ; xset dpms force off ; systemctl stop local-browser');
+            sysCmd('pgrep -x weston && systemctl stop local-browser-w');
             break;
         case 'restart':
+            wrk_localBrowser($redis, 'stop');
             if ($redis->hGet('local_browser', 'enable')) {
-                sysCmd('systemctl stop local-browser');
-                sysCmd('systemctl daemon-reload');
-                sysCmd('systemctl start local-browser');
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                wrk_localBrowser($redis, 'start');
             }
             break;
         case 'enable-splash':
@@ -1808,7 +1822,7 @@ function wrk_localBrowser($redis, $action, $args=null)
                 // scale factor line is missing, add it
                 sysCmd('echo "settings.webview.zoom_level = '.round($args*100).'" >> "'.$filePathName.'"');
             }
-            wrk_localBrowser($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'restart');
             break;
         case 'rotate':
             $redis->hSet('local_browser', $action, $args);
@@ -1850,7 +1864,8 @@ function wrk_localBrowser($redis, $action, $args=null)
             $filePathName = '/etc/X11/xinit/xinitrc';
             // replace the line with 'matchbox-window-manager' adding or removing the '-use cursor no' clause
             sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
-            wrk_localBrowser($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'restart');
+            break;
         case 'configure_weston_ini':
             // configure the weston configuration file /srv/http/.config/weston.ini
             $fileName = '/srv/http/.config/weston.ini';
