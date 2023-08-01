@@ -1733,9 +1733,9 @@ function wrk_localBrowser($redis, $action, $args=null)
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
             $windows = $redis->hGet('local_browser', 'windows');
-            if ($windows = 'xorg') {
+            if ($windows == 'xorg') {
                 sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
-            } else if ($windows = 'weston') {
+            } else if ($windows == 'weston') {
                 if (is_firstTime($redis, 'weston_start')) {
                     wrk_localBrowser($redis, 'configure_weston_ini');
                 }

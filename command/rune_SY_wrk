@@ -1343,7 +1343,7 @@ while (true) {
                 }
                 break;
             case 'kill_weston':
-                sysCmd('systemctl stop weston ; pkill -15 weston');
+                sysCmd('pkill -15 weston');
                 // ui_notify($redis, 'Kill weston', '');
                 $redis->sRem('w_lock', $jobID);
                 break;
