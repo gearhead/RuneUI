@@ -32,10 +32,6 @@
  *
  */
 
-// Expected MPD Open Response message
-// MPD: "OK MPD x.xx.xx\n" (14 to 15 bytes, as of version 0.22.0)
-// Where x is a numeric vanue (version number)
-
 function is_localhost()
 {
     $whitelist = array( '127.0.0.1', '::1' );
@@ -1844,6 +1840,7 @@ function wrk_localBrowser($redis, $action, $args=null)
             }
             break;
         case 'mouse_cursor':
+            // configure the mouse cursor for the various windows/browsers environments
             $redis->hSet('local_browser', $action, $args);
             if ($args){
                 // switch mouse cursor on for X11
@@ -5267,13 +5264,13 @@ function wrk_getHwPlatform($redis, $reset=false)
         if (substr($line, 0, 8) == 'Revision') {
             $revision = trim(substr($line, 11, 50));
             // debug
-            runelog('wrk_getHwPlatform() /proc/cpuinfo revision', $revision);
+            runelog('[wrk_getHwPlatform] /proc/cpuinfo revision', $revision);
         }
 
         if (substr($line, 0, 8) == 'Hardware') {
             $hardware = trim(substr($line, 11, 50));
             // debug
-            runelog('wrk_getHwPlatform() /proc/cpuinfo hardware', $hardware);
+            runelog('[wrk_getHwPlatform] /proc/cpuinfo hardware', $hardware);
         }
     }
 

@@ -70,6 +70,8 @@ $retriesmounting = 100;
 //
 // setup /run dir
 sysCmd('chmod 777 /run');
+//
+// update the os if required
 // clear the cache otherwise file_exists() returns incorrect values
 clearstatcache(true, '/srv/http/command/update_os.php');
 // if os updates are needed
@@ -77,10 +79,10 @@ if (file_exists('/srv/http/command/update_os.php')) {
     include '/srv/http/command/update_os.php';
     updateOS($redis);
 }
-
+//
 // Set redis variable disk_error to false
 $redis->set('disk_error', 0);
-
+//
 // clean up Rern's addons security
 // Rern's addons menu
 if ($redis->hGet('addons', 'addo') != '') {
@@ -89,8 +91,9 @@ if ($redis->hGet('addons', 'addo') != '') {
     // not set or is empty so delete the sudo enable-all file for user http - used for addons menu
     sysCmd('rm -f /etc/sudoers.d/http');
 }
-
+//
 // determine the actual mpd player version
+//  the text file is created on boot by the systemd unit mpdversion service
 $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
 //
 // read registered HW architecture
