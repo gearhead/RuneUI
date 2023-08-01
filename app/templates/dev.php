@@ -249,6 +249,7 @@
                     </div>
                 </div>
             </div>
+            <!--
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Enable/disable llmnrd</label>
@@ -273,6 +274,7 @@
                     </div>
                 </div>
             </div>
+            -->
             <legend>MPD - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
@@ -522,6 +524,23 @@
                     </div>
                 </div>
             </div>
+            <!--
+            <legend>Local Browser - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Windows/Browser Options</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($this->optwifionof)) && ($this->optwifionof)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">The default is Windows environment is generally <strong>xorg</strong> with the Browser <strong>luakit</strong>.
+                        When the required software is installed other options become available.
+                        On start-up RuneAudio chooses the best combination for the hardware, your choices remain effective until the hardware changes</span>
+                    </div>
+                </div>
+            </div>
+            -->
             <div class="form-group">
                 <div class="col-sm-offset-2 col-sm-10">
                     <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit">Save settings</button>
@@ -531,7 +550,8 @@
     </form>
     <form class="form-horizontal" method="post">
         <fieldset>
-            <!-- <legend>Rern's Addons</legend>
+            <!--
+            <legend>Rern's Addons</legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Install Rern's Addons Menu</label>
@@ -555,7 +575,8 @@
                         <span class="help-block">If Rern's Addons Menu stops working, or the install command fails, or you cannot de-install it; this may fix it</span>
                     </div>
                 </div>
-            </div> -->
+            </div>
+            -->
             <legend>System utilities</legend>
             <div class="boxed-group">
                 <div class="form-group">
