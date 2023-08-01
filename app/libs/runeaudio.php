@@ -1764,7 +1764,9 @@ function wrk_localBrowser($redis, $action, $args=null)
         case 'restart':
             wrk_localBrowser($redis, 'stop');
             if ($redis->hGet('local_browser', 'enable')) {
-                wrk_localBrowser($redis, 'start');
+                // wrk_localBrowser($redis, 'start');
+                sleep(2);
+                wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'start', 'args' => 1));
             }
             break;
         case 'enable-splash':
