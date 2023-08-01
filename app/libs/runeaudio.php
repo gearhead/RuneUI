@@ -1725,7 +1725,7 @@ function getmac($nicname)
     return trim($mac);
 }
 
-function wrk_localBrowser($redis, $action, $args)
+function wrk_localBrowser($redis, $action, $args=null)
 {
     switch ($action) {
         case 'start':
@@ -1813,7 +1813,8 @@ function wrk_localBrowser($redis, $action, $args)
         case 'rotate':
             $redis->hSet('local_browser', $action, $args);
             sysCmd('/srv/http/command/raspi-rotate-screen.sh '.$args);
-            wrk_localBrowser($redis, 'restart', 1);
+            wrk_localBrowser($redis, 'configure_weston_ini');
+            wrk_localBrowser($redis, 'restart');
             break;
         case 'overscan':
             $redis->hSet('local_browser', $action, $args);
@@ -1850,6 +1851,65 @@ function wrk_localBrowser($redis, $action, $args)
             // replace the line with 'matchbox-window-manager' adding or removing the '-use cursor no' clause
             sysCmd('sed -i "\|matchbox-window-manager|c\matchbox-window-manager -use_titlebar no '.$usecursorno.'&" "'.$filePathName.'"');
             wrk_localBrowser($redis, 'restart', 1);
+        case 'configure_weston_ini':
+            // configure the weston configuration file /srv/http/.config/weston.ini
+            $fileName = '/srv/http/.config/weston.ini';
+            $fileContents = file_get_contents($fileName);
+            // get the output section
+            $outputSection = get_between_data($fileContents, "\n[output]\n", "\n[output]\n");
+            if (!$outputSection) {
+                // output section is empty, possible that there is no second output section
+                $outputSection = get_between_data($fileContents, "\n[output]\n");
+            }
+            if (!$outputSection) {
+                // output section is still empty, generate a default
+                $outputSection="name=HDMI-A-2\nmode=current\ntransform=rotate-0\nscale=1\n#app-ids=1\n";
+            }
+            $outputSection = "[output]\n".$outputSection;
+            // strip the output sections from the file contents, these are the last sections of the file
+            $fileContents = get_between_data($fileContents, '', "\n[output]\n")."\n";
+            // get and set the rotation value in the output specification
+            $rotate = $redis->hGet('local_browser', 'rotate');
+            if ($rotate == 'NORMAL') {
+                $rotate = '0';
+            } else if ($rotate == 'CW') {
+                $rotate = '90';
+            } else if ($rotate == 'UD') {
+                $rotate = '180';
+            } else if ($rotate == 'CCW') {
+                $rotate = '270';
+            }
+            // change the rotate value in the output section
+            if ($rotate == '0') {
+                $outputSection = preg_replace("/\n\s*#*\s*transform=rotate.*\n/","\n# transform=rotate-0\n", $outputSection);
+            } else {
+                $outputSection = preg_replace("/\n\s*#*\s*transform=rotate.*\n/","\ntransform=rotate-".$rotate."\n", $outputSection);
+            }
+            // get the valid hdmi vc4 device names, the command 'ls /sys/class/drm' returns the information
+            //  any of the space delimited values containing 'HDMI', omitting the string before 'HDMI' is the device name
+            //  e.g. output: 'card0  card0-HDMI-A-1  card0-HDMI-A-2  renderD128  version', the valid output names are: 'HDMI-A-1' and 'HDMI-A-2'
+            $devices = sysCmd('ls /sys/class/drm | xargs')[0];
+            $devices = explode(' ', $devices);
+            $deviceFound = false;
+            foreach ($devices as $device) {
+                if (strpos(' '.$device, 'HDMI')) {
+                    // found a HDMI output, use it
+                    //  TFT & LCD devices should also be found in a similar way
+                    // strip the characters befor HDMI
+                    $device = 'HDMI'.get_between_data($device, 'HDMI');
+                    // change the name in the output section
+                    $outputSection = preg_replace("/\n\s*name=.*\n/","\nname=".$device."\n", $outputSection);
+                    // append the output section to the file contents
+                    $fileContents = $fileContents.$outputSection;
+                    $deviceFound = true;
+                }
+            }
+            if (!$deviceFound) {
+                // no output devices found, write the original output section
+                $fileContents = $fileContents.$outputSection;
+            }
+            // write the file contents
+            file_put_contents($fileName, $fileContents);
             break;
     }
 }
