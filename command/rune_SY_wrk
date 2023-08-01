@@ -32,6 +32,23 @@
  *  coder: Simone De Gregori
  *
  */
+ini_set('display_errors', '1');
+error_reporting(E_ALL & ~E_NOTICE);
+ini_set('error_log', '/var/log/runeaudio/rune_SY_wrk.log');
+define('APP', '/srv/http/app/');
+
+// common include
+require_once(APP.'libs/runeaudio.php');
+// Connect to Redis backend include
+require_once(APP.'libs/openredis.php');
+//
+// reset worker logfile
+sysCmd('echo "--------------- start: rune_SY_wrk.php ---------------" > /var/log/runeaudio/rune_SY_wrk.log');
+runelog('WORKER rune_SY_wrk.php STARTING...');
+// INITIALIZE ENVIRONMENT --- //
+runelog('INITIALIZE ENVIRONMENT ---');
+//
+// initialise variables
 $start = microtime(true);
 $savecpuRp = 12;
 $savecpuMnt = 1;
@@ -50,16 +67,7 @@ $savecpuOpCache = 7200;
 $savecpuFixLogs = 36;
 $allmounted = 0;
 $retriesmounting = 100;
-ini_set('display_errors', '1');
-error_reporting(E_ALL & ~E_NOTICE);
-ini_set('error_log', '/var/log/runeaudio/rune_SY_wrk.log');
-define('APP', '/srv/http/app/');
-
-// common include
-require_once(APP.'libs/runeaudio.php');
-// Connect to Redis backend include
-require_once(APP.'libs/openredis.php');
-
+//
 // setup /run dir
 sysCmd('chmod 777 /run');
 // clear the cache otherwise file_exists() returns incorrect values
@@ -101,12 +109,6 @@ $redis->del('w_queue');
 $redis->del('w_queue_fifo');
 $redis->del('w_message');
 $redis->set('waitSyWrk', 0);
-
-// reset worker logfile
-sysCmd('echo "--------------- start: rune_SY_wrk.php ---------------" > /var/log/runeaudio/rune_SY_wrk.log');
-runelog('WORKER rune_SY_wrk.php STARTING...');
-// INITIALIZE ENVIRONMENT --- //
-runelog('INITIALIZE ENVIRONMENT ---');
 
 // check Architecture
 list($arch, $model) = wrk_getHwPlatform($redis);
