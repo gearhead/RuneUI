@@ -147,8 +147,8 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace bin/bash: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (bin/bash): $f"
+        sed -i 's/[\s]*$//' "$f"
     done
 fi
 #
@@ -166,15 +166,16 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace php: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (php): $f"
+        sed -i 's/[\s]*$//' "$f"
     done
 fi
 #
 # When requested, remove trailing whitespace from specific directory's and files
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
-    echo "Removing trailing whitespace from /srv/http/app/templates/* files"
+    echo "Removing trailing whitespace from specific files"
+    # specific directories
     FILES="/srv/http/assets/css/* /srv/http/assets/js/* /srv/http/app/templates/*"
     for f in $FILES
     do
@@ -185,8 +186,31 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace rest: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (directories): $f"
+        sed -i 's/[\s]*$//' "$f"
+    done
+    # specific file names in the /srv directory tree
+    declare -a FILENAMES=(chromium-flags.conf i2s_table*.txt weston.ini audio_allowed_formats_table*.txt userconf.lua)
+    for n in "${FILENAMES[@]}"
+    do
+        # echo "Filename >> $n"
+        if [ -d "$n" ] ; then
+            continue # its a directory not a file
+        fi
+        FILES=$( find /srv -name "$n" )
+        # echo "Files >> $FILES"
+        for f in $FILES
+        do
+            if [ -d "$f" ] ; then
+                continue # its a directory not a file
+            fi
+            numstrpace=$(grep -c '[[:blank:]]$' "$f")
+            if [ "$numstrpace" == "0" ] ; then
+                continue # no trailing whitespace in the file
+            fi
+            echo "Trailing whitespace (file names in /srv): $f"
+            sed -i 's/[\s]*$//' "$f"
+        done
     done
 fi
 set -x # echo all commands to cli
