@@ -5477,57 +5477,53 @@ function wrk_getHwPlatform($redis, $reset=false)
             $arch = '--';
             break;
     }
-    return $arch;
+    if (!isset($model)) {
+        $model = '';
+    }
+    return array($arch, $model);
 }
 
 function wrk_setHwPlatform($redis, $reset=false)
 {
-    $arch = wrk_getHwPlatform($redis, $reset);
+    list($arch, $model) = wrk_getHwPlatform($redis, $reset);
     runelog('arch= ', $arch);
-    $playerid = wrk_playerID($arch);
-    $redis->set('playerid', $playerid);
+    // register the player ID
+    $redis->set('playerid', wrk_playerID($arch));
     runelog('playerid= ', $playerid);
-    // register platform into database
+    // register the hardware platform into database
+    $redis->set('hwplatformid', $arch);
+    // register the model into database
+    $redis->set('hwmodel', $model);
     switch($arch) {
         case '01':
             $redis->set('hwplatform', 'RaspberryPi1');
-            $redis->set('hwplatformid', $arch);
             break;
         case '02':
             $redis->set('hwplatform', 'UDOO');
-            $redis->set('hwplatformid',$arch);
             break;
         case '03':
             $redis->set('hwplatform', 'CuBox');
-            $redis->set('hwplatformid',$arch);
             break;
         case '04':
             $redis->set('hwplatform', 'BeagleBone Black');
-            $redis->set('hwplatformid', $arch);
             break;
         case '05':
             $redis->set('hwplatform', 'Utilite Standard');
-            $redis->set('hwplatformid', $arch);
             break;
         case '06':
             $redis->set('hwplatform', 'Cubietruck');
-            $redis->set('hwplatformid', $arch);
             break;
         case '08':
             $redis->set('hwplatform', 'RaspberryPi2');
-            $redis->set('hwplatformid', $arch);
             break;
         case '09':
             $redis->set('hwplatform', 'ODROID-C1');
-            $redis->set('hwplatformid', $arch);
             break;
         case '10':
             $redis->set('hwplatform', 'ODROID-C2');
-            $redis->set('hwplatformid', $arch);
             break;
         default:
             $redis->set('hwplatform', 'unknown');
-            $redis->set('hwplatformid', $arch);
     }
 }
 

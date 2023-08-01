@@ -84,13 +84,17 @@ if ($redis->hGet('addons', 'addo') != '') {
 
 // determine the actual mpd player version
 $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
-
+//
 // read registered HW architecture
 $arch_db = $redis->get('hwplatformid');
-runelog('registered architecture: ', $arch_db);
+// read registered HW model
+$model_db = $redis->get('hwmodel');
+// read the player ID
 $playerid_db = $redis->get('playerid');
-runelog('registered playerid: ', $playerid_db);
-
+runelog('registered architecture: ', $arch_db);
+runelog('registered model       : ', $model_db);
+runelog('registered playerid    : ', $playerid_db);
+//
 // initialize Redis worker data tables
 $redis->del('w_lock');
 $redis->del('w_queue');
@@ -105,11 +109,22 @@ runelog('WORKER rune_SY_wrk.php STARTING...');
 runelog('INITIALIZE ENVIRONMENT ---');
 
 // check Architecture
-$arch = wrk_getHwPlatform($redis);
+list($arch, $model) = wrk_getHwPlatform($redis);
 runelog('detected architecture: ', $arch);
-if ($arch_db !== $arch) {
+runelog('detected model       : ', $model);
+if ((($arch === '02') || ($arch === '08')) && (($arch_db === '02') || ($arch_db === '08'))) {
+    // raspberry PI both for previous and current values
+    if ($model_db !== $model) {
+        // model has changed
+        runelog('architecture mismatch: registered Model:'.$model_db.' detected: ', $model);
+        wrk_setHwPlatform($redis, true);
+    }
+} else if (($arch_db !== $arch) || ($model_db !== $model)) {
+    // previous and/or current architecture is not a raspberry pi, and the hardware or model type has changed
     runelog('architecture mismatch: registered HWID: '.$arch_db.' detected: ', $arch);
-    // reset playerID if architectureID not match. This condition "fires" another first-run process
+    // clear the hardware specific settings
+    wrk_getHwPlatform($redis, true);
+    // force first time boot routine by clearing $playerid_db
     $playerid_db = '';
 }
 
