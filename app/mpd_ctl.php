@@ -45,7 +45,7 @@
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'update', 'args' => $_POST['conf']));
         if ($redis->hGet('local_browser', 'enable') && ($_POST['conf']['mixer_type'] != $redis->hGet('globalrandom', 'mixer_type'))) {
             // local browser is enabled and the mixer typ has changed, restart the local browser
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'restart'));
         }
     }
     // manual MPD configuration

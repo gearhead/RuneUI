@@ -522,7 +522,7 @@ while (true) {
                 sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                 $redis->sRem('w_lock', $jobID);
                 break;
-            case 'xorgserver':
+            case 'localbrowser':
                 if ($job->action === 'zoomfactor') {
                     // zoomfactor
                     // reformat zoomfactor (characters 0 to 9 and decimal point are valid) and floatval will clean up any second decimal points

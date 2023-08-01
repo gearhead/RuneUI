@@ -125,7 +125,7 @@ if (isset($_POST)) {
                 $redis->set('UIorder', $_POST['mode']['UIorder']);
                 if ($redis->hGet('local_browser', 'enable')) {
                     // local browser is enabled, restart it
-                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'restart'));
                 }
             }
         }
@@ -137,7 +137,7 @@ if (isset($_POST)) {
                 $redis->set('remoteSSbigart', $_POST['mode']['bigArt']);
                 if ($redis->hGet('local_browser', 'enable')) {
                     // local browser is enabled, restart it
-                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'restart'));
                 }
             }
         }

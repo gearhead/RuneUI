@@ -120,38 +120,38 @@ if (isset($_POST)) {
             $redis->hGet('dlna','enable') === '0' || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
         }
         if (isset($_POST['features']['local_browser']['enable']) && $_POST['features']['local_browser']['enable']) {
-            $redis->hGet('local_browser', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'start', 'args' => 1));
+            $redis->hGet('local_browser', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'start', 'args' => 1));
             if (isset($_POST['features']['local_browser']['zoomfactor']) && ($_POST['features']['local_browser']['zoomfactor'] != $redis->hGet('local_browser', 'zoomfactor'))) {
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'zoomfactor', 'args' => $_POST['features']['local_browser']['zoomfactor']));
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'zoomfactor', 'args' => $_POST['features']['local_browser']['zoomfactor']));
             }
             if (isset($_POST['features']['local_browser']['rotate']) && ($_POST['features']['local_browser']['rotate'] != $redis->hGet('local_browser', 'rotate'))) {
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'rotate', 'args' => $_POST['features']['local_browser']['rotate']));
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'rotate', 'args' => $_POST['features']['local_browser']['rotate']));
             }
             if (isset($_POST['features']['local_browser']['overscan']) && $_POST['features']['local_browser']['overscan']) {
-                $redis->hGet('local_browser', 'overscan') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'overscan', 'args' => 1));
+                $redis->hGet('local_browser', 'overscan') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'overscan', 'args' => 1));
             } else {
-                $redis->hGet('local_browser', 'overscan') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'overscan', 'args' => 0));
+                $redis->hGet('local_browser', 'overscan') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'overscan', 'args' => 0));
             }
             if (isset($_POST['features']['local_browser']['mouse_cursor']) && $_POST['features']['local_browser']['mouse_cursor']) {
-                $redis->hGet('local_browser', 'mouse_cursor') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'mouse_cursor', 'args' => 1));
+                $redis->hGet('local_browser', 'mouse_cursor') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'mouse_cursor', 'args' => 1));
             } else {
-                $redis->hGet('local_browser', 'mouse_cursor') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'mouse_cursor', 'args' => 0));
+                $redis->hGet('local_browser', 'mouse_cursor') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'mouse_cursor', 'args' => 0));
             }
             if (isset($_POST['features']['local_browser']['localSStime']) && ($_POST['features']['local_browser']['localSStime'] != $redis->hGet('local_browser', 'localSStime'))) {
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'localSStime', 'args' => $_POST['features']['local_browser']['localSStime']));
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'localSStime', 'args' => $_POST['features']['local_browser']['localSStime']));
             }
             if (isset($_POST['features']['local_browser']['smallScreenSaver']) && $_POST['features']['local_browser']['smallScreenSaver']) {
-                $redis->hGet('local_browser', 'smallScreenSaver') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'smallScreenSaver', 'args' => 1));
+                $redis->hGet('local_browser', 'smallScreenSaver') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'smallScreenSaver', 'args' => 1));
             } else {
-                $redis->hGet('local_browser', 'smallScreenSaver') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'smallScreenSaver', 'args' => 0));
+                $redis->hGet('local_browser', 'smallScreenSaver') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'smallScreenSaver', 'args' => 0));
             }
         } else {
-            $redis->hGet('local_browser', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'stop', 'args' => 0));
+            $redis->hGet('local_browser', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'stop', 'args' => 0));
         }
         if (isset($_POST['features']['local_browser']['enable-splash']) && $_POST['features']['local_browser']['enable-splash']) {
-            $redis->hGet('local_browser', 'enable-splash') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'enable-splash', 'args' => 1));
+            $redis->hGet('local_browser', 'enable-splash') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'enable-splash', 'args' => 1));
         } else {
-            $redis->hGet('local_browser', 'enable-splash') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'enable-splash', 'args' => 0));
+            $redis->hGet('local_browser', 'enable-splash') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'enable-splash', 'args' => 0));
         }
         if (isset($_POST['features']['pwd_protection']) && $_POST['features']['pwd_protection']) {
             $redis->get('pwd_protection') || $redis->set('pwd_protection', 1);
