@@ -46,6 +46,7 @@ enablesplash=$( redis-cli hget local_browser enable-splash )
 hw_device=$( redis-cli get ao_default )
 hostname=$( redis-cli get hostname )
 locks=$( redis-cli --scan --pattern lock_* | sort -u )
+windows=$( redis-cli hget local_browser windows )
 for lock in $locks ; do
     redis-cli set "$lock" 0
 done
@@ -87,10 +88,13 @@ declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
-# stop webserver & local browser
+# stop local browser & webserver
 pgrep -x xinit && systemctl stop local-browser
-pgrep -x weston && systemctl stop local-browser-w ; sleep 2
-pgrep -x weston && systemctl stop weston ; pkill -15 weston
+pgrep -x weston && systemctl stop local-browser-w
+if [ "$windows" == "weston" ] ; then
+    sleep 1
+    pgrep -x weston && pkill -15 weston
+fi
 systemctl stop nginx
 if [ "$shutdownmode" != "" ] ; then
     # force redis to save all its variables to disk and stop it
@@ -117,7 +121,7 @@ umount /home/cache
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
 sync
-if [ "$shutdownmode" == "poweroff" ] ; then
+if [ "$shutdownmode" == "poweroff" ] && [ "$windows" == "xorg" ] ; then
     # blank the local browser screen
     export DISPLAY=:0
     xset dpms force off
