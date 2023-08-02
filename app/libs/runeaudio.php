@@ -1886,11 +1886,11 @@ function wrk_localBrowser($redis, $action, $args=null)
             $rotate = $redis->hGet('local_browser', 'rotate');
             if ($rotate == 'NORMAL') {
                 $rotate = '0';
-            } else if ($rotate == 'CW') {
+            } else if ($rotate == 'CCW') {
                 $rotate = '90';
             } else if ($rotate == 'UD') {
                 $rotate = '180';
-            } else if ($rotate == 'CCW') {
+            } else if ($rotate == 'CW') {
                 $rotate = '270';
             }
             // change the rotate value in the output section
