@@ -3108,6 +3108,11 @@ function wrk_audioOutput($redis, $action, $args = null)
                 if ($acards_details == '') {
                     // card not found, collect the acard table keys
                     $acards_keys = $redis->hKeys('acards_details');
+                    $hwplatformid = $redis->get('hwplatformid');
+                    if ($hwplatformid == '02') {
+                        // process hardware type 02 as 08 (both Raspberry Pi)
+                        $hwplatformid = '08';
+                    }
                     foreach ($acards_keys as $acards_key) {
                         // try to find a matching key
                         if (strpos(' '.$acards_key, $card['name']) == 1) {

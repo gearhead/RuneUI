@@ -40,6 +40,7 @@ require_once('/srv/http/app/libs/openredis.php');
 // ini_set('display_errors',1);
 // error_reporting(E_ALL);
 // acards_details database
+//  note: hwplatformid '08' is applied to both hardware '02' and '08' types (Raspberry Pi)
 $redis->Del('acards_details');
 $redis->hSet('acards_details', 'AML-M8AUDIO', '{"sysname":"AML-M8AUDIO","extlabel":"ODROID HDMI","card_option":"buffer_time\t\"0\"","mixer_numid":"1","hwplatformid":"09","type":"integrated"}');
 $redis->hSet('acards_details', 'ARCAM USB Audio 2.0', '{"sysname":"ARCAM USB Audio 2.0","extlabel":"Arcam rDAC","mixer_numid":"3","mixer_control":"ARCAM Clock Selector","type":"usb"}');
@@ -53,7 +54,7 @@ $redis->hSet('acards_details', 'Geek Out HD Audio 1V0', '{"sysname":"Geek Out HD
 $redis->hSet('acards_details', 'Hugo', '{"sysname":"Hugo","extlabel":"Chord Hugo","mixer_numid":"4","mixer_control":"Hugo","type":"usb"}');
 $redis->hSet('acards_details', 'I-Sabre K2M DAC', '{"sysname":"I-Sabre K2M DAC","extlabel":"ESS ES9018 I-Sabre K2M DAC (I&#178;S)","hwplatformid":"08","type":"i2s"}');
 $redis->hSet('acards_details', 'I-Sabre Q2M DAC', '{"sysname":"I-Sabre Q2M DAC","extlabel":"ESS ES9028/ES9038 I-Sabre Q2M DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"02","type":"i2s"}');
+$redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
 $redis->hSet('acards_details', 'NuForce USB Audio', '{"sysname":"NuForce USB Audio","extlabel":"NuForce DDA-100","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'ODROID-DAC', '{"sysname":"ODROID-DAC","extlabel":"ODROID HifiShield (I&#178;S)","mixer_numid":"1","hwplatformid":"10","type":"i2s"}');
 $redis->hSet('acards_details', 'ODROID-HDMI', '{"sysname":"ODROID-HDMI","extlabel":"ODROID-C2 HDMI","mixer_numid":"1","hwplatformid":"10","type":"integrated"}');
