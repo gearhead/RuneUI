@@ -68,6 +68,7 @@ fi
 # the chromium configuration/parameter file for the user http is: /srv/http/.config/chromium-flags.conf
 #  this parameter file is automatically applied in ARCH Linux, for RPiOS its contents need to be manually added
 if [ "$browser" == "chromium-browser" ] || [ "$browser" == "chromium" ] ; then
+    rm /srv/http/.config/chromium/Singleton*
     os=$( redis-cli get os )
     if [ "$os" == "ARCH" ] ; then
         chromium_flags=""
