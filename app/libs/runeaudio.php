@@ -5291,7 +5291,6 @@ function wrk_getHwPlatform($redis, $reset=false)
 {
     if ($reset) {
         // remove the redis variables set in this routine
-        //
         $redis->del('soxrmpdonoff');
         $redis->del('bluetooth_on');
         $redis->del('wifi_on');
@@ -5525,6 +5524,7 @@ function wrk_getHwPlatform($redis, $reset=false)
     if (!isset($model)) {
         $model = '';
     }
+    //
     return array($arch, $model);
 }
 
