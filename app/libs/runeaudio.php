@@ -5302,6 +5302,9 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hDel('airplay', 'metadata_enabled');
         $redis->hDel('spotifyconnect', 'metadata_enabled');
         $redis->hDel('AccessPoint', 'enable');
+        // set the default local browser windows and browser type
+        $redis->set('local_browser', 'windows', 'xorg');
+        $redis->set('local_browser', 'browser', 'luakit');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
