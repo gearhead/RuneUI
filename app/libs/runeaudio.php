@@ -5539,6 +5539,18 @@ function wrk_setHwPlatform($redis, $reset=false)
     $redis->set('hwplatformid', $arch);
     // register the model into database
     $redis->set('hwmodel', $model);
+    //
+    // fix for broken luakit on the Pi4
+    if ($model == '11') {
+        // its a Pi4
+        $filename = '/usr/bin/chromium';
+        clearstatcache(true, $filename);
+        if (file_exists($filename)) {
+            // chromium is installed, use it
+            $redis->set('local_browser', 'browser', 'chromium');
+        }
+    }
+    //
     switch($arch) {
         case '01':
             $redis->set('hwplatform', 'RaspberryPi1');
