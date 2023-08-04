@@ -54,14 +54,14 @@ echo $( grep 'Generated' $tmplist | cut -d' ' -f2- )
 
 # convert mirrorlist to url list
 if grep -qs '# Server = ' $tmplist; then
-	sed -i '/^\s*$/d
-		/^# Server = /!d
-		s/^# Server = //g
-		s|/$arch/$repo||g' $tmplist
-		# delete blank lines and lines not start with '# Server = ', remove '# Server = '
+    sed -i '/^\s*$/d
+        /^# Server = /!d
+        s/^# Server = //g
+        s|/$arch/$repo||g' $tmplist
+        # delete blank lines and lines not start with '# Server = ', remove '# Server = '
 else
-	sed -i 's/^Server = //g
-		s|/$arch/$repo||g' $tmplist # already uncomment
+    sed -i 's/^Server = //g
+        s|/$arch/$repo||g' $tmplist # already uncomment
 fi
 
 readarray servers < "$tmplist"
@@ -79,28 +79,28 @@ echo "
 $bar Test ${#servers[@]} servers @ $sec seconds random download + 3 pings:"
 i=0
 for server in ${servers[@]}; do # download from each mirror
-	(( i++ ))
-	speed=1
+    (( i++ ))
+    speed=1
     y=5
-	while [ $speed -eq 1 ] && [ $y -gt 0 ]; do
+    while [ $speed -eq 1 ] && [ $y -gt 0 ]; do
         (( y-- ))
-		srcfile=${srcfiles[$(( $RANDOM % $srcL ))]}
-		# echo "<a class='cgr'>Download: $srcfile</a>"
-		timeout $sec curl --max-time $sec -sLo $tmpdir/srcfile $server/os/$srcfile?$( date +%s ) &
-		wait
-		dl=$( du -c $tmpdir | grep total | awk '{print $1}' ) # get downloaded amount
+        srcfile=${srcfiles[$(( $RANDOM % $srcL ))]}
+        # echo "<a class='cgr'>Download: $srcfile</a>"
+        timeout $sec curl --max-time $sec -sLo $tmpdir/srcfile $server/os/$srcfile?$( date +%s ) &
+        wait
+        dl=$( du -c $tmpdir | grep total | awk '{print $1}' ) # get downloaded amount
         rm -f $tmpdir/srcfile
-		speed=$(( dl / sec ))
-	done
-	ping=$( ping -4 -c 3 -w 3 ${server/http*\:\/\/} | tail -1 | cut -d'/' -f5 )
-	if [[ $ping ]]; then
-		latency=$( printf %.0f $ping )
-	else
-		latency=999
-	fi
-	server0='Server = '$server'/$arch/$repo'
-	dl_server+="$server0 $speed $latency\n"
-	printf "%3s %-37s %11s %7s\n" $i. $server "$speed kB/s" "$latency ms"
+        speed=$(( dl / sec ))
+    done
+    ping=$( ping -4 -c 3 -w 3 ${server/http*\:\/\/} | tail -1 | cut -d'/' -f5 )
+    if [[ $ping ]]; then
+        latency=$( printf %.0f $ping )
+    else
+        latency=999
+    fi
+    server0='Server = '$server'/$arch/$repo'
+    dl_server+="$server0 $speed $latency\n"
+    printf "%3s %-37s %11s %7s\n" $i. $server "$speed kB/s" "$latency ms"
 done
 
 rank=$( echo -e "$dl_server" | awk NF | sort -g -k4,4nr -k5n )
@@ -111,8 +111,8 @@ $info Top 3 servers:"
 
 lines=$( head -3 <<< "$rank" | sed 's/Server = \|\/\$arch.*repo//g' )
 for i in 1 2 3; do
-	fields=( $( sed -n "$i p" <<< $lines ) )
-	printf "%3s %-37s %11s %7s\n" $i. ${fields[0]} "${fields[1]} kB/s" "${fields[2]} ms"
+    fields=( $( sed -n "$i p" <<< $lines ) )
+    printf "%3s %-37s %11s %7s\n" $i. ${fields[0]} "${fields[1]} kB/s" "${fields[2]} ms"
 done
 
 list=/etc/pacman.d/mirrorlist
