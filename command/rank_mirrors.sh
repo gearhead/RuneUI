@@ -79,6 +79,7 @@ echo "
 $bar Test ${#servers[@]} servers @ $sec seconds random download + 3 pings:"
 i=0
 for server in ${servers[@]}; do # download from each mirror
+<<<<<<< HEAD
     (( i++ ))
     speed=1
     y=5
@@ -101,6 +102,30 @@ for server in ${servers[@]}; do # download from each mirror
     server0='Server = '$server'/$arch/$repo'
     dl_server+="$server0 $speed $latency\n"
     printf "%3s %-37s %11s %7s\n" $i. $server "$speed kB/s" "$latency ms"
+=======
+    (( i++ ))
+    speed=1
+    y=5
+    while [ $speed -eq 1 ] && [ $y -gt 0 ]; do
+        (( y-- ))
+        srcfile=${srcfiles[$(( $RANDOM % $srcL ))]}
+        # echo "<a class='cgr'>Download: $srcfile</a>"
+        timeout $sec curl --max-time $sec -sLo $tmpdir/srcfile $server/os/$srcfile?$( date +%s ) &
+        wait
+        dl=$( du -c $tmpdir | grep total | awk '{print $1}' ) # get downloaded amount
+        rm -f $tmpdir/srcfile
+        speed=$(( dl / sec ))
+    done
+    ping=$( ping -4 -c 3 -w 3 ${server/http*\:\/\/} | tail -1 | cut -d'/' -f5 )
+    if [[ $ping ]]; then
+        latency=$( printf %.0f $ping )
+    else
+        latency=999
+    fi
+    server0='Server = '$server'/$arch/$repo'
+    dl_server+="$server0 $speed $latency\n"
+    printf "%3s %-37s %11s %7s\n" $i. $server "$speed kB/s" "$latency ms"
+>>>>>>> a55d8845dbf3cd1d7ca5b3b60723b8010556cfaa
 done
 
 rank=$( echo -e "$dl_server" | awk NF | sort -g -k4,4nr -k5n )
