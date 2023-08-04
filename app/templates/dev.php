@@ -657,11 +657,9 @@
             <div class="boxed-group">
                 <p>Some notes concerning features and options</p>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Patched HiFiBerry DAC driver for audio output up to 384kHz</label>
+                    <label class="col-sm-2 control-label">Patches to support sample rates up to 384kHz</label>
                     <div class="col-sm-10">
-                        <span class="help-block">The Linux kernel now supports 384kHz audio sample rate as standard. We previously patched the kernel top achieve this.<br>
-                        There is still a patch included for the HiFiBerry DAC driver to support 384kHz audio sample rate, normally it has a maximum rate of 192kHz even though the TI PCM510x chips support 384kHz.
-                        The MPD settings are adjusted when the HiFiBerry DAC driver is used in combination with audio cards with other DAC chips when they support lower maximum sample rates</span>
+                        <span class="help-block">We previously patched the kernel to support audio sample rates up to 384KHz. Our changes are now included as standard in the kernel</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -727,11 +725,11 @@
                         &nbsp;&nbsp;a. Log into your RuneAudio player with SSH (see the forum for details)<br>
                         &nbsp;&nbsp;b. Download/copy all the files contained in the directory /mnt/MPD/Webradio to your PC<br>
                         &nbsp;B. Using Samba:<br>
-                        &nbsp;&nbsp;a. Within RuneAudio switch Samba <strong>On</strong> in the settings menu, read/write access should be <strong>Off</strong><br>
+                        &nbsp;&nbsp;a. Within RuneAudio switch Samba <strong>On</strong> in the settings menu (read/write access should normally be <strong>Off</strong><br>
                         &nbsp;&nbsp;b. On you PC connect to a network drive with the specification '\\RuneAudio\MusicStoreWebradio' for Windows or '//RuneAudio/MusicStoreWebradio' for MAC<br>
                         &nbsp;&nbsp;c. Copy the files from the network drive to your PC<br>
                         &nbsp;&nbsp;d. Disconnect the network drive<br>
-                        &nbsp;&nbsp;e. Switch Samba <strong>Off</strong> (if required)<br>
+                        &nbsp;&nbsp;e. Switch Samba read/write access <strong>Off</strong> (If you dont need samba switch it <strong>Off</strong> as well)<br>
                         2. Shut down your new RuneAudio<br>
                         3. Remove the Micro-SD card and plug it into your PC<br>
                         4. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
