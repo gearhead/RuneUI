@@ -328,24 +328,7 @@ function redisDatastore($redis,$action) {
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
             // local browser
-            //  if not defined determine which browser is installed, chromium-browser has priority over chromium which has priority over luakit
-            $filename = '/usr/bin/chromium-browser';
-            clearstatcache(true, $filename);
-            if (file_exists($filename)) {
-                $redis->hSet('local_browser', 'browser', 'chromium-browser');
-            } else {
-                $filename = '/usr/bin/chromium';
-                clearstatcache(true, $filename);
-                if (file_exists($filename)) {
-                    $redis->hSet('local_browser', 'browser', 'chromium');
-                } else {
-                    $filename = '/usr/bin/luakit';
-                    clearstatcache(true, $filename);
-                    if (file_exists($filename)) {
-                        $redis->hSet('local_browser', 'browser', 'luakit');
-                    }
-                }
-            }
+            $redis->hSet('local_browser', 'browser', 'luakit');
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hSet('local_browser', 'localSStime', -1);
@@ -659,26 +642,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             // local browser
-            //  if not defined determine which browser is installed, chromium-browser has priority over chromium which has priority over luakit
-            if (!$redis->hExists('local_browser', 'browser')) {
-                $filename = '/usr/bin/chromium-browser';
-                clearstatcache(true, $filename);
-                if (file_exists($filename)) {
-                    $redis->hSet('local_browser', 'browser', 'chromium-browser');
-                } else {
-                    $filename = '/usr/bin/chromium';
-                    clearstatcache(true, $filename);
-                    if (file_exists($filename)) {
-                        $redis->hSet('local_browser', 'browser', 'chromium');
-                    } else {
-                        $filename = '/usr/bin/luakit';
-                        clearstatcache(true, $filename);
-                        if (file_exists($filename)) {
-                            $redis->hSet('local_browser', 'browser', 'luakit');
-                        }
-                    }
-                }
-            }
+            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'luakit');
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
             $redis->hExists('local_browser', 'enable-splash') || $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hExists('local_browser', 'localSStime') || $redis->hSet('local_browser', 'localSStime', -1);
