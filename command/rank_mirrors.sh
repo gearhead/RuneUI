@@ -82,7 +82,7 @@ for server in ${servers[@]}; do # download from each mirror
     (( i++ ))
     speed=1
     y=5
-    while [ $speed -eq 1 ] && [ $y -gt 0 ]; do
+    while [ $speed -lt 2 ] && [ $y -gt 0 ]; do
         (( y-- ))
         srcfile=${srcfiles[$(( $RANDOM % $srcL ))]}
         # echo "<a class='cgr'>Download: $srcfile</a>"
