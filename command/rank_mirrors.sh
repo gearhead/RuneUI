@@ -81,15 +81,15 @@ i=0
 for server in ${servers[@]}; do # download from each mirror
 	(( i++ ))
 	speed=1
-    y=5
+	y=5
 	while [ $speed -eq 1 ] && [ $y -gt 0 ]; do
-        (( y-- ))
+		(( y-- ))
 		srcfile=${srcfiles[$(( $RANDOM % $srcL ))]}
 		# echo "<a class='cgr'>Download: $srcfile</a>"
 		timeout $sec curl --max-time $sec -sLo $tmpdir/srcfile $server/os/$srcfile?$( date +%s ) &
 		wait
 		dl=$( du -c $tmpdir | grep total | awk '{print $1}' ) # get downloaded amount
-        rm -f $tmpdir/srcfile
+		rm -f $tmpdir/srcfile
 		speed=$(( dl / sec ))
 	done
 	ping=$( ping -4 -c 3 -w 3 ${server/http*\:\/\/} | tail -1 | cut -d'/' -f5 )
