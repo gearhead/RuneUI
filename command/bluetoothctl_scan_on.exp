@@ -1,0 +1,68 @@
+#!/usr/bin/expect -f
+#
+#
+#  Copyright (C) 2013-2014 RuneAudio Team
+#  http://www.runeaudio.com
+#
+#  RuneUI
+#  copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+#  RuneOS
+#  copyright (C) 2013-2014 – Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+#  RuneAudio website and logo
+#  copyright (C) 2013-2014 – ACX webdesign (Andrea Coiutti)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with RuneAudio; see the file COPYING. If not, see
+#  <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: command/bluetoothctl_scan_on.exp
+#  version: 1.3
+#  coder: janui
+#  date: February 2023
+#
+# This file is hopefully a temporary fix for unexpected behaviour of the command 'bluetoothctl scan on'
+#   the command should cause bluetoothctl 'hang' in Discovery mode but version 5.66 on aarch64 it just
+#   executes and returns to the cli prompt
+#   the expected behaviour is the same as when bluetoothcli is run without parameters and then in the
+#   iterative mode the command 'scan on' is used
+#   this script simulates that behaviour using the expect shell, it will put bluetooth into
+#   'Discovery mode' for 600 seconds then exit
+#
+# setup
+set force_conservative 1  ;# recommended, but can be set to 0
+if {$force_conservative} {
+    set send_slow {1 .1}
+    proc send {ignore arg} {
+        sleep .1
+        exp_send -s -- $arg
+    }
+}
+set timeout -1
+#
+# start bluetoothctl
+spawn bluetoothctl
+# wait for the interactive prompt and send the command 'scan on'
+expect "\[bluetooth\]"
+send -- "scan on\r"
+# wait for the interactive prompt ans then sleep for 120 seconds
+expect "\[bluetooth\]"
+sleep 600
+# wait for the interactive prompt and send the command 'scan off'
+expect "\[bluetooth\]"
+send -- "scan off\r"
+# wait for the interactive prompt and send the command 'exit' to terminate the script
+expect "\[bluetooth\]"
+send -- "exit\r"
+expect eof

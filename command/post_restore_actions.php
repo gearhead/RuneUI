@@ -46,26 +46,49 @@ require_once('/srv/http/app/libs/openredis.php');
 // define APP global
 define('APP', '/srv/http/app/');
 
+// set the variables which are machine dependant, the backup could have been made on a different model
+wrk_setHwPlatform($redis, true);
 // run routines which set up /boot/config.txt, the local browser setup, other files are fixed on startup
 wrk_audio_on_off($redis, $redis->get('audio_on_off'));
 wrk_i2smodule($redis, $redis->get('i2smodule'));
 $xorgEnable = $redis->hGet('local_browser', 'enable');
 $redis->hSet('local_browser', 'enable', 0);
-wrk_xorgconfig($redis, 'enable-splash', $redis->hGet('local_browser', 'enable-splash'));
-wrk_xorgconfig($redis, 'zoomfactor', $redis->hGet('local_browser', 'zoomfactor'));
-wrk_xorgconfig($redis, 'rotate', $redis->hGet('local_browser', 'rotate'));
-wrk_xorgconfig($redis, 'overscan', $redis->hGet('local_browser', 'overscan'));
-wrk_xorgconfig($redis, 'mouse_cursor', $redis->hGet('local_browser', 'mouse_cursor'));
+wrk_localBrowser($redis, 'enable-splash', $redis->hGet('local_browser', 'enable-splash'));
+wrk_localBrowser($redis, 'zoomfactor', $redis->hGet('local_browser', 'zoomfactor'));
+wrk_localBrowser($redis, 'rotate', $redis->hGet('local_browser', 'rotate'));
+wrk_localBrowser($redis, 'overscan', $redis->hGet('local_browser', 'overscan'));
+wrk_localBrowser($redis, 'mouse_cursor', $redis->hGet('local_browser', 'mouse_cursor'));
 $redis->hSet('local_browser', 'enable', $xorgEnable);
 wrk_changeHostname($redis, $redis->get('hostname'));
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
-if ($redis->get('bluetooth_on')) {
-    wrk_netconfig($redis, 'enableBT');
+// set up ashuffle configuration, it wont be started
+$playlistName = $redis->hGet('globalrandom', 'playlist');
+if (isset($playlistName) && $playlistName) {
+    wrk_ashuffle($redis, 'set', $playlistName);
 } else {
-    wrk_netconfig($redis, 'disableBT');
+    wrk_ashuffle($redis, 'reset');
 }
+// set up Bluetooth
+if ($redis->get('bluetooth_on')) {
+    wrk_btcfg($redis, 'enable');
+} else {
+    wrk_btcfg($redis, 'disable');
+}
+$bluetoothCodecs = strtolower(trim(explode(':', sysCmd('bluealsa --help | grep -i a2dp-source:')[0], 2)[1]));
+if (!strpos(' '.$bluetoothCodecs, 'aptx-hd')) {
+    $redis-hSet('bluetooth', 'aptX_HD_codec', 0);
+}
+if (!strpos(' '.$bluetoothCodecs, 'faststream')) {
+    $redis-hSet('bluetooth', 'FastStream_codec', 0);
+}
+if (!strpos(' '.$bluetoothCodecs, 'ldac')) {
+    $redis-hSet('bluetooth', 'LDAC_codec', 0);
+}
+wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
+wrk_btcfg($redis, 'quality_options');
+// set up Wi-Fi
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');
 } else {

@@ -68,7 +68,7 @@ if (($lock === '0') || ($lock === '60')  || ($lock >= 60)) {
     // process the spotify connect metadata
 } else {
     runelog("LOCKED!", '');
-    echo "LOCKED!";
+    echo "LOCKED!\n";
     // just in case something goes wrong increment the lock value by 1
     // when it reaches 60 (= 30 seconds, this should never happen) it will be processed as if there is no lock
     $lock += 1;
@@ -141,7 +141,7 @@ do {
     runelog('spotify_connect_metadata_async job ELAPSED         :', $job['position_ms']);
     // echo $job['event']." ".$job['track_id']." ".$job['duration_ms']." ".$job['position_ms']." Read\n";
     $title = '';
-    unset($status['elapsed'], $status['song_percent']);
+    unset($status['song_percent'], $status['elapsed']);
     // sleep for a half of a second between processing each event, do it here to allow the journal information
     //  to be completed
     usleep(500000);
@@ -202,7 +202,7 @@ do {
         ui_render('playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         $status['song_percent'] = 0;
         $status['elapsed'] = 0;
     }
@@ -213,7 +213,7 @@ do {
         $status['elapsed'] = round($job['position_ms']/1000);
         // calculate the percentage played
         if ($status['time'] != 0) {
-            $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+            $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
         } else {
             $status['song_percent'] = 0;
         }
@@ -241,9 +241,7 @@ do {
         $status['volume'] = $redis->hGet('spotifyconnect', 'lastvolume');
     }
     //
-    // $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-    // // $playing is empty when nothing is playing, otherwise a string like 'access: RW_INTERLEAVED format: S24_LE subformat: STD channels: 2 rate: 44100 (44100/1) period_size: 4410 buffer_size: 22050'
-    // if ($playing) {
+    // if (is_playing($redis)) {
         // // something is playing
         // // restarting a paused track
         // $status['state'] = "play";
@@ -276,7 +274,7 @@ do {
         // calculate the percentage played
         if (isset($status['elapsed']) && $status['elapsed']) {
             if ($status['time'] != 0) {
-                $status['song_percent'] = round(($status['elapsed'] / $status['time']) * 100);
+                $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
             } else {
                 $status['song_percent'] = 0;
             }
@@ -326,12 +324,12 @@ do {
         $redis->set('act_player_info', json_encode($status));
         ui_render('playback', json_encode($status));
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
-        sysCmdAsync('/var/www/command/ui_update_async', 0);
+        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";
     }
 } while (($active_player == 'SpotifyConnect') && isset($jobID) && $jobID);
 // clean up the metadata, async and at low priority
-sysCmdAsync('nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
 // unlock
 $redis->set('lock_spotify_connect_metadata', '0');
 runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));

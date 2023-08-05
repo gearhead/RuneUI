@@ -31,9 +31,24 @@
 #  coder: Simone De Gregori
 #
 #####################################
-ver="1.3"
+#
+# usage: /srv/http/command/orion_optimize.sh <profile_name> <hardware_id>
+# where (all parameters are required):
+#   profile_name = one of the predefined profiles
+#   hardware_id = 01 to 10 (01 is RPi single processor, 08 = is RPi multiprocessor)
+#
 set +x # echo no commands to cli
 set +e # continue on errors
+#
+####################
+# check parameters #
+####################
+# only validate the presence of the parameters
+if [ "$1" == "" ] || [ "$2" == "" ] ; then
+    echo "Orion Optimize Script"
+    echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
+    exit 1
+fi
 
 ####################
 # common functions #
@@ -132,7 +147,12 @@ modKschedLatency () {
 # these values are reset on boot
 if [ "$2" == "01" ] || [ "$2" == "08" ]; then
     # its a Pi 01 (archv6 - single processor) or Pi 08 (multiprocessors)
-    declare -a par_arr=(/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor /proc/sys/vm/swappiness /sys/block/mmcblk0/queue/scheduler /proc/sys/kernel/sched_latency_ns /proc/sys/kernel/sched_rt_period_us /proc/sys/kernel/sched_rt_runtime_us /proc/sys/kernel/sched_autogroup_enabled /proc/sys/kernel/sched_rr_timeslice_ms /proc/sys/kernel/sched_min_granularity_ns /proc/sys/kernel/sched_wakeup_granularity_ns /proc/sys/kernel/hung_task_check_count /proc/sys/vm/stat_interval /proc/sys/vm/dirty_background_ratio)
+    declare -a par_arr=(/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor\
+        /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor /proc/sys/vm/swappiness\
+        /sys/block/mmcblk0/queue/scheduler /proc/sys/kernel/sched_latency_ns /proc/sys/kernel/sched_rt_period_us\
+        /proc/sys/kernel/sched_rt_runtime_us /proc/sys/kernel/sched_autogroup_enabled /proc/sys/kernel/sched_rr_timeslice_ms\
+        /proc/sys/kernel/sched_min_granularity_ns /proc/sys/kernel/sched_wakeup_granularity_ns /proc/sys/kernel/hung_task_check_count\
+        /proc/sys/vm/stat_interval /proc/sys/vm/dirty_background_ratio)
     if [ -f "/tmp/orion_reset.firsttime" ]; then
         # the orion_reset file exists, reset the values from the redis store
         # first remove any files which we created
@@ -176,13 +196,21 @@ if [ "$1" == "default" ]; then
     echo "Linux DEFAULT sound signature profile"
 elif [ "$1" == "RuneAudio" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        # try to use bfq as scheduler, it has focus on low latency, its complex, has higher overhead
+        # if it is not available use kyber, it is a simple, low overhead, low latency scheduler, similar to noop but has completely different algorithm
+        schedulers=$( cat /sys/block/mmcblk0/queue/scheduler )
+        if [[ $schedulers == *"bfq"* ]] ; then
+            echo -n bfq > /sys/block/mmcblk0/queue/scheduler
+        else
+            echo -n kyber > /sys/block/mmcblk0/queue/scheduler
+        fi
         echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
         echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
         echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
@@ -196,7 +224,6 @@ elif [ "$1" == "RuneAudio" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
     fi
-    sleep 2
     echo "(RuneAudio) sound signature profile"
 elif [ "$1" == "ACX" ]; then
     modmtu 1500
@@ -215,7 +242,6 @@ elif [ "$1" == "OrionV2" ]; then
     modtxqueuelen 4000
     echo -n 0 > /proc/sys/vm/swappiness
     modKschedLatency hw=$2 s01=120000 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
-    sleep 2
     echo "(OrionV2) sound signature profile"
 elif [ "$1" == "OrionV3_iqaudio" ]; then
     if [ "$2" == "01" ]; then
@@ -234,7 +260,6 @@ elif [ "$1" == "OrionV3_iqaudio" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
     fi
-    sleep 2
     echo "(OrionV3 optimized for IQaudio Pi-DAC) sound signature profile"
 elif [ "$1" == "OrionV3_berrynosmini" ]; then
     if [ "$2" == "01" ]; then
@@ -254,7 +279,6 @@ elif [ "$1" == "OrionV3_berrynosmini" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=139950 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
     fi
-    sleep 2
     echo "(OrionV3 optimized for BerryNOS-mini I2S DAC) sound signature profile"
 elif [ "$1" == "ACX" ]; then
     modmtu 1500
@@ -264,7 +288,8 @@ elif [ "$1" == "ACX" ]; then
     echo "(ACX) sound signature profile"
 elif [ "$1" == "Dynobot" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
@@ -284,11 +309,11 @@ elif [ "$1" == "Dynobot" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=500000 s02=3700000 s03=3700000 s04=3700000 s05=3700000 s06=3700000 s07=3700000 s08=3700000 s09=3700000 s10=3700000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
     fi
-    sleep 2
     echo "(Dynobot for Pi2, 3 and 4) sound signature profile"
 elif [ "$1" == "Frost_dk" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
@@ -308,17 +333,24 @@ elif [ "$1" == "Frost_dk" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=120000 s02=2000000 s03=2000000 s04=2000000 s05=2000000 s06=2000000 s07=2000000 s08=2000000 s09=2000000 s10=2000000 u01=2 u02=2 u03=2 u04=2 u05=2 u06=2 u07=2 u08=2 u09=2 u10=2
     fi
-    sleep 2
     echo "(Frost_dk for Pi2, 3 and 4) sound signature profile"
 elif [ "$1" == "janui" ]; then
     if [ "$2" == "08" ]; then
-        modmtu 9000
+        modmtu 1500 # at this moment the max value
+        modmtu 9000 # at this moment this command fails
         modtxqueuelen 4000
         echo -n performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
         echo -n performance > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-        echo -n bfq > /sys/block/mmcblk0/queue/scheduler # bfq has focus on low latency, its complex, has higher overhead
+        # try to use bfq as scheduler, it has focus on low latency, its complex, has higher overhead
+        # if it is not available use kyber, it is a simple, low overhead, low latency scheduler, similar to noop but has completely different algorithm
+        schedulers=$( cat /sys/block/mmcblk0/queue/scheduler )
+        if [[ $schedulers == *"bfq"* ]]; then
+            echo -n bfq > /sys/block/mmcblk0/queue/scheduler
+        else
+            echo -n kyber > /sys/block/mmcblk0/queue/scheduler
+        fi
         echo -n 1000000 > /proc/sys/kernel/sched_latency_ns
         echo -n 100000 > /proc/sys/kernel/sched_min_granularity_ns
         echo -n 25000 > /proc/sys/kernel/sched_wakeup_granularity_ns
@@ -334,17 +366,5 @@ elif [ "$1" == "janui" ]; then
         echo -n 0 > /proc/sys/vm/swappiness
         modKschedLatency hw=$2 s01=1500000 s02=4500000 s03=4500000 s04=4500000 s05=4500000 s06=4500000 s07=4500000 s08=4500000 s09=4500000 s10=4500000 u01=3 u02=3 u03=3 u04=3 u05=3 u06=3 u07=3 u08=3 u09=3 u10=3
     fi
-    sleep 2
-    echo "(RuneAudio) sound signature profile"
-fi
-
-# dev
-if [ "$1" == "dev" ]; then
-echo "flush DEV sound profile 'fake'"
-fi
-
-if [ "$1" == "" ]; then
-echo "Orion Optimize Script v$ver"
-echo "Usage: $0 {default|RuneAudio|ACX|Orion|OrionV2|OrionV3_iqaudio|OrionV3_berrynosmini|Um3ggh1U|Dynobot|Frost_dk|janui} {architectureID}"
-exit 1
+    echo "(janui) sound signature profile"
 fi

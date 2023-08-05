@@ -1,7 +1,36 @@
 #!/bin/bash
 #
-# composer_update.sh
-# ------------------------
+#  Copyright (C) 2013-2014 RuneAudio Team
+#  http://www.runeaudio.com
+#
+#  RuneUI
+#  copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+#  RuneOS
+#  copyright (C) 2013-2014 – Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+#  RuneAudio website and logo
+#  copyright (C) 2013-2014 – ACX webdesign (Andrea Coiutti)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with RuneAudio; see the file COPYING. If not, see
+#  <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: command/composer_update.sh
+#  version: 1.3
+#  coder: janui
+#  date: September 2020
+#
 # This file will upgrade composer modules used in RuneAudio
 # The target versions of the composer components can be edited below
 #
@@ -30,7 +59,7 @@ rm /srv/http/app/libs/composer.json /srv/http/app/libs/composer.lock
 # the latest version of league of plates (3.4.0) breaks the UI
 # the highest version which does not break the UI is 1.2.1.
 # at 2.0, some of the UI works but Now playing and queue fail
-# at 3.0 all I get is a white page.
+# at 3.0 all I get is a white page
 #
 cat <<EOF >/srv/http/app/libs/composer.json
 {
@@ -54,6 +83,8 @@ sudo -u http ./composer.phar --with-all-dependencies update
 ln -s /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 # remove the composer setup script
 rm /home/composer-setup.php
+# and remove the composer.phar file
+rm /srv/http/app/libs/composer.phar
 # now download the latest version of getID3 from github
 #   composer installs the default version of getID3, the git hub master version has the latest bug fixes
 rm -r /home/getID3

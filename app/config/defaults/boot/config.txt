@@ -167,6 +167,7 @@ display_auto_detect=1
 #dtparam=i2c_arm=on
 #dtparam=spi=on
 #dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=20
+#dtoverlay=pitft35-resistive,drm,rotate=90,speed=32000000,fps=20
 #   RPi FT5406 LCD card
 #   rotation 0 (normal), 90, 180 or 270 degrees
 #lcd_rotate=0
@@ -222,6 +223,14 @@ display_auto_detect=1
 #   Uncomment to increase signal to HDMI, if you have interference, blanking, or
 #       no display
 #config_hdmi_boost=4
+#
+##  Infrared remote control ##
+#   Use GPIO pin as rc-core style infrared receiver input. The rc-core-
+#   based gpio_ir_recv driver maps received keys directly to a
+#   /dev/input/event* device, all decoding is done by the kernel - LIRC is
+#   not required! The key mapping and other decoding parameters can be
+#   configured by "ir-keytable" tool, see: /boot/overlays/README
+#dtoverlay=gpio-ir,<param>=<val>
 #
 ##  Some overclocking settings ##
 #   The values below are valid for the B+ model
@@ -281,8 +290,10 @@ max_usb_current=1
 #       noise) by setting arm_boost on (arm_boost=1)
 [pi4]
 # Conditional for Model 4
+# The Pi 4 is very fast, we don't need the extra speed of arm_boost for RuneAudio, switch it off
 arm_boost=0
 [all]
 # Conditional end
 #
-initramfs initramfs-linux.img followkernel
+# The next line should not be required, uncomment it if the hardware fails to boot
+#initramfs initramfs-linux.img followkernel

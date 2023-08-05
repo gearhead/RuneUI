@@ -52,25 +52,25 @@ switch($status) {
         // start UPnP / DLNA
         wrk_startUpmpdcli($redis);
         // send notify
-        ui_notify('UPnP / DLNA', 'Playback has been switched to an incoming UPnP / DLNA stream.');
+        ui_notify($redis, 'UPnP / DLNA', 'Playback has been switched to an incoming UPnP / DLNA stream.');
         break;
     case "onplay":
         // play UPnP / DLNA
         wrk_playUpmpdcli($redis);
         // send notify
-        ui_notify('UPnP / DLNA', 'Playback started.');
+        ui_notify($redis, 'UPnP / DLNA', 'Playback started.');
         break;
     case "onpause":
         // play UPnP / DLNA
         wrk_pausedUpmpdcli($redis);
         // send notify
-        ui_notify('UPnP / DLNA', 'Playback paused.');
+        ui_notify($redis, 'UPnP / DLNA', 'Playback paused.');
         break;
     case "onstop":
         // stop UPnP / DLNA
         wrk_stopUpmpdcli($redis);
         // send notify
-        ui_notify('UPnP / DLNA', 'UPnP / DLNA playback has completed. The player is now unlocked.');
+        ui_notify($redis, 'UPnP / DLNA', 'UPnP / DLNA playback has completed. The player is now unlocked.');
         break;
 }
 

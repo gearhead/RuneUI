@@ -81,10 +81,11 @@ else
     redis-cli hset service dirble 0
     redis-cli hset service lastfm 0
     redis-cli hset service makeitpersonal 0
+    redis-cli hset service chartlyrics 0
+    redis-cli hset service azlyrics 0
     redis-cli hset service musicbrainz 0
     redis-cli hset service coverartarchiveorg 0
     redis-cli hset service wikipedia 0
-    redis-cli hset service azlyrics 0
     redis-cli hset service discogs 0
     redis-cli hset service fanarttv 0
     redis-cli hset service jamendo 0
@@ -114,12 +115,34 @@ fi
 # determine if we can see makeitpersonal.co/, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://makeitpersonal.co/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
-    # lyrics is available
+    # website is up
+    # lyrics should be available
     redis-cli hset service makeitpersonal 1
 else
     # lyrics is not available
     redis-cli hset service makeitpersonal 0
 fi
+# chartlyrics lyrics
+# determine if we can see : api.chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://api.chartlyrics.com > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # website is up
+    # lyrics should be available
+    redis-cli hset service chartlyrics 1
+else
+    # lyrics is not available
+    redis-cli hset service chartlyrics 0
+fi
+# # azlyrics
+# # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x tries)
+# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
+# if [ $? -eq 0 ]; then
+    # # azlyrics is available
+    # redis-cli hset service azlyrics 1
+# else
+    # # azlyrics is not available
+    # redis-cli hset service azlyrics 0
+# fi
 # musicbrainz
 # determine if we can see musicbrainz.org/ws/2/, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://musicbrainz.org/ws/2/ > /dev/null 2>&1
@@ -149,16 +172,6 @@ fi
 # else
     # # wikipedia is not available
     # redis-cli hset service wikipedia 0
-# fi
-# # azlyrics
-# # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x tries)
-# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
-# if [ $? -eq 0 ]; then
-    # # azlyrics is available
-    # redis-cli hset service azlyrics 1
-# else
-    # # azlyrics is not available
-    # redis-cli hset service azlyrics 0
 # fi
 # discogs
 # determine if we can see www.discogs.com/search, this command will give up after +/-20 seconds (= timeout x tries)

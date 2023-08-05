@@ -1,0 +1,6 @@
+GPIO=27
+MODE=up
+DIR=falling
+MESSAGE="Toggle between pause and play."
+COMMAND="/sbin/mpc toggle"
+DEBOUNCE=1.0

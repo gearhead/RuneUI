@@ -43,7 +43,7 @@ set -e # fail on errors
 # VOLUME: <the volume level, the scale in unknown , used in the in the volumeset event>
 # all player events are processed
 # get an ID for the queues
-id=$( uuidgen | md5sum | cut -d ' ' -f 1 )
+id=$( cat /proc/sys/kernel/random/uuid | md5sum | cut -d ' ' -f 1 )
 # get the event value
 # start event
 if [ "$PLAYER_EVENT" == "start" ]; then
@@ -52,6 +52,7 @@ if [ "$PLAYER_EVENT" == "start" ]; then
     #   crashing as the output device is in use, the background worker job will change the MPD
     #   player state to paused, but only when it is currently playing
     mpc pause
+    mpc volume 0
     # switch player by starting a system worker background job (rune_SY_wrk > switchplayer)
     #   by writing the command to the worker redis hash and fifo queue
     redis-cli hset w_queue "$id" '{"wrkcmd":"switchplayer","action":null,"args":"SpotifyConnect"}'
@@ -60,7 +61,7 @@ fi
 #
 # we only use the metadata PLAYER_EVENT, TRACK_ID, DURATION_MS, and POSITION_MS
 # write the values to the spotify connect redis hash and fifo queue
-redis-cli hset s_queue "$PLAYER_EVENT$id" "{\"event\":\"$PLAYER_EVENT\",\"track_id\":\"$TRACK_ID\",\"duration_ms\":\"$DURATION_MS\",\"position_ms\":\"$POSITION_MS\"}"
+redis-cli hset s_queue "$PLAYER_EVENT$id" "{\"event\":\"$PLAYER_EVENT\",\"track_id\":\"$TRACK_ID\",\"duration_ms\":\"$DURATION_MS\",\"position_ms\":\"$POSITION_MS\",\"volume\":\"$VOLUME\"}"
 redis-cli lpush s_queue_fifo "$PLAYER_EVENT$id"
 #---
 #End script

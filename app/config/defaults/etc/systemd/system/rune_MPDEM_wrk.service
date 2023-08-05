@@ -1,0 +1,11 @@
+[Unit]
+Description=RuneAudio MPD Extra Metadata Decoder Worker
+After=network.target sound.target redis.service rune_PL_wrk.service mpd.service
+
+[Service]
+Nice=10
+ExecStart=/var/www/command/rune_MPDEM_wrk
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

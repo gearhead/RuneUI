@@ -1,7 +1,9 @@
 [Unit]
+
 Description=Bluetooth Agent
 Requires=bluetooth.service
 After=bluetooth.service
+
 [Service]
 ExecStartPre=/usr/bin/bluetoothctl discoverable on
 #ExecStart=/usr/bin/bt-agent --capability=NoInputNoOutput
@@ -10,5 +12,6 @@ ExecStart=/srv/http/command/bluetooth-agent
 RestartSec=5
 Restart=always
 KillSignal=SIGUSR1
+
 [Install]
 WantedBy=multi-user.target

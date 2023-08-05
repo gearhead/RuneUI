@@ -32,14 +32,19 @@
  *  coder: janui
  *  date: January 2021
  */
-// common include
+ // initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
 ini_set('error_log', '/var/log/runeaudio/check_MPD_outputs_async.log');
-define('APP', '/srv/http/app/');
+// common include
 require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend
-$redis = new Redis();
-$redis->connect('/run/redis/socket');
-
+require_once('/srv/http/app/libs/openredis.php');
+// common include
+define('APP', '/srv/http/app/');
 // reset logfile
 sysCmd('echo "--------------- start: check_MPD_outputs_async.php ---------------" > /var/log/runeaudio/check_MPD_outputs_async.log');
 runelog('WORKER check_MPD_outputs_async.php STARTING...');

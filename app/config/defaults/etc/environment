@@ -4,3 +4,8 @@
 # Syntax: simple "KEY=VAL" pairs on separate lines
 #
 ALSA_CONFIG_PATH=/usr/share/alsa/alsa.conf:/run/bluealsa-monitor/asoundrc
+# make sure perl has what it needs to not complain
+LANGUAGE=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+LANG=en_US.UTF-8
+LC_CTYPE=en_US.UTF-8

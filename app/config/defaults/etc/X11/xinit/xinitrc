@@ -54,12 +54,26 @@ matchbox-window-manager -use_titlebar no -use_cursor no &
 # install multimedia keyboard shortcuts
 sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 
+# determine the browser
+browser=$( redis-cli hget local_browser browser )
 # use luakit as default
 # luakit for local browser, compacter than chromium, supports JavaScript, which also scales <100%
-sudo -u http /usr/bin/luakit
+if [ "$browser" == "luakit" ] ; then
+    sudo -u http /usr/bin/luakit
+fi
 
-# optionally use chromium
-# chromium will first need to be installed with the command: pacman -Sy chromium
+# optionally use chromium-browser/chromium
+# chromium will first need to be installed with the command: pacman -Sy chromium, apt install chromium-browser or apt install chromium
 # UI controls are already implemented
 # the chromium configuration/parameter file for the user http is: /srv/http/.config/chromium-flags.conf
-# sudo -u http /usr/bin/chromium http://localhost/
+#  this parameter file is automatically applied in ARCH Linux, for RPiOS its contents need to be manually added
+if [ "$browser" == "chromium-browser" ] || [ "$browser" == "chromium" ] ; then
+    rm /srv/http/.config/chromium/Singleton*
+    os=$( redis-cli get os )
+    if [ "$os" == "ARCH" ] ; then
+        chromium_flags=""
+    else
+        chromium_flags=$( grep -v '^\(#.*\)\?$' /srv/http/.config/chromium-flags.conf | xargs )
+    fi
+    sudo -u http  /usr/bin/$browser $chromium_flags http://localhost/
+fi

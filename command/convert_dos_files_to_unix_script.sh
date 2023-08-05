@@ -39,49 +39,65 @@ cd /home
 #   fast > a quick version which just sets the privileges
 #   cleanfiles > a full version will also clear trailing whitespace from source files and uglify the javascript files
 #
+if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+    os='RPiOS'
+elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+    os='ARCH'
+fi
 # Convert important files from dos format to unix format script
 # Don't run if fast parameter is selected
 if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # Install dos2unix if required
-    pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
+    if [ "$os" == "ARCH" ] ; then
+        pacman -Q dos2unix || pacman -Sy dos2unix --noconfirm
+    elif [ ! -f /bin/dos2unix ] ; then
+        apt install dos2unix
+    fi
     #
-    # Dos2Unix conversion
+    # Dos2Unix conversion (we only convert file with dos line ends)
     # exclude binary files, keep the date, keep the old file name
     #
     # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
     # exceptions are /boot/config.txt and /boot/wifi/* these stay in ms-dos format
     cd /srv/http/app/config/defaults
-    find /srv/http/app/config/defaults/ -type f -exec dos2unix -k -s -o {} \;
+    find /srv/http/app/config/defaults/ -type f -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
     # all files in /srv/http/assets/js
     cd /srv/http/assets/js
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     # all files in /srv/http/db
     cd /srv/http/db
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     # all files in /srv/http/app
     cd /srv/http/app
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     # all files in /srv/http/app/templates
     cd /srv/http/app/templates
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     # all files in /srv/http/app/libs except the composer files
     mkdir /tmp/composer
     cp /srv/http/app/libs/composer.* /tmp/composer
     cd /srv/http/app/libs
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     cp /tmp/composer/* /srv/http/app/libs
     # all files in /srv/http/command
     cd /srv/http/command
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
     # all files in /srv/http
     cd /srv/http
-    dos2unix -k -s -o *
+    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    # the files /srv/http/assets/css/*.css
+    cd /srv/http/assets/css/
+    dos2unix -ic0 *.css | xargs -0 dos2unix -k -s -o
     # all files named *.conf in /etc and subdirectories
     cd /home
-    find /etc -type f -name *.conf -exec dos2unix -k -s -o {} \;
-    # the file /srv/http/assets/css/runeui.css
-    dos2unix -k -s -o /srv/http/assets/css/runeui.css
+    find /etc -type f -name *.conf -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    # specific files
+    find /srv -type f -name chromium-flags.conf -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv -type f -name i2s_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv -type f -name weston.ini -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv -type f -name audio_allowed_formats_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv -type f -name userconf.lua -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
     #
     # Convert leading tabs to 4 spaces in the files
     #
@@ -114,6 +130,7 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
         rm /home/file.temp
         echo "Tabs to spaces: $f"
     done
+    cp /tmp/composer/* /srv/http/app/libs
 fi
 #
 # When requested, remove trailing whitespace in lines from bin/bash files, but exclude vendor files
@@ -130,8 +147,8 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace bin/bash: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (bin/bash): $f"
+        sed -i 's/[\s]*$//' "$f"
     done
 fi
 #
@@ -149,15 +166,16 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace php: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (php): $f"
+        sed -i 's/[\s]*$//' "$f"
     done
 fi
 #
 # When requested, remove trailing whitespace from specific directory's and files
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
-    echo "Removing trailing whitespace from /srv/http/app/templates/* files"
+    echo "Removing trailing whitespace from specific files"
+    # specific directories
     FILES="/srv/http/assets/css/* /srv/http/assets/js/* /srv/http/app/templates/*"
     for f in $FILES
     do
@@ -168,8 +186,31 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
-        echo "Trailing whitespace rest: $f"
-        sed -i 's/[ \t]*$//' "$f"
+        echo "Trailing whitespace (directories): $f"
+        sed -i 's/[\s]*$//' "$f"
+    done
+    # specific file names in the /srv directory tree
+    declare -a FILENAMES=(chromium-flags.conf i2s_table*.txt weston.ini audio_allowed_formats_table*.txt userconf.lua)
+    for n in "${FILENAMES[@]}"
+    do
+        # echo "Filename >> $n"
+        if [ -d "$n" ] ; then
+            continue # its a directory not a file
+        fi
+        FILES=$( find /srv -name "$n" )
+        # echo "Files >> $FILES"
+        for f in $FILES
+        do
+            if [ -d "$f" ] ; then
+                continue # its a directory not a file
+            fi
+            numstrpace=$(grep -c '[[:blank:]]$' "$f")
+            if [ "$numstrpace" == "0" ] ; then
+                continue # no trailing whitespace in the file
+            fi
+            echo "Trailing whitespace (file names in /srv): $f"
+            sed -i 's/[\s]*$//' "$f"
+        done
     done
 fi
 set -x # echo all commands to cli
@@ -178,11 +219,24 @@ set -x # echo all commands to cli
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
     # Install uglify-js if required
-    pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
+    if [ "$os" .eq. "ARCH" ] ; then
+        pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
+    elif [ ! -f /bin/uglifyjs ] ; then
+        apt install uglifyjs
+    fi
     cd /srv/http/
     uglifyjs --verbose --mangle --warn --validate --webkit --ie8 assets/js/runeui.js --output assets/js/runeui.min.js
     cd /home
 fi
+#
+# Make sure that the required locales are available
+#
+sed -i '/^#en_US.UTF-8 UTF-8/s|#en_|en_|g' /etc/locale.gen
+locales=$( locale -a | grep -ic en_US.UTF8 )
+if [[ "$locales" != "1" ]] ; then
+    locale-gen
+fi
+locale -a
 #
 # Check file protections and ownership
 #
@@ -201,6 +255,8 @@ chmod 644 /etc/nginx/html/50x.html
 chmod 777 /run
 chmod 755 /srv/http/command/*
 chmod 755 /srv/http/db/*
+chmod 444 /srv/http/db/audio_allowed_formats_table*.txt
+chmod 444 /srv/http/.config/i2s_table*.txt
 # remount art cache
 set +x # echo no commands to cli
 sync
@@ -214,8 +270,17 @@ chown mpd:audio /mnt/MPD/*
 chown mpd:audio /mnt/MPD/USB/*
 chmod 777 /mnt/MPD/USB
 chmod 777 /mnt/MPD/USB/*
-chown -R mpd.audio /var/lib/mpd
+chown -R mpd:audio /var/lib/mpd
 chmod 440 /etc/sudoers
 chmod -R 440 /etc/sudoers.d
+# corrections for previously erroneously setting /usr to 755
+chmod -R -x /usr/lib/systemd/system/*
+chmod -R -x /usr/lib/systemd/network/*
+chmod -R -x /usr/lib/udev/rules.d/*
+# udevil will fail when it is not explicitly given system privileges
+chmod +s /usr/bin/udevil
+# luakit will fail to start when it cant read its recovery session (luakit runs as http)
+chmod 666 /etc/xdg/luakit/rc.lua
+chown http:http /etc/xdg/luakit/rc.lua
 #---
 #End script

@@ -277,8 +277,20 @@ if ($template->action === 'wifi_scan') {
     $template->storedProfiles = array();
     $template->profile = array();
     $template->apenable = $redis->hGet('AccessPoint', 'enable');
-    $template->btenable = $redis->get('bluetooth_on');
     $template->wifienable = $redis->get('wifi_on');
+    $template->btenable = $redis->get('bluetooth_on');
+    $template->btstring = '';
+    $btDevices = wrk_btcfg($redis, 'status');
+    foreach ($btDevices as $btDevice) {
+        if ($btDevice['source'] && $btDevice['connected']) {
+            $template->btstring = '[Input: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
+            break;
+        }
+        if ($btDevice['sink'] && $btDevice['connected']) {
+            $template->btstring = '[Output: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
+            break;
+        }
+    }
     $wired = false;
     $wifi = false;
     foreach ($template->nics as $nic) {
@@ -298,6 +310,6 @@ if ($template->action === 'wifi_scan') {
         // disable switching Wi-Fi on/off
         $template->wifiswitch = 0;
     }
-    unset($networks, $storedProfiles);
+    unset($networks, $storedProfiles, $btDevices, $wired, $wifi);
     // only the contents of $template->nics is used
 }

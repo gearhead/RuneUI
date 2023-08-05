@@ -31,10 +31,14 @@
 #  coder: janui
 #  date: December 2021
 #
-systemctl stop amixer-webui.service udevil.service nginx.service php-fpm.service haveged.service
-systemctl stop bluealsa-aplay.service bluealsa.service bluetooth.service
-systemctl stop llmnrd.service avahi-daemon.service connman.service iwd.service sshd.service
+declare -a stop_arr=(amixer-webui ashuffle avahi-daemon bluealsa bluealsa-aplay bluetooth cmd_async_queue llmnrd mpd\
+    mpdscribble nmb nmbd rune_MPDEM_wrk rune_PL_wrkrune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd spotifyd\
+    systemd-udevd udevil upmpdcli)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 redis-cli shutdown save
+systemctl stop redis
 sync
 echo 1 > /proc/sys/kernel/sysrq
 echo s > /proc/sysrq-trigger

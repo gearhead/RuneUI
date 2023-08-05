@@ -61,27 +61,5 @@ if (isset($argv[1]) && is_numeric($argv[1])) {
 // ui_update($redis, $sock, $clientUUID=null)
 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
 
-// // determine the player type
-// $activePlayer = $redis->get('activePlayer');
-// // open the socket
-// if ($activePlayer === 'MPD') {
-    // //$socket = openMpdSocket('/run/mpd/socket', 0);
-    // $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-// } elseif ($activePlayer === 'Spotify') {
-    // $socket = openSpopSocket('localhost', 6602, 1);
-// } else {
-    // echo "Error: [ui_update_async] Player '".$activePlayer."' not supported\n"
-    // exit(1);
-// }
-// // if the socket is valid update the UI
-// if ($socket) {
-    // ui_update($redis, $socket);
-// } else {
-    // echo "Error: [ui_update_async] Can't open socket for player '".$activePlayer."'\n"
-    // exit(1);
-// }
-// // close Redis connection
-// $redis->close();
-
 runelog('WORKER ui_update_async END...');
 

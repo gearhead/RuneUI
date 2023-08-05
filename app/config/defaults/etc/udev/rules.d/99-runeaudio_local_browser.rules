@@ -1,0 +1,13 @@
+# RuneAudio udev rules file contains various rules entries
+# filename: /etc/udev/rules.d/99-runeaudio_local_browser.rules
+#
+#
+# the following lines were previously in the file 99-vc4_input.rules
+#
+# this disables the vc4 pointer which interferes with touch screen
+# operation on fbdev. May or may not be needed for hdmi use
+# environment variable ENV{LIBINPUT_IGNORE_DEVICE} is toggled between 1 and 0 when cursor is set on/off in the UI
+KERNEL=="input*",ATTRS{name}=="vc4",ENV{LIBINPUT_IGNORE_DEVICE}="1"
+# if the pointer will not go away, uncomment the following and reboot
+# it disables the first event device - this is a big hammer!
+#KERNEL=="event0",ENV{LIBINPUT_IGNORE_DEVICE}="1"

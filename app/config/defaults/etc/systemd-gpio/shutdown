@@ -1,0 +1,6 @@
+GPIO=5
+MODE=up
+DIR=rising
+MESSAGE="Shutdown requested by GPIO trigger."
+COMMAND="/sbin/shutdown -h now"
+DEBOUNCE=1.0

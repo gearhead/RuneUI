@@ -12,6 +12,13 @@ TimeoutStartSec=20
 StartLimitInterval=60
 StartLimitBurst=3
 User=mpd
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+ProtectControlGroups=yes
+ProtectHome=true
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
