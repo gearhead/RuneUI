@@ -72,12 +72,20 @@ $retriesmounting = 100;
 sysCmd('chmod 777 /run');
 //
 // update the os if required
+$fileName = '/srv/http/command/update_os.php';
 // clear the cache otherwise file_exists() returns incorrect values
-clearstatcache(true, '/srv/http/command/update_os.php');
+clearstatcache(true, $fileName);
 // if os updates are needed
-if (file_exists('/srv/http/command/update_os.php')) {
-    include '/srv/http/command/update_os.php';
-    updateOS($redis);
+if (file_exists($fileName)) {
+    // there is an update file, calculate its MD5
+    $update_os_md5 = md5_file($fileName);
+    if (!$redis->exists('update_os_md5') || ($redis->get('update_os_md5') != $update_os_md5)) {
+        // the update file has not been processed
+        include $fileName;
+        updateOS($redis);
+        // save the MD5 signature of the processed file
+        $redis->set('update_os_md5', $update_os_md5);
+    }
 }
 //
 // Set redis variable disk_error to false
