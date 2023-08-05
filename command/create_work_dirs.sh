@@ -27,7 +27,7 @@
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 #  file: command/create_work_dirs.sh
-#  version: 1.3
+#  version: 0.6
 #  coder: janui
 #  date: December 2020
 #
@@ -51,7 +51,9 @@ function enable_overlay_art_cache {
     if [ "$partitions" == "2" ]; then
         # standard number of partitions are there, try to create the cache partition
         # first do a dry run to create a third partition contiguously after partition 2 and collect some data
-        lines=$( echo -e 'n\np\n3\n\n+1G\ny\nt\n3\n83\np\n\n\nq' | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3|disk ' | xargs )
+        end_last_partition=$( fdisk /dev/mmcblk0 -l | grep -i mmcblk0p | tail -n 1 | xargs | cut -d ' ' -f 3 | xargs )
+        start_new_partition=$(( $end_last_partition+1 ))
+        lines=$( echo -e "n\np\n3\n$start_new_partition\n+1G\ny\nt\n3\n83\np\n\n\nq" | fdisk /dev/mmcblk0 | grep -iE 'mmcblk0p3|disk ' | xargs )
         if [[ "$lines" == *" 1G 83 Linux"* ]]; then
             # echo $lines
             # echo "OK"
@@ -187,15 +189,16 @@ chown -R http:http "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
-# Create the directory '/run/bluealsa-monitor/asoundrc', required by the 'bluealsa-monitor' package
+# Create the directory '/run/bluealsa-monitor and a file in it called /run/bluealsa-monitor/asoundrc', required by the 'bluealsa-monitor' package
 #
-mkdir -p /run/bluealsa-monitor/asoundrc
+mkdir -p /run/bluealsa-monitor
+touch /run/bluealsa-monitor/asoundrc
 #
 # depending on the total memory and the PI model expand the tmpfs size file system used for albumart, used by MPD, Airplay & Spotify Connect
 #
 # get the total memory
 memory=$( grep -i MemTotal /proc/meminfo | xargs  | cut -d ' ' -f 2 )
-# the size of the http-tmp is based on using luakit as local browser
+# the size of the http-tmp is based the the available memory and on using luakit as local browser
 if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
     # memory has a value and its numeric
     if [ "$memory" -gt "1200000" ]; then

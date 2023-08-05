@@ -1,0 +1,223 @@
+#!/usr/bin/php
+<?php
+/*
+ * Copyright (C) 2013-2014 RuneAudio Team
+ * http://www.runeaudio.com
+ *
+ * RuneUI
+ * copyright (C) 2013-2014 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+ *
+ * RuneOS
+ * copyright (C) 2013-2014 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+ *
+ * RuneAudio website and logo
+ * copyright (C) 2013-2014 - ACX webdesign (Andrea Coiutti)
+ *
+ * This Program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This Program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RuneAudio; see the file COPYING. If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.txt>.
+ *
+ *  file: command/refresh_nics
+ *  version: 1.3
+ *  coder: Simone De Gregori
+ *  revised to use connman in May 2020
+ *  janui, Gearhead
+ *
+ */
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
+ini_set('error_log', '/var/log/runeaudio/refresh_nics.log');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: refresh_nics ---------------" > /var/log/runeaudio/refresh_nics.log');
+// logging starting message
+runelog('WORKER refresh_nics STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+//  the first parameter has a value of 'async' when asynchronous is requested
+if (isset($argv[1]) && ($argv[1] === 'async')) {
+    runelog('running asynchronously');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    // close Redis connection
+    $redis->close();
+    runelog('WORKER refresh_nics END...');
+    exit;
+}
+
+//
+// check that internet is available, if not run the internet available routine and wait for 20 seconds to allow connman to reconnect
+if (!$redis->hGet('service', 'internet')) {
+    // double check that the current status correct is
+    sysCmd('/srv/http/command/internet_available_async.sh');
+    // sleep(20);
+    // // run it twice, the first time will try to initiate a recovery, the second time will detect the status
+    // sysCmd('/srv/http/command/internet_available_async.sh');
+}
+//
+// refresh the network arrays and save them in redis
+$networkInterfaces = refresh_nics($redis);
+if (!$networkInterfaces) {
+    // refresh_nics returned false so use the last stored value from redis
+    $networkInterfaces = json_decode($redis->Get('network_interfaces'), true);
+}
+//
+// start AP if configured and there is a AP capable Wi-Fi nic with no IP-address assigned
+//  only start AP if it is the first time that a suitable nic is (or becomes) available or later when
+//  no internet connection is available
+//  AP will start on boot if no Wi-Fi network is connected
+//  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
+//  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
+// note: it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now
+if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
+    // Wi-Fi is enabled and access point enabled
+    runelog('------------------ try to start AP if no IP is assigned ---------------------');
+    $apWifiNicFound = false;
+    $ethNicConnected = false;
+    // walk through the array $networkInterfaces, this contains all wireless nics plus the connected wired nics
+    foreach($networkInterfaces as $nic) {
+        // check if accesspoint is enabled and the Wi-Fi nic is not connected, technology is 'wifi' and it supports AP
+        //  also look for a connected Ethernet nic which is a prerequisite for NAT
+        //  then wait for 20 seconds to allow connman to complete any reconnection activities
+        //  finally double check to see if the nic is still not connected!
+        //  (connman may not have initiated a reconnection process when the nics array was created)
+        //  use this to check the actual connection status: 'ip -o  address | sed 's,[ ]\+, ,g' | grep -i 'inet ' | grep -ic wlan0'
+        if (
+                (!$nic['connected']) &&
+                // the nic was not connected when the nics array was created
+                (!$apWifiNicFound) &&
+                // still haven't found a suitable nic in the array
+                ($nic['technology'] === 'wifi') &&
+                // its a Wi-Fi nic
+                ($nic['apSupported'])
+                // the nic supports AP
+                )
+        {
+            // sleep for 20 seconds to ensure that connman has time to connect/reconnect
+            sleep(20);
+            // double-check that the nic is still not connected
+            if (!sysCmd('ip -o  address | sed '."'".'s,[ ]\+, ,g'."'".' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'])[0]) {
+                // the nic is still not connected, use it and skip the rest
+                runelog('########### got a nic for AP: '.$nic['nic']);
+                $wlanNic = $nic['nic'];
+                $apWifiNicFound = true;
+            }
+        }
+        // check if the nic technology is 'ethernet' and it has an allocated IP address
+        if ((!$ethNicConnected) && ($nic['technology'] === 'ethernet') && ($nic['connected'])) {
+            // always use the first one found for NAT, skip the rest
+            runelog('########### got a nic for AP NAT: '.$nic['nic']);
+            $ethNic = $nic['nic'];
+            $ethNicConnected = true;
+        }
+    }
+    //
+    if ($apWifiNicFound) {
+        // we found a suitable Wi-Fi nic
+        if ((is_firstTime($redis, 'AP-start')) || (!$redis->hGet('service', 'internet'))) {
+            // it is the first time we have detected a suitable Wi-Fi nic or there is no internet available
+            runelog('########### no IP => start AP on '.$wlanNic);
+            $file = '/etc/hostapd/hostapd.conf';
+            // change AP name
+            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
+            // change passphrase
+            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
+            // change interface nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+//            sysCmd('systemctl start hostapd');
+            //
+            $file = '/etc/dnsmasq.conf';
+            // change dhcp-range
+            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
+            // change dhcp-option dns-server
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            // change dhcp-option router
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            // change Wi-Fi nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$wlanNic, 'WIFI-Interface', 1);
+            // change ethernet nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$ethNic, 'ethernet', 1);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+//            sysCmd('systemctl start dnsmasq');
+            //
+            // enable the AP by switching braodcast on
+//            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
+            //
+// iwd AP mode
+// iwd cannot scan while in AP mode, yet, so this is not yet ready
+runelog('########### iwctl AP mode '.$wlanNic);
+// both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
+$IP_components = preg_split('/[.\s:]/', $redis->hGet('AccessPoint', 'ip-address'));
+$IP_components[3]='0';
+$base_address = implode('.',$IP_components);
+$file = '/etc/iwd/main.conf';
+$newArray = wrk_replaceTextLine($file, '' , 'APRanges=', 'APRanges='.$base_address.'/24');
+$fp = fopen($file, 'w');
+$return = fwrite($fp, implode('', $newArray));
+fclose($fp);
+
+// ssid is set by the file name ssid.ap
+// remove all *.ap files
+sysCmd('sudo /usr/bin/mkdir -p /var/lib/iwd/ap/');
+sysCmd('sudo /usr/bin/rm /var/lib/iwd/ap/*.ap');
+$file = '/var/lib/iwd/ap/'.$redis->hGet('AccessPoint', 'ssid').'.ap';
+$fp = fopen($file, 'a');
+fwrite($fp, '[General]'.PHP_EOL);
+fwrite($fp, 'DisableHT=true'.PHP_EOL);
+fwrite($fp, '[Security]'.PHP_EOL);
+fwrite($fp, 'Passphrase='.$redis->hGet('AccessPoint', 'passphrase').PHP_EOL);
+fwrite($fp, '[IPv4]'.PHP_EOL);
+fwrite($fp, 'Address='.$redis->hGet('AccessPoint', 'ip-address').PHP_EOL);
+fwrite($fp, 'Gateway='.$redis->hGet('AccessPoint', 'dhcp-option-router').PHP_EOL);
+fwrite($fp, 'Netmask=255.255.255.0'.PHP_EOL);
+fwrite($fp, 'DNSList='.$redis->hGet('AccessPoint', 'dhcp-option-dns').PHP_EOL);
+fclose($fp);
+
+ // this to re-scan the settings changed in etc/iwd/main.conf
+ sysCmd('systemctl restart iwd');
+ // set to ap mode
+ sysCmd('/usr/bin/iwctl device '.$wlanNic.' set-property Mode ap');
+ // start ap
+ sysCmd('/usr/bin/iwctl ap '.$wlanNic.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
+
+            // NAT configuration
+            if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
+                // enable NAT if enabled and there is a wired nic available
+//                sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
+//                sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
+//                sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
+//                sysCmd('sysctl net.ipv4.ip_forward=1');
+// iwd will not nat with all this to work.
+             sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+             sysCmd('sysctl net.ipv4.ip_forward=1');
+
+            }
+        }
+    }
+}
+// close Redis connection
+$redis->close();
+
+runelog('WORKER refresh_nics END...');

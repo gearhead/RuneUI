@@ -51,6 +51,17 @@ runelog('WORKER refresh_nics STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 
+// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+//  the first parameter has a value of 'async' when asynchronous is requested
+if (isset($argv[1]) && ($argv[1] === 'async')) {
+    runelog('running asynchronously');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    // close Redis connection
+    $redis->close();
+    runelog('WORKER refresh_nics END...');
+    exit;
+}
+
 //
 // check that internet is available, if not run the internet available routine and wait for 20 seconds to allow connman to reconnect
 if (!$redis->hGet('service', 'internet')) {
@@ -63,9 +74,7 @@ if (!$redis->hGet('service', 'internet')) {
 //
 // refresh the network arrays and save them in redis
 $networkInterfaces = refresh_nics($redis);
-if ($networkInterfaces) {
-    // do nothing
-} else {
+if (!$networkInterfaces) {
     // refresh_nics returned false so use the last stored value from redis
     $networkInterfaces = json_decode($redis->Get('network_interfaces'), true);
 }

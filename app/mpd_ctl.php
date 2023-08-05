@@ -45,7 +45,7 @@
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'update', 'args' => $_POST['conf']));
         if ($redis->hGet('local_browser', 'enable') && ($_POST['conf']['mixer_type'] != $redis->hGet('globalrandom', 'mixer_type'))) {
             // local browser is enabled and the mixer typ has changed, restart the local browser
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'xorgserver', 'action' => 'restart'));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'restart'));
         }
     }
     // manual MPD configuration
@@ -55,9 +55,9 @@
     // ----- FEATURES -----
     if (isset($_POST['mpdvol'])) {
         if ($_POST['mpdvol']['realtime_volume'] == "yes") {
-            $redis->get('dynVolumeKnob') == 1 || $redis->set('dynVolumeKnob', 1);
+            $redis->get('dynVolumeKnob') || $redis->set('dynVolumeKnob', 1);
         } else {
-            $redis->get('dynVolumeKnob') == 0 || $redis->set('dynVolumeKnob', 0);
+            $redis->get('dynVolumeKnob') && $redis->set('dynVolumeKnob', 0);
         }
         if (isset($_POST['mpdvol']['start_volume'])) {
             $redis->get('mpd_start_volume') == $_POST['mpdvol']['start_volume'] || $redis->set('mpd_start_volume', $_POST['mpdvol']['start_volume']);
@@ -118,9 +118,9 @@
             $redis->hGet('globalrandom', 'addrandom') == $_POST['mpd']['addrandom'] || $redis->hSet('globalrandom', 'addrandom', $_POST['mpd']['addrandom']);
         }
         if ((isset($_POST['mpd']['mpd_autoplay'])) && ($_POST['mpd']['mpd_autoplay'])) {
-            $redis->get('mpd_autoplay') == 1 || $redis->set('mpd_autoplay', 1);
+            $redis->get('mpd_autoplay') || $redis->set('mpd_autoplay', 1);
         } else {
-            $redis->get('mpd_autoplay') == 0 || $redis->set('mpd_autoplay', 0);
+            $redis->get('mpd_autoplay') && $redis->set('mpd_autoplay', 0);
         }
     }
     // ----- RESET GLOBAL RANDOM -----

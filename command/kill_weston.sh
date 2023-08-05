@@ -37,7 +37,7 @@
 set +e # continue on errors
 # set -x # echo all commands to cli
 #
-id=$(uuidgen | md5sum | cut -d ' ' -f 1)
+id=$(cat /proc/sys/kernel/random/uuid | md5sum | cut -d ' ' -f 1)
 # echo $id
 redis-cli hset w_queue $id '{"wrkcmd":"kill_weston","action":null,"args":null}'
 redis-cli lPush w_queue_fifo $id

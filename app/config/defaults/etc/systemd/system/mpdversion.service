@@ -1,0 +1,15 @@
+[Unit]
+Description = generate mpd --version informtion during boot
+# on some models the command mpd --version throws errors when called by php
+# this workarount will generate a file containing the required output
+# DefaultDependencies=no
+After=connman.service
+
+[Service]
+Type=oneshot
+#RemainAfterExit=yes
+ExecStart=/usr/bin/bash -c 'mpd --version | grep -v \'^$\' > /srv/http/.config/mpdversion.txt 2>&1'
+
+[Install]
+# WantedBy=getty.target # removed for vc4 implementation
+WantedBy=multi-user.target

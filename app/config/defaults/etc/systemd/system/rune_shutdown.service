@@ -1,3 +1,9 @@
+# this unit is designed to run before the shutdown or reboot command commences
+#   it actually starts before shutdown or reboot actions begin, but these actions are 
+#   started before this unit completes
+#   the result is that this concept is unreliable for running the rune_shutdown script
+#   for something simple like displaying a splash screen it will work fine
+#
 [Unit]
 Description=RuneAudio shutdown script
 ConditionFileIsExecutable=/var/www/command/rune_shutdown
@@ -7,8 +13,8 @@ Before=shutdown.target reboot.target halt.target
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=/bin/true
-ExecStop=/var/www/command/rune_shutdown
+ExecStartPre=-/var/www/command/rune_shutdown
+ExecStart=/bin/bash -c 'exit 0'
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=shutdown.target

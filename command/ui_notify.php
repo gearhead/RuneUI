@@ -40,22 +40,24 @@ require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend include
 require_once('/srv/http/app/libs/openredis.php');
 //
-// ---- end functions -----
-if ((isset($argv[2])) && (!isset($argv[3]))) {
-    if (!($redis->sIsMember('w_lock', $argv[2]))) {
-            usleep(800000);
-    } else {
-        do {
-            usleep(500000);
-        } while ($redis->sIsMember('w_lock', $argv[2]));
-    }
-    $redis->close();
+// if ((isset($argv[2])) && (!isset($argv[3]))) {
+    // if (!($redis->sIsMember('w_lock', $argv[2]))) {
+            // usleep(800000);
+    // } else {
+        // do {
+            // usleep(500000);
+        // } while ($redis->sIsMember('w_lock', $argv[2]));
+    // }
+    // $redis->close();
+// } else {
+    // usleep(500000);
+// }
+if (isset($argv[3]) && ($argv[3] === 'simplemessage')) {
+    ui_notify($redis, $argv[1], $argv[2]);
+} else if (isset($argv[3]) && ($argv[3] === 'permanotice')) {
+    ui_notify($redis, $argv[1], $argv[2], '', 1);
+} elseif (isset($argv[2]) && $argv[2]) {
+    ui_notify($redis, $argv[1], $argv[2]);
 } else {
-    usleep(500000);
-}
-if ((isset($argv[3])) && ($argv[3] === 'simplemessage')) {
-    $output = json_encode(array('title' => $argv[1], 'text' => $argv[2], 'type' => null));
-    ui_render('notify', $output);
-} else {
-    ui_render('notify', $argv[1]);
+    ui_notify($redis, $argv[1], '');
 }

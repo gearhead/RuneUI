@@ -66,10 +66,11 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'port', '6600');
             $redis->hSet('mpdconf', 'proxy_node', '');
             $redis->hSet('mpdconf', 'proxy_port', '6600');
+            $redis->hSet('mpdconf', 'replaygain', 'off');
             $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hSet('mpdconf', 'state_file_enable', 'yes');
-            $redis->hSet('mpdconf', 'state_file_interval', '1');
+            $redis->hSet('mpdconf', 'state_file_interval', '5');
             $redis->hSet('mpdconf', 'sticker_file', '/var/lib/mpd/sticker.sql');
             $redis->hSet('mpdconf', 'user', 'mpd');
             $redis->hSet('mpdconf', 'version', '0.22.6');
@@ -108,10 +109,11 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'port') || $redis->hSet('mpdconf', 'port', '6600');
             $redis->hExists('mpdconf', 'proxy_node') || $redis->hSet('mpdconf', 'proxy_node', '');
             $redis->hExists('mpdconf', 'proxy_port') || $redis->hSet('mpdconf', 'proxy_port', '6600');
+            $redis->hExists('mpdconf', 'replaygain') || $redis->hSet('mpdconf', 'replaygain', 'off');
             $redis->hExists('mpdconf', 'snapcast') || $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hExists('mpdconf', 'state_file') || $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hExists('mpdconf', 'state_file_enable') || $redis->hSet('mpdconf', 'state_file_enable', 'yes');
-            $redis->hExists('mpdconf', 'state_file_interval') || $redis->hSet('mpdconf', 'state_file_interval', '1');
+            $redis->hExists('mpdconf', 'state_file_interval') || $redis->hSet('mpdconf', 'state_file_interval', '5');
             $redis->hExists('mpdconf', 'sticker_file') || $redis->hSet('mpdconf', 'sticker_file', '/var/lib/mpd/sticker.sql');
             $redis->hExists('mpdconf', 'user') || $redis->hSet('mpdconf', 'user', 'mpd');
             $redis->hExists('mpdconf', 'version') || $redis->hSet('mpdconf', 'version', '0.22.6');
@@ -151,16 +153,17 @@ function redisDatastore($redis,$action) {
             $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
             break;
         case 'reset':
-            // kernel
-            $bit = ' '.sysCmd('uname -m')[0];
-            if (strpos($bit, '64')) {
-                $bit = ' (64 bit)';
-            } else if (strpos($bit, '7')) {
-                $bit = ' (32 bit)';
+            // os & kernel
+            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $release = trim(sysCmd('uname -sr')[0]);
+            $machine = trim(sysCmd('uname -m')[0]);
+            if (strpos(' '.strtolower($release), 'arch')) {
+                $os = 'ARCH';
             } else {
-                $bit = '';
+                $os = 'RPiOS';
             }
-            $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
+            $redis->set('os', $os);
+            $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
@@ -171,14 +174,20 @@ function redisDatastore($redis,$action) {
             $redis->set('first_time_boot', 0);
             $redis->set('overlay_art_cache', 0);
             $redis->del('cleancache');
-            $redis->hSet('omit_lyrics', 'classical', true);
-            // $redis->hSet('omit_lyrics', 'christmas', true); // example for more entries, lower case
+            $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
             $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
             $redis->set('password', $hash);
-            // Internet services
+            // asynchronous fifo command queue
+            $redis->del('cmd_queue');
+            $redis->del('cmd_queue_encoding');
+            $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
+            // message fifo queue and indicator
+            $redis->del('w_message');
+            $redis->set('waitSyWrk', 0);
+            // internet services
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
             $redis->hSet('service', 'dirble', 0);
@@ -197,60 +206,71 @@ function redisDatastore($redis,$action) {
             $redis->set('usb_db_autorebuild', 1);
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
-            $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->hSet('bluetooth', 'def_volume', '40');
             $redis->hSet('bluetooth', 'initialising', 0);
+            $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hSet('bluetooth', 'quality', 'default');
+            $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hSet('bluetooth', 'samplerate', '48000');
+            $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->set('bluetooth_status', json_encode(array()));
+            $redis->del('bluetooth_on');
             $redis->hDel('spotifyconnect', 'metadata_enabled');
             $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hSet('spotifyconnect', 'api_secret', '');
             $redis->hSet('spotifyconnect', 'api_token', '');
+            $redis->hSet('spotifyconnect', 'autoplay', 'true');
             $redis->hSet('spotifyconnect', 'backend', 'alsa');
             $redis->hSet('spotifyconnect', 'bitrate', 320);
             $redis->hSet('spotifyconnect', 'cache_path', '/tmp/spotifyConnectCache');
             $redis->hSet('spotifyconnect', 'device', 'hw:0');
             $redis->hSet('spotifyconnect', 'device_name', 'RuneAudio');
+            $redis->hSet('spotifyconnect', 'device_type', 'speaker');
             $redis->hSet('spotifyconnect', 'enable', 0);
-            $redis->hSet('spotifyconnect', 'last_track_id', '');
+            $redis->hSet('spotifyconnect', 'initial_volume', '40');
             $redis->hSet('spotifyconnect', 'lastvolume', 40);
+            $redis->hSet('spotifyconnect', 'last_track_id', '');
             $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
             $redis->hSet('spotifyconnect', 'password', 'pass');
+            $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hSet('spotifyconnect', 'username', 'user');
+            $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
-            // $redis->hDel('airplay', 'enable');
-            $redis->hSet('airplay', 'enable', 0);
-            $redis->hSet('airplay', 'name', 'RuneAudio');
-            $redis->hSet('airplay', 'interpolation', 'soxr');
-            $redis->hSet('airplay', 'output_backend', 'alsa');
+            $redis->hDel('airplay', 'artworkonoff');
+            $redis->hDel('airplay', 'metadataonoff');
+            $redis->hDel('airplay', 'metadata_enabled');
+            $redis->hDel('airplay', 'soxronoff');
             $redis->hSet('airplay', 'alac_decoder', 'apple');
-            $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
-            $redis->hSet('airplay', 'run_this_after_play_ends', '/srv/http/command/airplay_toggle off');
-            $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
-            $redis->hSet('airplay', 'alsa_output_device', 'default');
-            $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
+            $redis->hSet('airplay', 'alsa_mixer_device', 'default');
+            $redis->hSet('airplay', 'alsa_output_device', 'default');
             $redis->hSet('airplay', 'alsa_output_format', 'S16');
             $redis->hSet('airplay', 'alsa_output_rate', '44100');
-            $redis->hSet('airplay', 'pipe_pipe_name', '/tmp/shairport-sync-output-pipe');
-            $redis->hDel('airplay', 'metadata_enabled');
+            $redis->hSet('airplay', 'ao', '');
+            $redis->hSet('airplay', 'dacp_id', '');
+            $redis->hSet('airplay', 'enable', 0);
+            $redis->hSet('airplay', 'extlabel', 'none');
+            $redis->hSet('airplay', 'interpolation', 'soxr');
             $redis->hSet('airplay', 'metadata_include_cover_art', 'yes');
             $redis->hSet('airplay', 'metadata_pipe_name', '/tmp/shairport-sync-metadata');
-            $redis->hSet('airplay', 'extlabel', 'none');
-            $redis->hSet('airplay', 'source_ip_number', '');
+            $redis->hSet('airplay', 'name', 'RuneAudio');
+            $redis->hSet('airplay', 'output_backend', 'alsa');
+            $redis->hSet('airplay', 'pipe_pipe_name', '/tmp/shairport-sync-output-pipe');
+            $redis->hSet('airplay', 'run_this_after_play_ends', '/srv/http/command/airplay_toggle off');
+            $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
+            $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
             $redis->hSet('airplay', 'server_ip_number', '');
-            $redis->hSet('airplay', 'user_agent', '');
             $redis->hSet('airplay', 'source_active_remote_token', '');
-            $redis->hSet('airplay', 'dacp_id', '');
+            $redis->hSet('airplay', 'source_ip_number', '');
             $redis->hSet('airplay', 'source_remote_control_port_number', '');
-            $redis->hDel('airplay', 'soxronoff');
-            $redis->hDel('airplay', 'metadataonoff');
-            $redis->hDel('airplay', 'artworkonoff');
-            $redis->hSet('airplay', 'ao', '');
+            $redis->hSet('airplay', 'timeout', 20);
+            $redis->hSet('airplay', 'user_agent', '');
             $redis->hSet('dlna', 'enable', 0);
             $redis->hSet('dlna', 'name', 'RuneAudio');
             $redis->hSet('dlna', 'queueowner', 1);
@@ -258,12 +278,12 @@ function redisDatastore($redis,$action) {
             $redis->hSet('dlna', 'loglevel', 2);
             $redis->hSet('dlna', 'radioname', '');
             $redis->hSet('dlna', 'file', '');
+            $redis->hSet('CD', 'enable', 0);
+            $redis->hSet('CD', 'autoplay', 'None');
+            $redis->hSet('CD', 'status', json_encode(array()));
+            $redis->hSet('hw_input', 'enable', 0);
+            $redis->hSet('hw_input', 'status', json_encode(array()));
             $redis->set('udevil', 1);
-            $redis->hSet('spotify', 'enable', 0);
-            $redis->hSet('spotify', 'user', 'user');
-            $redis->hSet('spotify', 'pass', 'pass');
-            $redis->hSet('spotify', 'plversion', 1);
-            $redis->hSet('spotify', 'lastcmd', '');
             $redis->set('coverart', 1);
             $redis->set('UIorder', 'TAV');
             $redis->set('artist-info', 1);
@@ -308,14 +328,17 @@ function redisDatastore($redis,$action) {
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
             // local browser
+            $redis->hSet('local_browser', 'browser', 'luakit');
             $redis->hSet('local_browser', 'enable', 0);
-            $redis->hSet('local_browser', 'zoomfactor', 1);
-            $redis->hSet('local_browser', 'rotate', 'NORMAL');
-            $redis->hSet('local_browser', 'overscan', 1);
-            $redis->hSet('local_browser', 'mouse_cursor', 0);
             $redis->hSet('local_browser', 'enable-splash', 0);
-            $redis->hSet('local_browser', 'smallScreenSaver', 0);
             $redis->hSet('local_browser', 'localSStime', -1);
+            $redis->hSet('local_browser', 'mouse_cursor', 0);
+            $redis->hSet('local_browser', 'overscan', 1);
+            $redis->hSet('local_browser', 'rotate', 'NORMAL');
+            $redis->hSet('local_browser', 'smallScreenSaver', 0);
+            $redis->hSet('local_browser', 'windows', 'xorg');
+            $redis->hSet('local_browser', 'zoomfactor', 1);
+            //
             $redis->set('playernamemenu', 1);
             // plugins api-keys
             $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
@@ -339,7 +362,7 @@ function redisDatastore($redis,$action) {
             $redis->set('dev', 0);
             $redis->set('debug', 0);
             $redis->set('opcache', 1);
-            $redis->set('buildversion', 'janui-20220807');
+            $redis->set('buildversion', 'janui-20230823');
             $redis->set('patchlevel', 0);
             $redis->set('release', '0.6a');
             // HW platform data
@@ -347,6 +370,8 @@ function redisDatastore($redis,$action) {
             // $redis->set('hwplatform', '');
             // $redis->set('hwplatformid', '');
             // player control
+            $redis->set('ao', '');
+            $redis->set('ao_default', '');
             $redis->set('volume', 0);
             $redis->set('pl_length', 0);
             $redis->set('nextsongid', 0);
@@ -365,7 +390,6 @@ function redisDatastore($redis,$action) {
             $redis->set('network_storedProfiles', json_encode(array()));
             $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
             $redis->del('fix_mac');
-            $redis->del('bluetooth_on');
             $redis->set('avahi_nic', '');
             $redis->del('regdom');
             $redis->set('timezone', 'Pacific/Pago_Pago');
@@ -376,7 +400,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('proxy', 'pass', '');
             // lock keys
             $redis->set('lock_clean_music_metadata', 0);
-            $redis->set('lock_cmd_queue', 0);
             $redis->set('lock_debug_collector', 0);
             $redis->set('lock_globalrandom', 0);
             $redis->set('lock_radio_metadata', 0);
@@ -448,7 +471,7 @@ function redisDatastore($redis,$action) {
             // // RuneAudio Libs & config
             $transaction->exec();
             // network mounts - 'mount_*'
-            sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
+            // sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
             break;
         case 'opcachecheck':
             // all RuneAudio php scripts
@@ -461,16 +484,17 @@ function redisDatastore($redis,$action) {
             unset($scripts, $script);
             break;
         case 'check':
-            // kernel
-            $bit = ' '.sysCmd('uname -m')[0];
-            if (strpos($bit, '64')) {
-                $bit = ' (64 bit)';
-            } else if (strpos($bit, '7')) {
-                $bit = ' (32 bit)';
+            // os & kernel
+            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $release = trim(sysCmd('uname -sr')[0]);
+            $machine = trim(sysCmd('uname -m')[0]);
+            if (strpos(' '.strtolower($release), 'arch')) {
+                $os = 'ARCH';
             } else {
-                $bit = '';
+                $os = 'RPiOS';
             }
-            $redis->exists('kernel') || $redis->set('kernel', trim(sysCmd('uname -sr')[0]).$bit);
+            $redis->exists('os') || $redis->set('os', $os);
+            $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');
@@ -478,7 +502,8 @@ function redisDatastore($redis,$action) {
             $redis->exists('underclocking') || $redis->set('underclocking', 0);
             $redis->exists('first_time_boot') || $redis->set('first_time_boot', 0);
             $redis->exists('overlay_art_cache') || $redis->set('overlay_art_cache', 0);
-            $redis->exists('omit_lyrics') || $redis->hSet('omit_lyrics', 'classical', true);
+            $redis->exists('omit_lyrics') || $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
+
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing
@@ -488,6 +513,10 @@ function redisDatastore($redis,$action) {
                 $hash = password_hash('rune', PASSWORD_BCRYPT, $option);
                 $redis->set('password', $hash);
             }
+            // asynchronous fifo command queue
+            $redis->exists('cipher_exclude_list') || $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
+            // message fifo queue and indicator
+            $redis->exists('waitSyWrk') || $redis->set('waitSyWrk', 0);
             // Internet services
             $redis->hExists('service', 'internet') || $redis->hSet('service', 'internet', 0);
             $redis->hExists('service', 'webradio') || $redis->hSet('service', 'webradio', 0);
@@ -506,66 +535,78 @@ function redisDatastore($redis,$action) {
             $redis->exists('ntpserver') || $redis->set('ntpserver', 'pool.ntp.org');
             $redis->exists('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
             $redis->exists('usb_db_autorebuild_retry') || $redis->set('usb_db_autorebuild_retry', 0);
-            $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->hExists('bluetooth', 'def_volume') || $redis->hSet('bluetooth', 'def_volume', '40');
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
+            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hExists('bluetooth', 'quality') || $redis->hSet('bluetooth', 'quality', 'high_def');
+            $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hExists('bluetooth', 'samplerate') || $redis->hSet('bluetooth', 'samplerate', '48000');
+            $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
+            $redis->exists('bluetooth_status') || $redis->set('bluetooth_status', json_encode(array()));
+            $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
             $redis->hExists('spotifyconnect', 'ao') || $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hExists('spotifyconnect', 'api_id') || $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hExists('spotifyconnect', 'api_secret') || $redis->hSet('spotifyconnect', 'api_secret', '');
             $redis->hExists('spotifyconnect', 'api_token') || $redis->hSet('spotifyconnect', 'api_token', '');
+            $redis->hExists('spotifyconnect', 'autoplay') || $redis->hSet('spotifyconnect', 'autoplay', 'true');
             $redis->hExists('spotifyconnect', 'backend') || $redis->hSet('spotifyconnect', 'backend', 'alsa');
             $redis->hExists('spotifyconnect', 'bitrate') || $redis->hSet('spotifyconnect', 'bitrate', 320);
             $redis->hExists('spotifyconnect', 'cache_path') || $redis->hSet('spotifyconnect', 'cache_path', '/tmp/spotifyConnectCache');
             $redis->hExists('spotifyconnect', 'device') || $redis->hSet('spotifyconnect', 'device', 'hw:0');
             $redis->hExists('spotifyconnect', 'device_name') || $redis->hSet('spotifyconnect', 'device_name', 'RuneAudio');
+            $redis->hExists('spotifyconnect', 'device_type') || $redis->hSet('spotifyconnect', 'device_type', 'speaker');
             $redis->hExists('spotifyconnect', 'enable') || $redis->hSet('spotifyconnect', 'enable', 0);
-            $redis->hExists('spotifyconnect', 'last_track_id') || $redis->hSet('spotifyconnect', 'last_track_id', '');
+            $redis->hExists('spotifyconnect', 'initial_volume') || $redis->hSet('spotifyconnect', 'initial_volume', '40');
             $redis->hExists('spotifyconnect', 'lastvolume') || $redis->hSet('spotifyconnect', 'lastvolume', 40);
+            $redis->hExists('spotifyconnect', 'last_track_id') || $redis->hSet('spotifyconnect', 'last_track_id', '');
             $redis->hExists('spotifyconnect', 'mixer') || $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hExists('spotifyconnect', 'normalisation_pregain') || $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hExists('spotifyconnect', 'onevent') || $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
             $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', 'pass');
+            $redis->hExists('spotifyconnect', 'save_last_volume') || $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hExists('spotifyconnect', 'timeout') || $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hExists('spotifyconnect', 'track_id') || $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hExists('spotifyconnect', 'use_mpris') || $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', 'user');
+            $redis->hExists('spotifyconnect', 'use_mpris') || $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hExists('spotifyconnect', 'volume_control') || $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hExists('spotifyconnect', 'volume_normalisation') || $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
-            $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
-            $redis->hExists('airplay', 'name') || $redis->hSet('airplay', 'name', 'RuneAudio');
-            $redis->hExists('airplay', 'interpolation') || $redis->hSet('airplay', 'interpolation', 'soxr');
-            $redis->hExists('airplay', 'output_backend') || $redis->hSet('airplay', 'output_backend', 'alsa');
             $redis->hExists('airplay', 'alac_decoder') || $redis->hSet('airplay', 'alac_decoder', 'apple');
-            $redis->hExists('airplay', 'alsa_output_device') || $redis->hSet('airplay', 'alsa_output_device', 'default');
-            $redis->hExists('airplay', 'alsa_mixer_device') || $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hExists('airplay', 'alsa_mixer_control') || $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
+            $redis->hExists('airplay', 'alsa_mixer_device') || $redis->hSet('airplay', 'alsa_mixer_device', 'default');
+            $redis->hExists('airplay', 'alsa_output_device') || $redis->hSet('airplay', 'alsa_output_device', 'default');
             $redis->hExists('airplay', 'alsa_output_format') || $redis->hSet('airplay', 'alsa_output_format', 'S16');
             $redis->hExists('airplay', 'alsa_output_rate') || $redis->hSet('airplay', 'alsa_output_rate', '44100');
-            $redis->hExists('airplay', 'pipe_pipe_name') || $redis->hSet('airplay', 'pipe_pipe_name', '/tmp/shairport-sync-output-pipe');
+            $redis->hExists('airplay', 'ao') || $redis->hSet('airplay', 'ao', '');
+            $redis->hExists('airplay', 'dacp_id') || $redis->hSet('airplay', 'dacp_id', '');
+            $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
+            $redis->hExists('airplay', 'extlabel') || $redis->hSet('airplay', 'extlabel', 'none');
+            $redis->hExists('airplay', 'interpolation') || $redis->hSet('airplay', 'interpolation', 'soxr');
             $redis->hExists('airplay', 'metadata_include_cover_art') || $redis->hSet('airplay', 'metadata_include_cover_art', 'yes');
             $redis->hExists('airplay', 'metadata_pipe_name') || $redis->hSet('airplay', 'metadata_pipe_name', '/tmp/shairport-sync-metadata');
-            $redis->hExists('airplay', 'run_this_before_play_begins') || $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
+            $redis->hExists('airplay', 'name') || $redis->hSet('airplay', 'name', 'RuneAudio');
+            $redis->hExists('airplay', 'output_backend') || $redis->hSet('airplay', 'output_backend', 'alsa');
+            $redis->hExists('airplay', 'pipe_pipe_name') || $redis->hSet('airplay', 'pipe_pipe_name', '/tmp/shairport-sync-output-pipe');
             $redis->hExists('airplay', 'run_this_after_play_ends') || $redis->hSet('airplay', 'run_this_after_play_ends', '/srv/http/command/airplay_toggle off');
+            $redis->hExists('airplay', 'run_this_before_play_begins') || $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
             $redis->hExists('airplay', 'run_this_wait_for_completion') || $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
-            $redis->hExists('airplay', 'extlabel') || $redis->hSet('airplay', 'extlabel', 'none');
-            $redis->hExists('airplay', 'source_ip_number') || $redis->hSet('airplay', 'source_ip_number', '');
             $redis->hExists('airplay', 'server_ip_number') || $redis->hSet('airplay', 'server_ip_number', '');
-            $redis->hExists('airplay', 'user_agent') || $redis->hSet('airplay', 'user_agent', '');
             $redis->hExists('airplay', 'source_active_remote_token') || $redis->hSet('airplay', 'source_active_remote_token', '');
-            $redis->hExists('airplay', 'dacp_id') || $redis->hSet('airplay', 'dacp_id', '');
+            $redis->hExists('airplay', 'source_ip_number') || $redis->hSet('airplay', 'source_ip_number', '');
             $redis->hExists('airplay', 'source_remote_control_port_number') || $redis->hSet('airplay', 'source_remote_control_port_number', '');
-            $redis->hExists('airplay', 'ao') || $redis->hSet('airplay', 'ao', '');
+            $redis->hExists('airplay', 'timeout') || $redis->hSet('airplay', 'timeout', 20);
+            $redis->hExists('airplay', 'user_agent') || $redis->hSet('airplay', 'user_agent', '');
             $redis->hExists('dlna', 'enable') || $redis->hSet('dlna', 'enable', 0);
             $redis->hExists('dlna', 'name') || $redis->hSet('dlna', 'name', 'RuneAudio');
-            $redis->hExists('dlna', 'queueowner') || $redis->hSet('dlna', 'queueowner', 0);
+            $redis->hExists('dlna', 'queueowner') || $redis->hSet('dlna', 'queueowner', 1);
             $redis->hExists('dlna', 'logfile') || $redis->hSet('dlna', 'logfile', '/var/log/runeaudio/upmpdcli.log');
             $redis->hExists('dlna', 'loglevel') || $redis->hSet('dlna', 'loglevel', 2);
             $redis->hExists('dlna', 'radioname') || $redis->hSet('dlna', 'radioname', '');
             $redis->hExists('dlna', 'file') || $redis->hSet('dlna', 'file', '');
-            $redis->hExists('spotify', 'enable') || $redis->hSet('spotify', 'enable', 0);
-            $redis->hExists('spotify', 'user') || $redis->hSet('spotify', 'user', 'user');
-            $redis->hExists('spotify', 'pass') || $redis->hSet('spotify', 'pass', 'pass');
-            $redis->hExists('spotify', 'plversion') || $redis->hSet('spotify', 'plversion', 1);
-            $redis->hExists('spotify', 'lastcmd') || $redis->hSet('spotify', 'lastcmd', '');
+            $redis->hExists('CD', 'enable') || $redis->hSet('CD', 'enable', 0);
+            $redis->hExists('CD', 'autoplay') || $redis->hSet('CD', 'autoplay', 'None');
+            $redis->hExists('CD', 'status') || $redis->hSet('CD', 'status', json_encode(array()));
+            $redis->hExists('hw_input', 'enable') || $redis->hSet('hw_input', 'enable', 0);
+            $redis->hExists('hw_input', 'status') || $redis->hSet('hw_input', 'status', json_encode(array()));
             // ashuffle global random
             $redis->hExists('globalrandom', 'addrandom') || $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hExists('globalrandom', 'enable') || $redis->hSet('globalrandom', 'enable', 0);
@@ -602,15 +643,17 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             // local browser
-            $redis->exists('local_browser') || $redis->set('local_browser', 0);
+            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'luakit');
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
-            $redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', 1);
-            $redis->hExists('local_browser', 'rotate') || $redis->hSet('local_browser', 'rotate', 'NORMAL');
-            $redis->hExists('local_browser', 'overscan') || $redis->hSet('local_browser', 'overscan', 1);
-            $redis->hExists('local_browser', 'mouse_cursor') || $redis->hSet('local_browser', 'mouse_cursor', 0);
             $redis->hExists('local_browser', 'enable-splash') || $redis->hSet('local_browser', 'enable-splash', 0);
-            $redis->hExists('local_browser', 'smallScreenSaver') || $redis->hSet('local_browser', 'smallScreenSaver', 0);
             $redis->hExists('local_browser', 'localSStime') || $redis->hSet('local_browser', 'localSStime', -1);
+            $redis->hExists('local_browser', 'mouse_cursor') || $redis->hSet('local_browser', 'mouse_cursor', 0);
+            $redis->hExists('local_browser', 'overscan') || $redis->hSet('local_browser', 'overscan', 1);
+            $redis->hExists('local_browser', 'rotate') || $redis->hSet('local_browser', 'rotate', 'NORMAL');
+            $redis->hExists('local_browser', 'smallScreenSaver') || $redis->hSet('local_browser', 'smallScreenSaver', 0);
+            $redis->hExists('local_browser', 'windows') || $redis->hSet('local_browser', 'windows', 'xorg');
+            $redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', 1);
+            //
             $redis->exists('playernamemenu') || $redis->set('playernamemenu', 1);
             $redis->exists('dynVolumeKnob') || $redis->set('dynVolumeKnob', 0);
             $redis->exists('cmediafix') || $redis->set('cmediafix', 0);
@@ -640,7 +683,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('dev') || $redis->set('dev', 0);
             $redis->exists('debug') || $redis->set('debug', 0);
             $redis->exists('opcache') || $redis->set('opcache', 1);
-            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20220807');
+            $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20230823');
             $redis->exists('patchlevel') || $redis->set('patchlevel', 0);
             $redis->exists('release') || $redis->set('release', '0.6a');
             // HW platform data
@@ -648,7 +691,8 @@ function redisDatastore($redis,$action) {
             $redis->exists('hwplatform') || $redis->set('hwplatform', '');
             $redis->exists('hwplatformid') || $redis->set('hwplatformid', '');
             // player control
-            $redis->exists('ao') || $redis->set('ao', 1);
+            $redis->exists('ao') || $redis->set('ao', '');
+            $redis->exists('ao_default') || $redis->set('ao_default', '');
             $redis->exists('volume') || $redis->set('volume', 0);
             $redis->exists('pl_length') || $redis->set('pl_length', 0);
             $redis->exists('nextsongid') || $redis->set('nextsongid', 0);
@@ -669,7 +713,6 @@ function redisDatastore($redis,$action) {
             $redis->exists('timezone') || $redis->set('timezone', 'Pacific/Pago_Pago');
             // lock keys
             $redis->exists('lock_clean_music_metadata') || $redis->set('lock_clean_music_metadata', 0);
-            $redis->exists('lock_cmd_queue') || $redis->set('lock_cmd_queue', 0);
             $redis->exists('lock_debug_collector') || $redis->set('lock_debug_collector', 0);
             $redis->exists('lock_globalrandom') || $redis->set('lock_globalrandom', 0);
             $redis->exists('lock_radio_metadata') || $redis->set('lock_radio_metadata', 0);

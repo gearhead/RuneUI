@@ -34,40 +34,79 @@
 # continue on errors
 set +e
 echo "rune_shutdown started"
+date
 #
-echo "Stop MPD, services and unmount shares..."
-# stop the player
-mpc stop
-# sleep 1
-# stop MPD, don't wait for completion
-#mpd --kill &
-# allow MPD 2 seconds to stop
-#sleep 2
-# stop mpd & related jobs
-systemctl stop ashuffle upmpdcli mpdscribble mpd
-# stop webserver & local browser
-systemctl stop nginx local-browser
-# display the splash screen if applicable (local-browser must be stopped first)
-enablesplash=$( redis-cli hget local_browser enable-splash )
-if [[ "$enablesplash" != "0" ]] ; then
-    if [[ $1 == "poweroff" ]] ; then
-        echo "power off RuneAudio"
-        splash="/usr/share/bootsplash/shutdown.png"
-    else
-        echo "reboot RuneAudio"
-        splash="/usr/share/bootsplash/reboot.png"
-    fi
-    ply-image "$splash"
+if [ -z "$1" ] ; then
+    shutdownmode=$( redis-cli get shutdownmode )
+else
+    shutdownmode="$1"
 fi
-# reset any lock's
+redis-cli del shutdownmode
+enablesplash=$( redis-cli hget local_browser enable-splash )
+hw_device=$( redis-cli get ao_default )
+hostname=$( redis-cli get hostname )
 locks=$( redis-cli --scan --pattern lock_* | sort -u )
+windows=$( redis-cli hget local_browser windows )
 for lock in $locks ; do
     redis-cli set "$lock" 0
 done
-# force redis to save all its variables to disk
-redis-cli save
+echo "Shutdown mode: $shutdownmode"
+echo "Enable splash mode: $enablesplash"
+# display the splash screen if applicable (local-browser must be stopped first)
+if [[ "$enablesplash" != "0" ]] ; then
+    systemctl stop local-browser
+    if [ "$shutdownmode" == "poweroff" ] ; then
+        echo "power off RuneAudio"
+        ply-image '/usr/share/bootsplash/shutdown.png' > /dev/null 2>&1
+    elif [ "$shutdownmode" == "reboot" ] ; then
+        echo "reboot RuneAudio"
+        ply-image '/usr/share/bootsplash/reboot.png' > /dev/null 2>&1
+    else
+        shutdownmode=""
+    fi
+fi
+echo "Stop MPD, services and unmount shares..."
+# stop playing
+mpc stop
+# set the MPD output to a hardware device, when it is set to Bluetooth it will fail on reboot
+#   on reboot when MPD has started a full configuration takes place, this is enough to enable it to start
+if [ "$hw_device" != "" ] ; then
+    # enable only the default device, everything else will be disabled
+    mpc enable only "$hw_device"
+    # save the current device
+    #redis-cli set ao "$hw_device"
+fi
+# always enable null and HTTPd streaming if configured
+mpc enable null
+streamname="${hostname}_stream"
+httpd=$( mpc outputs | grep -ic "$streamname" )
+if [ "$httpd" == "1" ] ; then
+    mpc enable "$streamname"
+fi
+# stop mpd & related jobs
+declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
+# stop local browser & webserver
+pgrep -x xinit && systemctl stop local-browser
+pgrep -x weston && systemctl stop local-browser-w
+if [ "$windows" == "weston" ] ; then
+    sleep 1
+    pgrep -x weston && pkill -15 weston
+fi
+systemctl stop nginx
+if [ "$shutdownmode" != "" ] ; then
+    # force redis to save all its variables to disk and stop it
+    redis-cli shutdown save
+    systemctl stop redis
+fi
 # stop most of the systemd units which can be stopped
-systemctl stop spotifyd shairport-sync spopd samba smbd smb nmbd nmb rune_PL_wrk rune_SSM_wrk udevil systemd-udevd bluealsa avahi-daemon llmnrd
+declare -a stop_arr=(amixer-webui avahi-daemon bluealsa-aplay bluealsa bluetooth cmd_async_queue llmnrd nmb nmbd\
+     rune_MPDEM_wrk rune_PL_wrkrune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd spotifyd systemd-udevd udevil)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 # unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
@@ -75,13 +114,28 @@ rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
 # udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
 udevil clean
+# unmount the persistent cache subsystem
+umount /srv/http/tmp/art
+umount /home/cache
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
 sync
-# blank the local browser screen
-export DISPLAY=:0
-xset dpms force off
-# echo a message to clear any error status which could have been generated
+if [ "$shutdownmode" == "poweroff" ] && [ "$windows" == "xorg" ] ; then
+    # blank the local browser screen
+    export DISPLAY=:0
+    xset dpms force off
+fi
+date
 echo "rune_shutdown finished"
 } > /var/log/runeaudio/rune_shutdown.log 2>&1
+# debug
+#} > /home/rune_shutdown.log 2>&1
+# this routine is also designed to run automatically on reboot or shutdown commands
+#   unfortunately there appears to be no way to delay the other shut-down actions which run concurrently
+#   the result is unreliable shutdown, decided not to implement this, maybe later...
+#   if you want to try it enable rune_shutdown (systemctl enable rune_shutdown)
+#   the two lines below do nothing when the systemd unit rune_shutdown is disabled but are required when the unit is enabled
+pgrep rune_shutdown && systemctl stop rune_shutdown &
+pgrep rune_shutdown && systemctl stop rune_shutdown
+exit 0

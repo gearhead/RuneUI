@@ -82,7 +82,7 @@
             <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
             <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
             <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
-            <div id="overlay-playsource-open" title="View and change playback source" <?php if ($this->spotify === '0'): ?>class="disabled"<?php endif; ?>>
+            <div id="overlay-playsource-open" title="View and change playback source" class="disabled">
                 <span id="playlist-position"><button class="btn btn-default btn-xs">MPD</button><span></span></span>
                 <span id="format-bitrate"><i class="fa fa-spinner fa-spin"></i></span>
             </div>
@@ -94,8 +94,8 @@
                             <span id="countdown-display"><i class="fa fa-spinner fa-spin"></i></span>
                             <span id="total"><i class="fa fa-spinner fa-spin"></i></span>
                             <div class="btn-group">
-                                <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
-                                <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if (($this->activePlayer != 'MPD') && ($this->activePlayer != 'Spotify')): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
+                                <button id="repeat" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Repeat" data-cmd="repeat"><i class="fa fa-repeat"></i></button>
+                                <button id="random" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Random" data-cmd="random"><i class="fa fa-random"></i></button>
                                 <button id="single" class="btn btn-default btn-lg btn-cmd btn-toggle <?php if ($this->activePlayer != 'MPD'): ?>disabled<?php endif; ?>" type="button" title="Single" data-cmd="single"><i class="fa fa-refresh"></i></button>
                                 <!--<button type="button" id="consume" class="btn btn-default btn-lg btn-cmd btn-toggle" title="Consume Mode" data-cmd="consume"><i class="fa fa-compress"></i></button>-->
                             </div>
@@ -133,9 +133,6 @@
         </div>
     </div>
     <!-- LIBRARY PANEL -->
-
-
-
     <div id="panel-sx" class="tab-pane">
         <div class="btnlist btnlist-top">
             <form id="db-search" class="form-inline" action="javascript:getDB({cmd: 'search', path: GUI.currentpath, browsemode: GUI.browsemode});">
@@ -238,6 +235,7 @@
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="rescan"><i class="fa fa-refresh sx"></i> Update this folder</a></li>
@@ -248,10 +246,20 @@
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="lastfmadd"><i class="fa fa-lastfm sx"></i> Add and add similar</a></li>
             <li><a href="javascript:;" data-cmd="lastfmaddreplaceplay"><i class="fa fa-lastfm sx"></i> Add, replace, play and add similar</a></li>
+        </ul>
+    </div>
+    <div id="context-menu-hw" class="context-menu">
+        <ul class="dropdown-menu" role="menu">
+            <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
+            <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
+            <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
+            <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
         </ul>
     </div>
     <div id="context-menu-dirble" class="context-menu">
@@ -262,24 +270,11 @@
             <li><a href="javascript:;" data-cmd="wrsave"><i class="fa fa-microphone sx"></i> Save in My Webradios</a></li>
         </ul>
     </div>
-    <div id="context-menu-spotify-pl" class="context-menu">
-        <ul class="dropdown-menu" role="menu">
-            <li><a href="javascript:;" data-cmd="spadd" data-type="spotify-playlist"><i class="fa fa-plus-circle sx"></i> Add</a></li>
-            <li><a href="javascript:;" data-cmd="spaddplay" data-type="spotify-playlist"><i class="fa fa-play sx"></i> Add and play</a></li>
-            <li><a href="javascript:;" data-cmd="spaddreplaceplay" data-type="spotify-playlist"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
-        </ul>
-    </div>
-    <div id="context-menu-spotify" class="context-menu">
-        <ul class="dropdown-menu" role="menu">
-            <li><a href="javascript:;" data-cmd="spadd" data-type="spotify-track"><i class="fa fa-plus-circle sx"></i> Add</a></li>
-            <li><a href="javascript:;" data-cmd="spaddplay" data-type="spotify-track"><i class="fa fa-play sx"></i> Add and play</a></li>
-            <li><a href="javascript:;" data-cmd="spaddreplaceplay" data-type="spotify-track"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
-        </ul>
-    </div>
     <div id="context-menu-webradio" class="context-menu">
         <ul class="dropdown-menu" role="menu">
             <li><a href="javascript:;" data-cmd="add"><i class="fa fa-plus-circle sx"></i> Add</a></li>
             <li><a href="javascript:;" data-cmd="addnext"><i class="fa fa-plus-circle sx"></i> Add next</a></li>
+            <li><a href="javascript:;" data-cmd="addnextplay"><i class="fa fa-plus-circle sx"></i> Add next and play</a></li>
             <li><a href="javascript:;" data-cmd="addplay"><i class="fa fa-play sx"></i> Add and play</a></li>
             <li><a href="javascript:;" data-cmd="addreplaceplay"><i class="fa fa-share-square-o sx"></i> Add, replace and play</a></li>
             <li><a href="javascript:;" data-cmd="wredit"><i class="fa fa-edit sx"></i> Edit</a></li>
@@ -356,9 +351,9 @@
                 <h3 class="modal-title" id="modal-pl-clear-label">Clear current queue</h3>
             </div>
             <div class="modal-body">
-                Or clear all songs from queue (<strong>Clear</strong>).<br>
+                Clear all songs from queue (<strong>Clear</strong>).<br>
                 Or clear the queue except the current song (<strong>Crop</strong>).<br>
-                This will clear the songs before the current song (<strong>Clear Played</strong>).<br>
+                Or clear the songs listed before the current song (<strong>Clear Played</strong>).<br>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
@@ -533,9 +528,6 @@
         <ul>
             <li><span>Playback source</span></li>
             <li><a href="javascript:;" id="playsource-mpd" class="btn btn-default btn-lg btn-block" title="Switch to MPD"><i class="fa fa-linux sx"></i> MPD</a></li>
-            <?php if ($this->spotify): ?>hidden
-            <li><a href="javascript:;" id="playsource-spotify" class="btn btn-default btn-lg btn-block inactive" title="Switch to Spotify"><i class="fa fa-spotify sx"></i> <span>spop</span> Spotify</a></li>
-            <?php endif; ?>
             <?php if ($this->spotifyconnect): ?>
             <li><a href="javascript:;" id="playsource-spotify-connect" class="btn btn-default btn-lg btn-block inactive disabled"><i class="fa fa-spotify sx"></i> <span>spotyfyd</span> Spotify Connect</a></li>
             <?php endif; ?>

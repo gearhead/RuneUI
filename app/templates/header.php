@@ -98,6 +98,7 @@
         <button id="stop" class="btn btn-default btn-cmd" title="Stop" data-cmd="stop"><i class="fa fa-stop"></i></button>
         <button id="play" class="btn btn-default btn-cmd" title="Play/Pause" data-cmd="play"><i class="fa fa-play"></i></button>
         <button id="next" class="btn btn-default btn-cmd" title="Next" data-cmd="next"><i class="fa fa-step-forward"></i></button>
+        <button id="eject" class="btn btn-default<?php if ($this->ejectOff): ?> hide<?php endif ?>" title="Eject CD" data-cmd="eject"><i class="fa fa-eject"></i></button>
     </div>
     <a id="clock-display" class="home" href="/"><img src="<?=$this->asset('/img/logo.png')?>" class="logo" alt="RuneAudio"></a>
 </div>

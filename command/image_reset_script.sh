@@ -27,7 +27,7 @@
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 #  file: command/image_reset_script.sh
-#  version: 1.3
+#  version: 0.5
 #  coder: janui
 #  date: October 2020
 #
@@ -35,9 +35,15 @@ set -x # echo all commands to cli
 set +e # continue on errors
 cd /home
 #
+# determine the OS
+if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+    os="RPiOS"
+elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+    os="ARCH"
+fi
+#
 # Image reset script
-if [ "$1" == "full" ];
-then
+if [ "$1" == "full" ] ; then
     echo "Running full cleanup and image initialisation for a distribution image"
 else
     echo "Running quick image initialisation"
@@ -52,64 +58,91 @@ fi
 # clean up any no longer valid mounts
 udevil clean
 #
+# clear Bluetooth cache
+# the bluetooth service needs to running in order to use the bluetoothctl command
+systemctl start bluetooth
+# loop until bluetoothctl gives a non-error response (give up after 20 seconds)
+count=3
+timeout 5 bluetoothctl devices
+until [ $? -eq 0 ] || (( count-- <= 0 )) ; do
+    # loop for 3 times to allow the bluetooth service to start
+    # echo $count
+    # echo $?
+    sleep 2
+    timeout 5 bluetoothctl devices
+done
+# now get a list of bluetooth devices
+btdevices=$( timeout 5 bluetoothctl devices )
+# for each device disconnect and remove (now max 25 seconds since starting the bluetooth sevice)
+for i in "$btdevices" ; do
+    # echo $i
+    btmac=$( echo $i | cut -d ' ' -f 2 )
+    # echo $btmac
+    if [ "$btmac" != "" ]; then
+        bluetoothctl disconnect $btmac
+        bluetoothctl remove $btmac
+    fi
+done
+# finally delete the Bluetooth cache
+rm -rf /var/lib/bluetooth/*
+#
 # set up services and stop them
-# systemctl stops after an erroneous entry, use arrays to run through all entries individually
-declare -a disable_arr=(ashuffle mpd haveged mpdscribble nmb smb smbd nmbd winbindd winbind udevil upmpdcli hostapd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk dhcpcd php-fpm ntpd bluetooth chronyd cronie plymouth-lite-halt plymouth-lite-reboot plymouth-lite-poweroff plymouth-lite-start bootsplash systemd-resolved local-browser-w rune_shutdown llmnrd upower)
-declare -a enable_arr=(avahi-daemon nginx redis rune_SY_wrk sshd systemd-journald systemd-timesyncd dbus iwd connman bluetooth bluealsa bluealsa-aplay amixer-webui udevil llmnrd)
-declare -a stop_arr=(ashuffle mpd spopd nmbd nmb smbd smb winbind winbindd shairport-sync local-browser rune_SSM_wrk rune_PL_wrk rune_SY_wrk upmpdcli bluetooth chronyd systemd-timesyncd cronie udevil bluetooth bluealsa bluealsa-aplay amixer-webui local-browser-w llmnrd haveged upower)
-declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-logind systemd-resolved getty@tty1 haveged upower)
-# declare -a mask_arr=(connman-vpn dbus-org.freedesktop.resolve1 systemd-resolved haveged upower) # this one will enable console login
+# systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
+declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
+    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
+    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff\
+    plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd\
+    systemd-homed systemd-networkd udevil upmpdcli upower winbind winbindd)
+declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
+    systemd-resolved systemd-timesyncd udevil)
+declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
+    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile\
+    haveged llmnrd local-browser local-browser-w mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
+    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil\
+    upmpdcli upower winbind winbindd)
+declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed\
+    systemd-logind upower)
+# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 #
 # unmask masked services, do this first otherwise other settings are ignored for masked services
 alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
-for i in $alreadymasked
-do
+for i in $alreadymasked ; do
    systemctl unmask "$i"
 done
+#
 # disable specified services
-for i in "${disable_arr[@]}"
-do
+for i in "${disable_arr[@]}" ; do
    systemctl disable "$i"
 done
 #
 # enable specified services
-for i in "${enable_arr[@]}"
-do
+for i in "${enable_arr[@]}" ; do
    systemctl enable "$i"
 done
+#
 # mask specified services
-for i in "${mask_arr[@]}"
-do
+for i in "${mask_arr[@]}" ; do
    systemctl mask "$i"
 done
+#
 # unmask specified services
-for i in "${unmask_arr[@]}"
-do
+for i in "${unmask_arr[@]}" ; do
    systemctl unmask "$i"
 done
-# for a distribution image disable systemd audit to reduce log files. Switch it on for a development image
-if [ "$1" == "full" ];
-then
-    systemctl mask systemd-journald-audit.socket
-else
-    systemctl unmask systemd-journald-audit.socket
-fi
 #
 # stop specified services
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
+#
 # stop twice, rune_SY_wrk will try to restart some services (e.g. ashuffle)
-for i in "${stop_arr[@]}"
-do
+for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 #
@@ -127,9 +160,10 @@ udevil clean
 #
 # set up connman
 # delete the file/link at /etc/resolv.conf
+#   Note this section can be removed in the next release
 rm -f /etc/resolv.conf
 # symlink it to connman's dynamically created resolv.conf
-ln -sfT /run/connman/resolv.conf /etc/resolv.conf
+# ln -sfT /run/connman/resolv.conf /etc/resolv.conf
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons cronie
@@ -160,18 +194,9 @@ rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
-rm -f /var/lib/connman/*.service
-rm -rf /var/lib/connman/ethernet_*
-rm -rf /var/lib/connman/wifi_*
-rm -rf /var/lib/connman/bluetooth_*
-find /var/lib/iwd/ -type f -exec rm -f {} \;
 #
-# remove current and historical RuneAudio specific udev rules
-# remove the lines for 99-vc4_input.rules and 70-usb-audio.rules after the a couple of image build's
-rm -f /etc/udev/rules.d/99-vc4_input.rules
-rm -f /etc/udev/rules.d/70-usb-audio.rules
-rm -f /etc/udev/rules.d/99-a2dp.rules
-rm -f /etc/udev/rules.d/99-runeaudio.rules
+# remove core dumps
+rm /var/lib/systemd/coredump/*.zst
 #
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
@@ -179,8 +204,8 @@ ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
 # copy any existing files to the new location and delete the old location
-if [ -d "/etc/X11/xorg.conf.d" ]; then
-    if [ ! -d "/usr/share/X11/xorg.conf.d" ]; then
+if [ -d "/etc/X11/xorg.conf.d" ] ; then
+    if [ ! -d "/usr/share/X11/xorg.conf.d" ] ; then
         mkdir -p /usr/share/X11/xorg.conf.d
     fi
     cp -n /etc/X11/xorg.conf.d/* /usr/share/X11/xorg.conf.d/
@@ -189,8 +214,8 @@ fi
 #
 # the standard location of /etc/php/fpm.d has moved to /etc/php/php-fpm.d
 # copy any existing files to the new location and delete the old location
-if [ -d "/etc/php/fpm.d" ]; then
-    if [ ! -d "/etc/php/php-fpm.d" ]; then
+if [ -d "/etc/php/fpm.d" ] ; then
+    if [ ! -d "/etc/php/php-fpm.d" ] ; then
         mkdir -p /etc/php/php-fpm.d
     fi
     cp -n /etc/php/fpm.d/* /etc/php/php-fpm.d/
@@ -224,55 +249,94 @@ md5beforeGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 rm -f /srv/http/command/mpd-watchdog
 cd /srv/http/
 git config --global core.editor "nano"
-git config user.email "any@body.com"
-git config user.name "anybody"
-git config pull.rebase false
+git config --global pull.rebase false
 git config --global --add safe.directory /srv/http
+git config --global user.email any@body.com
+git config --global user.name "any body"
+git config --global pull.rebase false
+git config core.editor "nano"
+git config pull.rebase false
+git config --add safe.directory /srv/http
+git config user.email any@body.com
+git config user.name "any body"
+git config pull.rebase false
 git stash
 git stash
 git add .
 git stash
 git stash
-sudo -u http git pull --no-edit
+git pull --no-edit
 # the following three lines should not be required
 git stash
 git stash
-sudo -u http git pull --no-edit
+git pull --no-edit
 if [ "$1" == "full" ]; then
     # clear the stash stack
     git stash clear
     git reset HEAD -- .
     git clean -f
 fi
+git config --global core.editor "nano"
+git config --global pull.rebase false
+git config --global --add safe.directory /srv/http
+git config --global user.email any@body.com
+git config --global user.name "any body"
+git config --global pull.rebase false
+git config core.editor "nano"
+git config pull.rebase false
+git config --add safe.directory /srv/http
+git config user.email any@body.com
+git config user.name "any body"
+git config pull.rebase false
 cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5afterGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
-if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ]; then
+if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ] ; then
     set +x
     echo "#######################################################################################"
     echo "## This script or another essential file has been changed during the git pull update ##"
-    echo "##                  Exiting! - You need to run this script again!!                   ##"
-    echo "##                             -----------------------------------                   ##"
+    echo "##                   Exiting! - You need to run this script again                    ##"
+    echo "##                              ---------------------------------                    ##"
     echo "#######################################################################################"
     exit
 fi
 #
-# remove any git user-names & email
-cd /srv/http/
-git config user.name ""
-git config user.email ""
-cd /home
+# set up raspberrypi-firmware so that it works from systemd
+#   systemd will only look in the $PATH=/usr/local/sbin:/usr/local/bin:/usr/bin when run as root
+#   the raspberrypi-firmware utilities are installed in /opt/... directory tree
+#   this routine will set up sysmlinks to the routines in /usr/local/bin
+#   it looks like a systemd bug, maybe this will not be needed in the future
+vcgencmdPath=$( find /opt -name vcgencmd )
+if [ "$vcgencmdPath" == "" ] ; then
+    if [ ! -f /usr/bin/vcgencmd ] ; then
+        set +x
+        echo "########################################################################"
+        echo "##                 Error: raspberrypi-firmware missing                ##"
+        echo "## Exiting! - Install raspberrypi-firmware then run this script again ##"
+        echo "##            ----------------------------      --------------------- ##"
+        echo "########################################################################"
+        exit
+    fi
+else
+    firmwareDir=${vcgencmdPath%/*}
+    # echo $firmwareDir
+    for fullFilename in $firmwareDir/* ; do
+        firmwareName=$(basename ${fullFilename})
+        # echo "ln -s $fullFilename /usr/bin/$firmwareName"
+        ln -sf "$fullFilename" "/usr/bin/$firmwareName"
+    done
+fi
 #
 # redis reset
 # remove the redis variables used for:
 #   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
 #       lyrics (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
 #       airplay (airplay), samba (samba), debugdata (debugdata), locks (lock), first* (first), local* (local), access* (access)
-#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache
+#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache, bluetooth
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache|bluetooth' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
@@ -285,7 +349,7 @@ redis-cli set playerid ""
 redis-cli set hwplatformid ""
 #
 # install raspi-rotate, only when xwindows is installed
-if [ -f "/bin/xinit" ]; then
+if [ -f "/bin/xinit" ] ; then
     /srv/http/command/raspi-rotate-install.sh
 fi
 #
@@ -298,15 +362,23 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 # reset root password and save the date set
 echo -e "rune\nrune" | passwd root
 passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
-redis-cli hset passworddate $passworddate
+redis-cli set passworddate $passworddate
 #
 # make sure that Rune-specific users are created
-declare -a createusers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
+#   first the user http, this has a specific default account
+usercnt=$( grep -c "http:" "/etc/passwd" )
+if [ "$usercnt" == "0" ] ; then
+    # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
+    useradd -U -c "http webserver user" -d /srv/http -s /usr/bin/nologin "http"
+fi
+#   now the rest of the users, these are used by systemd
+#   note: remove user llmnrd from the list on the next release
+declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil)
 for i in "${createusers[@]}" ; do
-    usercnt=$( grep -c "$i" "/etc/passwd" )
+    usercnt=$( grep -c "$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
         # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
-        useradd -L -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
+        useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
     fi
 done
 #
@@ -319,6 +391,36 @@ for i in "${audiousers[@]}" ; do
     fi
 done
 #
+# make sure that Device-specific users are member of the audio, disk, floppy, optical and storage groups
+declare -a devusers=(udevil)
+declare -a devgroups=(audio disk floppy optical storage)
+for i in "${devusers[@]}" ; do
+    for j in "${devgroups[@]}" ; do
+        devusercnt=$( groups $i | grep -c $j )
+        if [ "$devusercnt" == "0" ] ; then
+            usermod -a -G $j $i
+        fi
+    done
+done
+# #
+# # make sure that Video-specific users are member of the video group
+# declare -a videousers=(http)
+# for i in "${videousers[@]}" ; do
+    # videocnt=$( groups $i | grep -c video )
+    # if [ "$videocnt" == "0" ] ; then
+        # usermod -a -G video $i
+    # fi
+# done
+# #
+# # some users need root privileges, add the root group
+# declare -a rootusers=(rune_worker)
+# for i in "${rootusers[@]}" ; do
+    # rootcnt=$( groups $i | grep -c root )
+    # if [ "$rootcnt" == "0" ] ; then
+        # usermod -a -G root $i
+    # fi
+# done
+#
 # the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
 # also disable logins by locking the account
 usermod -L -s /usr/bin/bash spotifyd
@@ -329,9 +431,32 @@ usermod -L -s /usr/bin/bash spotifyd
 # add system group netdev if it is not defined
 grep -i netdev /etc/group || groupadd --system netdev
 #
+# add waveshare LDC touchscreen overlays, only when xwindows is installed
+if [ -f "/bin/xinit" ] ; then
+    /srv/http/command/waveshare_install.sh
+fi
+#
+# remove the network configuration files, these could contain Wi-Fi passwords
+#   for the connman and iwd user files, connman needs to be stopped
+systemctl stop connman
+# get the networks known to iwd
+networks=$( iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
+# forget each network known to iwd
+for i in "$networks" ; do
+    # echo "'$i'"
+    wctl known-networks "$i" forget
+done
+# delete the connman configuration files
+rm -rf /var/lib/connman/*
+# delete the iwd configuration files (there should be none after forgetting the known networks)
+rm -rf /var/lib/iwd/*
+# copy the default connman config file
+cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+# start connman which will refresh the network information
+systemctl start connman
+#
 # reset the service and configuration files to the distribution standard
 # the following commands should also be run after a system update or any package updates
-rm -f /etc/nginx/nginx.conf
 rm -f /etc/samba/*.conf
 #rm -f /etc/netctl/*
 # copy default settings and services
@@ -344,47 +469,127 @@ cp -RTv /srv/http/app/config/defaults/srv/. /srv
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
-# modify /boot/config.txt if this is a 'all platform version'
-if [ -f "/boot/initramfs-v7-linux.img" ]; then
-    # remove lines containing [pi02] before a line starting with initramfs
-    sed -i '/^\[pi02\]/{N;s/\[pi02\]\ninitramfs/initramfs/}' /boot/config.txt
-    # remove lines containing [pi0] before a line starting with initramfs
-    sed -i '/^\[pi0\]/{N;s/\[pi0\]\ninitramfs/initramfs/}' /boot/config.txt
-    # remove lines containing [pi1] before a line starting with initramfs
-    sed -i '/^\[pi1\]/{N;s/\[pi1\]\ninitramfs/initramfs/}' /boot/config.txt
-    # remove the first line beginning with initramfs and all following lines to end of file
-    sed -i '/^initramfs/,$d' /boot/config.txt
-    # append the special all platform initramfs lines
-    sed -i '$ a [pi02]\ninitramfs initramfs-v7-linux.img followkernel\n[pi0]\ninitramfs initramfs-linux.img followkernel\n[pi1]\ninitramfs initramfs-linux.img followkernel\n[all]\ninitramfs initramfs-v7-linux.img followkernel' /boot/config.txt
-fi
+# generate a default mpd --version file
+mpd --version | grep -v '^$' > /srv/http/.config/mpdversion.txt
 # create required directories
 mkdir /root/.ssh
-mkdir -p /run/bluealsa-monitor/asoundrc
+mkdir -p /run/bluealsa-monitor
+touch /run/bluealsa-monitor/asoundrc
 # remove specific files
 rm /etc/udev/rules.d/99-runeaudio.rules
 rm /etc/udev/rules.d/70-bluealsa.rules
 rm /etc/udev/rules.d/90-touchscreen.rules
+# if certain udev rules files are not present use the defaults, otherwise remove the defaults (these files could be created in the image)
+for f in /etc/udev/rules.d/*.default ;  do
+    f1=${f::-8}
+    if [ -f "$f1" ] ; then
+        # the file is present delete the default
+        rm "$f"
+    else
+        # the file is missing rename the default
+        mv "$f" "$f1"
+    fi
+done
 # make appropriate links
-ln -sfT /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
+ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
+#
+# set specific files for arch and rpios version compatibility
+#  python plugin for amixer-webui
+pythonPlugin=$( find /usr/lib -name python_plugin.so | wc -w | xargs )
+python3Plugin=$( find /usr/lib -name python3_plugin.so | wc -w | xargs )
+if [ $pythonPlugin -eq 1 ] && [ $python3Plugin -ne 1 ] ; then
+    # echo 'python'
+    sed -i '/^plugins = python/c\plugins = python' /srv/http/amixer/amixer-webui.ini
+elif [ $pythonPlugin -ne 1 ] && [ $python3Plugin -eq 1 ] ; then
+    # echo 'python3'
+    sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini
+fi
+#   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+if [ "$os" == "RPiOS" ] ; then
+    php_path=$( find /usr/*bin -name php-fpm* )
+    php_exe=$(basename -- "$php_path")
+    php_ver=${php_exe:7:10}
+    if [ "$php_ver" != "7.4" ] ; then
+        set +x
+        echo "########################################################################"
+        echo "##              Error: PHP version has changed for RPiOS              ##"
+        echo "## Exiting! - Old version was 7.4, new version is $php_ver                 ##"
+        echo "##      This script (image_reset_script.sh) needs to be modified      ##"
+        echo "##                   ---------------------              --------      ##"
+        echo "########################################################################"
+        exit
+        # when this error occurs look at all occurrences of the old version number in this script, they will need to be changed
+        # also the contents of /srv/http/app/config/defaults/etc/php will need to change
+        # and the files /srv/http/app/config/defaults//etc/systemd/system/php-fpm.service* will need to be modified
+    fi
+fi
+for f in /etc/php/*.* ;  do
+    if [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/7.4" ] ; then
+        # echo $f
+        rm -r "$f"
+    elif [ "$os" == "RPiOS" ] && [ "$f" != "/etc/php/7.4" ] ; then
+        # echo $f
+        rm -r "$f"
+    fi
+done
+#   php-fpm.service
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+if [ "$os" == "ARCH" ] ; then
+    cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
+    rm /etc/systemd/system/php-fpm.service.ARCH
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+elif [ "$os" == "RPiOS" ] ; then
+    cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+    rm /etc/systemd/system/php-fpm.service.ARCH
+fi
+#
+# set up transparent cursor for Weston / Wayland / luakit
+#   get the size of the active cursor pointer file
+if [ -f /usr/share/icons/Adwaita/cursors/left_ptr ] ; then
+    # get the size of the file
+    declare -i left_ptr_size=$( ls -l /usr/share/icons/Adwaita/cursors/left_ptr | xargs | cut -d ' ' -f 5 )
+else
+    left_ptr_size=0
+fi
+#   get the size of the saved cursor pointer file
+if [ -f /usr/share/icons/Adwaita/cursors/left_ptr.original ] ; then
+    # get the size of the file
+    declare -i left_ptr_size_orig=$( ls -l /usr/share/icons/Adwaita/cursors/left_ptr.original | xargs | cut -d ' ' -f 5 )
+else
+    left_ptr_size_orig=0
+fi
+#   check that we have a correctly saved original left_ptr file
+if [ $left_ptr_size -lt 60000 ] && [ $left_ptr_size_orig -lt 60000 ] ; then
+    # we don't have an original left_ptr file, use the backup one (there could be a newer on available!!)
+    cp /usr/share/icons/Adwaita/cursors/left_ptr.backup /usr/share/icons/Adwaita/cursors/left_ptr
+    cp /usr/share/icons/Adwaita/cursors/left_ptr.backup /usr/share/icons/Adwaita/cursors/left_ptr.orig
+elif [ $left_ptr_size_orig -lt $left_ptr_size ] ; then
+    # the saved original file is smaller than the active file, copy active to saved original
+    cp cp /usr/share/icons/Adwaita/cursors/left_ptr /usr/share/icons/Adwaita/cursors/left_ptr.orig
+elif [ $left_ptr_size -lt $left_ptr_size_org ] ; then
+    cp cp /usr/share/icons/Adwaita/cursors/left_ptr.orig /usr/share/icons/Adwaita/cursors/left_ptr
+    # the active file is smaller than the saved original file, copy saved original to active
+fi
+#   now set the file up as a hidden cursor (default)
+cp /usr/share/icons/Adwaita/cursors/left_ptr.transparent /usr/share/icons/Adwaita/cursors/left_ptr
 #
 # modify the systemd journal configuration file to use volatile memory (Storage=volatile)
 volitileFound=$(grep -c "^\s*Storage=volatile" "/etc/systemd/journald.conf")
-if [ "$volitileFound" == "0" ]; then
+if [ "$volitileFound" == "0" ] ; then
     # no uncommented line containing 'Storage=volatile' found
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
-# modify the /etc/php/php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
-if [ -f "/etc/php/php.ini" ]; then
-    sed -i '/^opcache.memory_consumption=/c\opcache.memory_consumption=32' /etc/php/php.ini
-fi
-#
-# add waveshare LDC touchscreen overlays, only when xwindows is installed
-if [ -f "/bin/xinit" ]; then
-    /srv/http/command/waveshare_install.sh
-fi
+# modify the php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
+#   the file can be in various places, there could be duplicates
+php_ini_files=$( grep -Ril '^[\s]*opcache.memory_consumption=' /etc/php | grep -i 'php.ini$' )
+for f in $php_ini_files ; do
+    sed -i '/^[\s]*opcache.memory_consumption=/c\opcache.memory_consumption=32' "$f"
+done
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
 cp /srv/http/assets/img/favicon-64x64.png /usr/share/upmpdcli/runeaudio.png
@@ -392,12 +597,9 @@ chgmod 644 /usr/share/upmpdcli/runeaudio.png
 #
 # modify all standard .service files which specify the wrong PIDFile location
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/*.service
-# sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/nmb.service
-# sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/winbind.service
-# sed -i 's|.*User=mpd.*|#User=mpd|g' /usr/lib/systemd/system/mpd.service
 #
 # some fixes for the ply-image binary location (required for 0.5b)
-if [ -e /usr/bin/ply-image ]; then
+if [ -e /usr/bin/ply-image ] ; then
     rm /usr/local/bin/ply-image
 else
     cp /usr/local/bin/ply-image /usr/bin/ply-image
@@ -413,19 +615,26 @@ rm /srv/http/.config/chromium/Singleton*
 #
 # make sure that all files are unix format and have the correct ownerships and protections
 /srv/http/command/convert_dos_files_to_unix_script.sh
+# generate locales and missing ssh keys for a full image reset
+if [ "$1" == "full" ] ; then
+    locale-gen
+    ssh-keygen -A
+fi
 #
-# for a distribution image remove the pacman history. It makes a lot of space free, but that history is useful when developing
-if [ "$1" == "full" ]; then
-    # remove uglify-js if required
-    # pacman -Q uglify-js && pacman -Rsn uglify-js --noconfirm
-    # removing dos2unix if required
-    # pacman -Q dos2unix && pacman -Rsn dos2unix --noconfirm
-    # remove pacman history and no longer installed packages from the package database
-    pacman -Sc --noconfirm
-    # remove ALL files from the package cache
-    # pacman -Scc --noconfirm
-    # rank mirrors and refresh repo's
-    /srv/http/command/rank_mirrors.sh
+# for a distribution image remove the pacman or apt history. It makes a lot of space free, but that history is useful when developing
+if [ "$1" == "full" ] ; then
+    if [ "$os" == "ARCH" ] ; then
+        # remove pacman history and no longer installed packages from the package database
+        pacman -Sc --noconfirm
+        # remove ALL files from the package cache
+        # pacman -Scc --noconfirm
+        # rank mirrors and refresh repo's
+        /srv/http/command/rank_mirrors.sh
+    elif [ "$od" == "RPiOS" ] ; then
+        apt clean
+        apt autoclean
+        apt autoremove
+    fi
     # remove composer saved files and composer.phar
     rm /srv/http/app/libs/composer.phar
     rm /srv/http/app/libs/*.save
@@ -442,26 +651,22 @@ hostnamectl --static --transient --pretty set-hostname runeaudio
 # clean up /etc/motd
 linuxbuilddate=$( uname -v )
 i="0"
-while [ $i -lt 5 ]; do
+while [ $i -lt 5 ] ; do
     linuxbuilddate=${linuxbuilddate#*[[:space:]]*}
     osdate=$( date -d "$linuxbuilddate" +%Y%m%d )
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] ; then
         i="5"
     else
         i=$[$i+1]
     fi
 done
-osver=$( uname -r | xargs )
 buildversion=$( redis-cli get buildversion | xargs )
 patchlevel=$( redis-cli get patchlevel | xargs )
 release=$( redis-cli get release | xargs )
-archarmver=$( uname -msr | xargs )
-cd /srv/http/
-gitbranch=$( git branch | xargs )
-gitbranch=${gitbranch#*[[:space:]]*}
-cd /home
-if [ "$gitbranch" == "$release" ]; then
-    if [ "${gitbranch:3:1}" == "a" ]; then
+linuxver=$( uname -sr | xargs )
+gitbranch=$( git --git-dir=/srv/http/.git branch --show-current | xargs )
+if [ "$gitbranch" == "$release" ] ; then
+    if [ "${gitbranch:3:1}" == "a" ] ; then
         experimental="Alpha"
     else
         experimental="Beta"
@@ -478,7 +683,7 @@ if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
 fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($archarmver)"
+line3="Hw-env: Raspberry Pi ($linuxver $os)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
@@ -494,23 +699,24 @@ iw reg set 00
 sync
 redis-cli save
 redis-cli shutdown save
+systemctl stop redis
 sync
 #
 # unmount the overlay cache filesystem and remove the cache disk partition
 #   we need to be very careful with this action, it will only be removed when we are absolutely sure it the
 #   partition which needs removing
 partitions=$( fdisk /dev/mmcblk0 -l | grep -ic mmcblk0p )
-if [ "$partitions" == "3" ]; then
+if [ "$partitions" == "3" ] ; then
     # looks like the cache partition has previously been created, first check it
     lines=$( fdisk /dev/mmcblk0 -l | grep -iE 'mmcblk0p3|disk ' | xargs )
-    if [[ "$lines" == *" 1G 83 Linux"* ]]; then
+    if [[ "$lines" == *" 1G 83 Linux"* ]] ; then
         # the partition size is correct
         tot_sectors=$( sed 's/^.*.bytes, //' <<< "$lines" )
         tot_sectors=$( sed 's/ sectors.*//' <<< "$tot_sectors" )
         end_sector=$( sed 's/^.*.mmcblk0p3 //' <<< "$lines" )
         end_sector=$( echo $end_sector | cut -d ' ' -f 2 )
         reserved_sectors=$(( $tot_sectors-$end_sector ))
-        if [ "$reserved_sectors" == "35" ]; then
+        if [ "$reserved_sectors" == "35" ] ; then
             # on creation we reserved 34 free sectors at the end of the disk, so this is the cache partition
             # unmount the overlay
             umount overlay_art_cache
@@ -573,7 +779,7 @@ mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the compressed distribution image will then be very small
-if [ "$1" == "full" ]; then
+if [ "$1" == "full" ] ; then
     echo "Zero filling the file system"
     # zero fill the file system
     cd /boot
@@ -587,6 +793,12 @@ if [ "$1" == "full" ]; then
     sync
     cd /home
 fi
+#
+# remove connman wired network configuration files
+#   dont stop connman
+rm -rf /var/lib/connman/*
+# copy the default connman config file
+cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
 #
 # shutdown & poweroff
 shutdown -P now

@@ -33,29 +33,31 @@
 #####################################
 set +e # continue on errors
 prio_nice () {
+# higher priority
+renice -1 $(pgrep -w bluealsa)
+renice -1 $(pgrep -w bluealsa-aplay)
+renice -1 $(pgrep -w bluetooth)
+renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
 # MPD has the capability of setting its own priority in real time
 # the following is to make sure that its associated processes are also set to a higher priority
-for pid in $(pgrep -w mpd);
-do
+for pid in $(pgrep -w mpd); do
     renice -1 $pid;
 done;
-renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
 renice -1 $(pgrep -w mpd)
 renice -1 $(pgrep -w shairport-sync)
-renice -1 $(pgrep -w spopd)
 renice -1 $(pgrep -w spotifyd)
 renice -1 $(pgrep -w upmpdcli)
-# set the local browser to a low value
-for pid in $(pgrep -w chromium);
-do
+# lower priority
+renice 4 $(pgrep -w ashuffle)
+renice 4 $(pgrep -w bt_mon_switch)
+for pid in $(pgrep -w chromium); do
     renice 10 $pid;
 done;
-# renice 10 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'chromium' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
-# renice 10 $(pgrep -w chromium)
-renice 10 $(pgrep -w luakit)
-renice 10 $(pgrep -w WebKit)
-renice 4 $(pgrep -w ashuffle)
+renice 10 $(pgrep -w chromium)
+renice 6 $(pgrep -w cmd_async_queue)
 renice 4 $(pgrep -w local-browser)
+renice 10 $(pgrep -w luakit)
+renice 4 $(pgrep -w matchbox-window)
 renice 3 $(pgrep -w mpdscribble)
 renice 2 $(pgrep -w nmbd)
 renice 2 $(pgrep -w nmb)
@@ -63,46 +65,60 @@ renice 3 $(pgrep -w rune_PL_wrk)
 renice 4 $(pgrep -w rune_SSM_wrk)
 renice 4 $(pgrep -w rune_SDM_wrk)
 renice 3 $(pgrep -w rune_SY_wrk)
+renice 10 $(pgrep -w rune_MPDEM_wrk)
 renice 2 $(pgrep -w smbd)
 renice 2 $(pgrep -w smb)
 renice 2 $(pgrep -w sshd)
+renice 6 $(pgrep -w upowerd)
+renice 4 $(pgrep -w uwsgi)
+renice 3 $(pgrep -w xbindkeys)
 renice 10 $(pgrep -w xinit)
 renice 10 $(pgrep -w Xorg)
-renice 4 $(pgrep -w matchbox-window)
-renice 3 $(pgrep -w xbindkeys)
-renice 4 $(pgrep -w uwsgi)
-renice 6 $(pgrep -w upowerd)
+renice 10 $(pgrep -w WebKit)
+renice 10 $(pgrep -w weston)
+renice 2 $(pgrep -w winbind)
+renice 2 $(pgrep -w winbindd)
 }
 
 prio_default () {
-# always leave chromium & luakit/Webkit at a lower priority
-# always leave upowerd at a lower priority
-# always leave uwsgi at a lower priority
-for pid in $(pgrep -w mpd);
-do
+# always leave chromium, luakit, Webkit, matchbox-window, upowerd & uwsgi at a lower priority
+renice 0 $(pgrep -w ashuffle)
+renice 0 $(pgrep -w bluealsa)
+renice 0 $(pgrep -w bluealsa-aplay)
+renice 0 $(pgrep -w bluetooth)
+renice 0 $(pgrep -w bt_mon_switch)
+# renice 10 $(pgrep -w chromium)
+renice 0 $(pgrep -w cmd_async_queue)
+renice 0 $(pgrep -w local-browser)
+# renice 0 $(pgrep -w luakit)
+# renice 0 $(pgrep -w matchbox-window)
+for pid in $(pgrep -w mpd); do
     renice 0 $pid;
 done;
 renice 0 $(pgrep -w mpd)
-renice 0 $(pgrep -w shairport-sync)
-renice 0 $(pgrep -w spopd)
-renice 0 $(pgrep -w spotifyd)
-renice 0 $(pgrep -w upmpdcli)
-renice 0 $(pgrep -w ashuffle)
-renice 0 $(pgrep -w local-browser)
 renice 0 $(pgrep -w mpdscribble)
-renice 0 $(pgrep -w nmbd)
 renice 0 $(pgrep -w nmb)
+renice 0 $(pgrep -w nmbd)
+renice 0 $(pgrep -w rune_MPDEM_wrk)
 renice 0 $(pgrep -w rune_PL_wrk)
-renice 0 $(pgrep -w rune_SSM_wrk)
 renice 0 $(pgrep -w rune_SDM_wrk)
+renice 0 $(pgrep -w rune_SSM_wrk)
 renice 0 $(pgrep -w rune_SY_wrk)
-renice 0 $(pgrep -w smbd)
+renice 0 $(pgrep -w shairport-sync)
 renice 0 $(pgrep -w smb)
+renice 0 $(pgrep -w smbd)
+renice 0 $(pgrep -w spotifyd)
 renice 0 $(pgrep -w sshd)
+renice 0 $(pgrep -w upmpdcli)
+# renice 0 $(pgrep -w upowerd)
+# renice 0 $(pgrep -w uwsgi)
+# renice 0 $(pgrep -w WebKit)
+renice 0 $(pgrep -w weston)
+renice 0 $(pgrep -w winbind)
+renice 0 $(pgrep -w winbindd)
+renice 0 $(pgrep -w xbindkeys)
 renice 0 $(pgrep -w xinit)
 renice 0 $(pgrep -w Xorg)
-renice 0 $(pgrep -w matchbox-window)
-renice 0 $(pgrep -w xbindkeys)
 }
 
 if [ "$1" == "default" ]; then

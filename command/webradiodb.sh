@@ -48,10 +48,10 @@ webradiodir="/mnt/MPD/Webradio"
 #
 # if the directory /boot/webradios contains *.pls files move them to the webradio directory and delete them
 find "/boot/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
-# when the files already exist in $webradiodir the will not be moved, the next line deletes the rest
+# when the files already exist in $webradiodir the file will not be moved, the next line deletes what is left
 find "/boot/webradios" -type f -name '*.pls' -exec rm -- '{}' \;
 # remove any empty directories from /boot/webradios
-# nested directories could need several passes, this routine is run on each boot
+#   nested directories could need several passes, this routine is run on each boot
 find "/boot/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
 # recreate the structure and instructions
 if [ ! -d "/boot/webradios" ]; then
@@ -87,22 +87,27 @@ find "$webradiodir" -mindepth 2 -type f -name '*.pls' -exec mv -f -- '{}' "$webr
 find "$webradiodir/*" -type d -exec rmdir {} &> /dev/null \;
 
 # clear the redis database
-redis-cli del webradios &> /dev/null
+redis-cli del webradios > /dev/null
 
-# add data from files
+# add data from files to redis database
 for file in $webradiodir/*.pls; do
-    name=$( basename "$file" )
-    name=${name%.*}
-    url=$( grep -h 'File1' "$file" | cut -d '=' -f2 )
-    if [ "$name" != "" ] && [ "$url" != "" ]; then
-        redis-cli hset webradios "$name" "$url" &> /dev/null
-        echo "Added - Name: $name, URL: $url"
+    if [ "$file" != "$webradiodir/*.pls" ] ; then
+        name=$( basename "$file" )
+        name=${name%.*}
+        url=$( grep -h 'File1' "$file" | cut -d '=' -f2 )
+        if [ "$name" != "" ] && [ "$url" != "" ]; then
+            redis-cli hset webradios "$name" "$url" > /dev/null
+            echo "Added - Name: $name, URL: $url"
+        else
+            echo "Invalid content in file: $webradiodir/$name.pls"
+        fi
     else
-        echo "Invalid content in file: $webradiodir/$name.pls"
+        echo "No webradios found"
+        break
     fi
 done
 
 # refresh list
-mpc update Webradio &> /dev/null
+mpc update Webradio > /dev/null
 #---
 #End script

@@ -5,4 +5,4 @@
 local settings = require "settings"
 settings.webview.zoom_level = 100
 settings.window.home_page = "localhost"
-settings.webview.hardware_acceleration_policy = "never"
+-- settings.webview.hardware_acceleration_policy = "never"

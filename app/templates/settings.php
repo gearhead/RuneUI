@@ -220,7 +220,11 @@
                             <input id="airplay" name="features[airplay][enable]" type="checkbox" value="1"<?php if((isset($this->airplay['enable'])) && ($this->airplay['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
+                        <?php if($this->oa): ?>
+                            <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
+                        <?php else: ?>
+                            <span class="help-block">There are no valid audio outputs defined, <strong>Airplay will not work correctly</strong></span>
+                        <?php endif ?>
                     </div>
                 </div>
                 <div class="<?php if($this->airplay['enable'] != 1): ?>hide<?php endif ?>" id="airplayName">
@@ -239,39 +243,6 @@
                     </div>
                 </div>
             </div>
-            <!--
-            <div <?php if((isset($this->spotify['enable'])) && ($this->spotify['enable'])): ?>class="boxed-group"<?php endif ?> id="spotifyBox">
-                <div class="form-group">
-                    <label for="spotify" class="control-label col-sm-2">Spotify</label>
-                    <div class="col-sm-10">
-                        <label class="switch-light well" onclick="">
-                            <input id="spotify" name="features[spotify][enable]" type="checkbox" value="1"<?php if((isset($this->spotify['enable'])) && ($this->spotify['enable'])): ?> checked="checked" <?php endif ?> <?php if($this->activePlayer === 'Spotify'): ?>disabled readonly<?php endif; ?>>
-                            <?php if($this->activePlayer === 'Spotify'): ?><input id="spotify" name="features[spotify][enable]" type="hidden" value="1"><?php endif; ?>
-                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'Spotify'): ?>disabled<?php endif; ?>"></a>
-                        </label>
-                        <span class="help-block">Due to the Spotify upgrade of May 2018 the Spotify client no longer works<br>
-                        <i>Enable Spotify client. You must have a <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong> account</i></span>
-                    </div>
-                </div>
-                <div class="<?php if($this->spotify['enable'] != 1): ?>hide<?php endif ?>" id="spotifyAuth">
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="spotify-usr">Username</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="text" id="spotify_user" name="features[spotify][user]" value="<?php echo $this->spotify['user']; ?>" data-trigger="change" placeholder="user" autocomplete="off">
-                            <span class="help-block">Insert your Spotify <i>username</i></span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label col-sm-2" for="spotify-pasw">Password</label>
-                        <div class="col-sm-10">
-                            <input class="form-control osk-trigger input-lg" type="password" id="spotify_pass" name="features[spotify][pass]" value="<?php echo $this->spotify['pass']; ?>" placeholder="pass" autocomplete="off">
-                            <span class="help-block">Insert your Spotify <i>password</i> (case sensitive)<br>
-                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            -->
             <div <?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?>class="boxed-group"<?php endif ?> id="dlnaBox">
                 <div class="form-group">
                     <label for="dlna" class="control-label col-sm-2">UPnP/DLNA</label>
@@ -280,9 +251,9 @@
                             <input id="dlna" name="features[dlna][enable]" type="checkbox" value="1"<?php if((isset($this->dlna['enable'])) && ($this->dlna['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA protocol.<br>
+                        <span class="help-block">Toggle the capability of receiving wireless streaming of audio via UPnP/DLNA (OpenHome).<br>
                         <?php if ($this->cores < 4): ?>
-                        <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model, insufficient processing capacity available</i>
+                        <i>Note:UPnP/DLNA is <strong>not recommend</strong> for this model as there is insufficient processing capacity available</i>
                         <?php endif ?>
                         </span>
                     </div>
@@ -321,7 +292,13 @@
                             <?php if($this->activePlayer === 'SpotifyConnect'): ?><input id="spotifyconnect" name="features[spotifyconnect][enable]" type="hidden" value="1"><?php endif; ?>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary <?php if($this->activePlayer === 'SpotifyConnect'): ?>disabled<?php endif; ?>"></a>
                         </label>
-                        <span class="help-block">Enable Spotify Connect steaming client. You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php if($this->ao): ?>
+                            <span class="help-block">Toggle the capability of receiving wireless streaming of audio via Spotify Connect.
+                                You must have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php else: ?>
+                            <span class="help-block">There are no valid audio outputs defined, <strong>Spotify Connect will not work correctly</strong>.
+                                You must also have a <i class="fa fa-spotify-green"></i> <strong><a href="https://www.spotify.com/premium/" target="_blank">Spotify PREMIUM</a></strong>
+                        <?php endif ?>
                         <?php if($this->cores < 4): ?>
                             account.<br>This model has insufficient processing power to allow Spotify Connect metadata and album art to always work correctly.
                                 It works, but may fail from time to time. Switching off other features off may help with performance issues
@@ -366,13 +343,25 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label class="control-label col-sm-2" for="spotifyconnect_autoplay">Autoplay</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_autoplay" name="features[spotifyconnect][autoplay]" type="checkbox" value="true"<?php if(isset($this->spotifyconnect['autoplay']) && $this->spotifyconnect['autoplay'] === 'true'): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Switch Autoplay per track <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> play similar songs after the current Spotify playlist has finished. The selection is based on the previously played tracks</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="control-label col-sm-2" for="spotifyconnect_volume_normalisation">Volume Normalisation</label>
                         <div class="col-sm-10">
-                            <select id="spotifyconnect_volume_normalisation" class="selectpicker" name="features[spotifyconnect][volume_normalisation]" data-style="btn-default btn-lg">
-                                <option value="true"  <?php if($this->spotifyconnect['volume_normalisation'] === 'true'): ?>  selected <?php endif ?>> ON</option>
-                                <option value="false" <?php if($this->spotifyconnect['volume_normalisation'] === 'false'): ?> selected <?php endif ?>> OFF</option>
-                            </select>
-                            <span class="help-block">Switch Volume Normalisation per track <strong>ON</strong> or <strong>OFF</strong></span>
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_volume_normalisation" name="features[spotifyconnect][volume_normalisation]" type="checkbox" value="true"<?php if(isset($this->spotifyconnect['volume_normalisation']) && $this->spotifyconnect['volume_normalisation'] === 'true'): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Switch Volume Normalisation per track <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> the volume is continually adjusted so that quiet passages are played louder, there is a time lag in adjusting the volume which can have undesirable effects. Our advise it to leave this swiched <strong>Off</strong></span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -380,7 +369,18 @@
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="number" id="spotifyconnect_normalisation_pregain" name="features[spotifyconnect][normalisation_pregain]" value="<?php echo $this->spotifyconnect['normalisation_pregain']; ?>" min="-20" max="0" placeholder="-10" autocomplete="off">
                             <span class="help-block">Enter a value between <strong>0</strong> (zero) and <strong>-20</strong>. This value is active only when <i>Volume Normalisation</i> is <strong>ON</strong>.<br>
-                            When <i>Volume Normalisation</i> is selected the output volume will need to be reduced to prevent clipping. A value of -10dB is advised as a starting point. When modifying, change it in small steps (and turn your amplifier down!)</span>
+                            When <i>Volume Normalisation</i> is selected the output volume will need to be reduced by a fixed amount selected here to prevent clipping. A value of -10dB is advised as a starting point. When modifying, change it in small steps (and turn your amplifier down!)</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="spotifyconnect_save_last_volume">Preserve Previous Volume Level</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="spotifyconnect_save_last_volume" name="features[spotifyconnect][save_last_volume]" type="checkbox" value="1"<?php if(isset($this->spotifyconnect['save_last_volume']) && $this->spotifyconnect['save_last_volume'] == 1): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Switch Preserve Previous Volume Level <strong>ON</strong> or <strong>OFF</strong><br>
+                                When <strong>On</strong> the volume level set in the previous Spotify Connect session will be used as the initial volume in a new session</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -395,6 +395,54 @@
                         <div class="col-sm-offset-2 col-sm-10">
                             <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
                             <span class="help-block"> </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="hwinput" class="control-label col-sm-2">Local HW Input</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input name="features[hwinput]" type="checkbox" value="1"<?php if((isset($this->hwinput)) && ($this->hwinput)): ?> checked="checked" <?php endif ?>>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Toggle local HW input. When <strong>ON</strong> locally connected hardware input devices are detected
+                                            (e.g. sound cards or USB devices). These can be selected and used from the Library tab</span>
+                </div>
+            </div>
+            <div <?php if (isset($this->cdinput) && $this->cdinput): ?>class="boxed-group"<?php endif ?> id="cdBox">
+                <div class="form-group">
+                    <label for="cdinput" class="control-label col-sm-2">Local CD-Drive Input</label>
+                    <div class="col-sm-10">
+                        <label class="switch-light well" onclick="">
+                            <input id="cdinput" name="features[cdinput]" type="checkbox" value="1"<?php if((isset($this->cdinput)) && $this->cdinput): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                        <span class="help-block">Toggle local CD-Drive input. When <strong>ON</strong> a locally connected CD-drive will be detected and
+                                                the CD-tracks can be selected and played from the Library tab.<br>
+                                                <i>The CD-drive must be self powered, USB power is insufficient</i></span>
+                    </div>
+                    <div class="<?php if (!isset($this->cdinput) || !$this->cdinput): ?>hide<?php endif ?>" id="cdDetails">
+                        <div class="form-group">
+                            <label class="control-label col-sm-2" for="cdautoplay">CD Autoplay</label>
+                            <div class="col-sm-10">
+                                <select class="selectpicker" name="features[cdautoplay]" data-style="btn-default btn-lg">
+                                    <option value="None" title="None" <?php if (!isset($this->cdautoplay) || ($this->cdautoplay === '') || ($this->cdautoplay === 'None')): ?> selected <?php endif ?>>None (disabled)</option>
+                                    <option value="Add" title="Add" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'Add')): ?> selected <?php endif ?>>Add to the end of the queue</option>
+                                    <option value="AddPlay" title="Add & Play" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'AddPlay')): ?> selected <?php endif ?>>Add to the end of the queue & Play</option>
+                                    <option value="AddNext" title="Add Next" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'AddNext')): ?> selected <?php endif ?>>Add to the Next position in the queue</option>
+                                    <option value="AddNextPlay" title="Add Next & Play" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'AddNextPlay')): ?> selected <?php endif ?>>Add to the Next position in the queue & Play</option>
+                                    <option value="ClearAddPlay" title="Clear, Add & Play" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'ClearAddPlay')): ?> selected <?php endif ?>>Clear the queue, Add & Play</option>
+                                </select>
+                                <span class="help-block">Enable/Disable CD autoplay and chose the autoplay queueing method<br><br>
+                                                    <i>To eject CD's please use the <strong>Eject button</strong> in the main player UI, try to avoid using the eject button on the CD-Drive</i></span>
+                            </div>
+                        </div>
+                        <div class="form-group form-actions">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                                <span class="help-block"> </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -496,10 +544,10 @@
                 <?php endif ?>
             </div>
             <div class="form-group">
-                <label class="control-label col-sm-2" for="smallScreenSaver">Splash screens</label>
+                <label class="control-label col-sm-2" for="enable-splash">Splash screens</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="smallScreenSaver" name="features[local_browser][enable-splash]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable-splash'])) && ($this->local_browser['enable-splash'])): ?> checked="checked" <?php endif ?>>
+                        <input id="enable-splash" name="features[local_browser][enable-splash]" type="checkbox" value="1"<?php if((isset($this->local_browser['enable-splash'])) && ($this->local_browser['enable-splash'])): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Optionally switch the Splash screens ON/OFF. <i>These are the console messages: RuneAudio starting, restarting and shutting down</i></span>
@@ -520,7 +568,7 @@
                             <input id="scrobbling-lastfm" name="features[lastfm][enable]" type="checkbox" value="1"<?php if((isset($this->lastfm['enable'])) && ($this->lastfm['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Send to Last.fm informations about the music you are listening to (requires a Last.fm account)</span>
+                        <span class="help-block">Send to Last.fm information about the music you are listening to (requires a Last.fm account)</span>
                     </div>
                 </div>
                 <div class="<?php if((!isset($this->lastfm['enable'])) || (!$this->lastfm['enable'])): ?>hide<?php endif ?>" id="lastfmAuth">
@@ -632,7 +680,7 @@
             </div>
         </fieldset>
     </form>
-    <form class="form-horizontal" id="restore" method="post">
+    <form enctype="multipart/form-data" class="form-horizontal" id="restore" method="post">
         <fieldset>
             <div class="form-group">
                 <label class="control-label col-sm-2">Restore player config</label>

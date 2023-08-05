@@ -3,7 +3,7 @@
 
 [Unit]
 Description=Rune Audio Amixer-WebUI Service
-After=audio.target
+After=sound.target
 
 [Service]
 User=http
@@ -18,6 +18,43 @@ Restart=always
 RestartSec=10
 StartLimitInterval=30
 StartLimitBurst=20
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+ProtectControlGroups=yes
+ProtectHome=true
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=full
+
+# Sandboxing
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+#PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=false
+#ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @p\rivileged
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

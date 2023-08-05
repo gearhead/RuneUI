@@ -40,22 +40,10 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
 // check current player backend
 $activePlayer = $redis->get('activePlayer');
 if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
-    if ($_GET['switchplayer'] === 'Spotify') {
-        if ($redis->hGet('spotify','enable') === '1') {
-            $switchOK = 1;
-        } else {
-            $switchOK = 0;
-        }
-    }
-    if ($switchOK === 1 || $_GET['switchplayer'] === 'MPD') {
+    if ($_GET['switchplayer'] === 'MPD') {
         // switch player engine
-        $jobID = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'switchplayer', 'args' => $_GET['switchplayer']));
-        $notification = new stdClass();
-        $notification->title = 'Switch Player';
-        $notification->text = 'Switch player backend started...';
-        wrk_notify($redis, 'startjob', $notification, $jobID);
-    } else {
-        ui_notify('Spotify not enabled', 'Enable and configure it under the Settings screen');
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'switchplayer', 'args' => $_GET['switchplayer']));
+        ui_notify($redis, 'Switch Player', 'Switch player backend started...');
     }
 } else if (isset($_GET['cmd']) && $_GET['cmd']) {
     // debug
@@ -63,8 +51,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
     if ($_GET['cmd'] === 'renderui') {
         if ($activePlayer === 'MPD') {
             $socket = $mpd;
-        } else if ($activePlayer === 'Spotify') {
-            $socket = $spop;
         } else {
             $socket = null;
         }
@@ -112,31 +98,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                 }
                 unset($mpdSendResponse, $volume, $sign, $lastvolume);
             }
-        } else if ($activePlayer === 'Spotify') {
-            // MPD -> SPOP command conversion
-            if ($_GET['cmd'] === 'pause') $_GET['cmd'] = 'toggle';
-            if ($_GET['cmd'] === 'clear') {
-                $_GET['cmd'] = 'qclear';
-                $redis->hIncrBy('spotify', 'plversion', 1);
-            }
-            if (strpos(' '.$_GET['cmd'], 'repeat')) $_GET['cmd'] = 'repeat';
-            if (strpos(' '. $_GET['cmd'], 'random')) $_GET['cmd'] = 'shuffle';
-            if (strpos(' '.$_GET['cmd'], 'seek')) {
-                $seek = explode(" ", $_GET['cmd']);
-                $_GET['cmd'] = 'seek '.($seek[2] * 1000);
-            }
-            if (strpos(' '.$_GET['cmd'], 'play') && strpos($_GET['cmd'], ' ') === 4) {
-                $play_track = explode(" ", $_GET['cmd']);
-                $_GET['cmd'] = 'goto '.($play_track[1] + 1);
-            }
-            if (strpos(' '.$_GET['cmd'], 'deleteid')) {
-                $remove_track = explode(" ", $_GET['cmd']);
-                $_GET['cmd'] = 'qrm '.$remove_track[1];
-                $redis->hIncrBy('spotify', 'plversion', 1);
-            }
-            sendSpopCommand($spop, $_GET['cmd']);
-            $redis->hSet('spotify', 'lastcmd', $_GET['cmd']);
-            if (!$response) $response = readSpopResponse($spop);
         }
     }
     echo $response;
@@ -150,9 +111,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
 if ($activePlayer === 'MPD') {
     // close MPD connection
     closeMpdSocket($mpd);
-} elseif ($activePlayer === 'Spotify') {
-    // close SPOP connection
-    closeSpopSocket($spop);
 }
 // close Redis connection
 $redis->close();

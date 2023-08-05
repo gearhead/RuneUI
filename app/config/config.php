@@ -89,7 +89,4 @@ if ((isset($_SERVER["SCRIPT_FILENAME"])) && ($activePlayer === 'MPD') && (($_SER
         // no socket open
         $mpd = openMpdSocketRepeat($redis->hGet('mpdconf', 'bind_to_address'), 0, $repeat);
     }
-} else if (($redis->hGet('spotify', 'enable')) && ($activePlayer === 'Spotify')) {
-    runelog('[config.php] >>> OPEN SPOTIFY SOCKET [BURST MODE [1] (blocking)] <<<','');
-    $spop = openSpopSocket('localhost', 6602, 1);
 }

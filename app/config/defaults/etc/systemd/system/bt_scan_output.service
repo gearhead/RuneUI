@@ -1,0 +1,12 @@
+[Unit]
+Description=Bluetooth discover output devices
+After=bluealsa.service
+
+[Service]
+Type=simple
+# User=http
+ExecStart=/srv/http/command/bt_scan_output.php
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -76,16 +76,16 @@ $template->activePlayer = $activePlayer;
 $controllers = array(
     'accesspoint',
     'alsamixer',
-    'artist_info',
+//    'artist_info',
     'bluetooth',
-    'coverart',
+//    'coverart',
     'credits',
     'debug',
     'dev',
-    'help',
+//    'help',
     'index',
     'login',
-    'lyric',
+//    'lyric',
     'mpd',
     'network',
     'playback',
@@ -159,9 +159,6 @@ if (isset($tplfile)) {
 if ($activePlayer === 'MPD') {
     // close MPD connection
     closeMpdSocket($mpd);
-} elseif ($activePlayer === 'Spotify') {
-    // close SPOP connection
-    closeSpopSocket($spop);
 }
 // notifications
 $notifications = $redis->hGetAll('notifications');

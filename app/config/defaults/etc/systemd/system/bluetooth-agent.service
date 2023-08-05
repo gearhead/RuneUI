@@ -1,6 +1,6 @@
 # Part of RuneAudio
 # This unit connects an input bluetooth source to the current active alsa output
-# it is initiated in the UI and will run for 90 seconds, this should be enough time to connect
+# it is initiated in the UI and will run for 120 seconds, this should be enough time to connect
 # the connect action is enabled in the UI and initiated on the device connecting to RuneAudio
 [Unit]
 Description=Bluetooth connection agent service
@@ -12,7 +12,7 @@ Requires=bluetooth.service bluealsa.service bluealsa-aplay.service
 ExecStartPre=/bin/redis-cli hset 'bluetooth' 'initialising' '1' ; /bin/bluetoothctl power on ; /bin/bluetoothctl discoverable on ; /bin/bluetoothctl pairable on
 ExecStart=/srv/http/command/bluetooth-agent
 ExecStopPost=/bin/redis-cli hset 'bluetooth' 'initialising' '0' ; /bin/bluetoothctl discoverable off ; /bin/bluetoothctl pairable off
-RuntimeMaxSec=30
+RuntimeMaxSec=120
 Restart=no
 
 [Install]

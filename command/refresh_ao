@@ -48,28 +48,47 @@ sysCmd('echo "--------------- start: refresh_ao ---------------" > /var/log/rune
 runelog('WORKER refresh_ao STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
-
-// get the lock status
-$lock = $redis->get('lock_refresh_ao');
-runelog('lock status ', $lock);
-// refesh audio hardware status (soundcards and MPD config)
-if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
-    // set the lock
-    $redis->set('lock_refresh_ao', '1');
-    // wake up any hdmi interfaces
-    sysCmd('export DISPLAY=:0 ; xrandr');
-    // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
-    sysCmd('alsactl kill rescan');
-    wrk_mpdconf($redis, 'refreshsoundcards');
-    ui_notify('Audio Output', 'configuration changed.');
-    // unlock
-    $redis->set('lock_refresh_ao', '0');
+//
+// when udev calls this routine it sets the second parameter to udev
+if (isset($argv[2]) && ($argv[2] === 'udev')) {
+    ui_notify($redis, 'Audio Output', 'configuration change detected.');
+}
+//
+// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+//  the first parameter has a value of 'async' when asynchronous is requested
+if (isset($argv[1]) && ($argv[1] === 'async')) {
+    runelog('running asynchronously');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_ao');
 } else {
-    echo "LOCKED!";
-    // just in case something goes wrong increment the lock value by 1
-    // when it reaches 9 (this should never happen) it will be processed as if there is no lock
-    $lock += 1;
-    $redis->set('lock_refresh_ao', $lock);
+    // get the lock status
+    $lock = $redis->get('lock_refresh_ao');
+    runelog('lock status ', $lock);
+    // refresh audio hardware status (soundcards and MPD config)
+    if (($lock > '0') && ($lock < '9')) {
+        // its locked, check if the job is running
+        if (trim(sysCmd('pgrep refresh_ao')[0])) {
+            // it's not running, unset the lock
+            $lock = 0;
+        }
+    }
+    if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+        // set the lock
+        $redis->set('lock_refresh_ao', '1');
+        // wake up any hdmi interfaces
+        sysCmd('export DISPLAY=:0 ; xrandr');
+        // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
+        sysCmd('alsactl kill rescan');
+        wrk_mpdconf($redis, 'refreshsoundcards');
+        wrk_hwinput($redis, 'refresh');
+        // unlock
+        $redis->set('lock_refresh_ao', '0');
+    } else {
+        echo "LOCKED!\n";
+        // just in case something goes wrong increment the lock value by 1
+        // when it reaches 9 (this should never happen) it will be processed as if there is no lock
+        $lock += 1;
+        $redis->set('lock_refresh_ao', $lock);
+    }
 }
 runelog('lock status ', $redis->get('lock_refresh_ao'));
 // close Redis connection

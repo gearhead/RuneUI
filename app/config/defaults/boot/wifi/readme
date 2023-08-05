@@ -12,16 +12,22 @@ Optionally the following line can also be added:
 Hidden=[true|false]
 ---
 
-Any file name can be used. Use a text editor on your PC to create the files, after flashing the Micro-SD card.
+Any file name can be used. Use a text editor on your PC to create the files, on the Micro-SD card.
 Only lines beginning with 'Name=', 'Passphrase=' and 'Hidden=' will be processed.
-The groups of values can be repeated in a single file. Each time a line is encountered beginning with 'Name='
-a new profile is defined.
+The groups of values can be repeated in a single file or there can be multiple files. Each time a
+line is encountered beginning with 'Name=' a new profile is defined. Only network names with a
+corresponding passphrase are processed.
 
 There are some example files in the directory /wifi/examples.
 
-All user created files in the wifi directoy will be processed and deleted during the RuneAudio startup process, regardless of the success of the processing.
+All user created files in the wifi directoy will be processed during the RuneAudio startup process. The files will
+also be deleted, regardless of the success of the processing. During processing your existing Wi-Fi configuration
+will will be left unchanged except for the network names specified in the files in the wifi directory.
 
 If you screw up your network configuration you can also use this function to recreate valid wifi profiles.
+
+By creating a file in the wifi directory your Access Point configuration will also be reset to default values. This
+happens regardless of the content of the file (it can be empty).
 
 Example:
 ---

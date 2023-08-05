@@ -1,0 +1,18 @@
+[Unit]
+Description=WiringPi GPIO Trigger for %i
+# see http://wiringpi.com/the-gpio-utility/ and the environment files in /etc/systemd-gpio
+# $GPIO defines the BCM pin number to use, see the output of 'gpio readall' to convert it to the physical pin number
+# when $MODE is 'up' and $DIR is 'falling' it reacts to the push of a button connecting the pin to ground
+# when $MODE is 'up' and $DIR is 'rising' it reacts to the release of a button connecting the pin to ground
+# $COMMAND contains is the command(s) to be executed, use the full path to the command program or script, multiple commands are semicolon space separated
+# $DEBOUNCE defines the time in seconds between button state changes during which a state change will be ignored
+
+[Service]
+EnvironmentFile=/etc/systemd-gpio/%i
+ExecStartPre=/usr/bin/gpio -g mode $GPIO in
+ExecStartPre=/usr/bin/gpio -g mode $GPIO $MODE
+ExecStart=/bin/sh -c "while gpio -g wfi $GPIO $DIR; do echo \"$MESSAGE\"; $COMMAND; sleep $DEBOUNCE; done"
+Restart=on-success
+
+[Install]
+WantedBy=multi-user.target

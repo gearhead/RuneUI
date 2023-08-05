@@ -1,8 +1,10 @@
 [Unit]
 Description = display splash screen during boot
 DefaultDependencies=no
-After=systemd-vconsole-setup.service
-Before=sysinit.target
+# After=systemd-vconsole-setup.service  # removed for vc4 implementation
+# Before=sysinit.target  # removed for vc4 implementation
+# also unsuccessfully tested: After=systemd-sysusers.service, After=sysinit.target & After=local-fs.target
+After=connman.service
 
 [Service]
 Type=oneshot
@@ -10,4 +12,5 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/ply-image /usr/share/bootsplash/start.png
 
 [Install]
-WantedBy=getty.target
+# WantedBy=getty.target # removed for vc4 implementation
+WantedBy=multi-user.target

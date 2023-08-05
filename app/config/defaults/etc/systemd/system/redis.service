@@ -3,27 +3,36 @@ Description=Advanced key-value store
 After=network.target
 
 [Service]
-Type=simple
+Type=notify
 User=redis
 Group=redis
+#ExecStartPre=/bin/mkdir -p /var/lib/redis
+ExecStart=/usr/bin/redis-server /etc/redis/redis.conf --supervised systemd
 PIDFile=/run/redis/redis.pid
-ExecStartPre=/bin/mkdir -p /var/lib/redis
-ExecStart=/usr/bin/redis-server /etc/redis/redis.conf
-#ExecStop=/usr/bin/redis-cli shutdown
+
+UMask=007
 ExecStop=/usr/bin/redis-cli -s /run/redis/socket shutdown
 CapabilityBoundingSet=
-PrivateTmp=true
+PrivateTmp=yes
 PrivateDevices=true
 ProtectSystem=full
-#ProtectHome=true
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWritePaths=-/var/lib/redis
+ReadWritePaths=-/var/log/runeaudio/
+ReadWritePaths=-/run/redis
+
+ReadWriteDirectories=-/etc/redis
+
 NoNewPrivileges=true
 RuntimeDirectory=redis
-RuntimeDirectoryMode=755
+RuntimeDirectoryMode=2755
 LimitNOFILE=10032
 Restart=always
 RestartSec=1
 StartLimitInterval=30
 StartLimitBurst=20
-
+TimeoutStartSec=5
+TimeoutStopSec=0
 [Install]
 WantedBy=multi-user.target
