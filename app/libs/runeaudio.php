@@ -8444,20 +8444,29 @@ function wrk_check_MPD_outputs($redis)
     }
 }
 
-// function which cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata and local cached album art
+// function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
+//  and local cached album art
 function wrk_clean_music_metadata($redis, $clearAll=null)
 // when $clearAll is set to a true value all cached information will be cleared
+// it should be noted that the synchronisation of a upper directory with a lower directory within a overlay file system should
+//  not work correctly or consistently
+//  the overlay file system is not aware of the synchronisation action and it remembers what should be in the upper and lower
+//      directories regardless of their actual content
+//      there is a trick implemented to make it work, see the last lines in this function for details
+//  the trick works here because the availability of a cached file is not critical, runeaudio will do some extra work, but it will
+//      still work fine, the trick is not advisable for critical content
 {
     // initialise variables
-    $artDir = trim(trim($redis->get('albumart_image_dir')), '/');
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     if (!is_dir($artDir)) {
         return;
     }
+    $cleaned = false;
     $overlay_art_cache = $redis->get('overlay_art_cache');
     // if required sync the in-memory tmpfs to the overly cache
     if ($overlay_art_cache) {
-        // overlay cache is enabled
-        $cleanUpperDir = dirname($artDir).'/upper';
+        // overlay cache is enabled substr($url, 0, strrpos( $url, '/'));
+        $cleanUpperDir = substr($artDir, 0, strrpos( $artDir, '/')).'/upper';
         if (!is_dir($cleanUpperDir)) {
             return;
         }
@@ -8519,6 +8528,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // the following command removes all files from the art directory which are older than 90 days
         sysCmd('find "'.$cleanUpperDir.'" -type f -mtime +90 -exec rm {} \;');
         $redis->hSet('cleancache', '90upperdate', $today);
+        $cleaned = true;
     }
     unset($today);
     // initialise the amount of diskspace to recover (kB)
@@ -8555,6 +8565,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $recoverKB = intval(max(((35 - $percFreeDisk) * $totalSpaceKB)/100, $recoverKB));
     }
     if ($recoverKB) {
+        $cleaned = true;
         // need to recover diskspace
         // first get the number of files in the directory
         $filesInArtDir = sysCmd('ls -q1 "'.$cleanUpperDir.'" | wc -l | xargs')[0];
@@ -8620,6 +8631,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // the strategy is that we have used them for 3 months, but their source information may now have changed
         sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
         $redis->hSet('cleancache', '90lowerdate', $today);
+        $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
         // artist files without any content (these can contain the text 'Sorry, no details available') are deleted after 30 days
         // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
@@ -8634,6 +8646,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             unlink($file);
         }
         $redis->hSet('cleancache', '30lowerdate_artist', $today);
+        $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
         // song files without any content (these can contain the text 'No lyrics available') are deleted after 30 days
         // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
@@ -8648,6 +8661,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             unlink($file);
         }
         $redis->hSet('cleancache', '30lowerdate_song', $today);
+        $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '1lowerdate_song')) {
         // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
         // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
@@ -8662,6 +8676,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             unlink($file);
         }
         $redis->hSet('cleancache', '1lowerdate_song', $today);
+        $cleaned = true;
     }
     unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
@@ -8677,6 +8692,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $recoverKB = intval(((35 - $percFreeDisk) * $totalSpaceKB)/100);
     }
     if ($recoverKB) {
+        $cleaned = true;
         // need to recover diskspace
         // first get the number of files in the directory
         $filesInArtDir = sysCmd('ls -q1 "'.$cleanLowerDir.'" | wc -l | xargs')[0];
@@ -8720,6 +8736,15 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
                 }
             }
         }
+    }
+    if ($cleaned) {
+        // this is the trick:
+        //  command 1: forces the kernel to drop caches, dentries and i-node data
+        //      this causes the overlay file system to forget its previous contents, it will
+        //      rebuild its information based on what is actually there
+        //  command 2: remounts the overlay file system
+        //      this causes new contents of the lower directory to be included in the overlay file system
+        sysCmd('echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
     }
     // test commands
     // s -w0 -t1 -sGghr --time-style=iso /srv/http/tmp/art
