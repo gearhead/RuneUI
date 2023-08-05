@@ -55,6 +55,8 @@ regdom=$( redis-cli get regdom )
 # shutdown redis
 redis-cli shutdown save
 systemctl stop redis
+# save a copy of the redis database
+cp /var/lib/redis/rune.rdb /var/lib/redis/rune.rdb.copy
 # stop most rune systemd units
 declare -a stop_arr=(ashuffle cmd_async_queue mpd mpdscribble nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk\
     rune_SSM_wrk shairport-sync smb smbd spotifyd udevil upmpdcli)
@@ -66,6 +68,25 @@ bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.co
 # refresh systemd and restart redis
 systemctl daemon-reload
 systemctl start redis
+# check redis is running
+redis_pid=$( pgrep -x redis-server | xargs )
+if [ "$redis_pid" == "" ] ; then
+    # redis failed to start, something wrong with the backup
+    # restore the redis database copy, clean up and reboot
+    cp /var/lib/redis/rune.rdb.copy /var/lib/redis/rune.rdb
+    systemctl start redis
+    /srv/http/command/ui_notify.php 'Restore' 'Partialy failed, some files have been restored' 'simplemessage'
+    # regenerate webradios
+    /srv/http/command/webradiodb.sh
+    rm -f /home/config.txt.diff
+    /srv/http/command/ui_notify.php 'Restore' 'Restarting, please wait...' 'simplemessage'
+    sleep 3
+    /srv/http/command/rune_shutdown reboot
+    reboot
+else
+    # redis has started, remove the redis database copy and continue
+    rm -f /var/lib/redis/rune.rdb.copy
+fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # try to recover changes in the /boot/config.txt
 patch -lN /boot/config.txt /home/config.txt.diff
