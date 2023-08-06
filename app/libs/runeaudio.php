@@ -8638,7 +8638,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
         sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.artist' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Sorry, no details available' ".$cleanLowerDir."/*.artist");
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Sorry, no details available' ".$cleanLowerDir."/*.artist &> /dev/nul");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
@@ -8653,7 +8653,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
         sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' >> '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song");
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song &> /dev/nul");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
@@ -8668,7 +8668,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
         sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' >> '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song");
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song &> /dev/nul");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
