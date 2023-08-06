@@ -1721,14 +1721,22 @@ function getmac($nicname)
     return trim($mac);
 }
 
-function wrk_localBrowser($redis, $action, $args=null)
+function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
 {
     switch ($action) {
         case 'start':
             // start the local browser
+            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '/boot/config.txt'")[0]) {
+                wrk_localBrowser($redis, 'overscan', 1);
+            } else {
+                wrk_localBrowser($redis, 'overscan', 0);
+            }
             if (isset($args) && is_numeric($args)) {
                 $redis->hSet('local_browser', 'enable', $args);
                 wrk_localBrowser($redis, 'enable-splash', $args);
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
             }
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
@@ -1744,11 +1752,8 @@ function wrk_localBrowser($redis, $action, $args=null)
                 ui_notifyError($redis, 'Local Browser', 'Start-up failed, incorrectly configured');
                 break;
             }
-            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '/boot/config.txt'")[0]) {
-                wrk_localBrowser($redis, 'overscan', 1);
-            } else {
-                wrk_localBrowser($redis, 'overscan', 0);
-            }
+            // sometimes x11/chomium fails to start, check it, it starts ok on the second attempt
+            sysCmdAsync($redis, '/srv/http/command/local_browser_check_async.sh');
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
         case 'stop':
@@ -1757,8 +1762,11 @@ function wrk_localBrowser($redis, $action, $args=null)
                 $redis->hSet('local_browser', 'enable', $args);
                 wrk_localBrowser($redis, 'enable-splash', $args);
             }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
-            sysCmd('pgrep -x xinit && export DISPLAY=:0 ; xset dpms force off ; systemctl stop local-browser');
+            sysCmd('pgrep -x xinit && systemctl stop local-browser ; export DISPLAY=:0 ; xset dpms force off');
             sysCmd('pgrep -x weston && systemctl stop local-browser-w');
             break;
         case 'restart':
@@ -1787,6 +1795,9 @@ function wrk_localBrowser($redis, $action, $args=null)
             break;
         case 'zoomfactor':
             $redis->hSet('local_browser', $action, $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             // modify the zoom factor for the chromium browser in /srv/http/.config/chromium-flags.conf
             // chromium scale factor is a decimal 1 = 100% ( we store it as a decimal)
             $filePathName = '/srv/http/.config/chromium-flags.conf';
@@ -1824,12 +1835,18 @@ function wrk_localBrowser($redis, $action, $args=null)
             break;
         case 'rotate':
             $redis->hSet('local_browser', $action, $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             sysCmd('/srv/http/command/raspi-rotate-screen.sh '.$args);
             wrk_localBrowser($redis, 'configure_weston_ini');
             wrk_localBrowser($redis, 'restart');
             break;
         case 'overscan':
             $redis->hSet('local_browser', $action, $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             if ($args){
                 // switch overscan on
                 sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '/boot/config.txt'");
@@ -1844,6 +1861,9 @@ function wrk_localBrowser($redis, $action, $args=null)
         case 'mouse_cursor':
             // configure the mouse cursor for the various windows/browsers environments
             $redis->hSet('local_browser', $action, $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
             if ($args){
                 // switch mouse cursor on for X11
                 $usecursorno = '';
@@ -5302,8 +5322,8 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hDel('spotifyconnect', 'metadata_enabled');
         $redis->hDel('AccessPoint', 'enable');
         // set the default local browser windows and browser type
-        $redis->set('local_browser', 'windows', 'xorg');
-        $redis->set('local_browser', 'browser', 'luakit');
+        $redis->hSet('local_browser', 'windows', 'xorg');
+        $redis->hSet('local_browser', 'browser', 'luakit');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
@@ -5547,7 +5567,7 @@ function wrk_setHwPlatform($redis, $reset=false)
         clearstatcache(true, $filename);
         if (file_exists($filename)) {
             // chromium is installed, use it
-            $redis->set('local_browser', 'browser', 'chromium');
+            $redis->hSet('local_browser', 'browser', 'chromium');
         }
     }
     //
