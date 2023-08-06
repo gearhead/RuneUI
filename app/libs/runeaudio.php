@@ -8457,11 +8457,11 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
 //      still work fine, the trick is not advisable for critical content
 {
     // initialise variables
+    $cleaned = false;
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     if (!is_dir($artDir)) {
         return;
     }
-    $cleaned = false;
     $overlay_art_cache = $redis->get('overlay_art_cache');
     // if required sync the in-memory tmpfs to the overly cache
     if ($overlay_art_cache) {
@@ -8737,15 +8737,29 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             }
         }
     }
-    if ($cleaned) {
+    //
+    if ($cleaned || $redis->get('cleaned_last_time')) {
+        // this runs when the upper file system has been changed within this function, when files are deleted
+        //  from the lower file system within this funcuion and on the first following run when nothing has been changed
+        //  there is no need to run this after synchronising the upper file system to the lower
         // this is the trick:
-        //  command 1: forces the kernel to drop caches, dentries and i-node data
-        //      this causes the overlay file system to forget its previous contents, it will
+        //  command 1: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
+        //      this causes the overlay file system to forget its previous contents, it will then
         //      rebuild its information based on what is actually there
+        //          Note: since we don't use a pagefile its probably enough to use 'echo 2 > /proc/sys/vm/drop_caches'
         //  command 2: remounts the overlay file system
-        //      this causes new contents of the lower directory to be included in the overlay file system
+        //      this causes new content of the lower directory to be included in the overlay file system and deleted
+        //      content of the lower directory to be omitted
         sysCmd('echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
     }
+    if ($cleaned) {
+        // do it again on the following run when nothing has been changed
+        //  it seems to provide better results
+        $redis->set('cleaned_last_time', 1);
+    } else {
+        $redis->set('cleaned_last_time', 0);
+    }
+    //
     // test commands
     // s -w0 -t1 -sGghr --time-style=iso /srv/http/tmp/art
     // du /srv/http/tmp/art | xargs
