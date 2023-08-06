@@ -561,14 +561,14 @@ while (true) {
                     if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
                         // strip any leading & trailing zero's
                         $zoomfactor = trim($zoomfactor, '0');
-                        wrk_localBrowser($redis, $job->action, $zoomfactor);
+                        wrk_localBrowser($redis, $job->action, $zoomfactor, $jobID);
                     } else {
                         $redis->sRem('w_lock', $jobID);
                         ui_notifyError($redis, 'Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
                         break;
                     }
                 } else {
-                    wrk_localBrowser($redis, $job->action, $job->args);
+                    wrk_localBrowser($redis, $job->action, $job->args, $jobID);
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1182,9 +1182,8 @@ while (true) {
                 sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
                 break;
             case 'display_off':
-                sysCmd('systemctl stop local-browser');
-                sysCmd('export DISPLAY=:0; xset dpms force off');
                 $redis->sRem('w_lock', $jobID);
+                wrk_localBrowser($redis, 'stop');
                 break;
             case 'security':
                 if (!isset($job->args)) {
