@@ -5302,8 +5302,8 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hDel('spotifyconnect', 'metadata_enabled');
         $redis->hDel('AccessPoint', 'enable');
         // set the default local browser windows and browser type
-        $redis->set('local_browser', 'windows', 'xorg');
-        $redis->set('local_browser', 'browser', 'luakit');
+        $redis->hSet('local_browser', 'windows', 'xorg');
+        $redis->hSet('local_browser', 'browser', 'luakit');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
@@ -5547,7 +5547,7 @@ function wrk_setHwPlatform($redis, $reset=false)
         clearstatcache(true, $filename);
         if (file_exists($filename)) {
             // chromium is installed, use it
-            $redis->set('local_browser', 'browser', 'chromium');
+            $redis->hSet('local_browser', 'browser', 'chromium');
         }
     }
     //

@@ -122,23 +122,26 @@ $redis->del('w_message');
 $redis->set('waitSyWrk', 0);
 
 // check Architecture
-list($arch, $model) = wrk_getHwPlatform($redis);
-runelog('detected architecture: ', $arch);
-runelog('detected model       : ', $model);
-if ((($arch === '02') || ($arch === '08')) && (($arch_db === '02') || ($arch_db === '08'))) {
-    // raspberry PI both for previous and current values
-    if ($model_db !== $model) {
-        // model has changed
-        runelog('architecture mismatch: registered Model:'.$model_db.' detected: ', $model);
-        wrk_setHwPlatform($redis, true);
+if ($playerid_db != '') {
+    // dont run this when player ID is not set
+    list($arch, $model) = wrk_getHwPlatform($redis);
+    runelog('detected architecture: ', $arch);
+    runelog('detected model       : ', $model);
+    if ((($arch === '02') || ($arch === '08')) && (($arch_db === '02') || ($arch_db === '08'))) {
+        // raspberry PI both for previous and current values
+        if ($model_db !== $model) {
+            // model has changed
+            runelog('architecture mismatch: registered Model:'.$model_db.' detected: ', $model);
+            wrk_setHwPlatform($redis, true);
+        }
+    } else if (($arch_db !== $arch) || ($model_db !== $model)) {
+        // previous and/or current architecture is not a raspberry pi, and the hardware or model type has changed
+        runelog('architecture mismatch: registered HWID: '.$arch_db.' detected: ', $arch);
+        // clear the hardware specific settings
+        wrk_getHwPlatform($redis, true);
+        // force first time boot routine by clearing $playerid_db
+        $playerid_db = '';
     }
-} else if (($arch_db !== $arch) || ($model_db !== $model)) {
-    // previous and/or current architecture is not a raspberry pi, and the hardware or model type has changed
-    runelog('architecture mismatch: registered HWID: '.$arch_db.' detected: ', $arch);
-    // clear the hardware specific settings
-    wrk_getHwPlatform($redis, true);
-    // force first time boot routine by clearing $playerid_db
-    $playerid_db = '';
 }
 
 // check git branch
@@ -159,7 +162,7 @@ if ($playerid_db === '') {
     sysCmd('/srv/http/db/redis_datastore_setup reset');
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
-    wrk_setHwPlatform($redis);
+    wrk_setHwPlatform($redis, true);
     // Set audio on off to its redis value
     wrk_audio_on_off($redis, $redis->get('audio_on_off'));
     // reset netconf to defaults
