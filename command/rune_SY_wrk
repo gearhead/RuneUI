@@ -122,23 +122,26 @@ $redis->del('w_message');
 $redis->set('waitSyWrk', 0);
 
 // check Architecture
-list($arch, $model) = wrk_getHwPlatform($redis);
-runelog('detected architecture: ', $arch);
-runelog('detected model       : ', $model);
-if ((($arch === '02') || ($arch === '08')) && (($arch_db === '02') || ($arch_db === '08'))) {
-    // raspberry PI both for previous and current values
-    if ($model_db !== $model) {
-        // model has changed
-        runelog('architecture mismatch: registered Model:'.$model_db.' detected: ', $model);
-        wrk_setHwPlatform($redis, true);
+if ($playerid_db != '') {
+    // dont run this when player ID is not set
+    list($arch, $model) = wrk_getHwPlatform($redis);
+    runelog('detected architecture: ', $arch);
+    runelog('detected model       : ', $model);
+    if ((($arch === '02') || ($arch === '08')) && (($arch_db === '02') || ($arch_db === '08'))) {
+        // raspberry PI both for previous and current values
+        if ($model_db !== $model) {
+            // model has changed
+            runelog('architecture mismatch: registered Model:'.$model_db.' detected: ', $model);
+            wrk_setHwPlatform($redis, true);
+        }
+    } else if (($arch_db !== $arch) || ($model_db !== $model)) {
+        // previous and/or current architecture is not a raspberry pi, and the hardware or model type has changed
+        runelog('architecture mismatch: registered HWID: '.$arch_db.' detected: ', $arch);
+        // clear the hardware specific settings
+        wrk_getHwPlatform($redis, true);
+        // force first time boot routine by clearing $playerid_db
+        $playerid_db = '';
     }
-} else if (($arch_db !== $arch) || ($model_db !== $model)) {
-    // previous and/or current architecture is not a raspberry pi, and the hardware or model type has changed
-    runelog('architecture mismatch: registered HWID: '.$arch_db.' detected: ', $arch);
-    // clear the hardware specific settings
-    wrk_getHwPlatform($redis, true);
-    // force first time boot routine by clearing $playerid_db
-    $playerid_db = '';
 }
 
 // check git branch
@@ -159,7 +162,7 @@ if ($playerid_db === '') {
     sysCmd('/srv/http/db/redis_datastore_setup reset');
     // register HW architectureID and playerID
     runelog('register HW architectureID and playerID');
-    wrk_setHwPlatform($redis);
+    wrk_setHwPlatform($redis, true);
     // Set audio on off to its redis value
     wrk_audio_on_off($redis, $redis->get('audio_on_off'));
     // reset netconf to defaults
@@ -558,14 +561,14 @@ while (true) {
                     if (($zoomfactor >= 0.1) && ($zoomfactor <= 10)) {
                         // strip any leading & trailing zero's
                         $zoomfactor = trim($zoomfactor, '0');
-                        wrk_localBrowser($redis, $job->action, $zoomfactor);
+                        wrk_localBrowser($redis, $job->action, $zoomfactor, $jobID);
                     } else {
                         $redis->sRem('w_lock', $jobID);
                         ui_notifyError($redis, 'Local browser', 'Display zoom factor invalid: '.$job->args.' Enter a value between 0.1 and 10');
                         break;
                     }
                 } else {
-                    wrk_localBrowser($redis, $job->action, $job->args);
+                    wrk_localBrowser($redis, $job->action, $job->args, $jobID);
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1179,9 +1182,8 @@ while (true) {
                 sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
                 break;
             case 'display_off':
-                sysCmd('systemctl stop local-browser');
-                sysCmd('export DISPLAY=:0; xset dpms force off');
                 $redis->sRem('w_lock', $jobID);
+                wrk_localBrowser($redis, 'stop');
                 break;
             case 'security':
                 if (!isset($job->args)) {
