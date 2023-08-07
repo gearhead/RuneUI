@@ -42,13 +42,13 @@ function updateOS($redis) {
     // even if an image is reset all patches will be applied sequentially
     // patches should always be repeatable without causing problems
     // when a new image is created the patch level will always be set to zero, the following code should also be reviewed
-    // if ($redis->get('buildversion') === 'janui-20230823') {
+    // if ($redis->get('buildversion') === 'janui-20230805') {
         // // only applicable for a specific build
         // // final update for this build - move to a new buildversion
-        // $count = sysCmd("grep -c -i 'janui-20230823' '/srv/http/db/redis_datastore_setup'");
+        // $count = sysCmd("grep -c -i 'janui-20230805' '/srv/http/db/redis_datastore_setup'");
         // if ($count[0] == 0) {
             // // the new version of /srv/http/db/redis_datastore_setup has been delivered via a git pull so use it
-            // // carry out/repeat all previous 'janui-20230823' updates first
+            // // carry out/repeat all previous 'janui-20230805' updates first
             // sysCmd('cp /var/www/app/config/defaults/nginx-prod.conf /etc/nginx/nginx-prod.conf');
             // sysCmd('rm -f /etc/nginx/nginx.conf');
             // sysCmd('ln -s /etc/nginx/nginx-prod.conf /etc/nginx/nginx.conf');
@@ -68,7 +68,7 @@ function updateOS($redis) {
         // }
         // unset($count);
     // }
-    // if ($redis->get('buildversion') === 'janui-20230823') {
+    // if ($redis->get('buildversion') === 'janui-20230805') {
         // // only applicable for a specific build
         // if ($redis->get('patchlevel') == 0) {
             // // 1st update
