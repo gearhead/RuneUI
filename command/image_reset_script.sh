@@ -198,6 +198,23 @@ rm -rf /var/lib/bluetooth/*
 # remove core dumps
 rm /var/lib/systemd/coredump/*.zst
 #
+# reset the mpd database and state file
+systemctl start mpd
+mpc stop
+mpc clear
+mpc rescan
+updating=$( mpc | grep -ic 'Updating' )
+cnt=7
+while [ "$updating" != "0" ] && [ $(( cnt-- )) -gt 0 ] ; do
+    sleep 2
+    updating=$( mpc | grep -ic 'Updating' )
+    (( cnt-- ))
+    if [ $cnt -le 0 ] ; then 
+        break
+    fi
+done
+systemctl stop mpd
+#
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
 ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
