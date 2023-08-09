@@ -802,10 +802,12 @@ if [ "$1" == "full" ] ; then
     cd /boot
     sync
     cat /dev/zero > zero.file
+    sync
     rm zero.file
     sync
     cd /
     cat /dev/zero > zero.file
+    sync
     rm zero.file
     sync
     cd /home
