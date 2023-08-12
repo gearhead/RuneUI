@@ -349,11 +349,11 @@ fi
 # redis reset
 # remove the redis variables used for:
 #   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
-#       lyrics (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
+#       lyric (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
 #       airplay (airplay), samba (samba), debugdata (debugdata), locks (lock), first* (first), local* (local), access* (access)
 #       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache, bluetooth
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyrics|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache|bluetooth' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyric|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache|bluetooth' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
