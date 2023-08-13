@@ -12696,3 +12696,78 @@ function start_mpd($redis)
     }
     sysCmd('pgrep -x mpd || systemctl start mpd.socket');
 }
+
+// function to strip sysncronised encoding from lyrics
+function strip_synchronised_lyrics($lyrics)
+// the parameter lyrics is the full text of the lyrics including line ends
+// the function returns the lyrics with HTML line breaks (<br>)
+{
+    // first convert line ends into standard Linux
+    //  Windows to Linux
+    $lyrics = str_replace("\r\n", "\n", $lyrics);
+    //  Mac to Linux
+    $lyrics = str_replace("\r", "\n", $lyrics);
+    // replace whitespace with one space
+    $lyrics = preg_replace("/[ \0\f\t\v]+/", " ", $lyrics);
+    // remove leading and trailing spaces
+    $lyrics = trim(preg_replace("/[ \0\f\t\v]*\n[ \0\f\t\v]*/", "\n", $lyrics));
+    // remove a country code if present, always on the first line, format xxx||<lyric>
+    if (strpos($lyrics, '||') == 3) {
+        $lyrics = substr($lyrics, 5);
+    }
+    // add a leading and trailing new line
+    $lyrics = "\n".$lyrics."\n";
+    // remove timing information containing 'Walaoke extension: gender', format [mm:ss.xx]D: (the D can also be a F or a M)
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/", "\n", $lyrics);
+    // remove standard timing information, format [mm:ss.xx]
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
+    // remove timing information containing 'A2 extension: word time tags:', format <mm:ss.xx>
+    $lyrics = preg_replace("/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/", ' ', $lyrics);
+    // convert it to an array to process metadata
+    $lyrics = explode("\n", $lyrics);
+    $artist = '';
+    $title = '';
+    $retval = '';
+    foreach ($lyrics as $lyric) {
+        // replace whitespace with one space & trim
+        $lyric = trim(preg_replace("/[ \0\f\t\v]+/", ' ', $lyric));
+        $lyric_test = ' '.strtolower($lyric);
+        if (strpos($lyric_test, '[ar:') == 1) {
+            $artist = trim(rtrim(substr($lyric, 4), ']'));
+            continue;
+        }
+        if (strpos($lyric_test, '[ti:') == 1) {
+            $title = trim(rtrim(substr($lyric, 4), ']'));
+            continue;
+        }
+        if (preg_match("/\[..\:.*\]/", $lyric_test) == 1) {
+            continue;
+        }
+        if (strpos($lyric_test, '[length:') == 1) {
+            continue;
+        }
+        if (strpos($lyric_test, '[offset:') == 1) {
+            continue;
+        }
+        $retval .= $lyric."\n";
+    }
+    $retval = trim($retval);
+    if ($retval) {
+        if ($artist && $title) {
+            $retval = $artist."\n".$title."\n\n".$retval."\n";
+        } else if ($title) {
+            $retval = $title."\n\n".$retval."\n";
+        } else {
+            $retval = $retval."\n";
+        }
+        $retval = str_replace("\n", '<br>', $retval);
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        // this could introduce double spaces, replace whitespace with one space
+        $retval = preg_replace("/[\s]+/", " ", $retval);
+    } else {
+        $retval = '';
+    }
+    return $retval;
+}

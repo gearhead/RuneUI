@@ -174,7 +174,6 @@ function redisDatastore($redis,$action) {
             $redis->set('first_time_boot', 0);
             $redis->set('overlay_art_cache', 0);
             $redis->del('cleancache');
-            $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -287,7 +286,6 @@ function redisDatastore($redis,$action) {
             $redis->set('coverart', 1);
             $redis->set('UIorder', 'TAV');
             $redis->set('artist-info', 1);
-            $redis->set('lyric', 1);
             $redis->set('playmod', 0);
             $redis->set('ramplay', 0);
             // last.fm
@@ -319,6 +317,10 @@ function redisDatastore($redis,$action) {
             // info
             $redis->del('soxrmpdonoff');
             $redis->set('remoteSStime', -1);
+            // lyrics
+            $redis->hSet('lyrics', 'lyric_file', 0);
+            $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, will be trimmed, lower case will also be used
+            $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case, will be trimmed
             // album and artist art
             $redis->set('remoteSSbigart', 'album');
             $redis->set('albumart_image_dir', '/srv/http/tmp/art');
@@ -502,8 +504,6 @@ function redisDatastore($redis,$action) {
             $redis->exists('underclocking') || $redis->set('underclocking', 0);
             $redis->exists('first_time_boot') || $redis->set('first_time_boot', 0);
             $redis->exists('overlay_art_cache') || $redis->set('overlay_art_cache', 0);
-            $redis->exists('omit_lyrics') || $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
-
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing
@@ -623,9 +623,12 @@ function redisDatastore($redis,$action) {
             $redis->exists('coverart') || $redis->set('coverart', 1);
             $redis->exists('UIorder') || $redis->set('UIorder', 'TAV');
             $redis->exists('artist-info') || $redis->set('artist-info', 1);
-            $redis->exists('lyric') || $redis->set('lyric', 1);
             $redis->exists('playmod') || $redis->set('playmod', 0);
             $redis->exists('ramplay') || $redis->set('ramplay', 0);
+            // lyrics
+            $redis->hExists('lyrics', 'lyric_file') || $redis->hSet('lyrics', 'lyric_file', 0);
+            $redis->hExists('lyrics', 'lyric_tags') || $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, lower case will also be used
+            $redis->hExists('lyrics', 'omit_lyrics') || $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case
             // last.fm
             $redis->hExists('lastfm', 'enable') || $redis->hSet('lastfm', 'enable', 0);
             $redis->hExists('lastfm', 'username') || $redis->hSet('lastfm', 'username', '');

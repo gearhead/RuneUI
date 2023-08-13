@@ -388,6 +388,56 @@
                     </div>
                 </div>
             </div>
+            <legend>Lyrics - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label"></label>
+                    <div class="col-sm-10">
+                        <span class="help-block">Lyrics searches are carried out as follows:<br>
+                        1. Search for lyrics in lyrics files (when enabled, see below)<br>
+                        2. Search for lyrics in metadata tags (the tag names to be searched are specified below)<br>
+                        3. Search Internet (except when when the song is tagged with one of the omitted genres, see below)<br>
+                        The first successful search results are used. Lyrics are stripped of any synchronised encoding information
+                        and non-text characters before being presented. Synchronised lyrics are not yet supported<br></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="lyric_file">Search for Lyrics in Lyrics Files</label>
+                    <div class="col-sm-10">
+                        <label class="switch-light well" onclick="">
+                            <input id="lyric_file" name="mode[lyrics][lyric_file]" type="checkbox" value="1"<?php if((isset($this->lyrics['lyric_file'])) && ($this->lyrics['lyric_file'])): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                        <span class="help-block">Lyrics files have the same name and location as the music files in your collection.
+                        The file extention for lyrics files is <strong>.lrc</strong> or <strong>.LRC</strong>. Setting this option
+                        <strong>On</strong> will search for these local files whenever a song is played. <i>Set it <strong>Off</strong>
+                        when you do not use lyrics files</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="lyric_tags">Search for Lyrics in Music Metadata Tags</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="text" id="lyric_tags" name="mode[lyrics][lyric_tags]" value="<?=$this->lyrics['lyric_tags'] ?>" data-trigger="change">
+                        <span class="help-block">Specifies the music metadata tags in which to search for lyrics. The tag names are
+                        separated by commas. A search for lyrics content will take place for the specified tag names plus these tags
+                        names in lower case. The tags are searched in the order specified. Remove all the tags to disable. <i>There
+                        is little overhead in this process as a metadata search for album art is always carried out. There is no real
+                        standard for the tags which contain lyrics, the default values
+                        (LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS) have all been used in the past</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="omit_lyrics">Omitted Genres for Lyrics</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="text" id="omit_lyrics" name="mode[lyrics][omit_lyrics]" value="<?=$this->lyrics['omit_lyrics'] ?>" data-trigger="change">
+                        <span class="help-block">Specifies the genres for which no internet lyrics search will take place. The
+                        matching is case insensitive and the genre names are specified lower case, separated by commas. A partial
+                        match, whereby the specified genre matches a part of the genre name of the song is also treated as a match
+                        and no lyric search will take place. <i>The purpose is to specify music genres where lyrics on internet rarely
+                        exists or the music is primarily instrumental</i></span>
+                    </div>
+                </div>
+            </div>
             <legend>Airplay - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
