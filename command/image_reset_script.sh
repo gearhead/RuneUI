@@ -32,7 +32,7 @@
 #  date: October 2020
 #
 set -x # echo all commands to cli
-set +e # continue on error
+set +e # continue on errors
 cd /home
 #
 # determine the OS
@@ -50,12 +50,12 @@ else
 fi
 #---
 # Before running the script...
-# Connect via Wired ethernet, remove all WiFi profile
-# Dismount all NAS and USB sources, clear all NAS information. Unplug all USB decvice
+# Connect via Wired ethernet, remove all WiFi profiles
+# Dismount all NAS and USB sources, clear all NAS information. Unplug all USB decvices
 # Reset the image using the following commands, some commands may fail (e.g. local-browser not installed), no problem
 #
 #
-# clean up any no longer valid mount
+# clean up any no longer valid mounts
 udevil clean
 #
 # clear Bluetooth cache
@@ -63,15 +63,15 @@ udevil clean
 systemctl start bluetooth
 # loop until bluetoothctl gives a non-error response (give up after 20 seconds)
 count=3
-timeout 5 bluetoothctl device
+timeout 5 bluetoothctl devices
 until [ $? -eq 0 ] || (( count-- <= 0 )) ; do
     # loop for 3 times to allow the bluetooth service to start
     # echo $count
     # echo $?
     sleep 2
-    timeout 5 bluetoothctl device
+    timeout 5 bluetoothctl devices
 done
-# now get a list of bluetooth device
+# now get a list of bluetooth devices
 btdevices=$( timeout 5 bluetoothctl devices )
 # for each device disconnect and remove (now max 25 seconds since starting the bluetooth sevice)
 for i in "$btdevices" ; do
@@ -88,55 +88,55 @@ rm -rf /var/lib/bluetooth/*
 #
 # set up services and stop them
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
-declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan
-    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile haveged hostapd llmnrd
-    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff
-    plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd
+declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
+    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
+    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff\
+    plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd\
     systemd-homed systemd-networkd udevil upmpdcli upower winbind winbindd)
-declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mpdversion nginx redis rune_SY_wrk sshd systemd-journald
+declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
     systemd-resolved systemd-timesyncd udevil)
-declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent
-    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile
-    haveged llmnrd local-browser local-browser-w mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk
-    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil
+declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
+    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile\
+    haveged llmnrd local-browser local-browser-w mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
+    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil\
     upmpdcli upower winbind winbindd)
-declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed
+declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed\
     systemd-logind upower)
 # declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
 #
-# stop specified service
+# stop specified services
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 #
-# unmask masked services, do this first otherwise other settings are ignored for masked service
+# unmask masked services, do this first otherwise other settings are ignored for masked services
 alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
 for i in $alreadymasked ; do
    systemctl unmask "$i"
 done
 #
-# disable specified service
+# disable specified services
 for i in "${disable_arr[@]}" ; do
    systemctl disable "$i"
 done
 #
-# enable specified service
+# enable specified services
 for i in "${enable_arr[@]}" ; do
    systemctl enable "$i"
 done
 #
-# mask specified service
+# mask specified services
 for i in "${mask_arr[@]}" ; do
    systemctl mask "$i"
 done
 #
-# unmask specified service
+# unmask specified services
 for i in "${unmask_arr[@]}" ; do
    systemctl unmask "$i"
 done
 #
-# stop specified service
+# stop specified services
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
@@ -150,12 +150,12 @@ done
 export DISPLAY=:0
 xset dpms force off
 #
-# unmount the local an network device
+# unmount the local an network devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
-# clean up any no longer valid mount
+# clean up any no longer valid mounts
 udevil clean
 #
 # set up connman
@@ -176,10 +176,10 @@ rm -fr /home/rern
 rm -f ./install.sh
 rm -f /usr/local/bin/uninstall_addo.sh
 rm -f /usr/local/bin/uninstall_enha.sh
-redis-cli del addon
+redis-cli del addons
 redis-cli del addo
 #
-# remove user file
+# remove user files
 rm -rf /root/*
 rm -f /srv/http/.config/debug.*
 rm -f /srv/http/.config/noreboot
@@ -189,13 +189,13 @@ rm -rf /root/.*
 rm -rf /srv/http/test
 rm -rf /mnt/MPD/LocalStorage/*
 rm -rf /mnt/MPD/Webradio/*
-rm -rf /mnt/MPD/Webradio/.pl
+rm -rf /mnt/MPD/Webradio/.pls
 rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
 #
-# remove core dump
+# remove core dumps
 rm /var/lib/systemd/coredump/*.zst
 #
 # reset the mpd database and state file
@@ -217,7 +217,7 @@ systemctl stop mpd
 #
 # keep the old nic name format (e.g. eth0, eth1, wlan0, wlan1, etc.)
 # remove this symlink to enable the new 'predictable' format
-ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rule
+ln -sfT /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 #
 # the standard location of /etc/X11/xorg.conf.d has moved to /usr/share/X11/xorg.conf.d
 # copy any existing files to the new location and delete the old location
@@ -241,24 +241,24 @@ fi
 #
 # remove the art directory
 dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
-# remove a trailing / if it exist
+# remove a trailing / if it exists
 dirName="${dirName%/}"
 rm -rf "$dirName"
 #
-# remove backup work directory and any content
+# remove backup work directory and any contents
 dirName=$( redis-cli get backup_dir | tr -s / | xargs )
-# remove a trailing / if it exist
+# remove a trailing / if it exists
 dirName="${dirName%/}"
 rm -rf "$dirName"
 #
-# remove mac spoofing script
+# remove mac spoofing scripts
 rm -f /etc/systemd/system/macfix_*.service
 rm -f /etc/systemd/system/multi-user.target.wants/macfix_*.service
 #
 # remove a problem looping symlink in the vendor files if it exists (created erroneously in a previous version)
 rm -f /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/getid3
 #
-# update local git and clean up any stashe
+# update local git and clean up any stashes
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5beforeRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
 md5beforeSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
@@ -360,7 +360,7 @@ done
 # run the setup script with parameter reset
 php -f /srv/http/db/redis_datastore_setup reset
 # refresh the audio card database
-php -f /srv/http/db/redis_acards_detail
+php -f /srv/http/db/redis_acards_details
 # always clear player ID and hardware platform ID
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
@@ -373,7 +373,7 @@ fi
 # install spotifyd
 /srv/http/command/spotifyd-install.sh
 #
-# remove any samba password
+# remove any samba passwords
 pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 #
 # reset root password and save the date set
@@ -408,7 +408,7 @@ for i in "${audiousers[@]}" ; do
     fi
 done
 #
-# make sure that Device-specific users are member of the audio, disk, floppy, optical and storage group
+# make sure that Device-specific users are member of the audio, disk, floppy, optical and storage groups
 declare -a devusers=(udevil)
 declare -a devgroups=(audio disk floppy optical storage)
 for i in "${devusers[@]}" ; do
@@ -438,7 +438,7 @@ done
     # fi
 # done
 #
-# the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run script
+# the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
 # also disable logins by locking the account
 usermod -L -s /usr/bin/bash spotifyd
 #
@@ -453,7 +453,7 @@ if [ -f "/bin/xinit" ] ; then
     /srv/http/command/waveshare_install.sh
 fi
 #
-# remove the network configuration files, these could contain Wi-Fi password
+# remove the network configuration files, these could contain Wi-Fi passwords
 #   for the connman and iwd user files, connman needs to be stopped
 systemctl stop connman
 # get the networks known to iwd
@@ -463,7 +463,7 @@ for i in "$networks" ; do
     # echo "'$i'"
     wctl known-networks "$i" forget
 done
-# delete the connman configuration file
+# delete the connman configuration files
 rm -rf /var/lib/connman/*
 # delete the iwd configuration files (there should be none after forgetting the known networks)
 rm -rf /var/lib/iwd/*
@@ -473,10 +473,10 @@ cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
 systemctl start connman
 #
 # reset the service and configuration files to the distribution standard
-# the following commands should also be run after a system update or any package update
+# the following commands should also be run after a system update or any package updates
 rm -f /etc/samba/*.conf
 #rm -f /etc/netctl/*
-# copy default settings and service
+# copy default settings and services
 cp -RTv /srv/http/app/config/defaults/etc/. /etc
 cp -RTv /srv/http/app/config/defaults/usr/. /usr
 cp -RTv /srv/http/app/config/defaults/var/. /var
@@ -488,14 +488,14 @@ cp -RTv /srv/http/app/config/defaults/boot/. /boot
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
 # generate a default mpd --version file
 mpd --version | grep -v '^$' > /srv/http/.config/mpdversion.txt
-# create required directorie
+# create required directories
 mkdir /root/.ssh
 mkdir -p /run/bluealsa-monitor
 touch /run/bluealsa-monitor/asoundrc
-# remove specific file
-rm /etc/udev/rules.d/99-runeaudio.rule
-rm /etc/udev/rules.d/70-bluealsa.rule
-rm /etc/udev/rules.d/90-touchscreen.rule
+# remove specific files
+rm /etc/udev/rules.d/99-runeaudio.rules
+rm /etc/udev/rules.d/70-bluealsa.rules
+rm /etc/udev/rules.d/90-touchscreen.rules
 # if certain udev rules files are not present use the defaults, otherwise remove the defaults (these files could be created in the image)
 for f in /etc/udev/rules.d/*.default ;  do
     f1=${f::-8}
@@ -507,7 +507,7 @@ for f in /etc/udev/rules.d/*.default ;  do
         mv "$f" "$f1"
     fi
 done
-# make appropriate link
+# make appropriate links
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
@@ -523,7 +523,7 @@ elif [ $pythonPlugin -ne 1 ] && [ $python3Plugin -eq 1 ] ; then
     # echo 'python3'
     sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini
 fi
-#   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directorie
+#   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
 if [ "$os" == "RPiOS" ] ; then
     php_path=$( find /usr/*bin -name php-fpm* )
@@ -602,7 +602,7 @@ if [ "$volitileFound" == "0" ] ; then
 fi
 #
 # modify the php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
-#   the file can be in various places, there could be duplicate
+#   the file can be in various places, there could be duplicates
 php_ini_files=$( grep -Ril '^[\s]*opcache.memory_consumption=' /etc/php | grep -i 'php.ini$' )
 for f in $php_ini_files ; do
     sed -i '/^[\s]*opcache.memory_consumption=/c\opcache.memory_consumption=32' "$f"
@@ -630,7 +630,7 @@ fi
 # so singleton processing is irrelevant for us, just (un)comment the next line
 rm /srv/http/.config/chromium/Singleton*
 #
-# make sure that all files are unix format and have the correct ownerships and protection
+# make sure that all files are unix format and have the correct ownerships and protections
 /srv/http/command/convert_dos_files_to_unix_script.sh
 # generate locales and missing ssh keys for a full image reset
 if [ "$1" == "full" ] ; then
@@ -645,7 +645,7 @@ if [ "$1" == "full" ] ; then
         pacman -Sc --noconfirm
         # remove ALL files from the package cache
         # pacman -Scc --noconfirm
-        # rank mirrors and refresh repo'
+        # rank mirrors and refresh repo's
         /srv/http/command/rank_mirrors.sh
     elif [ "$od" == "RPiOS" ] ; then
         apt clean
@@ -657,7 +657,7 @@ if [ "$1" == "full" ] ; then
     rm /srv/http/app/libs/*.save
 fi
 #
-# reset systemd services so that any cached files are replaced by the latest one
+# reset systemd services so that any cached files are replaced by the latest ones
 systemctl daemon-reload
 #
 # reset host information (icon-name, chassis and hostname)
@@ -716,7 +716,7 @@ iw reg set 00
 sync
 redis-cli save
 redis-cli shutdown save
-systemctl stop redi
+systemctl stop redis
 sync
 #
 # unmount the overlay cache filesystem and remove the cache disk partition
@@ -764,27 +764,27 @@ mount http-tmp
 # many of the remaining lines in this section fail! this is not a problem
 # rune-logs > /var/log/runeaudio (after shutting down redis! without remount)
 rm -r /var/log/runeaudio/*
-umount rune-log
+umount rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
 chown root:root /var/log/runeaudio
 chmod 777 /var/log/runeaudio
 # logs > /var/log
 rm -r /var/log/*
-umount log
+umount logs
 rm -r /var/log
 mkdir /var/log
 chown root:root /var/log
 chmod 777 /var/log
-mount log
+mount logs
 # rune-logs > /var/log/runeaudio (again after logs, with remount)
 rm -r /var/log/runeaudio/*
-umount rune-log
+umount rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
 chown root:root /var/log/runeaudio
 chmod 777 /var/log/runeaudio
-mount rune-log
+mount rune-logs
 # http-tmp > /var/log/runeaudio (again after logs, with remount)
 rm -r /srv/http/tmp/*
 umount http-tmp
@@ -813,7 +813,7 @@ if [ "$1" == "full" ] ; then
     cd /home
 fi
 #
-# remove connman wired network configuration file
+# remove connman wired network configuration files
 #   dont stop connman
 rm -rf /var/lib/connman/*
 # copy the default connman config file
