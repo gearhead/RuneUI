@@ -236,6 +236,31 @@ if (isset($_POST)) {
                 $mpdChange = true;
             }
         }
+        if (isset($_POST['mode']['lyrics'])) {
+            if (!isset($_POST['mode']['lyrics']['lyric_file']) || !$_POST['mode']['lyrics']['lyric_file']) {
+                $_POST['mode']['lyrics']['lyric_file'] = 0;
+            }
+            if (isset($_POST['mode']['lyrics']['lyric_file']) && ($_POST['mode']['lyrics']['lyric_file'] != $redis->hGet('lyrics', 'lyric_file'))) {
+                $redis->hSet('lyrics', 'lyric_file', $_POST['mode']['lyrics']['lyric_file']);
+            }
+            if (isset($_POST['mode']['lyrics']['lyric_tags']) && ($_POST['mode']['lyrics']['lyric_tags'] != $redis->hGet('lyrics', 'lyric_tags'))) {
+                // reformat comma's to comma space in the string
+                $_POST['mode']['lyrics']['lyric_tags'] = preg_replace("/[\s]\,[\s]*/", ', ', $_POST['mode']['lyrics']['lyric_tags']);
+                // convert whitespace to a single space then trim comma's and spaces
+                $_POST['mode']['lyrics']['lyric_tags'] = trim(preg_replace("/[\s]+/", ' ', $_POST['mode']['lyrics']['lyric_tags']), ', ');
+                $redis->hSet('lyrics', 'lyric_tags', $_POST['mode']['lyrics']['lyric_tags']);
+            }
+            if (isset($_POST['mode']['lyrics']['omit_lyrics']) && ($_POST['mode']['lyrics']['omit_lyrics'] != $redis->hGet('lyrics', 'omit_lyrics'))) {
+                // reformat comma's to comma space in the string
+                $_POST['mode']['lyrics']['omit_lyrics'] = preg_replace("/[\s]*\,[\s]*/", ', ', $_POST['mode']['lyrics']['omit_lyrics']);
+                // convert whitespace to a single space then trim comma's and spaces
+                $_POST['mode']['lyrics']['omit_lyrics'] = trim(preg_replace("/[\s]+/", ' ', $_POST['mode']['lyrics']['omit_lyrics']), ', ');
+                // set to lower case before saving
+                $redis->hSet('lyrics', 'omit_lyrics', strtolower($_POST['mode']['lyrics']['omit_lyrics']));
+            }
+            // restart the rune_MPDEM_wrk service if it is running
+            sysCmd('pgrep -x rune_MPDEM_wrk && systemctl restart rune_MPDEM_wrk');
+        }
     }
     // update the MPD configuration if required
     if ($mpdChange) {
@@ -333,6 +358,7 @@ $template->WSencoder = $redis->hGet('webstreaming', 'encoder');
 $template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');
 $template->conf = $redis->hGetAll('mpdconf');
 $template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
+$template->lyrics = $redis->hGetAll('lyrics');
 
 // debug
 // var_dump($template->dev);

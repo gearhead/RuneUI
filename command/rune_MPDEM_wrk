@@ -70,15 +70,41 @@ define('APP', '/srv/http/app/');
 // get the album art directory and url dir
 $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
 $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+$mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
+//
 if ($redis->get('remoteSSbigart') === 'album') {
     $bigartIsAlbum = true;
 } else {
     $bigartIsAlbum = false;
 }
-$statusCnt = 10;
-$omit_lyrics = explode(' ', $redis->get('omit_lyrics'));
-$mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
+// load the lyrics tags, comma delimited, possibly with quotes, nomally lowwer case
+$lyricsTags = explode(',', $redis->hGet('lyrics', 'lyrics_tags'));
+foreach ($lyricsTags as $key => &$lyricsTag) {
+    // remove quotes from the tag and trim
+    $lyricsTag = trim(preg_replace('/[\"\']/', '', $lyricsTag));
+    // skip and remove empty tag names
+    if (!$lyricsTag) {
+        unset($lyricsTags[$key]);
+    }
+}
+// get the genres where lyrics are omitted unless they are supplied as embedded tags, comma delimited, possibly with quotes
+$omit_lyrics = explode(',', $redis->hGet('lyrics', 'omit_lyrics'));
+foreach ($omit_lyrics as $key => &$omit_lyric) {
+    // remove quotes from the tag and trim
+    $omit_lyric = trim(preg_replace("/[\"\']/", '', $omit_lyric));
+    // skip and remove empty tag names
+    if (!$omit_lyrics) {
+        unset($omit_lyrics[$key]);
+    }
+}
+// process lyrics files?
+if ($redis->hGet('lyrics', 'lyric_file')) {
+    $procesLyricsFiles = true;
+} else {
+    $procesLyricsFiles = false;
+}
 //
+$statusCnt = 10;
 $saveFile = '';
 while (true)  {
     // loop forever
@@ -89,8 +115,11 @@ while (true)  {
     } else {
         $curSongIsRadio = false;
     }
+    if (isset($status['song_lyrics'])) {
+        $status['song_lyrics'] = trim($status['song_lyrics']);
+    }
     if ((trim($status['artist_bio_summary']) == '')
-            || (trim($status['song_lyrics']) == '')) {
+            || ($status['song_lyrics'] == '')) {
         $saveFile = '';
     }
     while (isset($status['actPlayer']) && isset($status['file'])
@@ -282,6 +311,33 @@ while (true)  {
                 unset($song['albumartfile'], $song['albumarturl']);
             }
             //
+            // attempt to find lyrics files and use then if enabled and available
+            //
+            if (isset($song['song_lyrics'])) {
+                $song['song_lyrics'] = trim($song['song_lyrics']);
+            }
+            if ((!isset($song['song_lyrics']) || !$song['song_lyrics']) && $procesLyricsFiles && isset($song['file']) && $song['file']) {
+                if (substr($song['file'],0, 4) != 'http') {
+                    // process non-http files
+                    $pathParts = pathinfo($song['file']);
+                    $fileDirFile = $pathParts['dirname'].'/'.$pathParts['filename'];
+                    // lower case file extension
+                    $lyricFileName = $fileDirFile.'.lrc';
+                    clearstatcache(true, $lyricFileName);
+                    if (file_exists($lyricFileName)) {
+                        $song['song_lyrics'] = strip_synchronised_lyrics(file_get_contents($lyricFileName));
+                    }
+                    if (!isset($song['song_lyrics']) || !$song['song_lyrics']) {
+                        // upper case file extension
+                        $lyricFileName = $fileDirFile.'.LRC';
+                        clearstatcache(true, $lyricFileName);
+                        if (file_exists($lyricFileName)) {
+                            $song['song_lyrics'] = strip_synchronised_lyrics(file_get_contents($lyricFileName));
+                        }
+                    }
+                }
+            }
+            //
             // process album art
             //
             $artFound = false;
@@ -343,7 +399,7 @@ while (true)  {
                             // most of the useful information is stored at the first level of the array
                             $value = trim($value);
                             if ($value) {
-                                $song[$valuekey] = $value;
+                                $song[strtolower($valuekey)] = $value;
                             }
                         }
                     }
@@ -366,15 +422,60 @@ while (true)  {
                             $song['song_mbid'] = $song_mbid;
                         }
                     }
-                    // and also check for average bit rate (avg_bit_rate)
+                    // check for average bit rate (avg_bit_rate)
                     if (!isset($song['avg_bit_rate'])) {
                         $avg_bit_rate = trim(search_array_keys($auinfo, 'avg_bit_rate'));
                         if ($avg_bit_rate) {
                             $song['avg_bit_rate'] = $avg_bit_rate;
                         }
                     }
+                    // check for song lyrics
+                    if (!isset($song['song_lyrics']) || !$song['song_lyrics']) {
+                        foreach ($lyricsTags as $key => $lyricsTag) {
+                            $lyricsTagLower = strtolower($lyricsTag);
+                            if ((lyricsTagLower != $lyricsTag) && isset($song[$lyricsTagLower]) && $song[$lyricsTagLower]) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($song[$lyricsTagLower]);
+                                if ($song['song_lyrics']) {
+                                    break;
+                                }
+                            }
+                            if (isset($song[$lyricsTag]) && $song[$lyricsTag]) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($song[$lyricsTag]);
+                                if ($song['song_lyrics']) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!isset($song['song_lyrics']) || !$song['song_lyrics']) {
+                        foreach ($lyricsTags as $key => $lyricsTag) {
+                            $lyricsTagLower = strtolower($lyricsTag);
+                            if (lyricsTagLower != $lyricsTag) {
+                                $lyrics = trim(search_array_keys($auinfo, $lyricsTagLower));
+                                if (isset($lyrics) && $lyrics) {
+                                    $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
+                                    if ($song['song_lyrics']) {
+                                        break;
+                                    }
+                                }
+                            }
+                            $lyrics = trim(search_array_keys($auinfo, $lyricsTag));
+                            if (isset($lyrics) && $lyrics) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
+                                if ($song['song_lyrics']) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
-                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate);
+                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate, $lyrics);
+            }
+            // use the lyrics if they are available an they are not set
+            if (!isset($status['song_lyrics']) || !$status['song_lyrics']) {
+                if (isset($song['song_lyrics']) && $song['song_lyrics']) {
+                    $status['song_lyrics'] = $song['song_lyrics'];
+                }
             }
             if (!$artFound) {
                 //
@@ -524,9 +625,13 @@ while (true)  {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            // some lyrics are omitted since they almost never exits, default is a single entry containing 'classical'
+            // some lyrics are omitted since they almost never exits, default is 'classical, baroque'
             $omit_string = '';
-            if (isset($song['genre'])) {
+            if (isset($status['song_lyrics']) && $status['song_lyrics']) {
+                // we already have lyrics so use them
+                $info['song_lyrics'] = $status['song_lyrics'];
+            } else if (isset($song['genre'])) {
+                // determine omitted lyrics
                 foreach ($omit_lyrics as $omit_lyric) {
                     if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
                         // found a genre with omitted lyrics
@@ -539,7 +644,7 @@ while (true)  {
                 // skip the lyrics
                 $info['song_lyrics'] = 'Lyrics retrieval omitted for the "'.$omit_string.'" genre';
             } else {
-                // when genre is unknown or not omitted get the lyrics
+                // when genre is unknown or not omitted get the lyrics (also when we already know the lyrics, this will cache them)
                 $retval = get_songInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);
@@ -677,6 +782,9 @@ while (true)  {
         // unload CPU: 1 second sleep
         sleep(1);
         $status = json_decode($redis->get('act_player_info'), true);
+        if (isset($status['song_lyrics'])) {
+            $status['song_lyrics'] = trim($status['song_lyrics']);
+        }
     }
     $redis->unwatch();
     unset($status);
