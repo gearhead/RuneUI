@@ -209,7 +209,7 @@ while [ "$updating" != "0" ] && [ $(( cnt-- )) -gt 0 ] ; do
     sleep 2
     updating=$( mpc | grep -ic 'Updating' )
     (( cnt-- ))
-    if [ $cnt -le 0 ] ; then 
+    if [ $cnt -le 0 ] ; then
         break
     fi
 done
