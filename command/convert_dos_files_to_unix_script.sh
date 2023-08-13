@@ -137,37 +137,53 @@ fi
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
     echo "Removing trailing whitespace from bin/bash files"
-    FILES=$(grep -lr '^#!/bin/bash' /srv/http | grep -v '/vendor/')
+    FILES=$(grep -lr '^#!/bin/bash' /srv/http | grep -v '/vendor/' | grep -v '/.git/')
     for f in $FILES
     do
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (bin/bash): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]*$//" "$f"
     done
 fi
 #
 # When requested, remove trailing whitespace from php files, but exclude vendor files
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
-    echo "Removing trailing whitespace from php files"
-    FILES=$(grep -lr '^<?php' /srv/http | grep -v '/vendor/')
+    echo "Removing trailing whitespace from php files part 1"
+    FILES=$(grep -lr '^<?php' /srv/http | grep -v '/vendor/' | grep -v '/.git/')
     for f in $FILES
     do
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (php): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]*$//" "$f"
+    done
+fi
+if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
+    echo "Removing trailing whitespace from php files part 2"
+    FILES=$(grep -rl '.<?php' /srv/http/ | grep -v '/vendor/' | grep -v '/.git/')
+    for f in $FILES
+    do
+        if [ -d "$f" ] ; then
+            continue # its a directory not a file
+        fi
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
+        if [ "$numstrpace" == "0" ] ; then
+            continue # no trailing whitespace in the file
+        fi
+        echo "Trailing whitespace (php): $f"
+        sed -i "s/[[:space:]]*$//" "$f"
     done
 fi
 #
@@ -182,12 +198,12 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (directories): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]+*$//" "$f"
     done
     # specific file names in the /srv directory tree
     declare -a FILENAMES=(chromium-flags.conf i2s_table*.txt weston.ini audio_allowed_formats_table*.txt userconf.lua)
@@ -204,12 +220,12 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
             if [ -d "$f" ] ; then
                 continue # its a directory not a file
             fi
-            numstrpace=$(grep -c '[[:blank:]]$' "$f")
+            numstrpace=$(grep -c '[[:space:]]$' "$f")
             if [ "$numstrpace" == "0" ] ; then
                 continue # no trailing whitespace in the file
             fi
             echo "Trailing whitespace (file names in /srv): $f"
-            sed -i 's/[\s]*$//' "$f"
+            sed -i "s/[[:space:]]*$//" "$f"
         done
     done
 fi
