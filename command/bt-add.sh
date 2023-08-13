@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # add BT output to MPD
 # first disable any existing audio output by commenting it
 # could not figure out how to delete the line in sed
