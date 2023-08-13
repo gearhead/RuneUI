@@ -9431,6 +9431,7 @@ function get_songInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
@@ -9610,6 +9611,7 @@ function get_albumInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
@@ -9885,6 +9887,7 @@ function get_artistInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
