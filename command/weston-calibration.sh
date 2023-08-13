@@ -1,5 +1,4 @@
-#!/usr/bin/bash
-
+#!/bin/bash
 # This code modified by gearhead to work with the RPiOS Rune installation
 # from: 
 # https://coral.googlesource.com/weston-imx/+/e0921a74330a8c3d7dce245c70cd21f471cdde76/protocol/weston-touch-calibration.xml
