@@ -1,6 +1,6 @@
 #!/bin/bash
 # This code modified by gearhead to work with the RPiOS Rune installation
-# from: 
+# from:
 # https://coral.googlesource.com/weston-imx/+/e0921a74330a8c3d7dce245c70cd21f471cdde76/protocol/weston-touch-calibration.xml
 # Copyright 2018 Collabora, Ltd.
 # Copyright 2018 General Electric Company
@@ -35,7 +35,7 @@
 
 
 #RUNE RPiOS:
-# To use this script, one needs to edit weston.ini, in section [libinput], 
+# To use this script, one needs to edit weston.ini, in section [libinput],
 # un-comment these lines:
 # touchscreen_calibrator=true
 # calibration_helper=/usr/bin/echo
