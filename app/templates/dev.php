@@ -636,7 +636,7 @@
                         <span class="help-block">This RuneAudio image is designed to fit on a 8Gb Micro-SD card even though most SD-cards are now 16Gb or greater.
                         In most cases RuneAudio will work fine without extending the Linux Partition.
                         If you want to utilise the extra available space on the Micro-SD card you can use this option to extend the Linux Partition to its maximum size.
-                        This is useful if you wish add extra Arch Linux packages or to make use the local storage option. Music files in local storage can easily be managed with the Samba options via your PC</span>
+                        This is useful if you wish add extra packages or to make use the local storage option. Music files in local storage can be managed with the Samba options via your PC</span>
                     </div>
                 </div>
             </div>
