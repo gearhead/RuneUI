@@ -148,7 +148,7 @@ $(document).ready(function () {
     GUI.clientUUID = generateUUID();
 
     if ($('#section-index').length) {
-        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === '::1') {
             isLocalHost = 1;
             SStime = localSStime;
         } else {
@@ -2241,7 +2241,7 @@ function renderModal(text){
     // alert("renderModal");
     // console.log('renderModal, text[0] = ', text[0]);
     toggleLoader('close');
-    if (!isLocalHost) {
+    if ((typeof isLocalHost === "undefined") || !isLocalHost) {
         // don't display these pop-ups on the local browser
         var modal = text[0];
         $('#' + modal.id).on('hidden.bs.modal', function(){
