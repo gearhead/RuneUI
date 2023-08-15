@@ -134,7 +134,7 @@ while (true)  {
         // clear the variables set in this script
         //  many are set to a single space which will cause the UI to use the value, clearing unset information (an
         //  empty string is ignored in the UI)
-        //  
+        //
         $status['mainArtURL'] = '';
         $status['bigArtURL'] = '';
         $status['smallArtURL'] = '';
