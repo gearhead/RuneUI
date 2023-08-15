@@ -417,7 +417,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="lyric_tags">Search for Lyrics in Music Metadata Tags</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="lyric_tags" name="mode[lyrics][lyric_tags]" value="<?=$this->lyrics['lyric_tags'] ?>" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="text" id="lyric_tags" name="mode[lyrics][lyric_tags]" value="<?=$this->lyrics['lyric_tags'] ?>" data-trigger="change" placeholder="LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS">
                         <span class="help-block">Specifies the music metadata tags in which to search for lyrics. The tag names are
                         separated by commas. A search for lyrics content will take place for the specified tag names plus these tags
                         names in lower case. The tags are searched in the order specified. Remove all the tags to disable. <i>There
@@ -429,12 +429,25 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="omit_lyrics">Omitted Genres for Lyrics</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="omit_lyrics" name="mode[lyrics][omit_lyrics]" value="<?=$this->lyrics['omit_lyrics'] ?>" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="text" id="omit_lyrics" name="mode[lyrics][omit_lyrics]" value="<?=$this->lyrics['omit_lyrics'] ?>" data-trigger="change" placeholder="classical, baroque">
                         <span class="help-block">Specifies the genres for which no internet lyrics search will take place. The
                         matching is case insensitive and the genre names are specified lower case, separated by commas. A partial
                         match, whereby the specified genre matches a part of the genre name of the song is also treated as a match
                         and no lyric search will take place. <i>The purpose is to specify music genres where lyrics on internet rarely
                         exists or the music is primarily instrumental</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="match_percentage">Match Percentage for Internet Sourced Lyrics</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="number" id="match_percentage" name="mode[lyrics][match_percentage]" value="<?=$this->lyrics['match_percentage'] ?>" data-trigger="change" min="35" max="85" placeholder="50">
+                        <span class="help-block">Specifies the percentage match which is used to determine whether the Internet search
+                        for lyrics has been successful. A value of 50% is default, values between 45% and 75% are reasonable.
+                        <i>The Internet lyrics search retrieves many false positives based on the search criteria, using this
+                        reliability percentage these incorrect matches are eliminated. It is also possible that the artist name
+                        or the song title used in the search is not 100% correct, for example words such as 'the', 'of', 'a',
+                        'and', '&amp;', commas and other punctuation may be incorrect. So a 100% match is generally not what is
+                        required</i></span>
                     </div>
                 </div>
             </div>

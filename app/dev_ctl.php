@@ -258,6 +258,9 @@ if (isset($_POST)) {
                 // set to lower case before saving
                 $redis->hSet('lyrics', 'omit_lyrics', strtolower($_POST['mode']['lyrics']['omit_lyrics']));
             }
+            if (isset($_POST['mode']['lyrics']['match_percentage']) && ($_POST['mode']['lyrics']['match_percentage'] != $redis->hGet('lyrics', 'match_percentage'))) {
+                $redis->hSet('lyrics', 'match_percentage', $_POST['mode']['lyrics']['match_percentage']);
+            }
             // restart the rune_MPDEM_wrk service if it is running
             sysCmd('pgrep -x rune_MPDEM_wrk && systemctl restart rune_MPDEM_wrk');
         }
