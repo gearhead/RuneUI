@@ -9232,6 +9232,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     }
     //
     // chartlyrics
+    $match_percentage = $redis->hGet('lyrics', 'match_percentage');
     $chartlyricsUp = $redis->hGet('service', 'chartlyrics');
     if (!$chartlyricsUp) {
         // chartlyrics is down
@@ -9273,35 +9274,26 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                 // remove leading empty lines
                 $retval = trim(substr($retval, 4));
             }
+            $found = true;
             if (!$retval) {
                 // nothing returned
-                // this will be reset each 15 minutes, providing that the chartlyrics site is up
                 $retval = '';
                 $found = false;
             } else {
                 // we get a lot of false positive matches from chartlyrics
-                // check that at least 50% of words in the search artist name occur in the returned artist name
-                $searchArtistParts = explode(' ', $searchArtist);
-                $searchArtistPartsCount = count($searchArtistParts);
-                $searchArtistPartsFound = 0;
-                foreach ($searchArtistParts as $part) {
-                    // simple lower case word check
-                    if (stripos(' '.strtolower($artist), strtolower($part))) {
-                        // match
-                        $searchArtistPartsFound++;
-                    } else {
-                        // complex word check after converting special and complex characters to normal characters
-                        if (stripos(' '.squashCharacters(strtolower($artist)), squashCharacters(strtolower($part)))) {
-                            // match
-                            $searchArtistPartsFound++;
-                        }
-                    }
-                }
-                if ($searchArtistPartsFound && ((($searchArtistPartsFound * 100) / $searchArtistPartsCount) > 50)) {
-                    $found = true;
-                } else {
-                    $retval = '';
+                // check that at least $match_percentage (default = 50%) of words in the search artist name occur in the returned
+                //  artist name, and visa versa, and also in the search and returned song title and visa versa
+                if (count_word_occurancies($searchArtist, $artist) < $match_percentage) {
                     $found = false;
+                } else if (count_word_occurancies($artist, $searchArtist) < $match_percentage) {
+                    $found = false;
+                } else if (count_word_occurancies($searchSong, $song) < $match_percentage) {
+                    $found = false;
+                } else if (count_word_occurancies($song, $searchSong) < $match_percentage) {
+                    $found = false;
+                }
+                if (!$found) {
+                    $retval = '';
                 }
             }
         }
@@ -9544,10 +9536,9 @@ function get_songInfo($redis, $info=array())
                     $info['song_lyrics'] = $retval['song_lyrics'];
                     // break both loops
                     break 2;
-                } else {
-                    // pause before trying again
-                    sleep(2);
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
     }
@@ -9763,6 +9754,8 @@ function get_albumInfo($redis, $info=array())
                             break 2;
                         }
                     }
+                    // sleep before trying again
+                    sleep(2);
                 }
             }
         }
@@ -10016,6 +10009,8 @@ function get_artistInfo($redis, $info=array())
                     // found the artist on last.fm, use the data
                     break;
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
         if ($retval) {
@@ -10068,6 +10063,8 @@ function get_artistInfo($redis, $info=array())
                         break;
                     }
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
         if ($info['artist_mbid']) {
@@ -12773,4 +12770,46 @@ function strip_synchronised_lyrics($lyrics)
         $retval = '';
     }
     return $retval;
+}
+
+// calculate and return the percentage of words in string $search which occur in string $target
+function count_word_occurancies($search, $target='')
+// $search and $target are strings, return value is an integer (0 = no matches, 100 = all match)
+// the string matching is case insensitive
+// an empty $search string returns a 100% match
+// an empty $target string returns a 0% match
+{
+    // convert parameters to lower case, replace whitespace with one space and trim
+    $search = trim(preg_replace("/[\s]+/", ' ', strtolower($search)));
+    $target = trim(preg_replace("/[\s]+/", ' ', strtolower($target)));
+    // debug
+    // echo "Search: '$search', Target: '$target'\n";
+    runelog("[count_word_occurancies]", "Search: '$search', Target: '$target'");
+    if (!strlen($search)) {
+        return 100;
+    }
+    if (!strlen($target)) {
+        return 0;
+    }
+    $searchParts = explode(' ', $search);
+    $searchPartsCount = count($searchParts);
+    $searchPartsFound = 0;
+    foreach ($searchParts as $part) {
+        // simple lower case word check
+        if (stripos(' '.$target, $part)) {
+            // match
+            $searchPartsFound++;
+        } else {
+            // complex word check after converting special and complex characters to normal characters
+            if (stripos(' '.squashCharacters($target), squashCharacters($part))) {
+                // match
+                $searchArtistPartsFound++;
+            }
+        }
+    }
+    if ($searchPartsFound) {
+        return round(min(($searchPartsFound * 100) / $searchPartsCount, 100),0);
+    } else {
+        return 0;
+    }
 }

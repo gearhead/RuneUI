@@ -321,6 +321,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('lyrics', 'lyric_file', 0);
             $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, will be trimmed, lower case will also be used
             $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case, will be trimmed
+            $redis->hSet('lyrics', 'match_percentage', 50);
             // album and artist art
             $redis->set('remoteSSbigart', 'album');
             $redis->set('albumart_image_dir', '/srv/http/tmp/art');
@@ -629,6 +630,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('lyrics', 'lyric_file') || $redis->hSet('lyrics', 'lyric_file', 0);
             $redis->hExists('lyrics', 'lyric_tags') || $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, lower case will also be used
             $redis->hExists('lyrics', 'omit_lyrics') || $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case
+            $redis->hExists('lyrics', 'match_percentage') || $redis->hSet('lyrics', 'match_percentage', 50);
             // last.fm
             $redis->hExists('lastfm', 'enable') || $redis->hSet('lastfm', 'enable', 0);
             $redis->hExists('lastfm', 'username') || $redis->hSet('lastfm', 'username', '');
