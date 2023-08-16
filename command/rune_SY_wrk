@@ -470,25 +470,35 @@ while (true) {
                 break;
             case 'notify_async':
                 $redis->sRem('w_lock', $jobID);
-                $cnt = 40;
-                while ($redis->get('waitSyWrk') && ($cnt-- >= 0)) {
-                    // loop sleeping for half a second until the UI is active
-                    //  timeout after 20 seconds ($cnt = 40 x 0,5)
+                if (!$redis->sCard('w_message')) {
+                    // no messages to process, finished
+                    break;
+                }
+                $cnt = 6;
+                while ($redis->get('waitSyWrk') && $redis->sCard('w_lock') && ($cnt-- >= 0)) {
+                    // loop sleeping for half a second until the UI is active and all w_lock's have been cleared
+                    //  timeout after 3 seconds ($cnt = 6 x 0,5)
                     usleep(500000);
                     //sleep(1);
                 }
-                do {
-                    $message = $redis->rPop('w_message');
-                    // debug
-                    // echo "Message : $message\n";
-                    runelog('Message : '.$message);
-                    if (isset($message) && $message) {
-                        // sleep for 0,5 second before and between sending messages
-                        usleep(500000);
-                        // sleep(1);
-                        ui_render('notify', base64_decode($message));
-                    }
-                } while (isset($message) && $message);
+                if ($cnt >= 0) {
+                    // we can process the queued messages
+                    do {
+                        $message = $redis->rPop('w_message');
+                        // debug
+                        // echo "Message : $message\n";
+                        runelog('Message : '.$message);
+                        if (isset($message) && $message) {
+                            // sleep for 0,5 second before and between sending messages
+                            usleep(500000);
+                            // sleep(1);
+                            ui_render('notify', base64_decode($message));
+                        }
+                    } while (isset($message) && $message);
+                } else {
+                    // requeue this job
+                    wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
+                }
                 unset($cnt);
                 break;
             case 'airplay':

@@ -1596,10 +1596,10 @@ function recursiveDelete($str)
     }
 }
 
-function pushFile($filepath)
+function pushFile($redis, $filepath)
 {
     // debug
-    runelog('pushFile(): filepath', $filepath);
+    runelog('[pushFile] filepath', $filepath);
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, $filepath);
     if (file_exists($filepath)) {
@@ -1614,8 +1614,10 @@ function pushFile($filepath)
         ob_clean();
         flush();
         readfile($filepath);
+        ui_notify($redis, 'Backup', 'Downloaded: '.basename($filepath));
         return true;
     } else {
+        ui_notifyError($redis, 'Backup', 'Download failed');
         return false;
     }
 }
@@ -2067,24 +2069,33 @@ function wrk_backup($redis, $bktype = null)
     sysCmd('diff -Nau /srv/http/app/config/defaults/boot/config.txt /boot/config.txt >/home/config.txt.diff');
     // build up the backup command string
     if ($bktype === 'dev') {
-        // $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
-        // $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
-            // " bsdtar -c -z -p -f '".$filepath."'".
-            // " /mnt/MPD/Webradio".
-            // " /var/lib/redis/rune.rdb".
-            // " '".$redis->hGet('mpdconf', 'db_file')."'".
-            // " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            // " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            // " '".$redis->hGet('mpdconf', 'state_file')."'".
-            // " /var/lib/connman".
-            // " /var/www".
-            // " /etc".
-            // " /home/config.txt.diff".
-            // "";
+        $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n".
+            " /var/lib/connman";
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /srv/http".
+            " /home/config.txt.diff".
+            "";
+        // for each distributed default file take a copy of the production version
+        foreach ( sysCmd('find /srv/http/app/config/defaults/ -type f') as $bFile) {
+            $bfile = str_replace('/srv/http/app/config/defaults', '', $bFile);
+            clearstatcache(true, $bFile);
+            if (is_file($bFile)) {
+                $cmdstring .= " \\\n '".$bFile."'";
+            }
+        }
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
-        // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; systemctl stop redis ; \\\n".
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
             " bsdtar -c -z -p -f '".$filepath."' \\\n".
             " /mnt/MPD/Webradio \\\n".
             " /var/lib/redis/rune.rdb \\\n".
@@ -2103,25 +2114,9 @@ function wrk_backup($redis, $bktype = null)
         }
         $cmdstring .= " /etc/mpd.conf".
             " /etc/samba \\\n".
-            " /home/config.txt.diff ; \\\n".
-            "systemctl start redis";
+            " /home/config.txt.diff".
+            "";
     }
-    // // add the names of the distribution files
-    // $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
-    // foreach ($extraFiles as $extraFile) {
-        // // convert the names of the distribution files to the location of production version (the one being used)
-        // $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
-        // if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
-            // // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
-            // continue;
-        // }
-        // // clear the cache otherwise file_exists() returns incorrect values
-        // clearstatcache(true, $fileName);
-        // if (file_exists($fileName)) {
-            // // add the files to the backup command if they exist
-            // $cmdstring .= " '".$fileName."'";
-        // }
-    // }
     ui_notify($redis, 'Backup', $cmdstring);
     // save the redis database
     $redis->save();

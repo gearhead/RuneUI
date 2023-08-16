@@ -286,8 +286,8 @@ if (isset($jobID)) {
 // push backup file
 if (isset($_POST['syscmd']) && ($_POST['syscmd'] === 'backup')) {
     $fileName = $redis->hGet('w_msg', $backupJobID);
-    // push the file to via the browser
-    pushFile($fileName);
+    // push the file via the browser
+    pushFile($redis, $fileName);
     // queue a job to delete the file, don't wait for completion
     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'delbackup', 'args' => $fileName));
     $redis->hDel('w_msg', $backupJobID);
