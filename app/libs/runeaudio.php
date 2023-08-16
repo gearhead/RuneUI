@@ -2069,7 +2069,7 @@ function wrk_backup($redis, $bktype = null)
     if ($bktype === 'dev') {
         // $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
         // $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
-            // " bsdtar -czpf '".$filepath."'".
+            // " bsdtar -c -z -p -f '".$filepath."'".
             // " /mnt/MPD/Webradio".
             // " /var/lib/redis/rune.rdb".
             // " '".$redis->hGet('mpdconf', 'db_file')."'".
@@ -2085,17 +2085,24 @@ function wrk_backup($redis, $bktype = null)
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
         // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
         $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; systemctl stop redis ; \\\n".
-            " bsdtar -czpf '".$filepath."'".
-            " /mnt/MPD/Webradio".
-            " /var/lib/redis/rune.rdb".
-            " '".$redis->hGet('mpdconf', 'db_file')."'".
-            " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " /var/lib/connman/wifi_*.config".
-            " /var/lib/connman/ethernet_*.config".
-            " /etc/mpd.conf".
-            " /etc/samba".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n";
+        if (glob('/var/lib/connman/wifi_*.config')) {
+            $cmdstring .= " /var/lib/connman/wifi_*.config \\\n";
+        }
+        if (glob('/var/lib/connman/ethernet_*.config')) {
+            $cmdstring .= " /var/lib/connman/ethernet_*.config \\\n";
+        }
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /etc/mpd.conf".
+            " /etc/samba \\\n".
             " /home/config.txt.diff ; \\\n".
             "systemctl start redis";
     }

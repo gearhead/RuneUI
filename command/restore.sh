@@ -63,8 +63,15 @@ declare -a stop_arr=(ashuffle cmd_async_queue mpd mpdscribble nmb nmbd redis run
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
-# restore the backup
-bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
+# restore the backup, do it file for file as some may not exist, non-existant files will cause bsdtar to exit on error with unpredictable results
+bsdtar -x -p -f "$1" -C / --include var/lib/redis/rune.rdb
+bsdtar -x -p -f "$1" -C / --include etc/samba/*.conf
+bsdtar -x -p -f "$1" -C / --include etc/mpd.conf
+bsdtar -x -p -f "$1" -C / --include mnt/MPD/Webradio/*
+bsdtar -x -p -f "$1" -C / --include var/lib/connman/*.config
+bsdtar -x -p -f "$1" -C / --include var/lib/mpd/*
+bsdtar -x -p -f "$1" -C / --include home/config.txt.diff
+bsdtar -x -p -f "$1" -C / --include home/your-extra-mpd.conf
 # refresh systemd and restart redis
 systemctl daemon-reload
 systemctl start redis
@@ -89,8 +96,10 @@ else
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # try to recover changes in the /boot/config.txt
-patch -lN /boot/config.txt /home/config.txt.diff
-rm -f /home/config.txt.diff
+if [ -f "/home/config.txt.diff" ] ; then
+    patch -lN /boot/config.txt /home/config.txt.diff
+    rm -f /home/config.txt.diff
+fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # delete any redis variables not included in the reference list
 #   variable name and type must be valid, otherwise delete
