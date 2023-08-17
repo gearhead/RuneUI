@@ -3126,40 +3126,59 @@ function wrk_audioOutput($redis, $action)
                 //$subdeviceid = explode(' ', trim($subdeviceid[1]));
                 //$data['device'] = 'hw:'.$card_index.','.$subdeviceid[1];
                 $data['device'] = 'hw:'.$card['number'].','.$card['device'];
-                //if ($i2smodule !== 'none' && isset($i2smodule_details->sysname) && $i2smodule_details->sysname === $card) {
-                    //$acards_details = $i2smodule_details;
-                //} else {
-                    //$acards_details = $redis->hGet('acards_details', $card);
-                //}
+                // get the hardware platform descriptor,format is two numeric characters, eg 01, 02, 03, etc
+                $hwplatformid = $redis->get('hwplatformid');
                 // read the matching predefined configuration for this audio card
                 $acards_details = $redis->hGet('acards_details', $card['name']);
+                // check that the card details are valid
+                if ($acards_details) {
+                    $details = json_decode($acards_details, true);
+                    // check that both sysname and hwplatformid are set
+                    if (!isset($details['sysname'])) {
+                        // not set, reset the details, cant use this one
+                        $details['sysname'] = '';
+                        $acards_details = '';
+                    }
+                    if (!isset($details['hwplatformid'])) {
+                        // not set, card is valid for all platforms, set it to the valid value
+                        $details['hwplatformid'] = $hwplatformid;
+                    }
+                    // check that the sysname is the one we want and that the hardware platform matches
+                    //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                    //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                    if (($details['sysname'] != $card['name']) || !strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                        // not found, reset the details
+                        $acards_details = '';
+                    }
+                }
                 // when no card is found try to determine a card-name in the table with a postfix
                 //  when the same card is defined for more hardware types with differing properties, they have a postfix in the key
                 //  name, which makes them unique
                 //  the sysname must be the name of the card we are looking for and the hwplatformid must match the current hardware
                 // this is the only place where hwplatformid is used, normally a match on the array key is enough regardless of the
                 //  hwplatformid value
-                if ($acards_details == '') {
+                if (!$acards_details) {
                     // card not found, collect the acard table keys
                     $acards_keys = $redis->hKeys('acards_details');
-                    $hwplatformid = $redis->get('hwplatformid');
-                    if ($hwplatformid == '02') {
-                        // process hardware type 02 as 08 (both Raspberry Pi)
-                        $hwplatformid = '08';
-                    }
                     foreach ($acards_keys as $acards_key) {
                         // try to find a matching key
                         if (strpos(' '.$acards_key, $card['name']) == 1) {
-                            // the key matches, with some sort of postfix, get the details
+                            // the key matches, possibly with some sort of postfix, get the details
                             $acards_details = $redis->hGet('acards_details', $acards_key);
                             $details = json_decode($acards_details, true);
                             // check that both sysname and hwplatformid are set
-                            if (!isset($details['sysname']) || !isset($details['hwplatformid'])) {
-                                // not set, reset the details
+                            if (!isset($details['sysname'])) {
+                                // not set, reset the details, cant use this one
                                 $acards_details = '';
+                                continue;
+                            } else if (!isset($details['hwplatformid'])) {
+                                // not set, card is valid for all platforms, set it to the valid value
+                                $details['hwplatformid'] = $hwplatformid;
                             }
                             // check that the sysname is the one we want and that the hardware platform matches
-                            else if (($details['sysname'] == $card['name']) && ($details['hwplatformid'] == $hwplatformid)) {
+                            //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                            //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                            if (($details['sysname'] != $card['name']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                                 // found, break the loop
                                 break;
                             } else {
