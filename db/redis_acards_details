@@ -40,45 +40,49 @@ require_once('/srv/http/app/libs/openredis.php');
 // ini_set('display_errors',1);
 // error_reporting(E_ALL);
 // acards_details database
-//  note: hwplatformid '08' is applied to both hardware '02' and '08' types (Raspberry Pi)
+// notes:   hwplatformid can contain multiple hardware platform specifications, separated by vertical line, for example '01|08' is applied to both hardware '01' and '08' types (all Raspberry Pi hardware)
+//          when no hwplatformid is specified the entry is valid for all hardware platform's
+//          sysname is always validated and must match the name which Linux assigns to the card
+//          a suffix can be added to the acard_details name to add an extra similar card with a profile per hardware type
+//
 $redis->Del('acards_details');
 $redis->hSet('acards_details', 'AML-M8AUDIO', '{"sysname":"AML-M8AUDIO","extlabel":"ODROID HDMI","card_option":"buffer_time\t\"0\"","mixer_numid":"1","hwplatformid":"09","type":"integrated"}');
 $redis->hSet('acards_details', 'ARCAM USB Audio 2.0', '{"sysname":"ARCAM USB Audio 2.0","extlabel":"Arcam rDAC","mixer_numid":"3","mixer_control":"ARCAM Clock Selector","type":"usb"}');
 $redis->hSet('acards_details', 'AudioQuest DragonFly', '{"sysname":"AudioQuest DragonFly","extlabel":"AudioQuest DragonFly DAC","mixer_numid":"3","mixer_control":"PCM","type":"usb"}');
-$redis->hSet('acards_details', 'Bel Canto 2496 USB', '{"sysname":"Bel Canto 2496 USB","extlabel":"Bel Canto 2496","card_option":"format\t\"96000:24:2\"","mixer_numid":"1","hwplatformid":"08","type":"usb"}');
-$redis->hSet('acards_details', 'BossDAC', '{"sysname":"BossDAC","extlabel":"ALLO Boss DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
+$redis->hSet('acards_details', 'Bel Canto 2496 USB', '{"sysname":"Bel Canto 2496 USB","extlabel":"Bel Canto 2496","card_option":"format\t\"96000:24:2\"","mixer_numid":"1","type":"usb"}');
+$redis->hSet('acards_details', 'BossDAC', '{"sysname":"BossDAC","extlabel":"ALLO Boss DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'C-Media USB Headphone Set', '{"sysname":"C-Media USB Headphone Set","extlabel":"C-Media USB Headphone Set","mixer_numid":"7","mixer_control":"Headphone","type":"usb"}');
 $redis->hSet('acards_details', 'Devialet USB Audio 2.0', '{"sysname":"Devialet USB Audio 2.0","extlabel":"Devialet Audio","mixer_numid":"3","mixer_control":"Devialet Clock Selector","type":"usb"}');
-$redis->hSet('acards_details', 'DigiHug USB Audio', '{"sysname":"DigiHug USB Audio","extlabel":"DigiHug USB DAC","mixer_numid":"1","mixer_control":"PCM","hwplatformid":"08","type":"usb"}');
+$redis->hSet('acards_details', 'DigiHug USB Audio', '{"sysname":"DigiHug USB Audio","extlabel":"DigiHug USB DAC","card_option":"allowed_formats\t\""32000:16:2 44100:16:2 48000:16:2\","mixer_numid":"1","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'Geek Out HD Audio 1V0', '{"sysname":"Geek Out HD Audio 1V0","extlabel":"LH Labs Geek Out 720","mixer_numid":"3","mixer_control":"LH Labs Clock Selector","type":"usb"}');
 $redis->hSet('acards_details', 'Hugo', '{"sysname":"Hugo","extlabel":"Chord Hugo","mixer_numid":"4","mixer_control":"Hugo","type":"usb"}');
-$redis->hSet('acards_details', 'I-Sabre K2M DAC', '{"sysname":"I-Sabre K2M DAC","extlabel":"ESS ES9018 I-Sabre K2M DAC (I&#178;S)","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'I-Sabre Q2M DAC', '{"sysname":"I-Sabre Q2M DAC","extlabel":"ESS ES9028/ES9038 I-Sabre Q2M DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
+$redis->hSet('acards_details', 'I-Sabre K2M DAC', '{"sysname":"I-Sabre K2M DAC","extlabel":"ESS ES9018 I-Sabre K2M DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'I-Sabre Q2M DAC', '{"sysname":"I-Sabre Q2M DAC","extlabel":"ESS ES9028/ES9038 I-Sabre Q2M DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'NuForce USB Audio', '{"sysname":"NuForce USB Audio","extlabel":"NuForce DDA-100","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'ODROID-DAC', '{"sysname":"ODROID-DAC","extlabel":"ODROID HifiShield (I&#178;S)","mixer_numid":"1","hwplatformid":"10","type":"i2s"}');
 $redis->hSet('acards_details', 'ODROID-HDMI', '{"sysname":"ODROID-HDMI","extlabel":"ODROID-C2 HDMI","mixer_numid":"1","hwplatformid":"10","type":"integrated"}');
-$redis->hSet('acards_details', 'PianoDAC', '{"sysname":"PianoDAC","extlabel":"ALLO Piano DAC (I&#178;S)","card_option":"format\t\"*:32:*\"","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'PianoDACPlus', '{"sysname":"PianoDACPlus","extlabel":"ALLO Piano DAC 2.1(I&#178;S)","card_option":"format\t\"*:32:*\"","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'Realtek USB2.0 Audio Pi1', '{"sysname":"Realtek USB2.0 Audio","extlabel":"Realtek USB2.0 Audio","card_option":"allowed_formats\t\"96000:*:2 48000:*:2 44100:*:2 32000:*:2 24000:*:2 22050:*:2 16000:*:2 8000:*:2\"","mixer_numid":"8","mixer_control":"Headphone","hwplatformid":"01","type":"usb"}');
-$redis->hSet('acards_details', 'Realtek USB2.0 Audio Pi2', '{"sysname":"Realtek USB2.0 Audio","extlabel":"Realtek USB2.0 Audio","card_option":"allowed_formats\t\"384000:*:2 192000:*:2 176400:*:2 96000:*:2 48000:*:2 44100:*:2 32000:*:2 24000:*:2 22050:*:2 16000:*:2 8000:*:2\"","mixer_numid":"8","mixer_control":"Headphone","hwplatformid":"08","type":"usb"}');
+$redis->hSet('acards_details', 'PianoDAC', '{"sysname":"PianoDAC","extlabel":"ALLO Piano DAC (I&#178;S)","card_option":"format\t\"*:32:*\"","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'PianoDACPlus', '{"sysname":"PianoDACPlus","extlabel":"ALLO Piano DAC 2.1(I&#178;S)","card_option":"format\t\"*:32:*\"","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'Realtek USB2.0 Audio Pi2', '{"sysname":"Realtek USB2.0 Audio","extlabel":"Realtek USB2.0 Audio","card_option":"allowed_formats\t\"384000:*:2 192000:*:2 176400:*:2 96000:*:2 48000:*:2 44100:*:2\"","mixer_numid":"8","mixer_control":"Headphone","hwplatformid":"08","type":"usb"}');
+$redis->hSet('acards_details', 'Realtek USB2.0 Audio Pi1', '{"sysname":"Realtek USB2.0 Audio","extlabel":"Realtek USB2.0 Audio","card_option":"allowed_formats\t\"192000:*:2 176400:*:2 96000:*:2 48000:*:2 44100:*:2\"","mixer_numid":"8","mixer_control":"Headphone","hwplatformid":"01","type":"usb"}');
 $redis->hSet('acards_details', 'Rotel PC-USB', '{"sysname":"Rotel PC-USB","extlabel":"Rotel USB","type":"usb"}');
 $redis->hSet('acards_details', 'SA9023 USB Audio', '{"sysname":"SA9023 USB Audio","extlabel":"HiFimeDIY SABRE U2","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
-$redis->hSet('acards_details', 'bcm2835 ALSA', '{"sysname":"bcm2835 ALSA","extlabel":"none","hwplatformid":"01","type":"integrated_sub"}');
-$redis->hSet('acards_details', 'berrynos', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"BerryNOS 1543 (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'berrynosmini', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"BerryNOS mini (I&#178;S)","hwplatformid":"01","type":"i2s"}');
+$redis->hSet('acards_details', 'bcm2835 ALSA', '{"sysname":"bcm2835 ALSA","extlabel":"none","hwplatformid":"01|08","type":"integrated_sub"}');
+$redis->hSet('acards_details', 'berrynos', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"BerryNOS 1543 (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'berrynosmini', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"BerryNOS mini (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'imx-hdmi-soc', '{"sysname":"imx-hdmi-soc","extlabel":"Utilite HDMI Out","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'imx-spdif', '{"sysname":"imx-spdif","extlabel":"Utilite Coax SPDIF Out","hwplatformid":"05","type":"integrated"}');
-$redis->hSet('acards_details', 'raspyplay3', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"RaspyPlay3 (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'raspyplay4', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_hifiberry_dac', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"HiFiBerry DAC (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplus', '{"sysname":"snd_rpi_hifiberry_dacplus","extlabel":"HiFiBerry DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_hifiberry_digi', '{"sysname":"snd_rpi_hifiberry_digi","extlabel":"HiFiBerry Digi (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_iqaudio_dac', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_justboom_dac', '{"sysname":"snd_rpi_justboom_dac","extlabel":"JustBoom DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","hwplatformid":"08","type":"i2s"}');
-$redis->hSet('acards_details', 'snd_rpi_wsp', '{"sysname":"snd_rpi_wsp","extlabel":"none","hwplatformid":"01","type":"integrated_sub"}');
+$redis->hSet('acards_details', 'raspyplay3', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"RaspyPlay3 (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'raspyplay4', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_hifiberry_dac', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"HiFiBerry DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplus', '{"sysname":"snd_rpi_hifiberry_dacplus","extlabel":"HiFiBerry DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_hifiberry_digi', '{"sysname":"snd_rpi_hifiberry_digi","extlabel":"HiFiBerry Digi (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_iqaudio_dac', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_justboom_dac', '{"sysname":"snd_rpi_justboom_dac","extlabel":"JustBoom DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_rpi_dac', '{"sysname":"snd_rpi_rpi_dac","extlabel":"RPi DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'snd_rpi_wsp', '{"sysname":"snd_rpi_wsp","extlabel":"none","hwplatformid":"01|08","type":"integrated_sub"}');
 $redis->hSet('acards_details', 'UAC1 DAC', '{"sysname":"UAC1 DAC","extlabel":"ObjectiveDAC (ODAC)","mixer_numid":"3","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'USB Audio CODEC', '{"sysname":"USB Audio CODEC","extlabel":"Behringer U-CONTROL UCA202","mixer_numid":"3","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'USB Sound Device', '{"sysname":"USB Sound Device","extlabel":"Cmedia CM2606","mixer_numid":"7","mixer_control":"Speaker","type":"usb"}');
@@ -88,30 +92,30 @@ $redis->hSet('acards_details', 'XMOS USB Audio 2.0', '{"sysname":"XMOS USB Audio
 // The following lines are UNTESTED but provide a best guess implementation of several newer audio overlay profiles
 // The need for these lines has been reduced since RuneAudio v0.6, automatic detection and configuration has been introduced, which works in many cases
 // These lines should only be switched on if something does NOT work, if it actually fixes something then please post the results in the forum
-//$redis->hSet('acards_details', 'snd_rpi_audioinjector_octo_soundcard', '{"sysname":"snd_rpi_audioinjector_octo_soundcard","extlabel":"Audioinjector Addons (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
-//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_isolated_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_isolated_soundcard","extlabel":"Audioinjector isolated soundcard (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
-//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_soundcard","extlabel":"Audioinjector WM8731 Audio (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
-//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_ultra', '{"sysname":"snd_rpi_audioinjector_pi_ultra","extlabel":"Audioinjector Ultra 2 Audio (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"05","type":"integrated"}');
-//$redis->hSet('acards_details', 'snd_rpi_digidac1_soundcard', '{"sysname":"snd_rpi_digidac1_soundcard","extlabel":"Red Rocks Audio DigiDAC1 soundcard (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_dionaudio_loco', '{"sysname":"snd_rpi_dionaudio_loco","extlabel":"Dionaudio Loco DAC-AMP (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_dionaudio_loco_v2', '{"sysname":"snd_rpi_dionaudio_loco_v2","extlabel":"Dionaudio Loco V2 DAC-AMP (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_fe_pi_audio', '{"sysname":"snd_rpi_fe_pi_audio","extlabel":"Fe-Pi Audio Sound Card (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplusadcpro', '{"sysname":"snd_rpi_hifiberry_dacplusadcpro","extlabel":"HifiBerry DAC+ADC PRO (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplusdsp', '{"sysname":"snd_rpi_hifiberry_dacplusdsp","extlabel":"HifiBerry DAC+DSP HD (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplushd', '{"sysname":"snd_rpi_hifiberry_dacplushd","extlabel":"HifiBerry DAC+ HD (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_iqaudio_digi', '{"sysname":"snd_rpi_iqaudio_digi","extlabel":"IQaudIO Digi wm8804 audio (I&#178;S)","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_justboom_both', '{"sysname":"snd_rpi_justboom_both","extlabel":"JustBoom DAC & Digi both (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_raspidac3', '{"sysname":"snd_rpi_raspidac3","extlabel":"RaspiDAC3 (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_rpi_cirrus', '{"sysname":"snd_rpi_rpi_cirrus","extlabel":"RPi Cirrus WM5102 (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01","type":"i2s"}');
-//$redis->hSet('acards_details', 'snd_rpi_rra_digidac1_soundcard', '{"sysname":"snd_rpi_rra_digidac1_soundcard","extlabel":"Red Rocks Audio DigiDAC1 soundcard (I&#178;S)","hwplatformid":"01","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_audioinjector_octo_soundcard', '{"sysname":"snd_rpi_audioinjector_octo_soundcard","extlabel":"Audioinjector Addons (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"integrated"}');
+//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_isolated_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_isolated_soundcard","extlabel":"Audioinjector isolated soundcard (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"integrated"}');
+//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_soundcard', '{"sysname":"snd_rpi_audioinjector_pi_soundcard","extlabel":"Audioinjector WM8731 Audio (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"integrated"}');
+//$redis->hSet('acards_details', 'snd_rpi_audioinjector_pi_ultra', '{"sysname":"snd_rpi_audioinjector_pi_ultra","extlabel":"Audioinjector Ultra 2 Audio (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"integrated"}');
+//$redis->hSet('acards_details', 'snd_rpi_digidac1_soundcard', '{"sysname":"snd_rpi_digidac1_soundcard","extlabel":"Red Rocks Audio DigiDAC1 soundcard (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_dionaudio_loco', '{"sysname":"snd_rpi_dionaudio_loco","extlabel":"Dionaudio Loco DAC-AMP (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_dionaudio_loco_v2', '{"sysname":"snd_rpi_dionaudio_loco_v2","extlabel":"Dionaudio Loco V2 DAC-AMP (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_fe_pi_audio', '{"sysname":"snd_rpi_fe_pi_audio","extlabel":"Fe-Pi Audio Sound Card (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplusadcpro', '{"sysname":"snd_rpi_hifiberry_dacplusadcpro","extlabel":"HifiBerry DAC+ADC PRO (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplusdsp', '{"sysname":"snd_rpi_hifiberry_dacplusdsp","extlabel":"HifiBerry DAC+DSP HD (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplushd', '{"sysname":"snd_rpi_hifiberry_dacplushd","extlabel":"HifiBerry DAC+ HD (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_iqaudio_digi', '{"sysname":"snd_rpi_iqaudio_digi","extlabel":"IQaudIO Digi wm8804 audio (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_justboom_both', '{"sysname":"snd_rpi_justboom_both","extlabel":"JustBoom DAC & Digi both (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_raspidac3', '{"sysname":"snd_rpi_raspidac3","extlabel":"RaspiDAC3 (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_rpi_cirrus', '{"sysname":"snd_rpi_rpi_cirrus","extlabel":"RPi Cirrus WM5102 (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+//$redis->hSet('acards_details', 'snd_rpi_rra_digidac1_soundcard', '{"sysname":"snd_rpi_rra_digidac1_soundcard","extlabel":"Red Rocks Audio DigiDAC1 soundcard (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
 //
 // The lines below are probably no longer required, at the end of 2021 the way in which audio cards are defined in Linux changed
-$redis->sAdd('bcm2835 ALSA', '{"id":"1","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi Analog Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 1 > /dev/null"}');
-$redis->sAdd('bcm2835 ALSA', '{"id":"2","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 2 > /dev/null"}');
-$redis->sAdd('bcm2835 ALSA', '{"id":"3","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI1 Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 3 > /dev/null"}');
-$redis->sAdd('snd_rpi_wsp', '{"id":"1","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Line Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"HPOUT2 Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* line_out > /dev/null"}');
-$redis->sAdd('snd_rpi_wsp', '{"id":"2","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card S&#47;PDIF Out","hwplatformid":"01","mixer_numid":"1","route_cmd":"/srv/http/command/wolfson.sh *CARDID* spdif_out > /dev/null"}');
-$redis->sAdd('snd_rpi_wsp', '{"id":"3","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Headset Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"HPOUT1 Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* headset_out > /dev/null"}');
-$redis->sAdd('snd_rpi_wsp', '{"id":"4","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Speakers Out","hwplatformid":"01","mixer_numid":"1","mixer_control":"Speaker Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* speakers_out > /dev/null"}');
+$redis->sAdd('bcm2835 ALSA', '{"id":"1","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi Analog Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 1 > /dev/null"}');
+$redis->sAdd('bcm2835 ALSA', '{"id":"2","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 2 > /dev/null"}');
+$redis->sAdd('bcm2835 ALSA', '{"id":"3","sysname":"bcm2835 ALSA","extlabel":"RaspberryPi HDMI1 Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"PCM","route_cmd":"amixer -c *CARDID* cset numid=3 3 > /dev/null"}');
+$redis->sAdd('snd_rpi_wsp', '{"id":"1","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Line Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"HPOUT2 Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* line_out > /dev/null"}');
+$redis->sAdd('snd_rpi_wsp', '{"id":"2","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card S&#47;PDIF Out","hwplatformid":"01|08","mixer_numid":"1","route_cmd":"/srv/http/command/wolfson.sh *CARDID* spdif_out > /dev/null"}');
+$redis->sAdd('snd_rpi_wsp', '{"id":"3","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Headset Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"HPOUT1 Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* headset_out > /dev/null"}');
+$redis->sAdd('snd_rpi_wsp', '{"id":"4","sysname":"snd_rpi_wsp","extlabel":"Wolfson Card Speakers Out","hwplatformid":"01|08","mixer_numid":"1","mixer_control":"Speaker Digital","route_cmd":"/srv/http/command/wolfson.sh *CARDID* speakers_out > /dev/null"}');
 
-echo "Audio Cards database initialized\n";
+echo "Audio Cards database initialised\n";

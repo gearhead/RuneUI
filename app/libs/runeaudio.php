@@ -1596,10 +1596,10 @@ function recursiveDelete($str)
     }
 }
 
-function pushFile($filepath)
+function pushFile($redis, $filepath)
 {
     // debug
-    runelog('pushFile(): filepath', $filepath);
+    runelog('[pushFile] filepath', $filepath);
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, $filepath);
     if (file_exists($filepath)) {
@@ -1614,8 +1614,10 @@ function pushFile($filepath)
         ob_clean();
         flush();
         readfile($filepath);
+        ui_notify($redis, 'Backup', 'Downloaded: '.basename($filepath));
         return true;
     } else {
+        ui_notifyError($redis, 'Backup', 'Download failed');
         return false;
     }
 }
@@ -2067,54 +2069,54 @@ function wrk_backup($redis, $bktype = null)
     sysCmd('diff -Nau /srv/http/app/config/defaults/boot/config.txt /boot/config.txt >/home/config.txt.diff');
     // build up the backup command string
     if ($bktype === 'dev') {
-        // $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
-        // $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
-            // " bsdtar -czpf '".$filepath."'".
-            // " /mnt/MPD/Webradio".
-            // " /var/lib/redis/rune.rdb".
-            // " '".$redis->hGet('mpdconf', 'db_file')."'".
-            // " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            // " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            // " '".$redis->hGet('mpdconf', 'state_file')."'".
-            // " /var/lib/connman".
-            // " /var/www".
-            // " /etc".
-            // " /home/config.txt.diff".
-            // "";
+        $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n".
+            " /var/lib/connman";
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /srv/http".
+            " /home/config.txt.diff".
+            "";
+        // for each distributed default file take a copy of the production version
+        foreach ( sysCmd('find /srv/http/app/config/defaults/ -type f') as $bFile) {
+            $bfile = str_replace('/srv/http/app/config/defaults', '', $bFile);
+            clearstatcache(true, $bFile);
+            if (is_file($bFile)) {
+                $cmdstring .= " \\\n '".$bFile."'";
+            }
+        }
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
-        // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; systemctl stop redis ; \\\n".
-            " bsdtar -czpf '".$filepath."'".
-            " /mnt/MPD/Webradio".
-            " /var/lib/redis/rune.rdb".
-            " '".$redis->hGet('mpdconf', 'db_file')."'".
-            " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " /var/lib/connman/wifi_*.config".
-            " /var/lib/connman/ethernet_*.config".
-            " /etc/mpd.conf".
-            " /etc/samba".
-            " /home/config.txt.diff ; \\\n".
-            "systemctl start redis";
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n";
+        if (glob('/var/lib/connman/wifi_*.config')) {
+            $cmdstring .= " /var/lib/connman/wifi_*.config \\\n";
+        }
+        if (glob('/var/lib/connman/ethernet_*.config')) {
+            $cmdstring .= " /var/lib/connman/ethernet_*.config \\\n";
+        }
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /etc/mpd.conf".
+            " /etc/samba \\\n".
+            " /home/config.txt.diff".
+            "";
     }
-    // // add the names of the distribution files
-    // $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
-    // foreach ($extraFiles as $extraFile) {
-        // // convert the names of the distribution files to the location of production version (the one being used)
-        // $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
-        // if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
-            // // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
-            // continue;
-        // }
-        // // clear the cache otherwise file_exists() returns incorrect values
-        // clearstatcache(true, $fileName);
-        // if (file_exists($fileName)) {
-            // // add the files to the backup command if they exist
-            // $cmdstring .= " '".$fileName."'";
-        // }
-    // }
     ui_notify($redis, 'Backup', $cmdstring);
     // save the redis database
     $redis->save();
@@ -3124,40 +3126,59 @@ function wrk_audioOutput($redis, $action)
                 //$subdeviceid = explode(' ', trim($subdeviceid[1]));
                 //$data['device'] = 'hw:'.$card_index.','.$subdeviceid[1];
                 $data['device'] = 'hw:'.$card['number'].','.$card['device'];
-                //if ($i2smodule !== 'none' && isset($i2smodule_details->sysname) && $i2smodule_details->sysname === $card) {
-                    //$acards_details = $i2smodule_details;
-                //} else {
-                    //$acards_details = $redis->hGet('acards_details', $card);
-                //}
+                // get the hardware platform descriptor,format is two numeric characters, eg 01, 02, 03, etc
+                $hwplatformid = $redis->get('hwplatformid');
                 // read the matching predefined configuration for this audio card
                 $acards_details = $redis->hGet('acards_details', $card['name']);
+                // check that the card details are valid
+                if ($acards_details) {
+                    $details = json_decode($acards_details, true);
+                    // check that both sysname and hwplatformid are set
+                    if (!isset($details['sysname'])) {
+                        // not set, reset the details, cant use this one
+                        $details['sysname'] = '';
+                        $acards_details = '';
+                    }
+                    if (!isset($details['hwplatformid'])) {
+                        // not set, card is valid for all platforms, set it to the valid value
+                        $details['hwplatformid'] = $hwplatformid;
+                    }
+                    // check that the sysname is the one we want and that the hardware platform matches
+                    //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                    //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                    if (($details['sysname'] != $card['name']) || !strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                        // not found, reset the details
+                        $acards_details = '';
+                    }
+                }
                 // when no card is found try to determine a card-name in the table with a postfix
                 //  when the same card is defined for more hardware types with differing properties, they have a postfix in the key
                 //  name, which makes them unique
                 //  the sysname must be the name of the card we are looking for and the hwplatformid must match the current hardware
                 // this is the only place where hwplatformid is used, normally a match on the array key is enough regardless of the
                 //  hwplatformid value
-                if ($acards_details == '') {
+                if (!$acards_details) {
                     // card not found, collect the acard table keys
                     $acards_keys = $redis->hKeys('acards_details');
-                    $hwplatformid = $redis->get('hwplatformid');
-                    if ($hwplatformid == '02') {
-                        // process hardware type 02 as 08 (both Raspberry Pi)
-                        $hwplatformid = '08';
-                    }
                     foreach ($acards_keys as $acards_key) {
                         // try to find a matching key
                         if (strpos(' '.$acards_key, $card['name']) == 1) {
-                            // the key matches, with some sort of postfix, get the details
+                            // the key matches, possibly with some sort of postfix, get the details
                             $acards_details = $redis->hGet('acards_details', $acards_key);
                             $details = json_decode($acards_details, true);
                             // check that both sysname and hwplatformid are set
-                            if (!isset($details['sysname']) || !isset($details['hwplatformid'])) {
-                                // not set, reset the details
+                            if (!isset($details['sysname'])) {
+                                // not set, reset the details, cant use this one
                                 $acards_details = '';
+                                continue;
+                            } else if (!isset($details['hwplatformid'])) {
+                                // not set, card is valid for all platforms, set it to the valid value
+                                $details['hwplatformid'] = $hwplatformid;
                             }
                             // check that the sysname is the one we want and that the hardware platform matches
-                            else if (($details['sysname'] == $card['name']) && ($details['hwplatformid'] == $hwplatformid)) {
+                            //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                            //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                            if (($details['sysname'] != $card['name']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                                 // found, break the loop
                                 break;
                             } else {
