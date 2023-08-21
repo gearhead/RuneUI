@@ -348,12 +348,13 @@ fi
 #
 # redis reset
 # remove the redis variables used for:
-#   debug (wrk), network configuration (net, mac & nic), usb mounts (usb), disk mounts (mou), random play (random|ashuffle),
-#       lyric (unused variables), resolv* (unused variables), webradios & webstreaming (web), spotify* (spotify), *mpd* (mpd)
-#       airplay (airplay), samba (samba), debugdata (debugdata), locks (lock), first* (first), local* (local), access* (access)
-#       dirble* (dirble), dlna* (dlna), jamendo* (jamendo), *queue (queue), cleancache, bluetooth
+#   audio cards (acard), access point (access), airplay (airplay), audio output (ao) global random (ashuffle & random),bluetooth (bluetooth),
+#       music metadata caching (cleancache), debug data - historical (debugdata), dirble (dirble), dlna (dlna), first time boot (first),
+#       jamendo (jamendo), local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), mounted volume information (mou),
+#       MPD, (mpd), network information (net), Network interface card information (nic), batch processing queues (queue),
+#       DNS resolve information - historical (resolv), samba server (samba), USB mounts and status (usb), web streaming (web), debug variables (wrk)
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'wrk|net|mac|nic|usb|mou|random|ashuffle|lyric|resolv|web|spotify|mpd|airplay|samba|debugdata|lock|first|local|access|dirble|dlna|jamendo|queue|cleancache|bluetooth' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'acard|access|airplay|ao|ashuffle|bluetooth|cleancache|debugdata|dirble|dlna|first|jamendo|local|lock_|lyric|mac|mou|mpd|net|nic|queue|random|resolv|samba|spotify|usb|web|wrk' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
