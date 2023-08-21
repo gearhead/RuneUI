@@ -5486,7 +5486,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
-                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 1);
+                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
                         $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'yes');
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
