@@ -3037,15 +3037,26 @@ function wrk_audioOutput($redis, $action)
             // get a list of the hardware audio cards
             $cardlist = array();
             $cardlistHDMIvc4 = array();
-            // note: eliminate HW HDMI vc4 cards, they wont work correctly, these are added at the end of the function
+            // while alsa is starting aplay -l may return errors, the following routine loops until the correct information is returned
+            //  loop for maximum 30 cycles with a sleep of 2 seconds (= 1 minute)
+            $countErr = 1;
+            $cnt = 30;
+            while ($countErr && ($cnt-- >= 0)) {
+                $countErr = sysCmd('aplay -l -v 2>&1 | grep -ic "Cannot access file" | xargs')[0];
+                if ($countErr) {
+                    sleep(2);
+                }
+            }
+            unset($countErr, $cnt);
+            // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
             $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4"');
             // get a separate list of SW HDMI vc4 cards
             $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
             // determine if the number of cards has changed
-            if ($redis->hlen('acards') != (count($cardlist) + count($cardlistHDMIvc4))) {
-                $cardChange = 1;
+            if (!$redis->exists('acards') || !count($cardlist) || ($redis->hlen('acards') != (count($cardlist) + count($cardlistHDMIvc4)))) {
+                $cardChange = true;
             } else {
-                $cardChange = 0;
+                $cardChange = false;
             }
             $acards = array();
             // reformat the output of the card list
@@ -3058,12 +3069,12 @@ function wrk_audioOutput($redis, $action)
                 // check to see if the individual cards have changed
                 if (!$cardChange) {
                     if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
-                        $cardChange = 1;
+                        $cardChange = true;
                     } else {
                         $cardDet = array();
                         $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['name']), true);
                         if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
-                            $cardChange = 1;
+                            $cardChange = true;
                         }
                     }
                 }
@@ -3072,7 +3083,7 @@ function wrk_audioOutput($redis, $action)
             foreach ($cardlistHDMIvc4 as $card) {
                 $cardname = get_between_data($card, '=');
                 if (!$redis->hExists('acards', $cardname)) {
-                    $cardChange = 1;
+                    $cardChange = true;
                     break;
                 }
             }
@@ -3188,9 +3199,9 @@ function wrk_audioOutput($redis, $action)
                         }
                     }
                 }
+                // use the predefined configuration for this card or generate one from the system information
                 unset($details);
                 $details = array();
-                // use the predefined configuration for this card of generate one from the system information
                 if ($acards_details == '') {
                     // no predefined configuration for this card use the available information
                     $details['sysname'] = $card['name'];
@@ -3206,6 +3217,7 @@ function wrk_audioOutput($redis, $action)
                     }
                 } else {
                     // using the predefined configuration
+                    // echo "acard_details:\n$acards_details\n";
                     $details = json_decode($acards_details, true);
                 }
                 // determine the description
@@ -3232,44 +3244,39 @@ function wrk_audioOutput($redis, $action)
                     // type is not set, use its system description
                     $details['description'] = $card['sysdesc'];
                 }
-                // when the mixer number ID or the mixer control name are not defined, sometimes these can be determined
-                if (!isset($details['mixer_numid']) || !$details['mixer_numid']) {
+                // when a mixer number ID is specified check its validity
+                if (isset($details['mixer_numid']) && is_numeric($details['mixer_numid']) && strlen($details['mixer_numid'])) {
+                    // mixer number ID is specified, check that it is a valid number
+                    $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -ic "numid='.$details['mixer_numid'].'"');
+                    if(!isset($retval) || !is_array($retval) || !$retval[0]) {
+                        // not found, unset the value
+                        unset($details['mixer_numid']);
+                    }
+                    unset($retval);
+                }
+                // when the mixer number ID is not defined, sometimes it can be derived (generally this value is not used)
+                if (!isset($details['mixer_numid']) || !is_numeric($details['mixer_numid']) || !strlen($details['mixer_numid'])) {
                     // mixer number ID is missing
                     $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -i "playback volume"');
                     if (isset($retval) && is_array($retval) && count($retval) == 1) {
                         // one value returned, so use it
                         $details['mixer_numid'] = get_between_data($retval[0], 'numid=', ',');
-                    }
-                    unset ($retval);
-                } else {
-                    // mixer number ID is specified, check that it is a valid number
-                    $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -ic "numid='.$details['mixer_numid'].'"');
-                    if(isset($retval) && is_array($retval) && $retval[0]) {
-                        // it is valid, do nothing
                     } else {
-                        // not found, unset the value
+                        // sometimes there is a analogue and digital volume control, we may be able to identify the digital one
+                        $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -i "playback volume" | grep -i "digital"');
+                        if (isset($retval) && is_array($retval) && count($retval) == 1) {
+                            // one value returned, so use it
+                            $details['mixer_numid'] = get_between_data($retval[0], 'numid=', ',');
+                        }
+                    }
+                    if (isset($details['mixer_numid']) && (!is_numeric($details['mixer_numid']) || !strlen($details['mixer_numid']))) {
+                        // mixer id is set but not to a valid value, unset it
                         unset($details['mixer_numid']);
                     }
+                    unset($retval);
                 }
-                if (!isset($details['mixer_control']) || !$details['mixer_control']) {
-                    // mixer control is missing
-                    $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume"');
-                    $pvolumeCnt = 0;
-                    foreach ($retval as $retline) {
-                        if (substr(strtolower($retline), 0, 6) === 'simple' ) {
-                            $mixerControl = get_between_data($retline, "'", "'");
-                        }
-                        if (strpos($retline, 'pvolume')) {
-                            $validMixerControl = $mixerControl;
-                            $pvolumeCnt++;
-                        }
-                    }
-                    if ($pvolumeCnt == 1) {
-                        // one value returned, so use it
-                        $details['mixer_control'] = $validMixerControl;
-                    }
-                    unset ($retval, $retline, $mixerControl, $validMixerControl, $pvolumeCnt);
-                } else {
+                // when a mixer control is specified check its validity
+                if (isset($details['mixer_control']) && $details['mixer_control']) {
                     // mixer control is specified, check that it is valid
                     $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -ic "'.$details['mixer_control'].'"');
                     if(isset($retval) && is_array($retval) && $retval[0]) {
@@ -3278,6 +3285,49 @@ function wrk_audioOutput($redis, $action)
                         // not found, unset the value
                         unset($details['mixer_control']);
                     }
+                    unset($retval);
+                }
+                // when the mixer control name is not defined, sometimes it can be derived (this value is always used when available)
+                if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                    // mixer control is missing try to derive it
+                    $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume|limits"');
+                    $cardCnt = 0;
+                    $pvolumeFound = false;
+                    $limitsFound = false;
+                    foreach ($retval as $retline) {
+                        // clean up a version of the return line for testing, single space begin and end, replace whitespace to single space, lower case
+                        $retlineTest = ' '.strtolower(trim(preg_replace('/[\s]+/', ' ', $retline))).' ';
+                        if (substr($retlineTest, 1, 6) === 'simple' ) {
+                            $mixerControl = get_between_data($retline, "'", "'");
+                            $pvolumeFound = false;
+                            $limitsFound = false;
+                        }
+                        if (strpos($retlineTest, 'pvolume')) {
+                            $pvolumeFound = true;
+                        }
+                        if (strpos($retlineTest, 'limits') && !strpos($retlineTest, ': 0 - 1 ')) {
+                            // limits need to be non '0 - 1'
+                            $limitsFound = true;
+                        }
+                        if (isset($mixerControl) && $mixerControl && $pvolumeFound && $limitsFound) {
+                            $validMixerControl = $mixerControl;
+                            $cardCnt++;
+                        }
+                    }
+                    if ($cardCnt == 1) {
+                        // one valid value found, so use it
+                        $details['mixer_control'] = $validMixerControl;
+                    }
+                    unset ($retval, $retline, $mixerControl, $pvolumeFound, $limitsFound, $validMixerControl, $cardCnt);
+                }
+                // add allowed formats for hdmi cards, when no other card options are specified
+                //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
+                //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
+                //          20 bits, or 24 bits at up to 8 channels
+                //      we choose to run at 24 bit, 2 channels for the specified sample rates
+                if ((!isset($details['card_option']) || !$details['card_option']) && strpos(' '.strtolower($details['sysname']), 'hdmi')) {
+                    // add allowed formats to the card options
+                    $details['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
                 }
                 if (isset($details['sysname']) && $details['sysname']) {
                     // a card has been determined, process it
@@ -3358,14 +3408,20 @@ function wrk_audioOutput($redis, $action)
                 // acards loop
                 runelog('<<--------------------------- card: '.$card['name'].' index: '.$card['number'].' (finish) ---------------------------<<');
             }
-            // now process the software versions of the HDMI vc4 cards
+            // extra processing for HDMI cards
+            //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
+            //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
+            //          20 bits, or 24 bits at up to 8 channels
+            //      we choose to run at 24 bit, 2 channels for the specified sample rates
             // first delete any existing HDMI vc4 cards
             $acardKeys = $redis->hKeys('acards');
             foreach ($acardKeys as $acardKey) {
                 $acardKeyLower = ' '.strtolower($acardKey);
-                if (strpos($acardKeyLower, 'hdmi') && strpos($acardKeyLower, 'vc4')) {
-                    // delete this one
-                    $redis->hDel('acards', $acardKey);
+                if (strpos($acardKeyLower, 'hdmi')) {
+                    if (strpos($acardKeyLower, 'vc4')) {
+                        // delete any hardware HDMI vc4 cards, delete this one
+                        $redis->hDel('acards', $acardKey);
+                    }
                 }
             }
             // now add the HDMI vc4 cards
@@ -3378,11 +3434,8 @@ function wrk_audioOutput($redis, $action)
                     $acardHDMIvc4['name'] = $cardname;
                     $acardHDMIvc4['type'] = 'alsa';
                     $acardHDMIvc4['description'] = $cardname;
-                    // allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
-                    //  HDMI valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
-                    //      20 bits, or 24 bits at up to 8 channels
-                    //  we choose to run at 24 bit, 2 channels for the specified sample rates
-                    $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"\n";
+                    // add allowed formats to the card options
+                    $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
                     $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
                 }
             }
@@ -3546,6 +3599,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $redis->sRem('w_lock', $jobID);
             }
             sysCmd('/srv/http/db/redis_acards_details');
+            $redis->del('acards');
             wrk_audioOutput($redis, 'refresh');
             $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
             $redis->hSet('mpdconf', 'version', $mpdversion);
@@ -5345,6 +5399,7 @@ function wrk_getHwPlatform($redis, $reset=false)
         // set the default local browser windows and browser type
         $redis->hSet('local_browser', 'windows', 'xorg');
         $redis->hSet('local_browser', 'browser', 'luakit');
+        $redis->del('acards');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);

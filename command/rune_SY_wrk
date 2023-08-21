@@ -699,6 +699,8 @@ while (true) {
                     ui_notify($redis, 'Update RuneUI', 'Updated, preparing reboot, please wait...');
                     wrk_sysAcl();
                     sysCmd('/srv/http/db/redis_datastore_setup check');
+                    sysCmd('/srv/http/db/redis_acards_details');
+                    $redis->del('acards');
                     wrk_playernamemenu($redis->get('playernamemenu'));
                     $redis->set('dev', 0);
                     sysCmd('systemctl daemon-reload');
