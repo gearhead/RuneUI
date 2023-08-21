@@ -233,9 +233,9 @@ set -x # echo all commands to cli
 #
 # When requested, use uglifyjs to compress and mangle runeui.js
 #
-if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
+if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ] ; then
     # Install uglify-js if required
-    if [ "$os" .eq. "ARCH" ] ; then
+    if [ "$os" == "ARCH" ] ; then
         pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
     elif [ ! -f /bin/uglifyjs ] ; then
         apt install uglifyjs
