@@ -3049,17 +3049,13 @@ function wrk_audioOutput($redis, $action)
             }
             unset($countErr, $cnt);
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
-            $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4"');
+            //  also eliminate loopback card definitions, these are used for internal routing of the sound path
+            $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
             // get a separate list of SW HDMI vc4 cards
             $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
-            // determine if the number of cards has changed
-            if (!$redis->exists('acards') || !count($cardlist) || ($redis->hlen('acards') != (count($cardlist) + count($cardlistHDMIvc4)))) {
-                $cardChange = true;
-            } else {
-                $cardChange = false;
-            }
             $acards = array();
             // reformat the output of the card list
+            $cardChange = false;
             foreach ($cardlist as $card) {
                 $cardNr=get_between_data($card, 'card', ':');
                 $acards[$cardNr]['number'] = $cardNr;
@@ -3080,13 +3076,29 @@ function wrk_audioOutput($redis, $action)
                 }
             }
             //
-            foreach ($cardlistHDMIvc4 as $card) {
-                $cardname = get_between_data($card, '=');
-                if (!$redis->hExists('acards', $cardname)) {
-                    $cardChange = true;
-                    break;
+            if (!$cardChange) {
+                foreach ($cardlistHDMIvc4 as $card) {
+                    $cardname = get_between_data($card, '=');
+                    if (!$redis->hExists('acards', $cardname)) {
+                        $cardChange = true;
+                        break;
+                    }
                 }
             }
+            unset($dard, $cardname);
+            //
+            if (!$cardChange) {
+                $acardsOldKeys = $redis->hKeys('acards');
+                $cardlistJson = json_encode($cardlist);
+                $cardlistHDMIvc4Json = json_encode($cardlistHDMIvc4);
+                foreach ($acardsOldKeys as $acardsOldKey) {
+                    if (!strpos($cardlistJson, $acardsOldKey) && !strpos($cardlistHDMIvc4Json, $acardsOldKey)) {
+                        $cardChange = true;
+                        break;
+                    }
+                }
+            }
+            unset($acardsOldKeys, $acardsOldKey, $cardlistJson, $cardlistHDMIvc4Json);
             //
             if (!$cardChange) {
                 return 'unchanged';
