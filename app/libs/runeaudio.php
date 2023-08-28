@@ -12614,6 +12614,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             // break;
         default:
             $hwInput = array();
+            $ao = $redis->get('ao');
             if ($redis->hGet('hw_input', 'enable')) {
                 $hwInputDevices = sysCmd('arecord -l | grep -i "^card"');
                 if (is_array($hwInputDevices) && count($hwInputDevices)) {
@@ -12621,6 +12622,29 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $sysname = get_between_data($hwInputDevice, '[', ']');
                         $card = trim(get_between_data($hwInputDevice, 'card ', ': '));
                         $device = trim(get_between_data($hwInputDevice, '], device ', ': '));
+                        $note = '';
+                        // do not allow a device to be input and output
+                        if ($sysname == $ao) {
+                            // the hardware input is the same as the current hardware output device
+                            // if the card and device are identical skip this card
+                            $acard = json_decode($redis->hGet('acards', $ao), true);
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                continue;
+                            }
+                        }
+                        // warn the user if a card is input and output
+                        $acard = json_decode($redis->hGet('acards', $sysname), true);
+                        if (isset($acard) && is_array($acard) && isset($acard['device'])) {
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                $note = ' - <strong>Warning: Use with caution, this device can be used for input and output</strong>';
+                            }
+                        }
                         if (!isset($device) || !strlen($device)) {
                             $device = '0';
                         }

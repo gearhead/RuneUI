@@ -407,7 +407,15 @@
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle local HW input. When <strong>ON</strong> locally connected hardware input devices are detected
-                                            (e.g. sound cards or USB devices). These can be selected and used from the Library tab</span>
+                                            (e.g. sound cards or USB devices). These can be selected and used from the Library
+                                            <?php if ((isset($this->hwinput)) && ($this->hwinput)): ?>
+                                            tab.<br><i>Note: Some audio devices provide input and output functionality. Therefore, care should be
+                                            taken in using hardware input devices, the same device should not be concurrently used for output. Typical
+                                            problems are echo's and distortion. Please take note of warnings in the library listing</i>
+                                            <?php else: ?>
+                                            tab
+                                            <?php endif ?>
+                                            </span>
                 </div>
             </div>
             <div <?php if (isset($this->cdinput) && $this->cdinput): ?>class="boxed-group"<?php endif ?> id="cdBox">

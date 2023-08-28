@@ -1655,7 +1655,7 @@ function parseResponse(options) {
             content = '<li id="db-' + (i + 1) + '" data-path="';
             content += inputArr.file;
             content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-hw"></i><i class="fa fa-wave-square db-icon"></i><span class="sn">';
-            content += inputArr.name + ' <span>' + inputArr.sysname + '</span>';
+            content += inputArr.name + ' <span>' + inputArr.sysname + inputArr.note + '</span>';
             content += '<span class="bl">';
             content +=  inputArr.file + ' - '+ inputArr.description;
             content += '</span></li>';
