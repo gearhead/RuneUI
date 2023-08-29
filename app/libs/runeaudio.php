@@ -3049,44 +3049,61 @@ function wrk_audioOutput($redis, $action)
             }
             unset($countErr, $cnt);
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
-            $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4"');
+            //  also eliminate loopback card definitions, these are used for internal routing of the sound path
+            $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
             // get a separate list of SW HDMI vc4 cards
             $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
-            // determine if the number of cards has changed
-            if (!$redis->exists('acards') || !count($cardlist) || ($redis->hlen('acards') != (count($cardlist) + count($cardlistHDMIvc4)))) {
-                $cardChange = true;
-            } else {
-                $cardChange = false;
-            }
             $acards = array();
             // reformat the output of the card list
+            $cardChange = false;
             foreach ($cardlist as $card) {
                 $cardNr=get_between_data($card, 'card', ':');
-                $acards[$cardNr]['number'] = $cardNr;
-                $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
-                $acards[$cardNr]['name'] = get_between_data($card, '[', ']');
-                $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
-                // check to see if the individual cards have changed
-                if (!$cardChange) {
-                    if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
-                        $cardChange = true;
-                    } else {
-                        $cardDet = array();
-                        $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['name']), true);
-                        if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+                // some cards have multiple devices, use the first one
+                if (!isset($acards[$cardNr]['number'])) {
+                    // first time for the card number, use this one
+                    $acards[$cardNr]['number'] = $cardNr;
+                    $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
+                    $acards[$cardNr]['name'] = get_between_data($card, '[', ']');
+                    $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
+                    // check to see if the individual cards have changed
+                    if (!$cardChange) {
+                        if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
                             $cardChange = true;
+                        } else {
+                            $cardDet = array();
+                            $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['name']), true);
+                            if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+                                $cardChange = true;
+                            }
                         }
                     }
                 }
             }
+            unset($card, $cardDet);
             //
-            foreach ($cardlistHDMIvc4 as $card) {
-                $cardname = get_between_data($card, '=');
-                if (!$redis->hExists('acards', $cardname)) {
-                    $cardChange = true;
-                    break;
+            if (!$cardChange) {
+                foreach ($cardlistHDMIvc4 as $card) {
+                    $cardname = get_between_data($card, '=');
+                    if (!$redis->hExists('acards', $cardname)) {
+                        $cardChange = true;
+                        break;
+                    }
                 }
             }
+            unset($dard, $cardname);
+            //
+            if (!$cardChange) {
+                $acardsOldKeys = $redis->hKeys('acards');
+                $cardlistJson = json_encode($cardlist);
+                $cardlistHDMIvc4Json = json_encode($cardlistHDMIvc4);
+                foreach ($acardsOldKeys as $acardsOldKey) {
+                    if (!strpos($cardlistJson, $acardsOldKey) && !strpos($cardlistHDMIvc4Json, $acardsOldKey)) {
+                        $cardChange = true;
+                        break;
+                    }
+                }
+            }
+            unset($acardsOldKeys, $acardsOldKey, $cardlistJson, $cardlistHDMIvc4Json);
             //
             if (!$cardChange) {
                 return 'unchanged';
@@ -3866,7 +3883,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
             //  the MPD config file will not be replaced and MPD not restarted
-            ksort($acards);
+            //  sort order is case insensitive
+            ksort($acards, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($acards as $main_acard_name => $main_acard_details) {
                 // $card_decoded = new stdClass();
                 unset($card_decoded);
@@ -12602,6 +12620,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             // break;
         default:
             $hwInput = array();
+            $ao = $redis->get('ao');
             if ($redis->hGet('hw_input', 'enable')) {
                 $hwInputDevices = sysCmd('arecord -l | grep -i "^card"');
                 if (is_array($hwInputDevices) && count($hwInputDevices)) {
@@ -12609,6 +12628,29 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $sysname = get_between_data($hwInputDevice, '[', ']');
                         $card = trim(get_between_data($hwInputDevice, 'card ', ': '));
                         $device = trim(get_between_data($hwInputDevice, '], device ', ': '));
+                        $note = '';
+                        // do not allow a device to be input and output
+                        if ($sysname == $ao) {
+                            // the hardware input is the same as the current hardware output device
+                            // if the card and device are identical skip this card
+                            $acard = json_decode($redis->hGet('acards', $ao), true);
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                continue;
+                            }
+                        }
+                        // warn the user if a card is input and output
+                        $acard = json_decode($redis->hGet('acards', $sysname), true);
+                        if (isset($acard) && is_array($acard) && isset($acard['device'])) {
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                $note = ' - <strong>Warning: Use with caution, this device can be used for input and output</strong>';
+                            }
+                        }
                         if (!isset($device) || !strlen($device)) {
                             $device = '0';
                         }
@@ -12705,9 +12747,10 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $hwInput[$file]['name'] = get_between_data($hwInputDevice, ': ', ' [', 2);
                         $hwInput[$file]['description'] = get_between_data($hwInputDevice, '[', ']', 2);
                         $hwInput[$file]['file'] = $file;
+                        $hwInput[$file]['note'] = $note;
                         unset($format, $channels, $rate, $preferred, $selected, $forced, $file);
                     }
-                    unset($sysname, $card, $device, $hwplug);
+                    unset($sysname, $card, $device, $hwplug, $note, $acard, $acardDevice, $hwDevice);
                 }
             }
             $hwInputDevicesOld = json_decode($redis->hGet('hw_input', 'status'), true);
@@ -12731,7 +12774,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             }
             $redis->hSet('hw_input', 'status', json_encode($hwInput));
             ui_libraryHome($redis);
-            unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found);
+            unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found, $ao);
             break;
     }
 }

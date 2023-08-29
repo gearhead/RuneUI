@@ -58,7 +58,10 @@
                         <span class="help-block">
                             <strong>disabled</strong> - Volume knob disabled. Use this option to achieve the <strong>best audio quality</strong>.<br>
                             <strong>enabled</strong> - A hardware mixer is automatically selected if supported, otherwise a software mixer is used.<br>
-                            <i>A hardware mixer has better sound quality performance than a software mixer, but it must be supported from your sound card. Regardless of the mixer type, at 100% volume there is no loss in sound quality</i></span>
+                            <i>A hardware mixer has much better sound quality performance than a software mixer, but it must be supported by your
+                            sound card. However, regardless of the mixer type, at 100% volume there is no loss in sound quality.
+                            When disabled, the volume knob in the main UI is inoperable and will be shown as dimmed, there is an option to
+                            <strong>hide</strong> (remove) it</i></span>
                     </div>
                 </div>
                 <div class="form-group">
