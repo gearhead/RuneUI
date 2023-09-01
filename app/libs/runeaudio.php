@@ -3876,7 +3876,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $redis->Set('ao', $ao);
                 $redis->Set('ao_default', $ao);
                 // set this card to the default alsa card
-                set_alsa_default_card($ao);
+                set_alsa_default_card($redis, $ao);
             }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
@@ -4122,7 +4122,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->sRem('w_lock', $jobID);
                 }
                 // set this card to the default alsa card
-                set_alsa_default_card($args);
+                set_alsa_default_card($redis, $args);
                 // get interface details
                 $acard = json_decode($redis->hGet('acards', $args), true);
                 // save the card if it is a 'hw:' type
@@ -4567,7 +4567,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             if ($ao != '') {
                 $redis->set('ao', $ao);
                 // set this card to the default alsa card
-                set_alsa_default_card($ao);
+                set_alsa_default_card($redis, $ao);
             }
         }
     } else {
@@ -4748,7 +4748,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
                 if ($ao != '') {
                     $redis->set('ao', $ao);
                     // set this card to the default alsa card
-                    set_alsa_default_card($ao);
+                    set_alsa_default_card($redis, $ao);
                 }
             }
         }
@@ -8235,7 +8235,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     wrk_ashuffle($redis, 'set', $playlistName);
                 }
             }
-            $moveNr = $queuedSongs + 1;
+            $moveNr = intval($queuedSongs) + 1;
             // start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons
             // stop Global Random if disabled - there are also other conditions when ashuffle must be stopped
             // ashuffle also seems to be a little bit unstable, it occasionally unpredictably crashes
@@ -8520,7 +8520,7 @@ function wrk_check_MPD_outputs($redis)
                 if (isset($aoName) && $aoName) {
                     // the card has an audio output name
                     // set this card to the default alsa card
-                    set_alsa_default_card($aoName);
+                    set_alsa_default_card($redis, $aoName);
                     if ($redis->hExists('acards', $aoName)) {
                         // the card is listed in acards, so set it as the active audio output
                         $redis->set('ao', $aoName);
@@ -11096,19 +11096,34 @@ function search_array_keys($myArray, $search)
     return false;
 }
 
-// sets the default alsa card, based on the card name
-function set_alsa_default_card($cardName)
+// sets the default alsa card and the bluealsa ouput card, based on the card name
+function set_alsa_default_card($redis, $cardName=null)
 {
     $alsaFileName = '/etc/asound.conf';
     $bluealsaFileName = '/etc/default/bluealsa-aplay';
-    if (isset($cardName) && $cardName) {
-        $cardNumber = sysCmd("aplay -l | grep '".$cardName."'")[0];
-        if (isset($cardNumber) && $cardNumber) {
-            $cardNumber = trim(get_between_data($cardNumber[0], 'card ', ': '));
-        }
-    } else {
+    $ao = $redis->get('ao');
+    if (!isset($ao) || !$ao) {
+        $ao = $redis->get('ao_default');
+    }
+    if (!isset($cardName) || !$cardName) {
+        $cardName = $ao;
+    }
+    if (!isset($cardName) || !$cardName) {
+        // no card defined
         return;
     }
+    $acard = json_decode($redis->hGet('acards', $cardName), true);
+    if (!isset($acard['device']) || !$acard['device']) {
+        $acard = json_decode($redis->hGet('acards', $ao), true);
+    }
+    if (!isset($acard['device']) || !$acard['device']) {
+        // invalid card
+        return;
+    }
+    //
+    $device = $acard['device'];
+    $cardNumber = get_between_data($device, ':', ',');
+    //
     if (!isset($cardNumber) || !is_numeric($cardNumber)) {
         // card number is not set, remove entries from /etc/asound.conf
         clearstatcache(true, $alsaFileName);
@@ -11119,9 +11134,6 @@ function set_alsa_default_card($cardName)
         } else {
             return;
         }
-        // also configure bluealsa to point at the default card (card 0)
-        //
-        sysCmd('echo "OPTIONS=\"-Dhw:0,0\"" > "'.$bluealsaFileName.'"');
     } else {
         // card number is set modify/add entries to /etc/asound.conf
         clearstatcache(true, $alsaFileName);
@@ -11137,9 +11149,9 @@ function set_alsa_default_card($cardName)
             sysCmd('echo defaults.pcm.card '.$cardNumber." >> '".$alsaFileName."'");
             sysCmd('echo defaults.ctl.card '.$cardNumber." >> '".$alsaFileName."'");
         }
-        // also configure bluealsa to point at the default card
-        sysCmd('echo "OPTIONS=\"-Dhw:'.$cardNumber.',0\"" > "'.$bluealsaFileName.'"');
     }
+    // also configure bluealsa to point at the default card
+    sysCmd('echo "OPTIONS=\"-D'.$device.'\"" > "'.$bluealsaFileName.'"');
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
