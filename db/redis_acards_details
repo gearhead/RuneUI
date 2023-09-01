@@ -44,6 +44,7 @@ require_once('/srv/http/app/libs/openredis.php');
 //          when no hwplatformid is specified the entry is valid for all hardware platform's
 //          sysname is always validated and must match the name which Linux assigns to the card
 //          a suffix can be added to the acard_details name to add an extra similar card with a profile per hardware type
+//          the allowed formats clause should only be used in lines where "type":"usb", it is always better to use /srv/http/db/audio_allowed_formats_table.txt for setting allowed_formats
 //
 $redis->Del('acards_details');
 $redis->hSet('acards_details', 'AML-M8AUDIO', '{"sysname":"AML-M8AUDIO","extlabel":"ODROID HDMI","card_option":"buffer_time\t\"0\"","mixer_numid":"1","hwplatformid":"09","type":"integrated"}');
@@ -53,7 +54,7 @@ $redis->hSet('acards_details', 'Bel Canto 2496 USB', '{"sysname":"Bel Canto 2496
 $redis->hSet('acards_details', 'BossDAC', '{"sysname":"BossDAC","extlabel":"ALLO Boss DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'C-Media USB Headphone Set', '{"sysname":"C-Media USB Headphone Set","extlabel":"C-Media USB Headphone Set","mixer_numid":"7","mixer_control":"Headphone","type":"usb"}');
 $redis->hSet('acards_details', 'Devialet USB Audio 2.0', '{"sysname":"Devialet USB Audio 2.0","extlabel":"Devialet Audio","mixer_numid":"3","mixer_control":"Devialet Clock Selector","type":"usb"}');
-$redis->hSet('acards_details', 'DigiHug USB Audio', '{"sysname":"DigiHug USB Audio","extlabel":"DigiHug USB DAC","card_option":"allowed_formats\t\""32000:16:2 44100:16:2 48000:16:2 96000:16:2\","mixer_numid":"1","mixer_control":"PCM","type":"usb"}');
+$redis->hSet('acards_details', 'DigiHug USB Audio', '{"sysname":"DigiHug USB Audio","extlabel":"DigiHug USB DAC","card_option":"allowed_formats\t\""32000:16:2 44100:16:2 48000:16:2 96000:16:2 32000:24:2 44100:24:2 48000:24:2 96000:24:2\","mixer_numid":"1","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'Geek Out HD Audio 1V0', '{"sysname":"Geek Out HD Audio 1V0","extlabel":"LH Labs Geek Out 720","mixer_numid":"3","mixer_control":"LH Labs Clock Selector","type":"usb"}');
 $redis->hSet('acards_details', 'Hugo', '{"sysname":"Hugo","extlabel":"Chord Hugo","mixer_numid":"4","mixer_control":"Hugo","type":"usb"}');
 $redis->hSet('acards_details', 'I-Sabre K2M DAC', '{"sysname":"I-Sabre K2M DAC","extlabel":"ESS ES9018 I-Sabre K2M DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
