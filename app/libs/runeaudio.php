@@ -10729,6 +10729,9 @@ function wrk_getSpotifyMetadata($redis, $track_id)
 //  array['album.description'] > the album description including single/album info (from album data)
 //  array['artist.description'] > the number of monthly listeners (from artist data)
 {
+    // debug
+    // echo "Track ID: '$track_id'\n";
+    runelog('[wrk_getSpotifyMetadata] Track ID: '.$track_id);
     // get the album art directory and url dir
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
@@ -10782,10 +10785,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
-        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        //
+        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -10804,8 +10808,8 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                 continue;
             }
             // debug
-            echo "Title line: ".$line."\n";
-            runelog('[wrk_getSpotifyMetadata] Title line: '.$line);
+            // echo "Line: ".$line."\n";
+            runelog('[wrk_getSpotifyMetadata] Line: '.$line);
             // result is <identifier>=<value>
             $lineparts = explode('=', $line, 2);
             if ($lineparts[0] === 'og:title') {
@@ -10859,10 +10863,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     } else {
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
-        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -vi country | grep -vi canonical';
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
+        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
