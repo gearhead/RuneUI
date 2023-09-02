@@ -64,9 +64,18 @@ function updateOS($redis) {
             //  set the patch level
             $redis->set('patchlevel', 1);
         }
-        // if ($redis->get('patchlevel') == 1) {
+        if ($redis->get('patchlevel') == 1) {
+            // 2nd update
+            sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/amixer-webui.service /etc/systemd/system/amixer-webui.service');
+            sysCmd('cp /srv/http/app/config/defaults/srv/http/.config/i2s_table.txt /srv/http/.config/i2s_table.txt');
+            sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh');
+            sysCmd('systemctl daemon-reload');
+            sysCmd('systemctl restart amixer-webui');
+            $redis->set('patchlevel', 2);
+        }
+        // if ($redis->get('patchlevel') == 2) {
             // // 2nd update
-            // $redis->set('patchlevel', 2);
+            // $redis->set('patchlevel', 3);
         // }
     }
 }
