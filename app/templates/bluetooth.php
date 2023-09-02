@@ -27,7 +27,7 @@
             </div>
             <?php $outCnt = 0; foreach ($this->devices as $device) : ?>
                 <?php if (!$device['sink'] && $device['paired']) continue; else $outCnt++; // all unpaired or sinks will be shown ?>
-                <?php $outDev = '';
+                <?php $outDev = '<div class="col-sm-offset-2 col-sm-10"></div>';
                 if ($device['connected']) {
                     $outDev .= '<label class="control-label col-sm-2 green">'.$device['name'].' ('.$device['icon'].')<br><i>('.$device['device'].')</i></label>';
                 } else {
@@ -92,7 +92,7 @@
             </div>
             <?php $inCnt = 0; foreach ($this->devices as $device) : ?>
                 <?php if (!$device['source'] || !$device['paired']) continue; else $inCnt++; // all paired sources will be shown ?>
-                <?php $inDev = '';
+                <?php $inDev = '<div class="col-sm-offset-2 col-sm-10"></div>';
                 if ($device['connected']) {
                     $inDev .= '<label class="control-label col-sm-2 green">'.$device['name'].' ('.$device['icon'].')<br><i>('.$device['device'].')</i></label>';
                 } else {

@@ -1217,26 +1217,37 @@ while (true) {
                     unset($spotifyConnectCache);
                 }
                 // write Spotify Connect data to Redis datastore
-                isset($job->args->autoplay) && $redis->hSet('spotifyconnect', 'autoplay', $job->args->autoplay);
-                isset($job->args->bitrate) && $redis->hSet('spotifyconnect', 'bitrate', $job->args->bitrate);
-                isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
-                isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
-                isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
-                isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
-                isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
-                isset($job->args->save_last_volume) && $redis->hSet('spotifyconnect', 'save_last_volume', $job->args->save_last_volume);
-                isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
-                isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
-                isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);
+                $argsNames = array(
+                    'autoplay',
+                    'bitrate',
+                    'device_name',
+                    'metadata_enabled',
+                    'normalisation_pregain',
+                    'password',
+                    'save_last_volume',
+                    'timeout',
+                    'username',
+                    'volume_normalisation');
+                $argsArray = json_decode(json_encode($job->args), true);
+                foreach ($argsNames as $argsName) {
+                    if (isset($argsArray[$argsName]) && ($redis->hGet('spotifyconnect', $argsName) != $argsArray[$argsName])) {
+                        $action = 'configured';
+                        $redis->hSet('spotifyconnect', $argsName, $argsArray[$argsName]);
+                    }
+                }
                 // stop and/or start spotifyd
                 if ($job->action === 'start') {
                     runelog('service: SPOTIFYD start');
+                    if (!$redis->hGet('spotifyconnect', 'enable')) {
+                        $action = 'enabled';
+                    }
                     $redis->hSet('spotifyconnect', 'enable',  1);
-                    $action = 'enabled';
                 } elseif ($job->action === 'stop') {
                     runelog('service: SPOTIFYD stop');
+                    if ($redis->hGet('spotifyconnect', 'enable')) {
+                        $action = 'disabled';
+                    }
                     $redis->hSet('spotifyconnect', 'enable',  0);
-                    $action = 'disabled';
                 } else {
                     $action = 'configured';
                 }
