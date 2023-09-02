@@ -3877,6 +3877,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $redis->Set('ao_default', $ao);
                 // set this card to the default alsa card
                 set_alsa_default_card($redis, $ao);
+                wrk_hwinput($redis, 'refresh');
             }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
@@ -4123,6 +4124,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 // set this card to the default alsa card
                 set_alsa_default_card($redis, $args);
+                wrk_hwinput($redis, 'refresh');
                 // get interface details
                 $acard = json_decode($redis->hGet('acards', $args), true);
                 // save the card if it is a 'hw:' type
@@ -4568,6 +4570,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
                 $redis->set('ao', $ao);
                 // set this card to the default alsa card
                 set_alsa_default_card($redis, $ao);
+                wrk_hwinput($redis, 'refresh');
             }
         }
     } else {
@@ -4749,6 +4752,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
                     $redis->set('ao', $ao);
                     // set this card to the default alsa card
                     set_alsa_default_card($redis, $ao);
+                    wrk_hwinput($redis, 'refresh');
                 }
             }
         }
@@ -8521,6 +8525,7 @@ function wrk_check_MPD_outputs($redis)
                     // the card has an audio output name
                     // set this card to the default alsa card
                     set_alsa_default_card($redis, $aoName);
+                    wrk_hwinput($redis, 'refresh');
                     if ($redis->hExists('acards', $aoName)) {
                         // the card is listed in acards, so set it as the active audio output
                         $redis->set('ao', $aoName);
