@@ -94,7 +94,9 @@ function updateOS($redis) {
                 sysCmd("sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini");
             }
             sysCmd('systemctl restart amixer-webui');
-            $redis->set('patchlevel', 2);
+            $redis->hset('mpdconf', 'max_output_buffer_size', 32768);
+            wrk_mpdconf($redis, 'refresh');
+            $redis->set('patchlevel', 3);
         }
         // if ($redis->get('patchlevel') == 2) {
             // // 3rd update
