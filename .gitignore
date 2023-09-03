@@ -7,8 +7,8 @@ node_modules
 /.local/**
 .pki/**
 /.xbindkeysrc
+amixer-webui.ini
 /amixer/__pycache__/
-**/amixer-webui.ini
 tmp/**
 /app/libs/composer.phar
 *.save
