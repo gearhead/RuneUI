@@ -81,7 +81,7 @@ function updateOS($redis) {
             $redis->set('patchlevel', 2);
         }
         if ($redis->get('patchlevel') == 2) {
-            // 2nd update addendum, remove this when adding the 3rd update
+            // 3rd update
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/amixer-webui.service /etc/systemd/system/amixer-webui.service');
             sysCmd('cp /srv/http/app/config/defaults/srv/http/.config/i2s_table.txt /srv/http/.config/i2s_table.txt');
             sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh');
@@ -98,9 +98,21 @@ function updateOS($redis) {
             wrk_mpdconf($redis, 'refresh');
             $redis->set('patchlevel', 3);
         }
-        // if ($redis->get('patchlevel') == 2) {
-            // // 3rd update
-            // $redis->set('patchlevel', 2);
+        if ($redis->get('patchlevel') == 3) {
+            // 4th update
+            sysCmd('cp /srv/http/app/config/defaults/srv/http/amixer/amixer-webui.ini /srv/http/amixer/amixer-webui.ini');
+            $pythonPlugin = sysCmd('find /usr/lib -name python_plugin.so | wc -w | xargs')[0];
+            $python3Plugin = sysCmd('find /usr/lib -name python3_plugin.so | wc -w | xargs')[0];
+            if (($pythonPlugin == 1) && ($python3Plugin != 1)) {
+                sysCmd("sed -i '/^plugins = python/c\plugins = python' /srv/http/amixer/amixer-webui.ini");
+            } else if (($pythonPlugin != 1) && ($python3Plugin == 1)) {
+                sysCmd("sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini");
+            }
+            $redis->set('patchlevel', 4);
+        }
+        // if ($redis->get('patchlevel') == 4) {
+            // // 5th update
+            // $redis->set('patchlevel', 5);
         // }
     }
 }
