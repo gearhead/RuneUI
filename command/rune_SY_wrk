@@ -375,7 +375,9 @@ if ($playerid_db === '') {
     //
     // start the local browser when required, hardware must be a multiprocessor
     if ($redis->hGet('local_browser', 'enable') && ($cores > 1)) {
-        sysCmdAsync($redis, '/srv/http/command/local_browser_start_async.php');
+        // sysCmdAsync($redis, '/srv/http/command/local_browser_start_async.php');
+        // start local browser quickly
+        wrk_localBrowser($redis, 'start', '1');
     } else {
         sysCmdAsync($redis, '/srv/http/command/local_browser_stop_async.php');
     }
