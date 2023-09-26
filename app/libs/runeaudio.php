@@ -6442,7 +6442,7 @@ function ui_status($redis, $mpd, $status)
     // radio's are not always detected correctly, correct them and determine the radio name
     if (!$status['radioname'] && isset($status['file']) && (strtolower(substr($status['file'], 0, 4)) == 'http')) {
         // radio name not detected by MPD but the file is has a http prefix, it could still be a radio
-        if (isset($lastRadioDetails['file']) && ($lastRadioDetails['file'] = $status['file'])) {
+        if (isset($lastRadioDetails['file']) && ($lastRadioDetails['file'] == $status['file'])) {
             // its the same radio as the previous one
             $status['radioname'] = $lastRadioDetails['radioname'];
             // current album is the radio name
