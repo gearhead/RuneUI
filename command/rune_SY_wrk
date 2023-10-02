@@ -999,12 +999,14 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'extendpartition':
-                $retval = sysCmd("echo -e 'd\n2\nn\np\n2\n\n\nt\n2\n83\np\nw' | fdisk /dev/mmcblk0 | grep -i mmcblk0p2");
+                sysCmd('partprobe /dev/mmcblk0');
+                $startSector = sysCmd('fdisk -l /dev/mmcblk0 | grep mmcblk0p2 | xargs | cut -d " " -f2 | xargs')[0];
+                $retval = sysCmd('/bin/echo -e "p\nd\n2\nn\np\n2\n'.$startSector.'\n\nt\n2\n83\np\nw" | fdisk /dev/mmcblk0 | grep -i mmcblk0p2');
                 sysCmd('partprobe /dev/mmcblk0');
                 sysCmd('resize2fs /dev/mmcblk0p2');
                 $redis->sRem('w_lock', $jobID);
-                ui_notify($redis, "Extend Linux Partition", implode("\n", $retval));
-                unset($retval);
+                ui_notify($redis, "Extend Linux Partition", implode("\n\n", $retval));
+                unset($retval, $startSector);
                 break;
             case 'airplayconfreset':
                 sysCmd('cp /srv/http/app/config/defaults//etc/systemd/system/shairport-sync.service /etc/systemd/system/shairport-sync.service');
