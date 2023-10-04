@@ -79,8 +79,11 @@ clearstatcache(true, $fileName);
 if (file_exists($fileName)) {
     // there is an update file, calculate its MD5
     $update_os_md5 = md5_file($fileName);
-    if (!$redis->exists('update_os_md5') || ($redis->get('update_os_md5') != $update_os_md5)) {
-        // the update file has not been processed
+    if (!$redis->exists('update_os_md5')) {
+        // first time boot, don't update the os, its already been done for the current os level
+        $redis->set('update_os_md5', $update_os_md5);
+    } else if ($redis->get('update_os_md5') != $update_os_md5) {
+        // the current update file has not been processed
         include $fileName;
         updateOS($redis);
         // save the MD5 signature of the processed file
@@ -707,7 +710,7 @@ while (true) {
                     $redis->set('dev', 0);
                     sysCmd('systemctl daemon-reload');
                     // sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
-                    ui_notify($redis, 'Update RuneUI', 'Rebooting');
+                    ui_notify($redis, 'Update RuneUI', 'Rebooting, restart may take longer than normal due to post update processing!');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     if ($player_stopped) {

@@ -161,9 +161,27 @@ udevil clean
 # set up connman
 # delete the file/link at /etc/resolv.conf
 #   Note this section can be removed in the next release
-rm -f /etc/resolv.conf
+# rm -f /etc/resolv.conf
 # symlink it to connman's dynamically created resolv.conf
 # ln -sfT /run/connman/resolv.conf /etc/resolv.conf
+#
+# fix for removing openresolv
+#   Note this section can be removed in the next version
+if [ "$os" == "RPiOS" ] ; then
+    a=$( apt -qq list openresolv 2> /dev/null | grep -ci installed )
+    if [ "$a" == "0" ] ; then
+        apt install -y openresolv >/dev/null 2>&1
+    fi
+    rm -f /etc/resolv.conf
+    resolvconf -u
+    apt purge -y openresolv >/dev/null 2>&1
+elif [ "$os" == "ARCH" ] ; then
+    # removing openresolv seems to do strange things on ARCH, don't install it if it is missing, leave it installed when present
+    # pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet
+    rm -f /etc/resolv.conf
+    pacman -Q openresolv && resolvconf -u
+    # pacman -Rsn openresolv --noconfirm --quiet
+fi
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons cronie
