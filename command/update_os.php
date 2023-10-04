@@ -44,6 +44,7 @@ function updateOS($redis) {
     // when a new image is created the patch level will always be set to zero, the following code should also be reviewed
     if (($redis->get('buildversion') === 'janui-20230805') || ($redis->get('buildversion') === 'janui-20230823')) {
         // only applicable for a specific build
+        ui_notify($redis, 'Post update processing', 'Startup may take longer than  mormal!');
         if ($redis->get('patchlevel') == 0) {
             // 1st update
             //  clean up erroneous lyrics
@@ -63,6 +64,7 @@ function updateOS($redis) {
             $redis->del('acards');
             //  set the patch level
             $redis->set('patchlevel', 1);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 1');
         }
         if ($redis->get('patchlevel') == 1) {
             // 2nd update
@@ -79,6 +81,7 @@ function updateOS($redis) {
             }
             sysCmd('systemctl restart amixer-webui');
             $redis->set('patchlevel', 2);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 2');
         }
         if ($redis->get('patchlevel') == 2) {
             // 3rd update
@@ -97,6 +100,7 @@ function updateOS($redis) {
             $redis->hset('mpdconf', 'max_output_buffer_size', 32768);
             wrk_mpdconf($redis, 'refresh');
             $redis->set('patchlevel', 3);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 3');
         }
         if ($redis->get('patchlevel') == 3) {
             // 4th update
@@ -109,10 +113,41 @@ function updateOS($redis) {
                 sysCmd("sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini");
             }
             $redis->set('patchlevel', 4);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 4');
         }
-        // if ($redis->get('patchlevel') == 4) {
-            // // 5th update
-            // $redis->set('patchlevel', 5);
+        if ($redis->get('patchlevel') == 4) {
+            // 5th update
+            // add --disable-pinch to chromium-flags
+            if (!sysCmd('grep -ic -- "--disable-pinch" /srv/http/.config/chromium-flags.conf')[0]) {
+                // --disable-pinch is not present
+                $retval = sysCmd("sed -i 's/^#--process-per-tab/--disable-pinch\\n#--process-per-tab/' /srv/http/.config/chromium-flags.conf");
+            }
+            // make chromium the default browser and restart the browser if required
+            $redis->hSet('local_browser', 'browser', 'chromium');
+            wrk_localBrowser($redis, 'restart');
+            // fix for removing openresolv
+            $os = $redis->get('os');
+            if ($os == 'RPiOS') {
+                if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
+                    sysCmd('apt install -y openresolv >/dev/null 2>&1');
+                }
+                sysCmd('rm -f /etc/resolv.conf ; resolvconf -u');
+                sysCmd('apt purge -y openresolv >/dev/null 2>&1');
+            } else if ($os == 'ARCH') {
+                // removing openresolv seems to do strange things on ARCH, don't install it if it is missing, leave it installed when present
+                // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet');
+                
+                // allways remove /etc/resolv.conf, connman will correctly replace it even if resolvconf is not installed
+                sysCmd('rm -f /etc/resolv.conf ; pacman -Q openresolv && resolvconf -u');
+                // sysCmd('pacman -Rsn openresolv --noconfirm --quiet');
+            }
+            //
+            $redis->set('patchlevel', 5);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 5');
+        }
+        // if ($redis->get('patchlevel') == 5) {
+            // // 6th update
+            // $redis->set('patchlevel', 6);
         // }
     }
 }
