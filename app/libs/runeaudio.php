@@ -5667,6 +5667,12 @@ function wrk_setHwPlatform($redis, $reset=false)
             // chromium is installed, use it
             $redis->hSet('local_browser', 'browser', 'chromium');
         }
+    } else {
+        // fix for poor performance of luakit on all platforms, use chromium
+        if (file_exists($filename)) {
+            // chromium is installed, use it
+            $redis->hSet('local_browser', 'browser', 'chromium');
+        }
     }
     //
     switch($arch) {
