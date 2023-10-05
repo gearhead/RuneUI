@@ -134,11 +134,9 @@ function updateOS($redis) {
                 sysCmd('rm -f /etc/resolv.conf ; resolvconf -u');
                 sysCmd('apt purge -y openresolv >/dev/null 2>&1');
             } else if ($os == 'ARCH') {
-                // removing openresolv seems to do strange things on ARCH, don't install it if it is missing, leave it installed when present
+                // removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
                 // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet');
-                
-                // allways remove /etc/resolv.conf, connman will correctly replace it even if resolvconf is not installed
-                sysCmd('rm -f /etc/resolv.conf ; pacman -Q openresolv && resolvconf -u');
+                // sysCmd('rm -f /etc/resolv.conf ; pacman -Q openresolv && resolvconf -u');
                 // sysCmd('pacman -Rsn openresolv --noconfirm --quiet');
             }
             //

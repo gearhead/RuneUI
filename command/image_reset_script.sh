@@ -175,11 +175,11 @@ if [ "$os" == "RPiOS" ] ; then
     rm -f /etc/resolv.conf
     resolvconf -u
     apt purge -y openresolv >/dev/null 2>&1
-elif [ "$os" == "ARCH" ] ; then
-    # removing openresolv seems to do strange things on ARCH, don't install it if it is missing, leave it installed when present
+# elif [ "$os" == "ARCH" ] ; then
+    # removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
     # pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet
-    rm -f /etc/resolv.conf
-    pacman -Q openresolv && resolvconf -u
+    # rm -f /etc/resolv.conf
+    # pacman -Q openresolv && resolvconf -u
     # pacman -Rsn openresolv --noconfirm --quiet
 fi
 #
