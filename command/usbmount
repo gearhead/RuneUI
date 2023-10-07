@@ -56,7 +56,7 @@ foreach ($usbmounts as $line) {
             $line[5] .= " ".$line[$cnt];
         }
         // should not be needed, but break at cnt 16 just in case, this is 10 spaces
-        if ($cnt = 16 ) {
+        if ($cnt == 16 ) {
             break;
         }
     }

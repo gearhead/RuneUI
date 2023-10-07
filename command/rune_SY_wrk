@@ -1411,7 +1411,7 @@ while (true) {
                 break;
             case 'ui_render':
                 // when $job->action is set to 'seconds', $job->args contains a timestamp in seconds which is the requested start time
-                if (($job->action = 'seconds') && is_numeric($job->args)) {
+                if (($job->action == 'seconds') && is_numeric($job->args)) {
                     $delaySeconds = round($job->args - microtime(true));
                     if ($delaySeconds < 0 ) {
                         $delaySeconds = 0;
