@@ -12024,15 +12024,21 @@ function wrk_security($redis, $action, $args=null)
             $today = date('Y-m-d');
             $passwordInfo = sysCmd('passwd -S root | xargs')[0];
             $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
-            if (($today != $passwordDate) && ($redis->get('passworddate') == $passwordDate)) {
+            $passwordDateInitial = $redis->get('passworddate');
+            if (($today != $passwordDate) && ($passwordDateInitial == $passwordDate)) {
                 $retval = false;
             }
+            // debug
+            // echo "[wrk_security][check_linux_root_password] today:               '$today'\n";
+            // echo "[wrk_security][check_linux_root_password] passwordDate:        '$passwordDate'\n";
+            // echo "[wrk_security][check_linux_root_password] passwordDateInitial: '$passwordDateInitial'\n";
+            // echo "[wrk_security][check_linux_root_password] retval:              '$retval'\n";
             break;
         case 'check_access_point_password':
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
             $ap = false;
             foreach ($networkInterfaces as $networkInterface) {
-                if (($networkInterface['type'] == 'AP') && ($networkInterface['technology']== 'wifi')) {
+                if (($networkInterface['type'] == 'AP') && ($networkInterface['technology'] == 'wifi')) {
                     $ap = true;
                     break;
                 }

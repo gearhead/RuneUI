@@ -1517,6 +1517,7 @@ while (true) {
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_linux_root_password')) {
             // prompt the UI to change the Linux root password
+            $data = array();
             $data['id'] = 'modal-security_linux_password';
             ui_render('modal', json_encode($data));
             unset($data);
@@ -1543,6 +1544,7 @@ while (true) {
             $savecpuOneTimeActions = 230 + rand(0, 20);
         } else if (wrk_security($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_access_point_password') && is_firstTime($redis, 'check_access_point_password')) {
             // prompt the UI to change the Access Point password, only when linux password has been changed
+            $data = array();
             $data['id'] = 'modal-security_ap_password';
             ui_render('modal', json_encode($data));
             unset($data);
@@ -1550,6 +1552,7 @@ while (true) {
             $savecpuOneTimeActions = 1750 + rand(0, 100);
         } else if (is_firstTime($redis, 'check_access_point_password') && !wrk_security($redis, 'check_access_point_password')) {
             // prompt the UI to change the Access Point password, regardless of status of linux password
+            $data = array();
             $data['id'] = 'modal-security_ap_password';
             ui_render('modal', json_encode($data));
             unset($data);
