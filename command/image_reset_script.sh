@@ -170,17 +170,14 @@ udevil clean
 if [ "$os" == "RPiOS" ] ; then
     a=$( apt -qq list openresolv 2> /dev/null | grep -ci installed )
     if [ "$a" == "0" ] ; then
-        apt install -y openresolv >/dev/null 2>&1
+        bash -c "apt install -y openresolv >/dev/null 2>&1"
     fi
     rm -f /etc/resolv.conf
     resolvconf -u
-    apt purge -y openresolv >/dev/null 2>&1
-# elif [ "$os" == "ARCH" ] ; then
-    # removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
-    # pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet
-    # rm -f /etc/resolv.conf
-    # pacman -Q openresolv && resolvconf -u
-    # pacman -Rsn openresolv --noconfirm --quiet
+    # bash -c "apt purge -y openresolv >/dev/null 2>&1"
+elif [ "$os" == "ARCH" ] ; then
+    # install openresolv if missing, dont run resolvconf -u
+    pacman -Q openresolv || pacman -Sy openresolv --noconfirm
 fi
 #
 # remove rerns addons menu (if installed)

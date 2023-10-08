@@ -9107,7 +9107,13 @@ function get_lastFm($redis, $url)
 //    $retval = json_decode(curlGet($url, $proxy), true);
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
+    $retval = sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    if (isset($retval[0])) {
+        $retval = json_decode($retval[0], true);
+    } else {
+        // no response
+        $retval = '';
+    }
     if (isset($retval['error'])) {
         if (in_array($retval['error'], $lastfmDownErrors)) {
             // last.fm is down, or has other problems, for error codes see: https://www.last.fm/api/errorcodes
@@ -9649,7 +9655,7 @@ function get_songInfo($redis, $info=array())
     }
     if (!$info['song_lyrics']) {
         $info['song_lyrics'] = 'No lyrics available<br>';
-        if ($retval['service'] == 'chartlyrics') {
+        if (isset($retval['service']) && ($retval['service'] == 'chartlyrics')) {
             $info['song_lyrics'] .= 'Add lyrics for this song at <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a>';
         }
     }
@@ -12955,7 +12961,7 @@ function count_word_occurancies($search, $target='')
             // complex word check after converting special and complex characters to normal characters
             if (stripos(' '.squashCharacters($target), squashCharacters($part))) {
                 // match
-                $searchArtistPartsFound++;
+                $searchPartsFound++;
             }
         }
     }

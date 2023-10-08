@@ -132,12 +132,12 @@ function updateOS($redis) {
                     sysCmd('apt install -y openresolv >/dev/null 2>&1');
                 }
                 sysCmd('rm -f /etc/resolv.conf ; resolvconf -u');
-                sysCmd('apt purge -y openresolv >/dev/null 2>&1');
+                // sysCmd('apt purge -y openresolv >/dev/null 2>&1');
             } else if ($os == 'ARCH') {
                 // removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
-                // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm --quiet');
+                // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
                 // sysCmd('rm -f /etc/resolv.conf ; pacman -Q openresolv && resolvconf -u');
-                // sysCmd('pacman -Rsn openresolv --noconfirm --quiet');
+                // sysCmd('pacman -Rsn openresolv --noconfirm');
             }
             //
             $redis->set('patchlevel', 5);
