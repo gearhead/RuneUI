@@ -89,15 +89,15 @@ rm -rf /var/lib/bluetooth/*
 # set up services and stop them
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
-    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
+    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cron cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
     local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff\
     plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd\
     systemd-homed systemd-networkd udevil upmpdcli upower winbind winbindd)
-declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
+declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mosquitto mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
     systemd-resolved systemd-timesyncd udevil)
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
-    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cronie dhcpcd dphys-swapfile\
-    haveged llmnrd local-browser local-browser-w mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
+    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cron cronie dhcpcd dphys-swapfile\
+    haveged llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
     rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil\
     upmpdcli upower winbind winbindd)
 declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed\
@@ -181,8 +181,8 @@ elif [ "$os" == "ARCH" ] ; then
 fi
 #
 # remove rerns addons menu (if installed)
-systemctl stop addons cronie
-systemctl disable addons cronie
+systemctl stop addons
+systemctl disable addons
 rm -f /etc/systemd/system/addons.service
 rm -f /etc/sudoers.d/http
 rm -f /etc/sudoers.d/http-backup
@@ -193,6 +193,22 @@ rm -f /usr/local/bin/uninstall_addo.sh
 rm -f /usr/local/bin/uninstall_enha.sh
 redis-cli del addons
 redis-cli del addo
+#
+# Make sure cron/cronie is installed for logrotate (not activated)
+if [ "$os" == "RPiOS" ] ; then
+    a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
+    if [ "$a" == "0" ] ; then
+        bash -c "apt install -y cron >/dev/null 2>&1"
+        systemctl disable cron
+        systemctl stop cron
+    fi
+elif [ "$os" == "ARCH" ] ; then
+    # on ARCH cronie provides cron
+    pacman -Q cronie || pacman -Sy cronie --noconfirm
+    systemctl disable cronie
+    systemctl stop cronie
+    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
+fi
 #
 # remove user files
 rm -rf /root/*
@@ -528,7 +544,13 @@ ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
 ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
 #
-# set specific files for arch and rpios version compatibility
+# set op logrotate
+if [ "$os" == "ARCH" ] ; then
+    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
+    // more files are requied here
+fi
+#
+# set specific files for ARCH and RPiOS version compatibility
 #  python plugin for amixer-webui
 pythonPlugin=$( find /usr/lib -name python_plugin.so | wc -w | xargs )
 python3Plugin=$( find /usr/lib -name python3_plugin.so | wc -w | xargs )

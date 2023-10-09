@@ -143,9 +143,45 @@ function updateOS($redis) {
             $redis->set('patchlevel', 5);
             ui_notify($redis, 'Post update processing', 'Patchlevel 5');
         }
-        // if ($redis->get('patchlevel') == 5) {
-            // // 6th update
-            // $redis->set('patchlevel', 6);
+        if ($redis->get('patchlevel') == 5) {
+            // 6th update
+            // fix for installing openresolv, cron/cronie
+            // fix for excessive logging, disable rsyslog
+            $os = $redis->get('os');
+            if ($os == 'RPiOS') {
+                // install openresolv if missing
+                if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
+                // install openresolv if missing
+                    sysCmd('apt install -y openresolv >/dev/null 2>&1');
+                }
+                // install cron if missing
+                if (!sysCmd('apt -qq list cron 2> /dev/null | grep -ci installed')[0]) {
+                // install openresolv if missing
+                    sysCmd('apt install -y cron >/dev/null 2>&1');
+                }
+                // stop and disable cron
+                sysCmd('systemctl disable cron ; systemctl stop cron');
+                // stop and disable rsyslog
+                sysCmd('systemctl disable rsyslog ; systemctl stop rsyslog');
+                // start and enable mosquitto
+                sysCmd('systemctl enable mosquitto ; systemctl start mosquitto');
+            } else if ($os == 'ARCH') {
+                // install openresolv if missing
+                sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
+                // install cronie if missing
+                sysCmd('pacman -Q cronie || pacman -Sy cronie --noconfirm');
+                // stop and disable cronie
+                sysCmd('systemctl disable cronie ; systemctl stop cronie');
+                // copy cronie daily file for logrotate
+                sysCmd('cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate');
+            }
+            $redis->set('patchlevel', 6);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 6');
+        }
+        // if ($redis->get('patchlevel') == 6) {
+            // // 7th update
+            // $redis->set('patchlevel', 7);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 7');
         // }
     }
 }
