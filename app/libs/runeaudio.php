@@ -557,17 +557,20 @@ function deleteBookmark($redis, $id)
 
 function browseDB($sock, $browsemode, $query='')
 {
+    // debug for quotes in library items
+    // file_put_contents('/srv//http/tmp/browseDB.txt', 'Before:'.$browsemode.':'.$query."\n", FILE_APPEND | LOCK_EX);
+    $query = addslashes(html_entity_decode($query));
     switch ($browsemode) {
         case 'file':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'lsinfo "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'lsinfo "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'lsinfo');
             }
             break;
         case 'album':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "album" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "album" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "album"');
             }
@@ -577,7 +580,7 @@ function browseDB($sock, $browsemode, $query='')
                 if ($query === 'Various Artists') {
                     sendMpdCommand($sock, 'list artist albumartist "Various Artists"');
                 } else {
-                    sendMpdCommand($sock, 'list "album" "'.html_entity_decode($query).'"');
+                    sendMpdCommand($sock, 'list "album" "'.$query.'"');
                 }
             } else {
                 sendMpdCommand($sock, 'list "albumartist"');
@@ -585,21 +588,21 @@ function browseDB($sock, $browsemode, $query='')
             break;
         case 'composer':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "composer" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "composer" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "composer"');
             }
             break;
         case 'genre':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'list "albumartist" "genre" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'list "albumartist" "genre" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "genre"');
             }
             break;
         case 'albumfilter':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "albumartist" "'.html_entity_decode($query).'" "album" ""');
+                sendMpdCommand($sock, 'find "albumartist" "'.$query.'" "album" ""');
             }
             break;
         case 'globalrandom':
@@ -607,13 +610,16 @@ function browseDB($sock, $browsemode, $query='')
             break;
     }
     $response = readMpdResponse($sock);
-    return _parseFileListResponse($response);
+    return _parseFileListResponse($response, 'htmlspecialchars');
 }
 
 function searchDB($sock, $querytype, $query) {
-    sendMpdCommand($sock, "search ".$querytype." \"".html_entity_decode($query)."\"");
+    // debug for quotes in library items
+    // file_put_contents('/srv/http/tmp/searchDB.txt', $querytype.':'.$query."\n", FILE_APPEND | LOCK_EX);
+    $query = addslashes(html_entity_decode($query));
+    sendMpdCommand($sock, "search ".$querytype." \"".$query."\"");
     $response = readMpdResponse($sock);
-    return _parseFileListResponse($response);
+    return _parseFileListResponse($response, 'htmlspecialchars');
 }
 
 function remTrackQueue($sock, $songpos)
@@ -1106,12 +1112,22 @@ function strposa($haystack, $needle, $offset=0)
 }
 
 // format Output for the "library", no longer used for the "playlist"
-function _parseFileListResponse($resp)
+function _parseFileListResponse($resp, $extraAction=null)
+// Extra action can be optionally specified, values:
+//  'htmlspecialchars': values of ampersand, double quote, single quote, less then and more then are encoded as &amp;, &quot, &#039, &lt; and &gt;
+//  'escaped': values of double quote, single quote, backslash and null are escaped by inserting a backslash before the value
 {
     if (is_null($resp)) {
         return null;
     } else {
         // $start_time = microtime(TRUE);
+        if ($extraAction == 'htmlspecialchars') {
+            $extraAction = 1;
+        } else if ($extraAction == 'escaped') {
+            $extraAction = 2;
+        } else {
+            $extraAction = 0;
+        }
         $plistArray = array();
         $plistLine = strtok($resp, "\n");
         // $plistFile = "";
@@ -1129,7 +1145,20 @@ function _parseFileListResponse($resp)
                     list ($element, $value) = explode(': ', $plistLine, 2);
                     $element = trim($element);
                     if (isset($value)) {
-                        $value = trim($value);
+                        switch ($extraAction) {
+                            case 0:
+                                // no extra action
+                                $value = trim($value);
+                                break;
+                            case 1:
+                                // extra action htmlspecialchars
+                                $value = htmlspecialchars(trim($value), ENT_QUOTES);
+                                break;
+                            case 2:
+                                // extra action escape
+                                $value = addslashes(trim($value));
+                                break;
+                        }
                     } else {
                         $value = '';
                     }
