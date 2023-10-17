@@ -274,8 +274,9 @@ while (true) {
                 if ($newStatus['radio']) {
                     // its a radio
                     $newStatus['time'] = 100;
-                    if ($newStatus['file'] != $saveFile) {
+                    if (($newStatus['file'] != $saveFile) || ($newStatus['state'] == 'stop')) {
                         // it is a radio and it is not the same as the last radio, so this is the first information from the webradio
+                        // when the radio is stopped also clear the main UI
                         // $saveFile = $newStatus['file'];
                         $saveRadio = $newStatus['radio'];
                         $newStatus['currentsong'] = '...';
@@ -439,7 +440,7 @@ while (true) {
                     $status = array_merge($status, $newStatus);
                     $mpdChangeSong = false;
                 } else {
-                    // radio is togged, new radio station or new song, replace status
+                    // radio is toggled, new radio station or new song, replace status
                     $status = array_merge($status, $newStatus);
                     if (!$newStatus['radio'] && !$mpdChangeSong) {
                         // don't switch the changed song status for radios when it is already set to false
@@ -447,7 +448,10 @@ while (true) {
                     }
                     $saveRadio = $status['radio'];
                     $saveCurrentsong = $status['currentsong'];
-                    $saveFile = $status['file'];
+                    if (!$status['radio'] || ($status['state'] != 'stop')) {
+                        // don't update saveFile for stopped radios, this keeps the UI cleared for stopped radios
+                        $saveFile = $status['file'];
+                    }
                     $status['song_lyrics'] = ' ';
                     if (($status['currentartist'] != $saveCurrentartist) || ($status['currentartist'] == '') || ($status['currentartist'] == 'Webradio')) {
                         $status['artist_bio_summary'] = ' ';
