@@ -58,7 +58,6 @@ var GUI = {
     playlist: null,
     plugin: '',
     state: '',
-    old_state: 'none',
     stepVolumeDelta: 0,
     stepVolumeInt: 0,
     stream: '',
@@ -931,7 +930,7 @@ function refreshState() {
         // alert("refreshState 3");
         refreshTimer(0, 0, 'stop');
         window.clearInterval(GUI.currentKnob);
-        if (GUI.stream) {
+        if ((typeof GUI.stream != 'undefined') && GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -993,6 +992,25 @@ function refreshState() {
 // update the Playback UI
 function updateGUI() {
     // alert("updateGUI");
+    if ((typeof GUI.json.state === 'undefined') || (GUI.json.state === '')) {
+        GUI.json.state = 'stop';
+        GUI.json.song_percent = 0;
+        GUI.json.elapsed = 0;
+        GUI.mainArtURL = '';
+    }
+    if (GUI.state !== GUI.json.state) {
+        GUI.state = GUI.json.state;
+        if (typeof GUI.json.actPlayer !== 'undefined') {
+            setUIbuttons(GUI.json.actPlayer)
+        }
+    }
+    if (typeof GUI.json.time !== 'undefined') {
+        var time = GUI.json.time;
+    }
+    if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
+        // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
+        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
+    }
     var volume = ((typeof GUI.json.volume == 'undefined') ? 0 : GUI.json.volume);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
@@ -1040,7 +1058,7 @@ function updateGUI() {
         // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
         // console.log('UI = ', $('#cover-art').css('background-image'));
         if ((mainArtURL !== '') && (GUI.mainArtURL === mainArtURL) && !$('#cover-art').css('background-image').includes(mainArtURL)) {
-            // main art has a value its the same as the last time, but the UI has a different value, so force a refresh for all values
+            // main art has a value, its the same as the last time, but the UI has a different value, so force a refresh for all values
             // console.log('Force a refresh = ', 'true');
             GUI.currentartist = '';
             GUI.currentsong = '';
@@ -1063,7 +1081,7 @@ function updateGUI() {
         // console.log('currentartist = ', currentartist);
         // console.log('GUI.file = ', GUI.file);
         // console.log('file = ', file);
-        if (GUI.file !== file) {
+        if ((GUI.file !== file) && (GUI.state !== 'stop')) {
             GUI.file = file;
             countdownRestart(GUI.json.elapsed);
             if ($('#panel-dx').hasClass('active')) {
@@ -1371,26 +1389,31 @@ function renderUI(text){
     // update global GUI array
     GUI.json = text[0];
     // console.log(JSON.stringify(text[0]));
-    if (typeof GUI.json.state !== 'undefined') {
-        if (GUI.state !== GUI.json.state) {
-            GUI.state = GUI.json.state;
-            if (typeof GUI.json.actPlayer !== 'undefined') {
-                setUIbuttons(GUI.json.actPlayer)
-            }
-        }
-    }
-    // console.log('current song = ', GUI.json.currentsong);
-    // console.log('GUI.state = ', GUI.state );
-    // console.log('GUI.json.elapsed = ', GUI.json.elapsed);
-    // console.log('GUI.json.time = ', GUI.json.time);
-    // console.log('GUI.json.state = ', GUI.json.state);
-    if (typeof GUI.json.time !== 'undefined') {
-        var time = GUI.json.time;
-    }
-    if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
-        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
-    }
+    // if (typeof GUI.json.state === 'undefined') {
+        // GUI.json.state = 'stop';
+        // GUI.json.song_percent = 0;
+        // GUI.json.elapsed = 0;
+    // }
+    // if (GUI.state !== GUI.json.state) {
+        // GUI.state = GUI.json.state;
+        // if (typeof GUI.json.actPlayer !== 'undefined') {
+            // setUIbuttons(GUI.json.actPlayer)
+        // }
+    // }
+    // // console.log('current song = ', GUI.json.currentsong);
+    // // console.log('GUI.state = ', GUI.state );
+    // // console.log('GUI.json.elapsed = ', GUI.json.elapsed);
+    // // console.log('GUI.json.time = ', GUI.json.time);
+    // // console.log('GUI.json.state = ', GUI.json.state);
+    // if (typeof GUI.json.time !== 'undefined') {
+        // var time = GUI.json.time;
+    // }
+    // if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
+        // // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
+        // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
+    // }
     updateGUI();
+    console.log('$(#section-index).length = ', $('#section-index').length);
     if ($('#section-index').length) {
         if ((GUI.state !== 'stop') && (GUI.json.elapsed  !== 'undefined') && (typeof GUI.json.song_percent !== 'undefined')) {
             refreshKnob();

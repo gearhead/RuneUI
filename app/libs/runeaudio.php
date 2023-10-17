@@ -6399,7 +6399,42 @@ function ui_status($redis, $mpd, $status)
 {
     if (isset($status['song'])) {
         $curTrack = getTrackInfo($mpd, $status['song']);
+    } else {
+        // MPD is stopped after completing playing the queue
+        //  get info about the first track in  the queue
+        $curTrack = getTrackInfo($mpd, 0);
+        //  randomise the playlist variable to a negative value to force a queue update, normally MPD moves this number sequentially forward
+        //      when it detects a queue change, but end-of-queue is not reported (it not foolproof, duplicate number could be returned)
+        $status['playlist'] = rand(-100, -1);
+        //  elapsed and song_pecent are zero
+        $status['elapsed'] = 0;
+        $status['song_percent'] = 0;
+        //  set up the song, nextsong, songid and nextsongid, however nextsong and nextsongid could be incorrect but this will be
+        //      corrected when something is played
+        if (!isset($curTrack[0]['Pos']) || is_null($curTrack[0]['Pos'])) {
+            $status['song'] = 0;
+            $status['nextsong'] = 0;
+        } else {
+            $status['song'] = $curTrack[0]['Pos'];
+            $status['nextsong'] = $status['song'] + 1;
+        }
+        if (!isset($curTrack[0]['Id']) || is_null($curTrack[0]['Id'])) {
+            $status['songid'] = 0;
+            $status['nextsongid'] = 0;
+        } else {
+            $status['songid'] = $curTrack[0]['Id'];
+            $status['nextsongid'] = $status['songid'] + 1;
+        }
+        //  set up the track time
+        if (!isset($curTrack[0]['Time']) || is_null($curTrack[0]['Time'])) {
+            $status['time'] = 0;
+        } else {
+            $status['time'] = $curTrack[0]['Time'];
+        }
     }
+    // debug
+    // echo "Function: ui_status\n";
+    // var_dump($curTrack);
     if (isset($curTrack[0]['Title'])) {
         // $status['currentalbumartist'] = htmlentities($curTrack[0]['AlbumArtist'], ENT_XML1, 'UTF-8');
         // $status['currentartist'] = htmlentities($curTrack[0]['Artist'], ENT_XML1, 'UTF-8');
