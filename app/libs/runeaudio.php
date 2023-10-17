@@ -1166,7 +1166,7 @@ function _parseFileListResponse($resp, $extraAction=null)
             }
             if (!$element) {
                 // do nothing
-            } elseif ($element === 'file' OR $element === 'playlist') {
+            } else if (($element === 'file') || ($element === 'playlist')) {
                 $plCounter++;
                 $browseMode = FALSE;
                 // $plistFile = $value;
@@ -1196,9 +1196,9 @@ function _parseFileListResponse($resp, $extraAction=null)
                 // runelog('_parseFileListResponse Element', $element);
                 // runelog('_parseFileListResponse Value', $value);
                 // runelog('_parseFileListResponse plistArray [ plCounter ]', $plistArray[$plCounter]);
-                if ( $plCounter > -1 ) {
+                if ($plCounter > -1) {
                     $plistArray[$plCounter][$element] = $value;
-                    if ( $element === 'Time' ) {
+                    if ($element === 'Time') {
                         $plistArray[$plCounter]['Time2'] = songTime($plistArray[$plCounter]['Time']);
                     }
                     if (isset($plistArray[$plCounter]['Title']) && isset($plistArray[$plCounter]['file']) && (strtolower(substr($plistArray[$plCounter]['file'], 0, 4)) === 'http') && !isset($plistArray[$plCounter]['Name'])) {

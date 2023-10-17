@@ -160,7 +160,7 @@ while (true)  {
                 $retarray = explode("\n", $retval);
                 foreach ($retarray as $retline) {
                     if (strpos(' '.$retline, 'songid: ') === 1) {
-                        // careful, 'songid: ' matches in the 'nextsongid: ' line
+                        // careful, 'songid: ', dont match 'nextsongid: '
                         $currsongid = trim(explode(': ', $retline, 2)[1]);
                     } else if (strpos(' '.$retline, 'nextsongid: ') === 1) {
                         $nextsongid = trim(explode(': ', $retline, 2)[1]);
@@ -791,7 +791,7 @@ while (true)  {
             //
             unset($info);
         }
-        // the 'continue 2' or 'break 2' statements above result in executing the following lines only when everything has been
+        // 'break 2' statements above result in executing the following lines only when everything has been
         //  processed completely & correctly
         // unload CPU: 1 second sleep
         sleep(1);
