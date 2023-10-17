@@ -88,6 +88,8 @@ declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
+# set the mpd laststate to stop
+redis-cli set mpd_playback_laststate stop
 # stop local browser & webserver
 pgrep -x xinit && systemctl stop local-browser
 pgrep -x weston && systemctl stop local-browser-w
