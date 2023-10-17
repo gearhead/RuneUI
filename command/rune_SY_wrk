@@ -1721,20 +1721,22 @@ while (true) {
             }
         }
     }
-    // Reload (or preferably restart) avahi-daemon initially after 4 seconds and thereafter restart every 1,5 hours
+    // Reload avahi-daemon initially after 4 seconds and thereafter reload every 30 minutes or restart every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
     //  It looks like it is related to renewing the DHCP lease on the router
-    // Reload initially after (+/-4 seconds) then restart every +/-10800 cycles (+/-1,5 hours)
+    // Reload initially after (+/-4 seconds) then after a reload again every +/3600 cycles (+/-30 mins) or after a
+    //  restart every +/-10800 cycles (+/-1,5 hours)
     // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, just reload
     if ($savecpuAvd-- <= 0) {
         $activePlayer = $redis->get('activePlayer');
-        $savecpuAvd = 10700 + rand(0, 200);
         if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay') || is_firstTime($redis, 'restart_avahi_daemon')) {
             // reload avahi-daemon
             sysCmdAsync($redis, 'nice --adjustment=10 systemctl reload avahi-daemon');
+            $savecpuAvd = 3550 + rand(0, 100);
         } else {
             // restart avahi-daemon
             sysCmdAsync($redis, 'nice --adjustment=10 systemctl restart avahi-daemon');
+            $savecpuAvd = 10700 + rand(0, 200);
         }
     }
     // Check opcache every 1 hour (every 7200 cycles)
