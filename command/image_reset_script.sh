@@ -567,11 +567,11 @@ if [ "$os" == "RPiOS" ] ; then
     php_path=$( find /usr/*bin -name php-fpm* )
     php_exe=$(basename -- "$php_path")
     php_ver=${php_exe:7:10}
-    if [ "$php_ver" != "7.4" ] ; then
+    if [ "$php_ver" != "7.4" ] && [ "$php_ver" != "8.2" ] ; then
         set +x
         echo "########################################################################"
         echo "##              Error: PHP version has changed for RPiOS              ##"
-        echo "## Exiting! - Old version was 7.4, new version is $php_ver                 ##"
+        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver         ##"
         echo "##      This script (image_reset_script.sh) needs to be modified      ##"
         echo "##                   ---------------------              --------      ##"
         echo "########################################################################"
@@ -585,7 +585,13 @@ for f in /etc/php/*.* ;  do
     if [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/7.4" ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] && [ "$f" != "/etc/php/7.4" ] ; then
+    elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.2" ] ; then
+        # echo $f
+        rm -r "$f"
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" != "8.2" ] && [ "$f" != "/etc/php/8.2" ] ; then
+        # echo $f
+        rm -r "$f"
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" != "7.4" ] && [ "$f" != "/etc/php/7.4" ] ; then
         # echo $f
         rm -r "$f"
     fi
@@ -596,10 +602,26 @@ if [ "$os" == "ARCH" ] ; then
     cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
     rm /etc/systemd/system/php-fpm.service.ARCH
     rm /etc/systemd/system/php-fpm.service.RPiOS7.4
-elif [ "$os" == "RPiOS" ] ; then
-    cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
-    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
+    cp /etc/systemd/system/php-fpm.service.RPiOS8.2 /etc/systemd/system/php-fpm.service
     rm /etc/systemd/system/php-fpm.service.ARCH
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "7.4" ] ; then
+    cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
+    rm /etc/systemd/system/php-fpm.service.ARCH
+    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+fi
+#   php-fpm.conf
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+if [ "$os" == "ARCH" ] ; then
+    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
+elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
+    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/8.2\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
+elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "7.4" ] ; then
+    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/7.4\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
 fi
 #
 # set up transparent cursor for Weston / Wayland / luakit

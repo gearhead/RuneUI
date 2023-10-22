@@ -2341,7 +2341,11 @@ function wrk_apconfig($redis, $action, $args = null)
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
             wrk_getHwPlatform($redis);
-            $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            if (is_array($args)) {
+                $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            } else {
+                $args = $redis->hgetall('AccessPoint');
+            }
             break;
     }
     if ($args['enable']) {
