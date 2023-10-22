@@ -1467,8 +1467,10 @@ while (true) {
             // start play if enabled
             if ($redis->get('mpd_autoplay')) {
                 $redis->set('mpd_playback_laststate', 'play');
-                wrk_mpdRestorePlayerStatus($redis);
+            } else {
+                $redis->set('mpd_playback_laststate', 'stop');
             }
+            wrk_mpdRestorePlayerStatus($redis);
         }
         // this routine will not detect disconnected/unmounted shares which had previously been mounted
         // $retriesmounting sets the number of times mounting is to be retried, 100 @ 4 times per hour = +/-25 hours
