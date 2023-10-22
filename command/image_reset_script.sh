@@ -588,10 +588,10 @@ for f in /etc/php/*.* ;  do
     elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.2" ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" != "8.2" ] && [ "$f" != "/etc/php/8.2" ] ; then
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ "$f" != "/etc/php/8.2" ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" != "7.4" ] && [ "$f" != "/etc/php/7.4" ] ; then
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ "$f" != "/etc/php/7.4" ] ; then
         # echo $f
         rm -r "$f"
     fi
@@ -619,9 +619,9 @@ fi
 if [ "$os" == "ARCH" ] ; then
     sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
-    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/8.2\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
+    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/8.2\/php-fpm.d\/*.conf' /etc/php/8.2/php-fpm.conf
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "7.4" ] ; then
-    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/7.4\/php-fpm.d\/*.conf' /etc/php/php-fpm.conf
+    sed -i '/^include=\/etc\/php\//c\include=\/etc\/php\/7.4\/php-fpm.d\/*.conf' /etc/php/7.4/php-fpm.conf
 fi
 #
 # set up transparent cursor for Weston / Wayland / luakit
