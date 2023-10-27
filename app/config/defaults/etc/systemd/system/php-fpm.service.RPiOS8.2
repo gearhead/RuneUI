@@ -10,7 +10,7 @@ After=network.target
 Type=notify
 RuntimeDirectory=php-fpm
 PIDFile=/run/php-fpm/php-fpm.pid
-ExecStart=/usr/sbin/php-fpm8.2 --nodaemonize --fpm-config /etc/php/8.2/php-fpm.conf
+ExecStart=/usr/sbin/php-fpm8.2 --nodaemonize --fpm-config /etc/php/8.2/fpm/php-fpm.conf
 ExecReload=/bin/kill -USR2 $MAINPID
 PrivateTmp=true
 
