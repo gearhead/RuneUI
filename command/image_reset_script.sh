@@ -571,7 +571,7 @@ if [ "$os" == "RPiOS" ] ; then
         set +x
         echo "########################################################################"
         echo "##              Error: PHP version has changed for RPiOS              ##"
-        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver         ##"
+        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver    ##"
         echo "##      This script (image_reset_script.sh) needs to be modified      ##"
         echo "##                   ---------------------              --------      ##"
         echo "########################################################################"
@@ -588,10 +588,12 @@ for f in /etc/php/*.* ;  do
     elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.2"* ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ ! "$f" == "/etc/php/8.2"* ] ; then
+# kg changed this to delete all the files/folders which are not needed for the current php
+# we also need to delete /etc/php/x.x/fpm/pool.d/www.conf if it is present
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/8.2"* ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
         # echo $f
         rm -r "$f"
     fi
