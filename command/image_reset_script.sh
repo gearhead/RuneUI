@@ -145,7 +145,7 @@ done
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
-#
+
 # make sure xwindows has stopped
 export DISPLAY=:0
 xset dpms force off
@@ -590,10 +590,10 @@ for f in /etc/php/*.* ;  do
         rm -r "$f"
 # kg changed this to delete all the files/folders which are not needed for the current php
 # we also need to delete /etc/php/x.x/fpm/pool.d/www.conf if it is present
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/8.2"* ] ; then
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
         # echo $f
         rm -r "$f"
-    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ ! "$f" == "/etc/php/8.2"* ] ; then
         # echo $f
         rm -r "$f"
     fi
