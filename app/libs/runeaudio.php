@@ -3091,24 +3091,26 @@ function wrk_audioOutput($redis, $action)
             $acards = array();
             // reformat the output of the card list
             $cardChange = false;
-            foreach ($cardlist as $card) {
-                $cardNr=get_between_data($card, 'card', ':');
-                // some cards have multiple devices, use the first one
-                if (!isset($acards[$cardNr]['number'])) {
-                    // first time for the card number, use this one
-                    $acards[$cardNr]['number'] = $cardNr;
-                    $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
-                    $acards[$cardNr]['name'] = get_between_data($card, '[', ']');
-                    $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
-                    // check to see if the individual cards have changed
-                    if (!$cardChange) {
-                        if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
-                            $cardChange = true;
-                        } else {
-                            $cardDet = array();
-                            $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['name']), true);
-                            if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+            if (is_array($cardlist)) {
+                foreach ($cardlist as $card) {
+                    $cardNr=get_between_data($card, 'card', ':');
+                    // some cards have multiple devices, use the first one
+                    if (!isset($acards[$cardNr]['number'])) {
+                        // first time for the card number, use this one
+                        $acards[$cardNr]['number'] = $cardNr;
+                        $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
+                        $acards[$cardNr]['sysname'] = get_between_data($card, '[', ']');
+                        $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
+                        // check to see if the individual cards have changed
+                        if (!$cardChange) {
+                            if (!$redis->hexists('acards', $acards[$cardNr]['sysname'])) {
                                 $cardChange = true;
+                            } else {
+                                $cardDet = array();
+                                $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['sysname']), true);
+                                if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+                                    $cardChange = true;
+                                }
                             }
                         }
                     }
@@ -3116,7 +3118,7 @@ function wrk_audioOutput($redis, $action)
             }
             unset($card, $cardDet);
             //
-            if (!$cardChange) {
+            if (!$cardChange  && is_array($cardlistHDMIvc4)) {
                 foreach ($cardlistHDMIvc4 as $card) {
                     $cardname = get_between_data($card, '=');
                     if (!$redis->hExists('acards', $cardname)) {
@@ -3125,17 +3127,21 @@ function wrk_audioOutput($redis, $action)
                     }
                 }
             }
-            unset($dard, $cardname);
+            unset($card, $cardname);
             //
             if (!$cardChange) {
                 $acardsOldKeys = $redis->hKeys('acards');
                 $cardlistJson = json_encode($cardlist);
                 $cardlistHDMIvc4Json = json_encode($cardlistHDMIvc4);
-                foreach ($acardsOldKeys as $acardsOldKey) {
-                    if (!strpos($cardlistJson, $acardsOldKey) && !strpos($cardlistHDMIvc4Json, $acardsOldKey)) {
-                        $cardChange = true;
-                        break;
+                if (is_array($acardsOldKeys)) {
+                    foreach ($acardsOldKeys as $acardsOldKey) {
+                        if (!strpos($cardlistJson, $acardsOldKey) && !strpos($cardlistHDMIvc4Json, $acardsOldKey)) {
+                            $cardChange = true;
+                            break;
+                        }
                     }
+                } else if (count($cardlist) || count($cardlistHDMIvc4)) {
+                    $cardChange = true;
                 }
             }
             unset($acardsOldKeys, $acardsOldKey, $cardlistJson, $cardlistHDMIvc4Json);
@@ -3173,7 +3179,7 @@ function wrk_audioOutput($redis, $action)
                 unset($data);
                 $data = array();
                 // acards loop
-                runelog('>>--------------------------- card number '.$card['number'].' name: '.$card['name'].' (start) --------------------------->>');
+                runelog('>>--------------------------- card number '.$card['number'].' name: '.$card['sysname'].' (start) --------------------------->>');
                 //$card_index = explode(' : ', $card, 2);
                 //$card_index = trim($card_index[0]);
                 //$card_index = $card['number'];
@@ -3181,8 +3187,8 @@ function wrk_audioOutput($redis, $action)
                 //$card = trim($card[1]);
                 // $description = sysCmd("grep -his ':' /proc/asound/cards | cut -d ':' -f 2 | cut -d ' ' -f 4-20");
                 // debug
-                //$card = $card['name'];
-                runelog('wrk_audioOutput card string: ', $card['name']);
+                //$card = $card['sysname'];
+                runelog('wrk_audioOutput card string: ', $card['sysname']);
                 //$description = sysCmd("aplay -l -v | grep \"\[".$card."\]\"");
                 //$subdeviceid = explode(':', $description[0]);
                 //$subdeviceid = explode(',', trim($subdeviceid[1]));
@@ -3192,9 +3198,9 @@ function wrk_audioOutput($redis, $action)
                 // get the hardware platform descriptor,format is two numeric characters, eg 01, 02, 03, etc
                 $hwplatformid = $redis->get('hwplatformid');
                 // read the matching predefined configuration for this audio card
-                $acards_details = $redis->hGet('acards_details', $card['name']);
+                $acards_details = $redis->hGet('acards_details', $card['sysname']);
                 // check that the card details are valid
-                if ($acards_details) {
+                if (isset($acards_details) && $acards_details) {
                     $details = json_decode($acards_details, true);
                     // check that both sysname and hwplatformid are set
                     if (!isset($details['sysname'])) {
@@ -3209,10 +3215,12 @@ function wrk_audioOutput($redis, $action)
                     // check that the sysname is the one we want and that the hardware platform matches
                     //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
                     //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
-                    if (($details['sysname'] != $card['name']) || !strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                    if (($details['sysname'] != $card['sysname']) || !strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                         // not found, reset the details
                         $acards_details = '';
                     }
+                } else {
+                    $acards_details = '';
                 }
                 // when no card is found try to determine a card-name in the table with a postfix
                 //  when the same card is defined for more hardware types with differing properties, they have a postfix in the key
@@ -3225,7 +3233,7 @@ function wrk_audioOutput($redis, $action)
                     $acards_keys = $redis->hKeys('acards_details');
                     foreach ($acards_keys as $acards_key) {
                         // try to find a matching key
-                        if (strpos(' '.$acards_key, $card['name']) == 1) {
+                        if (strpos(' '.$acards_key, $card['sysname']) == 1) {
                             // the key matches, possibly with some sort of postfix, get the details
                             $acards_details = $redis->hGet('acards_details', $acards_key);
                             $details = json_decode($acards_details, true);
@@ -3241,7 +3249,7 @@ function wrk_audioOutput($redis, $action)
                             // check that the sysname is the one we want and that the hardware platform matches
                             //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
                             //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
-                            if (($details['sysname'] != $card['name']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                            if (($details['sysname'] != $card['sysname']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                                 // found, break the loop
                                 break;
                             } else {
@@ -3254,18 +3262,29 @@ function wrk_audioOutput($redis, $action)
                 // use the predefined configuration for this card or generate one from the system information
                 unset($details);
                 $details = array();
-                if ($acards_details == '') {
+                if (!$acards_details) {
                     // no predefined configuration for this card use the available information
-                    $details['sysname'] = $card['name'];
+                    $details['sysname'] = $card['sysname'];
                     $details['extlabel'] = $card['sysdesc'];
                     $details['hwplatformid'] = $redis->get('hwplatformid');
-                    if (substr($card['name'], 0, 8) == 'bcm2835 ') {
+                    if (substr($card['sysname'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
-                        $details['description'] = 'Raspberry Pi: '.trim(substr($card['name'], 8));
                         $details['type'] = 'integrated';
                     } else {
-                        $details['description'] = $card['name'];
-                        $details['type'] = 'unknown';
+                        // try to identify USB devices
+                        $usbDevicesNames = preg_replace('/\s*iProduct\s*.\s*/', '|', implode(' ', sysCmd('lsusb -v 2>/dev/null | grep -i "iProduct"'))).'|';
+                        if (strpos($usbDevicesNames, $card['sysname'])) {
+                            // its an usb device
+                            $details['type'] = 'usb';
+                        } else if ($redis->get('i2smodule') != 'none') {
+                            // UI assigned soundcard, assume this is the i2s device, there is only one present
+                            $details['type'] = 'i2s';
+                        } else if (!sysCmd('grep -ic "^#dtoverlay=none" \''.$redis->get('p1mountpoint').'/config.txt\'')[0]) {
+                            // manually assigned soundcard, assume this is the i2s device, there is only one present
+                            $details['type'] = 'i2s';
+                        } else {
+                            $details['type'] = 'unknown';
+                        }
                     }
                 } else {
                     // using the predefined configuration
@@ -3273,28 +3292,44 @@ function wrk_audioOutput($redis, $action)
                     $details = json_decode($acards_details, true);
                 }
                 // determine the description
-                if (isset($details['type'])) {
-                    if ($details['type'] == 'i2s') {
+                if ((!isset($details['description']) || !$details['description']) && isset($details['type']) && $details['type']) {
+                    if ($details['type'] == 'integrated') {
+                        if (isset($details['sysname']) && $details['sysname']) {
+                            $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
+                        } else if (isset($details['extlabel']) && $details['extlabel']) {
+                            $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
+                        }
+                    } else if ($details['type'] == 'i2s') {
                         // save the name as defined in the UI when selecting this card
-                        $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
-                        if (($details['description'] === '') || ($redis->Get('i2smodule') === 'none')) {
-                            // otherwise call set the description to default, could happen when manually configured
-                            $details['description'] = 'Soundcard: '.$card['sysdesc'];
-                        }
-                    } else if ($details['type'] == 'usb') {
-                        // its a USB DAC
-                        if (isset($details['extlabel']) && ($details['extlabel'] != '')) {
-                            $details['description'] = 'USB: '.$details['extlabel'];
+                        $i2sModule = $redis->get('i2smodule');
+                        if ($i2sModule && ($i2sModule != 'none')) {
+                            $details['description'] = 'Soundcard: '.trim(explode('|', $redis->get('i2smodule_select'), 2)[1]);
                         } else {
-                            $details['description'] = 'USB: '.$card['sysdesc'];
+                            // otherwise call set the description to default, could happen when manually configured
+                            if (isset($details['extlabel']) && $details['extlabel']) {
+                                $details['description'] = 'Soundcard: '.$details['extlabel'];
+                            } else if (isset($details['sysname']) && $details['sysname']) {
+                                $details['description'] = 'Soundcard: '.$details['sysname'];
+                            }
                         }
-                    } else {
-                        // no idea what this card is, use its system description
-                        $details['description'] = $card['sysdesc'];
+                    } else if (($details['type'] == 'usb')) {
+                        // its a USB DAC
+                        if (isset($details['sysname']) && $details['sysname']) {
+                            $details['description'] = 'USB: '.$details['sysname'];
+                        } else if (isset($details['extlabel']) && $details['extlabel']) {
+                            $details['description'] = 'USB: '.$details['extlabel'];
+                        }
                     }
-                } else {
-                    // type is not set, use its system description
-                    $details['description'] = $card['sysdesc'];
+                }
+                if (!isset($details['description']) || !$details['description']) {
+                    if (isset($details['extlabel']) && $details['extlabel']) {
+                        $details['description'] = 'X: '.$details['extlabel'];
+                    } else if (isset($details['sysname']) && $details['sysname']){
+                        // no idea what this card is, use its system description
+                        $details['description'] = 'X: '.$card['sysname'];
+                    } else {
+                        $details['description'] = 'X: Unknown sound device';
+                    }
                 }
                 // when a mixer number ID is specified check its validity
                 if (isset($details['mixer_numid']) && is_numeric($details['mixer_numid']) && strlen($details['mixer_numid'])) {
@@ -3343,34 +3378,54 @@ function wrk_audioOutput($redis, $action)
                 if (!isset($details['mixer_control']) || !$details['mixer_control']) {
                     // mixer control is missing try to derive it
                     $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume|limits"');
-                    $cardCnt = 0;
                     $pvolumeFound = false;
                     $limitsFound = false;
+                    $singleLimitsFound = false;
+                    $validMixerControls = array();
                     foreach ($retval as $retline) {
                         // clean up a version of the return line for testing, single space begin and end, replace whitespace to single space, lower case
                         $retlineTest = ' '.strtolower(trim(preg_replace('/[\s]+/', ' ', $retline))).' ';
-                        if (substr($retlineTest, 1, 6) === 'simple' ) {
+                        if (substr($retlineTest, 1, 6) === 'simple') {
                             $mixerControl = get_between_data($retline, "'", "'");
                             $pvolumeFound = false;
                             $limitsFound = false;
+                            $singleLimitsFound = false;
                         }
-                        if (strpos($retlineTest, 'pvolume')) {
+                        if (strpos($retlineTest, 'pvolume ')) {
                             $pvolumeFound = true;
                         }
                         if (strpos($retlineTest, 'limits') && !strpos($retlineTest, ': 0 - 1 ')) {
                             // limits need to be non '0 - 1'
                             $limitsFound = true;
                         }
-                        if (isset($mixerControl) && $mixerControl && $pvolumeFound && $limitsFound) {
-                            $validMixerControl = $mixerControl;
-                            $cardCnt++;
+                        if (strpos($retlineTest, 'limits') && (substr_count($retlineTest, ' - ') == 1)) {
+                            // only  valid when there is one set of limits
+                            $singleLimitsFound = true;
+                        }
+                        if (isset($mixerControl) && $mixerControl && $pvolumeFound && $limitsFound && $singleLimitsFound) {
+                            $validMixerControls[] = $mixerControl;
                         }
                     }
-                    if ($cardCnt == 1) {
+                    if (count($validMixerControls) == 1) {
                         // one valid value found, so use it
-                        $details['mixer_control'] = $validMixerControl;
+                        $details['mixer_control'] = reset($validMixerControls);
+                    } else if (count($validMixerControls)) {
+                        foreach ($validMixerControls as $key => $validMixerControl) {
+                            $validMixerControl = strtolower($validMixerControl);
+                            // eliminate 'mic' (microphone) volume controls
+                            if (strpos(' '.$validMixerControl, 'mic')) {
+                                unset($validMixerControls[$key]);
+                            }
+                            // eliminate 'input' volume controls
+                            if (strpos(' '.$validMixerControl, 'input')) {
+                                unset($validMixerControls[$key]);
+                            }
+                        }
+                        if (count($validMixerControls) == 1) {
+                            $details['mixer_control'] = reset($validMixerControls);
+                        }
                     }
-                    unset ($retval, $retline, $mixerControl, $pvolumeFound, $limitsFound, $validMixerControl, $cardCnt);
+                    unset ($retval, $retline, $mixerControl, $pvolumeFound, $limitsFound, $validMixerControl, $validMixerControls, $cardCnt);
                 }
                 // add allowed formats for hdmi cards, when no other card options are specified
                 //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
@@ -3384,10 +3439,10 @@ function wrk_audioOutput($redis, $action)
                 if (isset($details['sysname']) && $details['sysname']) {
                     // a card has been determined, process it
                     // debug
-                    runelog('wrk_audioOutput: in loop: acards_details for: '.$card['name'], json_encode($details));
+                    runelog('wrk_audioOutput: in loop: acards_details for: '.$card['sysname'], json_encode($details));
                     //$details = new stdClass();
                     // debug
-                    runelog('wrk_audioOutput: in loop: (decoded) acards_details for: '.$card['name'], $details['extlabel']);
+                    runelog('wrk_audioOutput: in loop: (decoded) acards_details for: '.$card['sysname'], $details['extlabel']);
                     if (isset($details['mixer_control']) && $details['mixer_control']) {
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 4,6");
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 3,5");
@@ -3400,24 +3455,24 @@ function wrk_audioOutput($redis, $action)
                         $data['mixer_device'] = "hw:".$card['number'];
                         $data['mixer_control'] = $details['mixer_control'];
                     }
-                    if (isset($details['sysname']) && ($details['sysname'] === $card['name'])) {
+                    if (isset($details['sysname']) && ($details['sysname'] === $card['sysname'])) {
                         if ($details['type'] === 'integrated_sub') {
-                            $sub_interfaces = $redis->sMembers($card['name']);
+                            $sub_interfaces = $redis->sMembers($card['sysname']);
                             // debug
-                            runelog('line 2444: (sub_interfaces loop) card: '.$card['name'], $sub_interfaces);
+                            runelog('line 3440: (sub_interfaces loop) card: '.$card['sysname'], $sub_interfaces);
                             foreach ($sub_interfaces as $sub_interface) {
-                                runelog('line 2446: (sub_interfaces foreach) card: '.$card['name'], $sub_interface);
+                                runelog('line 3442: (sub_interfaces foreach) card: '.$card['sysname'], $sub_interface);
                                 //$sub_int_details = new stdClass();
                                 $sub_int_details = array();
                                 $sub_int_details = json_decode($sub_interface, true);
-                                runelog('line 2449: (sub_interfaces foreach json_decode) card: '.$card['name'], $sub_int_details);
+                                runelog('line 2449: (sub_interfaces foreach json_decode) card: '.$card['sysname'], $sub_int_details);
                                 $sub_int_details['device'] = $data['device'];
-                                $sub_int_details['name'] = $card['name'].'_'.$sub_int_details['id'];
+                                $sub_int_details['name'] = $card['sysname'].'_'.$sub_int_details['id'];
                                 $sub_int_details['description'] = $sub_int_details['extlabel'];
                                 $sub_int_details['type'] = 'alsa';
                                 $sub_int_details['integrated_sub'] = 1;
                                 // prepare data for real_interface record
-                                $data['name'] = $card['name'];
+                                $data['sysname'] = $card['sysname'];
                                 $data['type'] = 'alsa';
                                 //$data['system'] = trim($card['sysdesc']);
                                 // write real_interface json (use this to create the real MPD output)
@@ -3426,7 +3481,7 @@ function wrk_audioOutput($redis, $action)
                                 if (isset($sub_int_details['route_cmd'])) $sub_int_details['route_cmd'] = str_replace("*CARDID*", $card['number'], $sub_int_details['route_cmd']);
                                 // debug
                                 runelog('::::::sub interface record array:::::: ',json_encode($sub_int_details));
-                                $redis->hSet('acards', $card['name'].'_'.$sub_int_details['id'], json_encode($sub_int_details));
+                                $redis->hSet('acards', $card['sysname'].'_'.$sub_int_details['id'], json_encode($sub_int_details));
                             }
                         }
                         // if ($details['extlabel'] !== 'none') $data['extlabel'] = $details['extlabel'];
@@ -3436,7 +3491,7 @@ function wrk_audioOutput($redis, $action)
                         }
                     }
                     // debug
-                    if (isset($data['extlabel'])) runelog('wrk_audioOutput: in loop: extlabel for: '.$card['name'], $data['extlabel']);
+                    if (isset($data['extlabel'])) runelog('wrk_audioOutput: in loop: extlabel for: '.$card['sysname'], $data['extlabel']);
                     // test if there is an option for mpd.conf set
                     // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
                     if (isset($details['card_option']) && $details['card_option']) {
@@ -3444,21 +3499,21 @@ function wrk_audioOutput($redis, $action)
                     }
                     // test if there is a set of allowed formats for this card
                     // for example the ES9023 audio card expects 24 bit input
-                    if (isset($allowedFormats[$activeOverlayAndName.$card['name']]) && $allowedFormats[$activeOverlayAndName.$card['name']]) {
-                        $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['name']];
+                    if (isset($allowedFormats[$activeOverlayAndName.$card['sysname']]) && $allowedFormats[$activeOverlayAndName.$card['sysname']]) {
+                        $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['sysname']];
                     }
                 }
                 if (!isset($sub_interfaces[0]) || (!$sub_interfaces[0])) {
-                    $data['name'] = $card['name'];
+                    $data['sysname'] = $card['sysname'];
                     $data['type'] = 'alsa';
                     $data['description'] = $details['description'];
                     //$data['system'] = trim($card['sysdesc']);
                     // debug
                     // runelog('::::::acard record array::::::', $data);
-                    $redis->hSet('acards', $card['name'], json_encode($data));
+                    $redis->hSet('acards', $card['sysname'], json_encode($data));
                 }
                 // acards loop
-                runelog('<<--------------------------- card: '.$card['name'].' index: '.$card['number'].' (finish) ---------------------------<<');
+                runelog('<<--------------------------- card: '.$card['sysname'].' index: '.$card['number'].' (finish) ---------------------------<<');
             }
             // extra processing for HDMI cards
             //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
@@ -3477,18 +3532,20 @@ function wrk_audioOutput($redis, $action)
                 }
             }
             // now add the HDMI vc4 cards
-            foreach ($cardlistHDMIvc4 as $card) {
-                $cardname = get_between_data($card, '=');
-                if ($cardname) {
-                    $acardHDMIvc4 = array();
-                    $acardHDMIvc4['device'] = $card;
-                    $acardHDMIvc4['extlabel'] = $cardname;
-                    $acardHDMIvc4['name'] = $cardname;
-                    $acardHDMIvc4['type'] = 'alsa';
-                    $acardHDMIvc4['description'] = $cardname;
-                    // add allowed formats to the card options
-                    $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
-                    $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+            if (is_array($cardlistHDMIvc4)) {
+                foreach ($cardlistHDMIvc4 as $card) {
+                    $cardname = get_between_data($card, '=');
+                    if ($cardname) {
+                        $acardHDMIvc4 = array();
+                        $acardHDMIvc4['device'] = $card;
+                        $acardHDMIvc4['extlabel'] = $cardname;
+                        $acardHDMIvc4['sysname'] = $cardname;
+                        $acardHDMIvc4['type'] = 'alsa';
+                        $acardHDMIvc4['description'] = 'Raspberry Pi: SW'.$cardname;
+                        // add allowed formats to the card options
+                        $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
+                        $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+                    }
                 }
             }
             //
@@ -3919,19 +3976,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $card_decoded = array();
                 $card_decoded = json_decode($main_acard_details, true);
                 // debug
-                runelog('decoded ACARD '.$card_decoded['name'], $main_acard_details, __FUNCTION__);
+                runelog('decoded ACARD '.$card_decoded['sysname'], $main_acard_details, __FUNCTION__);
                 // handle sub-interfaces
                 if (isset($card_decoded['integrated_sub']) && ($card_decoded['integrated_sub'] === 1)) {
                     // record UI audio output name
-                    $current_card = $card_decoded['name'];
+                    $current_card = $card_decoded['sysname'];
                     // if ($sub_count >= 1) continue;
                     // $card_decoded = json_decode($card_decoded->real_interface);
                     runelog('current AO ---->  ', $ao, __FUNCTION__);
                     // var_dump($ao);
-                    runelog('current card_name ---->  ', $card_decoded['name'], __FUNCTION__);
+                    runelog('current card_name ---->  ', $card_decoded['sysname'], __FUNCTION__);
                     // var_dump($card_decoded->name);
                     // var_dump(strpos($ao, $card_decoded->name));
-                    if (strpos($ao, $card_decoded['name']) === true OR strpos($ao, $card_decoded['name']) === 0) $sub_interface_selected = 1;
+                    if (strpos($ao, $card_decoded['sysname']) === true OR strpos($ao, $card_decoded['sysname']) === 0) $sub_interface_selected = 1;
                     // debug
                     if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
                     // debug
@@ -3944,7 +4001,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="audio_output {\n";
                 // $output .="name \t\t\"".$card_decoded->name."\"\n";
                 if (isset($sub_interface)) {
-                    $output .="\tname \t\t\"".$card_decoded['name']."\"\n";
+                    $output .="\tname \t\t\"".$card_decoded['sysname']."\"\n";
                 } else {
                     $output .="\tname \t\t\"".$main_acard_name."\"\n";
                 }
