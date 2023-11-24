@@ -73,6 +73,7 @@ var GUI = {
     elapsed: 0,
     consume: 0,
     file: '',
+    local_volume_control: ''
 };
 
 
@@ -611,16 +612,31 @@ function setUIbuttons(activePlayer) {
         // update (volume knob and) control buttons
         if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
-            //document.getElementById("volume").style.color = '#1A242F';
-            $('#volume-knob').addClass('disabled');
-            $('#volume-knob').addClass('nomixer');
-            $('#volume-knob button').prop('disabled', true);
-            $('#volume').addClass('disabled');
-            $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
-            $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
-            $('#volumedn').addClass('disabled');
-            $('#volumemute').addClass('disabled');
-            $('#volumeup').addClass('disabled');
+            if (GUI.local_volume_control === '0') {
+                // local volume control can be on for some streams
+                $('#volume-knob').addClass('disabled');
+                $('#volume-knob').addClass('nomixer');
+                $('#volume-knob button').prop('disabled', true);
+                $('#volume').addClass('disabled');
+                $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+                $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+                $('#volumedn').addClass('hide');
+                $('#volumemute').addClass('hide');
+                $('#volumeup').addClass('hide');
+            } else {
+                $('#volume-knob').removeClass('disabled');
+                $('#volume-knob').removeClass('nomixer');
+                $('#volume-knob button').prop('disabled', false);
+                $('#volume').removeClass('disabled');
+                $('#volume-knob').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+                $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+                $('#volumedn').removeClass('hide');
+                $('#volumemute').removeClass('hide');
+                $('#volumeup').removeClass('hide');
+                $('#volumedn').removeClass('disabled');
+                $('#volumemute').removeClass('disabled');
+                $('#volumeup').removeClass('disabled');
+            }
             $('#repeat').addClass('hide');
             $('#random').addClass('hide');
             $('#single').addClass('hide');
@@ -666,6 +682,13 @@ function setUIbuttons(activePlayer) {
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
+        }
+        if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://') || (GUI.file.substr(0, 7) === 'cdda://')) {
+            $('#overlay-social-open').addClass('hide');
+            $('#songinfo-open').addClass('hide');
+        } else {
+            $('#overlay-social-open').removeClass('hide');
+            $('#songinfo-open').removeClass('hide');
         }
     } else {
         // force setting the main player UI buttons next time
@@ -1027,6 +1050,7 @@ function updateGUI() {
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
     var file = ((typeof GUI.json.file == 'undefined') ? '' : GUI.json.file);
+    var local_volume_control = ((typeof GUI.json.local_volume_control == 'undefined') ? '0' : GUI.json.local_volume_control);
     // set stream mode if radioname is present or active player is Bluetooth
     if (radioname !== null && radioname !== undefined && radioname !== '') {
         GUI.stream = 'radio';
@@ -1037,6 +1061,7 @@ function updateGUI() {
     } else {
         GUI.stream = '';
     }
+    GUI.local_volume_control = local_volume_control;
     if (typeof GUI.json.consume !== 'undefined') {
         GUI.consume = GUI.json.consume;
     }
@@ -1413,7 +1438,7 @@ function renderUI(text){
         // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
     // }
     updateGUI();
-    console.log('$(#section-index).length = ', $('#section-index').length);
+    // console.log('$(#section-index).length = ', $('#section-index').length);
     if ($('#section-index').length) {
         if ((GUI.state !== 'stop') && (GUI.json.elapsed  !== 'undefined') && (typeof GUI.json.song_percent !== 'undefined')) {
             refreshKnob();

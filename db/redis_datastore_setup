@@ -216,11 +216,15 @@ function redisDatastore($redis,$action) {
             $redis->set('usb_db_autorebuild', 1);
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
-            $redis->hSet('bluetooth', 'def_volume', '40');
+            $redis->hSet('bluetooth', 'def_volume_in', '-1');
+            // $redis->hSet('bluetooth', 'def_volume_out', '-1');
             $redis->hSet('bluetooth', 'initialising', 0);
-            $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hSet('bluetooth', 'IO_toggle', 'both');
+            $redis->hSet('bluetooth', 'local_volume_control', 0);
+            $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hSet('bluetooth', 'quality', 'default');
             $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hSet('bluetooth', 'remember_last_volume', 0);
             $redis->hSet('bluetooth', 'samplerate', '48000');
             $redis->hSet('bluetooth', 'timeout', 20);
             $redis->set('bluetooth_status', json_encode(array()));
@@ -556,11 +560,15 @@ function redisDatastore($redis,$action) {
             $redis->exists('ntpserver') || $redis->set('ntpserver', 'pool.ntp.org');
             $redis->exists('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
             $redis->exists('usb_db_autorebuild_retry') || $redis->set('usb_db_autorebuild_retry', 0);
-            $redis->hExists('bluetooth', 'def_volume') || $redis->hSet('bluetooth', 'def_volume', '40');
+            $redis->hExists('bluetooth', 'def_volume_in') || $redis->hSet('bluetooth', 'def_volume_in', -1);
+            // $redis->hExists('bluetooth', 'def_volume_out') || $redis->hSet('bluetooth', 'def_volume_out', -1);
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
-            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hExists('bluetooth', 'IO_toggle') || $redis->hSet('bluetooth', 'IO_toggle', 'both');
+            $redis->hExists('bluetooth', 'local_volume_control') || $redis->hSet('bluetooth', 'local_volume_control', 0);
+            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hExists('bluetooth', 'quality') || $redis->hSet('bluetooth', 'quality', 'high_def');
             $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hExists('bluetooth', 'remember_last_volume') || $redis->hSet('bluetooth', 'remember_last_volume', 0);
             $redis->hExists('bluetooth', 'samplerate') || $redis->hSet('bluetooth', 'samplerate', '48000');
             $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
             $redis->exists('bluetooth_status') || $redis->set('bluetooth_status', json_encode(array()));
@@ -668,7 +676,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             // local browser
-            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'luakit');
+            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
             $redis->hExists('local_browser', 'enable-splash') || $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hExists('local_browser', 'localSStime') || $redis->hSet('local_browser', 'localSStime', -1);

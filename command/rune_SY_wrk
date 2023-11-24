@@ -212,9 +212,9 @@ if ($playerid_db === '') {
     //
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        wrk_btcfg($redis, 'enable');
+        wrk_btcfg($redis, 'enable', 'async');
     } else {
-        wrk_btcfg($redis, 'disable');
+        wrk_btcfg($redis, 'disable', 'async');
     }
     // setup the bluealsa config files to reflect their redis values
     wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
@@ -1135,9 +1135,9 @@ while (true) {
             case 'btcfg':
                 // $job->action is always set, $job->args can also contain information
                 if (isset($job->args)) {
-                    wrk_btcfg($redis, $job->action, $job->args);
+                    wrk_btcfg($redis, $job->action, $job->args, $jobID);
                 } else {
-                    wrk_btcfg($redis, $job->action);
+                    wrk_btcfg($redis, $job->action, null, $jobID);
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;

@@ -703,14 +703,13 @@ while (true) {
             //
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
-                $status = json_decode($redis->get('act_player_info'), true);
+                // $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE Bluetooth ----------------------------------');
                 $status = initialise_playback_array($redis, 'Bluetooth');
                 ui_render('playback', json_encode($status));
                 $redis->set('act_player_info', json_encode($status));
                 $audio = $status['audio'];
                 $btDeviceName = $status['currentalbum'];
-                $state = $status['state'];
                 $audio_channels = $status['audio_channels'];
                 $audio_sample_depth = $status['audio_sample_depth'];
                 $audio_sample_rate = intval($status['audio_sample_rate'] * 1000);
@@ -718,26 +717,101 @@ while (true) {
             }
             $bluetooth_timeout = $redis->hGet('bluetooth', 'timeout');
             $bluetooth_timeout_count = $bluetooth_timeout;
+            $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
+            $status['local_volume_control'] = 0;
+            $status['state'] = '';
+            $bitrate = '~190';
             $sleepUntilTime = microtime(true)+2;
             $checkAudioCnt = 2;
+            $checkVolumeCnt = 2;
+            $state = '';
+            $time = 120;
+            $elapsed = 0;
+            $song_percent = 0;
+            $elapsedTimestamp = microtime(true);
+            $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+            echo "Volume 1: $volume\n";
+            $btDeviceName = '';
             do {
                 $status = json_decode($redis->get('act_player_info'), true);
                 runelog('rune_PL_wrk: Bluetooth idle loop');
-                // test for something playing instead of a event 'stop' value
-                if (is_playing($redis)) {
+                // get a list of bluealsa pcms for input
+                $pcmInfo = wrk_btcfg($redis, 'auto_volume');
+                // test for something playing
+                if (is_playing($redis) || (isset($pcmInfo['input']['running']) && $pcmInfo['input']['running'])) {
                     runelog('rune_PL_wrk: Bluetooth is playing');
+                    $redis->hSet('bluetooth', 'initialising', 0);
                     $bluetooth_timeout_count = $bluetooth_timeout;
-                    $state = 'play';
-                    if ($state != $status['state']) {
-                        $status['elapsed'] = 0;
-                        $status['song_percent'] = 0;
+                    if ($state == 'play') {
+                        if ($checkVolumeCnt-- <= 0) {
+                            $elapsed = round(microtime(true) - $status['time_last_elapsed']);
+                            if ($elapsed == 0) {
+                                $song_percent = 0;
+                            } else {
+                                $song_percent = min(100, round((100 * $elapsed) / $time));
+                            }
+                            $redis->set('bluetoothrefresh', 0);
+                            // repeat after 60 cycles (= 120 seconds)
+                            $checkVolumeCnt = 60;
+                        } else {
+                            unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
+                        }
+                    } else {
+                        $elapsed = 0;
+                        $song_percent = 0;
+                        $status['time_last_elapsed'] = microtime(true);
                     }
-                    if ($checkAudioCnt-- <= 0) {
+                    $state = 'play';
+                    if (isset($pcmInfo['input']['running']) && $pcmInfo['input']['running']) {
+                        if ($pcmInfo['input']['channels'] == 1) {
+                            $audio_channels = 'Mono';
+                        } else if ($pcmInfo['input']['channels'] == 2) {
+                            $audio_channels = 'Stereo';
+                        } else {
+                            $audio_channels = 'Multichannel';
+                        }
+                        $audio_sample_depth = preg_replace('/[^0-9]/', '', $pcmInfo['input']['format']);
+                        $audio_sample_rate = $pcmInfo['input']['sampling'];
+                        $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
+                        $bitrate = '~190';
+                        if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
+                            $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                            echo "Volume 2: $volume\n";
+                        } else {
+                            $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+                            if (isset($acard['mixer_control']) && $acard['mixer_control']) {
+                                $card = get_between_data($acard['device'], ':', ',');
+                                $mixerControl = $acard['mixer_control'];
+                                $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
+                                $volume = get_between_data($volume, ' [', '%] ');
+                                echo "Volume 3: $volume\n";
+                            } else {
+                                $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                                echo "Volume 4: $volume\n";
+                            }
+                        }
+                    } else if ($checkAudioCnt-- <= 0) {
                         // a value of 5 for $checkAudioCnt means that this code is run every 10 seconds since the do loop has a 2 second cycle
                         $checkAudioCnt = 5;
+                        if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
+                            $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                            echo "Volume 5: $volume\n";
+                        } else {
+                            $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+                            if (isset($acard['mixer_control']) && $acard['mixer_control']) {
+                                $card = get_between_data($acard['device'], ':', ',');
+                                $mixerControl = $acard['mixer_control'];
+                                $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
+                                $volume = get_between_data($volume, ' [', '%] ');
+                                echo "Volume 6: $volume\n";
+                            } else {
+                                $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                                echo "Volume 7: $volume\n";
+                            }
+                        }
                         $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
                         if ($playing) {
-                            $audio_channels_number = round(preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' ')), 1);
+                            $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
                             if ($audio_channels_number == 1) {
                                 $audio_channels = 'Mono';
                             } else if ($audio_channels_number == 2) {
@@ -748,40 +822,35 @@ while (true) {
                             $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
                             $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
                             $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
-                            $bitrate = '190';
-                        } else if (substr(json_decode($redis->hGet($redis->get('ao')), true)['device'], 0, 8) == 'bluealsa') {
-                            $audio_channels = 'Stereo';
-                            $audio_sample_rate = $redis->hGet('bluetooth', 'quality');
-                            $audio_sample_depth = '16';
-                            $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                             $bitrate = '~190';
-                            // $btQuality = $redis->hget('bluetooth', 'quality');
-                            // if (srtpos(' '.$btQuality, 'better')) {
-                                // $bitrate = '120';
-                            // } else if (srtpos(' '.$btQuality, 'best')) {
-                                // $bitrate = '240';
-                            // }
                         }
+                    }
+                    $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
+                    if (!isset($btDeviceName) || !$btDeviceName || ($btDeviceName == '-')) {
                         $btDeviceArray = wrk_btcfg($redis, 'status');
-                        $btDeviceName = '';
                         foreach ($btDeviceArray as $btDevice) {
                             if ($btDevice['connected'] && $btDevice['source']) {
                                 $btDeviceName = $btDevice['name'];
                                 break;
                             }
                         }
-                        if (!isset($btDeviceName)) {
+                        if (!isset($btDeviceName) || !$btDeviceName) {
                             $btDeviceName = '-';
                         }
-                    } else {
                     }
                 } else if ($redis->hGet('bluetooth', 'initialising')) {
                     runelog('rune_PL_wrk: Bluetooth is initialising');
                     $state = 'stop';
+                    $elapsed = 0;
+                    $song_percent = 0;
+                    $status['time_last_elapsed'] = microtime(true);
                     $bluetooth_timeout_count = $bluetooth_timeout;
                 } else {
                     runelog('rune_PL_wrk: Bluetooth is not playing');
                     $state = 'stop';
+                    $elapsed = 0;
+                    $song_percent = 0;
+                    $status['time_last_elapsed'] = microtime(true);
                     $bluetooth_timeout_count -= 2;
                 }
                 if ($bluetooth_timeout_count <= 0) {
@@ -789,7 +858,15 @@ while (true) {
                     wrk_stopPlayer($redis);
                     continue;
                 }
-                if (($audio != $status['audio']) || ($btDeviceName != $status['currentalbum']) || ($state != $status['state'])) {
+                if (
+                        ($audio != $status['audio']) ||
+                        ($btDeviceName != $status['currentalbum']) ||
+                        ($state != $status['state']) ||
+                        ($local_volume_control != $status['local_volume_control']) ||
+                        ($volume != $status['volume']) ||
+                        ($time != $status['time']) ||
+                        (isset($elapsed))
+                        ) {
                     $status['state'] = $state;
                     $status['audio'] = $audio;
                     $status['audio_channels'] = $audio_channels;
@@ -798,6 +875,15 @@ while (true) {
                     $status['currentalbum'] = $btDeviceName;
                     $status['currentsong'] = 'Streaming';
                     $status['bitrate'] = $bitrate;
+                    $status['local_volume_control'] = $local_volume_control;
+                    $status['volume'] = $volume;
+                    $status['time'] = $time;
+                    if (isset($elapsed)) {
+                        $status['elapsed'] = $elapsed;
+                        if (isset($song_percent)) {
+                            $status['song_percent'] = $song_percent;
+                        }
+                    }
                     ui_render('playback', json_encode($status));
                     $redis->set('act_player_info', json_encode($status));
                 }
@@ -810,6 +896,7 @@ while (true) {
                 }
                 $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'Bluetooth');
+            unset($status['local_volume_control']);
             sleep(1);
         } else {
             $forceupdate = 1;

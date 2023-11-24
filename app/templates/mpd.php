@@ -9,12 +9,34 @@
                     <label class="col-sm-2 control-label" for="audio-output-interface">Audio Output Interface</label>
                     <?php if ($this->count_cards != 0): ?>
                     <div class="col-sm-10">
-                        <select id="audio-output-interface" name="conf[audio_output_interface]" class="selectpicker" data-style="btn-default btn-lg">
-                            <?php foreach($this->acards as $card): ?>
-                                <option value="<?=$card['name'] ?>" <?php if($this->ao === $card['name']): ?> selected <?php endif ?>><?php if(isset($card['description'])):?><?=$card['description'] ?><?php else:?><?=$card['name'] ?><?php endif; ?></option>
-                            <?php endforeach; ?>
+                        <select  id="audio-output-interface" name="conf[audio_output_interface]" class="selectpicker" data-style="btn-default btn-lg">
+                            <?php
+                                $oldSub = '' ;
+                                foreach($this->acards as $card) {
+                                    list($newSub, $desc) = explode(': ',$card['description'], 2) ;
+                                    if ($oldSub != $newSub) {
+                                        if ($oldSub != '') {
+                                            echo "<\optgroup>\n" ;
+                                        }
+                                        echo "<optgroup label=\"".$newSub."\">\n" ;
+                                        $oldSub = $newSub ;
+                                    }
+                                    echo "<option value=\"".$card['sysname']."\" " ;
+                                    if ($this->ao === $card['sysname']) {
+                                        echo 'selected' ;
+                                    }
+                                    echo '>'.$desc.'</option>' ;
+                                }
+                                echo "<\optgroup>\n" ;
+                            ?>
                         </select>
-                        <span class="help-block">This switches output between audio interfaces</span>
+                        <span class="help-block">This switches output between audio interfaces.
+                        <?php if ($this->active_player == 'MPD') : ?>
+                        Switching takes place on the fly
+                        <?php else : ?>
+                        After switching, <strong><?=$this->ao ?></strong> input will stop and <strong>MPD</strong> will resume
+                        <?php endif; ?>
+                        </span>
                     </div>
                     <?php else: ?>
                     <div class="col-sm-10">
