@@ -161,11 +161,20 @@ function redisDatastore($redis,$action) {
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
                 $os = 'ARCH';
+                $codename = '';
             } else {
                 $os = 'RPiOS';
+                $codename = trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]);
+            }
+            if ($codename == 'Bookworm') {
+                $p1mountpoint = '/boot/firmware';
+            } else {
+                $p1mountpoint = '/boot';
             }
             $redis->set('os', $os);
+            $redis->set('codename', $codename);
             $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
+            $redis->set('p1mountpoint', $p1mountpoint);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
@@ -495,11 +504,20 @@ function redisDatastore($redis,$action) {
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
                 $os = 'ARCH';
+                $codename = '';
             } else {
                 $os = 'RPiOS';
+                $codename = trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]);
+            }
+            if ($codename == 'Bookworm') {
+                $p1mountpoint = '/boot/firmware';
+            } else {
+                $p1mountpoint = '/boot';
             }
             $redis->exists('os') || $redis->set('os', $os);
+            $redis->exists('codename') || $redis->set('codename', $codename);
             $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
+            $redis->exists('p1mountpoint') || $redis->set('p1mountpoint', $p1mountpoint);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');

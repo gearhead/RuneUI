@@ -32,7 +32,8 @@
 #  date: July 2022
 #
 
-sed -i '/dtoverlay=disable-wifi/c\#dtoverlay=disable-wifi' /boot/config.txt
+p1mountpoint=$( redis-cli get p1mountpoint )
+sed -i '/dtoverlay=disable-wifi/c\#dtoverlay=disable-wifi' "$p1mountpoint/config.txt"
 redis-cli set wifi_on 1
 #---
 #End script

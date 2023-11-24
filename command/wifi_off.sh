@@ -32,7 +32,8 @@
 #  date: July 2022
 #
 
-sed -i '/dtoverlay=disable-wifi/c\dtoverlay=disable-wifi' /boot/config.txt
+p1mountpoint=$( redis-cli get p1mountpoint )
+sed -i '/dtoverlay=disable-wifi/c\dtoverlay=disable-wifi' "$p1mountpoint/config.txt"
 # turn off the Wi-Fi nics, it could lock out the UI if a mistake were made
 #   currently not using this, a reboot is required to actually switch everything off
 # for dev in /sys/class/net/*; do

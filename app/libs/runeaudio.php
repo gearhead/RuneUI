@@ -1757,7 +1757,7 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
     switch ($action) {
         case 'start':
             // start the local browser
-            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '/boot/config.txt'")[0]) {
+            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'")[0]) {
                 wrk_localBrowser($redis, 'overscan', 1);
             } else {
                 wrk_localBrowser($redis, 'overscan', 0);
@@ -1880,12 +1880,13 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
             }
             if ($args){
                 // switch overscan on
-                sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '/boot/config.txt'");
+                // modify <p1mountpoint>/config.txt
+                sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'");
                 $redis->hSet('local_browser', 'overscan', 1);
             } else {
                 // switch overscan off
-                // modify /boot/config.txt
-                sysCmd("sed -i '/disable_overscan/c\disable_overscan=1' '/boot/config.txt'");
+                // modify <p1mountpoint>/config.txt
+                sysCmd("sed -i '/disable_overscan/c\disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'");
                 $redis->hSet('local_browser', 'overscan', 0);
             }
             break;
@@ -2094,8 +2095,8 @@ function wrk_backup($redis, $bktype = null)
 {
     // get the directory which is used for the backup
     $fileDestDir = '/'.trim($redis->get('backup_dir'), "/ \t\n\r\0\x0B").'/';
-    // create a diff file /home/config.txt.diff of /srv/http/app/config/defaults/boot/config.txt vs. /boot/config.txt
-    sysCmd('diff -Nau /srv/http/app/config/defaults/boot/config.txt /boot/config.txt >/home/config.txt.diff');
+    // create a diff file /home/config.txt.diff of /srv/http/app/config/defaults/boot/config.txt vs. <p1mountpoint>/config.txt
+    sysCmd("diff -Nau '/srv/http/app/config/defaults/boot/config.txt' '".$redis->get('p1mountpoint')."/config.txt' >/home/config.txt.diff");
     // build up the backup command string
     if ($bktype === 'dev') {
         $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
@@ -2151,7 +2152,7 @@ function wrk_backup($redis, $bktype = null)
     $redis->save();
     // run the backup
     sysCmd($cmdstring);
-    // delete the diff file for /boot/config.txt
+    // delete the diff file for config.txt
     unlink('/home/config.txt.diff');
     // change the file privileges
     sysCmd('chown http:http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
@@ -2572,8 +2573,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     switch ($action) {
         case 'boot-initialise':
             // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
-            // the routine looks in the directory /boot/wifi for any files, all files will be processed, except:
-            //  a file called readme and the directory /boot/wifi/examples and its contents
+            // the routine looks in the directory <p1mountpoint>/wifi for any files, all files will be processed, except:
+            //  a file called readme and the directory <p1mountpoint>/wifi/examples and its contents
             // it steps through the files and or directories and deletes them after processing (regardless of success)
             // any file with lines containing 'Name=<value>' and 'Passphrase=<value>' will be used to set up a Wi-Fi profile
             // the optional value 'Hidden=[true]|[false]' will also be processed if present
@@ -2582,7 +2583,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // get a list of files, ignoring the 'readme', 'examples', '.' and '..' file entries
             $profilearray = array();
             $counter = -1;
-            $directory = '/boot/wifi';
+            $directory = $redis->get('p1mountpoint').'/wifi';
             $fileFound = false;
             $fileNames = array_diff(scandir($directory), array('..', '.', 'readme', 'examples'));
             if (count($fileNames) == 0) {
@@ -2685,9 +2686,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 fclose($fp);
             }
             // restore the default boot-initialise Wi-Fi files
-            sysCmd('mkdir -p /boot/wifi/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            sysCmd('mkdir -p '.$directory.'/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
             if ($fileFound) {
                 // set access point to default values
                 wrk_apconfig($redis, 'reset');
@@ -2981,9 +2982,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('cp /srv/http/app/config/defaults/var/lib/connman/settings /var/lib/connman/settings');
             sysCmd('chmod 600 /var/lib/connman/settings');
             // restore the default boot-initialise Wi-Fi files
-            sysCmd('mkdir -p /boot/wifi/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            $directory = $redis->get('p1mountpoint').'/wifi';
+            sysCmd('mkdir -p '.$directory.'/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
             // restore the standard service and config files
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/connman.service /etc/systemd/system/connman.service');
             sysCmd('mkdir /etc/connman/');
@@ -3503,14 +3505,14 @@ function wrk_i2smodule($redis, $args)
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
         // RuneAudio enable/disable/change i2s audio output overlays
         if ($args == 'none') {
-            // dtoverlay=none disables all following dtoverlay commands in config.txt, so comment out the line
+            // dtoverlay=none disables all following dtoverlay commands in <p1mountpoint>/config.txt, so comment out the line
             $newLine = '#dtoverlay='.$args;
         } else {
             $newLine = 'dtoverlay='.$args;
         }
-        $file = '/boot/config.txt';
+        $file = $redis->get('p1mountpoint').'/config.txt';
         $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', $newLine, 'RuneAudio I2S-Settings', 1);
-        // Commit changes to /boot/config.txt
+        // Commit changes to config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
         fclose($fp);
@@ -3603,40 +3605,32 @@ function wrk_audio_on_off($redis, $args)
     $hwplatformid = $redis->get('hwplatformid');
     if (($hwplatformid === '01') || ($hwplatformid === '08')) {
         if ($args == 1) {
-            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' /boot/config.txt");
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' '".$redis->get('p1mountpoint')."/config.txt'");
         } else {
-            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' /boot/config.txt");
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' '".$redis->get('p1mountpoint')."/config.txt'");
         }
-        // ## RuneAudio enable HDMI & analog output
-        // $file = '/boot/config.txt';
-        // $newArray = wrk_replaceTextLine($file, '', 'dtparam=audio=', 'dtparam=audio='.($args == 1 ? 'on' : 'off'), '## RuneAudio HDMI & 3,5mm jack', 1);
-        // // Commit changes to /boot/config.txt
-        // $fp = fopen($file, 'w');
-        // $return = fwrite($fp, implode("", $newArray));
-        // fclose($fp);
     }
 }
 
 function wrk_kernelswitch($redis, $args)
 {
-    $file = '/boot/config.txt';
-    $newArray = wrk_replaceTextLine($file, '', 'kernel=', 'kernel='.$args.'.img');
-    // Commit changes to /boot/config.txt
-    $fp = fopen($file, 'w');
-    $return = fwrite($fp, implode("", $newArray));
-    fclose($fp);
-    $file = '/boot/config.txt';
-    $newArray = wrk_replaceTextLine($file, '', 'cmdline=', 'cmdline=cmdline_'.$args.'.txt');
-    // Commit changes to /boot/config.txt
-    $fp = fopen($file, 'w');
-    $return = fwrite($fp, implode("", $newArray));
-    fclose($fp);
+    // $file = $redis->get('p1mountpoint').'/config.txt';
+    // $newArray = wrk_replaceTextLine($file, '', 'kernel=', 'kernel='.$args.'.img');
+    // // Commit changes to config.txt
+    // $fp = fopen($file, 'w');
+    // $return = fwrite($fp, implode("", $newArray));
+    // fclose($fp);
+    // $newArray = wrk_replaceTextLine($file, '', 'cmdline=', 'cmdline=cmdline_'.$args.'.txt');
+    // // Commit changes to config.txt
+    // $fp = fopen($file, 'w');
+    // $return = fwrite($fp, implode("", $newArray));
+    // fclose($fp);
 
-    if ($return) {
-        $redis->set('kernel', $args);
-        $redis->save();
-    }
-    return $return;
+    // if ($return) {
+        // $redis->set('kernel', $args);
+        // $redis->save();
+    // }
+    // return $return;
 }
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)

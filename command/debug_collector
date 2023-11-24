@@ -60,7 +60,12 @@ function debug_data($redis, $fp=null)
     $release = trim(sysCmd('uname -sr')[0]);
     $machine = trim(sysCmd('uname -m')[0]);
     $os = $redis->get('os');
-    $output .= "Linux version:\t".$release.' '.$os.' '.$machine.' '.$bit."\n";
+    if ($os == 'RPiOS') {
+        $codename = '-'.$redis->get('codename');
+    } else {
+        $codename = '';
+    }
+    $output .= "Linux version:\t".$release.' '.$os.$codename.' '.$machine.' '.$bit."\n";
     unset($bit, $release, $machine, $os);
     if ($fp) {
         gzwrite($fp, $output);
@@ -165,8 +170,9 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' /boot/config.txt) ######\n";
-    $command = sysCmd("grep -ve '^\s*#' /boot/config.txt");
+    $p1mountpoint = $redis->get('p1mountpoint');
+    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' '".$p1mountpoint."/config.txt') ######\n";
+    $command = sysCmd("grep -ve '^\s*#' '".$p1mountpoint."/config.txt'");
     $output .= implode("\n", $command)."\n";
     $output .= "##################################################\n\n\n";
     unset($command);

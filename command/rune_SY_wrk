@@ -116,6 +116,8 @@ $playerid_db = $redis->get('playerid');
 runelog('registered architecture: ', $arch_db);
 runelog('registered model       : ', $model_db);
 runelog('registered playerid    : ', $playerid_db);
+// get the mount point for the 1st Micro-SD card partition
+$p1mountpoint = $redis->get('p1mountpoint');
 //
 // initialize Redis worker data tables
 $redis->del('w_lock');
@@ -237,7 +239,7 @@ if ($playerid_db === '') {
     sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
     // copy the runeaudio cmdline.txt file which suppresses console information
-    copy('/boot/cmdline.txt.runeaudio', '/boot/cmdline.txt');
+    copy($p1mountpoint.'/cmdline.txt.runeaudio', $p1mountpoint.'/cmdline.txt');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
@@ -1367,9 +1369,9 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 if ($job->action === 1) {
                     // switch underclocking on
-                    if (sysCmd('grep -hi "Underclocking placeholder" /boot/config.txt')[0]) {
-                        if (!sysCmd('grep -hi "Underclocking start" /boot/config.txt')[0]) {
-                            sysCmd("sed -i -e '/Underclocking placeholder/r /boot/Archimago_underclocking.txt' /boot/config.txt");
+                    if (sysCmd('grep -hi "Underclocking placeholder" \''.$p1mountpoint.'/config.txt\'')[0]) {
+                        if (!sysCmd('grep -hi "Underclocking start" \''.$p1mountpoint.'/config.txt\'')[0]) {
+                            sysCmd("sed -i -e '/Underclocking placeholder/r ".$p1mountpoint."/Archimago_underclocking.txt' '".$p1mountpoint."/config.txt'");
                         }
                         ui_notify($redis, 'Underclocking', 'Enabled');
                     } else {
@@ -1377,7 +1379,7 @@ while (true) {
                     }
                 } else {
                     // switch underclocking off
-                    sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' /boot/config.txt");
+                    sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' '".$p1mountpoint."/config.txt'");
                     $redis->set('underclocking', 0);
                     ui_notify($redis, 'Underclocking', 'Disabled');
                 }
@@ -1524,7 +1526,7 @@ while (true) {
             ui_render('modal', json_encode($data));
             unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
+        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find '.$p1mountpoint.'/webradios -name "*.pls" | wc -l | xargs')[0]) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'CD_detect')) {

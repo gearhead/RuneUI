@@ -37,7 +37,7 @@
 #  date: June 2021
 #
 # Purpose:
-# Imports webradios from /boot/webradios (see: /boot/webradios/readme) and performs a two way synchronisation
+# Imports webradios from <p1mountpoint>/webradios (see: <p1mountpoint>/webradios/readme) and performs a two way synchronisation
 #   of the redis webradio database and files in the MPD webradio directory
 #
 #set -x # echo all commands to cli
@@ -45,20 +45,21 @@ set +x # don't echo commands to cli
 set +e # continue on errors
 #
 webradiodir="/mnt/MPD/Webradio"
+p1mountpoint=$( redis-cli get p1mountpoint )
 #
-# if the directory /boot/webradios contains *.pls files move them to the webradio directory and delete them
-find "/boot/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
+# if the directory <p1mountpoint>/webradios contains *.pls files move them to the webradio directory and delete them
+find "$p1mountpoint/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
 # when the files already exist in $webradiodir the file will not be moved, the next line deletes what is left
-find "/boot/webradios" -type f -name '*.pls' -exec rm -- '{}' \;
-# remove any empty directories from /boot/webradios
+find "$p1mountpoint/webradios" -type f -name '*.pls' -exec rm -- '{}' \;
+# remove any empty directories from <p1mountpoint>/webradios
 #   nested directories could need several passes, this routine is run on each boot
-find "/boot/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
+find "$p1mountpoint/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
 # recreate the structure and instructions
-if [ ! -d "/boot/webradios" ]; then
-    mkdir -p /boot/webradios
+if [ ! -d "$p1mountpoint/webradios" ]; then
+    mkdir -p $p1mountpoint/webradios
 fi
-if [ ! -f "/boot/webradios/readme" ]; then
-    cp /srv/http/app/config/defaults/boot/webradios/readme /boot/webradios/readme
+if [ ! -f "$p1mountpoint/webradios/readme" ]; then
+    cp /srv/http/app/config/defaults/boot/webradios/readme $p1mountpoint/webradios/readme
 fi
 #
 # create webradio files when they are defined in redis but the file does not exist

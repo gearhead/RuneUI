@@ -34,16 +34,16 @@
  */
 //
 // this script is part of the backup restore routines
-// looks at the redis Wi-Fi stored profiles and creates profile files in /boot/wifi
+// looks at the redis Wi-Fi stored profiles and creates profile files in <p1mountpoint>/wifi
 // usage:
-//  1. run this program to create profile files in /boot/wifi
+//  1. run this program to create profile files in <p1mountpoint>/wifi
 //      existing files will not be replaced
 //  2. restore the redis backup file
 //      replaces all the redis variables
-//  3. run this script to create profile files in /boot/wifi
+//  3. run this script to create profile files in <p1mountpoint>/wifi
 //      existing files will not be replaced
 //  4. reboot
-//      on start-up the profile files in /boot/wifi will be activated and the profile files deleted
+//      on start-up the profile files in <p1mountpoint>/wifi will be activated and the profile files deleted
 //
 // initialisation
 // report errors: set display_errors to true (=1)
@@ -73,7 +73,7 @@ foreach ($storedProfiles as $storedProfile) {
         // the ssid or passphase is missing, ignore this one
         continue;
     }
-    $profileFileName = '/boot/wifi/'.$storedProfile['ssid'].'profile';
+    $profileFileName = $redis->get('p1mountpoint').'/wifi/'.$storedProfile['ssid'].'profile';
     clearstatcache(true, $profileFileName);
     if (file_exists($profileFileName)) {
         // the profile file already exits so skip this one

@@ -213,7 +213,8 @@
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="webradiorebuild" id="syscmd-webradiorebuild">
                         <span class="help-block">This will rebuild your Webradio Library cross-checking the database and the files present in the Webradio directory /mnt/MPD/Webradio.
                                             <i>The Webradio directory is accessible via a Samba connection from your PC. See the Settings menu for switching Samba on and off.<br>
-                                            For those with access to the command line, there are other Webradio import features, see /boot/webradios/readme </i></span>
+                                            For those with access to the command line, there are other Webradio import features, see /boot/webradios/readme
+                                            (or on RPiOS Bookworm the file is /boot/firmware/webradios/readme)</i></span>
                     </div>
                 </div>
             </div>

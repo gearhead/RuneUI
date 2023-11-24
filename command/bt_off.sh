@@ -32,8 +32,10 @@
 #  date: January 2021
 #
 
-sed -i '/dtoverlay=disable-bt/c\dtoverlay=disable-bt' /boot/config.txt
-sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=off' /boot/config.txt
+set +e # continue on errors
+p1mountpoint=$( redis-cli get p1mountpoint )
+sed -i '/dtoverlay=disable-bt/c\dtoverlay=disable-bt' "$p1mountpoint/config.txt"
+sed -i '/dtparam=krnbt=/c\dtparam=krnbt=off' "$p1mountpoint/config.txt"
 timeout 5 bluetoothctl pairable off
 timeout 5 bluetoothctl discoverable off
 timeout 5 bluetoothctl power off

@@ -41,7 +41,7 @@ echo "restore started"
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# generate Wi-Fi profile files in /boot/wifi for the current Wi-Fi profiles in redis
+# generate Wi-Fi profile files in <p1mountpoint>/wifi for the current Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
 # save the passworddate
 passworddate=$( redis-cli get passworddate )
@@ -95,9 +95,10 @@ else
     rm -f /var/lib/redis/rune.rdb.copy
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# try to recover changes in the /boot/config.txt
+# try to recover changes in the <p1moountpoint>/config.txt
 if [ -f "/home/config.txt.diff" ] ; then
-    patch -lN /boot/config.txt /home/config.txt.diff
+    p1mountpoint=$( redis-cil get p1mountpoint )
+    patch -lN $p1mountpoint/config.txt /home/config.txt.diff
     rm -f /home/config.txt.diff
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
@@ -174,7 +175,7 @@ redis-cli set debug '0'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
-# generate Wi-Fi profile files in /boot/wifi for the restored Wi-Fi profiles in redis
+# generate Wi-Fi profile files in <p1mountpoint>/wifi for the restored Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
 # refresh the nic's
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'

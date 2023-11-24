@@ -48,7 +48,7 @@ define('APP', '/srv/http/app/');
 
 // set the variables which are machine dependant, the backup could have been made on a different model
 wrk_setHwPlatform($redis, true);
-// run routines which set up /boot/config.txt, the local browser setup, other files are fixed on startup
+// run routines which set up <p1mountpoint>/config.txt, the local browser setup, other files are fixed on startup
 wrk_audio_on_off($redis, $redis->get('audio_on_off'));
 wrk_i2smodule($redis, $redis->get('i2smodule'));
 $xorgEnable = $redis->hGet('local_browser', 'enable');

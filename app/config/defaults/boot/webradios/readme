@@ -1,7 +1,8 @@
-RuneAudio webradios setup at boot
-=================================
+RuneAudio webradios import at boot
+==================================
 
-Create one or more files in the /boot/webradios directory which contain the lines:
+Create one or more files in the /boot/webradios directory (or on RPiOS Bookworm the directory is /boot/firmware/webradios).
+The files should contain the lines:
 ---
 [playlist]
 NumberOfEntries=1
@@ -13,16 +14,19 @@ Where <webradio_url> is the url of the webradio_name
 and <webradio_name> is the description of the webradio_name
 The Filename should be <webradio_name>.pls
 
-By copying all of your webradio files into then /boot/webradios directory they will be
-automatically imported.
+By copying all of your webradio files into the /boot/webradios directory (or on RPiOS Bookworm the
+directory is /boot/firmware/webradios) they will be automatically imported.
+
+This action can be carried out on your PC after inserting the Micro-SD card, the
+directory then appears as /webradios, (for Mac users, this is on the first disk partition).
 
 Duplicates already in RuneAudio will not be replaced. The files will be deleted after importing them into RuneAudio.
 Use the RuneAudio backup feature to save your configuration, including playlists and webradios.
 See menu Settings.
 
 It is sometimes difficult to find the URL of Radio streams. The Radio companies try to hide
-these so that users are forced to use their websites, which try to create a fanbase and create
-advertising revenue for them. I suppose it is to be expected.
+these so that users are forced to use their websites, which is done to try to create a fanbase and
+create advertising revenue. I suppose it is to be expected.
 Here is a list of radio stations and their URL's: https://www.hendrikjansen.nl/henk/streaming.html
 It's a Dutch webpage, but understandable. You can find other lists like this one on internet.
 

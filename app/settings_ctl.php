@@ -297,7 +297,12 @@ $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
 $release = trim(sysCmd('uname -sr')[0]);
 $machine = trim(sysCmd('uname -m')[0]);
 $os = $redis->get('os');
-$template->sysstate['kernel'] = $release.' '.$os.' '.$machine.' '.$bit;
+if ($os == 'RPiOS') {
+    $codename = '-'.$redis->get('codename');
+} else {
+    $codename = '';
+}
+$template->sysstate['kernel'] = $release.' '.$os.$codename.' '.$machine.' '.$bit;
 $template->sysstate['time'] = implode('\n', sysCmd('date'));
 $template->sysstate['uptime'] = date('d:H:i:s', strtok(file_get_contents('/proc/uptime'), ' ' ));
 $template->sysstate['HWplatform'] = $redis->get('hwplatform')." (".$redis->get('hwplatformid').")";
@@ -327,16 +332,16 @@ $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
 $template->i2smodule_select = $redis->get('i2smodule_select');
 if ($redis->get('ao')) {
-    $template->ao = true;
+    $template->ao = 1;
 } else {
-    $template->ao = false;
+    $template->ao = 0;
 }
 $template->hwinput = $redis->hGet('hw_input', 'enable');
 $template->cdinput = $redis->hGet('CD', 'enable');
 $template->cdautoplay = $redis->hGet('CD', 'autoplay');
-// the following code is for a manually edited /boot/config.txt containing a I2S-Settings dtoverlay value
+// the following code is for a manually edited <p1mountpoint>/config.txt containing a I2S-Settings dtoverlay value
 if ($template->i2smodule == 'none') {
-    $retval = sysCmd("grep -v '#.*=' /boot/config.txt | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];
+    $retval = sysCmd("grep -v '#.*=' '".$redis->get('p1mountpoint')."/config.txt' | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];
     if (isset($retval)) {
         $retval = trim($retval);
         if (($retval != 'none') && $retval) {

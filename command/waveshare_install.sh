@@ -40,7 +40,7 @@ set -x # echo all commands to cli
 set +e # continue on errors
 #
 # do nothing if the waveshare overlays are present
-wsoc=$( ls -1 /boot/overlays/waveshare*.dtbo | wc -l )
+wsoc=$( find /boot -name waveshare*.dtbo | wc -l | xargs )
 if [ $wsoc -ge 5 ]; then
     echo 'Waveshare overlays preinstalled'
     exit
@@ -115,7 +115,7 @@ do
     sed -i "/sudo/s/#\+sudo/#sudo/g" "$f"
 done
 # so now all sudo commands except the relevant copy commands have been commented out
-# any commands replacing /boot/config.txt, /boot/cmdline.txt and /etc/inittab are also commented out
+# any commands replacing config.txt, cmdline.txt and inittab are also commented out
 #
 # now run the install scripts
 set -x # echo all commands to cli
