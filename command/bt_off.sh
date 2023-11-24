@@ -39,7 +39,7 @@ sed -i '/dtparam=krnbt=/c\dtparam=krnbt=off' "$p1mountpoint/config.txt"
 timeout 5 bluetoothctl pairable off
 timeout 5 bluetoothctl discoverable off
 timeout 5 bluetoothctl power off
-declare -a bluetooth_arr=(bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth)
+declare -a bluetooth_arr=(bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth hciuart)
 # stop and disable Bluetooth services
 for i in "${bluetooth_arr[@]}"
 do
