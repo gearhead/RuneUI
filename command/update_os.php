@@ -125,20 +125,20 @@ function updateOS($redis) {
             // make chromium the default browser and restart the browser if required
             $redis->hSet('local_browser', 'browser', 'chromium');
             wrk_localBrowser($redis, 'restart');
-            // fix for removing openresolv
-            $os = $redis->get('os');
-            if ($os == 'RPiOS') {
-                if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
-                    sysCmd('apt install -y openresolv >/dev/null 2>&1');
-                }
-                sysCmd('rm -f /etc/resolv.conf ; resolvconf -u');
-                // sysCmd('apt purge -y openresolv >/dev/null 2>&1');
-            } else if ($os == 'ARCH') {
-                // removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
+            // // fix for removing openresolv
+            // $os = $redis->get('os');
+            // if ($os == 'RPiOS') {
+                // if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
+                    // sysCmd('apt install -y openresolv >/dev/null 2>&1');
+                // }
+                // sysCmd('rm -f /etc/resolv.conf ; resolvconf -u');
+                // // sysCmd('apt purge -y openresolv >/dev/null 2>&1');
+            // } else if ($os == 'ARCH') {
+                // // removing openresolv and running resolvconf -u seem to do strange things on ARCH, don't do anything
                 // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
                 // sysCmd('rm -f /etc/resolv.conf ; pacman -Q openresolv && resolvconf -u');
                 // sysCmd('pacman -Rsn openresolv --noconfirm');
-            }
+            // }
             //
             $redis->set('patchlevel', 5);
             ui_notify($redis, 'Post update processing', 'Patchlevel 5');
@@ -149,11 +149,11 @@ function updateOS($redis) {
             // fix for excessive logging, disable rsyslog
             $os = $redis->get('os');
             if ($os == 'RPiOS') {
-                // install openresolv if missing
-                if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
-                // install openresolv if missing
-                    sysCmd('apt install -y openresolv >/dev/null 2>&1');
-                }
+                // // install openresolv if missing
+                // if (!sysCmd('apt -qq list openresolv 2> /dev/null | grep -ci installed')[0]) {
+                // // install openresolv if missing
+                    // sysCmd('apt install -y openresolv >/dev/null 2>&1');
+                // }
                 // install cron if missing
                 if (!sysCmd('apt -qq list cron 2> /dev/null | grep -ci installed')[0]) {
                 // install openresolv if missing
@@ -166,8 +166,8 @@ function updateOS($redis) {
                 // start and enable mosquitto
                 sysCmd('systemctl enable mosquitto ; systemctl start mosquitto');
             } else if ($os == 'ARCH') {
-                // install openresolv if missing
-                sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
+                // // install openresolv if missing
+                // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
                 // install cronie if missing
                 sysCmd('pacman -Q cronie || pacman -Sy cronie --noconfirm');
                 // stop and disable cronie
@@ -178,10 +178,60 @@ function updateOS($redis) {
             $redis->set('patchlevel', 6);
             ui_notify($redis, 'Post update processing', 'Patchlevel 6');
         }
-        // if ($redis->get('patchlevel') == 6) {
-            // // 7th update
-            // $redis->set('patchlevel', 7);
-            // ui_notify($redis, 'Post update processing', 'Patchlevel 7');
+        if ($redis->get('patchlevel') == 6) {
+            // 7th update
+            // update redis datastore cipher exclude
+            $redis->del('cipher_exclude_list');
+            $redis->hDel('bluetooth', 'def_volume');
+            $redis->hDel('bluetooth', 'IO_toggle');
+            $redis->hDel('bluetooth', 'local_volume_control');
+            $redis->hDel('bluetooth', 'native_volume_control');
+            $redis->hDel('bluetooth', 'remember_last_volume');
+            sysCmd('/srv/http/db/redis_datastore_setup check');
+            // refresh the redis acards details
+            sysCmd('/srv/http/db/redis_acards_details');
+            // install the flac package for RPiOS if required
+            if ($os == 'RPiOS') {
+                if (!sysCmd('apt -qq list flac 2> /dev/null | grep -ci installed')[0]) {
+                    // install flac if missing
+                    sysCmd('apt install -y flac >/dev/null 2>&1');
+                    sysCmd('apt --fix-broken -y install');
+                }
+                if (!sysCmd('apt -qq list flac 2> /dev/null | grep -ci installed')[0]) {
+                    //  standard flac install failed, clean up and try using a different method
+                    sysCmd('mkdir /home/flac ; rm /home/flac/*');
+                    sysCmd('cd /home/flac ; wget https://archive.raspbian.org/raspbian/pool/main/libo/libogg/libogg0_1.3.2-1+b2_armhf.deb');
+                    sysCmd('cd /home/flac ; wget https://archive.raspbian.org/raspbian/pool/main/f/flac/flac_1.3.3-2+deb11u2_armhf.deb');
+                    sysCmd('cd /home/flac ; dpkg -i libogg0_1.3.2-1+b2_armhf.deb');
+                    sysCmd('cd /home/flac ; dpkg -i flac_1.3.3-2+deb11u2_armhf.deb');
+                    sysCmd('cd ~ ; rm -r /home/flac');
+                }
+                sysCmd('apt --fix-broken -y install');
+                sysCmd('apt autoremove ; apt autoclean');
+                // add the RPiOS codename to motd
+                $codename = '-'.trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]);
+                sysCmd("sed -i '/^Hw-env:/s/RPiOS)/RPiOS-".$codename.")/' /etc/motd");
+            }
+            // enable mpd to start automatically on boot
+            sysCmd('systemctl enable mpd.service');
+            // disable the connman_wait_online and pcscd services to speed up startup
+            sysCmd('systemctl disable connman-wait-online.service');
+            sysCmd('systemctl disable pcscd.service');
+            // disable and stop smartmontools and udisks2 services, these are not required
+            sysCmd('systemctl disable smartmontools.service ; systemctl stop smartmontools.service');
+            sysCmd('systemctl disable udisks2.service ; systemctl stop udisks2.service ; systemctl mask udisks2.service');
+            // when bluetooth is off disable and stop the hciuart service
+            if (!$redis->get('bluetooth_on')) {
+                sysCmd('systemctl disable hciuart ; systemctl stop hciuart');
+            }
+            sysCmd('systemctl daemon-reload');
+            $redis->set('patchlevel', 7);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 7');
+        }
+        // if ($redis->get('patchlevel') == 7) {
+            // // 8th update
+            // $redis->set('patchlevel', 8);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 8');
         // }
     }
 }
