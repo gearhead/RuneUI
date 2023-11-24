@@ -120,9 +120,10 @@ while (true)  {
         $saveFile = '';
     }
     while (isset($status['actPlayer']) && isset($status['file'])
-            && ($status['actPlayer'] === 'MPD') && trim($status['file']) && ($status['file'] != $saveFile)) {
-        // loop while MPD and the song has changed
-        // so exit if the song is the same at the start and end of the loop
+            && ($status['actPlayer'] === 'MPD') && trim($status['file'])
+            && (sysCmd('dir -1 /srv/http/tmp/art/*.png 2>/dev/null | wc -l')[0])
+            && ($status['file'] != $saveFile)) {
+        // enter the loop when MPD is the player, the directory /srv/http/tmp/art/ has been set up and the song has changed
         //
         // main processing
         //
@@ -252,7 +253,7 @@ while (true)  {
             // its a radio, don't process it, remove it from the array
             unset($songinfo['currsong']);
         } else if (strpos(' '.strtolower($songinfo['currsong']['file']), 'http') === 1) {
-            // the file has a prefix of http, so it could still be a radio
+            // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
             if (is_radioUrl($redis, $songinfo['currsong']['file'])) {
                 // it exists and its a radio, don't process it, remove it from the array
                 unset($songinfo['currsong']);
@@ -263,6 +264,14 @@ while (true)  {
         } else if (strpos(' '.$songinfo['currsong']['file'], 'cdda:') === 1) {
             // hardware CD input, don't process it, remove it from the array
             unset($songinfo['currsong']);
+        } else {
+            // this is a file on local or network storage, add the mpd root prefix
+            $songinfo['currsong']['file'] = $mpdRoot.'/'.$songinfo['currsong']['file'];
+            clearstatcache(true, $songinfo['currsong']['file']);
+            if (!file_exists($songinfo['currsong']['file'])) {
+                // the file does not exist or the file name is invalid, don't process it, remove it from the array
+                unset($songinfo['currsong']);
+            }
         }
         //
         // get the next song information and create the 'nextsong' cache table entry
@@ -294,7 +303,7 @@ while (true)  {
             // next song file from MPD not set
             unset($songinfo['nextsong']);
         } else if (strpos(' '.strtolower($songinfo['nextsong']['file']), 'http') === 1) {
-            // the file has a prefix of http, so it could be a radio
+            // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
             if (is_radioUrl($redis, $songinfo['nextsong']['file'])) {
                 // it exists and its a radio, don't process it, remove it from the array
                 unset($songinfo['nextsong']);
@@ -305,6 +314,14 @@ while (true)  {
         } else if (strpos(' '.$songinfo['nextsong']['file'], 'cdda:') === 1) {
             // hardware CD input, don't process it, remove it from the array
             unset($songinfo['nextsong']);
+        } else {
+            // this is a file on local or network storage, add the mpd root prefix
+            $songinfo['nextsong']['file'] = $mpdRoot.'/'.$songinfo['nextsong']['file'];
+            clearstatcache(true, $songinfo['nextsong']['file']);
+            if (!file_exists($songinfo['nextsong']['file'])) {
+                // the file does not exist or the file name is invalid, don't process it, remove it from the array
+                unset($songinfo['nextsong']);
+            }
         }
         //
         // tidy up
@@ -323,7 +340,6 @@ while (true)  {
             //
             // retrieve and validate the cached information
             //
-            $song['file'] = $mpdRoot.'/'.$song['file'];
             $datafile = md5($song['file']);
             if (isset($song['album']) && isset($song['albumartist']) && isset($song['date']) && isset($song['title'])
                     && $song['album'] && $song['albumartist'] && $song['date'] && $song['title']) {
@@ -758,7 +774,7 @@ while (true)  {
                     $status['bitrate'] = intval($song['avg_bit_rate']/1000);
                 }
                 if (!isset($status['audio_sample_rate']) || !trim($status['audio_sample_rate'])) {
-                    if (isset($song['sample_rate']) && $trim(song['sample_rate'])) {
+                    if (isset($song['sample_rate']) && trim($song['sample_rate'])) {
                         $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
                     }
                 }
