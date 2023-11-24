@@ -79,10 +79,7 @@ clearstatcache(true, $fileName);
 if (file_exists($fileName)) {
     // there is an update file, calculate its MD5
     $update_os_md5 = md5_file($fileName);
-    if (!$redis->exists('update_os_md5')) {
-        // first time boot, don't update the os, its already been done for the current os level
-        $redis->set('update_os_md5', $update_os_md5);
-    } else if ($redis->get('update_os_md5') != $update_os_md5) {
+    if ($redis->get('update_os_md5') != $update_os_md5) {
         // the current update file has not been processed
         include $fileName;
         updateOS($redis);
@@ -233,7 +230,7 @@ if ($playerid_db === '') {
     sysCmd('/srv/http/command/test_ciphers.php');
     //
     // enable mpd to start automatically on boot
-    // sysCmd('systemctl enable mpd.socket');
+    sysCmd('systemctl enable mpd.service');
     // enable nginx and php-fpm to start automatically on boot
     sysCmd('systemctl enable nginx');
     sysCmd('systemctl enable php-fpm');
