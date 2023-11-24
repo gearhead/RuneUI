@@ -89,20 +89,21 @@ rm -rf /var/lib/bluetooth/*
 # set up services and stop them
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
-    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cron cronie dhcpcd dphys-swapfile haveged hostapd llmnrd\
-    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd php-fpm plymouth-lite-halt plymouth-lite-poweroff\
-    plymouth-lite-reboot plymouth-lite-start redis-server rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smb smbd\
-    systemd-homed systemd-networkd udevil upmpdcli upower winbind winbindd)
+    bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile haveged hciuart hostapd llmnrd\
+    local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff\
+    plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smartmontools smb smbd\
+    systemd-homed systemd-networkd udevil udisks2 upmpdcli upower winbind winbindd)
 declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mosquitto mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
     systemd-resolved systemd-timesyncd udevil)
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
-    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue cron cronie dhcpcd dphys-swapfile\
-    haveged llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb nmbd plymouth-lite-start redis-server rune_PL_wrk\
-    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil\
+    bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile\
+    haveged hciuart llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb nmbd pcscd php7.4-fpm php8.2-fpm php-fpm\
+    plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk\
+    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil udisks2\
     upmpdcli upower winbind winbindd)
-declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd getty@tty1 haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed\
-    systemd-logind upower)
-# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd haveged llmnrd redis-server rsyncd rsyncd@ systemd-homed upower) # this one will enable console login
+declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1 haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
+    rsyncd@ rsyslog systemd-homed systemd-logind udisks2 upower)
+# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower) # this one will enable console login
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
@@ -195,6 +196,7 @@ redis-cli del addons
 redis-cli del addo
 #
 # Make sure cron/cronie is installed for logrotate (not activated)
+#   This should be removed in a future release
 if [ "$os" == "RPiOS" ] ; then
     a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
     if [ "$a" == "0" ] ; then
@@ -383,9 +385,9 @@ fi
 #       music metadata caching (cleancache), debug data - historical (debugdata), dirble (dirble), dlna (dlna), first time boot (first),
 #       jamendo (jamendo), local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), mounted volume information (mou),
 #       MPD, (mpd), network information (net), Network interface card information (nic), batch processing queues (queue),
-#       DNS resolve information - historical (resolv), samba server (samba), USB mounts and status (usb), web streaming (web), debug variables (wrk)
+#       DNS resolve information - historical (resolv), samba server (samba), OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), debug variables (wrk)
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'acard|access|airplay|ao|ashuffle|bluetooth|cleancache|debugdata|dirble|dlna|first|jamendo|local|lock_|lyric|mac|mou|mpd|net|nic|queue|random|resolv|samba|spotify|usb|web|wrk' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'acard|access|airplay|ao|ashuffle|bluetooth|cleancache|debugdata|dirble|dlna|first|jamendo|local|lock_|lyric|mac|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wrk' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
@@ -422,7 +424,7 @@ if [ "$usercnt" == "0" ] ; then
 fi
 #   now the rest of the users, these are used by systemd
 #   note: remove user llmnrd from the list on the next release
-declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil)
+declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil redis)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
@@ -515,6 +517,7 @@ cp -RTv /srv/http/app/config/defaults/var/. /var
 # copy config files for xbindkeys, luakit, chromium, etc.
 cp -RTv /srv/http/app/config/defaults/srv/. /srv
 # copy a standard config.txt & cmdline.txt
+#   note: for RPiOS Bookworm these files have a different location and these will be replaced by symlinks, see below
 cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
@@ -571,7 +574,7 @@ if [ "$os" == "RPiOS" ] ; then
         set +x
         echo "########################################################################"
         echo "##              Error: PHP version has changed for RPiOS              ##"
-        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver    ##"
+        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver         ##"
         echo "##      This script (image_reset_script.sh) needs to be modified      ##"
         echo "##                   ---------------------              --------      ##"
         echo "########################################################################"
@@ -588,8 +591,6 @@ for f in /etc/php/*.* ;  do
     elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.2"* ] ; then
         # echo $f
         rm -r "$f"
-# kg changed this to delete all the files/folders which are not needed for the current php
-# we also need to delete /etc/php/x.x/fpm/pool.d/www.conf if it is present
     elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
         # echo $f
         rm -r "$f"
@@ -598,23 +599,82 @@ for f in /etc/php/*.* ;  do
         rm -r "$f"
     fi
 done
+#   we also need to delete /etc/php/x.x/fpm/pool.d/www.conf for RPiOS PHP 8.2
+#       to-do: make this consistent for all RPiOS PHP versions
+if [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
+    rm /etc/php/8.2/fpm/pool.d/www.conf
+fi
 #   php-fpm.service
-#   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
+#   NOTE: when the PHP version on RPiOS changes this code needs to be changed and a new version of
+#       /srv/http/app/config/defaults/etc/systemd/system/php-fpm.service.RPiOS<v.v> should be created
 if [ "$os" == "ARCH" ] ; then
     cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
-    rm /etc/systemd/system/php-fpm.service.ARCH
-    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
-    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
     cp /etc/systemd/system/php-fpm.service.RPiOS8.2 /etc/systemd/system/php-fpm.service
-    rm /etc/systemd/system/php-fpm.service.ARCH
-    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
-    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "7.4" ] ; then
     cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
-    rm /etc/systemd/system/php-fpm.service.ARCH
-    rm /etc/systemd/system/php-fpm.service.RPiOS7.4
-    rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+fi
+rm /etc/systemd/system/php-fpm.service.ARCH
+rm /etc/systemd/system/php-fpm.service.RPiOS7.4
+rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+# for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
+codename=$( redis-cli get codename )
+if [ "$codename" == "Bookworm" ] ; then
+    # set up a redis variable to point to the mount point of mmcblk0p1
+    redis-cli set p1mountpoint '/boot/firmware'
+    # check fstab
+    fstab_boot=$( grep -ic '/boot ' /etc/fstab )
+    fstab_boot_firmware=$( grep -ic '/boot/firmware ' /etc/fstab )
+    if [ "$fstab_boot" == "1" ] && [ "$fstab_boot_firmware" == "0" ] ; then
+        # change fstab and remount /dev/mmcblk0p1 at mount point /boot/firmware
+        sed -i '/mmcblk0p1/s/\/boot         /\/boot\/firmware/' /etc/fstab
+        umount /dev/mmcblk0p1
+        rm -r /boot/*
+        mkdir -p /boot/firmware
+        mount -t vfat /dev/mmcblk0p1 /boot/firmware
+    fi
+    cp -RTv /srv/http/app/config/defaults/boot/. /boot/firmware
+    cp -f /boot/firmware/cmdline.txt.firstboot /boot/firmware/cmdline.txt
+    rm -r /boot/firmware/firmware
+    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type d )
+    for f in $FILES ; do
+        # create symlinks to directories in /boot to point to /boot/firmware distribution files
+        f=${f:35}
+        if [ "$f" != "" ] ; then
+            ln -sf /boot/firmware/$f /boot/$f
+        fi
+    done
+    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type f -name *.* )
+    for f in $FILES ; do
+        # create sysmlinks in /boot to point to /boot/firmware distribution files
+        f=${f:35}
+        if [ "$f" != "" ] ; then
+            ln -sf /boot/firmware/$f /boot/$f
+        fi
+    done
+else
+    # set up a redis variable to point to the mount point of mmcblk0p1
+    redis-cli set p1mountpoint '/boot'
+    # check fstab
+    fstab_boot=$( grep -ic '/boot ' /etc/fstab )
+    fstab_boot_firmware=$( grep -ic '/boot/firmware ' /etc/fstab )
+    if [ "$fstab_boot" == "0" ] && [ "$fstab_boot_firmware" == "1" ] ; then
+        # change fstab and remount /dev/mmcblk0p1 at mount point /boot
+        sed -i '/mmcblk0p1/s/\/boot\/firmware/\/boot         /' /etc/fstab
+        umount /dev/mmcblk0p1
+        rm -r /boot/*
+        mount -t vfat /dev/mmcblk0p1 /boot
+        cp -RTv /srv/http/app/config/defaults/boot/. /boot
+        cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
+    fi
+    rm -r /boot/firmware
+    rm -f /usr/local/sbin/apt
+fi
+#
+# for RPiOS we need to make sure the swapfile is switched off and uninstalled
+if [ "$os" == "RPiOS" ] ; then
+    dphys-swapfile swapoff
+    dphys-swapfile uninstall
 fi
 #
 # set up transparent cursor for Weston / Wayland / luakit
@@ -742,7 +802,7 @@ if [ "$gitbranch" == "$release" ] ; then
         experimental="Beta"
     fi
 else
-    if [ "${gitbranch:3:1}" == "a" ]; then
+    if [ "${gitbranch:3:1}" == "a" ] ; then
         experimental="Experimental Alpha"
     else
         experimental="Experimental Beta"
@@ -751,9 +811,14 @@ fi
 if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
     experimental="Alpha"
 fi
+if [ "$os" == "RPiOS" ] ; then 
+    codename="-$( redis-cli get codename )"
+else 
+    codename = ""
+fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($linuxver $os)"
+line3="Hw-env: Raspberry Pi ($linuxver $os$codename)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
