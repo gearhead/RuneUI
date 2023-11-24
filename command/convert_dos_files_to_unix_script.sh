@@ -59,7 +59,6 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     # exclude binary files, keep the date, keep the old file name
     #
     # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
-    # exceptions are /boot/config.txt and /boot/wifi/* these stay in ms-dos format
     cd /srv/http/app/config/defaults
     find /srv/http/app/config/defaults/ -type f -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
     # all files in /srv/http/assets/js

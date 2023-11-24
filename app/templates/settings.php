@@ -220,7 +220,7 @@
                             <input id="airplay" name="features[airplay][enable]" type="checkbox" value="1"<?php if((isset($this->airplay['enable'])) && ($this->airplay['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <?php if($this->oa): ?>
+                        <?php if($this->ao): ?>
                             <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
                         <?php else: ?>
                             <span class="help-block">There are no valid audio outputs defined, <strong>Airplay will not work correctly</strong></span>

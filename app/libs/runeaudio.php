@@ -3144,7 +3144,7 @@ function wrk_audioOutput($redis, $action)
                 return 'unchanged';
             }
             //
-            $redis->Del('acards');
+            $redis->del('acards');
             //
             // load the table of allowed formats which are valid for specific combinations of overlays
             $fileName = '/srv/http/db/audio_allowed_formats_table.txt';
