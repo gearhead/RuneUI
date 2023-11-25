@@ -41,6 +41,7 @@ if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
 elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
     os="ARCH"
 fi
+redis-cli set os $os
 #
 # Image reset script
 if [ "$1" == "full" ] ; then
@@ -288,7 +289,7 @@ rm -f /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/getid3
 # update local git and clean up any stashes
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5beforeRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
-md5beforeSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
+# md5beforeSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5beforeGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 rm -f /srv/http/command/mpd-watchdog
 cd /srv/http/
@@ -335,7 +336,7 @@ git config pull.rebase false
 cd /home
 md5afterThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5afterRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
-md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
+# md5afterSpotifyd=$( md5sum /srv/http/command/spotifyd-install.sh | xargs | cut -f 1 -d " " )
 md5afterGitignore=$( md5sum /srv/http/.gitignore | xargs | cut -f 1 -d " " )
 if [ "$md5beforeThis" != "$md5afterThis" ] || [ "$md5beforeRotate" != "$md5afterRotate" ] || [ "$md5beforeSpotifyd" != "$md5afterSpotifyd" ] || [ "$md5beforeGitignore" != "$md5afterGitignore" ] ; then
     set +x
@@ -397,9 +398,9 @@ redis-cli set hwplatformid ""
 if [ -f "/bin/xinit" ] ; then
     /srv/http/command/raspi-rotate-install.sh
 fi
-#
-# install spotifyd
-/srv/http/command/spotifyd-install.sh
+# #
+# # install spotifyd
+# /srv/http/command/spotifyd-install.sh
 #
 # remove any samba passwords
 pdbedit -L | grep -o ^[^:]* | smbpasswd -x
@@ -420,10 +421,16 @@ fi
 #   note: remove user llmnrd from the list on the next release
 declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil redis)
 for i in "${createusers[@]}" ; do
-    usercnt=$( grep -c "$i:" "/etc/passwd" )
+    usercnt=$( grep -c "^_$i:" "/etc/passwd" )
+    if [ "$usercnt" == "1" ] ; then
+        userdel -r "_$i"
+    fi
+    usercnt=$( grep -c "^$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
         # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
         useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
+    else
+        usermod -L -s /usr/bin/bash "$i"
     fi
 done
 #
@@ -465,10 +472,10 @@ done
         # usermod -a -G root $i
     # fi
 # done
-#
-# the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
-# also disable logins by locking the account
-usermod -L -s /usr/bin/bash spotifyd
+# #
+# # the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
+# # also disable logins by locking the account NOTE: now done above, this can be removed
+# usermod -L -s /usr/bin/bash spotifyd
 #
 # seems that there is a known bug in avahi-daemon where it expects group netdev to exist
 #   the netdev group is normally created by dhcdbd, which we don't use
