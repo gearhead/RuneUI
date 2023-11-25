@@ -8518,6 +8518,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
+                            sysCmd('systemctl daemon-reload');
                             sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
                             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                         }
