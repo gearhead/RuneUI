@@ -166,20 +166,20 @@ udevil clean
 # symlink it to connman's dynamically created resolv.conf
 # ln -sfT /run/connman/resolv.conf /etc/resolv.conf
 #
-# fix for removing openresolv
-#   Note this section can be removed in the next version
-if [ "$os" == "RPiOS" ] ; then
-    a=$( apt -qq list openresolv 2> /dev/null | grep -ci installed )
-    if [ "$a" == "0" ] ; then
-        bash -c "apt install -y openresolv >/dev/null 2>&1"
-    fi
-    rm -f /etc/resolv.conf
-    resolvconf -u
-    # bash -c "apt purge -y openresolv >/dev/null 2>&1"
-elif [ "$os" == "ARCH" ] ; then
-    # install openresolv if missing, dont run resolvconf -u
-    pacman -Q openresolv || pacman -Sy openresolv --noconfirm
-fi
+# # fix for removing openresolv
+# #   Note this section can be removed in the next version
+# if [ "$os" == "RPiOS" ] ; then
+    # a=$( apt -qq list openresolv 2> /dev/null | grep -ci installed )
+    # if [ "$a" == "0" ] ; then
+        # bash -c "apt install -y openresolv >/dev/null 2>&1"
+    # fi
+    # rm -f /etc/resolv.conf
+    # resolvconf -u
+    # # bash -c "apt purge -y openresolv >/dev/null 2>&1"
+# elif [ "$os" == "ARCH" ] ; then
+    # # install openresolv if missing, dont run resolvconf -u
+    # pacman -Q openresolv || pacman -Sy openresolv --noconfirm
+# fi
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons
@@ -271,12 +271,6 @@ if [ -d "/etc/php/fpm.d" ] ; then
     cp -n /etc/php/fpm.d/* /etc/php/php-fpm.d/
     rm -rf /etc/php/fpm.d
 fi
-#
-# remove the art directory
-dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
-# remove a trailing / if it exists
-dirName="${dirName%/}"
-rm -rf "$dirName"
 #
 # remove backup work directory and any contents
 dirName=$( redis-cli get backup_dir | tr -s / | xargs )
@@ -869,6 +863,12 @@ if [ "$partitions" == "3" ] ; then
         fi
     fi
  fi
+#
+# remove the art directory
+dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
+# remove a trailing / if it exists
+dirName="${dirName%/}"
+rm -rf "$dirName"
 #
 # unmount rune tmpfs filesystems, empty their mount points and remount (to avoid errors in the startup sequence)
 # http-tmp > /srv/http/tmp
