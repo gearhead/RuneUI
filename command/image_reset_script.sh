@@ -811,9 +811,9 @@ fi
 if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
     experimental="Alpha"
 fi
-if [ "$os" == "RPiOS" ] ; then 
+if [ "$os" == "RPiOS" ] ; then
     codename="-$( redis-cli get codename )"
-else 
+else
     codename = ""
 fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"

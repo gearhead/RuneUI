@@ -57,6 +57,6 @@ done
 if [ "$aptpath" != "" ] ; then
     $aptpath ${*}
 else
-    echo "apt: No such file or directory" 
+    echo "apt: No such file or directory"
     exit 2
 fi
