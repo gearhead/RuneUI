@@ -13382,3 +13382,89 @@ function date_to_Y_m_d($date)
     $date = $y.'-'.$m.'-'.$d;
     return $date;
 }
+
+// function which runs smart monitor tools
+function wrk_smt($redis)
+// S.M.A.R.T. monitoring tools
+//  will test each attached hard disk and tape unit
+//  test only when music is playing
+//  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
+//  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
+// Why test only when something is playing?
+//  a) someone needs see the error messages and
+//  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
+{
+    if (is_playing($redis)) {
+        // something is playing
+        // clear the cache otherwise file_exists() returns incorrect values
+        clearstatcache(true, '/usr/bin/smartctl');
+        if (file_exists('/usr/bin/smartctl')) {
+            // monitoring tools software is installed
+            // scan for hard disks
+            $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
+            if (isset($drive_list) && !empty($drive_list)) {
+                foreach($drive_list as $drive) {
+                    // for each connected drive
+                    $drive = trim($drive);
+                    if ($drive != "") {
+                        $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
+                        $self_check = sysCmd($command);
+                        // the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
+                        If (!empty($self_check)) {
+                            $smart_avalable = false;
+                            $smart_enabled = false;
+                            $smart_result = false;
+                            $smart_good = false;
+                            foreach ($self_check as $self_check_line) {
+                                $self_check_line = trim($self_check_line);
+                                if ($self_check_line != "") {
+                                    // now looking for the lines
+                                    // 'SMART support is: Available...' and
+                                    // 'SMART support is: Enabled'
+                                    if (strpos(' '.$self_check_line, 'SMART support is')) {
+                                        if (strpos(' '.$self_check_line, 'Available')) {
+                                            $smart_avalable = true;
+                                        } else if (strpos(' '.$self_check_line, 'Enabled')) {
+                                            $smart_enabled = true;
+                                        }
+                                    }
+                                    // now looking for the line containing something like this:
+                                    // 'SMART overall-health self-assessment test result: PASSED'
+                                    // actually looking for '-health self-' together with 'OK' or 'PASSED'
+                                    if (strpos(' '.$self_check_line, '-health self-')) {
+                                        // there is a result
+                                        $smart_result = true;
+                                        if (strpos(' '.$self_check_line, 'OK')) {
+                                            $smart_good = true;
+                                        } else if (strpos(' '.$self_check_line, 'PASSED')) {
+                                            $smart_good = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if ($smart_avalable && $smart_enabled && $smart_result && !$smart_good) {
+                                // SMART is available, enabled, there is a result and it is not good
+                                // display the information
+                                ui_notifyError($redis, 'Disk errors - Action required', implode("\n", $self_check));
+                                // set the disk_error flag to true
+                                $redis->set('disk_error', 1);
+                            }
+                        }
+                    }
+                    unset($self_check);
+                    unset($command);
+                }
+                unset($drive);
+                unset($drive_list);
+            }
+        }
+    }
+    unset($retval);
+    if ($redis->get('disk_error')) {
+        // set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
+        $redis->set('savecpuSmt', 170 + rand(0, 20));
+    } else {
+        // set the disk check frequency to +/-2400 cycles (= +/20 minutes)
+        $redis->set('savecpuSmt', 2350 + rand(0, 100));
+    }
+}
