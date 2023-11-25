@@ -40,7 +40,7 @@
             <div class="modal-body">
                 <i>The RuneAudio player is not a secure piece of software, many of its components explicitly state this fact. It should always be used behind your firewall/router and never exposed to external internet.
                 Changing this password will help to reduce security risks.<br>
-                A randomised or forgotten password can be changed later, see the Forum for details</i>
+                A randomised or forgotten password can be changed later, see the <a href="/dev/">/dev</a> menu for details</i>
             </div>
         </div>
     </div>
