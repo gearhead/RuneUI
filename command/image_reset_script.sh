@@ -620,7 +620,7 @@ rm /etc/systemd/system/php-fpm.service.RPiOS7.4
 rm /etc/systemd/system/php-fpm.service.RPiOS8.2
 # for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
 codename=$( redis-cli get codename )
-if [ "$codename" == "Bookworm" ] ; then
+if [ "$codename" == "bookworm" ] ; then
     # set up a redis variable to point to the mount point of mmcblk0p1
     redis-cli set p1mountpoint '/boot/firmware'
     # check fstab
@@ -728,6 +728,7 @@ chgmod 644 /usr/share/upmpdcli/runeaudio.png
 #
 # modify all standard .service files which specify the wrong PIDFile location
 sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /usr/lib/systemd/system/*.service
+sed -i 's|.*PIDFile=/var/run.*/|PIDFile=/run/|g' /etc/systemd/system/*.service
 #
 # some fixes for the ply-image binary location (required for 0.5b)
 if [ -e /usr/bin/ply-image ] ; then
