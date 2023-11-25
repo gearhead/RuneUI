@@ -104,7 +104,6 @@ while (true) {
                 }
                 if ($source_connected) {
                     // Bluetooth source is connected, switch the player to Bluetooth
-                    $redis->hSet('bluetooth', 'initialising', 1);
                     wrk_startPlayer($redis, "Bluetooth");
                     sleep(5);
                     continue;
@@ -122,7 +121,6 @@ while (true) {
                 $defVolume = round(($defVolume * 127) / 100);
                 sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$defVolume);
             }
-            $redis->hSet('bluetooth', 'initialising', 1);
             wrk_startPlayer($redis, "Bluetooth");
             sleep(5);
             continue;
@@ -177,7 +175,6 @@ while (true) {
                                 }
                             }
                         }
-                        $redis->hSet('bluetooth', 'initialising', 1);
                         wrk_startPlayer($redis, "Bluetooth");
                         sleep(5);
                         continue;

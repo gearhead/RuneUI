@@ -11456,7 +11456,6 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'input_connect':
             // allows RuneAudio to be detectable as a Bluetooth device and allow a pair and connect from an input (source) device
             //  it is detectable, pair-able and connect-able  for 120 seconds
-            $redis->hSet('bluetooth', 'initialising', 1);
             sysCmd('systemctl stop bt_scan_output ; systemctl start bluetooth-agent');
             wrk_startPlayer($redis, "Bluetooth");
             break;
