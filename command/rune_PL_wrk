@@ -730,7 +730,6 @@ while (true) {
             $song_percent = 0;
             $elapsedTimestamp = microtime(true);
             $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-            echo "Volume 1: $volume\n";
             $btDeviceName = '';
             do {
                 $status = json_decode($redis->get('act_player_info'), true);
@@ -776,7 +775,6 @@ while (true) {
                         $bitrate = '~190';
                         if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
                             $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
-                            echo "Volume 2: $volume\n";
                         } else {
                             $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
                             if (isset($acard['mixer_control']) && $acard['mixer_control']) {
@@ -784,10 +782,8 @@ while (true) {
                                 $mixerControl = $acard['mixer_control'];
                                 $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
                                 $volume = get_between_data($volume, ' [', '%] ');
-                                echo "Volume 3: $volume\n";
                             } else {
                                 $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
-                                echo "Volume 4: $volume\n";
                             }
                         }
                     } else if ($checkAudioCnt-- <= 0) {
@@ -795,7 +791,6 @@ while (true) {
                         $checkAudioCnt = 5;
                         if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
                             $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                            echo "Volume 5: $volume\n";
                         } else {
                             $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
                             if (isset($acard['mixer_control']) && $acard['mixer_control']) {
@@ -803,10 +798,8 @@ while (true) {
                                 $mixerControl = $acard['mixer_control'];
                                 $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
                                 $volume = get_between_data($volume, ' [', '%] ');
-                                echo "Volume 6: $volume\n";
                             } else {
                                 $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                                echo "Volume 7: $volume\n";
                             }
                         }
                         $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);

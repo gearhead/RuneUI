@@ -37,6 +37,7 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
 } else {
     require_once('/var/www/app/config/config.php');
 }
+$response = 'OK';
 // check current player backend
 $activePlayer = $redis->get('activePlayer');
 if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
@@ -108,7 +109,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             }
             switch ($command) {
                 case 'setvol':
-                    ui_notify($redis, 'setvol running with:', $value);
                     $localVolumeControl = $redis->hGet('bluetooth', 'local_volume_control');
                     if (isset($value) && ($value >= 0) && ($value <= 100)  && $localVolumeControl) {
                         if ($localVolumeControl != 'd') {
@@ -116,7 +116,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                             if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                 $volume = round(($value * 127) / 100);
                                 $x = sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$volume);
-                                ui_notify($redis, 'bluealsa-cli volume 1', implode("\n", $x));
+                                $response = implode('\n', $x);
                             }
                         } else {
                             $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
@@ -124,13 +124,13 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                                 $card = get_between_data($acard['device'], ':', ',');
                                 $mixerControl = $acard['mixer_control'];
                                 $x = sysCmd('amixer -c'.$card.' sset '.$mixerControl.' '.$value.'%');
-                                ui_notify($redis, 'amixer volume 1', implode("\n", $x));
+                                $response = implode('\n', $x);
                             } else {
                                 $pcms = wrk_btcfg($redis, 'auto_volume');
                                 if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                     $volume = round(($value * 127) / 100);
                                     $x = sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$volume);
-                                    ui_notify($redis, 'bluealsa-cli volume 2', implode("\n", $x));
+                                    $response = implode('\n', $x);
                                 }
                             }
                         }
