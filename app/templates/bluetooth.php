@@ -248,7 +248,7 @@
                 </div>
             </div>
             <?php endif ?>
-            <?php if (($this->config['IO_toggle'] != 'output') && ($this->player_volume_control)): ?>
+            <?php if (($this->config['IO_toggle'] != 'output')): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_native_volume_control">Bluetooth Native Volume Control</label>
                 <div class="col-sm-10">
@@ -267,6 +267,8 @@
                         Some audio cards have no volume control, these may not react to volume changes when On is selected</i></span>
                 </div>
             </div>
+            <?php endif ?>
+            <?php if (($this->config['IO_toggle'] != 'output') && ($this->player_volume_control)): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_local_volume_control">Local Volume Control</label>
                 <div class="col-sm-10">

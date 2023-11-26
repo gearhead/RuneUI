@@ -202,6 +202,7 @@ foreach ($acards as $acard) {
         break;
     }
 }
+unset($acards, $acard);
 $template->codecs = strtolower(trim(explode(':', sysCmd('bluealsa --help | grep -i a2dp-source:')[0], 2)[1]));
 $template->devices = wrk_btcfg($redis, 'status');
 $template->samplerate = wrk_btcfg($redis, 'status');
