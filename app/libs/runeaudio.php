@@ -3276,6 +3276,9 @@ function wrk_audioOutput($redis, $action)
                     if (substr($card['sysname'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
                         $details['type'] = 'integrated';
+                    } if (substr($card['sysname'], 0, 4) == 'vc4-') {
+                        // these are the on-board standard audio outputs
+                        $details['type'] = 'integrated';
                     } else {
                         // try to identify USB devices
                         $usbDevicesNames = preg_replace('/\s*iProduct\s*.\s*/', '|', implode(' ', sysCmd('lsusb -v 2>/dev/null | grep -i "iProduct"'))).'|';
@@ -3301,9 +3304,21 @@ function wrk_audioOutput($redis, $action)
                 if ((!isset($details['description']) || !$details['description']) && isset($details['type']) && $details['type']) {
                     if ($details['type'] == 'integrated') {
                         if (isset($details['sysname']) && $details['sysname']) {
-                            $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
+                            if (strpos(' '.$details['sysname'], 'vc4-') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 4));
+                            } else if (strpos(' '.$details['sysname'], 'bcm2835 ') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
+                            } else {
+                                $details['description'] = 'Raspberry Pi: '.trim($details['sysname']);
+                            }
                         } else if (isset($details['extlabel']) && $details['extlabel']) {
-                            $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
+                            if (strpos(' '.$details['extlabel'], 'vc4-') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 4));
+                            } else if (strpos(' '.$details['extlabel'], 'bcm2835 ') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
+                            } else {
+                                $details['description'] = 'Raspberry Pi: '.trim($details['extlabel']);
+                            }
                         }
                     } else if ($details['type'] == 'i2s') {
                         // save the name as defined in the UI when selecting this card
