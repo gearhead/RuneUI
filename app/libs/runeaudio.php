@@ -13403,7 +13403,7 @@ function wrk_smt($redis)
 // S.M.A.R.T. monitoring tools
 //  will test each attached hard disk and tape unit
 //  test only when music is playing
-//  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
+//  first test after 480 cycles (= +/- 4 minutes) and then at a rate of once per +/-2400 cycles (= +/-20 minutes)
 //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
 // Why test only when something is playing?
 //  a) someone needs see the error messages and
@@ -13413,7 +13413,8 @@ function wrk_smt($redis)
         // something is playing
         // clear the cache otherwise file_exists() returns incorrect values
         clearstatcache(true, '/usr/bin/smartctl');
-        if (file_exists('/usr/bin/smartctl')) {
+        clearstatcache(true, '/usr/sbin/smartctl');
+        if (file_exists('/usr/bin/smartctl') || file_exists('/usr/sbin/smartctl')) {
             // monitoring tools software is installed
             // scan for hard disks
             $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');

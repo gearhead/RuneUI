@@ -203,7 +203,8 @@ function debug_data($redis, $fp=null)
     }
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, '/usr/bin/parted');
-    if (file_exists('/usr/bin/parted')) {
+    clearstatcache(true, '/usr/sbin/parted');
+    if (file_exists('/usr/bin/parted') || file_exists('/usr/sbin/parted')) {
         $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
         $command = sysCmd("parted -ls | grep -v '^$' | sed -E ':a;N;$!ba;s/\\nModel/\\n\\nModel/g' ");
         $output .= implode("\n", $command)."\n\n\n";
@@ -215,7 +216,8 @@ function debug_data($redis, $fp=null)
     }
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, '/usr/bin/smartctl');
-    if (file_exists('/usr/bin/smartctl')) {
+    clearstatcache(true, '/usr/sbin/smartctl');
+    if (file_exists('/usr/bin/smartctl') || file_exists('/usr/sbin/smartctl')) {
         $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
         if (!empty($drive_list)) {
             foreach($drive_list as $drive) {
