@@ -3444,6 +3444,8 @@ function wrk_audioOutput($redis, $action)
                         }
                         if (count($validMixerControls) == 1) {
                             $details['mixer_control'] = reset($validMixerControls);
+                        } else {
+                            ui_notify($redis, 'Automatic audio-card detection', 'Failed for \''.$details['sysname'].'\'. Please report this on the forum', '', 1);
                         }
                     }
                     unset ($retval, $retline, $mixerControl, $pvolumeFound, $limitsFound, $validMixerControl, $validMixerControls, $cardCnt);
