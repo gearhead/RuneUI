@@ -240,7 +240,7 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         apt install uglifyjs
     fi
     cd /srv/http/
-    uglifyjs --verbose --mangle --keep-fnames --toplevel --warn --validate --webkit --ie8 assets/js/runeui.js --source-map --output assets/js/runeui.min.js
+    uglifyjs --verbose --mangle --keep-fnames --warn --validate --webkit --ie8 assets/js/runeui.js --source-map --output assets/js/runeui.min.js
     cd /home
 fi
 #
