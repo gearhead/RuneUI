@@ -3276,7 +3276,10 @@ function wrk_audioOutput($redis, $action)
                     if (substr($card['sysname'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
                         $details['type'] = 'integrated';
-                    } if (substr($card['sysname'], 0, 4) == 'vc4-') {
+                    } else if (substr($card['sysname'], 0, 4) == 'vc4-') {
+                        // these are the on-board standard audio outputs
+                        $details['type'] = 'integrated';
+                    } else if (substr($card['sysname'], 0, 3) == 'vc4') {
                         // these are the on-board standard audio outputs
                         $details['type'] = 'integrated';
                     } else {
@@ -3306,6 +3309,8 @@ function wrk_audioOutput($redis, $action)
                         if (isset($details['sysname']) && $details['sysname']) {
                             if (strpos(' '.$details['sysname'], 'vc4-') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 4));
+                            } else if (strpos(' '.$details['sysname'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 3));
                             } else if (strpos(' '.$details['sysname'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
                             } else {
@@ -3314,6 +3319,8 @@ function wrk_audioOutput($redis, $action)
                         } else if (isset($details['extlabel']) && $details['extlabel']) {
                             if (strpos(' '.$details['extlabel'], 'vc4-') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 4));
+                            } else if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 3));
                             } else if (strpos(' '.$details['extlabel'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
                             } else {
