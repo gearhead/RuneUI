@@ -13418,10 +13418,7 @@ function wrk_smt($redis)
 {
     if (is_playing($redis)) {
         // something is playing
-        // clear the cache otherwise file_exists() returns incorrect values
-        clearstatcache(true, '/usr/bin/smartctl');
-        clearstatcache(true, '/usr/sbin/smartctl');
-        if (file_exists('/usr/bin/smartctl') || file_exists('/usr/sbin/smartctl')) {
+        if (sysCmd('command -v smartctl')[0]) {
             // monitoring tools software is installed
             // scan for hard disks
             $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
