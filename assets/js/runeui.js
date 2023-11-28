@@ -102,6 +102,23 @@ function sendCmd(inputcmd) {
     });
 }
 
+// function to strip html special character encoding, see: https://stackoverflow.com/questions/1912501/unescape-html-entities-in-javascript
+function htmlDecode(input) {
+    var doc = new DOMParser().parseFromString(input, "text/html");
+    return doc.documentElement.textContent;
+}
+
+// function to add html special character encoding, see: https://stackoverflow.com/questions/6234773/can-i-escape-html-special-chars-in-javascript
+function htmlEncode(input)
+{
+    return input
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // check WebSocket support
 function checkWebSocket(){
     if (window.WebSocket){
@@ -1613,7 +1630,13 @@ function parseResponse(options) {
                     } else {
                         content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-root"></i><i class="fa fa-hdd-o icon-root"></i><span>';
                     }
-                    content += inputArr.directory.replace(inpath + '/', '');
+                    // DEBUG
+                    // if (inputArr.directory.includes('&')) {
+                        // console.log('inputArr.directory: '+inputArr.directory);
+                        // console.log('inpath: '+inpath);
+                        // console.log('htmlEncode(inpath): '+htmlEncode(inpath));
+                    // }
+                    content += inputArr.directory.replace(htmlEncode(inpath) + '/', '');
                     content += '</span></li>';
                 }
             } else if (GUI.browsemode === 'album' || GUI.browsemode === 'albumfilter') {
