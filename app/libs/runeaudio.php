@@ -3085,7 +3085,7 @@ function wrk_audioOutput($redis, $action)
             unset($countErr, $cnt);
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
             //  also eliminate loopback card definitions, these are used for internal routing of the sound path
-            if ($redis->exists('hdmivc4hw') && $redis->get('hdmivc4hw')) {
+            if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 1)) {
                 // handle vc4 as hardware cards
                 $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
             } else {
@@ -3564,6 +3564,9 @@ function wrk_audioOutput($redis, $action)
                         $acardHDMIvc4['extlabel'] = $cardname;
                         $acardHDMIvc4['sysname'] = $cardname;
                         $acardHDMIvc4['type'] = 'alsa';
+                        if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 2)) {
+                            $acardHDMIvc4['mixer_control'] = 'PCM';
+                        }
                         $acardHDMIvc4['description'] = 'Raspberry Pi: SW'.$cardname;
                         // add allowed formats to the card options
                         $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
@@ -4034,7 +4037,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                      if (isset($card_decoded['mixer_control'])) {
                         $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        $output .="\tmixer_device \t\"".substr($card_decoded['device'], 0, 4)."\"\n";
+                        if (isset($card_decoded['mixer_device'])) {
+                            $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
+                        }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
                             $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
