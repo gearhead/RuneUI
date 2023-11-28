@@ -98,8 +98,9 @@ fi
 # try to recover changes in the <p1moountpoint>/config.txt
 if [ -f "/home/config.txt.diff" ] ; then
     p1mountpoint=$( redis-cil get p1mountpoint )
-    patch -lN $p1mountpoint/config.txt /home/config.txt.diff
+    patch -lN $p1mountpoint/config.txt -o $p1mountpoint/config.txt -r /home/config.txt.rej /home/config.txt.diff
     rm -f /home/config.txt.diff
+    rm -f /home/config.txt.rej
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # delete any redis variables not included in the reference list
