@@ -3273,6 +3273,10 @@ function wrk_audioOutput($redis, $action)
                     $details['sysname'] = $card['sysname'];
                     $details['extlabel'] = $card['sysdesc'];
                     $details['hwplatformid'] = $redis->get('hwplatformid');
+                    // debug
+                    // echo "details['sysname']: '".$details['sysname']."'\n";
+                    // echo "details['extlabel']: '".$details['extlabel']."'\n";
+                    // echo "details['hwplatformid']: '".$details['hwplatformid']."'\n";
                     if (substr($card['sysname'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
                         $details['type'] = 'integrated';
@@ -3333,7 +3337,7 @@ function wrk_audioOutput($redis, $action)
                         if ($i2sModule && ($i2sModule != 'none')) {
                             $details['description'] = 'Soundcard: '.trim(explode('|', $redis->get('i2smodule_select'), 2)[1]);
                         } else {
-                            // otherwise call set the description to default, could happen when manually configured
+                            // otherwise set the description to default, could happen when manually configured
                             if (isset($details['extlabel']) && $details['extlabel']) {
                                 $details['description'] = 'Soundcard: '.$details['extlabel'];
                             } else if (isset($details['sysname']) && $details['sysname']) {

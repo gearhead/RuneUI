@@ -95,7 +95,7 @@ else
     rm -f /var/lib/redis/rune.rdb.copy
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# try to recover changes in the <p1moountpoint>/config.txt
+# try to recover changes in the <p1mountpoint>/config.txt
 if [ -f "/home/config.txt.diff" ] ; then
     p1mountpoint=$( redis-cil get p1mountpoint )
     patch -lN $p1mountpoint/config.txt -o $p1mountpoint/config.txt -r /home/config.txt.rej /home/config.txt.diff
