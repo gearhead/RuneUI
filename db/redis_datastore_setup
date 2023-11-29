@@ -164,9 +164,9 @@ function redisDatastore($redis,$action) {
                 $codename = '';
             } else {
                 $os = 'RPiOS';
-                $codename = trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]);
+                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
             }
-            if ($codename == 'Bookworm') {
+            if ($codename == 'bookworm') {
                 $p1mountpoint = '/boot/firmware';
             } else {
                 $p1mountpoint = '/boot';
@@ -512,9 +512,9 @@ function redisDatastore($redis,$action) {
                 $codename = '';
             } else {
                 $os = 'RPiOS';
-                $codename = trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]);
+                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
             }
-            if ($codename == 'Bookworm') {
+            if ($codename == 'bookworm') {
                 $p1mountpoint = '/boot/firmware';
             } else {
                 $p1mountpoint = '/boot';
