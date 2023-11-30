@@ -120,9 +120,12 @@ sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/
 rm -f $1
 # delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
 redis-cli del lastmpdvolume
-# delete the kernel and os setting, we may be restoring to a different machine type of a different OS, it will be reset to its correct value
+# delete the kernel, os, codename and p1mountpoint variables, we may be restoring to a different machine type or a different OS
+#   these will be reset to their correct values
 redis-cli del kernel
 redis-cli del os
+redis-cli del codename
+redis-cli del p1mountpoint
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
 # unset any locks
