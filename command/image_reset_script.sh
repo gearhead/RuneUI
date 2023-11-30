@@ -630,7 +630,6 @@ if [ "$codename" == "bookworm" ] ; then
         # change fstab and remount /dev/mmcblk0p1 at mount point /boot/firmware
         sed -i '/mmcblk0p1/s/\/boot         /\/boot\/firmware/' /etc/fstab
         umount /dev/mmcblk0p1
-        rm -r /boot/*
         mkdir -p /boot/firmware
         mount -t vfat /dev/mmcblk0p1 /boot/firmware
     fi
