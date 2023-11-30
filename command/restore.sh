@@ -173,6 +173,8 @@ fi
 redis-cli set dev '0'
 # set debug off
 redis-cli set debug '0'
+# clear the audio configuration to force rebuild on boot
+redis-cli del acards
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
