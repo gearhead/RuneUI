@@ -204,21 +204,28 @@ while (true) {
     $bluealsaActive = sysCmd('systemctl is-active bluealsa | grep -ic active | xargs')[0];
     $bluealsaAplayActive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic active | xargs')[0];
     if ($noOutput) {
-        // there are no output cards, stop bluealsa and bluealsa-aplay
-        sysCmd('sysetmctl stop bluealsa ; sysetmctl stop bluealsa-aplay');
+        // there are no output cards, stop bluealsa-aplay
+        sysCmd('systemctl stop bluealsa-aplay');
     } else if (!$bluealsaActive && !$bluealsaAplayActive) {
         // there are output cards start bluealsa if required
-        sysCmd('sysetmctl start bluealsa');
+        sysCmd('systemctl start bluealsa');
         sleep(4);
-        sysCmd('sysetmctl start bluealsa-aplay');
+        sysCmd('systemctl start bluealsa-aplay');
     } else if ($bluealsaActive && !$bluealsaAplayActive) {
-        // this will correct the situation when blualsa-aplay refuses to start with an active and running pcm
-        //  the action will drop connected inputs
+        // start start bluealsa-aplay
         set_alsa_default_card($redis);
-        sysCmd('sysetmctl stop bluealsa');
-        sysCmd('sysetmctl start bluealsa');
+        sysCmd('systemctl start bluealsa-aplay');
         sleep(4);
-        sysCmd('sysetmctl start bluealsa-aplay');
+        // check again if bluealsa-aplay is running
+        $bluealsaAplayActive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic active | xargs')[0];
+        if (!$bluealsaAplayActive) {
+            // this will correct the situation when blualsa-aplay refuses to start with an active and running pcm
+            //  the action will drop connected inputs
+            sysCmd('systemctl stop bluealsa');
+            sysCmd('systemctl start bluealsa');
+            sleep(4);
+            sysCmd('systemctl start bluealsa-aplay');
+        }
     }
     if ($delayCnt-- <= 0) {
         // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
