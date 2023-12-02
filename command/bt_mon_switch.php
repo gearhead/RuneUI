@@ -196,7 +196,18 @@ while (true) {
     $noOutput = '1';
     foreach ($acards as $acard) {
         $card = json_decode($acard, true);
-        if (strpos(' '.strtolower($card['device']), 'hw')) {
+        if (strpos(' '.strtolower($card['device']), 'hw:')) {
+            // this is a hardware output
+            $noOutput = '0';
+            break;
+        }
+        if (strpos(' '.strtolower($card['device']), 'plughw:')) {
+            // this is a hardware output
+            $noOutput = '0';
+            break;
+        }
+        if (strpos(' '.strtolower($card['device']), 'vc4') && strpos(' '.strtolower($card['device']), 'hdmi')) {
+            // this is a software version of a hardware hdmi output
             $noOutput = '0';
             break;
         }
