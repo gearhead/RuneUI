@@ -192,8 +192,11 @@ while (true) {
                     }
                     break;
                 }
-                if ($redis->get('activePlayer') != 'MPD') {
+                $activePlayer = $redis->get('activePlayer');
+                if ($activePlayer != 'MPD') {
                     // no longer MPD, just break the loop
+                    $status['actPlayer'] = $activePlayer;
+                    $redis->set('act_player_info', json_encode($status));
                     if ($socket) {
                         closeMpdSocket($socket);
                     }
@@ -480,9 +483,11 @@ while (true) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
                         // update the active player information before trying to decode the radio metadata and albumart
+                        $activePlayer = $redis->get('activePlayer');
+                        $status['actPlayer'] = $activePlayer;
                         $redis->set('act_player_info', json_encode($status));
                         $retval = wrk_get_webradio_art($redis, $status['currentsong']);
-                        if ($redis->get('activePlayer') != 'MPD') {
+                        if ($activePlayer != 'MPD') {
                             // no longer MPD, just break the loop
                             break;
                         }

@@ -564,14 +564,16 @@ function loadingSpinner(section, hide) {
 
 // update the playback source
 function setPlaybackSource() {
-    if (typeof GUI.libraryhome.ActivePlayer != 'undefined') {
+    if (typeof GUI.libraryhome.ActivePlayer === 'undefined') {
+        var activePlayer = 'MPD';
+    } else {
         var activePlayer = GUI.libraryhome.ActivePlayer;
-        // update the playback section
-        $('#overlay-playsource-open button').text(activePlayer);
-        $('#overlay-playsource a').addClass('inactive');
-        var source = activePlayer.toLowerCase();
-        $('#playsource-' + source).removeClass('inactive');
     }
+    // update the playback section
+    $('#overlay-playsource-open button').text(activePlayer);
+    $('#overlay-playsource a').addClass('inactive');
+    var source = activePlayer.toLowerCase();
+    $('#playsource-' + source).removeClass('inactive');
     // update (volume knob and) control buttons
     setUIbuttons(activePlayer);
     // style the queue
