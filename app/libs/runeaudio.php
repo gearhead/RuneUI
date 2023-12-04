@@ -4102,6 +4102,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // add Bluetooth output devices for all known connections
             $btDevices = wrk_btcfg($redis, 'status');
             $btconfig = $redis->hgetall('bluetooth');
+            ksort($btconfig, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($btDevices as $btDevice) {
                 if ($btDevice['sink'] && $btDevice['device']) {
                     $output .= "audio_output {\n";
@@ -4117,9 +4118,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .= "\tmixer_type \t\"software\"\n";
                     //
                     if (isset($btconfig['samplerate'])) {
-                        $output .= "\tallowed_formats \"".$btconfig['samplerate'].":16:*\"\n";
+                        $output .= "\tallowed_formats \"".$btconfig['samplerate'].":16:2\"\n";
                     } else {
-                        $output .= "\tallowed_formats \"48000:16:*\"\n";
+                        $output .= "\tallowed_formats\t\"".$redis->hGet('bluetooth', 'samplerate').":16:2\"";
                     }
                     $output .= "\tauto_resample \t\"no\"\n";
                     $output .= "\tauto_format \t\"no\"\n";
@@ -12086,8 +12087,8 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                         $btDevices = wrk_btcfg($redis, 'status');
                         foreach ($btDevices as $btDevice) {
                             if ($btDevice['sink'] && $btDevice['device'] && $btDevice['name']) {
-                                // mpc outputset "<device>" allowed_formats=["48000:16:*"|"44100:16:*"]
-                                sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:*"');
+                                // mpc outputset "<device>" allowed_formats=["48000:16:2"|"44100:16:2"]
+                                sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:2"');
                             }
                         }
                         unset($bluealsaConfigFiles, $btDevices);
