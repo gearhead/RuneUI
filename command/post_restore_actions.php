@@ -59,7 +59,11 @@ wrk_localBrowser($redis, 'rotate', $redis->hGet('local_browser', 'rotate'));
 wrk_localBrowser($redis, 'overscan', $redis->hGet('local_browser', 'overscan'));
 wrk_localBrowser($redis, 'mouse_cursor', $redis->hGet('local_browser', 'mouse_cursor'));
 $redis->hSet('local_browser', 'enable', $xorgEnable);
-wrk_changeHostname($redis, $redis->get('hostname'));
+$actualHostname = strtolower(trim(sysCmd('hostname | xargs')[0]));
+$redisHostname = strtolower(trim($redis->get('hostname')));
+if (($actualHostname != $redisHostname) && $redisHostname) {
+    wrk_changeHostname($redis, $redis->get('hostname'));
+}
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);

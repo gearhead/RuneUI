@@ -6139,6 +6139,7 @@ function wrk_changeHostname($redis, $newhostname)
     $newhostname = trim($newhostname);
     If ($newhostname != preg_replace('/[^A-Za-z0-9-]/', '', $newhostname)) {
         // do not do anything
+        ui_notifyError($redis, 'Hostname', 'New hostname invalid, hostname change failed');
         runelog('new hostname invalid', $newhostname);
         return;
     }
