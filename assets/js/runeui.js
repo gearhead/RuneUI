@@ -1038,13 +1038,10 @@ function updateGUI() {
         GUI.json.state = 'stop';
         GUI.json.song_percent = 0;
         GUI.json.elapsed = 0;
-        GUI.mainArtURL = '';
     }
     if (GUI.state !== GUI.json.state) {
         GUI.state = GUI.json.state;
-        if (typeof GUI.json.actPlayer !== 'undefined') {
-            setUIbuttons(GUI.json.actPlayer)
-        }
+        setPlaybackSource();
     }
     if (typeof GUI.json.time !== 'undefined') {
         var time = GUI.json.time;
