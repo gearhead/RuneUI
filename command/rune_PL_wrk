@@ -153,6 +153,16 @@ while (true) {
                 $status['playlistlength'] = 0;
             }
             $status['volume'] = $redis->get('lastmpdvolume');
+            // Is the volume control active?
+            $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
+            if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
+                // player volume control active
+                $status['local_volume_control'] = 1;
+            } else {
+                // player volume control disabled
+                $status['local_volume_control'] = 0;
+            }
+            $player_volume_control = '';
             $redis->set('pl_length', $status['playlistlength']);
             $redis->set('act_player_info', json_encode($status));
             ui_render('playback', json_encode($status));
@@ -472,6 +482,19 @@ while (true) {
                     }
                     $saveCurrentalbum = $status['currentalbum'];
                 }
+                // Is the volume control active?
+                $player_volume_control_new = $redis->hGet('mpdconf', 'mixer_type');
+                if (!isset($status['local_volume_control']) || ($player_volume_control != $player_volume_control_new)) {
+                    // local volume control unset or player volcume control changed
+                    $player_volume_control = $player_volume_control_new;
+                    if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
+                        // player volume control active
+                        $status['local_volume_control'] = 1;
+                    } else {
+                        // player volume control disabled
+                        $status['local_volume_control'] = 0;
+                    }
+                }
                 //
                 $newStatus = array();
                 //
@@ -617,6 +640,7 @@ while (true) {
                 // clean up the metadata, async and at low priority
                 sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
             } while ((!$errorcode) && ($redis->get('activePlayer') === 'MPD'));
+            unset($status['local_volume_control']);
 
             // close Redis connection
             //$redis->close();
@@ -660,6 +684,7 @@ while (true) {
                 }
                 $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'Airplay');
+            unset($status['local_volume_control']);
             sleep(1);
         } else if ($activePlayer === 'SpotifyConnect') {
             //
@@ -700,6 +725,7 @@ while (true) {
                 }
                 $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'SpotifyConnect');
+            unset($status['local_volume_control']);
             sleep(1);
             $redis->hSet('spotifyconnect', 'last_track_id', '');
         } else if ($activePlayer === 'Bluetooth') {

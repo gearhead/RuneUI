@@ -92,6 +92,7 @@ if ($redis->hGet('spotifyconnect', 'save_last_volume')) {
 }
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
+$status['local_volume_control'] = 0;
 $updateUI = false;
 $cnt = 20;
 //

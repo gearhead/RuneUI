@@ -626,13 +626,13 @@ function setUIbuttons(activePlayer) {
     }
     if ($('#section-index').length) {
         // this is the playback section all other buttons are valid here
-        // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-        document.getElementById('volume').readOnly = true;
         // update (volume knob and) control buttons
         if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
             if (GUI.local_volume_control === '0') {
-                // local volume control can be on for some streams
+                // local volume control can be on for some streams, here disabled
+                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+                document.getElementById('volume').readOnly = true;
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
                 $('#volume-knob button').prop('disabled', true);
@@ -643,6 +643,9 @@ function setUIbuttons(activePlayer) {
                 $('#volumemute').addClass('hide');
                 $('#volumeup').addClass('hide');
             } else {
+                // local volume control can be on for some streams, here enabled
+                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+                document.getElementById('volume').readOnly = false;
                 $('#volume-knob').removeClass('disabled');
                 $('#volume-knob').removeClass('nomixer');
                 $('#volume-knob button').prop('disabled', false);
@@ -672,8 +675,10 @@ function setUIbuttons(activePlayer) {
                 $('#random').removeClass('hide');
                 $('#single').removeClass('hide');
             }
-            if (typeof GUI.json.volume === 'undefined') {
+            if (GUI.local_volume_control === '0') {
                 // player is MPD but volume control is switched off
+                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+                document.getElementById('volume').readOnly = true;
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
                 $('#volume-knob button').prop('disabled', true);
@@ -685,6 +690,8 @@ function setUIbuttons(activePlayer) {
                 $('#volumeup').addClass('hide');
             } else {
                 // player is mpd and the volume control is switched on
+                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+                document.getElementById('volume').readOnly = false;
                 $('#volume-knob').removeClass('disabled');
                 $('#volume-knob').removeClass('nomixer');
                 $('#volume-knob button').prop('disabled', false);
@@ -703,9 +710,11 @@ function setUIbuttons(activePlayer) {
             $('#next').removeClass('disabled');
         }
         if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://') || (GUI.file.substr(0, 7) === 'cdda://')) {
+            // sometimes there is no metadata, here no metadata
             $('#overlay-social-open').addClass('hide');
             $('#songinfo-open').addClass('hide');
         } else {
+            // sometimes there is no metadata, here metadata
             $('#overlay-social-open').removeClass('hide');
             $('#songinfo-open').removeClass('hide');
         }
@@ -1077,7 +1086,14 @@ function updateGUI() {
     } else {
         GUI.stream = '';
     }
-    GUI.local_volume_control = local_volume_control;
+    if ((local_volume_control === '0') || (local_volume_control === 0)) {
+        GUI.local_volume_control = '0';
+        if (activePlayer === 'MPD') {
+            volume = 100;
+        }
+    } else if ((local_volume_control === '1') || (local_volume_control === 1)) {
+        GUI.local_volume_control = '1';
+    }
     if (typeof GUI.json.consume !== 'undefined') {
         GUI.consume = GUI.json.consume;
     }
