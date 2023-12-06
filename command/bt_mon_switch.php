@@ -243,7 +243,7 @@ while (true) {
         //  the main loop cycles every 3 seconds
         $delayCnt = 3;
     }
-    unset($devices, $source_connected, $sink_connected, $acards, $acard, $card, $noOutput, $bluealsaActive, $bluealsaAplayActive, $defVolume);
+    unset($devices, $source_connected, $sink_connected, $acard, $card, $bluealsaAplayInactive, $defVolume, $refresMpd);
 }
 //
 runelog('WORKER bt_mon_switch.php END...');
