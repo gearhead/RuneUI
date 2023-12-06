@@ -627,12 +627,13 @@ function setUIbuttons(activePlayer) {
     if ($('#section-index').length) {
         // this is the playback section all other buttons are valid here
         // update (volume knob and) control buttons
+        // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+        //  this prevents entering values in the volume
+        document.getElementById('volume').readOnly = true;
         if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
             if (GUI.local_volume_control === '0') {
                 // local volume control can be on for some streams, here disabled
-                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-                document.getElementById('volume').readOnly = true;
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
                 $('#volume-knob button').prop('disabled', true);
@@ -644,8 +645,6 @@ function setUIbuttons(activePlayer) {
                 $('#volumeup').addClass('hide');
             } else {
                 // local volume control can be on for some streams, here enabled
-                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-                document.getElementById('volume').readOnly = false;
                 $('#volume-knob').removeClass('disabled');
                 $('#volume-knob').removeClass('nomixer');
                 $('#volume-knob button').prop('disabled', false);
@@ -677,8 +676,6 @@ function setUIbuttons(activePlayer) {
             }
             if (GUI.local_volume_control === '0') {
                 // player is MPD but volume control is switched off
-                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-                document.getElementById('volume').readOnly = true;
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
                 $('#volume-knob button').prop('disabled', true);
@@ -690,8 +687,6 @@ function setUIbuttons(activePlayer) {
                 $('#volumeup').addClass('hide');
             } else {
                 // player is mpd and the volume control is switched on
-                // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-                document.getElementById('volume').readOnly = false;
                 $('#volume-knob').removeClass('disabled');
                 $('#volume-knob').removeClass('nomixer');
                 $('#volume-knob button').prop('disabled', false);
@@ -1076,7 +1071,8 @@ function updateGUI() {
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
     var file = ((typeof GUI.json.file == 'undefined') ? '' : GUI.json.file);
     var local_volume_control = ((typeof GUI.json.local_volume_control == 'undefined') ? '0' : GUI.json.local_volume_control);
-    // set stream mode if radioname is present or active player is Bluetooth
+    // set stream mode if radioname is present, when its a HW input or active player is Bluetooth
+    //  for these streams the time played just continues counting, no reset count on new track
     if (radioname !== null && radioname !== undefined && radioname !== '') {
         GUI.stream = 'radio';
     } else if (file !== null && (file.substring(0, 7) === 'alsa://')) {
