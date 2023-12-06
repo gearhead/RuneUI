@@ -11446,7 +11446,11 @@ function wrk_llmnrd($redis)
 
 // function to set up and configure Bluetooth input and output
 function wrk_btcfg($redis, $action, $param = null, $jobID = null)
-// $action has the values: enable, disable, clear, pair, cancel_pairing, connect, disconnect, scan_bt_source, trust, untrust, status
+// $action has the values:
+//  enable, disable, reset, restart_bluealsa_aplay, clear, input_connect, output_list, pair, unpair, connect,
+//  disconnect, disconnect_sources, disconnect_sinks, trust, untrust, block, unblock, forget, remove_bt_acards,
+//  correct_bt_ao, set_volume, status, status_async, status_async_now, check_bt_mpd_output, bt_scan_output, config,
+//  quality_options, auto_volume
 // the function returns true or false, except when $action = status, in which case an array containing all bluetooth device statuses is returned
 // $param optionally contains a the MAC-address of the device, where:
 //  $param is valid for: pair, cancel-pairing, connect, disconnect, output_connect, trust, untrust
@@ -12389,8 +12393,8 @@ function is_playing($redis)
     //  now, since it is not playing, when MPD is the player it is not playing
     if ($redis->get('activePlayer') == 'MPD') return false;
     // other devices
-    //  Bluetooth output
     $ao = trim($redis->get('ao'));
+    //  Bluetooth output
     if (isset($ao) && $ao) {
         $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
         if (isset($acard['device']) && trim($acard['device'])) {
@@ -12399,17 +12403,29 @@ function is_playing($redis)
     }
     if (isset($device) && $device && (strpos(' '.$device, 'bluealsa:') == 1)) {
         // output device is Bluetooth
-        //  look at the cpu usage of bluealsa, it is almost zero when nothing is playing and significantly higher when playing
-        //  but a paused input continues to use the high cpu, so this method is not foolproof
-        $bluealsaCpu1 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
-        // wait a half second
-        usleep(500000);
-        // get the cpu time again
-        $bluealsaCpu2 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
-        if (($bluealsaCpu2 - $bluealsaCpu1) > 1) {
+        // use the function wrk_btcfg($redis, 'auto_volume') to get the pcm info
+        //  when valid ['output'] is returned and [running] is true something is playing
+        $pcm_info = wrk_btcfg($redis, 'auto_volume');
+        if (isset($pcm_info) && is_array($pcm_info) && isset($pcm_info['output']['running']) && ($pcm_info['output']['running'])) {
             return true;
         }
     }
+    //  Bluetooth input
+    if ($redis->get('activePlayer') == 'Bluetooth') {
+        // input device is Bluetooth
+        // use the function wrk_btcfg($redis, 'auto_volume') to get the pcm info
+        //  when valid ['input'] is returned and [running] is true something is playing
+        $pcm_info = wrk_btcfg($redis, 'auto_volume');
+        if (isset($pcm_info) && is_array($pcm_info) && isset($pcm_info['input']['running']) && ($pcm_info['input']['running'])) {
+            return true;
+        }
+    }
+    // vc4 hdmi output
+    if (isset($device) && $device && strpos(' '.strtolower($device), 'vc4') && strpos(' '.strtolower($device), 'hdmi')) {
+        // output device is software vc4 hdmi
+        //  don't know how to do this one
+    }
+
     return false;
 }
 
