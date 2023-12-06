@@ -72,6 +72,7 @@ while (true) {
     }
     if (sysCmd('systemctl is-active bluealsa')[0] != 'active') {
         // can't do anything if bluealsa service is not active
+        sysCmd('systemctl start bluealsa');
         sleep(10);
         continue;
     }
@@ -192,44 +193,15 @@ while (true) {
             // continue;
         // }
     }
-    $acards = $redis->hgetall('acards');
-    $noOutput = '1';
-    foreach ($acards as $acard) {
-        $card = json_decode($acard, true);
-        if (strpos(' '.strtolower($card['device']), 'hw:')) {
-            // this is a hardware output
-            $noOutput = '0';
-            break;
-        }
-        if (strpos(' '.strtolower($card['device']), 'plughw:')) {
-            // this is a hardware output
-            $noOutput = '0';
-            break;
-        }
-        if (strpos(' '.strtolower($card['device']), 'vc4') && strpos(' '.strtolower($card['device']), 'hdmi')) {
-            // this is a software version of a hardware hdmi output
-            $noOutput = '0';
-            break;
-        }
-    }
-    $bluealsaActive = sysCmd('systemctl is-active bluealsa | grep -ic active | xargs')[0];
-    $bluealsaAplayActive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic active | xargs')[0];
-    if ($noOutput) {
-        // there are no output cards, stop bluealsa-aplay
-        sysCmd('systemctl stop bluealsa-aplay');
-    } else if (!$bluealsaActive && !$bluealsaAplayActive) {
-        // there are output cards start bluealsa if required
-        sysCmd('systemctl start bluealsa');
-        sleep(4);
-        sysCmd('systemctl start bluealsa-aplay');
-    } else if ($bluealsaActive && !$bluealsaAplayActive) {
+    $bluealsaAplayInactive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic "inactive" | xargs')[0];
+    if ($bluealsaAplayInactive) {
         // start start bluealsa-aplay
         set_alsa_default_card($redis);
         sysCmd('systemctl start bluealsa-aplay');
         sleep(4);
         // check again if bluealsa-aplay is running
-        $bluealsaAplayActive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic active | xargs')[0];
-        if (!$bluealsaAplayActive) {
+        $bluealsaAplayInactive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic "inactive" | xargs')[0];
+        if ($bluealsaAplayInactive) {
             // this will correct the situation when blualsa-aplay refuses to start with an active and running pcm
             //  the action will drop connected inputs
             sysCmd('systemctl stop bluealsa');
@@ -246,12 +218,27 @@ while (true) {
             $devices = wrk_btcfg($redis, 'status');
         }
         if ($redis->get('activePlayer') != 'Bluetooth') {
+            $refresmpd = false;
             foreach ($devices as $device) {
                 // sometime trusted auto-connect wont work, do it manually here
                 if ($device['sink'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
                     // attempt to connect
                     wrk_btcfg($redis, 'connect', $device['device']);
+                    // check that mpd.conf has been updated
+                    if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
+                        $refresmpd = true;
+                    }
                 }
+                if ($device['sink']) {
+                    // check that mpd.conf has been updated
+                    if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
+                        $refresmpd = true;
+                    }
+                }
+            }
+            if ($refresmpd) {
+                // update mpd.conf when required
+                wrk_mpdconf($redis, 'refresh');
             }
         }
         // set delay count to 3: this routing runs every 9 seconds (3x3 = 9 seconds)
