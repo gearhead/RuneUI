@@ -139,9 +139,9 @@ while (true)  {
         $status['mainArtURL'] = '';
         $status['bigArtURL'] = '';
         $status['smallArtURL'] = '';
-        $status['bitrate'] = ' ';
-        $status['audio_sample_rate'] = ' ';
-        $status['audio_sample_depth'] = ' ';
+        // $status['bitrate'] = ' ';
+        // $status['audio_sample_rate'] = ' ';
+        // $status['audio_sample_depth'] = ' ';
         $status['song_lyrics'] = ' ';
         $status['coverArtPreload'] = '';
         $status['artist_bio_summary'] = ' ';
@@ -770,8 +770,12 @@ while (true)  {
                         $status['smallArtURL'] = $song['albumarturl'];
                     }
                 }
-                if (isset($song['avg_bit_rate']) && trim($song['avg_bit_rate'])) {
-                    $status['bitrate'] = intval($song['avg_bit_rate']/1000);
+                if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
+                    if (!is_numeric($song['avg_bit_rate'])) {
+                        $status['bitrate'] = $song['avg_bit_rate'];
+                    } else {
+                        $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
+                    }
                 }
                 if (!isset($status['audio_sample_rate']) || !trim($status['audio_sample_rate'])) {
                     if (isset($song['sample_rate']) && trim($song['sample_rate'])) {
