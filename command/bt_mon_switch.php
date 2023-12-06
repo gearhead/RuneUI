@@ -218,25 +218,23 @@ while (true) {
             $devices = wrk_btcfg($redis, 'status');
         }
         if ($redis->get('activePlayer') != 'Bluetooth') {
-            $refresmpd = false;
+            $refresMpd = false;
             foreach ($devices as $device) {
-                // sometime trusted auto-connect wont work, do it manually here
-                if ($device['sink'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
-                    // attempt to connect
-                    wrk_btcfg($redis, 'connect', $device['device']);
-                    // check that mpd.conf has been updated
-                    if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
-                        $refresmpd = true;
+                // we are only interested in sink devices
+                if ($device['sink'] && $device['device']) {
+                    // sometime trusted auto-connect wont work, do it manually here
+                    if (!$device['connected'] && $device['trusted'] && !$device['blocked']) {
+                        // attempt to connect
+                        wrk_btcfg($redis, 'connect', $device['device']);
+                        // check that mpd.conf has been updated
                     }
-                }
-                if ($device['sink']) {
-                    // check that mpd.conf has been updated
+                    // check that mpd.conf has been updated with the bluetooth outputs
                     if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
-                        $refresmpd = true;
+                        $refresMpd = true;
                     }
                 }
             }
-            if ($refresmpd) {
+            if ($refresMpd) {
                 // update mpd.conf when required
                 wrk_mpdconf($redis, 'refresh');
             }
