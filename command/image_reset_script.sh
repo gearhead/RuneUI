@@ -671,6 +671,19 @@ else
     rm -f /usr/local/sbin/apt
 fi
 #
+# modify /etc/ssh/sshd_config, make sure that 'Include /etc/ssh/sshd_config.d/*.conf' is the last line of the file
+#   determine the file name(s)
+files=$( find /etc -type f -name sshd_config 2>/dev/null )
+#   then for each of the files
+for f in $files ; do
+    #   first delete any lines containing the include
+    sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\/etc\/ssh\/sshd\_config\.d/d' $f
+    #   remove empty lines at end of file
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' $f
+    #   append the correct Include line to the file
+    echo -e "\nInclude /etc/ssh/sshd_config.d/*.conf" >> $f
+done
+#
 # for RPiOS we need to make sure the swapfile is switched off and uninstalled
 if [ "$os" == "RPiOS" ] ; then
     dphys-swapfile swapoff
