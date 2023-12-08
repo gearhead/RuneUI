@@ -692,7 +692,7 @@ while (true)  {
             } else {
                 $info['song'] = '';
             }
-            if (isset($song['title'])) {
+            if (isset($song['album'])) {
                 $info['album'] = $song['album'];
             } else {
                 $info['album'] = '';
