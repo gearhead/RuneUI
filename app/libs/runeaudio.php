@@ -2199,7 +2199,7 @@ function wrk_opcache($redis, $action)
             sysCmd('systemctl reload php-fpm');
             break;
         case 'enable':
-            $fileNames = sysCmd('find /etc -name opcache.ini');
+            $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null ; grep -Ril --binary-files=without-match "^opcache.enable=" /etc/php 2>/dev/null');
             foreach ($fileNames as $fileName) {
                 // clear the file cache otherwise file_exists() returns incorrect values
                 clearstatcache(true, $fileName);
