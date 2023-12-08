@@ -727,11 +727,28 @@ if [ "$volitileFound" == "0" ] ; then
     sed -i 's/\[Journal\]/\[Journal\]\nStorage=volatile/' "/etc/systemd/journald.conf"
 fi
 #
-# modify the php.ini file to set opcache.memory_consumption to 32MB (default is 192MB)
-#   the file can be in various places, there could be duplicates
-php_ini_files=$( grep -Ril '^[\s]*opcache.memory_consumption=' /etc/php | grep -i 'php.ini$' )
+# modify the php.ini and other /etc/php/.../*.ini
+#   set 'opcache.memory_consumption=32', the file can be in various places, there could be duplicates0
+php_ini_files=$( grep -Ril '^[\s]*opcache.memory_consumption=' /etc/php | grep -i '.ini$' )
 for f in $php_ini_files ; do
-    sed -i '/^[\s]*opcache.memory_consumption=/c\opcache.memory_consumption=32' "$f"
+    # in each file comment out all occurrences of 'opcache.memory_consumption='
+    sed  -i '/^[\s]*opcache.memory_consumption=.*/ s/./; &/' "$f"
+done
+php_ini_files=$( grep -Ril '^\s*;*\s*opcache.memory_consumption=' /etc/php | grep -i '.ini$' )
+for f in $php_ini_files ; do
+    # in each file replace the line with the first occurrence of commented out 'opcache.memory_consumption=' with 'opcache.memory_consumption=32'
+    sed -i '0,/^\s*;*\s*opcache.memory_consumption=/s/\s*;*\s*opcache.memory_consumption=.*/opcache.memory_consumption=32/' "$f"
+done
+#   set 'pcre.jit=0', the file can be in various places, there could be duplicates
+php_ini_files=$( grep -Ril '^[\s]*pcre.jit=' /etc/php | grep -i '.ini$' )
+for f in $php_ini_files ; do
+    # in each file comment out all occurrences of 'pcre.jit='
+    sed  -i '/^[\s]*pcre.jit=.*/ s/./; &/' "$f"
+done
+php_ini_files=$( grep -Ril '^\s*;*\s*opcache.memory_consumption=' /etc/php | grep -i '.ini$' )
+for f in $php_ini_files ; do
+    # in each file replace the line with the first occurrence of commented out 'pcre.jit=' with 'pcre.jit=0'
+    sed -i '0,/^\s*;*\s*pcre.jit=/s/\s*;*\s*pcre.jit=.*/pcre.jit=0/' "$f"
 done
 #
 # copy a logo for display in BubbleUpnp via upmpdcli
