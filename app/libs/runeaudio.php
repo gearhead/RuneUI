@@ -4008,6 +4008,21 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
+            // get hdmi acards and merge with acards
+            //  these are hdmi outputs which have been used in the past on this machine
+            //  by always including them in mpd.conf it will prevent restarting mpd when hdmi output is is active/inactive on subsequent start-ups
+            if ($redis->exists('hdmiacards')) {
+                $acards = array_merge($redis->hgetall('hdmiacards'), $acards);
+            }
+            // save hdmi acards
+            //  first delete the current hdmi acards
+            $redis->del('hdmiacards');
+            foreach ($acards as $key => $acard) {
+                if (strpos(' '.strtolower($key), 'hdmi')) {
+                    // the card name contains hdmi, save it
+                    $redis->hSet('hdmiacards', $key, $acard);
+                }
+            }
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
             //  the MPD config file will not be replaced and MPD not restarted
@@ -5566,6 +5581,7 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hSet('local_browser', 'windows', 'xorg');
         $redis->hSet('local_browser', 'browser', 'luakit');
         $redis->del('acards');
+        $redis->del('hdmiacards');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);

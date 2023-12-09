@@ -85,6 +85,7 @@ function redisDatastore($redis,$action) {
             // $redis->hSet('mpdconf', 'buffer_before_play', '10%');
             // $redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
             // $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
+            $redis->del('hdmiacards');
             break;
         case 'mpdcheck':
             $redis->hExists('mpdconf', 'audio_buffer_size') || $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
