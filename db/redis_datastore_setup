@@ -59,6 +59,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
             $redis->hSet('mpdconf', 'log_level', 'default');
             $redis->hSet('mpdconf', 'max_connections', '20');
+            $redis->hSet('mpdconf', 'max_output_buffer_size', 32768);
             $redis->hSet('mpdconf', 'mixer_type', 'hardware');
             $redis->hSet('mpdconf', 'music_directory', '/mnt/MPD');
             $redis->hSet('mpdconf', 'pid_file', '/run/mpd/pid');
@@ -84,6 +85,7 @@ function redisDatastore($redis,$action) {
             // $redis->hSet('mpdconf', 'buffer_before_play', '10%');
             // $redis->hSet('mpdconf', 'gapless_mp3_playback', 'yes');
             // $redis->hSet('mpdconf', 'id3v1_encoding', 'UTF-8');
+            $redis->del('hdmiacards');
             break;
         case 'mpdcheck':
             $redis->hExists('mpdconf', 'audio_buffer_size') || $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
@@ -102,6 +104,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'log_file') || $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
             $redis->hExists('mpdconf', 'log_level') || $redis->hSet('mpdconf', 'log_level', 'default');
             $redis->hExists('mpdconf', 'max_connections') || $redis->hSet('mpdconf', 'max_connections', '20');
+            $redis->hExists('mpdconf', 'max_output_buffer_size') || $redis->hSet('mpdconf', 'max_output_buffer_size', 32768);
             $redis->hExists('mpdconf', 'mixer_type') || $redis->hSet('mpdconf', 'mixer_type', 'hardware');
             $redis->hExists('mpdconf', 'music_directory') || $redis->hSet('mpdconf', 'music_directory', '/mnt/MPD');
             $redis->hExists('mpdconf', 'pid_file') || $redis->hSet('mpdconf', 'pid_file', '/run/mpd/pid');
@@ -159,11 +162,20 @@ function redisDatastore($redis,$action) {
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
                 $os = 'ARCH';
+                $codename = '';
             } else {
                 $os = 'RPiOS';
+                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
+            }
+            if ($codename == 'bookworm') {
+                $p1mountpoint = '/boot/firmware';
+            } else {
+                $p1mountpoint = '/boot';
             }
             $redis->set('os', $os);
+            $redis->set('codename', $codename);
             $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
+            $redis->set('p1mountpoint', $p1mountpoint);
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
@@ -174,7 +186,7 @@ function redisDatastore($redis,$action) {
             $redis->set('first_time_boot', 0);
             $redis->set('overlay_art_cache', 0);
             $redis->del('cleancache');
-            $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
+            $redis->set('savecpuSmt', 480);
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -183,7 +195,7 @@ function redisDatastore($redis,$action) {
             // asynchronous fifo command queue
             $redis->del('cmd_queue');
             $redis->del('cmd_queue_encoding');
-            $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
+            $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap cts siv');
             // message fifo queue and indicator
             $redis->del('w_message');
             $redis->set('waitSyWrk', 0);
@@ -206,11 +218,15 @@ function redisDatastore($redis,$action) {
             $redis->set('usb_db_autorebuild', 1);
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
-            $redis->hSet('bluetooth', 'def_volume', '40');
+            $redis->hSet('bluetooth', 'def_volume_in', '-1');
+            // $redis->hSet('bluetooth', 'def_volume_out', '-1');
             $redis->hSet('bluetooth', 'initialising', 0);
-            $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hSet('bluetooth', 'IO_toggle', 'both');
+            $redis->hSet('bluetooth', 'local_volume_control', 0);
+            $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hSet('bluetooth', 'quality', 'default');
             $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hSet('bluetooth', 'remember_last_volume', 0);
             $redis->hSet('bluetooth', 'samplerate', '48000');
             $redis->hSet('bluetooth', 'timeout', 20);
             $redis->set('bluetooth_status', json_encode(array()));
@@ -287,7 +303,6 @@ function redisDatastore($redis,$action) {
             $redis->set('coverart', 1);
             $redis->set('UIorder', 'TAV');
             $redis->set('artist-info', 1);
-            $redis->set('lyric', 1);
             $redis->set('playmod', 0);
             $redis->set('ramplay', 0);
             // last.fm
@@ -319,6 +334,11 @@ function redisDatastore($redis,$action) {
             // info
             $redis->del('soxrmpdonoff');
             $redis->set('remoteSStime', -1);
+            // lyrics
+            $redis->hSet('lyrics', 'lyric_file', 0);
+            $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, will be trimmed, lower case will also be used
+            $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case, will be trimmed
+            $redis->hSet('lyrics', 'match_percentage', 50);
             // album and artist art
             $redis->set('remoteSSbigart', 'album');
             $redis->set('albumart_image_dir', '/srv/http/tmp/art');
@@ -490,11 +510,20 @@ function redisDatastore($redis,$action) {
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
                 $os = 'ARCH';
+                $codename = '';
             } else {
                 $os = 'RPiOS';
+                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
+            }
+            if ($codename == 'bookworm') {
+                $p1mountpoint = '/boot/firmware';
+            } else {
+                $p1mountpoint = '/boot';
             }
             $redis->exists('os') || $redis->set('os', $os);
+            $redis->exists('codename') || $redis->set('codename', $codename);
             $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
+            $redis->exists('p1mountpoint') || $redis->set('p1mountpoint', $p1mountpoint);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');
@@ -502,8 +531,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('underclocking') || $redis->set('underclocking', 0);
             $redis->exists('first_time_boot') || $redis->set('first_time_boot', 0);
             $redis->exists('overlay_art_cache') || $redis->set('overlay_art_cache', 0);
-            $redis->exists('omit_lyrics') || $redis->set('omit_lyrics', 'classical baroque'); // space delimited lower case
-
+            $redis->exists('savecpuSmt') || $redis->set('savecpuSmt', 480);
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing
@@ -514,7 +542,7 @@ function redisDatastore($redis,$action) {
                 $redis->set('password', $hash);
             }
             // asynchronous fifo command queue
-            $redis->exists('cipher_exclude_list') || $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap');
+            $redis->exists('cipher_exclude_list') || $redis->set('cipher_exclude_list', 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap cts siv');
             // message fifo queue and indicator
             $redis->exists('waitSyWrk') || $redis->set('waitSyWrk', 0);
             // Internet services
@@ -535,11 +563,15 @@ function redisDatastore($redis,$action) {
             $redis->exists('ntpserver') || $redis->set('ntpserver', 'pool.ntp.org');
             $redis->exists('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
             $redis->exists('usb_db_autorebuild_retry') || $redis->set('usb_db_autorebuild_retry', 0);
-            $redis->hExists('bluetooth', 'def_volume') || $redis->hSet('bluetooth', 'def_volume', '40');
+            $redis->hExists('bluetooth', 'def_volume_in') || $redis->hSet('bluetooth', 'def_volume_in', -1);
+            // $redis->hExists('bluetooth', 'def_volume_out') || $redis->hSet('bluetooth', 'def_volume_out', -1);
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
-            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 1);
+            $redis->hExists('bluetooth', 'IO_toggle') || $redis->hSet('bluetooth', 'IO_toggle', 'both');
+            $redis->hExists('bluetooth', 'local_volume_control') || $redis->hSet('bluetooth', 'local_volume_control', 0);
+            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hExists('bluetooth', 'quality') || $redis->hSet('bluetooth', 'quality', 'high_def');
             $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
+            $redis->hExists('bluetooth', 'remember_last_volume') || $redis->hSet('bluetooth', 'remember_last_volume', 0);
             $redis->hExists('bluetooth', 'samplerate') || $redis->hSet('bluetooth', 'samplerate', '48000');
             $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
             $redis->exists('bluetooth_status') || $redis->set('bluetooth_status', json_encode(array()));
@@ -623,9 +655,13 @@ function redisDatastore($redis,$action) {
             $redis->exists('coverart') || $redis->set('coverart', 1);
             $redis->exists('UIorder') || $redis->set('UIorder', 'TAV');
             $redis->exists('artist-info') || $redis->set('artist-info', 1);
-            $redis->exists('lyric') || $redis->set('lyric', 1);
             $redis->exists('playmod') || $redis->set('playmod', 0);
             $redis->exists('ramplay') || $redis->set('ramplay', 0);
+            // lyrics
+            $redis->hExists('lyrics', 'lyric_file') || $redis->hSet('lyrics', 'lyric_file', 0);
+            $redis->hExists('lyrics', 'lyric_tags') || $redis->hSet('lyrics', 'lyric_tags', 'LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS'); // comma delimited, lower case will also be used
+            $redis->hExists('lyrics', 'omit_lyrics') || $redis->hSet('lyrics', 'omit_lyrics', 'classical, baroque'); // comma delimited lower case
+            $redis->hExists('lyrics', 'match_percentage') || $redis->hSet('lyrics', 'match_percentage', 50);
             // last.fm
             $redis->hExists('lastfm', 'enable') || $redis->hSet('lastfm', 'enable', 0);
             $redis->hExists('lastfm', 'username') || $redis->hSet('lastfm', 'username', '');
@@ -643,7 +679,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             // local browser
-            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'luakit');
+            $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);
             $redis->hExists('local_browser', 'enable-splash') || $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hExists('local_browser', 'localSStime') || $redis->hSet('local_browser', 'localSStime', -1);

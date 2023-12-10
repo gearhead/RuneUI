@@ -58,7 +58,6 @@ var GUI = {
     playlist: null,
     plugin: '',
     state: '',
-    old_state: 'none',
     stepVolumeDelta: 0,
     stepVolumeInt: 0,
     stream: '',
@@ -74,6 +73,7 @@ var GUI = {
     elapsed: 0,
     consume: 0,
     file: '',
+    local_volume_control: ''
 };
 
 
@@ -100,6 +100,23 @@ function sendCmd(inputcmd) {
         url: '/command/?cmd=' + inputcmd + '&clientUUID=' + GUI.clientUUID,
         cache: false
     });
+}
+
+// function to strip html special character encoding, see: https://stackoverflow.com/questions/1912501/unescape-html-entities-in-javascript
+function htmlDecode(input) {
+    var doc = new DOMParser().parseFromString(input, "text/html");
+    return doc.documentElement.textContent;
+}
+
+// function to add html special character encoding, see: https://stackoverflow.com/questions/6234773/can-i-escape-html-special-chars-in-javascript
+function htmlEncode(input)
+{
+    return input
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // check WebSocket support
@@ -148,7 +165,7 @@ $(document).ready(function () {
     GUI.clientUUID = generateUUID();
 
     if ($('#section-index').length) {
-        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === '::1') {
             isLocalHost = 1;
             SStime = localSStime;
         } else {
@@ -547,14 +564,16 @@ function loadingSpinner(section, hide) {
 
 // update the playback source
 function setPlaybackSource() {
-    if (typeof GUI.libraryhome.ActivePlayer != 'undefined') {
+    if (typeof GUI.libraryhome.ActivePlayer === 'undefined') {
+        var activePlayer = 'MPD';
+    } else {
         var activePlayer = GUI.libraryhome.ActivePlayer;
-        // update the playback section
-        $('#overlay-playsource-open button').text(activePlayer);
-        $('#overlay-playsource a').addClass('inactive');
-        var source = activePlayer.toLowerCase();
-        $('#playsource-' + source).removeClass('inactive');
     }
+    // update the playback section
+    $('#overlay-playsource-open button').text(activePlayer);
+    $('#overlay-playsource a').addClass('inactive');
+    var source = activePlayer.toLowerCase();
+    $('#playsource-' + source).removeClass('inactive');
     // update (volume knob and) control buttons
     setUIbuttons(activePlayer);
     // style the queue
@@ -607,21 +626,38 @@ function setUIbuttons(activePlayer) {
     }
     if ($('#section-index').length) {
         // this is the playback section all other buttons are valid here
-        // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
-        document.getElementById('volume').readOnly = true;
         // update (volume knob and) control buttons
+        // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
+        //  this prevents entering values in the volume
+        document.getElementById('volume').readOnly = true;
         if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
-            //document.getElementById("volume").style.color = '#1A242F';
-            $('#volume-knob').addClass('disabled');
-            $('#volume-knob').addClass('nomixer');
-            $('#volume-knob button').prop('disabled', true);
-            $('#volume').addClass('disabled');
-            $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
-            $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
-            $('#volumedn').addClass('disabled');
-            $('#volumemute').addClass('disabled');
-            $('#volumeup').addClass('disabled');
+            if (GUI.local_volume_control === '0') {
+                // local volume control can be on for some streams, here disabled
+                $('#volume-knob').addClass('disabled');
+                $('#volume-knob').addClass('nomixer');
+                $('#volume-knob button').prop('disabled', true);
+                $('#volume').addClass('disabled');
+                $('#volume-knob').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+                $('#volume').trigger('configure', {'readOnly': true, 'fgColor': '#1A242F'}).css({'color': '#1A242F', 'pointer-events': 'none'});
+                $('#volumedn').addClass('hide');
+                $('#volumemute').addClass('hide');
+                $('#volumeup').addClass('hide');
+            } else {
+                // local volume control can be on for some streams, here enabled
+                $('#volume-knob').removeClass('disabled');
+                $('#volume-knob').removeClass('nomixer');
+                $('#volume-knob button').prop('disabled', false);
+                $('#volume').removeClass('disabled');
+                $('#volume-knob').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+                $('#volume').trigger('configure', {'readOnly': false, 'fgColor': '#0095D8'}).css({'color': '#0095D8', 'pointer-events': 'auto'});
+                $('#volumedn').removeClass('hide');
+                $('#volumemute').removeClass('hide');
+                $('#volumeup').removeClass('hide');
+                $('#volumedn').removeClass('disabled');
+                $('#volumemute').removeClass('disabled');
+                $('#volumeup').removeClass('disabled');
+            }
             $('#repeat').addClass('hide');
             $('#random').addClass('hide');
             $('#single').addClass('hide');
@@ -638,7 +674,7 @@ function setUIbuttons(activePlayer) {
                 $('#random').removeClass('hide');
                 $('#single').removeClass('hide');
             }
-            if (typeof GUI.json.volume === 'undefined') {
+            if (GUI.local_volume_control === '0') {
                 // player is MPD but volume control is switched off
                 $('#volume-knob').addClass('disabled');
                 $('#volume-knob').addClass('nomixer');
@@ -667,6 +703,15 @@ function setUIbuttons(activePlayer) {
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
+        }
+        if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://') || (GUI.file.substr(0, 7) === 'cdda://')) {
+            // sometimes there is no metadata, here no metadata
+            $('#overlay-social-open').addClass('hide');
+            $('#songinfo-open').addClass('hide');
+        } else {
+            // sometimes there is no metadata, here metadata
+            $('#overlay-social-open').removeClass('hide');
+            $('#songinfo-open').removeClass('hide');
         }
     } else {
         // force setting the main player UI buttons next time
@@ -931,7 +976,7 @@ function refreshState() {
         // alert("refreshState 3");
         refreshTimer(0, 0, 'stop');
         window.clearInterval(GUI.currentKnob);
-        if (GUI.stream) {
+        if ((typeof GUI.stream != 'undefined') && GUI.stream) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -993,6 +1038,22 @@ function refreshState() {
 // update the Playback UI
 function updateGUI() {
     // alert("updateGUI");
+    if ((typeof GUI.json.state === 'undefined') || (GUI.json.state === '')) {
+        GUI.json.state = 'stop';
+        GUI.json.song_percent = 0;
+        GUI.json.elapsed = 0;
+    }
+    if (GUI.state !== GUI.json.state) {
+        GUI.state = GUI.json.state;
+        setPlaybackSource();
+    }
+    if (typeof GUI.json.time !== 'undefined') {
+        var time = GUI.json.time;
+    }
+    if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
+        // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
+        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
+    }
     var volume = ((typeof GUI.json.volume == 'undefined') ? 0 : GUI.json.volume);
     var radioname = ((typeof GUI.json.radioname == 'undefined') ? '' : GUI.json.radioname);
     var currentartist = ((typeof GUI.json.currentartist == 'undefined') ? '' : GUI.json.currentartist);
@@ -1009,7 +1070,9 @@ function updateGUI() {
     var artist_similar = ((typeof GUI.json.artist_similar == 'undefined') ? '' : GUI.json.artist_similar);
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
     var file = ((typeof GUI.json.file == 'undefined') ? '' : GUI.json.file);
-    // set stream mode if radioname is present or active player is Bluetooth
+    var local_volume_control = ((typeof GUI.json.local_volume_control == 'undefined') ? '0' : GUI.json.local_volume_control);
+    // set stream mode if radioname is present, when its a HW input or active player is Bluetooth
+    //  for these streams the time played just continues counting, no reset count on new track
     if (radioname !== null && radioname !== undefined && radioname !== '') {
         GUI.stream = 'radio';
     } else if (file !== null && (file.substring(0, 7) === 'alsa://')) {
@@ -1018,6 +1081,14 @@ function updateGUI() {
         GUI.stream = 'bluetooth';
     } else {
         GUI.stream = '';
+    }
+    if ((local_volume_control === '0') || (local_volume_control === 0)) {
+        GUI.local_volume_control = '0';
+        if (activePlayer === 'MPD') {
+            volume = 100;
+        }
+    } else if ((local_volume_control === '1') || (local_volume_control === 1)) {
+        GUI.local_volume_control = '1';
     }
     if (typeof GUI.json.consume !== 'undefined') {
         GUI.consume = GUI.json.consume;
@@ -1040,7 +1111,7 @@ function updateGUI() {
         // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
         // console.log('UI = ', $('#cover-art').css('background-image'));
         if ((mainArtURL !== '') && (GUI.mainArtURL === mainArtURL) && !$('#cover-art').css('background-image').includes(mainArtURL)) {
-            // main art has a value its the same as the last time, but the UI has a different value, so force a refresh for all values
+            // main art has a value, its the same as the last time, but the UI has a different value, so force a refresh for all values
             // console.log('Force a refresh = ', 'true');
             GUI.currentartist = '';
             GUI.currentsong = '';
@@ -1063,7 +1134,7 @@ function updateGUI() {
         // console.log('currentartist = ', currentartist);
         // console.log('GUI.file = ', GUI.file);
         // console.log('file = ', file);
-        if (GUI.file !== file) {
+        if ((GUI.file !== file) && (GUI.state !== 'stop')) {
             GUI.file = file;
             countdownRestart(GUI.json.elapsed);
             if ($('#panel-dx').hasClass('active')) {
@@ -1371,26 +1442,31 @@ function renderUI(text){
     // update global GUI array
     GUI.json = text[0];
     // console.log(JSON.stringify(text[0]));
-    if (typeof GUI.json.state !== 'undefined') {
-        if (GUI.state !== GUI.json.state) {
-            GUI.state = GUI.json.state;
-            if (typeof GUI.json.actPlayer !== 'undefined') {
-                setUIbuttons(GUI.json.actPlayer)
-            }
-        }
-    }
-    // console.log('current song = ', GUI.json.currentsong);
-    // console.log('GUI.state = ', GUI.state );
-    // console.log('GUI.json.elapsed = ', GUI.json.elapsed);
-    // console.log('GUI.json.time = ', GUI.json.time);
-    // console.log('GUI.json.state = ', GUI.json.state);
-    if (typeof GUI.json.time !== 'undefined') {
-        var time = GUI.json.time;
-    }
-    if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
-        refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
-    }
+    // if (typeof GUI.json.state === 'undefined') {
+        // GUI.json.state = 'stop';
+        // GUI.json.song_percent = 0;
+        // GUI.json.elapsed = 0;
+    // }
+    // if (GUI.state !== GUI.json.state) {
+        // GUI.state = GUI.json.state;
+        // if (typeof GUI.json.actPlayer !== 'undefined') {
+            // setUIbuttons(GUI.json.actPlayer)
+        // }
+    // }
+    // // console.log('current song = ', GUI.json.currentsong);
+    // // console.log('GUI.state = ', GUI.state );
+    // // console.log('GUI.json.elapsed = ', GUI.json.elapsed);
+    // // console.log('GUI.json.time = ', GUI.json.time);
+    // // console.log('GUI.json.state = ', GUI.json.state);
+    // if (typeof GUI.json.time !== 'undefined') {
+        // var time = GUI.json.time;
+    // }
+    // if ((typeof GUI.json.elapsed !== 'undefined') && (GUI.state !== 'stop')) {
+        // // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.state);
+        // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
+    // }
     updateGUI();
+    // console.log('$(#section-index).length = ', $('#section-index').length);
     if ($('#section-index').length) {
         if ((GUI.state !== 'stop') && (GUI.json.elapsed  !== 'undefined') && (typeof GUI.json.song_percent !== 'undefined')) {
             refreshKnob();
@@ -1565,7 +1641,13 @@ function parseResponse(options) {
                     } else {
                         content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-root"></i><i class="fa fa-hdd-o icon-root"></i><span>';
                     }
-                    content += inputArr.directory.replace(inpath + '/', '');
+                    // DEBUG
+                    // if (inputArr.directory.includes('&')) {
+                        // console.log('inputArr.directory: '+inputArr.directory);
+                        // console.log('inpath: '+inpath);
+                        // console.log('htmlEncode(inpath): '+htmlEncode(inpath));
+                    // }
+                    content += inputArr.directory.replace(htmlEncode(inpath) + '/', '');
                     content += '</span></li>';
                 }
             } else if (GUI.browsemode === 'album' || GUI.browsemode === 'albumfilter') {
@@ -1655,7 +1737,7 @@ function parseResponse(options) {
             content = '<li id="db-' + (i + 1) + '" data-path="';
             content += inputArr.file;
             content += '"><i class="fa fa-bars db-action" title="Actions" data-toggle="context" data-target="#context-menu-hw"></i><i class="fa fa-wave-square db-icon"></i><span class="sn">';
-            content += inputArr.name + ' <span>' + inputArr.sysname + '</span>';
+            content += inputArr.name + ' <span>' + inputArr.sysname + inputArr.note + '</span>';
             content += '<span class="bl">';
             content +=  inputArr.file + ' - '+ inputArr.description;
             content += '</span></li>';
@@ -2241,7 +2323,7 @@ function renderModal(text){
     // alert("renderModal");
     // console.log('renderModal, text[0] = ', text[0]);
     toggleLoader('close');
-    if (!isLocalHost) {
+    if ((typeof isLocalHost === "undefined") || !isLocalHost) {
         // don't display these pop-ups on the local browser
         var modal = text[0];
         $('#' + modal.id).on('hidden.bs.modal', function(){

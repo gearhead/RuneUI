@@ -70,21 +70,47 @@ define('APP', '/srv/http/app/');
 // get the album art directory and url dir
 $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
 $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+$mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
+//
 if ($redis->get('remoteSSbigart') === 'album') {
     $bigartIsAlbum = true;
 } else {
     $bigartIsAlbum = false;
 }
-$statusCnt = 10;
-$omit_lyrics = explode(' ', $redis->get('omit_lyrics'));
-$mpdRoot = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
+// load the lyrics tags, comma delimited, possibly with quotes, nomally lowwer case
+$lyricsTags = explode(',', $redis->hGet('lyrics', 'lyrics_tags'));
+foreach ($lyricsTags as $key => &$lyricsTag) {
+    // remove quotes from the tag and trim
+    $lyricsTag = trim(preg_replace('/[\"\']/', '', $lyricsTag));
+    // skip and remove empty tag names
+    if (!$lyricsTag) {
+        unset($lyricsTags[$key]);
+    }
+}
+// get the genres where lyrics are omitted unless they are supplied as embedded tags, comma delimited, possibly with quotes
+$omit_lyrics = explode(',', $redis->hGet('lyrics', 'omit_lyrics'));
+foreach ($omit_lyrics as $key => &$omit_lyric) {
+    // remove quotes from the tag and trim
+    $omit_lyric = trim(preg_replace("/[\"\']/", '', $omit_lyric));
+    // skip and remove empty tag names
+    if (!$omit_lyrics) {
+        unset($omit_lyrics[$key]);
+    }
+}
+// process lyrics files?
+if ($redis->hGet('lyrics', 'lyric_file')) {
+    $procesLyricsFiles = true;
+} else {
+    $procesLyricsFiles = false;
+}
 //
+$statusCnt = 10;
 $saveFile = '';
 while (true)  {
     // loop forever
     // process the extra metadata
     $status = json_decode($redis->get('act_player_info'), true);
-    if (isset($status['radio']) && $status['radio']) {
+    if (isset($status['radio']) && trim($status['radio'])) {
         $curSongIsRadio = true;
     } else {
         $curSongIsRadio = false;
@@ -94,9 +120,10 @@ while (true)  {
         $saveFile = '';
     }
     while (isset($status['actPlayer']) && isset($status['file'])
-            && ($status['actPlayer'] === 'MPD') && $status['file'] && ($status['file'] != $saveFile)) {
-        // loop while MPD and the song has changed
-        // so exit if the song is the same at the start and end of the loop
+            && ($status['actPlayer'] === 'MPD') && trim($status['file'])
+            && (sysCmd('dir -1 /srv/http/tmp/art/*.png 2>/dev/null | wc -l')[0])
+            && ($status['file'] != $saveFile)) {
+        // enter the loop when MPD is the player, the directory /srv/http/tmp/art/ has been set up and the song has changed
         //
         // main processing
         //
@@ -104,6 +131,21 @@ while (true)  {
         $redis->unwatch();
         $redis->watch('act_player_info');
         $saveFile = $status['file'];
+        //
+        // clear the variables set in this script
+        //  many are set to a single space which will cause the UI to use the value, clearing unset information (an
+        //  empty string is ignored in the UI)
+        //
+        $status['mainArtURL'] = '';
+        $status['bigArtURL'] = '';
+        $status['smallArtURL'] = '';
+        // $status['bitrate'] = ' ';
+        // $status['audio_sample_rate'] = ' ';
+        // $status['audio_sample_depth'] = ' ';
+        $status['song_lyrics'] = ' ';
+        $status['coverArtPreload'] = '';
+        $status['artist_bio_summary'] = ' ';
+        $status['artist_similar'] = ' ';
         //
         // open the MPD socket
         $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
@@ -119,18 +161,60 @@ while (true)  {
                 $retarray = explode("\n", $retval);
                 foreach ($retarray as $retline) {
                     if (strpos(' '.$retline, 'songid: ') === 1) {
-                        // careful, 'songid: ' matches in the 'nextsongid: ' line
+                        // careful, 'songid: ', dont match 'nextsongid: '
                         $currsongid = trim(explode(': ', $retline, 2)[1]);
                     } else if (strpos(' '.$retline, 'nextsongid: ') === 1) {
                         $nextsongid = trim(explode(': ', $retline, 2)[1]);
+                    } else if (strpos(' '.$retline, 'state: ') === 1) {
+                        $state = trim(explode(': ', $retline, 2)[1]);
                     }
                 }
             }
         }
+        // debug
+        // echo "Currsongid 1: '$currsongid', Nextsongid: '$nextsongid'\n";
+        runelog('[rune_MPDEM_wrk]', "Currsongid 1: '$currsongid', Nextsongid: '$nextsongid'");
         if (!$currsongid && !$nextsongid) {
-            // nothing to do, loop or continue the loop
-            $saveFile = '';
-            break;
+            if ($state != 'stop') {
+                // nothing to do, loop or continue the loop
+                $saveFile = '';
+                sleep(2);
+                break;
+            } else {
+                if ($socket && sendMpdCommand($socket, 'playlistinfo 0')) {
+                    $retval = readMpdResponse($socket);
+                    if ($retval && strpos($retval, "OK\n")) {
+                        // response is valid
+                        $retarray = explode("\n", $retval);
+                        foreach ($retarray as $retline) {
+                            if (strpos(' '.$retline, 'Id: ') === 1) {
+                                $currsongid = trim(explode(': ', $retline, 2)[1]);
+                            }
+                        }
+                    }
+                }
+                if ($socket && sendMpdCommand($socket, 'playlistinfo 1')) {
+                    $retval = readMpdResponse($socket);
+                    if ($retval && strpos($retval, "OK\n")) {
+                        // response is valid
+                        $retarray = explode("\n", $retval);
+                        foreach ($retarray as $retline) {
+                            if (strpos(' '.$retline, 'Id: ') === 1) {
+                                $nextsongid = trim(explode(': ', $retline, 2)[1]);
+                            }
+                        }
+                    }
+                }
+                // debug
+                // echo "Currsongid 2: '$currsongid', Nextsongid: '$nextsongid'\n";
+                runelog('[rune_MPDEM_wrk]', "Currsongid 2: '$currsongid', Nextsongid: '$nextsongid'");
+                if (!$currsongid && !$nextsongid) {
+                    // nothing to do, loop or continue the loop
+                    $saveFile = '';
+                    sleep(2);
+                    break;
+                }
+            }
         }
         $songinfo = array();
         //
@@ -169,7 +253,7 @@ while (true)  {
             // its a radio, don't process it, remove it from the array
             unset($songinfo['currsong']);
         } else if (strpos(' '.strtolower($songinfo['currsong']['file']), 'http') === 1) {
-            // the file has a prefix of http, so it could still be a radio
+            // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
             if (is_radioUrl($redis, $songinfo['currsong']['file'])) {
                 // it exists and its a radio, don't process it, remove it from the array
                 unset($songinfo['currsong']);
@@ -180,6 +264,14 @@ while (true)  {
         } else if (strpos(' '.$songinfo['currsong']['file'], 'cdda:') === 1) {
             // hardware CD input, don't process it, remove it from the array
             unset($songinfo['currsong']);
+        } else {
+            // this is a file on local or network storage, add the mpd root prefix
+            $songinfo['currsong']['file'] = $mpdRoot.'/'.$songinfo['currsong']['file'];
+            clearstatcache(true, $songinfo['currsong']['file']);
+            if (!file_exists($songinfo['currsong']['file'])) {
+                // the file does not exist or the file name is invalid, don't process it, remove it from the array
+                unset($songinfo['currsong']);
+            }
         }
         //
         // get the next song information and create the 'nextsong' cache table entry
@@ -211,7 +303,7 @@ while (true)  {
             // next song file from MPD not set
             unset($songinfo['nextsong']);
         } else if (strpos(' '.strtolower($songinfo['nextsong']['file']), 'http') === 1) {
-            // the file has a prefix of http, so it could be a radio
+            // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
             if (is_radioUrl($redis, $songinfo['nextsong']['file'])) {
                 // it exists and its a radio, don't process it, remove it from the array
                 unset($songinfo['nextsong']);
@@ -222,9 +314,17 @@ while (true)  {
         } else if (strpos(' '.$songinfo['nextsong']['file'], 'cdda:') === 1) {
             // hardware CD input, don't process it, remove it from the array
             unset($songinfo['nextsong']);
+        } else {
+            // this is a file on local or network storage, add the mpd root prefix
+            $songinfo['nextsong']['file'] = $mpdRoot.'/'.$songinfo['nextsong']['file'];
+            clearstatcache(true, $songinfo['nextsong']['file']);
+            if (!file_exists($songinfo['nextsong']['file'])) {
+                // the file does not exist or the file name is invalid, don't process it, remove it from the array
+                unset($songinfo['nextsong']);
+            }
         }
         //
-        // close the mpd socket and tidy up
+        // tidy up
         //
         unset($retval, $retarray, $retline, $retlineparts, $currsongid, $nextsongid);
         //
@@ -240,7 +340,6 @@ while (true)  {
             //
             // retrieve and validate the cached information
             //
-            $song['file'] = $mpdRoot.'/'.$song['file'];
             $datafile = md5($song['file']);
             if (isset($song['album']) && isset($song['albumartist']) && isset($song['date']) && isset($song['title'])
                     && $song['album'] && $song['albumartist'] && $song['date'] && $song['title']) {
@@ -282,21 +381,43 @@ while (true)  {
                 unset($song['albumartfile'], $song['albumarturl']);
             }
             //
-            // process album art
+            // attempt to find lyrics files and use then if enabled and available
             //
-            $artFound = false;
-            if (isset($song['albumarturl'])) {
-                // we already have a valid album art entry from the cache
-                $artFound = true;
+            if ($procesLyricsFiles && (!isset($song['song_lyrics']) || !trim($song['song_lyrics'])) && isset($song['file']) && $song['file']) {
+                $prefixFile = strtolower(substr($song['file'],0, 4));
+                if (!strpos('|http|', $prefixFile)) {
+                    // process non-http files, works only on locally mounted files
+                    $pathParts = pathinfo($song['file']);
+                    $fileDirFile = $pathParts['dirname'].'/'.$pathParts['filename'];
+                    // lower case file extension
+                    $lyricFileName = $fileDirFile.'.lrc';
+                    clearstatcache(true, $lyricFileName);
+                    if (file_exists($lyricFileName)) {
+                        $song['song_lyrics'] = strip_synchronised_lyrics(file_get_contents($lyricFileName));
+                    }
+                    if (!isset($song['song_lyrics']) || !trim($song['song_lyrics'])) {
+                        // upper case file extension
+                        $lyricFileName = $fileDirFile.'.LRC';
+                        clearstatcache(true, $lyricFileName);
+                        if (file_exists($lyricFileName)) {
+                            $song['song_lyrics'] = strip_synchronised_lyrics(file_get_contents($lyricFileName));
+                        }
+                    }
+                }
             }
-            if (!$artFound) {
-                // determine the album art
-                // set up the file names, we assume jpg, but it could be something else, regardless
-                //  of this, the browser seems to test the image file type and use it correctly
-                $song['albumartfile'] = $artDir.'/'.$imagename.'.jpg';
-                $song['albumarturl'] = $artUrl.'/'.$imagename.'.jpg';
+            //
+            // process album art and other embedded metadata information
+            //
+            if (isset($song['albumarturl'])) {
+                // a cached file has been found, we can skip the next section
+                $song['artFound'] = true;
+            } else {
+                $song['artFound'] = false;
+            }
+            if (!$song['artFound']) {
+                // determine the album art and other embedded metadata information
                 //
-                // 1. try to extract embedded coverart with getid3
+                // 1. try to extract embedded metadata (coverart, lyrics, etc.) with getid3
                 //
                 // getID3 needs to operate in directory /srv/http/app/libs/vendor
                 chdir('/srv/http/app/libs/vendor');
@@ -323,6 +444,10 @@ while (true)  {
                     echo "[rune_MPDEM_wrk] Caught Exception ('{$e->getMessage()}')\n{$e}\n";
                 }
                 if ($auOK && is_array($auinfo)) {
+                    // set up the file names, we assume jpg, but it could be something else, regardless
+                    //  of this, the browser seems to test the image file type and use it correctly
+                    $song['albumartfile'] = $artDir.'/'.$imagename.'.jpg';
+                    $song['albumarturl'] = $artUrl.'/'.$imagename.'.jpg';
                     if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
                         // the music file has embedded metadata and it has a size of more than 200 bytes, save it
                         file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
@@ -331,7 +456,7 @@ while (true)  {
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid
                         if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
                             // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
-                            $artFound = true;
+                            $song['artFound'] = true;
                         } else {
                             // the image file has an invalid format or is very small, delete it
                             unlink($song['albumartfile']);
@@ -343,7 +468,7 @@ while (true)  {
                             // most of the useful information is stored at the first level of the array
                             $value = trim($value);
                             if ($value) {
-                                $song[$valuekey] = $value;
+                                $song[strtolower($valuekey)] = $value;
                             }
                         }
                     }
@@ -366,28 +491,77 @@ while (true)  {
                             $song['song_mbid'] = $song_mbid;
                         }
                     }
-                    // and also check for average bit rate (avg_bit_rate)
+                    // check for average bit rate (avg_bit_rate)
                     if (!isset($song['avg_bit_rate'])) {
                         $avg_bit_rate = trim(search_array_keys($auinfo, 'avg_bit_rate'));
                         if ($avg_bit_rate) {
                             $song['avg_bit_rate'] = $avg_bit_rate;
                         }
                     }
+                    // check for song lyrics
+                    if (!isset($song['song_lyrics']) || !trim($song['song_lyrics'])) {
+                        foreach ($lyricsTags as $key => $lyricsTag) {
+                            $lyricsTagLower = strtolower($lyricsTag);
+                            if ((lyricsTagLower != $lyricsTag) && isset($auinfo[$lyricsTagLower]) && trim($auinfo[$lyricsTagLower])) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($auinfo[$lyricsTagLower]);
+                                if (trim($song['song_lyrics'])) {
+                                    break;
+                                }
+                            }
+                            if (isset($auinfo[$lyricsTag]) && trim($auinfo[$lyricsTag])) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($auinfo[$lyricsTag]);
+                                if (trim($song['song_lyrics'])) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!isset($song['song_lyrics']) || !trim($song['song_lyrics'])) {
+                        foreach ($lyricsTags as $key => $lyricsTag) {
+                            $lyricsTagLower = strtolower($lyricsTag);
+                            if (lyricsTagLower != $lyricsTag) {
+                                $lyrics = trim(search_array_keys($auinfo, $lyricsTagLower));
+                                if (isset($lyrics) && $lyrics) {
+                                    $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
+                                    if (trim($song['song_lyrics'])) {
+                                        break;
+                                    }
+                                }
+                            }
+                            $lyrics = trim(search_array_keys($auinfo, $lyricsTag));
+                            if (isset($lyrics) && $lyrics) {
+                                $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
+                                if (trim($song['song_lyrics'])) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
-                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate);
+                unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate, $lyrics);
             }
-            if (!$artFound) {
+            if (isset($song['file']) && $song['file']) {
+                $prefixFile = strtolower(substr($song['file'],0, 4));
+                if (strpos('|http|', $prefixFile)) {
+                    // local coverart will not work network files
+                    $song['local'] = false;
+                } else {
+                    // local coverart will only work on locally mounted files
+                    $song['local'] = true;
+                }
+            }
+            if (!$song['artFound'] && $song['local']) {
                 //
                 // 2. try to find local coverart
                 //
-                $coverArtFileNames = array('folder.jpg', 'cover.jpg', 'folder.png', 'cover.png');
+                $coverArtFileNames = array('folder.jpg', 'cover.jpg', 'folder.png', 'cover.png', 'FOLDER.JPG', 'COVER.JPG', 'FOLDER.PNG', 'COVER.PNG');
                 $coverArtDirectory = dirname($song['file']).'/';
                 foreach ($coverArtFileNames as $coverArtFileName) {
                     clearstatcache(true, $coverArtDirectory.$coverArtFileName);
                     if (file_exists($coverArtDirectory.$coverArtFileName)) {
                         // there is a valid art file in the album directory, copy it to the art directory
                         copy($coverArtDirectory.$coverArtFileName, $song['albumartfile']);
-                        $artFound = true;
+                        $song['artFound'] = true;
                         // finish when one is found, exit the innermost loop
                         break;
                     }
@@ -396,8 +570,12 @@ while (true)  {
             }
             //
             // only when processing the current song and that albumart has been found update the UI
-            if (($songkey === 'currsong') && $artFound) {
+            if (($songkey === 'currsong') && $song['artFound']) {
                 // assume the current song is still valid
+                if (($state == 'stop') || ($status['state'] == 'stop')) {
+                    $status['song_percent'] = 0;
+                    $status['elapsed'] = 0;
+                }
                 $status['mainArtURL'] = $song['albumarturl'];
                 if ($bigartIsAlbum) {
                     $status['bigArtURL'] = $song['albumarturl'];
@@ -411,15 +589,18 @@ while (true)  {
                         $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
                     }
                 }
-                if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
+                if (!isset($status['audio_sample_rate']) || !trim($status['audio_sample_rate'])) {
                     if (isset($song['sample_rate']) && $song['sample_rate']) {
                         $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
                     }
                 }
-                if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
+                if (!isset($status['audio_sample_depth']) || !trim($status['audio_sample_depth'])) {
                     if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
                         $status['audio_sample_depth'] = $song['bits_per_sample'];
                     }
+                }
+                if (isset($song['song_lyrics']) && trim($song['song_lyrics'])) {
+                    $status['song_lyrics'] = $song['song_lyrics'];
                 }
                 unset($status['song_percent'], $status['elapsed']);
                 // use redis (watch and) exec to update act_player_info
@@ -450,13 +631,18 @@ while (true)  {
                 runelog('[rune_MPDEM_wrk] 0-3');
                 // unload CPU: 1 second sleep
                 // sleep(1);
-            } else if (($songkey === 'nextsong') && $artFound) {
+            } else if (($songkey === 'nextsong') && $song['artFound']) {
                 // when processing the nextsong only update the cover art preload url
                 // assume the next song is still valid
                 // set the cover art preload to the next song art url when changed
                 if (!isset($status['coverArtPreload']) || ($status['coverArtPreload'] != $song['albumarturl'])) {
                     $status['coverArtPreload'] = $song['albumarturl'];
-                    unset($status['song_percent'], $status['elapsed']);
+                    if (($state == 'stop') || ($status['state'] == 'stop')) {
+                        $status['song_percent'] = 0;
+                        $status['elapsed'] = 0;
+                    } else {
+                        unset($status['song_percent'], $status['elapsed']);
+                    }
                     // use (watch and) exec to update act_player_info
                     $retval = $redis->multi()
                         ->set('act_player_info', json_encode($status))
@@ -506,7 +692,7 @@ while (true)  {
             } else {
                 $info['song'] = '';
             }
-            if (isset($song['title'])) {
+            if (isset($song['album'])) {
                 $info['album'] = $song['album'];
             } else {
                 $info['album'] = '';
@@ -524,9 +710,13 @@ while (true)  {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            // some lyrics are omitted since they almost never exits, default is a single entry containing 'classical'
+            // some lyrics are omitted since they almost never exits, default is 'classical, baroque'
             $omit_string = '';
-            if (isset($song['genre'])) {
+            if (isset($song['song_lyrics']) && trim($song['song_lyrics'])) {
+                // we already have lyrics so use them
+                $info['song_lyrics'] = $song['song_lyrics'];
+            } else if (isset($song['genre']) && trim($song['genre'])) {
+                // determine omitted lyrics
                 foreach ($omit_lyrics as $omit_lyric) {
                     if (strpos(' '.strtolower($song['genre']), $omit_lyric)) {
                         // found a genre with omitted lyrics
@@ -539,7 +729,7 @@ while (true)  {
                 // skip the lyrics
                 $info['song_lyrics'] = 'Lyrics retrieval omitted for the "'.$omit_string.'" genre';
             } else {
-                // when genre is unknown or not omitted get the lyrics
+                // when genre is unknown or not omitted get the lyrics (also when we already know the lyrics, this will cache them)
                 $retval = get_songInfo($redis, $info);
                 if ($retval) {
                     $info = array_merge($info, $retval);
@@ -547,7 +737,7 @@ while (true)  {
             }
             // it seems illogical for this to be here however it is more effective to search
             //  for cover art on internet after searching for the artist and song information
-            if (!$artFound) {
+            if (!$song['artFound']) {
                 //
                 // 3. try to find coverart on internet
                 //
@@ -560,9 +750,9 @@ while (true)  {
                 // in this case there is no image file
                 unset($song['albumartfile']);
                 $song['albumarturl'] = $info['album_arturl_medium'];
-                $artFound = true;
+                $song['artFound'] = true;
             }
-            if ($artFound) {
+            if ($song['artFound']) {
                 // save the songinfo data
                 file_put_contents($song['datafile'], json_encode($song)."\n");
             } else {
@@ -572,7 +762,7 @@ while (true)  {
             if ($songkey === 'currsong') {
                 // currnet song
                 // assume the current song is still valid
-                if (isset($song['albumarturl'])) {
+                if (isset($song['albumarturl']) && trim($song['albumarturl'])) {
                     $status['mainArtURL'] = $song['albumarturl'];
                     if ($bigartIsAlbum) {
                         $status['bigArtURL'] = $song['albumarturl'];
@@ -581,19 +771,27 @@ while (true)  {
                     }
                 }
                 if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
-                    $status['bitrate'] = intval($song['avg_bit_rate']/1000);
+                    if (!is_numeric($song['avg_bit_rate'])) {
+                        $status['bitrate'] = $song['avg_bit_rate'];
+                    } else {
+                        $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
+                    }
                 }
-                if (!isset($status['audio_sample_rate']) || !$status['audio_sample_rate']) {
-                    if (isset($song['sample_rate']) && $song['sample_rate']) {
+                if (!isset($status['audio_sample_rate']) || !trim($status['audio_sample_rate'])) {
+                    if (isset($song['sample_rate']) && trim($song['sample_rate'])) {
                         $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
                     }
                 }
-                if (!isset($status['audio_sample_depth']) || !$status['audio_sample_depth']) {
-                    if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
+                if (!isset($status['audio_sample_depth']) || !trim($status['audio_sample_depth'])) {
+                    if (isset($song['bits_per_sample']) && trim($song['bits_per_sample'])) {
                         $status['audio_sample_depth'] = $song['bits_per_sample'];
                     }
                 }
-                $status['song_lyrics'] = $info['song_lyrics'];
+                if (isset($song['song_lyrics']) && trim($song['song_lyrics'])) {
+                    $status['song_lyrics'] = $song['song_lyrics'];
+                } else if (isset($info['song_lyrics']) && trim($info['song_lyrics'])) {
+                    $status['song_lyrics'] = $info['song_lyrics'];
+                }
                 $status['artist_bio_summary'] = $info['artist_bio_summary'];
                 $status['artist_similar'] = $info['artist_similar'];
                 if ($artUrl === substr($info['artist_arturl'], 0, strlen($artUrl))) {
@@ -633,7 +831,7 @@ while (true)  {
                 runelog('[rune_MPDEM_wrk] 3-2');
                 // unload CPU: 1 second sleep
                 // sleep(1);
-            } else if (($songkey === 'nextsong') && $artFound) {
+            } else if (($songkey === 'nextsong') && $song['artFound']) {
                 // when processing the nextsong only update the cover art preload url
                 // assume the next song is still valid
                 // set the cover art preload to the next song art url when changed
@@ -672,7 +870,7 @@ while (true)  {
             //
             unset($info);
         }
-        // the 'continue 2' or 'break 2' statements above result in executing the following lines only when everything has been
+        // 'break 2' statements above result in executing the following lines only when everything has been
         //  processed completely & correctly
         // unload CPU: 1 second sleep
         sleep(1);

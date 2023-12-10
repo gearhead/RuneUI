@@ -10,12 +10,23 @@ set -x # echo all commands to cli
 set +e # continue on errors
 #
 # is spotifyd installed?
-if pacman -Q spotifyd ;
-then
-    echo "spotifyd installed"
-else
-    echo "spotifyd not installed - terminating"
-    exit 0
+os=$( redis-cli get os )
+if [ "$os" == "ARCH" ] ; then
+    if pacman -Q spotifyd ; then
+        echo "spotifyd installed"
+    else
+        echo "spotifyd not installed - terminating"
+        exit 0
+    fi
+elif [ "$os" == "RPiOS" ] ; then
+    a=$( apt -qq list spotifyd 2> /dev/null | grep -ci installed )
+    if [ "$a" == "0" ] ; then
+        echo "spotifyd not installed - terminating"
+        exit 1
+    else
+        echo "spotifyd installed"
+    fi
+
 fi
 #
 # make sure that the spotifyd redis varaiables are initialised
@@ -41,4 +52,4 @@ systemctl daemon-reload
 systemctl disable spotifyd
 #
 # end
-exit 1
+exit 0

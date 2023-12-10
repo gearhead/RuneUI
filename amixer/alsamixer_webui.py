@@ -35,6 +35,7 @@ class Handler(Flask):
     equal = False
 
     PULSE_AUDIO_DEVICE_NUMBER = 99999
+    BLUALSA_DEVICE_NUMBER = 99998
 
     def __init__(self, *args, **kwargs):
         Flask.__init__(self, *args, **kwargs)
@@ -43,6 +44,8 @@ class Handler(Flask):
         command = ["amixer"]
         if self.card == self.PULSE_AUDIO_DEVICE_NUMBER:
             command += ["-D", "pulse"]
+        elif self.card == self.BLUALSA_DEVICE_NUMBER:
+            command += ["-D", "bluealsa"]
         elif self.card is not None:
             command += ["-c", "%d" % self.card]
         if self.equal is True:
@@ -92,6 +95,11 @@ class Handler(Flask):
         pulse.communicate()
         if pulse.wait() == 0:
             cards[self.PULSE_AUDIO_DEVICE_NUMBER] = "PulseAudio"
+
+        bluealsa = Popen(["amixer", "-D", "bluealsa", "info"], stdout=PIPE)
+        bluealsa.communicate()
+        if bluealsa.wait() == 0:
+            cards[self.BLUALSA_DEVICE_NUMBER] = "Bluetooth"
 
         return cards
 

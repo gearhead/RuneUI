@@ -47,7 +47,7 @@
 #dtoverlay=gpio-ir,gpio_pin=17
 #dtoverlay=gpio-ir-tx,gpio_pin=18
 
-# Additional overlays and parameters are documented /boot/overlays/README
+# Additional overlays and parameters are documented /boot/overlays/README (or on RPiOS Bookworm /boot/firmware/overlays/README
 
 # Enable audio (loads snd_bcm2835)
 dtparam=audio=on

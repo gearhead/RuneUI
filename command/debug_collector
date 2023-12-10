@@ -60,7 +60,12 @@ function debug_data($redis, $fp=null)
     $release = trim(sysCmd('uname -sr')[0]);
     $machine = trim(sysCmd('uname -m')[0]);
     $os = $redis->get('os');
-    $output .= "Linux version:\t".$release.' '.$os.' '.$machine.' '.$bit."\n";
+    if ($os == 'RPiOS') {
+        $codename = '-'.$redis->get('codename');
+    } else {
+        $codename = '';
+    }
+    $output .= "Linux version:\t".$release.' '.$os.$codename.' '.$machine.' '.$bit."\n";
     unset($bit, $release, $machine, $os);
     if ($fp) {
         gzwrite($fp, $output);
@@ -165,8 +170,9 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' /boot/config.txt) ######\n";
-    $command = sysCmd("grep -ve '^\s*#' /boot/config.txt");
+    $p1mountpoint = $redis->get('p1mountpoint');
+    $output .= "###### Boot configuration - config.txt (grep -ve '^\s*#' '".$p1mountpoint."/config.txt') ######\n";
+    $command = sysCmd("grep -ve '^\s*#' '".$p1mountpoint."/config.txt'");
     $output .= implode("\n", $command)."\n";
     $output .= "##################################################\n\n\n";
     unset($command);
@@ -196,8 +202,8 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/usr/bin/parted');
-    if (file_exists('/usr/bin/parted')) {
+    if (sysCmd('command -v parted')[0]) {
+        // parted is installed
         $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
         $command = sysCmd("parted -ls | grep -v '^$' | sed -E ':a;N;$!ba;s/\\nModel/\\n\\nModel/g' ");
         $output .= implode("\n", $command)."\n\n\n";
@@ -207,9 +213,8 @@ function debug_data($redis, $fp=null)
             $output = '';
         }
     }
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/usr/bin/smartctl');
-    if (file_exists('/usr/bin/smartctl')) {
+    if (sysCmd('command -v smartctl')[0]) {
+        // smartctl is installed
         $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
         if (!empty($drive_list)) {
             foreach($drive_list as $drive) {
@@ -516,8 +521,8 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warning|fatal|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
-    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warning|fatal|loaded|loading" | grep -i -v "audit" | head -n 200');
+    $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warn|fatal|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
+    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warn|fatal|loaded|loading" | grep -i -v "audit" | head -n 200');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($fp) {

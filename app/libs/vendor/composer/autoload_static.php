@@ -29,6 +29,10 @@ class ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622
             'GuzzleHttp\\Promise\\' => 19,
             'GuzzleHttp\\' => 11,
         ),
+        'E' => 
+        array (
+            'Evenement\\' => 10,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -56,15 +60,9 @@ class ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/guzzle/src',
         ),
-    );
-
-    public static $prefixesPsr0 = array (
-        'E' => 
+        'Evenement\\' => 
         array (
-            'Evenement' => 
-            array (
-                0 => __DIR__ . '/..' . '/evenement/evenement/src',
-            ),
+            0 => __DIR__ . '/..' . '/evenement/evenement/src',
         ),
     );
 
@@ -72,7 +70,6 @@ class ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622
         'AMFReader' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
         'AMFStream' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
         'AVCSequenceParameterSetReader' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
-        'AudioInfo' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/audioinfo.class.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'Image_XMP' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.tag.xmp.php',
         'getID3' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/getid3.php',
@@ -167,7 +164,6 @@ class ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622::$prefixDirsPsr4;
-            $loader->prefixesPsr0 = ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622::$prefixesPsr0;
             $loader->classMap = ComposerStaticInit4b9ec2e9f523b34097efe94fbee44622::$classMap;
 
         }, null, ClassLoader::class);

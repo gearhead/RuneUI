@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+#  Copyright (C) 2013-2014 RuneAudio Team
+#  http://www.runeaudio.com
+#
+#  RuneUI
+#  copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+#  RuneOS
+#  copyright (C) 2013-2014 – Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+#  RuneAudio website and logo
+#  copyright (C) 2013-2014 – ACX webdesign (Andrea Coiutti)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with RuneAudio; see the file COPYING. If not, see
+#  <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: /usr/local/sbin/apt
+#  version: 0.6
+#  coder: janui
+#  date: November 2023
+#
+# customisation of the apt command
+# this script will automatically increase the size of the tmpfs /var/tmp to 100M before running the apt command
+# this is only valid for RPiOS Bookworm
+os=$( redis-cli get os )
+codename=$( redis-cli get codeneme )
+if [ "$os" != "RPiOS" ] || [ "$codename" != "Bookworm" ]; then
+    # this file should not be there, remove it
+    rm /usr/local/sbin/apt
+else
+    # remount the tmpfs /var/tmp with 100M disk space
+    mount -o remount,size=100M /var/tmp
+fi
+# now find the real apt command
+paths=$( echo $PATH | sed 's/:/\n/g' )
+for p in $paths ; do
+    if [ "$p" == "/usr/local/sbin" ] ; then
+        continue
+    fi
+    aptpath=$( find $p -maxdepth 1 -name apt 2> /dev/null )
+    if [ "$aptpath" != "" ] ; then
+        break
+    fi
+done
+if [ "$aptpath" != "" ] ; then
+    $aptpath ${*}
+else
+    echo "apt: No such file or directory"
+    exit 2
+fi

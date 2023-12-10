@@ -223,10 +223,11 @@ if(!hashCFG($redis, 'check_mpd')) {
         }
         $audio_cards[] = $acard_data;
     }
-    osort($audio_cards, 'device');
+    osort($audio_cards, 'description', 0, 1);
     // debug
     // print_r($audio_cards);
     $template->acards = $audio_cards;
     unset($i2smodule, $acards, $card, $data, $details);
     $template->ao = $redis->get('ao');
+    $template->active_player = $redis->get('activePlayer');
 }

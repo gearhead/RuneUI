@@ -88,6 +88,8 @@ declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
+# set the mpd laststate to stop
+redis-cli set mpd_playback_laststate stop
 # stop local browser & webserver
 pgrep -x xinit && systemctl stop local-browser
 pgrep -x weston && systemctl stop local-browser-w
@@ -102,8 +104,10 @@ if [ "$shutdownmode" != "" ] ; then
     systemctl stop redis
 fi
 # stop most of the systemd units which can be stopped
-declare -a stop_arr=(amixer-webui avahi-daemon bluealsa-aplay bluealsa bluetooth cmd_async_queue llmnrd nmb nmbd\
-     rune_MPDEM_wrk rune_PL_wrkrune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd spotifyd systemd-udevd udevil)
+declare -a stop_arr=(amixer-webui avahi-daemon\
+    bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
+    cmd_async_queue llmnrd nmb nmbd rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd\
+    spotifyd systemd-udevd udevil)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done

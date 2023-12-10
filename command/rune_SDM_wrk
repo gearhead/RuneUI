@@ -92,6 +92,7 @@ if ($redis->hGet('spotifyconnect', 'save_last_volume')) {
 }
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
+$status['local_volume_control'] = 0;
 $updateUI = false;
 $cnt = 20;
 //
@@ -135,8 +136,13 @@ do {
         // read the job information from the work queue
         // not end of queue
         if ($redis->hExists('s_queue', $jobID)) {
-            $job = array_merge($job, json_decode($redis->hGet('s_queue', $jobID), true));
+            $jobContent = $redis->hGet('s_queue', $jobID);
+            // debug
+            // echo "s_queue entry : '$jobContent'\n";
+            runelog("[rune_SDM_wrk] s_queue entry : ", $jobContent);
+            $job = array_merge($job, json_decode($jobContent, true));
             $redis->hDel('s_queue', $jobID);
+            unset($jobContent);
         } else {
             // no work queue entry for the fifo queue entry, this should never happen!
             //  something went wrong, just skip and get the next one

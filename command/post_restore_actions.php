@@ -48,7 +48,7 @@ define('APP', '/srv/http/app/');
 
 // set the variables which are machine dependant, the backup could have been made on a different model
 wrk_setHwPlatform($redis, true);
-// run routines which set up /boot/config.txt, the local browser setup, other files are fixed on startup
+// run routines which set up <p1mountpoint>/config.txt, the local browser setup, other files are fixed on startup
 wrk_audio_on_off($redis, $redis->get('audio_on_off'));
 wrk_i2smodule($redis, $redis->get('i2smodule'));
 $xorgEnable = $redis->hGet('local_browser', 'enable');
@@ -59,7 +59,11 @@ wrk_localBrowser($redis, 'rotate', $redis->hGet('local_browser', 'rotate'));
 wrk_localBrowser($redis, 'overscan', $redis->hGet('local_browser', 'overscan'));
 wrk_localBrowser($redis, 'mouse_cursor', $redis->hGet('local_browser', 'mouse_cursor'));
 $redis->hSet('local_browser', 'enable', $xorgEnable);
-wrk_changeHostname($redis, $redis->get('hostname'));
+$actualHostname = strtolower(trim(sysCmd('hostname | xargs')[0]));
+$redisHostname = strtolower(trim($redis->get('hostname')));
+if (($actualHostname != $redisHostname) && $redisHostname) {
+    wrk_changeHostname($redis, $redis->get('hostname'));
+}
 wrk_NTPsync($redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);

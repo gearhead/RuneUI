@@ -1,7 +1,7 @@
-# Introduction /boot/config.txt for RuneAudio
-# ===========================================
+# Introduction /boot/config.txt (or on RPiOS Bookworm /boot/firmware/config.txt) for RuneAudio
+# ============================================================================================
 #
-#   See /boot/overlays/README for details
+#   See /boot/overlays/README (or on RPiOS Bookworm /boot/firmware/overlays/README) for details
 #
 #   Built-in params:
 #   Format dtparam=<parameter>[=<value>], e.g. dtparam=noant or dtpatam=eth_led0=0
@@ -229,7 +229,7 @@ display_auto_detect=1
 #   based gpio_ir_recv driver maps received keys directly to a
 #   /dev/input/event* device, all decoding is done by the kernel - LIRC is
 #   not required! The key mapping and other decoding parameters can be
-#   configured by "ir-keytable" tool, see: /boot/overlays/README
+#   configured by "ir-keytable" tool, see: /boot/overlays/README (or on RPiOS Bookworm /boot/firmware/overlays/README)
 #dtoverlay=gpio-ir,<param>=<val>
 #
 ##  Some overclocking settings ##

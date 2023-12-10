@@ -7,9 +7,9 @@
             </div>
             <h2>RuneAudio team</h2><h3>Version 0.6</h3>
             <div class="alert alert-info">
-                <a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS - Full kernel and package upgrade, 64bit version, migration to PHP V7</span><br>
-                <a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI - migration to PHP V7, connman based network UI</span><br>
-                <span class="help-block"><i>A special thanks to our test team: ...</i></span><br>
+                <a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS</span><br>
+                <a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI</span><br>
+                <span class="help-block"><i>A special thanks to our test team: Stephane, gargonia, englishtim &amp; tml3nr</i></span><br>
             </div>
             <h2>RuneAudio team</h2><h3>Version 0.5</h3>
             <div class="alert alert-info">

@@ -59,7 +59,6 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     # exclude binary files, keep the date, keep the old file name
     #
     # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
-    # exceptions are /boot/config.txt and /boot/wifi/* these stay in ms-dos format
     cd /srv/http/app/config/defaults
     find /srv/http/app/config/defaults/ -type f -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
     # all files in /srv/http/assets/js
@@ -137,37 +136,53 @@ fi
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
     echo "Removing trailing whitespace from bin/bash files"
-    FILES=$(grep -lr '^#!/bin/bash' /srv/http | grep -v '/vendor/')
+    FILES=$(grep -lr '^#!/bin/bash' /srv/http | grep -v '/vendor/' | grep -v '/.git/')
     for f in $FILES
     do
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (bin/bash): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]*$//" "$f"
     done
 fi
 #
 # When requested, remove trailing whitespace from php files, but exclude vendor files
 #
 if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
-    echo "Removing trailing whitespace from php files"
-    FILES=$(grep -lr '^<?php' /srv/http | grep -v '/vendor/')
+    echo "Removing trailing whitespace from php files part 1"
+    FILES=$(grep -lr '^<?php' /srv/http | grep -v '/vendor/' | grep -v '/.git/')
     for f in $FILES
     do
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (php): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]*$//" "$f"
+    done
+fi
+if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
+    echo "Removing trailing whitespace from php files part 2"
+    FILES=$(grep -rl '.<?php' /srv/http/ | grep -v '/vendor/' | grep -v '/.git/')
+    for f in $FILES
+    do
+        if [ -d "$f" ] ; then
+            continue # its a directory not a file
+        fi
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
+        if [ "$numstrpace" == "0" ] ; then
+            continue # no trailing whitespace in the file
+        fi
+        echo "Trailing whitespace (php): $f"
+        sed -i "s/[[:space:]]*$//" "$f"
     done
 fi
 #
@@ -182,12 +197,12 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
         if [ -d "$f" ] ; then
             continue # its a directory not a file
         fi
-        numstrpace=$(grep -c '[[:blank:]]$' "$f")
+        numstrpace=$(grep -c '[[:space:]]$' "$f")
         if [ "$numstrpace" == "0" ] ; then
             continue # no trailing whitespace in the file
         fi
         echo "Trailing whitespace (directories): $f"
-        sed -i 's/[\s]*$//' "$f"
+        sed -i "s/[[:space:]]+*$//" "$f"
     done
     # specific file names in the /srv directory tree
     declare -a FILENAMES=(chromium-flags.conf i2s_table*.txt weston.ini audio_allowed_formats_table*.txt userconf.lua)
@@ -204,12 +219,12 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
             if [ -d "$f" ] ; then
                 continue # its a directory not a file
             fi
-            numstrpace=$(grep -c '[[:blank:]]$' "$f")
+            numstrpace=$(grep -c '[[:space:]]$' "$f")
             if [ "$numstrpace" == "0" ] ; then
                 continue # no trailing whitespace in the file
             fi
             echo "Trailing whitespace (file names in /srv): $f"
-            sed -i 's/[\s]*$//' "$f"
+            sed -i "s/[[:space:]]*$//" "$f"
         done
     done
 fi
@@ -217,15 +232,15 @@ set -x # echo all commands to cli
 #
 # When requested, use uglifyjs to compress and mangle runeui.js
 #
-if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ]; then
+if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles" ] ; then
     # Install uglify-js if required
-    if [ "$os" .eq. "ARCH" ] ; then
+    if [ "$os" == "ARCH" ] ; then
         pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
     elif [ ! -f /bin/uglifyjs ] ; then
         apt install uglifyjs
     fi
     cd /srv/http/
-    uglifyjs --verbose --mangle --warn --validate --webkit --ie8 assets/js/runeui.js --output assets/js/runeui.min.js
+    uglifyjs --verbose --mangle --keep-fnames --warn --validate --webkit --ie8 assets/js/runeui.js --source-map --output assets/js/runeui.min.js
     cd /home
 fi
 #
@@ -246,41 +261,45 @@ sync
 umount overlay_art_cache
 sync
 # now change the permissions of the UI files
-chown -R http:http /srv/http/
-find /srv/http/ -type f -exec chmod 644 {} \;
-find /srv/http/ -type d -exec chmod 755 {} \;
-find /etc -type f -name *.conf -exec chmod 644 {} \;
-find /etc/systemd/system -type f -name *.service -exec chmod 644 {} \;
-chmod 644 /etc/nginx/html/50x.html
-chmod 777 /run
-chmod 755 /srv/http/command/*
-chmod 755 /srv/http/db/*
-chmod 444 /srv/http/db/audio_allowed_formats_table*.txt
-chmod 444 /srv/http/.config/i2s_table*.txt
+find /srv/http/ \! -user http -exec chown http:http {} \;
+find /srv/http/ \! -group http -exec chown http:http {} \;
+find /srv/http/ -type f \! -perm 644 -exec chmod 644 {} \;
+find /srv/http/ -type d \! -perm 755 -exec chmod 755 {} \;
+find /etc -type f -name *.conf \! -perm 644 -exec chmod 644 {} \;
+find /etc/systemd/system -type f -name *.service \! -perm 644 -exec chmod 644 {} \;
+find /etc/nginx/html/ -type f \! -perm 644 -exec chmod 644 {} \;
+find / -maxdepth 1 -type d -name run \! -perm 777 -exec chmod 777 {} \;
+find /srv/http/command/ -type f \! -perm 755 -exec chmod 755 {} \;
+find /srv/http/db/ -type f \! -name "audio_allowed_formats_table*.txt" \! -perm 755 -exec chmod 755 {} \;
+find /srv/http/db/ -type f -name "audio_allowed_formats_table*.txt" \! -perm 444 -exec chmod 444 {} \;
+find /srv/http/.config/ -type f -name i2s_table*.txt \! -perm 444 -exec chmod 444 {} \;
 # remount art cache
 set +x # echo no commands to cli
 sync
 /srv/http/command/create_work_dirs.sh
 set -x # echo all commands to cli
-# chmod 755 /srv/http/db/redis_datastore_setup
-# chmod 755 /srv/http/db/redis_acards_details
-chmod 755 /srv/http/app/config/config.php
-chmod -R 755 /etc/X11/xinit/
-chown mpd:audio /mnt/MPD/*
-chown mpd:audio /mnt/MPD/USB/*
-chmod 777 /mnt/MPD/USB
-chmod 777 /mnt/MPD/USB/*
-chown -R mpd:audio /var/lib/mpd
-chmod 440 /etc/sudoers
-chmod -R 440 /etc/sudoers.d
+find /srv/http/app/config/ -maxdepth 1 -type f -name config.php \! -perm 755 -exec chmod 755 {} \;
+find /etc/X11/xinit/ -maxdepth 1 -type f \! -perm 755 -exec chmod 755 {} \;
+find /mnt/MPD/ -maxdepth 2 \! -user mpd -exec chown mpd:audio {} \;
+find /mnt/MPD/ -maxdepth 2 \! -group audio -exec chown mpd:audio {} \;
+find /mnt/MPD/ -maxdepth 2 \! -perm 777 -exec chmod 777 {} \;
+find /var/lib/mpd \! -user mpd -exec chown mpd:audio {} \;
+find /var/lib/mpd \! -group audio -exec chown mpd:audio {} \;
+find /etc/sudoers \! -perm 440 -exec chmod 440 {} \;
+find /etc/sudoers.d \! -perm 440 -exec chmod 440 {} \;
 # corrections for previously erroneously setting /usr to 755
-chmod -R -x /usr/lib/systemd/system/*
-chmod -R -x /usr/lib/systemd/network/*
-chmod -R -x /usr/lib/udev/rules.d/*
+find /usr/lib/systemd/system/ -type f -executable -exec chmod -x {} \;
+find /etc/systemd/system/ -type f -executable -exec chmod -x {} \;
+find /usr/lib/systemd/network/ -type f -executable -exec chmod -x {} \;
+find /usr/lib/udev/rules.d/ -type f -executable -exec chmod -x {} \;
+find /usr/lib/udev/hwdb.d/ -type f -executable -exec chmod -x {} \;
 # udevil will fail when it is not explicitly given system privileges
 chmod +s /usr/bin/udevil
 # luakit will fail to start when it cant read its recovery session (luakit runs as http)
-chmod 666 /etc/xdg/luakit/rc.lua
-chown http:http /etc/xdg/luakit/rc.lua
+find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -perm 666 -exec chmod 666 {} \;
+find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user http -exec chown http:http {} \;
+find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -group http -exec chown http:http {} \;
+# customised apt command needs to be executable
+find /usr/local/sbin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 {} \;
 #---
 #End script

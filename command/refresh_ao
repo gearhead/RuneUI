@@ -64,14 +64,15 @@ if (isset($argv[1]) && ($argv[1] === 'async')) {
     $lock = $redis->get('lock_refresh_ao');
     runelog('lock status ', $lock);
     // refresh audio hardware status (soundcards and MPD config)
-    if (($lock > '0') && ($lock < '9')) {
+    if (($lock > 0) && ($lock < 9)) {
         // its locked, check if the job is running
-        if (trim(sysCmd('pgrep refresh_ao')[0])) {
-            // it's not running, unset the lock
+        $pids = sysCmd('pgrep refresh_ao');
+        if (!isset($pids[1]) || !$pids[1]) {
+            // the second pid is empty, this job is the first pid, so no other job is running, unset the lock
             $lock = 0;
         }
     }
-    if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
+    if (($lock == 0) || ($lock == 9)  || ($lock >= 9)) {
         // set the lock
         $redis->set('lock_refresh_ao', '1');
         // wake up any hdmi interfaces

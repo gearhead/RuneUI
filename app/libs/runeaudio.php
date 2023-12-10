@@ -557,17 +557,20 @@ function deleteBookmark($redis, $id)
 
 function browseDB($sock, $browsemode, $query='')
 {
+    // debug for quotes in library items
+    // file_put_contents('/srv//http/tmp/browseDB.txt', 'Before:'.$browsemode.':'.$query."\n", FILE_APPEND | LOCK_EX);
+    $query = addslashes(html_entity_decode($query));
     switch ($browsemode) {
         case 'file':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'lsinfo "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'lsinfo "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'lsinfo');
             }
             break;
         case 'album':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "album" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "album" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "album"');
             }
@@ -577,7 +580,7 @@ function browseDB($sock, $browsemode, $query='')
                 if ($query === 'Various Artists') {
                     sendMpdCommand($sock, 'list artist albumartist "Various Artists"');
                 } else {
-                    sendMpdCommand($sock, 'list "album" "'.html_entity_decode($query).'"');
+                    sendMpdCommand($sock, 'list "album" "'.$query.'"');
                 }
             } else {
                 sendMpdCommand($sock, 'list "albumartist"');
@@ -585,21 +588,21 @@ function browseDB($sock, $browsemode, $query='')
             break;
         case 'composer':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "composer" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'find "composer" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "composer"');
             }
             break;
         case 'genre':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'list "albumartist" "genre" "'.html_entity_decode($query).'"');
+                sendMpdCommand($sock, 'list "albumartist" "genre" "'.$query.'"');
             } else {
                 sendMpdCommand($sock, 'list "genre"');
             }
             break;
         case 'albumfilter':
             if (isset($query) && !empty($query)){
-                sendMpdCommand($sock, 'find "albumartist" "'.html_entity_decode($query).'" "album" ""');
+                sendMpdCommand($sock, 'find "albumartist" "'.$query.'" "album" ""');
             }
             break;
         case 'globalrandom':
@@ -607,13 +610,16 @@ function browseDB($sock, $browsemode, $query='')
             break;
     }
     $response = readMpdResponse($sock);
-    return _parseFileListResponse($response);
+    return _parseFileListResponse($response, 'htmlspecialchars');
 }
 
 function searchDB($sock, $querytype, $query) {
-    sendMpdCommand($sock, "search ".$querytype." \"".html_entity_decode($query)."\"");
+    // debug for quotes in library items
+    // file_put_contents('/srv/http/tmp/searchDB.txt', $querytype.':'.$query."\n", FILE_APPEND | LOCK_EX);
+    $query = addslashes(html_entity_decode($query));
+    sendMpdCommand($sock, "search ".$querytype." \"".$query."\"");
     $response = readMpdResponse($sock);
-    return _parseFileListResponse($response);
+    return _parseFileListResponse($response, 'htmlspecialchars');
 }
 
 function remTrackQueue($sock, $songpos)
@@ -1106,12 +1112,22 @@ function strposa($haystack, $needle, $offset=0)
 }
 
 // format Output for the "library", no longer used for the "playlist"
-function _parseFileListResponse($resp)
+function _parseFileListResponse($resp, $extraAction=null)
+// Extra action can be optionally specified, values:
+//  'htmlspecialchars': values of ampersand, double quote, single quote, less then and more then are encoded as &amp;, &quot, &#039, &lt; and &gt;
+//  'escaped': values of double quote, single quote, backslash and null are escaped by inserting a backslash before the value
 {
     if (is_null($resp)) {
         return null;
     } else {
         // $start_time = microtime(TRUE);
+        if ($extraAction == 'htmlspecialchars') {
+            $extraAction = 1;
+        } else if ($extraAction == 'escaped') {
+            $extraAction = 2;
+        } else {
+            $extraAction = 0;
+        }
         $plistArray = array();
         $plistLine = strtok($resp, "\n");
         // $plistFile = "";
@@ -1129,7 +1145,20 @@ function _parseFileListResponse($resp)
                     list ($element, $value) = explode(': ', $plistLine, 2);
                     $element = trim($element);
                     if (isset($value)) {
-                        $value = trim($value);
+                        switch ($extraAction) {
+                            case 0:
+                                // no extra action
+                                $value = trim($value);
+                                break;
+                            case 1:
+                                // extra action htmlspecialchars
+                                $value = htmlspecialchars(trim($value), ENT_QUOTES);
+                                break;
+                            case 2:
+                                // extra action escape
+                                $value = addslashes(trim($value));
+                                break;
+                        }
                     } else {
                         $value = '';
                     }
@@ -1137,7 +1166,7 @@ function _parseFileListResponse($resp)
             }
             if (!$element) {
                 // do nothing
-            } elseif ($element === 'file' OR $element === 'playlist') {
+            } else if (($element === 'file') || ($element === 'playlist')) {
                 $plCounter++;
                 $browseMode = FALSE;
                 // $plistFile = $value;
@@ -1167,9 +1196,9 @@ function _parseFileListResponse($resp)
                 // runelog('_parseFileListResponse Element', $element);
                 // runelog('_parseFileListResponse Value', $value);
                 // runelog('_parseFileListResponse plistArray [ plCounter ]', $plistArray[$plCounter]);
-                if ( $plCounter > -1 ) {
+                if ($plCounter > -1) {
                     $plistArray[$plCounter][$element] = $value;
-                    if ( $element === 'Time' ) {
+                    if ($element === 'Time') {
                         $plistArray[$plCounter]['Time2'] = songTime($plistArray[$plCounter]['Time']);
                     }
                     if (isset($plistArray[$plCounter]['Title']) && isset($plistArray[$plCounter]['file']) && (strtolower(substr($plistArray[$plCounter]['file'], 0, 4)) === 'http') && !isset($plistArray[$plCounter]['Name'])) {
@@ -1596,10 +1625,10 @@ function recursiveDelete($str)
     }
 }
 
-function pushFile($filepath)
+function pushFile($redis, $filepath)
 {
     // debug
-    runelog('pushFile(): filepath', $filepath);
+    runelog('[pushFile] filepath', $filepath);
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, $filepath);
     if (file_exists($filepath)) {
@@ -1614,8 +1643,10 @@ function pushFile($filepath)
         ob_clean();
         flush();
         readfile($filepath);
+        ui_notify($redis, 'Backup', 'Downloaded: '.basename($filepath));
         return true;
     } else {
+        ui_notifyError($redis, 'Backup', 'Download failed');
         return false;
     }
 }
@@ -1726,7 +1757,7 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
     switch ($action) {
         case 'start':
             // start the local browser
-            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '/boot/config.txt'")[0]) {
+            if (sysCmd("grep -ic '^[s\]*#[\s]*disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'")[0]) {
                 wrk_localBrowser($redis, 'overscan', 1);
             } else {
                 wrk_localBrowser($redis, 'overscan', 0);
@@ -1849,12 +1880,13 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
             }
             if ($args){
                 // switch overscan on
-                sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '/boot/config.txt'");
+                // modify <p1mountpoint>/config.txt
+                sysCmd("sed -i '/disable_overscan/c\#disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'");
                 $redis->hSet('local_browser', 'overscan', 1);
             } else {
                 // switch overscan off
-                // modify /boot/config.txt
-                sysCmd("sed -i '/disable_overscan/c\disable_overscan=1' '/boot/config.txt'");
+                // modify <p1mountpoint>/config.txt
+                sysCmd("sed -i '/disable_overscan/c\disable_overscan=1' '".$redis->get('p1mountpoint')."/config.txt'");
                 $redis->hSet('local_browser', 'overscan', 0);
             }
             break;
@@ -2063,64 +2095,64 @@ function wrk_backup($redis, $bktype = null)
 {
     // get the directory which is used for the backup
     $fileDestDir = '/'.trim($redis->get('backup_dir'), "/ \t\n\r\0\x0B").'/';
-    // create a diff file /home/config.txt.diff of /srv/http/app/config/defaults/boot/config.txt vs. /boot/config.txt
-    sysCmd('diff -Nau /srv/http/app/config/defaults/boot/config.txt /boot/config.txt >/home/config.txt.diff');
+    // create a diff file /home/config.txt.diff of /srv/http/app/config/defaults/boot/config.txt vs. <p1mountpoint>/config.txt
+    sysCmd("diff -Nau '/srv/http/app/config/defaults/boot/config.txt' '".$redis->get('p1mountpoint')."/config.txt' >/home/config.txt.diff");
     // build up the backup command string
     if ($bktype === 'dev') {
-        // $filepath = $fileDestDir.'backup-total-'.date("Y-m-d").'.tar.gz';
-        // $cmdstring = "rm -f '".$fileDestDir."backup-total-*' &> /dev/null;".
-            // " bsdtar -czpf '".$filepath."'".
-            // " /mnt/MPD/Webradio".
-            // " /var/lib/redis/rune.rdb".
-            // " '".$redis->hGet('mpdconf', 'db_file')."'".
-            // " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            // " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            // " '".$redis->hGet('mpdconf', 'state_file')."'".
-            // " /var/lib/connman".
-            // " /var/www".
-            // " /etc".
-            // " /home/config.txt.diff".
-            // "";
+        $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n".
+            " /var/lib/connman";
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /srv/http".
+            " /home/config.txt.diff".
+            "";
+        // for each distributed default file take a copy of the production version
+        foreach ( sysCmd('find /srv/http/app/config/defaults/ -type f') as $bFile) {
+            $bfile = str_replace('/srv/http/app/config/defaults', '', $bFile);
+            clearstatcache(true, $bFile);
+            if (is_file($bFile)) {
+                $cmdstring .= " \\\n '".$bFile."'";
+            }
+        }
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
-        // To-Do: make the backup and restore string (see also restore.sh) match and be more explicit
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; systemctl stop redis ; \\\n".
-            " bsdtar -czpf '".$filepath."'".
-            " /mnt/MPD/Webradio".
-            " /var/lib/redis/rune.rdb".
-            " '".$redis->hGet('mpdconf', 'db_file')."'".
-            " '".$redis->hGet('mpdconf', 'sticker_file')."'".
-            " '".$redis->hGet('mpdconf', 'playlist_directory')."'".
-            " '".$redis->hGet('mpdconf', 'state_file')."'".
-            " /var/lib/connman/wifi_*.config".
-            " /var/lib/connman/ethernet_*.config".
-            " /etc/mpd.conf".
-            " /etc/samba".
-            " /home/config.txt.diff ; \\\n".
-            "systemctl start redis";
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+            " bsdtar -c -z -p -f '".$filepath."' \\\n".
+            " /mnt/MPD/Webradio \\\n".
+            " /var/lib/redis/rune.rdb \\\n".
+            " '".$redis->hGet('mpdconf', 'db_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'sticker_file')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'playlist_directory')."' \\\n".
+            " '".$redis->hGet('mpdconf', 'state_file')."' \\\n";
+        if (glob('/var/lib/connman/wifi_*.config')) {
+            $cmdstring .= " /var/lib/connman/wifi_*.config \\\n";
+        }
+        if (glob('/var/lib/connman/ethernet_*.config')) {
+            $cmdstring .= " /var/lib/connman/ethernet_*.config \\\n";
+        }
+        if (glob('/home/your-extra-mpd.conf')) {
+            $cmdstring .= " /home/your-extra-mpd.conf \\\n";
+        }
+        $cmdstring .= " /etc/mpd.conf".
+            " /etc/samba \\\n".
+            " /home/config.txt.diff".
+            "";
     }
-    // // add the names of the distribution files
-    // $extraFiles = sysCmd('find /srv/http/app/config/defaults/ -type f');
-    // foreach ($extraFiles as $extraFile) {
-        // // convert the names of the distribution files to the location of production version (the one being used)
-        // $fileName = str_replace('/srv/http/app/config/defaults', '', $extraFile);
-        // if (($bktype === 'dev') && ((substr($fileName, 0, 9) === '/srv/http/') || (substr($fileName, 0, 5) === '/etc/'))) {
-            // // skip any files in /srv/http/ and /etc/ for a dev backup, they are already included
-            // continue;
-        // }
-        // // clear the cache otherwise file_exists() returns incorrect values
-        // clearstatcache(true, $fileName);
-        // if (file_exists($fileName)) {
-            // // add the files to the backup command if they exist
-            // $cmdstring .= " '".$fileName."'";
-        // }
-    // }
     ui_notify($redis, 'Backup', $cmdstring);
     // save the redis database
     $redis->save();
     // run the backup
     sysCmd($cmdstring);
-    // delete the diff file for /boot/config.txt
+    // delete the diff file for config.txt
     unlink('/home/config.txt.diff');
     // change the file privileges
     sysCmd('chown http:http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
@@ -2167,7 +2199,7 @@ function wrk_opcache($redis, $action)
             sysCmd('systemctl reload php-fpm');
             break;
         case 'enable':
-            $fileNames = sysCmd('find /etc -name opcache.ini');
+            $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null ; grep -Ril --binary-files=without-match "^opcache.enable=" /etc/php 2>/dev/null');
             foreach ($fileNames as $fileName) {
                 // clear the file cache otherwise file_exists() returns incorrect values
                 clearstatcache(true, $fileName);
@@ -2310,7 +2342,11 @@ function wrk_apconfig($redis, $action, $args = null)
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
             wrk_getHwPlatform($redis);
-            $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            if (is_array($args)) {
+                $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            } else {
+                $args = $redis->hgetall('AccessPoint');
+            }
             break;
     }
     if ($args['enable']) {
@@ -2537,8 +2573,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     switch ($action) {
         case 'boot-initialise':
             // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
-            // the routine looks in the directory /boot/wifi for any files, all files will be processed, except:
-            //  a file called readme and the directory /boot/wifi/examples and its contents
+            // the routine looks in the directory <p1mountpoint>/wifi for any files, all files will be processed, except:
+            //  a file called readme and the directory <p1mountpoint>/wifi/examples and its contents
             // it steps through the files and or directories and deletes them after processing (regardless of success)
             // any file with lines containing 'Name=<value>' and 'Passphrase=<value>' will be used to set up a Wi-Fi profile
             // the optional value 'Hidden=[true]|[false]' will also be processed if present
@@ -2547,7 +2583,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // get a list of files, ignoring the 'readme', 'examples', '.' and '..' file entries
             $profilearray = array();
             $counter = -1;
-            $directory = '/boot/wifi';
+            $directory = $redis->get('p1mountpoint').'/wifi';
             $fileFound = false;
             $fileNames = array_diff(scandir($directory), array('..', '.', 'readme', 'examples'));
             if (count($fileNames) == 0) {
@@ -2650,12 +2686,18 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 fclose($fp);
             }
             // restore the default boot-initialise Wi-Fi files
-            sysCmd('mkdir -p /boot/wifi/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            sysCmd('mkdir -p '.$directory.'/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
             if ($fileFound) {
                 // set access point to default values
                 wrk_apconfig($redis, 'reset');
+                // set wifi on and reboot it required
+                if (!$redis->get(wifi_on)) {
+                    wrk_netconfig($redis, 'enableWifi');
+                    ui_notify($redis, 'Wi-Fi reset', 'Restarting to enable Wi-Fi');
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+                }
             }
             // restart connman to pick up the new config files
             sysCmd('systemctl restart connman');
@@ -2946,9 +2988,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('cp /srv/http/app/config/defaults/var/lib/connman/settings /var/lib/connman/settings');
             sysCmd('chmod 600 /var/lib/connman/settings');
             // restore the default boot-initialise Wi-Fi files
-            sysCmd('mkdir -p /boot/wifi/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme /boot/wifi/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* /boot/wifi/examples');
+            $directory = $redis->get('p1mountpoint').'/wifi';
+            sysCmd('mkdir -p '.$directory.'/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
             // restore the standard service and config files
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/connman.service /etc/systemd/system/connman.service');
             sysCmd('mkdir /etc/connman/');
@@ -3035,51 +3078,91 @@ function wrk_audioOutput($redis, $action)
             // get a list of the hardware audio cards
             $cardlist = array();
             $cardlistHDMIvc4 = array();
-            // note: eliminate HW HDMI vc4 cards, they wont work correctly, these are added at the end of the function
-            $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4"');
-            // get a separate list of SW HDMI vc4 cards
-            $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
-            // determine if the number of cards has changed
-            if ($redis->hlen('acards') != (count($cardlist) + count($cardlistHDMIvc4))) {
-                $cardChange = 1;
+            // while alsa is starting aplay -l may return errors, the following routine loops until the correct information is returned
+            //  loop for maximum 30 cycles with a sleep of 2 seconds (= 1 minute)
+            $countErr = 1;
+            $cnt = 30;
+            while ($countErr && ($cnt-- >= 0)) {
+                $countErr = sysCmd('aplay -l -v 2>&1 | grep -ic "Cannot access file" | xargs')[0];
+                if ($countErr) {
+                    sleep(2);
+                }
+            }
+            unset($countErr, $cnt);
+            // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
+            //  also eliminate loopback card definitions, these are used for internal routing of the sound path
+            if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 1)) {
+                // handle vc4 as hardware cards
+                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
             } else {
-                $cardChange = 0;
+                // handle vc4 as software cards
+                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
+                // get a separate list of SW HDMI vc4 cards
+                $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
             }
             $acards = array();
             // reformat the output of the card list
-            foreach ($cardlist as $card) {
-                $cardNr=get_between_data($card, 'card', ':');
-                $acards[$cardNr]['number'] = $cardNr;
-                $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
-                $acards[$cardNr]['name'] = get_between_data($card, '[', ']');
-                $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
-                // check to see if the individual cards have changed
-                if (!$cardChange) {
-                    if (!$redis->hexists('acards', $acards[$cardNr]['name'])) {
-                        $cardChange = 1;
-                    } else {
-                        $cardDet = array();
-                        $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['name']), true);
-                        if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
-                            $cardChange = 1;
+            $cardChange = false;
+            if (is_array($cardlist)) {
+                foreach ($cardlist as $card) {
+                    $cardNr=get_between_data($card, 'card', ':');
+                    // some cards have multiple devices, use the first one
+                    if (!isset($acards[$cardNr]['number'])) {
+                        // first time for the card number, use this one
+                        $acards[$cardNr]['number'] = $cardNr;
+                        $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
+                        $acards[$cardNr]['sysname'] = get_between_data($card, '[', ']');
+                        $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
+                        // check to see if the individual cards have changed
+                        if (!$cardChange) {
+                            if (!$redis->hexists('acards', $acards[$cardNr]['sysname'])) {
+                                $cardChange = true;
+                            } else {
+                                $cardDet = array();
+                                $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['sysname']), true);
+                                if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+                                    $cardChange = true;
+                                }
+                            }
                         }
                     }
                 }
             }
+            unset($card, $cardDet);
             //
-            foreach ($cardlistHDMIvc4 as $card) {
-                $cardname = get_between_data($card, '=');
-                if (!$redis->hExists('acards', $cardname)) {
-                    $cardChange = 1;
-                    break;
+            if (!$cardChange  && is_array($cardlistHDMIvc4)) {
+                foreach ($cardlistHDMIvc4 as $card) {
+                    $cardname = get_between_data($card, '=');
+                    if (!$redis->hExists('acards', $cardname)) {
+                        $cardChange = true;
+                        break;
+                    }
                 }
             }
+            unset($card, $cardname);
+            //
+            if (!$cardChange) {
+                $acardsOldKeys = $redis->hKeys('acards');
+                $cardlistJson = json_encode($cardlist);
+                $cardlistHDMIvc4Json = json_encode($cardlistHDMIvc4);
+                if (is_array($acardsOldKeys)) {
+                    foreach ($acardsOldKeys as $acardsOldKey) {
+                        if (!strpos($cardlistJson, $acardsOldKey) && !strpos($cardlistHDMIvc4Json, $acardsOldKey)) {
+                            $cardChange = true;
+                            break;
+                        }
+                    }
+                } else if (count($cardlist) || count($cardlistHDMIvc4)) {
+                    $cardChange = true;
+                }
+            }
+            unset($acardsOldKeys, $acardsOldKey, $cardlistJson, $cardlistHDMIvc4Json);
             //
             if (!$cardChange) {
                 return 'unchanged';
             }
             //
-            $redis->Del('acards');
+            $redis->del('acards');
             //
             // load the table of allowed formats which are valid for specific combinations of overlays
             $fileName = '/srv/http/db/audio_allowed_formats_table.txt';
@@ -3108,7 +3191,7 @@ function wrk_audioOutput($redis, $action)
                 unset($data);
                 $data = array();
                 // acards loop
-                runelog('>>--------------------------- card number '.$card['number'].' name: '.$card['name'].' (start) --------------------------->>');
+                runelog('>>--------------------------- card number '.$card['number'].' name: '.$card['sysname'].' (start) --------------------------->>');
                 //$card_index = explode(' : ', $card, 2);
                 //$card_index = trim($card_index[0]);
                 //$card_index = $card['number'];
@@ -3116,48 +3199,69 @@ function wrk_audioOutput($redis, $action)
                 //$card = trim($card[1]);
                 // $description = sysCmd("grep -his ':' /proc/asound/cards | cut -d ':' -f 2 | cut -d ' ' -f 4-20");
                 // debug
-                //$card = $card['name'];
-                runelog('wrk_audioOutput card string: ', $card['name']);
+                //$card = $card['sysname'];
+                runelog('wrk_audioOutput card string: ', $card['sysname']);
                 //$description = sysCmd("aplay -l -v | grep \"\[".$card."\]\"");
                 //$subdeviceid = explode(':', $description[0]);
                 //$subdeviceid = explode(',', trim($subdeviceid[1]));
                 //$subdeviceid = explode(' ', trim($subdeviceid[1]));
                 //$data['device'] = 'hw:'.$card_index.','.$subdeviceid[1];
                 $data['device'] = 'hw:'.$card['number'].','.$card['device'];
-                //if ($i2smodule !== 'none' && isset($i2smodule_details->sysname) && $i2smodule_details->sysname === $card) {
-                    //$acards_details = $i2smodule_details;
-                //} else {
-                    //$acards_details = $redis->hGet('acards_details', $card);
-                //}
+                // get the hardware platform descriptor,format is two numeric characters, eg 01, 02, 03, etc
+                $hwplatformid = $redis->get('hwplatformid');
                 // read the matching predefined configuration for this audio card
-                $acards_details = $redis->hGet('acards_details', $card['name']);
+                $acards_details = $redis->hGet('acards_details', $card['sysname']);
+                // check that the card details are valid
+                if (isset($acards_details) && $acards_details) {
+                    $details = json_decode($acards_details, true);
+                    // check that both sysname and hwplatformid are set
+                    if (!isset($details['sysname'])) {
+                        // not set, reset the details, cant use this one
+                        $details['sysname'] = '';
+                        $acards_details = '';
+                    }
+                    if (!isset($details['hwplatformid'])) {
+                        // not set, card is valid for all platforms, set it to the valid value
+                        $details['hwplatformid'] = $hwplatformid;
+                    }
+                    // check that the sysname is the one we want and that the hardware platform matches
+                    //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                    //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                    if (($details['sysname'] != $card['sysname']) || !strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                        // not found, reset the details
+                        $acards_details = '';
+                    }
+                } else {
+                    $acards_details = '';
+                }
                 // when no card is found try to determine a card-name in the table with a postfix
                 //  when the same card is defined for more hardware types with differing properties, they have a postfix in the key
                 //  name, which makes them unique
                 //  the sysname must be the name of the card we are looking for and the hwplatformid must match the current hardware
                 // this is the only place where hwplatformid is used, normally a match on the array key is enough regardless of the
                 //  hwplatformid value
-                if ($acards_details == '') {
+                if (!$acards_details) {
                     // card not found, collect the acard table keys
                     $acards_keys = $redis->hKeys('acards_details');
-                    $hwplatformid = $redis->get('hwplatformid');
-                    if ($hwplatformid == '02') {
-                        // process hardware type 02 as 08 (both Raspberry Pi)
-                        $hwplatformid = '08';
-                    }
                     foreach ($acards_keys as $acards_key) {
                         // try to find a matching key
-                        if (strpos(' '.$acards_key, $card['name']) == 1) {
-                            // the key matches, with some sort of postfix, get the details
+                        if (strpos(' '.$acards_key, $card['sysname']) == 1) {
+                            // the key matches, possibly with some sort of postfix, get the details
                             $acards_details = $redis->hGet('acards_details', $acards_key);
                             $details = json_decode($acards_details, true);
                             // check that both sysname and hwplatformid are set
-                            if (!isset($details['sysname']) || !isset($details['hwplatformid'])) {
-                                // not set, reset the details
+                            if (!isset($details['sysname'])) {
+                                // not set, reset the details, cant use this one
                                 $acards_details = '';
+                                continue;
+                            } else if (!isset($details['hwplatformid'])) {
+                                // not set, card is valid for all platforms, set it to the valid value
+                                $details['hwplatformid'] = $hwplatformid;
                             }
                             // check that the sysname is the one we want and that the hardware platform matches
-                            else if (($details['sysname'] == $card['name']) && ($details['hwplatformid'] == $hwplatformid)) {
+                            //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
+                            //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
+                            if (($details['sysname'] != $card['sysname']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                                 // found, break the loop
                                 break;
                             } else {
@@ -3167,88 +3271,137 @@ function wrk_audioOutput($redis, $action)
                         }
                     }
                 }
+                // use the predefined configuration for this card or generate one from the system information
                 unset($details);
                 $details = array();
-                // use the predefined configuration for this card of generate one from the system information
-                if ($acards_details == '') {
+                if (!$acards_details) {
                     // no predefined configuration for this card use the available information
-                    $details['sysname'] = $card['name'];
+                    $details['sysname'] = $card['sysname'];
                     $details['extlabel'] = $card['sysdesc'];
                     $details['hwplatformid'] = $redis->get('hwplatformid');
-                    if (substr($card['name'], 0, 8) == 'bcm2835 ') {
+                    // debug
+                    // echo "details['sysname']: '".$details['sysname']."'\n";
+                    // echo "details['extlabel']: '".$details['extlabel']."'\n";
+                    // echo "details['hwplatformid']: '".$details['hwplatformid']."'\n";
+                    if (substr($card['sysname'], 0, 8) == 'bcm2835 ') {
                         // these are the on-board standard audio outputs
-                        $details['description'] = 'Raspberry Pi: '.trim(substr($card['name'], 8));
+                        $details['type'] = 'integrated';
+                    } else if (substr($card['sysname'], 0, 4) == 'vc4-') {
+                        // these are the on-board standard audio outputs
+                        $details['type'] = 'integrated';
+                    } else if (substr($card['sysname'], 0, 3) == 'vc4') {
+                        // these are the on-board standard audio outputs
                         $details['type'] = 'integrated';
                     } else {
-                        $details['description'] = $card['name'];
-                        $details['type'] = 'unknown';
+                        // try to identify USB devices
+                        $usbDevicesNames = preg_replace('/\s*iProduct\s*.\s*/', '|', implode(' ', sysCmd('lsusb -v 2>/dev/null | grep -i "iProduct"'))).'|';
+                        if (strpos($usbDevicesNames, $card['sysname'])) {
+                            // its an usb device
+                            $details['type'] = 'usb';
+                        } else if ($redis->get('i2smodule') != 'none') {
+                            // UI assigned soundcard, assume this is the i2s device, there is only one present
+                            $details['type'] = 'i2s';
+                        } else if (!sysCmd('grep -ic "^#dtoverlay=none" \''.$redis->get('p1mountpoint').'/config.txt\'')[0]) {
+                            // manually assigned soundcard, assume this is the i2s device, there is only one present
+                            $details['type'] = 'i2s';
+                        } else {
+                            $details['type'] = 'unknown';
+                        }
                     }
                 } else {
                     // using the predefined configuration
+                    // echo "acard_details:\n$acards_details\n";
                     $details = json_decode($acards_details, true);
                 }
                 // determine the description
-                if (isset($details['type'])) {
-                    if ($details['type'] == 'i2s') {
+                if ((!isset($details['description']) || !$details['description']) && isset($details['type']) && $details['type']) {
+                    if ($details['type'] == 'integrated') {
+                        if (isset($details['sysname']) && $details['sysname']) {
+                            if (strpos(' '.$details['sysname'], 'vc4-') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 4));
+                            } else if (strpos(' '.$details['sysname'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 3));
+                            } else if (strpos(' '.$details['sysname'], 'bcm2835 ') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
+                            } else {
+                                $details['description'] = 'Raspberry Pi: '.trim($details['sysname']);
+                            }
+                        } else if (isset($details['extlabel']) && $details['extlabel']) {
+                            if (strpos(' '.$details['extlabel'], 'vc4-') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 4));
+                            } else if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 3));
+                            } else if (strpos(' '.$details['extlabel'], 'bcm2835 ') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
+                            } else {
+                                $details['description'] = 'Raspberry Pi: '.trim($details['extlabel']);
+                            }
+                        }
+                    } else if ($details['type'] == 'i2s') {
                         // save the name as defined in the UI when selecting this card
-                        $details['description'] = trim(explode('|', $redis->Get('i2smodule_select'), 2)[1]);
-                        if (($details['description'] === '') || ($redis->Get('i2smodule') === 'none')) {
-                            // otherwise call set the description to default, could happen when manually configured
-                            $details['description'] = 'Soundcard: '.$card['sysdesc'];
-                        }
-                    } else if ($details['type'] == 'usb') {
-                        // its a USB DAC
-                        if (isset($details['extlabel']) && ($details['extlabel'] != '')) {
-                            $details['description'] = 'USB: '.$details['extlabel'];
+                        $i2sModule = $redis->get('i2smodule');
+                        if ($i2sModule && ($i2sModule != 'none')) {
+                            $details['description'] = 'Soundcard: '.trim(explode('|', $redis->get('i2smodule_select'), 2)[1]);
                         } else {
-                            $details['description'] = 'USB: '.$card['sysdesc'];
+                            // otherwise set the description to default, could happen when manually configured
+                            if (isset($details['extlabel']) && $details['extlabel']) {
+                                $details['description'] = 'Soundcard: '.$details['extlabel'];
+                            } else if (isset($details['sysname']) && $details['sysname']) {
+                                $details['description'] = 'Soundcard: '.$details['sysname'];
+                            }
                         }
-                    } else {
-                        // no idea what this card is, use its system description
-                        $details['description'] = $card['sysdesc'];
+                    } else if (($details['type'] == 'usb')) {
+                        // its a USB DAC
+                        if (isset($details['sysname']) && $details['sysname']) {
+                            $details['description'] = 'USB: '.$details['sysname'];
+                        } else if (isset($details['extlabel']) && $details['extlabel']) {
+                            $details['description'] = 'USB: '.$details['extlabel'];
+                        }
                     }
-                } else {
-                    // type is not set, use its system description
-                    $details['description'] = $card['sysdesc'];
                 }
-                // when the mixer number ID or the mixer control name are not defined, sometimes these can be determined
-                if (!isset($details['mixer_numid']) || !$details['mixer_numid']) {
+                if (!isset($details['description']) || !$details['description']) {
+                    if (isset($details['extlabel']) && $details['extlabel']) {
+                        $details['description'] = 'X: '.$details['extlabel'];
+                    } else if (isset($details['sysname']) && $details['sysname']){
+                        // no idea what this card is, use its system description
+                        $details['description'] = 'X: '.$card['sysname'];
+                    } else {
+                        $details['description'] = 'X: Unknown sound device';
+                    }
+                }
+                // when a mixer number ID is specified check its validity
+                if (isset($details['mixer_numid']) && is_numeric($details['mixer_numid']) && strlen($details['mixer_numid'])) {
+                    // mixer number ID is specified, check that it is a valid number
+                    $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -ic "numid='.$details['mixer_numid'].'"');
+                    if(!isset($retval) || !is_array($retval) || !$retval[0]) {
+                        // not found, unset the value
+                        unset($details['mixer_numid']);
+                    }
+                    unset($retval);
+                }
+                // when the mixer number ID is not defined, sometimes it can be derived (generally this value is not used)
+                if (!isset($details['mixer_numid']) || !is_numeric($details['mixer_numid']) || !strlen($details['mixer_numid'])) {
                     // mixer number ID is missing
                     $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -i "playback volume"');
                     if (isset($retval) && is_array($retval) && count($retval) == 1) {
                         // one value returned, so use it
                         $details['mixer_numid'] = get_between_data($retval[0], 'numid=', ',');
-                    }
-                    unset ($retval);
-                } else {
-                    // mixer number ID is specified, check that it is a valid number
-                    $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -ic "numid='.$details['mixer_numid'].'"');
-                    if(isset($retval) && is_array($retval) && $retval[0]) {
-                        // it is valid, do nothing
                     } else {
-                        // not found, unset the value
+                        // sometimes there is a analogue and digital volume control, we may be able to identify the digital one
+                        $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -i "playback volume" | grep -i "digital"');
+                        if (isset($retval) && is_array($retval) && count($retval) == 1) {
+                            // one value returned, so use it
+                            $details['mixer_numid'] = get_between_data($retval[0], 'numid=', ',');
+                        }
+                    }
+                    if (isset($details['mixer_numid']) && (!is_numeric($details['mixer_numid']) || !strlen($details['mixer_numid']))) {
+                        // mixer id is set but not to a valid value, unset it
                         unset($details['mixer_numid']);
                     }
+                    unset($retval);
                 }
-                if (!isset($details['mixer_control']) || !$details['mixer_control']) {
-                    // mixer control is missing
-                    $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume"');
-                    $pvolumeCnt = 0;
-                    foreach ($retval as $retline) {
-                        if (substr(strtolower($retline), 0, 6) === 'simple' ) {
-                            $mixerControl = get_between_data($retline, "'", "'");
-                        }
-                        if (strpos($retline, 'pvolume')) {
-                            $validMixerControl = $mixerControl;
-                            $pvolumeCnt++;
-                        }
-                    }
-                    if ($pvolumeCnt == 1) {
-                        // one value returned, so use it
-                        $details['mixer_control'] = $validMixerControl;
-                    }
-                    unset ($retval, $retline, $mixerControl, $validMixerControl, $pvolumeCnt);
-                } else {
+                // when a mixer control is specified check its validity
+                if (isset($details['mixer_control']) && $details['mixer_control']) {
                     // mixer control is specified, check that it is valid
                     $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -ic "'.$details['mixer_control'].'"');
                     if(isset($retval) && is_array($retval) && $retval[0]) {
@@ -3257,14 +3410,79 @@ function wrk_audioOutput($redis, $action)
                         // not found, unset the value
                         unset($details['mixer_control']);
                     }
+                    unset($retval);
+                }
+                // when the mixer control name is not defined, sometimes it can be derived (this value is always used when available)
+                if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                    // mixer control is missing try to derive it
+                    $retval = sysCmd('amixer scontents -c '.$card['number'].' | grep -iE "simple|pvolume|limits"');
+                    $pvolumeFound = false;
+                    $limitsFound = false;
+                    $singleLimitsFound = false;
+                    $validMixerControls = array();
+                    foreach ($retval as $retline) {
+                        // clean up a version of the return line for testing, single space begin and end, replace whitespace to single space, lower case
+                        $retlineTest = ' '.strtolower(trim(preg_replace('/[\s]+/', ' ', $retline))).' ';
+                        if (substr($retlineTest, 1, 6) === 'simple') {
+                            $mixerControl = get_between_data($retline, "'", "'");
+                            $pvolumeFound = false;
+                            $limitsFound = false;
+                            $singleLimitsFound = false;
+                        }
+                        if (strpos($retlineTest, 'pvolume ')) {
+                            $pvolumeFound = true;
+                        }
+                        if (strpos($retlineTest, 'limits') && !strpos($retlineTest, ': 0 - 1 ')) {
+                            // limits need to be non '0 - 1'
+                            $limitsFound = true;
+                        }
+                        if (strpos($retlineTest, 'limits') && (substr_count($retlineTest, ' - ') == 1)) {
+                            // only  valid when there is one set of limits
+                            $singleLimitsFound = true;
+                        }
+                        if (isset($mixerControl) && $mixerControl && $pvolumeFound && $limitsFound && $singleLimitsFound) {
+                            $validMixerControls[] = $mixerControl;
+                        }
+                    }
+                    if (count($validMixerControls) == 1) {
+                        // one valid value found, so use it
+                        $details['mixer_control'] = reset($validMixerControls);
+                    } else if (count($validMixerControls)) {
+                        foreach ($validMixerControls as $key => $validMixerControl) {
+                            $validMixerControl = strtolower($validMixerControl);
+                            // eliminate 'mic' (microphone) volume controls
+                            if (strpos(' '.$validMixerControl, 'mic')) {
+                                unset($validMixerControls[$key]);
+                            }
+                            // eliminate 'input' volume controls
+                            if (strpos(' '.$validMixerControl, 'input')) {
+                                unset($validMixerControls[$key]);
+                            }
+                        }
+                        if (count($validMixerControls) == 1) {
+                            $details['mixer_control'] = reset($validMixerControls);
+                        } else {
+                            ui_notify($redis, 'Automatic audio-card detection', 'Failed for \''.$details['sysname'].'\'. Please report this on the forum', '', 1);
+                        }
+                    }
+                    unset ($retval, $retline, $mixerControl, $pvolumeFound, $limitsFound, $validMixerControl, $validMixerControls, $cardCnt);
+                }
+                // add allowed formats for hdmi cards, when no other card options are specified
+                //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
+                //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
+                //          20 bits, or 24 bits at up to 8 channels
+                //      we choose to run at 24 bit, 2 channels for the specified sample rates
+                if ((!isset($details['card_option']) || !$details['card_option']) && strpos(' '.strtolower($details['sysname']), 'hdmi')) {
+                    // add allowed formats to the card options
+                    $details['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
                 }
                 if (isset($details['sysname']) && $details['sysname']) {
                     // a card has been determined, process it
                     // debug
-                    runelog('wrk_audioOutput: in loop: acards_details for: '.$card['name'], json_encode($details));
+                    runelog('wrk_audioOutput: in loop: acards_details for: '.$card['sysname'], json_encode($details));
                     //$details = new stdClass();
                     // debug
-                    runelog('wrk_audioOutput: in loop: (decoded) acards_details for: '.$card['name'], $details['extlabel']);
+                    runelog('wrk_audioOutput: in loop: (decoded) acards_details for: '.$card['sysname'], $details['extlabel']);
                     if (isset($details['mixer_control']) && $details['mixer_control']) {
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 4,6");
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 3,5");
@@ -3277,24 +3495,24 @@ function wrk_audioOutput($redis, $action)
                         $data['mixer_device'] = "hw:".$card['number'];
                         $data['mixer_control'] = $details['mixer_control'];
                     }
-                    if (isset($details['sysname']) && ($details['sysname'] === $card['name'])) {
+                    if (isset($details['sysname']) && ($details['sysname'] === $card['sysname'])) {
                         if ($details['type'] === 'integrated_sub') {
-                            $sub_interfaces = $redis->sMembers($card['name']);
+                            $sub_interfaces = $redis->sMembers($card['sysname']);
                             // debug
-                            runelog('line 2444: (sub_interfaces loop) card: '.$card['name'], $sub_interfaces);
+                            runelog('line 3440: (sub_interfaces loop) card: '.$card['sysname'], $sub_interfaces);
                             foreach ($sub_interfaces as $sub_interface) {
-                                runelog('line 2446: (sub_interfaces foreach) card: '.$card['name'], $sub_interface);
+                                runelog('line 3442: (sub_interfaces foreach) card: '.$card['sysname'], $sub_interface);
                                 //$sub_int_details = new stdClass();
                                 $sub_int_details = array();
                                 $sub_int_details = json_decode($sub_interface, true);
-                                runelog('line 2449: (sub_interfaces foreach json_decode) card: '.$card['name'], $sub_int_details);
+                                runelog('line 2449: (sub_interfaces foreach json_decode) card: '.$card['sysname'], $sub_int_details);
                                 $sub_int_details['device'] = $data['device'];
-                                $sub_int_details['name'] = $card['name'].'_'.$sub_int_details['id'];
+                                $sub_int_details['name'] = $card['sysname'].'_'.$sub_int_details['id'];
                                 $sub_int_details['description'] = $sub_int_details['extlabel'];
                                 $sub_int_details['type'] = 'alsa';
                                 $sub_int_details['integrated_sub'] = 1;
                                 // prepare data for real_interface record
-                                $data['name'] = $card['name'];
+                                $data['sysname'] = $card['sysname'];
                                 $data['type'] = 'alsa';
                                 //$data['system'] = trim($card['sysdesc']);
                                 // write real_interface json (use this to create the real MPD output)
@@ -3303,7 +3521,7 @@ function wrk_audioOutput($redis, $action)
                                 if (isset($sub_int_details['route_cmd'])) $sub_int_details['route_cmd'] = str_replace("*CARDID*", $card['number'], $sub_int_details['route_cmd']);
                                 // debug
                                 runelog('::::::sub interface record array:::::: ',json_encode($sub_int_details));
-                                $redis->hSet('acards', $card['name'].'_'.$sub_int_details['id'], json_encode($sub_int_details));
+                                $redis->hSet('acards', $card['sysname'].'_'.$sub_int_details['id'], json_encode($sub_int_details));
                             }
                         }
                         // if ($details['extlabel'] !== 'none') $data['extlabel'] = $details['extlabel'];
@@ -3313,7 +3531,7 @@ function wrk_audioOutput($redis, $action)
                         }
                     }
                     // debug
-                    if (isset($data['extlabel'])) runelog('wrk_audioOutput: in loop: extlabel for: '.$card['name'], $data['extlabel']);
+                    if (isset($data['extlabel'])) runelog('wrk_audioOutput: in loop: extlabel for: '.$card['sysname'], $data['extlabel']);
                     // test if there is an option for mpd.conf set
                     // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
                     if (isset($details['card_option']) && $details['card_option']) {
@@ -3321,48 +3539,56 @@ function wrk_audioOutput($redis, $action)
                     }
                     // test if there is a set of allowed formats for this card
                     // for example the ES9023 audio card expects 24 bit input
-                    if (isset($allowedFormats[$activeOverlayAndName.$card['name']]) && $allowedFormats[$activeOverlayAndName.$card['name']]) {
-                        $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['name']];
+                    if (isset($allowedFormats[$activeOverlayAndName.$card['sysname']]) && $allowedFormats[$activeOverlayAndName.$card['sysname']]) {
+                        $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['sysname']];
                     }
                 }
                 if (!isset($sub_interfaces[0]) || (!$sub_interfaces[0])) {
-                    $data['name'] = $card['name'];
+                    $data['sysname'] = $card['sysname'];
                     $data['type'] = 'alsa';
                     $data['description'] = $details['description'];
                     //$data['system'] = trim($card['sysdesc']);
                     // debug
                     // runelog('::::::acard record array::::::', $data);
-                    $redis->hSet('acards', $card['name'], json_encode($data));
+                    $redis->hSet('acards', $card['sysname'], json_encode($data));
                 }
                 // acards loop
-                runelog('<<--------------------------- card: '.$card['name'].' index: '.$card['number'].' (finish) ---------------------------<<');
+                runelog('<<--------------------------- card: '.$card['sysname'].' index: '.$card['number'].' (finish) ---------------------------<<');
             }
-            // now process the software versions of the HDMI vc4 cards
+            // extra processing for HDMI cards
+            //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
+            //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
+            //          20 bits, or 24 bits at up to 8 channels
+            //      we choose to run at 24 bit, 2 channels for the specified sample rates
             // first delete any existing HDMI vc4 cards
             $acardKeys = $redis->hKeys('acards');
             foreach ($acardKeys as $acardKey) {
                 $acardKeyLower = ' '.strtolower($acardKey);
-                if (strpos($acardKeyLower, 'hdmi') && strpos($acardKeyLower, 'vc4')) {
-                    // delete this one
-                    $redis->hDel('acards', $acardKey);
+                if (strpos($acardKeyLower, 'hdmi')) {
+                    if (strpos($acardKeyLower, 'vc4')) {
+                        // delete any hardware HDMI vc4 cards, delete this one
+                        $redis->hDel('acards', $acardKey);
+                    }
                 }
             }
             // now add the HDMI vc4 cards
-            foreach ($cardlistHDMIvc4 as $card) {
-                $cardname = get_between_data($card, '=');
-                if ($cardname) {
-                    $acardHDMIvc4 = array();
-                    $acardHDMIvc4['device'] = $card;
-                    $acardHDMIvc4['extlabel'] = $cardname;
-                    $acardHDMIvc4['name'] = $cardname;
-                    $acardHDMIvc4['type'] = 'alsa';
-                    $acardHDMIvc4['description'] = $cardname;
-                    // allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
-                    //  HDMI valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
-                    //      20 bits, or 24 bits at up to 8 channels
-                    //  we choose to run at 24 bit, 2 channels for the specified sample rates
-                    $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"\n";
-                    $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+            if (is_array($cardlistHDMIvc4)) {
+                foreach ($cardlistHDMIvc4 as $card) {
+                    $cardname = get_between_data($card, '=');
+                    if ($cardname) {
+                        $acardHDMIvc4 = array();
+                        $acardHDMIvc4['device'] = $card;
+                        $acardHDMIvc4['extlabel'] = $cardname;
+                        $acardHDMIvc4['sysname'] = $cardname;
+                        $acardHDMIvc4['type'] = 'alsa';
+                        if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 2)) {
+                            $acardHDMIvc4['mixer_control'] = 'PCM';
+                        }
+                        $acardHDMIvc4['description'] = 'Raspberry Pi: SW'.$cardname;
+                        // add allowed formats to the card options
+                        $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
+                        $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+                    }
                 }
             }
             //
@@ -3379,14 +3605,14 @@ function wrk_i2smodule($redis, $args)
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
         // RuneAudio enable/disable/change i2s audio output overlays
         if ($args == 'none') {
-            // dtoverlay=none disables all following dtoverlay commands in config.txt, so comment out the line
+            // dtoverlay=none disables all following dtoverlay commands in <p1mountpoint>/config.txt, so comment out the line
             $newLine = '#dtoverlay='.$args;
         } else {
             $newLine = 'dtoverlay='.$args;
         }
-        $file = '/boot/config.txt';
+        $file = $redis->get('p1mountpoint').'/config.txt';
         $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', $newLine, 'RuneAudio I2S-Settings', 1);
-        // Commit changes to /boot/config.txt
+        // Commit changes to config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
         fclose($fp);
@@ -3479,40 +3705,32 @@ function wrk_audio_on_off($redis, $args)
     $hwplatformid = $redis->get('hwplatformid');
     if (($hwplatformid === '01') || ($hwplatformid === '08')) {
         if ($args == 1) {
-            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' /boot/config.txt");
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=on' '".$redis->get('p1mountpoint')."/config.txt'");
         } else {
-            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' /boot/config.txt");
+            sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' '".$redis->get('p1mountpoint')."/config.txt'");
         }
-        // ## RuneAudio enable HDMI & analog output
-        // $file = '/boot/config.txt';
-        // $newArray = wrk_replaceTextLine($file, '', 'dtparam=audio=', 'dtparam=audio='.($args == 1 ? 'on' : 'off'), '## RuneAudio HDMI & 3,5mm jack', 1);
-        // // Commit changes to /boot/config.txt
-        // $fp = fopen($file, 'w');
-        // $return = fwrite($fp, implode("", $newArray));
-        // fclose($fp);
     }
 }
 
 function wrk_kernelswitch($redis, $args)
 {
-    $file = '/boot/config.txt';
-    $newArray = wrk_replaceTextLine($file, '', 'kernel=', 'kernel='.$args.'.img');
-    // Commit changes to /boot/config.txt
-    $fp = fopen($file, 'w');
-    $return = fwrite($fp, implode("", $newArray));
-    fclose($fp);
-    $file = '/boot/config.txt';
-    $newArray = wrk_replaceTextLine($file, '', 'cmdline=', 'cmdline=cmdline_'.$args.'.txt');
-    // Commit changes to /boot/config.txt
-    $fp = fopen($file, 'w');
-    $return = fwrite($fp, implode("", $newArray));
-    fclose($fp);
+    // $file = $redis->get('p1mountpoint').'/config.txt';
+    // $newArray = wrk_replaceTextLine($file, '', 'kernel=', 'kernel='.$args.'.img');
+    // // Commit changes to config.txt
+    // $fp = fopen($file, 'w');
+    // $return = fwrite($fp, implode("", $newArray));
+    // fclose($fp);
+    // $newArray = wrk_replaceTextLine($file, '', 'cmdline=', 'cmdline=cmdline_'.$args.'.txt');
+    // // Commit changes to config.txt
+    // $fp = fopen($file, 'w');
+    // $return = fwrite($fp, implode("", $newArray));
+    // fclose($fp);
 
-    if ($return) {
-        $redis->set('kernel', $args);
-        $redis->save();
-    }
-    return $return;
+    // if ($return) {
+        // $redis->set('kernel', $args);
+        // $redis->save();
+    // }
+    // return $return;
 }
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
@@ -3525,6 +3743,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $redis->sRem('w_lock', $jobID);
             }
             sysCmd('/srv/http/db/redis_acards_details');
+            $redis->del('acards');
             wrk_audioOutput($redis, 'refresh');
             $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
             $redis->hSet('mpdconf', 'version', $mpdversion);
@@ -3784,33 +4003,50 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $redis->Set('ao', $ao);
                 $redis->Set('ao_default', $ao);
                 // set this card to the default alsa card
-                set_alsa_default_card($ao);
+                set_alsa_default_card($redis, $ao);
+                wrk_hwinput($redis, 'refresh');
             }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
+            // get hdmi acards and merge with acards
+            //  these are hdmi outputs which have been used in the past on this machine
+            //  by always including them in mpd.conf it will prevent restarting mpd when hdmi output is is active/inactive on subsequent start-ups
+            if ($redis->exists('hdmiacards')) {
+                $acards = array_merge($redis->hgetall('hdmiacards'), $acards);
+            }
+            // save hdmi acards
+            //  first delete the current hdmi acards
+            $redis->del('hdmiacards');
+            foreach ($acards as $key => $acard) {
+                if (strpos(' '.strtolower($key), 'hdmi')) {
+                    // the card name contains hdmi, save it
+                    $redis->hSet('hdmiacards', $key, $acard);
+                }
+            }
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
             //  the MPD config file will not be replaced and MPD not restarted
-            ksort($acards);
+            //  sort order is case insensitive
+            ksort($acards, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($acards as $main_acard_name => $main_acard_details) {
                 // $card_decoded = new stdClass();
                 unset($card_decoded);
                 $card_decoded = array();
                 $card_decoded = json_decode($main_acard_details, true);
                 // debug
-                runelog('decoded ACARD '.$card_decoded['name'], $main_acard_details, __FUNCTION__);
+                runelog('decoded ACARD '.$card_decoded['sysname'], $main_acard_details, __FUNCTION__);
                 // handle sub-interfaces
                 if (isset($card_decoded['integrated_sub']) && ($card_decoded['integrated_sub'] === 1)) {
                     // record UI audio output name
-                    $current_card = $card_decoded['name'];
+                    $current_card = $card_decoded['sysname'];
                     // if ($sub_count >= 1) continue;
                     // $card_decoded = json_decode($card_decoded->real_interface);
                     runelog('current AO ---->  ', $ao, __FUNCTION__);
                     // var_dump($ao);
-                    runelog('current card_name ---->  ', $card_decoded['name'], __FUNCTION__);
+                    runelog('current card_name ---->  ', $card_decoded['sysname'], __FUNCTION__);
                     // var_dump($card_decoded->name);
                     // var_dump(strpos($ao, $card_decoded->name));
-                    if (strpos($ao, $card_decoded['name']) === true OR strpos($ao, $card_decoded['name']) === 0) $sub_interface_selected = 1;
+                    if (strpos($ao, $card_decoded['sysname']) === true OR strpos($ao, $card_decoded['sysname']) === 0) $sub_interface_selected = 1;
                     // debug
                     if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
                     // debug
@@ -3823,7 +4059,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="audio_output {\n";
                 // $output .="name \t\t\"".$card_decoded->name."\"\n";
                 if (isset($sub_interface)) {
-                    $output .="\tname \t\t\"".$card_decoded['name']."\"\n";
+                    $output .="\tname \t\t\"".$card_decoded['sysname']."\"\n";
                 } else {
                     $output .="\tname \t\t\"".$main_acard_name."\"\n";
                 }
@@ -3833,7 +4069,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                      if (isset($card_decoded['mixer_control'])) {
                         $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        $output .="\tmixer_device \t\"".substr($card_decoded['device'], 0, 4)."\"\n";
+                        if (isset($card_decoded['mixer_device'])) {
+                            $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
+                        }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
                             $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
@@ -3885,6 +4123,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // add Bluetooth output devices for all known connections
             $btDevices = wrk_btcfg($redis, 'status');
             $btconfig = $redis->hgetall('bluetooth');
+            ksort($btconfig, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($btDevices as $btDevice) {
                 if ($btDevice['sink'] && $btDevice['device']) {
                     $output .= "audio_output {\n";
@@ -3900,9 +4139,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .= "\tmixer_type \t\"software\"\n";
                     //
                     if (isset($btconfig['samplerate'])) {
-                        $output .= "\tallowed_formats \"".$btconfig['samplerate'].":16:*\"\n";
+                        $output .= "\tallowed_formats \"".$btconfig['samplerate'].":16:2\"\n";
                     } else {
-                        $output .= "\tallowed_formats \"48000:16:*\"\n";
+                        $output .= "\tallowed_formats\t\"".$redis->hGet('bluetooth', 'samplerate').":16:2\"";
                     }
                     $output .= "\tauto_resample \t\"no\"\n";
                     $output .= "\tauto_format \t\"no\"\n";
@@ -4029,7 +4268,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->sRem('w_lock', $jobID);
                 }
                 // set this card to the default alsa card
-                set_alsa_default_card($args);
+                set_alsa_default_card($redis, $args);
+                wrk_hwinput($redis, 'refresh');
                 // get interface details
                 $acard = json_decode($redis->hGet('acards', $args), true);
                 // save the card if it is a 'hw:' type
@@ -4076,9 +4316,17 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
             }
             if ($startBluetooth && sysCmd('mpc status | grep -ic "[playing]"')[0]) {
+                // // set the initial volume for the bluetooth device
+                // $btVolume = $redis->hGet('bluetooth', 'def_volume_out');
+                // if ($btVolume != -1) {
+                    // sysCmd('mpc volume '.$btVolume);
+                // }
                 // bluealsa needs a pause and play to successfully switch when already playing
                 sysCmd('mpc pause');
                 sysCmd('mpc play');
+            }
+            if ($redis->get('activePlayer') === 'Bluetooth') {
+                wrk_btcfg($redis, 'auto_volume');
             }
             // set notify label
             if (isset($acard['description'])) {
@@ -4091,6 +4339,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // notify UI
             if ($interface_label) {
                 ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+            }
+            if ($redis->get('activePlayer') != 'MPD') {
+                ui_notify($redis, 'Playback source switched to:', 'MPD');
+                wrk_stopPlayer($redis);
             }
             break;
         case 'refresh':
@@ -4448,6 +4700,8 @@ function wrk_mpdRestorePlayerStatus($redis)
         // }
         sysCmd('mpc output enable "null"');
     }
+    // set this card to the default alsa card
+    set_alsa_default_card($redis);
     // allow global random to start
     $redis->hSet('globalrandom', 'wait_for_play', 0);
 }
@@ -4474,7 +4728,8 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             if ($ao != '') {
                 $redis->set('ao', $ao);
                 // set this card to the default alsa card
-                set_alsa_default_card($ao);
+                set_alsa_default_card($redis, $ao);
+                wrk_hwinput($redis, 'refresh');
             }
         }
     } else {
@@ -4655,7 +4910,8 @@ function wrk_shairport($redis, $ao = null, $name = null)
                 if ($ao != '') {
                     $redis->set('ao', $ao);
                     // set this card to the default alsa card
-                    set_alsa_default_card($ao);
+                    set_alsa_default_card($redis, $ao);
+                    wrk_hwinput($redis, 'refresh');
                 }
             }
         }
@@ -5324,6 +5580,8 @@ function wrk_getHwPlatform($redis, $reset=false)
         // set the default local browser windows and browser type
         $redis->hSet('local_browser', 'windows', 'xorg');
         $redis->hSet('local_browser', 'browser', 'luakit');
+        $redis->del('acards');
+        $redis->del('hdmiacards');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
@@ -5410,7 +5668,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         $redis->hExists('airplay', 'soxronoff') || $redis->hSet('airplay', 'soxronoff', 1);
                         $redis->hExists('airplay', 'metadataonoff') || $redis->hSet('airplay', 'metadataonoff', 1);
                         $redis->hExists('airplay', 'artworkonoff') || $redis->hSet('airplay', 'artworkonoff', 1);
-                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 1);
+                        $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);
                         $redis->hExists('airplay', 'metadata_enabled') || $redis->hSet('airplay', 'metadata_enabled', 'yes');
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
@@ -5565,6 +5823,12 @@ function wrk_setHwPlatform($redis, $reset=false)
         // its a Pi4
         $filename = '/usr/bin/chromium';
         clearstatcache(true, $filename);
+        if (file_exists($filename)) {
+            // chromium is installed, use it
+            $redis->hSet('local_browser', 'browser', 'chromium');
+        }
+    } else {
+        // fix for poor performance of luakit on all platforms, use chromium
         if (file_exists($filename)) {
             // chromium is installed, use it
             $redis->hSet('local_browser', 'browser', 'chromium');
@@ -5897,6 +6161,7 @@ function wrk_changeHostname($redis, $newhostname)
     $newhostname = trim($newhostname);
     If ($newhostname != preg_replace('/[^A-Za-z0-9-]/', '', $newhostname)) {
         // do not do anything
+        ui_notifyError($redis, 'Hostname', 'New hostname invalid, hostname change failed');
         runelog('new hostname invalid', $newhostname);
         return;
     }
@@ -6266,7 +6531,42 @@ function ui_status($redis, $mpd, $status)
 {
     if (isset($status['song'])) {
         $curTrack = getTrackInfo($mpd, $status['song']);
+    } else {
+        // MPD is stopped after completing playing the queue
+        //  get info about the first track in  the queue
+        $curTrack = getTrackInfo($mpd, 0);
+        //  randomise the playlist variable to a negative value to force a queue update, normally MPD moves this number sequentially forward
+        //      when it detects a queue change, but end-of-queue is not reported (it not foolproof, duplicate number could be returned)
+        $status['playlist'] = rand(-100, -1);
+        //  elapsed and song_pecent are zero
+        $status['elapsed'] = 0;
+        $status['song_percent'] = 0;
+        //  set up the song, nextsong, songid and nextsongid, however nextsong and nextsongid could be incorrect but this will be
+        //      corrected when something is played
+        if (!isset($curTrack[0]['Pos']) || is_null($curTrack[0]['Pos'])) {
+            $status['song'] = 0;
+            $status['nextsong'] = 0;
+        } else {
+            $status['song'] = $curTrack[0]['Pos'];
+            $status['nextsong'] = $status['song'] + 1;
+        }
+        if (!isset($curTrack[0]['Id']) || is_null($curTrack[0]['Id'])) {
+            $status['songid'] = 0;
+            $status['nextsongid'] = 0;
+        } else {
+            $status['songid'] = $curTrack[0]['Id'];
+            $status['nextsongid'] = $status['songid'] + 1;
+        }
+        //  set up the track time
+        if (!isset($curTrack[0]['Time']) || is_null($curTrack[0]['Time'])) {
+            $status['time'] = 0;
+        } else {
+            $status['time'] = $curTrack[0]['Time'];
+        }
     }
+    // debug
+    // echo "Function: ui_status\n";
+    // var_dump($curTrack);
     if (isset($curTrack[0]['Title'])) {
         // $status['currentalbumartist'] = htmlentities($curTrack[0]['AlbumArtist'], ENT_XML1, 'UTF-8');
         // $status['currentartist'] = htmlentities($curTrack[0]['Artist'], ENT_XML1, 'UTF-8');
@@ -6344,7 +6644,7 @@ function ui_status($redis, $mpd, $status)
     // radio's are not always detected correctly, correct them and determine the radio name
     if (!$status['radioname'] && isset($status['file']) && (strtolower(substr($status['file'], 0, 4)) == 'http')) {
         // radio name not detected by MPD but the file is has a http prefix, it could still be a radio
-        if (isset($lastRadioDetails['file']) && ($lastRadioDetails['file'] = $status['file'])) {
+        if (isset($lastRadioDetails['file']) && ($lastRadioDetails['file'] == $status['file'])) {
             // its the same radio as the previous one
             $status['radioname'] = $lastRadioDetails['radioname'];
             // current album is the radio name
@@ -6931,7 +7231,11 @@ function ui_update($redis, $sock=null, $clientUUID=null)
             // for streaming - airplay, spotify connect & bluetooth
             $status = json_decode($redis->get('act_player_info'), true);
             if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
-                $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                if (isset($status['elapsed'])) {
+                    $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                } else {
+                    $status['elapsed'] = round(microtime(true) - $status['time_last_elapsed']);
+                }
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             } else {
                 unset($status['song_percent'], $status['elapsed']);
@@ -7025,8 +7329,11 @@ function netmask($bitcount)
 }
 
 // sort multi-dimensional array by key
-function osort(&$array, $key, $descending=false)
+function osort(&$array, $key, $descending=false, $ignoreCase=false)
 // $array is passed by reference, nothing needs to be returned
+// two parameters:
+//  $descending: default false, when true sorts descending
+//  $ignoreCase: default false, when true sorts ignoring case
 {
     if (!is_array($array)) {
         // not an array
@@ -7042,12 +7349,20 @@ function osort(&$array, $key, $descending=false)
     if ($descending) {
         // descending  sort
         usort($array, function($b, $a) use ($key) {
-            return $a[$key] <=> $b[$key];
+            if ($ignoreCase) {
+                return strtolower($a[$key]) <=> strtolower($b[$key]);
+            } else {
+                return $a[$key] <=> $b[$key];
+            }
         });
     } else {
         // ascending sort
         usort($array, function($a, $b) use ($key) {
-            return $a[$key] <=> $b[$key];
+            if ($ignoreCase) {
+                return strtolower($a[$key]) <=> strtolower($b[$key]);
+            } else {
+                return $a[$key] <=> $b[$key];
+            }
         });
     }
     return true;
@@ -8009,7 +8324,16 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
     //  its set to a value larger than the minimum queue length so that the ashuffle intermediate random list is never emptied
     //  also set the suspend timeout to its redis value (default 20ms) to prevent crashes after clearing the queue, a value
     //  of 1 second allows UPnP/DLNA work correctly in conjunction with ashuffle
-    $randomWindow = rand(7+$quelen, 20+$quelen);
+    $randomWindow = rand(30+$quelen, 40+$quelen);
+    $songs = sysCmd('mpc stats | grep -i songs | xargs | cut -d ":" -f 2 | xargs')[0];
+    if (isset($songs) && is_numeric($songs) && ($songs < $randomWindow)) {
+        // random window should not be bigger than the number of songs
+        if ($songs > 8) {
+            $randomWindow = $songs - 1;
+        } else {
+            $randomWindow = 7;
+        }
+    }
     $tweaks = ' -t window-size='.$randomWindow.' -t suspend-timeout='.$redis->hGet('globalrandom', 'suspend_timeout');
     $hostAndPort = ' --host '."'".$redis->hGet('mpdconf', 'bind_to_address')."'".' --port '."'".$redis->hGet('mpdconf', 'port')."'";
     switch ($action) {
@@ -8051,6 +8375,18 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             // delete all broken symbolic links in the playlist directory
             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
             $playlistFilename = $playlistDirectory.'/'.$playlistName.'.m3u';
+            // reset the random window
+            $randomWindow = rand(30+$quelen, 40+$quelen);
+            $songs = sysCmd('wc -l '.$playlistFilename.' | xargs | cut -d " " -f1 | xargs')[0];
+            if (isset($songs) && is_numeric($songs) && ($songs < $randomWindow)) {
+                // random window should not be bigger than the songs in the playlist
+                if ($songs > 8) {
+                    $randomWindow = $songs - 1;
+                } else {
+                    $randomWindow = 7;
+                }
+            }
+            $tweaks = ' -t window-size='.$randomWindow.' -t suspend-timeout='.$redis->hGet('globalrandom', 'suspend_timeout');
             // save the playlist and playlist filename
             $redis->hSet('globalrandom', 'playlist', $playlistName);
             $redis->hSet('globalrandom', 'playlist_filename', $playlistFilename);
@@ -8141,7 +8477,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     wrk_ashuffle($redis, 'set', $playlistName);
                 }
             }
-            $moveNr = $queuedSongs + 1;
+            $moveNr = intval($queuedSongs) + 1;
             // start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons
             // stop Global Random if disabled - there are also other conditions when ashuffle must be stopped
             // ashuffle also seems to be a little bit unstable, it occasionally unpredictably crashes
@@ -8239,6 +8575,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
+                            sysCmd('systemctl daemon-reload');
                             sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
                             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
                         }
@@ -8425,8 +8762,7 @@ function wrk_check_MPD_outputs($redis)
                 $aoName = get_between_data($retval[0], '(', ')');
                 if (isset($aoName) && $aoName) {
                     // the card has an audio output name
-                    // set this card to the default alsa card
-                    set_alsa_default_card($aoName);
+                    wrk_hwinput($redis, 'refresh');
                     if ($redis->hExists('acards', $aoName)) {
                         // the card is listed in acards, so set it as the active audio output
                         $redis->set('ao', $aoName);
@@ -8462,6 +8798,8 @@ function wrk_check_MPD_outputs($redis)
     if ($ao && ($ao != $airplayAo)) {
         wrk_shairport($redis, $ao);
     }
+    // set this card to the default alsa card
+    set_alsa_default_card($redis);
 }
 
 // function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
@@ -9002,7 +9340,13 @@ function get_lastFm($redis, $url)
 //    $retval = json_decode(curlGet($url, $proxy), true);
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
+    $retval = sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    if (isset($retval[0])) {
+        $retval = json_decode($retval[0], true);
+    } else {
+        // no response
+        $retval = '';
+    }
     if (isset($retval['error'])) {
         if (in_array($retval['error'], $lastfmDownErrors)) {
             // last.fm is down, or has other problems, for error codes see: https://www.last.fm/api/errorcodes
@@ -9232,6 +9576,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     }
     //
     // chartlyrics
+    $match_percentage = $redis->hGet('lyrics', 'match_percentage');
     $chartlyricsUp = $redis->hGet('service', 'chartlyrics');
     if (!$chartlyricsUp) {
         // chartlyrics is down
@@ -9273,35 +9618,26 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                 // remove leading empty lines
                 $retval = trim(substr($retval, 4));
             }
+            $found = true;
             if (!$retval) {
                 // nothing returned
-                // this will be reset each 15 minutes, providing that the chartlyrics site is up
                 $retval = '';
                 $found = false;
             } else {
                 // we get a lot of false positive matches from chartlyrics
-                // check that at least 50% of words in the search artist name occur in the returned artist name
-                $searchArtistParts = explode(' ', $searchArtist);
-                $searchArtistPartsCount = count($searchArtistParts);
-                $searchArtistPartsFound = 0;
-                foreach ($searchArtistParts as $part) {
-                    // simple lower case word check
-                    if (stripos(' '.strtolower($artist), strtolower($part))) {
-                        // match
-                        $searchArtistPartsFound++;
-                    } else {
-                        // complex word check after converting special and complex characters to normal characters
-                        if (stripos(' '.squashCharacters(strtolower($artist)), squashCharacters(strtolower($part)))) {
-                            // match
-                            $searchArtistPartsFound++;
-                        }
-                    }
-                }
-                if ($searchArtistPartsFound && ((($searchArtistPartsFound * 100) / $searchArtistPartsCount) > 50)) {
-                    $found = true;
-                } else {
-                    $retval = '';
+                // check that at least $match_percentage (default = 50%) of words in the search artist name occur in the returned
+                //  artist name, and visa versa, and also in the search and returned song title and visa versa
+                if (count_word_occurancies($searchArtist, $artist) < $match_percentage) {
                     $found = false;
+                } else if (count_word_occurancies($artist, $searchArtist) < $match_percentage) {
+                    $found = false;
+                } else if (count_word_occurancies($searchSong, $song) < $match_percentage) {
+                    $found = false;
+                } else if (count_word_occurancies($song, $searchSong) < $match_percentage) {
+                    $found = false;
+                }
+                if (!$found) {
+                    $retval = '';
                 }
             }
         }
@@ -9431,6 +9767,7 @@ function get_songInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
@@ -9543,16 +9880,15 @@ function get_songInfo($redis, $info=array())
                     $info['song_lyrics'] = $retval['song_lyrics'];
                     // break both loops
                     break 2;
-                } else {
-                    // pause before trying again
-                    sleep(2);
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
     }
     if (!$info['song_lyrics']) {
         $info['song_lyrics'] = 'No lyrics available<br>';
-        if ($retval['service'] == 'chartlyrics') {
+        if (isset($retval['service']) && ($retval['service'] == 'chartlyrics')) {
             $info['song_lyrics'] .= 'Add lyrics for this song at <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a>';
         }
     }
@@ -9610,6 +9946,7 @@ function get_albumInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
@@ -9761,6 +10098,8 @@ function get_albumInfo($redis, $info=array())
                             break 2;
                         }
                     }
+                    // sleep before trying again
+                    sleep(2);
                 }
             }
         }
@@ -9885,6 +10224,7 @@ function get_artistInfo($redis, $info=array())
     // when all the information which needs to be set is already set just save the cache
     $allset = true;
     foreach ($toSetInfoFields as $toSetInfoField) {
+        $info[$toSetInfoField] = trim($info[$toSetInfoField]);
         if (!isset($info[$toSetInfoField]) || !$info[$toSetInfoField]) {
             $allset = false;
             break;
@@ -10013,6 +10353,8 @@ function get_artistInfo($redis, $info=array())
                     // found the artist on last.fm, use the data
                     break;
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
         if ($retval) {
@@ -10065,6 +10407,8 @@ function get_artistInfo($redis, $info=array())
                         break;
                     }
                 }
+                // sleep before trying again
+                sleep(2);
             }
         }
         if ($info['artist_mbid']) {
@@ -10635,6 +10979,9 @@ function wrk_getSpotifyMetadata($redis, $track_id)
 //  array['album.description'] > the album description including single/album info (from album data)
 //  array['artist.description'] > the number of monthly listeners (from artist data)
 {
+    // debug
+    // echo "Track ID: '$track_id'\n";
+    runelog('[wrk_getSpotifyMetadata] Track ID: '.$track_id);
     // get the album art directory and url dir
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
@@ -10688,10 +11035,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
-        //$command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        //
+        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -10710,8 +11058,8 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                 continue;
             }
             // debug
-            echo "Title line: ".$line."\n";
-            runelog('[wrk_getSpotifyMetadata] Title line: '.$line);
+            // echo "Line: ".$line."\n";
+            runelog('[wrk_getSpotifyMetadata] Line: '.$line);
             // result is <identifier>=<value>
             $lineparts = explode('=', $line, 2);
             if ($lineparts[0] === 'og:title') {
@@ -10765,10 +11113,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     } else {
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
-        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -vi country | grep -vi canonical';
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
+        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
@@ -10998,19 +11346,40 @@ function search_array_keys($myArray, $search)
     return false;
 }
 
-// sets the default alsa card, based on the card name
-function set_alsa_default_card($cardName)
+// sets the default alsa card and the bluealsa ouput card, based on the card name
+function set_alsa_default_card($redis, $cardName=null)
 {
     $alsaFileName = '/etc/asound.conf';
     $bluealsaFileName = '/etc/default/bluealsa-aplay';
-    if (isset($cardName) && $cardName) {
-        $cardNumber = sysCmd("aplay -l | grep '".$cardName."'")[0];
-        if (isset($cardNumber) && $cardNumber) {
-            $cardNumber = trim(get_between_data($cardNumber[0], 'card ', ': '));
-        }
-    } else {
+    $ao = $redis->get('ao');
+    if (!isset($ao) || !$ao) {
+        $ao = $redis->get('ao_default');
+    }
+    if (!isset($cardName) || !$cardName) {
+        $cardName = $ao;
+    }
+    if (!isset($cardName) || !$cardName) {
+        // no card defined
         return;
     }
+    $acard = json_decode($redis->hGet('acards', $cardName), true);
+    if (!isset($acard['device']) || !$acard['device']) {
+        $acard = json_decode($redis->hGet('acards', $ao), true);
+    }
+    if (!isset($acard['device']) || !$acard['device']) {
+        // invalid card
+        echo "Invalid ao card: '$cardName', '$oa'\n";
+        return;
+    }
+    //
+    $device = $acard['device'];
+    $cardNumber = get_between_data($device, ':', ',');
+    if (isset($acard['mixer_device']) && isset($acard['mixer_control']) && $acard['mixer_device'] && $acard['mixer_control']) {
+        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+    } else {
+        $mixerInfo = '';
+    }
+    //
     if (!isset($cardNumber) || !is_numeric($cardNumber)) {
         // card number is not set, remove entries from /etc/asound.conf
         clearstatcache(true, $alsaFileName);
@@ -11021,9 +11390,6 @@ function set_alsa_default_card($cardName)
         } else {
             return;
         }
-        // also configure bluealsa to point at the default card (card 0)
-        //
-        sysCmd('echo "OPTIONS=\"-Dhw:0,0\"" > "'.$bluealsaFileName.'"');
     } else {
         // card number is set modify/add entries to /etc/asound.conf
         clearstatcache(true, $alsaFileName);
@@ -11039,9 +11405,9 @@ function set_alsa_default_card($cardName)
             sysCmd('echo defaults.pcm.card '.$cardNumber." >> '".$alsaFileName."'");
             sysCmd('echo defaults.ctl.card '.$cardNumber." >> '".$alsaFileName."'");
         }
-        // also configure bluealsa to point at the default card
-        sysCmd('echo "OPTIONS=\"-Dhw:'.$cardNumber.',0\"" > "'.$bluealsaFileName.'"');
     }
+    // also configure bluealsa to point at the default card
+    sysCmd('echo "OPTIONS=\"--pcm='.$device.$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
@@ -11101,29 +11467,46 @@ function wrk_llmnrd($redis)
 }
 
 // function to set up and configure Bluetooth input and output
-function wrk_btcfg($redis, $action, $param = null)
-// $action has the values: enable, disable, clear, pair, cancel_pairing, connect, disconnect, scan_bt_source, trust, untrust, status
+function wrk_btcfg($redis, $action, $param = null, $jobID = null)
+// $action has the values:
+//  enable, disable, reset, restart_bluealsa_aplay, clear, input_connect, output_list, pair, unpair, connect,
+//  disconnect, disconnect_sources, disconnect_sinks, trust, untrust, block, unblock, forget, remove_bt_acards,
+//  correct_bt_ao, set_volume, status, status_async, status_async_now, check_bt_mpd_output, bt_scan_output, config,
+//  quality_options, auto_volume
 // the function returns true or false, except when $action = status, in which case an array containing all bluetooth device statuses is returned
 // $param optionally contains a the MAC-address of the device, where:
 //  $param is valid for: pair, cancel-pairing, connect, disconnect, output_connect, trust, untrust
 //  $param is compulsory for: pair, connect
 //  when $param is not supplied all devices will be processed
+//  $jobID is always optional, is only relevant for some actions, when supplied the ID will be released quicker
 {
     $retval = true;
     switch ($action) {
         case 'enable':
             // enable Bluetooth, a reboot is required if it was disabled
-            sysCmd('/srv/http/command/bt_on.sh');
+            if (isset($param) && ($param = 'async')) {
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_on.sh');
+            } else {
+                sysCmd('/srv/http/command/bt_on.sh');
+            }
             break;
         case 'disable':
             // run the command file to disable Bluetooth, a reboot is required if it was enabled
-            sysCmd('/srv/http/command/bt_off.sh');
+            if (isset($param) && ($param = 'async')) {
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_off.sh');
+            } else {
+                sysCmd('/srv/http/command/bt_off.sh');
+            }
             break;
         case 'reset':
             // disconnects all connected Bluetooth devices and restarts the Bluetooth services
             wrk_btcfg($redis, 'disconnect');
             wrk_btcfg($redis, 'disable');
             wrk_btcfg($redis, 'enable');
+            break;
+        case 'restart_bluealsa_aplay':
+            // restarts bluealsa-aplay (when running) after changing parameters
+            sysCmd('pgrep -x bluealsa-aplay && systemctl restart bluealsa-aplay');
             break;
         case 'clear':
             // remove all cached Bluetooth information
@@ -11134,15 +11517,16 @@ function wrk_btcfg($redis, $action, $param = null)
         case 'input_connect':
             // allows RuneAudio to be detectable as a Bluetooth device and allow a pair and connect from an input (source) device
             //  it is detectable, pair-able and connect-able  for 120 seconds
-            // disconnect all Bluetooth devices
-            wrk_btcfg($redis, 'disconnect');
-            $redis->hSet('bluetooth', 'initialising', 1);
-            sysCmd('systemctl start bluetooth-agent');
+            sysCmd('systemctl stop bt_scan_output ; systemctl start bluetooth-agent');
             wrk_startPlayer($redis, "Bluetooth");
             break;
         case 'output_list':
-            // scan for Bluetooth output devices asynchronously
-            sysCmdAsync($redis, 'systemctl start bt_scan_output');
+            // scan for Bluetooth output devices
+            sysCmd('systemctl stop bluetooth-agent ; systemctl start bt_scan_output');
+            if ($redis->get('activePlayer') == 'Bluetooth') {
+                wrk_stopPlayer($redis);
+            }
+            wrk_btcfg($redis, 'disconnect_sources');
             break;
         case 'pair':
             // pair a specified Bluetooth device
@@ -11173,35 +11557,12 @@ function wrk_btcfg($redis, $action, $param = null)
             break;
        case 'connect':
             // connect a specified Bluetooth device (pairing will also be done if required)
-            //  relevant connected devices will be disconnected prior to the connect
             if (!isset($param) || !$param) {
                 $retval = false;
                 break;
             }
-            $devices = json_decode($redis->get('bluetooth_status'), true);
-            if (isset($devices[$param]['sink']) && $devices[$param]['sink']) {
-                // its a sink, so disconnect all source connections
-                $disconnectType = 'source';
-            } else if (isset($devices[$param]['source']) && $devices[$param]['source']) {
-                // its a source, so disconnect all connections
-                $disconnectType = '';
-            } else {
-                // its unknown, so disconnect all connections
-                $disconnectType = '';
-            }
-            if ($disconnectType) {
-                foreach ($devices as $device) {
-                    if ($device[$disconnectType] && $device['connected']) {
-                        wrk_btcfg($redis, 'disconnect', $device['device']);
-                    }
-                }
-            } else {
-                wrk_btcfg($redis, 'disconnect');
-            }
-            if (!isset($devices[$param]['device']) || !$devices[$param]['device'] ) {
-                // its not paired, so do that first
-                wrk_btcfg($redis, 'pair', $param);
-            }
+            // wrk_btcfg($redis, 'trust', $param);
+            wrk_btcfg($redis, 'pair', $param);
             sysCmd('timeout 5 bluetoothctl connect '.$param);
             wrk_btcfg($redis, 'trust', $param);
             break;
@@ -11236,8 +11597,6 @@ function wrk_btcfg($redis, $action, $param = null)
                         wrk_btcfg($redis, 'disconnect', $device['device']);
                     }
                 }
-            }
-            foreach ($devices as $device) {
                 if ($device['sink']) {
                     if ($device['blocked']) {
                         // disconnect if connected
@@ -11336,7 +11695,17 @@ function wrk_btcfg($redis, $action, $param = null)
         case 'forget':
             // removes the Bluetooth device(s)
             if (isset($param) && $param) {
+                // if (isset($devices[$param]['paired']) && $devices[$param]['paired']) {
+                    // wrk_btcfg($redis, 'unpair', $param);
+                // }
+                if (isset($devices[$param]['trused']) && $devices[$param]['trused']) {
+                    wrk_btcfg($redis, 'untrust', $param);
+                }
+                if (isset($devices[$param]['connected']) && $devices[$param]['connected']) {
+                    wrk_btcfg($redis, 'disconnect', $param);
+                }
                 sysCmd('timeout 5 bluetoothctl remove '.$param);
+                sysCmd('find /var/lib/bluetooth/ -name *'.$param.'* -exec rm -rf {} \;');
             } else {
                 $bluetoothDevices = sysCmd('timeout 5 bluetoothctl devices');
                 if (isset($bluetoothDevices[0]) && trim($bluetoothDevices[0])) {
@@ -11344,10 +11713,6 @@ function wrk_btcfg($redis, $action, $param = null)
                         $btDevice = preg_replace('/[\s\t]+/', ' ', trim($bluetoothDevice));
                         if (substr_count($btDevice, ' ') >= 2) {
                             list( , $bluetoothDeviceMac, ) = explode(' ', $btDevice, 3);
-                            // wrk_btcfg($redis, 'block', $bluetoothDeviceMac);
-                            wrk_btcfg($redis, 'untrust', $bluetoothDeviceMac);
-                            wrk_btcfg($redis, 'disconnect', $bluetoothDeviceMac);
-                            // wrk_btcfg($redis, 'unpair', $bluetoothDeviceMac);
                             wrk_btcfg($redis, 'forget', $bluetoothDeviceMac);
                         }
                     }
@@ -11384,14 +11749,14 @@ function wrk_btcfg($redis, $action, $param = null)
             // sets the volume of a Bluetooth source device
             //  there should only be one active source device when this is called, but we will apply the volume change to all active source pcms
             $pcmsSource = sysCmd('timeout 5 bluealsa-cli list-pcms | grep a2dp | grep -i "source"');
-            $def_volume = $redis->hGet('bluetooth', 'def_volume');
+            $def_volume_in = $redis->hGet('bluetooth', 'def_volume_in');
             foreach ($pcmsSource as $pcmsPath) {
-                sysCmd('timeout 5 bluealsa-cli volume '.$pcmsPath.' '.$def_volume);
+                sysCmd('timeout 5 bluealsa-cli volume '.$pcmsPath.' '.$def_volume_in);
             }
             break;
         case 'status':
-            // returns an array containing the all Blutooth card's and their status
-            // if an active output card is detected it will be added to the acards data structure
+            // returns an array containing the all Blutooth device/connection and their status
+            // if an active output device/connection is detected it will be added to the acards data structure
             //  which allows it to be selected from the UI
             $deviceArray = array();
             $bluetoothOn = $redis->get('bluetooth_on');
@@ -11483,9 +11848,9 @@ function wrk_btcfg($redis, $action, $param = null)
                     // }
                     $redis->hSet('bluetooth', 'source_dev', $device['device']);
                 }
-                if ($sourceConnected) {
+                if ($redis->get('activePlayer') == 'Bluetooth') {
                     if ($device['sink'] && !$device['source']) {
-                        // this should never get executed, it should be handled elsewhere
+                        // source is playing, disconnect and block sink's
                         if (!$device['blocked']) {
                             wrk_btcfg($redis, 'block', $device['device']);
                             $device['blocked'] = true;
@@ -11514,7 +11879,7 @@ function wrk_btcfg($redis, $action, $param = null)
             // first delete all bluetooth entries in acards
             wrk_btcfg($redis, 'remove_bt_acards');
             $mpdConfigured = true;
-            if (!$sourceConnected && count($deviceArray)) {
+            if (($redis->get('activePlayer') != 'Bluetooth') && count($deviceArray)) {
                 // only activate when there is no connected connected source device and the device array has values
                 $pcmsInfo = sysCmd('timeout 5 bluealsa-cli list-pcms');
                 if (isset($pcmsInfo[0])) {
@@ -11533,11 +11898,8 @@ function wrk_btcfg($redis, $action, $param = null)
                                             $deviceArray[$pcmsDevice]['source'] = true;
                                         } else if ($pcmsType == 'sink') {
                                             $deviceArray[$pcmsDevice]['sink'] = true;
-                                            $retval = sysCmd('grep -ic "'.$deviceArray[$pcmsDevice]['device'].'" "/etc/mpd.conf"');
-                                            if (!$retval) {
-                                                // the ouput device is not included in the MPD configuration file
-                                                $mpdConfigured = false;
-                                            } else {
+                                            $mpdConfigured = sysCmd('grep -ic "'.$deviceArray[$pcmsDevice]['device'].'" "/etc/mpd.conf"')[0];
+                                            if ($mpdConfigured) {
                                                 // only add entries to acards when they have been configured in the MPD configuration file
                                                 if (strpos(' '.$pcmsService, 'a2dp')) {
                                                     // add this valid bluetooth card to the acards data structure
@@ -11549,9 +11911,9 @@ function wrk_btcfg($redis, $action, $param = null)
                                                     // $btCard['mixer_control'] = $deviceArray[$pcmsDevice]['name'].' - A2DP ';
                                                     //
                                                     $btCard['extlabel'] = $deviceArray[$pcmsDevice]['name'];
-                                                    $btCard['name'] = $deviceArray[$pcmsDevice]['name'];
+                                                    $btCard['sysname'] = $deviceArray[$pcmsDevice]['name'];
                                                     $btCard['type'] = 'alsa';
-                                                    $btCard['description'] = $deviceArray[$pcmsDevice]['name'].' ('.$deviceArray[$pcmsDevice]['icon'].')';
+                                                    $btCard['description'] = 'Bluetooth: '.$deviceArray[$pcmsDevice]['name'].' ('.$deviceArray[$pcmsDevice]['icon'].')';
                                                     $redis->hSet('acards', $deviceArray[$pcmsDevice]['name'], json_encode($btCard));
                                                 }
                                             }
@@ -11604,20 +11966,20 @@ function wrk_btcfg($redis, $action, $param = null)
             break;
         case 'bt_scan_output':
             // scan for Bluetooth output devices
-            //  it will run for $param seconds, default = 120 (2 minutes), max 300 (5 minutes)
+            //  it will run for $param seconds, default = 300 (5 minutes), max 600 (10 minutes)
             if (!isset($param) || !trim($param)) {
                 // $param is not set
-                $param = 120;
+                $param = 300;
             } else {
                 // $param has a value
                 $param = intval(trim($param));
             }
             if ($param <= 0) {
                 // $param negative or zero
-                $param = 120;
+                $param = 300;
             }
-            // max 300
-            $param = min($param, 300);
+            // max 600
+            $param = min($param, 600);
             // when we scan for sinks all sources must be disconnected
             wrk_btcfg($redis, 'disconnect_sources');
             // now retrieve the status of the devices, this will also fix audio output
@@ -11648,10 +12010,12 @@ function wrk_btcfg($redis, $action, $param = null)
                 // }
                 sleep(3);
                 $devices = wrk_btcfg($redis, 'status');
-                foreach ($devices as $device) {
-                    if ($device['sink'] && !$device['source'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
-                        // this is a new device or trusted auto-connect has failed to connect it
-                        wrk_btcfg($redis, 'connect', $device['device']);
+                if ($redis->get('activePlayer') != 'Bluetooth') {
+                    foreach ($devices as $device) {
+                        if ($device['sink'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
+                            // this is a new device or trusted auto-connect has failed to connect it
+                            wrk_btcfg($redis, 'connect', $device['device']);
+                        }
                     }
                 }
             }
@@ -11664,6 +12028,7 @@ function wrk_btcfg($redis, $action, $param = null)
                 break;
             }
             $resetBluetooth = false;
+            $restartBluealsaAplay = false;
             $configItems = array();
             $configItems = json_decode($param, true);
             foreach ($configItems as $configKey => $configValue) {
@@ -11674,34 +12039,44 @@ function wrk_btcfg($redis, $action, $param = null)
                 }
                 switch ($configKey) {
                     // setting default volume is done with bluealsa-cli, maybe the code below will be relevant in a future version
-                    // case 'def_volume':
-                        // // set up an array of the files to be processed, these are stored in '/etc/default/bluealsa.<name>'
-                        // //  name is not empty and is the name of the quality option
-                        // wrk_btcfg($redis, 'quality_options');
-                        // $fileNames = json_decode($redis->hget('bluetooth', 'quality_options'), true);
-                        // foreach ($fileNames as $fileName) {
-                            // // process the bluealsa.default file
-                            // $fileContents = preg_replace('!\s+!', ' ',get_file_contents($fileName));
-                            // // replace the parameter, its a little complex since the file could be user edited
-                            // $oldVal = get_between_data($fileContents, '--initial-volume=', ' --');
-                            // if ((strlen($oldVal) <= 3) && is_numeric($oldVal) && ($oldVal <= 100) && ($oldVal >= 0)) {
-                                // // '--initial-volume=' is followed by other parameters
-                                // $repOld = '--initial-volume='.$oldVal.' --';
-                                // $repNew = '--initial-volume='.$configValue.' --';
-                                // $fileContents = str_replace($repOld, $repNew, $fileContents);
-                            // } else {
-                                // $oldVal = get_between_data($fileContents, '--initial-volume=', "\"\n");
-                                // if ((strlen($oldVal) <= 3)) {
-                                    // // '--initial-volume=' is followed by an end of line and no other parameters
-                                    // $repOld = '--initial-volume='.$oldVal."\"\n";
-                                    // $repNew = '--initial-volume='.$configValue."\"\n";
-                                    // $fileContents = str_replace($repOld, $repNew, $fileContents);
-                                // }
-                            // }
-                            // // write the file
-                            // file_put_contents($fileName, $fileContents);
+                    // case 'def_volume_in':
+                        // $volume_in = $configValue;
+                        // if (!isset($volume_out)) {
+                            // $volume_out = $redis->hGet('bluetooth', 'def_volume_out');
                         // }
-                        // $resetBluetooth = true;
+                    // case 'def_volume_out':
+                        // $volume_out = $configValue;
+                        // if (!isset($volume_in)) {
+                            // $volume_in = $redis->hGet('bluetooth', 'def_volume_in');
+                        // }
+                        // if (($volume_in != $volume_out) || ($volume_in == -1)) {
+                            // // the volume is only set when input and output volumes are identical and not -1
+                            // // remove the switch in the files
+                            // // get the files with the switch
+                            // $bluealsaConfigFiles = sysCmd("grep -l -- ' --initial-volume=' /etc/default/bluealsa.*");
+                            // foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                // sysCmd("sed -i '/^OPTIONS=/s/ --initial-volume=[^/s]*//' ".$bluealsaConfigFile);
+                                // $resetBluetooth = true;
+                            // }
+                        // } else {
+                            // // insert the switch in files
+                            // // get the files without the switch with a correct value
+                            // $bluealsaConfigFiles = sysCmd("grep -L -- ' --initial-volume=".$configValue."' /etc/default/bluealsa.*");
+                            // // first remove the incorrect switches
+                            // foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                // sysCmd("sed -i '/^OPTIONS=/s/ --initial-volume=[^/s]*//' ".$bluealsaConfigFile);
+                                // $resetBluetooth = true;
+                            // }
+                            // // then add the switch with the correct value
+                            // foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // // add the switch per file, only in the line beginning with 'OPTIONS='
+                                // sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-source/-p a2dp-source --initial-volume=".$configValue."/' ".$bluealsaConfigFile);
+                                // $resetBluetooth = true;
+                            // }
+                        // }
+                        // unset($volume_in, $volume_out, $bluealsaConfigFiles);
                         // break;
                     case 'quality':
                         // change the symlink to point to the requested file version
@@ -11739,19 +12114,49 @@ function wrk_btcfg($redis, $action, $param = null)
                         $btDevices = wrk_btcfg($redis, 'status');
                         foreach ($btDevices as $btDevice) {
                             if ($btDevice['sink'] && $btDevice['device'] && $btDevice['name']) {
-                                // mpc outputset "<device>" allowed_formats=["48000:16:*"|"44100:16:*"]
-                                sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:*"');
+                                // mpc outputset "<device>" allowed_formats=["48000:16:2"|"44100:16:2"]
+                                sysCmd('mpc outputset "'.$btDevice['name'].'" allowed_formats="'.$configValue.':16:2"');
                             }
                         }
+                        unset($bluealsaConfigFiles, $btDevices);
+                        break;
+                    case 'IO_toggle':
+                        // all of the files '/etc/default/bluealsa.*' need to have the switch -p a2dp-sink and/or -p a2dp-source added or removed
+                        //  the switch --a2dp-volume is invalid unless -p a2dp-sink is specified
+                        if ($configValue == 'both') {
+                            $addval = '-p a2dp-source -p a2dp-sink';
+                        } else if ($configValue == 'input') {
+                            $addval = '-p a2dp-sink';
+                        } else if ($configValue == 'output') {
+                            $addval = '-p a2dp-source';
+                        }
+                        if (($configValue != 'output') && $redis->hGet('bluetooth', 'native_volume_control')) {
+                            $addval .= ' --a2dp-volume';
+                        }
+                        // get the files
+                        $bluealsaConfigFiles = sysCmd("grep -l -- '^OPTIONS=\"' /etc/default/bluealsa.*");
+                        // process the files
+                        foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                            // remove the switches per file, only in the line beginning with 'OPTIONS='
+                            sysCmd("sed -i '/^OPTIONS=/s/\s*-p a2dp-sink// ; /^OPTIONS=/s/\s*-p a2dp-source// ; /^OPTIONS=/s/\s*--a2dp-volume//' '".$bluealsaConfigFile."'");
+                            // add the new switches per file, only in the line beginning with 'OPTIONS='
+                            $command = 'sed -i '."'".'/^OPTIONS=\"/s/OPTIONS=\"\s*/OPTIONS=\"'.$addval." /' '".$bluealsaConfigFile."'";
+                            $check = implode("\n", sysCmd($command))."\n";
+                            // debug
+                            // echo "Command    :'".$command."'\n";
+                            // echo "Retval sed :'".$check."'\n";
+                        }
+                        unset($check, $command, $addval, $bluealsaConfigFiles);
+                        $resetBluetooth = true;
                         break;
                     case 'native_volume_control':
-                        // all of the files '/etc/default/bluealsa.*' need to have the switch --a2dp-volume will be added or removed
+                        // all of the files '/etc/default/bluealsa.*' need to have the switch --a2dp-volume added or removed
                         if ($configValue) {
                             // get the files without the switch
                             $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-volume' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // add the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-source/-p a2dp-source --a2dp-volume/' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-volume/' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         } else {
@@ -11759,10 +12164,11 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-volume' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/ --a2dp-volume//' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/\s*--a2dp-volume//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         }
+                        unset($bluealsaConfigFiles);
                         break;
                     case 'aptX_HD_codec':
                         // all of the files '/etc/default/bluealsa.*' need to have the switch -c aptX-HD will be added or removed
@@ -11779,10 +12185,11 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' -c aptX-HD' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/ -c aptX-HD//' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/\s*-c aptX-HD//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         }
+                        unset($bluealsaConfigFiles);
                         break;
                     case 'FastStream_codec':
                         // all of the files '/etc/default/bluealsa.*' need to have the switch '-c FastStream' added or removed
@@ -11799,10 +12206,11 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' -c FastStream' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/ -c FastStream//' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/\s*-c FastStream//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         }
+                        unset($bluealsaConfigFiles);
                         break;
                     case 'LDAC_codec':
                         // all of the files '/etc/default/bluealsa.*' need to have the switches '-c LDAC --ldac-abr' added or removed
@@ -11819,20 +12227,37 @@ function wrk_btcfg($redis, $action, $param = null)
                             $bluealsaConfigFiles = sysCmd("grep -l -- ' -c LDAC' /etc/default/bluealsa.*");
                             foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                                 // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/ -c LDAC --ldac-abr//' ".$bluealsaConfigFile);
+                                sysCmd("sed -i '/^OPTIONS=/s/\s*-c LDAC --ldac-abr//' ".$bluealsaConfigFile);
                                 $resetBluetooth = true;
                             }
                         }
+                        unset($bluealsaConfigFiles);
                         break;
-                    case 'timeout':
-                        // don't need to do anything, the key value is updated below
+                    case 'local_volume_control':
+                        $restartBluealsaAplay = true;
                         break;
+                    // case 'timeout':
+                        // // don't need to do anything, the key value is updated below
+                        // break;
+                    // case 'remember_last_volume':
+                        // // don't need to do anything, the key value is updated below
+                        // break;
+                    // default:
+                        // // don't need to do anything, the key value is updated below
+                        // break;
                 }
                 $redis->hSet('bluetooth', $configKey, $configValue);
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
             }
             if ($resetBluetooth && $redis->get('bluetooth_on')) {
                 // a reset is required to activate the saved values, its not always required
                 wrk_btcfg($redis, 'reset');
+            }
+            if ($restartBluealsaAplay && $redis->get('bluetooth_on')) {
+                // a reset is required to activate the saved values, its not always required
+                wrk_btcfg($redis, 'restart_bluealsa_aplay');
             }
             break;
         case 'quality_options':
@@ -11851,6 +12276,125 @@ function wrk_btcfg($redis, $action, $param = null)
             }
             rsort($quality_options);
             $redis->hset('bluetooth', 'quality_options', json_encode($quality_options));
+            break;
+        case 'auto_volume':
+            // relevant for bluetooth input
+            //  when bluetooth or bluetooth input is disabled the volume control settings in the bluetooth menu are removed
+            // this function will determine the settings of the soft volume control depending on several variables
+            //  when the player volume control is off, Bluetooth soft volume is set on/off depending on mixer control of the audio card
+            //      and the volume control settings in the bluetooth menu are removed
+            //  otherwise (the player volume control is on) and the native volume control is set to automatic or is off:
+            //      if the current output card supports hardware volume, Bluetooth soft volume is set off (native volume control on)
+            //      if the current output card does not support hardware volume, Bluetooth soft volume is set on (native volume control off)
+            $retval = false;
+            if (!$redis->get('bluetooth_on')) {
+                // bluetooth is off, no nothing
+                break;
+            }
+            if ($redis->hGet('bluetooth', 'IO_toggle') == 'output') {
+                // only bluetooth output is on, no nothing
+                break;
+            }
+            $bluealsaInfoLines = sysCmd('bluealsa-cli --verbose list-pcms');
+            if (!isset($bluealsaInfoLines) || !count($bluealsaInfoLines)) {
+                // bluealsa not active, do nothing
+                break;
+            }
+            // we have information from bluealsa
+            // make a list of the keys which have numeric information
+            $numericKeys = array('sequence', 'channels', 'delay', 'volume');
+            // decode the lines into an array
+            foreach ($bluealsaInfoLines as $bluealsaInfoLine) {
+                $bluealsaInfoLine = trim($bluealsaInfoLine);
+                if (substr($bluealsaInfoLine, 0, 1) == '/') {
+                    // theis is the pcm line
+                    if (substr($bluealsaInfoLine, -6) == 'source') {
+                        // its an input
+                        $type = 'input';
+                    } else if (substr($bluealsaInfoLine, -4) == 'sink') {
+                        // its and output
+                        $type = 'output';
+                    } else {
+                        // it should never happen
+                        $trpe = 'unknown';
+                    }
+                    // save the pcm and type
+                    $pcmInfo[$type]['pcm'] = $bluealsaInfoLine;
+                    $pcmInfo[$type]['type'] = $type;
+                    continue;
+                }
+                // extract the key and value from the line
+                if (!strpos(' '.$bluealsaInfoLine, ': ')) {
+                    // there needs to be a colon space in the line
+                    continue;
+                }
+                // decode the line into a key and value
+                list($key, $value) = explode(': ',$bluealsaInfoLine, 2);
+                // make the key lower case and replace spaces with underscores
+                $key = str_replace(' ', '_', strtolower(trim($key)));
+                // trim the value
+                $value = trim($value);
+                if (strpos(' '.$value, 'L:') && strpos(' '.$value, 'R:')) {
+                    // make values with right and left entries into a single entry
+                    $value = trim(get_between_data($value, 'L:', 'R:'));
+                }
+                if ($value == 'false') {
+                    // use zero for false
+                    $value = 0;
+                } else if ($value == 'true') {
+                    // use 1 for true
+                    $value = 1;
+                } else {
+                    if (in_array($key, $numericKeys)) {
+                        // for numeric values remove all other characters except numbers and the decimal point
+                        $value = preg_replace('/[^0-9.]/', '', $value);
+                    }
+                }
+                // save the value in the array
+                $pcmInfo[$type][$key] = $value;
+            }
+            $retval = $pcmInfo;
+            if (!isset($pcmInfo['input']['pcm'])) {
+                // there is no input pcm, do nothing
+                break;
+            }
+            $currentAoInfo = json_decode($redis->hGet('acards', $redis->get('ao')), 'true');
+            $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
+            if (($player_volume_control != 'enabled') && ($player_volume_control != 'hardware') && ($player_volume_control != 'software')) {
+                // player volume control disabled, switch local volume control off
+                unset($configArray);
+                if ($redis->hget('bluetooth', 'local_volume_control')) {
+                    // set up the configuration array with the local volume control value (off)
+                    $configArray['local_volume_control'] = 0;
+                }
+                if (isset($configArray)) {
+                    // use the configuration, when set
+                    wrk_btcfg($redis, 'config', $configArray);
+                }
+                // process soft volume as if it is set to automatic
+                if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
+                    // no mixer device available for the sound card and softvolume is off, set soft volume control on
+                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 1');
+                } else if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
+                    // mixer device available for the sound card and softvolume is on, set soft volume control off
+                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 0');
+                }
+                break;
+            }
+            $native_volume_control = $redis->hget('bluetooth', 'native_volume_control');
+            if (($native_volume_control == 'a') || ($native_volume_control == '0')) {
+                // native volume control is set to automatic or off
+                if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
+                    // no mixer device available for the sound card and softvolume is off, set soft volume control on
+                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 1');
+                }
+            } else if (($native_volume_control == 'a') || ($native_volume_control == '1')) {
+                if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
+                    // mixer device available for the sound card and softvolume is on, set soft volume control off
+                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 0');
+                }
+            }
+            unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control, $native_volume_control);
             break;
     }
     return $retval;
@@ -11871,8 +12415,8 @@ function is_playing($redis)
     //  now, since it is not playing, when MPD is the player it is not playing
     if ($redis->get('activePlayer') == 'MPD') return false;
     // other devices
-    //  Bluetooth output
     $ao = trim($redis->get('ao'));
+    //  Bluetooth output
     if (isset($ao) && $ao) {
         $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
         if (isset($acard['device']) && trim($acard['device'])) {
@@ -11881,17 +12425,29 @@ function is_playing($redis)
     }
     if (isset($device) && $device && (strpos(' '.$device, 'bluealsa:') == 1)) {
         // output device is Bluetooth
-        //  look at the cpu usage of bluealsa, it is almost zero when nothing is playing and significantly higher when playing
-        //  but a paused input continues to use the high cpu, so this method is not foolproof
-        $bluealsaCpu1 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
-        // wait a half second
-        usleep(500000);
-        // get the cpu time again
-        $bluealsaCpu2 = intval(preg_replace('/[^0-9]/', '', sysCmd('systemctl status bluealsa | grep CPU: | xargs')[0]));
-        if (($bluealsaCpu2 - $bluealsaCpu1) > 1) {
+        // use the function wrk_btcfg($redis, 'auto_volume') to get the pcm info
+        //  when valid ['output'] is returned and [running] is true something is playing
+        $pcm_info = wrk_btcfg($redis, 'auto_volume');
+        if (isset($pcm_info) && is_array($pcm_info) && isset($pcm_info['output']['running']) && ($pcm_info['output']['running'])) {
             return true;
         }
     }
+    //  Bluetooth input
+    if ($redis->get('activePlayer') == 'Bluetooth') {
+        // input device is Bluetooth
+        // use the function wrk_btcfg($redis, 'auto_volume') to get the pcm info
+        //  when valid ['input'] is returned and [running] is true something is playing
+        $pcm_info = wrk_btcfg($redis, 'auto_volume');
+        if (isset($pcm_info) && is_array($pcm_info) && isset($pcm_info['input']['running']) && ($pcm_info['input']['running'])) {
+            return true;
+        }
+    }
+    // vc4 hdmi output
+    if (isset($device) && $device && strpos(' '.strtolower($device), 'vc4') && strpos(' '.strtolower($device), 'hdmi')) {
+        // output device is software vc4 hdmi
+        //  don't know how to do this one
+    }
+
     return false;
 }
 
@@ -11900,18 +12456,35 @@ function wrk_security($redis, $action, $args=null)
     $retval = true;
     switch ($action) {
         case 'check_linux_root_password':
+            // Note: the format of the date in the password file can be different on various operating systems
+            //          YYYY-MM-DD and DD/MM/YYYY have been seen there are possibly others
+            //          this routine needs to have a consonant format of YYYY-MM-DD
             $today = date('Y-m-d');
-            $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-            $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
-            if (($today != $passwordDate) && ($redis->get('passworddate') == $passwordDate)) {
+            $passwordInfo = strtolower(sysCmd('passwd -S root | xargs')[0]);
+            $passwordDate = date_to_Y_m_d(get_between_data($passwordInfo, 'root p ', ' '));
+            if (!$passwordDate) {
+                // date error report it
+                echo '[wrk_security] passwordDate format error \''.get_between_data($passwordInfo, 'root p ', ' ')."'\n";
+            }
+            $passwordDateInitial = date_to_Y_m_d($redis->get('passworddate'));
+            if (!$passwordDateInitial) {
+                // date error report it
+                echo '[wrk_security] passwordDateInitial format error \''.$redis->get('passworddate')."'\n";
+            }
+            if (($today != $passwordDate) && ($passwordDateInitial == $passwordDate)) {
                 $retval = false;
             }
+            // debug
+            // echo "[wrk_security][check_linux_root_password] today:               '$today'\n";
+            // echo "[wrk_security][check_linux_root_password] passwordDate:        '$passwordDate'\n";
+            // echo "[wrk_security][check_linux_root_password] passwordDateInitial: '$passwordDateInitial'\n";
+            // echo "[wrk_security][check_linux_root_password] retval:              '$retval'\n";
             break;
         case 'check_access_point_password':
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
             $ap = false;
             foreach ($networkInterfaces as $networkInterface) {
-                if (($networkInterface['type'] == 'AP') && ($networkInterface['technology']== 'wifi')) {
+                if (($networkInterface['type'] == 'AP') && ($networkInterface['technology'] == 'wifi')) {
                     $ap = true;
                     break;
                 }
@@ -11921,11 +12494,12 @@ function wrk_security($redis, $action, $args=null)
             }
             break;
         case 'reset_linux_root_password':
-            // if a reset file has been created in /boot/password, set the redis variable 'passworddate'
+            // if a reset file has been created in <p1mountpoint>/password, set the redis variable 'passworddate'
             //  to the last changed password date for the root password
-            clearstatcache(true, '/boot/password');
-            if (is_dir('/boot/password')) {
-                $fileList = scandir('/boot/password');
+            $dirname = $redis->get('p1mountpoint').'/password';
+            clearstatcache(true, $dirname);
+            if (is_dir($dirname)) {
+                $fileList = scandir($dirname);
                 foreach ($fileList as $fileName) {
                     if ($fileName == '.') {
                         continue;
@@ -11936,16 +12510,16 @@ function wrk_security($redis, $action, $args=null)
                     if ($fileName == 'readme') {
                         continue;
                     }
-                    sysCmd('rm -r /boot/password/*');
-                    sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
+                    sysCmd('rm -r '.$dirname.'/*');
+                    sysCmd('cp /srv/http/app/config/defaults/boot/password/readme '.$dirname.'/readme');
                     $passwordInfo = sysCmd('passwd -S root | xargs')[0];
                     $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
                     $redis->set('passworddate', $passwordDate);
                     break;
                 }
             } else {
-                sysCmd('mkdir /boot/password');
-                sysCmd('cp /srv/http/app/config/defaults/boot/password/readme /boot/password/readme');
+                sysCmd('mkdir -p \''.$dirname.'\'');
+                sysCmd("cp '/srv/http/app/config/defaults/boot/password/readme' '".$dirname."/readme'");
             }
             break;
         case 'linux_password_save':
@@ -12526,6 +13100,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             // break;
         default:
             $hwInput = array();
+            $ao = $redis->get('ao');
             if ($redis->hGet('hw_input', 'enable')) {
                 $hwInputDevices = sysCmd('arecord -l | grep -i "^card"');
                 if (is_array($hwInputDevices) && count($hwInputDevices)) {
@@ -12533,6 +13108,29 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $sysname = get_between_data($hwInputDevice, '[', ']');
                         $card = trim(get_between_data($hwInputDevice, 'card ', ': '));
                         $device = trim(get_between_data($hwInputDevice, '], device ', ': '));
+                        $note = '';
+                        // do not allow a device to be input and output
+                        if ($sysname == $ao) {
+                            // the hardware input is the same as the current hardware output device
+                            // if the card and device are identical skip this card
+                            $acard = json_decode($redis->hGet('acards', $ao), true);
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                continue;
+                            }
+                        }
+                        // warn the user if a card is input and output
+                        $acard = json_decode($redis->hGet('acards', $sysname), true);
+                        if (isset($acard) && is_array($acard) && isset($acard['device'])) {
+                            $acardDevice = get_between_data($acard['device'], ':');
+                            $hwDevice = $card.','.$device;
+                            if ($acardDevice == $hwDevice) {
+                                // skip this input device, it is being used as output
+                                $note = ' - <strong>Warning: Use with caution, this device can be used for input and output</strong>';
+                            }
+                        }
                         if (!isset($device) || !strlen($device)) {
                             $device = '0';
                         }
@@ -12629,9 +13227,10 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
                         $hwInput[$file]['name'] = get_between_data($hwInputDevice, ': ', ' [', 2);
                         $hwInput[$file]['description'] = get_between_data($hwInputDevice, '[', ']', 2);
                         $hwInput[$file]['file'] = $file;
+                        $hwInput[$file]['note'] = $note;
                         unset($format, $channels, $rate, $preferred, $selected, $forced, $file);
                     }
-                    unset($sysname, $card, $device, $hwplug);
+                    unset($sysname, $card, $device, $hwplug, $note, $acard, $acardDevice, $hwDevice);
                 }
             }
             $hwInputDevicesOld = json_decode($redis->hGet('hw_input', 'status'), true);
@@ -12655,7 +13254,7 @@ function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null
             }
             $redis->hSet('hw_input', 'status', json_encode($hwInput));
             ui_libraryHome($redis);
-            unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found);
+            unset($hwInput, $hwInputDevices, $hwInputDevice, $hwInputDevicesOld, $hwInputDeviceOld, $found, $ao);
             break;
     }
 }
@@ -12678,7 +13277,11 @@ function start_mpd($redis)
         $sleepSeconds=2;
         while ($loop && ($limit-- > 0)) {
             // get the connected USB devices
-            $usbDevices = sysCmd('dir -1 /dev/sd*');
+            $usbDevices = sysCmd('dir -1 /dev/sd* 2>&1');
+            if (strpos(' '.strtolower($usbDevices[0]), 'no such file or directory')) {
+                // no usb storage devices
+                break;
+            }
             // get the mounted USB devices
             $mountedUsbDevices = sysCmd('grep -i /dev/sd /proc/mounts | cut -d " " -f 1 | xargs')[0];
             // disable the outside loop
@@ -12695,4 +13298,244 @@ function start_mpd($redis)
         }
     }
     sysCmd('pgrep -x mpd || systemctl start mpd.socket');
+}
+
+// function to strip sysncronised encoding from lyrics
+function strip_synchronised_lyrics($lyrics)
+// the parameter lyrics is the full text of the lyrics including line ends
+// the function returns the lyrics with HTML line breaks (<br>)
+{
+    // first convert line ends into standard Linux
+    //  Windows to Linux
+    $lyrics = str_replace("\r\n", "\n", $lyrics);
+    //  Mac to Linux
+    $lyrics = str_replace("\r", "\n", $lyrics);
+    // replace whitespace with one space
+    $lyrics = preg_replace("/[ \0\f\t\v]+/", " ", $lyrics);
+    // remove leading and trailing spaces
+    $lyrics = trim(preg_replace("/[ \0\f\t\v]*\n[ \0\f\t\v]*/", "\n", $lyrics));
+    // remove a country code if present, always on the first line, format xxx||<lyric>
+    if (strpos($lyrics, '||') == 3) {
+        $lyrics = substr($lyrics, 5);
+    }
+    // add a leading and trailing new line
+    $lyrics = "\n".$lyrics."\n";
+    // remove timing information containing 'Walaoke extension: gender', format [mm:ss.xx]D: (the D can also be a F or a M)
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/", "\n", $lyrics);
+    // remove standard timing information, format [mm:ss.xx]
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
+    // remove timing information containing 'A2 extension: word time tags:', format <mm:ss.xx>
+    $lyrics = preg_replace("/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/", ' ', $lyrics);
+    // convert it to an array to process metadata
+    $lyrics = explode("\n", $lyrics);
+    $artist = '';
+    $title = '';
+    $retval = '';
+    foreach ($lyrics as $lyric) {
+        // replace whitespace with one space & trim
+        $lyric = trim(preg_replace("/[ \0\f\t\v]+/", ' ', $lyric));
+        $lyric_test = ' '.strtolower($lyric);
+        if (strpos($lyric_test, '[ar:') == 1) {
+            $artist = trim(rtrim(substr($lyric, 4), ']'));
+            continue;
+        }
+        if (strpos($lyric_test, '[ti:') == 1) {
+            $title = trim(rtrim(substr($lyric, 4), ']'));
+            continue;
+        }
+        if (preg_match("/\[..\:.*\]/", $lyric_test) == 1) {
+            continue;
+        }
+        if (strpos($lyric_test, '[length:') == 1) {
+            continue;
+        }
+        if (strpos($lyric_test, '[offset:') == 1) {
+            continue;
+        }
+        $retval .= $lyric."\n";
+    }
+    $retval = trim($retval);
+    if ($retval) {
+        if ($artist && $title) {
+            $retval = $artist."\n".$title."\n\n".$retval."\n";
+        } else if ($title) {
+            $retval = $title."\n\n".$retval."\n";
+        } else {
+            $retval = $retval."\n";
+        }
+        $retval = str_replace("\n", '<br>', $retval);
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        // this could introduce double spaces, replace whitespace with one space
+        $retval = preg_replace("/[\s]+/", " ", $retval);
+    } else {
+        $retval = '';
+    }
+    return $retval;
+}
+
+// calculate and return the percentage of words in string $search which occur in string $target
+function count_word_occurancies($search, $target='')
+// $search and $target are strings, return value is an integer (0 = no matches, 100 = all match)
+// the string matching is case insensitive
+// an empty $search string returns a 100% match
+// an empty $target string returns a 0% match
+{
+    // convert parameters to lower case, replace whitespace with one space and trim
+    $search = trim(preg_replace("/[\s]+/", ' ', strtolower($search)));
+    $target = trim(preg_replace("/[\s]+/", ' ', strtolower($target)));
+    // debug
+    // echo "Search: '$search', Target: '$target'\n";
+    runelog("[count_word_occurancies]", "Search: '$search', Target: '$target'");
+    if (!strlen($search)) {
+        return 100;
+    }
+    if (!strlen($target)) {
+        return 0;
+    }
+    $searchParts = explode(' ', $search);
+    $searchPartsCount = count($searchParts);
+    $searchPartsFound = 0;
+    foreach ($searchParts as $part) {
+        // simple lower case word check
+        if (stripos(' '.$target, $part)) {
+            // match
+            $searchPartsFound++;
+        } else {
+            // complex word check after converting special and complex characters to normal characters
+            if (stripos(' '.squashCharacters($target), squashCharacters($part))) {
+                // match
+                $searchPartsFound++;
+            }
+        }
+    }
+    if ($searchPartsFound) {
+        return round(min(($searchPartsFound * 100) / $searchPartsCount, 100),0);
+    } else {
+        return 0;
+    }
+}
+
+// function to normalise a date format
+function date_to_Y_m_d($date)
+// the function accepts an 8 date in YYYY-MM-DD or DD-MM-YYYY format with any separator (e.g. DD/MM/YYYY)
+//  and returns a date in YYYY-MM-DD format
+{
+    $date = trim($date);
+    if (strlen($date) != 10) {
+        //invalid date format
+        return false;
+    }
+    $date = preg_replace('/[^0-9]/', '-', $date);
+    if (substr_count($date, '-') != 2) {
+        //invalid date format
+        return false;
+    }
+    if (strpos($date, '-') == 2) {
+        list($d, $m, $y) = explode('-', $date);
+    } else if (strpos($date, '-') == 4) {
+        list($y, $m, $d) = explode('-', $date);
+    } else {
+        //invalid date format
+        return false;
+    }
+    if ((strlen($y) != 4) || ($y < 1)) {
+        //invalid date format
+        return false;
+    }
+    if ((strlen($m) != 2) || ($m < 1) || ($m > 12)) {
+        //invalid date format
+        return false;
+    }
+    if ((strlen($d) != 2) || ($d < 1) || ($d > 31)) {
+        //invalid date format
+        return false;
+    }
+    $date = $y.'-'.$m.'-'.$d;
+    return $date;
+}
+
+// function which runs smart monitor tools
+function wrk_smt($redis)
+// S.M.A.R.T. monitoring tools
+//  will test each attached hard disk and tape unit
+//  test only when music is playing
+//  first test after 480 cycles (= +/- 4 minutes) and then at a rate of once per +/-2400 cycles (= +/-20 minutes)
+//  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
+// Why test only when something is playing?
+//  a) someone needs see the error messages and
+//  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
+{
+    if (is_playing($redis)) {
+        // something is playing
+        if (sysCmd('command -v smartctl')[0]) {
+            // monitoring tools software is installed
+            // scan for hard disks
+            $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
+            if (isset($drive_list) && !empty($drive_list)) {
+                foreach($drive_list as $drive) {
+                    // for each connected drive
+                    $drive = trim($drive);
+                    if ($drive != "") {
+                        $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
+                        $self_check = sysCmd($command);
+                        // the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
+                        If (!empty($self_check)) {
+                            $smart_avalable = false;
+                            $smart_enabled = false;
+                            $smart_result = false;
+                            $smart_good = false;
+                            foreach ($self_check as $self_check_line) {
+                                $self_check_line = trim($self_check_line);
+                                if ($self_check_line != "") {
+                                    // now looking for the lines
+                                    // 'SMART support is: Available...' and
+                                    // 'SMART support is: Enabled'
+                                    if (strpos(' '.$self_check_line, 'SMART support is')) {
+                                        if (strpos(' '.$self_check_line, 'Available')) {
+                                            $smart_avalable = true;
+                                        } else if (strpos(' '.$self_check_line, 'Enabled')) {
+                                            $smart_enabled = true;
+                                        }
+                                    }
+                                    // now looking for the line containing something like this:
+                                    // 'SMART overall-health self-assessment test result: PASSED'
+                                    // actually looking for '-health self-' together with 'OK' or 'PASSED'
+                                    if (strpos(' '.$self_check_line, '-health self-')) {
+                                        // there is a result
+                                        $smart_result = true;
+                                        if (strpos(' '.$self_check_line, 'OK')) {
+                                            $smart_good = true;
+                                        } else if (strpos(' '.$self_check_line, 'PASSED')) {
+                                            $smart_good = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if ($smart_avalable && $smart_enabled && $smart_result && !$smart_good) {
+                                // SMART is available, enabled, there is a result and it is not good
+                                // display the information
+                                ui_notifyError($redis, 'Disk errors - Action required', implode("\n", $self_check));
+                                // set the disk_error flag to true
+                                $redis->set('disk_error', 1);
+                            }
+                        }
+                    }
+                    unset($self_check);
+                    unset($command);
+                }
+                unset($drive);
+                unset($drive_list);
+            }
+        }
+    }
+    unset($retval);
+    if ($redis->get('disk_error')) {
+        // set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
+        $redis->set('savecpuSmt', 170 + rand(0, 20));
+    } else {
+        // set the disk check frequency to +/-2400 cycles (= +/20 minutes)
+        $redis->set('savecpuSmt', 2350 + rand(0, 100));
+    }
 }

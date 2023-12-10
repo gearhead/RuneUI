@@ -32,8 +32,11 @@
 #  date: January 2021
 #
 
-sed -i '/dtoverlay=disable-bt/c\#dtoverlay=disable-bt' /boot/config.txt
-sed -i '/^dtparam=krnbt=/c\dtparam=krnbt=on' /boot/config.txt
+set +e # continue on errors
+p1mountpoint=$( redis-cli get p1mountpoint )
+sed -i '/dtoverlay=disable-bt/c\#dtoverlay=disable-bt' "$p1mountpoint/config.txt"
+sed -i '/dtparam=krnbt=/c\dtparam=krnbt=on' "$p1mountpoint/config.txt"
+systemctl start hciuart
 systemctl start bluetooth
 count=3
 timeout 5 bluetoothctl power on
@@ -44,6 +47,42 @@ until [ $? -eq 0 ] || (( count-- <= 0 )); do
     sleep 2
     timeout 5 bluetoothctl power on
 done
+# if there is a choice of controllers use the one which is not used by Wi-Fi
+#   get the wifi mac-address
+wifimac=$( ip -br link | grep wlan0 | xargs | cut -d ' ' -f 3 )
+#   truncate the last 3 characters
+wifimac_short=${wifimac:0:-3}
+#   lower case
+wifimac_short=${wifimac_short,,}
+#   get the controlers
+controllers=$( timeout 5 bluetoothctl list | xargs | cut -d ' ' -f2 )
+#   walk through the controllers
+for controller in $controllers ; do
+    # this routine selects the first controller when no others are available and then
+    # attempts not to choose a controller with a similar mac address as the Wi-Fi radio
+    # so a Bluetooth dongle will have priority over an on board Bluetooth radio when Wi-Fi is enabled
+    # otherwise the last listed controller will be used
+    #   lower case
+    controller=${controller,,}
+    if [ "$controler" == "" ] ; then
+        # controller not set, skip it
+        continue
+    fi
+    if [ "$sel_controler" == "" ] ; then
+        # not set use the first controller
+        sel_controler="$controller"
+        # echo "$controller"
+    fi
+    if [[ "$controller" != *"$wifimac_short"* ]] ; then
+        # not the same as the Wi-Fi radio
+        sel_controler="$controller"
+        # echo "$controller $wifimac_short"
+    fi
+done
+if [ "$sel_controler" != "" ] ; then
+    # set the default controller when set
+    timeout 5 bluetoothctl select $sel_controler
+fi
 systemctl start bluealsa
 count=3
 timeout 5 bluealsa-cli list-services
@@ -62,6 +101,7 @@ if [ $? -eq 0 ]; then
     # every thing is up, so change the redis indicator
     redis-cli set bluetooth_on 1
     # enable all the bluetooth service to start on boot
+    systemctl enable hciuart
     systemctl enable bluetooth
     systemctl enable bluealsa
     systemctl enable bluealsa-aplay

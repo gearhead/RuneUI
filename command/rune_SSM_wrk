@@ -124,6 +124,7 @@ $status['mainArtURL'] = $artUrl.'/airplay.png';
 $status['smallArtURL'] = $artUrl.'/black.png';
 $status['bigArtURL'] = $artUrl.'/black.png';
 $status['time_last_elapsed'] = microtime(true);
+$status['local_volume_control'] = 0;
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
 ui_render('playback', json_encode($status));
@@ -588,6 +589,7 @@ while (true) {
                         $status['song_lyrics'] = ' ';
                         $status['artist_bio_summary'] = ' ';
                         $status['artist_similar'] = ' ';
+                        $status['local_volume_control'] = 0;
                         if ($metadataIncludeCoverArt) {
                             $status['mainArtURL'] = $artUrl.'/airplay.png';
                             $status['smallArtURL'] = $artUrl.'/black.png';

@@ -20,6 +20,9 @@ corresponding passphrase are processed.
 
 There are some example files in the directory /wifi/examples.
 
+This action should be carried out on your PC after inserting the Micro-SD card, the
+directory then appears as /wifi, (for Mac users, this is in the first disk partition).
+
 All user created files in the wifi directoy will be processed during the RuneAudio startup process. The files will
 also be deleted, regardless of the success of the processing. During processing your existing Wi-Fi configuration
 will will be left unchanged except for the network names specified in the files in the wifi directory.

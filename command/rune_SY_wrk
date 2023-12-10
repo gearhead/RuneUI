@@ -53,6 +53,7 @@ $start = microtime(true);
 $savecpuRp = 12;
 $savecpuMnt = 1;
 $savecpuSmt = 480;
+$redis->set('savecpuSmt', $savecpuSmt);
 $savecpuInc = 240;
 $savecpuIncPrev = $savecpuInc;
 $savecpuSps = 43200;
@@ -79,8 +80,8 @@ clearstatcache(true, $fileName);
 if (file_exists($fileName)) {
     // there is an update file, calculate its MD5
     $update_os_md5 = md5_file($fileName);
-    if (!$redis->exists('update_os_md5') || ($redis->get('update_os_md5') != $update_os_md5)) {
-        // the update file has not been processed
+    if ($redis->get('update_os_md5') != $update_os_md5) {
+        // the current update file has not been processed
         include $fileName;
         updateOS($redis);
         // save the MD5 signature of the processed file
@@ -113,6 +114,8 @@ $playerid_db = $redis->get('playerid');
 runelog('registered architecture: ', $arch_db);
 runelog('registered model       : ', $model_db);
 runelog('registered playerid    : ', $playerid_db);
+// get the mount point for the 1st Micro-SD card partition
+$p1mountpoint = $redis->get('p1mountpoint');
 //
 // initialize Redis worker data tables
 $redis->del('w_lock');
@@ -210,9 +213,9 @@ if ($playerid_db === '') {
     //
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        wrk_btcfg($redis, 'enable');
+        wrk_btcfg($redis, 'enable', 'async');
     } else {
-        wrk_btcfg($redis, 'disable');
+        wrk_btcfg($redis, 'disable', 'async');
     }
     // setup the bluealsa config files to reflect their redis values
     wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
@@ -228,13 +231,13 @@ if ($playerid_db === '') {
     sysCmd('/srv/http/command/test_ciphers.php');
     //
     // enable mpd to start automatically on boot
-    // sysCmd('systemctl enable mpd.socket');
+    sysCmd('systemctl enable mpd.service');
     // enable nginx and php-fpm to start automatically on boot
     sysCmd('systemctl enable nginx');
     sysCmd('systemctl enable php-fpm');
     sysCmd('systemctl daemon-reload');
     // copy the runeaudio cmdline.txt file which suppresses console information
-    copy('/boot/cmdline.txt.runeaudio', '/boot/cmdline.txt');
+    copy($p1mountpoint.'/cmdline.txt.runeaudio', $p1mountpoint.'/cmdline.txt');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
@@ -375,7 +378,9 @@ if ($playerid_db === '') {
     //
     // start the local browser when required, hardware must be a multiprocessor
     if ($redis->hGet('local_browser', 'enable') && ($cores > 1)) {
-        sysCmdAsync($redis, '/srv/http/command/local_browser_start_async.php');
+        // sysCmdAsync($redis, '/srv/http/command/local_browser_start_async.php');
+        // start local browser quickly
+        wrk_localBrowser($redis, 'start', '1');
     } else {
         sysCmdAsync($redis, '/srv/http/command/local_browser_stop_async.php');
     }
@@ -470,25 +475,35 @@ while (true) {
                 break;
             case 'notify_async':
                 $redis->sRem('w_lock', $jobID);
-                $cnt = 40;
-                while ($redis->get('waitSyWrk') && ($cnt-- >= 0)) {
-                    // loop sleeping for half a second until the UI is active
-                    //  timeout after 20 seconds ($cnt = 40 x 0,5)
+                if (!$redis->sCard('w_message')) {
+                    // no messages to process, finished
+                    break;
+                }
+                $cnt = 6;
+                while ($redis->get('waitSyWrk') && $redis->sCard('w_lock') && ($cnt-- >= 0)) {
+                    // loop sleeping for half a second until the UI is active and all w_lock's have been cleared
+                    //  timeout after 3 seconds ($cnt = 6 x 0,5)
                     usleep(500000);
                     //sleep(1);
                 }
-                do {
-                    $message = $redis->rPop('w_message');
-                    // debug
-                    // echo "Message : $message\n";
-                    runelog('Message : '.$message);
-                    if (isset($message) && $message) {
-                        // sleep for 0,5 second before and between sending messages
-                        usleep(500000);
-                        // sleep(1);
-                        ui_render('notify', base64_decode($message));
-                    }
-                } while (isset($message) && $message);
+                if ($cnt >= 0) {
+                    // we can process the queued messages
+                    do {
+                        $message = $redis->rPop('w_message');
+                        // debug
+                        // echo "Message : $message\n";
+                        runelog('Message : '.$message);
+                        if (isset($message) && $message) {
+                            // sleep for 0,5 second before and between sending messages
+                            usleep(500000);
+                            // sleep(1);
+                            ui_render('notify', base64_decode($message));
+                        }
+                    } while (isset($message) && $message);
+                } else {
+                    // requeue this job
+                    wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
+                }
                 unset($cnt);
                 break;
             case 'airplay':
@@ -689,11 +704,13 @@ while (true) {
                     ui_notify($redis, 'Update RuneUI', 'Updated, preparing reboot, please wait...');
                     wrk_sysAcl();
                     sysCmd('/srv/http/db/redis_datastore_setup check');
+                    sysCmd('/srv/http/db/redis_acards_details');
+                    $redis->del('acards');
                     wrk_playernamemenu($redis->get('playernamemenu'));
                     $redis->set('dev', 0);
                     sysCmd('systemctl daemon-reload');
                     // sysCmd('systemctl restart php-fpm || systemctl start php-fpm');
-                    ui_notify($redis, 'Update RuneUI', 'Rebooting');
+                    ui_notify($redis, 'Update RuneUI', 'Rebooting, restart may take longer than normal due to post update processing!');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     if ($player_stopped) {
@@ -985,12 +1002,14 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'extendpartition':
-                $retval = sysCmd("echo -e 'd\n2\nn\np\n2\n\n\nt\n2\n83\np\nw' | fdisk /dev/mmcblk0 | grep -i mmcblk0p2");
+                sysCmd('partprobe /dev/mmcblk0');
+                $startSector = sysCmd('fdisk -l /dev/mmcblk0 | grep mmcblk0p2 | xargs | cut -d " " -f2 | xargs')[0];
+                $retval = sysCmd('/bin/echo -e "p\nd\n2\nn\np\n2\n'.$startSector.'\n\nt\n2\n83\np\nw" | fdisk /dev/mmcblk0 | grep -i mmcblk0p2');
                 sysCmd('partprobe /dev/mmcblk0');
                 sysCmd('resize2fs /dev/mmcblk0p2');
                 $redis->sRem('w_lock', $jobID);
-                ui_notify($redis, "Extend Linux Partition", implode("\n", $retval));
-                unset($retval);
+                ui_notify($redis, "Extend Linux Partition", implode("\n\n", $retval));
+                unset($retval, $startSector);
                 break;
             case 'airplayconfreset':
                 sysCmd('cp /srv/http/app/config/defaults//etc/systemd/system/shairport-sync.service /etc/systemd/system/shairport-sync.service');
@@ -1117,9 +1136,9 @@ while (true) {
             case 'btcfg':
                 // $job->action is always set, $job->args can also contain information
                 if (isset($job->args)) {
-                    wrk_btcfg($redis, $job->action, $job->args);
+                    wrk_btcfg($redis, $job->action, $job->args, $jobID);
                 } else {
-                    wrk_btcfg($redis, $job->action);
+                    wrk_btcfg($redis, $job->action, null, $jobID);
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1205,26 +1224,37 @@ while (true) {
                     unset($spotifyConnectCache);
                 }
                 // write Spotify Connect data to Redis datastore
-                isset($job->args->autoplay) && $redis->hSet('spotifyconnect', 'autoplay', $job->args->autoplay);
-                isset($job->args->bitrate) && $redis->hSet('spotifyconnect', 'bitrate', $job->args->bitrate);
-                isset($job->args->device_name) && $redis->hSet('spotifyconnect', 'device_name', $job->args->device_name);
-                isset($job->args->enable) && $redis->hSet('spotifyconnect', 'enable', $job->args->enable);
-                isset($job->args->metadata_enabled) && $redis->hSet('spotifyconnect', 'metadata_enabled', $job->args->metadata_enabled);
-                isset($job->args->normalisation_pregain) && $redis->hSet('spotifyconnect', 'normalisation_pregain', $job->args->normalisation_pregain);
-                isset($job->args->password) && $redis->hSet('spotifyconnect', 'password', $job->args->password);
-                isset($job->args->save_last_volume) && $redis->hSet('spotifyconnect', 'save_last_volume', $job->args->save_last_volume);
-                isset($job->args->timeout) && $redis->hSet('spotifyconnect', 'timeout', $job->args->timeout);
-                isset($job->args->username) && $redis->hSet('spotifyconnect', 'username', $job->args->username);
-                isset($job->args->volume_normalisation) && $redis->hSet('spotifyconnect', 'volume_normalisation', $job->args->volume_normalisation);
+                $argsNames = array(
+                    'autoplay',
+                    'bitrate',
+                    'device_name',
+                    'metadata_enabled',
+                    'normalisation_pregain',
+                    'password',
+                    'save_last_volume',
+                    'timeout',
+                    'username',
+                    'volume_normalisation');
+                $argsArray = json_decode(json_encode($job->args), true);
+                foreach ($argsNames as $argsName) {
+                    if (isset($argsArray[$argsName]) && ($redis->hGet('spotifyconnect', $argsName) != $argsArray[$argsName])) {
+                        $action = 'configured';
+                        $redis->hSet('spotifyconnect', $argsName, $argsArray[$argsName]);
+                    }
+                }
                 // stop and/or start spotifyd
                 if ($job->action === 'start') {
                     runelog('service: SPOTIFYD start');
+                    if (!$redis->hGet('spotifyconnect', 'enable')) {
+                        $action = 'enabled';
+                    }
                     $redis->hSet('spotifyconnect', 'enable',  1);
-                    $action = 'enabled';
                 } elseif ($job->action === 'stop') {
                     runelog('service: SPOTIFYD stop');
+                    if ($redis->hGet('spotifyconnect', 'enable')) {
+                        $action = 'disabled';
+                    }
                     $redis->hSet('spotifyconnect', 'enable',  0);
-                    $action = 'disabled';
                 } else {
                     $action = 'configured';
                 }
@@ -1337,9 +1367,9 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 if ($job->action === 1) {
                     // switch underclocking on
-                    if (sysCmd('grep -hi "Underclocking placeholder" /boot/config.txt')[0]) {
-                        if (!sysCmd('grep -hi "Underclocking start" /boot/config.txt')[0]) {
-                            sysCmd("sed -i -e '/Underclocking placeholder/r /boot/Archimago_underclocking.txt' /boot/config.txt");
+                    if (sysCmd('grep -hi "Underclocking placeholder" \''.$p1mountpoint.'/config.txt\'')[0]) {
+                        if (!sysCmd('grep -hi "Underclocking start" \''.$p1mountpoint.'/config.txt\'')[0]) {
+                            sysCmd("sed -i -e '/Underclocking placeholder/r ".$p1mountpoint."/Archimago_underclocking.txt' '".$p1mountpoint."/config.txt'");
                         }
                         ui_notify($redis, 'Underclocking', 'Enabled');
                     } else {
@@ -1347,7 +1377,7 @@ while (true) {
                     }
                 } else {
                     // switch underclocking off
-                    sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' /boot/config.txt");
+                    sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' '".$p1mountpoint."/config.txt'");
                     $redis->set('underclocking', 0);
                     ui_notify($redis, 'Underclocking', 'Disabled');
                 }
@@ -1381,7 +1411,7 @@ while (true) {
                 break;
             case 'ui_render':
                 // when $job->action is set to 'seconds', $job->args contains a timestamp in seconds which is the requested start time
-                if (($job->action = 'seconds') && is_numeric($job->args)) {
+                if (($job->action == 'seconds') && is_numeric($job->args)) {
                     $delaySeconds = round($job->args - microtime(true));
                     if ($delaySeconds < 0 ) {
                         $delaySeconds = 0;
@@ -1437,8 +1467,10 @@ while (true) {
             // start play if enabled
             if ($redis->get('mpd_autoplay')) {
                 $redis->set('mpd_playback_laststate', 'play');
-                wrk_mpdRestorePlayerStatus($redis);
+            } else {
+                $redis->set('mpd_playback_laststate', 'stop');
             }
+            wrk_mpdRestorePlayerStatus($redis);
         }
         // this routine will not detect disconnected/unmounted shares which had previously been mounted
         // $retriesmounting sets the number of times mounting is to be retried, 100 @ 4 times per hour = +/-25 hours
@@ -1487,11 +1519,12 @@ while (true) {
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_linux_root_password')) {
             // prompt the UI to change the Linux root password
+            $data = array();
             $data['id'] = 'modal-security_linux_password';
             ui_render('modal', json_encode($data));
             unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find /boot/webradios -name "*.pls" | wc -l | xargs')[0]) {
+        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find '.$p1mountpoint.'/webradios -name "*.pls" | wc -l | xargs')[0]) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'CD_detect')) {
@@ -1513,6 +1546,7 @@ while (true) {
             $savecpuOneTimeActions = 230 + rand(0, 20);
         } else if (wrk_security($redis, 'check_linux_root_password') && !wrk_security($redis, 'check_access_point_password') && is_firstTime($redis, 'check_access_point_password')) {
             // prompt the UI to change the Access Point password, only when linux password has been changed
+            $data = array();
             $data['id'] = 'modal-security_ap_password';
             ui_render('modal', json_encode($data));
             unset($data);
@@ -1520,6 +1554,7 @@ while (true) {
             $savecpuOneTimeActions = 1750 + rand(0, 100);
         } else if (is_firstTime($redis, 'check_access_point_password') && !wrk_security($redis, 'check_access_point_password')) {
             // prompt the UI to change the Access Point password, regardless of status of linux password
+            $data = array();
             $data['id'] = 'modal-security_ap_password';
             ui_render('modal', json_encode($data));
             unset($data);
@@ -1588,87 +1623,16 @@ while (true) {
         unset($retval);
     }
     // S.M.A.R.T. monitoring tools
-    //  will test each attached hard disk and tape unit
-    //  test only when music is playing
     //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
     //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
-    // Why test only when something is playing?
-    //  a) someone needs see the error messages and
-    //  b) most hard disks will be usb drives which go to sleep when not in use, let them sleep
     if ($savecpuSmt-- <= 0) {
-        if (is_playing($redis)) {
-            // something is playing
-            // clear the cache otherwise file_exists() returns incorrect values
-            clearstatcache(true, '/usr/bin/smartctl');
-            if (file_exists('/usr/bin/smartctl')) {
-                // monitoring tools software is installed
-                // scan for hard disks
-                $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
-                if (isset($drive_list) && !empty($drive_list)) {
-                    foreach($drive_list as $drive) {
-                        // for each connected drive
-                        $drive = trim($drive);
-                        if ($drive != "") {
-                            $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
-                            $self_check = sysCmd($command);
-                            // the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
-                            If (!empty($self_check)) {
-                                $smart_avalable = false;
-                                $smart_enabled = false;
-                                $smart_result = false;
-                                $smart_good = false;
-                                foreach ($self_check as $self_check_line) {
-                                    $self_check_line = trim($self_check_line);
-                                    if ($self_check_line != "") {
-                                        // now looking for the lines
-                                        // 'SMART support is: Available...' and
-                                        // 'SMART support is: Enabled'
-                                        if (strpos(' '.$self_check_line, 'SMART support is')) {
-                                            if (strpos(' '.$self_check_line, 'Available')) {
-                                                $smart_avalable = true;
-                                            } else if (strpos(' '.$self_check_line, 'Enabled')) {
-                                                $smart_enabled = true;
-                                            }
-                                        }
-                                        // now looking for the line containing something like this:
-                                        // 'SMART overall-health self-assessment test result: PASSED'
-                                        // actually looking for '-health self-' together with 'OK' or 'PASSED'
-                                        if (strpos(' '.$self_check_line, '-health self-')) {
-                                            // there is a result
-                                            $smart_result = true;
-                                            if (strpos(' '.$self_check_line, 'OK')) {
-                                                $smart_good = true;
-                                            } else if (strpos(' '.$self_check_line, 'PASSED')) {
-                                                $smart_good = true;
-                                            }
-                                        }
-                                    }
-                                }
-                                if ($smart_avalable && $smart_enabled && $smart_result && !$smart_good) {
-                                    // SMART is available, enabled, there is a result and it is not good
-                                    // display the information
-                                    ui_notifyError($redis, 'Disk errors - Action required', implode("\n", $self_check));
-                                    // set the disk_error flag to true
-                                    $redis->set('disk_error', 1);
-                                }
-                            }
-                        }
-                        unset($self_check);
-                        unset($command);
-                    }
-                    unset($drive);
-                    unset($drive_list);
-                }
-            }
-        }
-        unset($retval);
-        if ($redis->get('disk_error')) {
-            // set the disk check frequency to +/-180 cycles (= +/-1.5 minutes)
-            $savecpuSmt = 170 + rand(0, 20);
-        } else {
-            // set the disk check frequency to +/-2400 cycles (= +/20 minutes)
-            $savecpuSmt = 2350 + rand(0, 100);
-        }
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/smt_async.php');
+        $savecpuSmt = $redis->get('savecpuSmt');
+    } else if ($savecpuSmt > $redis->get('savecpuSmt')) {
+        // smt runs asynchronously, so the redis variable savecpuSmt could be set at any time
+        //  when the redis savecpuSmt is smaller than $savecpuSmt version a disk error has occurred
+        //  and the cycle time needs to be reduced
+        $savecpuSmt = $redis->get('savecpuSmt');
     }
     // Restart shairport-sync every 6 hours, but only when it is inactive
     // There is an unresolved problem with shairport-sync which stops broadcasting its name after a number of hours
@@ -1688,20 +1652,22 @@ while (true) {
             }
         }
     }
-    // Reload (or preferably restart) avahi-daemon initially after 4 seconds and thereafter restart every 1,5 hours
+    // Reload avahi-daemon initially after 4 seconds and thereafter reload every 30 minutes or restart every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
     //  It looks like it is related to renewing the DHCP lease on the router
-    // Reload initially after (+/-4 seconds) then restart every +/-10800 cycles (+/-1,5 hours)
+    // Reload initially after (+/-4 seconds) then after a reload again every +/3600 cycles (+/-30 mins) or after a
+    //  restart every +/-10800 cycles (+/-1,5 hours)
     // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, just reload
     if ($savecpuAvd-- <= 0) {
         $activePlayer = $redis->get('activePlayer');
-        $savecpuAvd = 10700 + rand(0, 200);
         if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay') || is_firstTime($redis, 'restart_avahi_daemon')) {
             // reload avahi-daemon
             sysCmdAsync($redis, 'nice --adjustment=10 systemctl reload avahi-daemon');
+            $savecpuAvd = 3550 + rand(0, 100);
         } else {
             // restart avahi-daemon
             sysCmdAsync($redis, 'nice --adjustment=10 systemctl restart avahi-daemon');
+            $savecpuAvd = 10700 + rand(0, 200);
         }
     }
     // Check opcache every 1 hour (every 7200 cycles)

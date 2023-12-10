@@ -41,7 +41,7 @@ echo "restore started"
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# generate Wi-Fi profile files in /boot/wifi for the current Wi-Fi profiles in redis
+# generate Wi-Fi profile files in <p1mountpoint>/wifi for the current Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
 # save the passworddate
 passworddate=$( redis-cli get passworddate )
@@ -63,8 +63,15 @@ declare -a stop_arr=(ashuffle cmd_async_queue mpd mpdscribble nmb nmbd redis run
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
-# restore the backup
-bsdtar -xpf $1 -C / --include var/lib/redis/rune.rdb etc/samba/*.conf etc/mpd.conf mnt/MPD/Webradio/* var/lib/connman/*.config var/lib/mpd/* home/config.txt.diff
+# restore the backup, do it file for file as some may not exist, non-existant files will cause bsdtar to exit on error with unpredictable results
+bsdtar -x -p -f "$1" -C / --include var/lib/redis/rune.rdb
+bsdtar -x -p -f "$1" -C / --include etc/samba/*.conf
+bsdtar -x -p -f "$1" -C / --include etc/mpd.conf
+bsdtar -x -p -f "$1" -C / --include mnt/MPD/Webradio/*
+bsdtar -x -p -f "$1" -C / --include var/lib/connman/*.config
+bsdtar -x -p -f "$1" -C / --include var/lib/mpd/*
+bsdtar -x -p -f "$1" -C / --include home/config.txt.diff
+bsdtar -x -p -f "$1" -C / --include home/your-extra-mpd.conf
 # refresh systemd and restart redis
 systemctl daemon-reload
 systemctl start redis
@@ -88,9 +95,13 @@ else
     rm -f /var/lib/redis/rune.rdb.copy
 fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# try to recover changes in the /boot/config.txt
-patch -lN /boot/config.txt /home/config.txt.diff
-rm -f /home/config.txt.diff
+# try to recover changes in the <p1mountpoint>/config.txt
+if [ -f "/home/config.txt.diff" ] ; then
+    p1mountpoint=$( redis-cil get p1mountpoint )
+    patch -lN $p1mountpoint/config.txt -o $p1mountpoint/config.txt -r /home/config.txt.rej /home/config.txt.diff
+    rm -f /home/config.txt.diff
+    rm -f /home/config.txt.rej
+fi
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # delete any redis variables not included in the reference list
 #   variable name and type must be valid, otherwise delete
@@ -109,8 +120,12 @@ sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/
 rm -f $1
 # delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
 redis-cli del lastmpdvolume
-# delete the kernel setting, we may be restoring to a different machine type of a different OS, it will be reset to its correct value
+# delete the kernel, os, codename and p1mountpoint variables, we may be restoring to a different machine type or a different OS
+#   these will be reset to their correct values
 redis-cli del kernel
+redis-cli del os
+redis-cli del codename
+redis-cli del p1mountpoint
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
 # unset any locks
@@ -161,10 +176,12 @@ fi
 redis-cli set dev '0'
 # set debug off
 redis-cli set debug '0'
+# clear the audio configuration to force rebuild on boot
+redis-cli del acards
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
-# generate Wi-Fi profile files in /boot/wifi for the restored Wi-Fi profiles in redis
+# generate Wi-Fi profile files in <p1mountpoint>/wifi for the restored Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
 # refresh the nic's
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
