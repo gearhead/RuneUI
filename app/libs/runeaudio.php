@@ -13539,3 +13539,394 @@ function wrk_smt($redis)
         $redis->set('savecpuSmt', 2350 + rand(0, 100));
     }
 }
+
+// function to control alsa equaliser
+function wrk_alsa_equaliser($redis, $action, $args=null, $jobID=null)
+//
+{
+    if ($redis->hget('alsa_equaliser', 'enable')) {
+        $alsaEqualiserEnabled = true;
+    } else {
+        $alsaEqualiserEnabled = false;
+    }
+    if ($redis->get('activePlayer') == 'MPD') {
+        $mpdPlayer = true;
+    } else {
+        $mpdPlayer = false;
+    }
+    switch ($action) {
+        case 'start':
+            // no break
+            // break;
+        case 'stop':
+            // no break
+            // break;
+        case 'update':
+            if (!$redis->hExists('alsa_equaliser', 'bands') || !$redis->hExists('alsa_equaliser', 'bands_number')) {
+                wrk_alsa_equaliser($redis, 'initialise_bands');
+            }
+            if (isset($args) && (is_array($args) || is_object($args))) {
+                foreach ($args as $key => $value) {
+                    if (($key = 'bands_number') && ($value != $redis->hGet('alsa_equaliser', 'bands_number'))) {
+                        if ($value = 20) {
+                            wrk_alsa_equaliser($redis, 'bands_10_to_20');
+                        }
+                    }
+                    $redis->hSet('alsa_equaliser', $key, $value);
+                }
+            }
+            if ($action == 'start') {
+                $redis->hSet('alsa_equaliser', 'enable', 1);
+                ui_notify($redis, "Alsa Equaliser", 'Enabled');
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+                wrk_snd_aloop($redis, 'add', 'alsa_equaliser');
+            } else if ($action == 'stop') {
+                $redis->hSet('alsa_equaliser', 'enable', 0);
+                ui_notify($redis, "Alsa Equaliser", 'Disabled');
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+                wrk_snd_aloop($redis, 'remove', 'alsa_equaliser');
+            }
+            unset($key, $value);
+            break;
+        case 'initialise_bands':
+            $frequencies = array('31 Hz', '45 Hz', '63 Hz', '90 Hz', '125 Hz', '180 Hz', '250 Hz', '361 Hz', '500 Hz', '721 Hz', '1000 Hz', '1443 Hz', '2000 Hz', '2885 Hz', '4000 Hz', '5771 Hz', '8000 Hz', '11542 Hz','16000 Hz', '23083 Hz');
+            $cnt = 0;
+            if ($redis->hExinst('alsa_equaliser', 'init_value')) {
+                $init_value = $redis->hGet('alsa_equaliser', 'init_value');
+            } else {
+                $init_value = 66;
+            }
+            foreach ($frequencies as $frequency) {
+                if (strlen($cnt) == 1) {
+                    $number = '0'.$cnt;
+                } else {
+                    $number = $cnt;
+                }
+                $bands[$cnt]['number'] = $number;
+                $bands[$cnt]['frequency'] = $frequency;
+                $bands[$cnt]['value'] = $init_value;
+                $cnt++;
+            }
+            $redis->hSet('alsa_equaliser', 'bands', json_encode($bands));
+            $redis->hSet('alsa_equaliser', 'bands_number', 10);
+            unset($frequencies, $frequency, $cnt, $init_value, $number, $bands);
+            break;
+        case 'bands_10_to_20':
+            $workList = array(1, 3, 5, 7, 9, 11, 13, 15, 17);
+            $bands = json_decode($redis->hGet('alsa_equaliser', 'bands'), true);
+            foreach ($workList as $element) {
+                $bands[$element]['value'] = round(($bands[$element - 1]['value'] + $bands[$element + 1]['value'])/2);
+            }
+            $bands['19']['value'] = $bands['18']['value'];
+            $redis->hSet('alsa_equaliser', 'bands', json_encode($bands));
+            unset($workList, $element, $bands);
+            break;
+        case 'select':
+            break;
+        case 'deselect':
+            break;
+        case 'set_alsa':
+            if ($alsaEqualiserEnabled) {
+                if ($redis->hGet('alsa_equaliser', 'bands_number') == 10) {
+                    $workList = array(0, 2, 4, 6, 8, 10, 12, 14, 16, 18);
+                } else if ($redis->hGet('alsa_equaliser', 'bands_number') == 20) {
+                    $workList = array(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+                } else {
+                    ui_notifyError('Alsa Equaliser', 'Error: Not initialised');
+                    break;
+                }
+                $bands = json_decode($redis->hGet('alsa_equaliser', 'bands'), true);
+                foreach ($worklist as $element) {
+                    // command format: amixer -D equal -q set '00. 31 Hz' 39
+                    sysCmd("amixer -D equal -q set '".$bands[$element]['number'].". ".$bands[$element]['frequency']."' ".$bands[$element]['value']);
+                }
+            }
+            break;
+        case 'save_alsa':
+            if ($alsaEqualiserEnabled) {
+                if ($redis->hGet('alsa_equaliser', 'bands_number') == 10) {
+                    $workList = array(0, 2, 4, 6, 8, 10, 12, 14, 16, 18);
+                } else if ($redis->hGet('alsa_equaliser', 'bands_number') == 20) {
+                    $workList = array(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+                } else {
+                    ui_notifyError('Alsa Equaliser', 'Error: Not initialised');
+                    break;
+                }
+                $bands = json_decode($redis->hGet('alsa_equaliser', 'bands'), true);
+                foreach ($worklist as $element) {
+                    // command format: amixer -D equal -q get '00. 31 Hz'
+                    $bands[$element]['value'] = sysCmd("amixer -D equal -q get '".$bands[$element]['number'].". ".$bands[$element]['frequency']."'")[0];
+                }
+                $redis->hSet('alsa_equaliser', 'bands', json_encode($bands));
+            }
+            break;
+        case 'set_output':
+            if ($alsaEqualiserEnabled) {
+                if (isset($args) && $args) {
+                    $ao = $args;
+                } else {
+                    $ao = $redis->get('ao');
+                }
+                if (isset($ao) && $ao) {
+                    $acard = json_decode($resid->hGet('acards', $ao), true);
+                    if (isset($acard) && is_array($acard) && $acard['device']) {
+                        // $search = '^pcm.plugequal \{\ntype equal;\nslave.pcm \"plughw:.*'; // for my editor a matching bracket }
+                        // $replace = 'pcm.plugequal \{\ntype equal;\nslave.pcm \"'.str_replace('hw:', 'plughw:', $acard['device']).'\";'; // for my editor a matching bracket }
+                    }
+                }
+            }
+            break;
+        default:
+            ui_notifyError('Alsa Equaliser', 'Internal error: Invalid function call');
+            break;
+    }
+}
+
+// Function to control the loading of the ALSA loopback connector
+function wrk_snd_aloop($redis, $action, $component=null)
+// when the redis hash variable 'snd-aloop' has a value the loopback connector will loaded
+//  when the redis hash variable 'snd-aloop' has no a value the loopback connector will unloaded on the next boot
+// the loopback connector is used by several sound processing components, e.g. ALSA Equaliser, SnapCast, etc.
+//  when any one of the sound processing components is enabled the loopback connector will be activated
+//  when all sound processing components are disabled the loopback connector will be deactivated on the next boot
+// parameters:  $redis - required
+//              $action = add, remove, check - required
+//              $component = the sound processing component, e.g. alsa_equaliser, snapcast_server, etc. - required for add and remove
+{
+    switch ($action) {
+        case 'add':
+            if (isset($component) && $component) {
+                $redis->hSet('snd-aloop', $component, 1);
+            }
+            break;
+        case 'remove':
+            if (isset($component) && $component) {
+                $redis->hDel('snd-aloop', $component);
+            }
+            break;
+        case 'check';
+            break;
+        default:
+            ui_notifyError('Alsa Loopback Adaptor', 'Internal error: Invalid function call');
+            break;
+    }
+    if (sysCmd('grep -ic "snd-aloop" /etc/modules')[0]) {
+        // loopback connecter loaded
+        if (!$redis->exists('snd-aloop')) {
+            // the loopback connector is disabled, remove the loopback connector on the next boot
+            sysCmd("sed -i '/snd-aloop/d' /etc/modules");
+        }
+    } else {
+        // loopback connecter not loaded
+        if ($redis->exists('snd-aloop')) {
+            // add the loopback connector on the next boot
+            sysCmd('echo "snd-aloop" >> /etc/modules');
+            // add the loopback connector now
+            sysCmd('modprobe snd-aloop');
+            // modify the mpd loopback configuration
+            wrk_mpd_loopback($redis, 'restart_mpd');
+        }
+    }
+}
+
+// this function modifies the mpd sub-config file called /etc/mpd_loopback.conf, which configures outputs to the loopcack connector
+//  the mpd sub-config file is included into the mpd config file
+function wrk_mpd_loopback($redis, $action=null)
+// the /etc/mpd_loopback.conf file is empty when the loopback connector is not activated
+// when the loopback connector is activated it contains configuration files for the three sound processing components:
+//  alsa_equaliser      uses loopback device 0 subdevice 0 input and device 1 subdevice 0 output
+//  snapcast_client     uses loopback device 0 subdevice 1 input and device 1 subdevice 1 output
+//  brutefir            uses loopback device 0 subdevice 2 input and device 1 subdevice 2 output
+// if a hardware volume control is present it is retained pointing to the actual output card
+//  on an output card change the mpd sub-config file /etc/mpd_loopback.conf is recreated in order to retain
+//  the hardware volume controls and regenerate the alsa output configuration files of the sound processing components
+// parameters:  $redis
+//              $action     = 'restart_mpd' mpd will be restarted if required
+// return value: 'unchanged' or 'changed'
+{
+    // file name
+    $fileName = '/etc/mpd_loopback.conf';
+    $fileNameTmp = '/tmp/mpd_loopback.conf';
+    clearstatcache(true, $FileName);
+    if (file_exists($fileName)) {
+        $fileNameMD5 = md5_file($fileName);
+    } else {
+        $fileNameMD5 = '';
+    }
+    // set up the file header
+    $output = '';
+    $output .= "##########################################################\n";
+    $output .= "#  This sub mpd configuration file is part of RuneAudio  #\n";
+    $output .= "#  ----------------------------------------------------  #\n";
+    $output .= "# Filename: /etc/mpd_loopback.conf                       #\n";
+    $output .= "# This file is automatically generated and should not be #\n";
+    $output .= "# manually edited. It contains the MPD output            #\n";
+    $output .= "# definitions for the loopback connector devices which   #\n";
+    $output .= "# are input devices for sound processing.                #\n";
+    $output .= "# The file is automatically included into /etc/mpd.conf  #\n";
+    $output .= "##########################################################\n";
+    $output .= "#\n";
+    // determine whether the loopback connector is enabled/disabled
+    $loopbackEnabled = sysCmd("aplay -l | grep -i '^card' | grep -ic 'loopback'");
+    if (!$loopbackEnabled) {
+        // the loopback connector is disabled, create an empty mpd sub-config file called /etc/mpd_loopback.conf
+        $output .= "# Loopback connector is disabled, this file has no active contents.\n";
+        $output .= "#\n";
+        file_put_contents($fileNameTmp, $output);
+    } else {
+        // the loopback connector is enabled, create the mpd outputs
+        // get the current audio card
+        $ao = $redis->get('ao');
+        $acard = json_decode($redis->hGet('acards', $ao), true);
+        // get the mpd configuration
+        $mpdcfg = $redis->hgetall('mpdconf');
+        //
+        $output .= "# ALSA Equaliser output\n";
+        $output .="audio_output {\n";
+        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        $output .="\tname \t\t\"ALSA_equaliser\"\n";
+        $output .="\ttype \t\t\"alsa\"\n";
+        $output .="\tdevice \t\t\"plughw:Loopback,0,0\"\n";
+        if ($mpdcfg['mixer_type'] == 'hardware') {
+             if (isset($card['mixer_control'])) {
+                $output .="\tmixer_control \t\"".$acard['mixer_control']."\"\n";
+                $output .="\tmixer_type \t\"hardware\"\n";
+                $output .="\tmixer_device \t\"".substr($acard['device'], 0, 4)."\"\n";
+                if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
+                    // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
+                    $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
+                }
+            } else {
+                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                } else {
+                    $output .="\tmixer_type \t\"software\"\n";
+                }
+            }
+            // $output .="\tmixer_index \t\"0\"\n";"\t\t  \t\"0\"\n";
+        } else if ($volumeControl) {
+            $output .="\tmixer_type \t\"software\"\n";
+        } else {
+            $output .="\tmixer_type \t\"none\"\n";
+        }
+        // test if there is an option for mpd.conf is set
+        // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
+        if (isset($card_decoded['card_option'])) {
+            $output .= "\t".$card_decoded['card_option']."\n";
+        }
+        // test if there is an allowed_formats for mpd.conf is set
+        // for example the ES9023 audio card expects 24 bit input
+        if (isset($acard['allowed_formats'])) {
+            $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
+        }
+        $output .="\tauto_resample \t\"no\"\n";
+        $output .="\tauto_format \t\"no\"\n";
+        $output .="\tenabled \t\"no\"\n";
+        $output .="}\n";
+        //
+        $output .= "# Snapcast Server output\n";
+        $output .="audio_output {\n";
+        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        $output .="\tname \t\t\"Snapcast_Server\"\n";
+        $output .="\ttype \t\t\"alsa\"\n";
+        $output .="\tdevice \t\t\"plughw:Loopback,0,1\"\n";
+        if ($mpdcfg['mixer_type'] == 'hardware') {
+             if (isset($card['mixer_control'])) {
+                $output .="\tmixer_control \t\"".$acard['mixer_control']."\"\n";
+                $output .="\tmixer_type \t\"hardware\"\n";
+                $output .="\tmixer_device \t\"".substr($acard['device'], 0, 4)."\"\n";
+                if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
+                    // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
+                    $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
+                }
+            } else {
+                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                } else {
+                    $output .="\tmixer_type \t\"software\"\n";
+                }
+            }
+            // $output .="\tmixer_index \t\"0\"\n";"\t\t  \t\"0\"\n";
+        } else if ($volumeControl) {
+            $output .="\tmixer_type \t\"software\"\n";
+        } else {
+            $output .="\tmixer_type \t\"none\"\n";
+        }
+        // test if there is an option for mpd.conf is set
+        // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
+        if (isset($card_decoded['card_option'])) {
+            $output .= "\t".$card_decoded['card_option']."\n";
+        }
+        // test if there is an allowed_formats for mpd.conf is set
+        // for example the ES9023 audio card expects 24 bit input
+        if (isset($acard['allowed_formats'])) {
+            // Snap Server has a fixed output sample rate of 48000Hz, 16bit, 2 channels (stereo)
+            $output .= "\tallowed_formats\t\"48000:16:2\"\n";
+        }
+        $output .="\tauto_resample \t\"no\"\n";
+        $output .="\tauto_format \t\"no\"\n";
+        $output .="\tenabled \t\"no\"\n";
+        $output .="}\n";
+        //
+        $output .= "# Brutefir output\n";
+        $output .="audio_output {\n";
+        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        $output .="\tname \t\t\"Brutefir\"\n";
+        $output .="\ttype \t\t\"alsa\"\n";
+        $output .="\tdevice \t\t\"plughw:Loopback,0,2\"\n";
+        if ($mpdcfg['mixer_type'] == 'hardware') {
+             if (isset($card['mixer_control'])) {
+                $output .="\tmixer_control \t\"".$acard['mixer_control']."\"\n";
+                $output .="\tmixer_type \t\"hardware\"\n";
+                $output .="\tmixer_device \t\"".substr($acard['device'], 0, 4)."\"\n";
+                if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
+                    // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
+                    $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
+                }
+            } else {
+                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                } else {
+                    $output .="\tmixer_type \t\"software\"\n";
+                }
+            }
+            // $output .="\tmixer_index \t\"0\"\n";"\t\t  \t\"0\"\n";
+        } else if ($volumeControl) {
+            $output .="\tmixer_type \t\"software\"\n";
+        } else {
+            $output .="\tmixer_type \t\"none\"\n";
+        }
+        // test if there is an option for mpd.conf is set
+        // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
+        if (isset($card_decoded['card_option'])) {
+            $output .= "\t".$card_decoded['card_option']."\n";
+        }
+        // test if there is an allowed_formats for mpd.conf is set
+        // for example the ES9023 audio card expects 24 bit input
+        if (isset($acard['allowed_formats'])) {
+            // Snap Server has a fixed output sample rate of 96000Hz, 32bit, 2 channels (stereo)
+            $output .= "\tallowed_formats\t\"96000:32:2\"\n";
+        }
+        $output .="\tauto_resample \t\"no\"\n";
+        $output .="\tauto_format \t\"no\"\n";
+        $output .="\tenabled \t\"no\"\n";
+        $output .="}\n";
+        //
+    }
+    if ($fileNameMD5 == md5_file($fileNameTmp)) {
+        // old and new files are the same, remove the new file and return
+        unlink($fileNameTmp);
+        return 'unchanged';
+    } else {
+        // new  file has changed
+        rename($fileNameTmp, $fileName);
+        if ($action == 'restart_mpd') {
+            wrk_mpdconf($redis, 'forcerestart');
+        }
+        return 'changed';
+    }
+}
