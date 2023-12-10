@@ -42,8 +42,16 @@ function updateOS($redis) {
     // even if an image is reset all patches will be applied sequentially
     // patches should always be repeatable without causing problems
     // when a new image is created the patch level will always be set to zero, the following code should also be reviewed
-    if (($redis->get('buildversion') === 'janui-20230805') || ($redis->get('buildversion') === 'janui-20230823')) {
-        // only applicable for a specific build
+    if ($redis->get('buildversion') === 'janui-20231210') {
+        // this is 0.6b, only applicable for a specific build
+        ui_notify($redis, 'Post update processing', 'Startup may take longer than  mormal!');
+        // if ($redis->get('patchlevel') == 0) {
+            // // 1st update
+            // $redis->set('patchlevel', 1);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 1');
+        // }
+    } else if (($redis->get('buildversion') === 'janui-20230805') || ($redis->get('buildversion') === 'janui-20230823')) {
+        // this is 0.6a, only applicable for a specific build
         ui_notify($redis, 'Post update processing', 'Startup may take longer than  mormal!');
         if ($redis->get('patchlevel') == 0) {
             // 1st update
