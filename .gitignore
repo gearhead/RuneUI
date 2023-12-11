@@ -12,3 +12,4 @@ node_modules
 tmp/**
 /app/libs/composer.phar
 *.save
+/assets/js/runeui.min.js.map
