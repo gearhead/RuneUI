@@ -686,7 +686,8 @@ for f in $files ; do
     fi
     # first delete any lines containing an 'Include'
     sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\//d' $f
-    if [ '$os' != "" ] ; then
+    codename=$( redis-cli get codename )
+    if [ "$os" == "ARCH" ] || [ "$codename" == "bullseye" ] ; then
         # modify 'sshd_config' directly directly
         # in each file comment out all occurrences of 'PermitRootLogin'
         sed  -i '/^\s*PermitRootLogin.*/ s/./# &/' "$f"
@@ -699,10 +700,9 @@ for f in $files ; do
     else
         # use the include in 'sshd_config'
         # add the correct Include line to the file
-        sed -i '/Port 22/i Include /etc/ssh/sshd_config.d/*.conf\n' $f
-        echo -e "\nInclude /etc/ssh/sshd_config.d/*.conf" >> $f
+        sed -i '/Port\s*22/i Include /etc/ssh/sshd_config.d/*.conf\n' $f
     fi
-    # clean up the file replacing multiple spac line by one
+    # tidy up the file replacing multiple space line by one
     sed -i '/^$/N;/^\n$/D' $f
 done
 #
