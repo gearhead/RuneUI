@@ -672,17 +672,38 @@ else
     rm -f /usr/local/sbin/apt
 fi
 #
-# modify /etc/ssh/sshd_config, make sure that 'Include /etc/ssh/sshd_config.d/*.conf' is the last line of the file
+# modify /etc/ssh/sshd_config
+#   some distributions support an 'Include' statement some don't,
+#       when valid make sure that 'Include /etc/ssh/sshd_config.d/*.conf' is the first line of the file
+#   when distributions don't support 'Include' modify the 'sshd_config' directly, but first copy it to 'sshd_config.orig'
 #   determine the file name(s)
 files=$( find /etc -type f -name sshd_config 2>/dev/null )
 #   then for each of the files
 for f in $files ; do
-    #   first delete any lines containing the include
-    sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\/etc\/ssh\/sshd\_config\.d/d' $f
-    #   remove empty lines at end of file
-    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' $f
-    #   append the correct Include line to the file
-    echo -e "\nInclude /etc/ssh/sshd_config.d/*.conf" >> $f
+    # make a copy of the file if that does not exist
+    if [ ! -f "$f.orig" ] ; then
+        cp $f $f.orig
+    fi
+    # first delete any lines containing an 'Include'
+    sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\//d' $f
+    if [ '$os' != "" ] ; then
+        # modify 'sshd_config' directly directly
+        # in each file comment out all occurrences of 'PermitRootLogin'
+        sed  -i '/^\s*PermitRootLogin.*/ s/./# &/' "$f"
+        # in each file replace the line with the first occurrence of commented out 'PermitRootLogin' with 'PermitRootLogin yes'
+        sed -i '0,/^\s*#*\s*PermitRootLogin/s/\s*#*\s*PermitRootLogin.*/PermitRootLogin yes/' "$f"
+        # in each file comment out all occurrences of 'Subsystem      sftp'
+        sed  -i '/^\s*Subsystem\s*sftp.*/ s/./# &/' "$f"
+        # in each file replace the line with the first occurrence of commented out 'Subsystem      sftp' with 'Subsystem      sftp    internal-sftp'
+        sed -i '0,/^\s*#*\s*Subsystem\s*sftp/s/\s*#*\s*Subsystem\s*sftp.*/Subsystem      sftp    internal-sftp/' "$f"
+    else
+        # use the include in 'sshd_config'
+        # add the correct Include line to the file
+        sed -i '/Port 22/i Include /etc/ssh/sshd_config.d/*.conf\n' $f
+        echo -e "\nInclude /etc/ssh/sshd_config.d/*.conf" >> $f
+    fi
+    # clean up the file replacing multiple spac line by one
+    sed -i '/^$/N;/^\n$/D' $f
 done
 #
 # for RPiOS we need to make sure the swapfile is switched off and uninstalled
