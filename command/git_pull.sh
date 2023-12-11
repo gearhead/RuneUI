@@ -61,6 +61,10 @@ git --git-dir=/srv/http/.git -C /srv/http/ status
 # run git pull
 pullInfo=$( git --git-dir=/srv/http/.git -C /srv/http/ pull --no-edit )
 echo "$pullInfo"
+# remove certain files from the git cache, these lines can be removed on each subsequent release
+git rm --cached assets/js/runeui.min.js.map
+# generate the assets/js/runeui.min.js and assets/js/runeui.min.js.map
+uglifyjs --verbose --mangle --keep-fnames --warn --validate --webkit --ie8 assets/js/runeui.js --source-map --output assets/js/runeui.min.js
 # report the status and stash
 cd /srv/http/
 git --git-dir=/srv/http/.git -C /srv/http/ status
