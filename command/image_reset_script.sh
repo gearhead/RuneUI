@@ -814,9 +814,11 @@ if [ "$1" == "full" ] ; then
         # rank mirrors and refresh repo's
         /srv/http/command/rank_mirrors.sh
     elif [ "$od" == "RPiOS" ] ; then
-        apt clean
+        apt --fix-broken -y install
         apt autoclean
         apt autoremove
+        apt clean
+        apt-get clean
     fi
     # remove composer saved files and composer.phar
     rm /srv/http/app/libs/composer.phar
