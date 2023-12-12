@@ -394,6 +394,9 @@ php -f /srv/http/db/redis_acards_details
 # always clear player ID and hardware platform ID
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
+# refresh $os and $codename
+os=$( redis-cli get os )
+codename=$( redis-cli get codename )
 #
 # install raspi-rotate, only when xwindows is installed
 if [ -f "/bin/xinit" ] ; then
@@ -686,8 +689,15 @@ for f in $files ; do
     fi
     # first delete any lines containing an 'Include'
     sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\//d' $f
+    os=$( redis-cli get os )
     codename=$( redis-cli get codename )
-    if [ "$os" == "ARCH" ] || [ "$codename" == "bullseye" ] ; then
+    if [ "$os" == "" ] ; then
+        # Note: this currently does not work for any of the current RuneAudio OS-types
+        # use the include in 'sshd_config'
+        # add the correct Include line to the file
+        sed -i '/Port\s*22/i Include /etc/ssh/sshd_config.d/*.conf\n' $f
+    else
+        # Note: this is currently used for all of the current RuneAudio OS-types
         # modify 'sshd_config' directly directly
         # in each file comment out all occurrences of 'PermitRootLogin'
         sed  -i '/^\s*PermitRootLogin.*/ s/./# &/' "$f"
@@ -697,10 +707,6 @@ for f in $files ; do
         sed  -i '/^\s*Subsystem\s*sftp.*/ s/./# &/' "$f"
         # in each file replace the line with the first occurrence of commented out 'Subsystem      sftp' with 'Subsystem      sftp    internal-sftp'
         sed -i '0,/^\s*#*\s*Subsystem\s*sftp/s/\s*#*\s*Subsystem\s*sftp.*/Subsystem      sftp    internal-sftp/' "$f"
-    else
-        # use the include in 'sshd_config'
-        # add the correct Include line to the file
-        sed -i '/Port\s*22/i Include /etc/ssh/sshd_config.d/*.conf\n' $f
     fi
     # tidy up the file replacing multiple space line by one
     sed -i '/^$/N;/^\n$/D' $f
