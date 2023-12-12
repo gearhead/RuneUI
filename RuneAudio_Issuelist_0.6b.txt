@@ -1,0 +1,30 @@
+RuneAudio issue list 0.6b
+-------------------------
+
+All versions
+------------
+AV01. UPnP/DLNA will not work correctly with the latest Microsoft Windows Media Player (on Microsoft Windows
+        10) as a source. It produces loud and garbled noise as audio output. However, UPnP/DLNA works without
+        problems using BubbleUPnP on Android.
+AV02: Will not run on the Raspberry Pi 5B.
+AV03:
+
+RPiOS-Bullseye 32-bit version
+-----------------------------
+RP01.
+
+ARCH ARM aarch64 64-bit version
+-------------------------------
+AA01.
+
+
+Current patch level: 0
+
+Updating your player, step by step
+----------------------------------
+1. Go to the /dev menu - in the browser url enter <playername>/dev (e.g. http://runeaudio.local/dev)
+2. Switch dev mode on - Scroll down to the 'Dev Mode' button and toggle it to ON, then click on the ‘Save Settings’
+    button below the toggle button.
+3. When the UI comes back, click on the first ‘Save Settings’ button to activate the dev mode options.
+4. Perform a git pull - Scroll down to the ‘Update RuneUI’ option and click on the ‘git pull’ button. The update
+    will then be carried out and the player will reboot.
