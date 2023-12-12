@@ -1,0 +1,217 @@
+RuneAudio change log 0.5b > 0.6b
+--------------------------------
+
+OS and environment:
+    All Raspberry Pi models, except the Pi 5B, supported (including the Pi 3A+, Pi 4B and Zero 2W).
+    Added a Rasbian-OS (RPiOS-bullseye) based Linux variant to the RuneAudio which can be used on all Pi models.
+        Currently at Linux v6.1.21.
+    Added a ARCH Arm aarch64 64-bit Linux variant (for Pi 3A+, 3B+, 4B and Zero 2W), currently at Linux v6.1.43-1.
+    We previously patched the kernel to support sample rates up to 384KHz. Our changes are now included as
+        standard in the kernel.
+    Latest Linux file location standards have been implemented.
+    All new configuration (.pacnew) files reviewed and relevant updates implemented.
+    Upgraded PHP to version 7.x (RPiOS) or 8.x (ARCH), the previous version 3.x was end-of-life. Almost all the
+        code updated to implement the changed and stricter syntax of v8.x.
+    Partially upgraded composer components to their latest versions.
+    All standard and custom packages updated.
+    Retired the ARCH Arm image for armv6 (for Pi A, Pi B and Pi Zero), this is now end of life, ARCH Linux stopped
+        supporting at Linux v5.15.35-1. We have a version running at Linux v6.1.11-2, but this version is no longer
+        distributed or supported.
+    Retired the ARCH Arm image for armv7 (for Pi 2B, Pi 3A, Pi 3A+, Pi3B, 3B+, 4B and Zero 2W), this is in
+        principle still supported by ARCH Arm Linux. We have a version running at Linux v6.1.21-3, but due to poor
+        support from ARCH Arm Linux this version is no longer distributed or supported.
+Reworked output audio card management:
+    Support for latest Linux configuration and definitions for on-board audio cards (3,5 mm & HDMI).
+    Two HDMI audio output's available when these are connected connected at boot time (Pi4).
+    'vc4' HDMI audio output supported.
+    Automatic detection and configuration of unknown audio cards (USB devices and manually set-up audio cards).
+        This works with most audio output devices, but not all.
+    Choice of hardware or software volume control removed. Replaced with volume control on/off.
+    Automatic selection of hardware volume control when available. Software volume control is selected when no
+        hardware volume control is available.
+    The name of the audio-card presented in the MPD UI is the same as the one selected in the Settings UI.
+    USB audio devices are Plug & Play, without a reboot (i2S audio cards still need a reboot after selection).
+    Updated the list of supported audio cards.
+Added CD-Drive audio input:
+    Self powered USB CD-Drives can now be used as a source for music.
+    Auto-play on CD-detect is selectable.
+    CD-track of full CD selection supported via the library tab.
+Added hardware audio card input:
+    Input audio card capabilities are automatically detected and the optimum quality settings are used.
+    Input audio card selection supported via the library tab.
+    The idea is that this could be used for USB based vinyl turntables or alsa/USB based DAB radio input.
+Reworked Sound Signature (optimization profiles):
+    Bugs selecting profiles for Pi1 (armv6) hardware fixed.
+    Removed MPD priority resetting since MPD now dynamically resets its own priority to real-time speeds.
+    Removed other process priority resetting, this is done elsewhere.
+    Removed depreciated kernel tuning settings.
+    The routines to correctly return to previous/default kernel setting when switching profiles fixed (previously
+        a reboot after changes was required).
+    Added new profiles for Pi2, Pi3, and Pi4 based on 'Dynobot' and 'Frost_dk' forum posts.
+    Modified debug to show all the 'tweaked' kernel settings.
+Reworked UI notifications/messages:
+    Unified the UI notification/message routines. They now work.
+Main Player UI:
+    Meta-data and Album-art sourced from internet when playing web-radio's.
+    Presentation order of the main player UI objects can be modified in the /dev UI.
+    Large and small art images (album cover and artist photo art) in screen saver UI's interchangeable via /dev
+        menu setting.
+    MPD metadata, albumart and information for the next song is pre-loaded while playing the preceding song.
+    Lyrics can also be sourced from lyrics files or embedded metadata tags in the music files.
+    Lyrics validation quality routines reworked.
+    Control settings for lyrics added to the /dev menu.
+Alsa Web mixer:
+    Added 'Mixer' (WebUI Alsa Mixer) to the menu. The 'WebUI Alsa Mixer' has been available since 0.4b as a poorly
+        documented feature.
+    Modified WebUI Alsa Mixer UI presentation to have a similar look and feel to RuneAudio.
+    WebUI Alsa Mixer navigation modified to work correctly in the local browser.
+    WebUI Alsa Mixer also includes Bluetooth bluealsa devices, when applicable.
+Volume control:
+    RuneAudio will always initially start up using a volume control, set at 40%.
+    Whenever RuneAudio switches from playing a streaming service (AirPLay, Spotify Connect, Bluetooth, etc.) to
+        MPD, the volume will be reset to the last value set in MPD.
+    The volume control in the player UI is dimmed and disabled when not active.
+    In addition to the existing 'enabled', 'disabled' options in the volume control setup options the option
+        'disabled & hide the volume control' included.
+    Presentation problems when scaling the volume control for small screens fixed.
+    Initialisation problems with volume up and down buttons in combination with the mute button fixed.
+    Centre of the volume control (volume level) is now the same colour as the centre of the countdown timer.
+    Centre of the volume control (volume level) is clickable for mute/unmute in the same style as pause/restart
+        using the countdown timer.
+Library management:
+    Main Library options not shown when they cannot be used.
+    Added: 'Add next' to the library music and web-radio selection choices.
+    Added: 'Add next and play' to the library music and web-radio selection choices.
+    Added: 'Add, replace, play and add similar' to the the library music selection choices.
+    Added: file type information (mp3, flac, etc.) to the file list.
+    Fast-track web-radio import, see: /boot/web-radios/readme.
+    Library up/down scroll buttons now scroll the correct number of lines.
+    Rebuild web-radio database added to the /dev UI.
+    ReplayGain tools added to the /dev UI.
+    Pull-down menus to add, addnext, etc. displayed in front of information notifications.
+    Information notifications close on click.
+Queue & Playlist management:
+    Playlists are shown in (case insensitive) alphabetically sorted order.
+    Add playlist: Playlist name is validated.
+    Rename playlist: Playlist names are validated.
+    Added: Remove duplicate songs from playlist.
+    Added: Remove invalid songs from playlist.
+    Added: Shuffle Queue; randomise the order of the songs in the queue.
+    Added: Delete Queue; delete played songs.
+    Added: Delete Queue; delete all except current song (crop).
+    Mouse-over help/hints improved.
+    Added the 'Consume' option to the MPD UI. When Consume is switched on MPD will remove songs from the queue
+        after being played.
+MPD features:
+    Added HTTPd webstreaming as optional MPD audio output see MPD UI (only available for MPD sourced music).
+        Set-up options for HTTPd webstreaming included in the /dev UI.
+    Moved some of the complexer and less used MPD settings from the MPD UI to the /dev UI.
+    Database proxy plugin can be selected in the /dev UI.
+Spotify & Spotify Connect:
+    Spotify removed, it has not worked for several years.
+    Added Spotify Connect streaming, including metadata and album art.
+Airplay:
+    Improved metadata and album art routines.
+    A screen refresh will now refresh the Airplay metadata and album art.
+    AirPlay 2 now supported.
+Bluetooth:
+    Added Bluetooth support for input and output devices.
+    Selectable quality settings for Bluetooth devices.
+Network management routines:
+    IPv6 supported.
+    Implemented connman as network management tool.
+    Multiple ethernet and Wi-Fi nics supported.
+    Automatic Wi-Fi connection optimisation.
+    Fast-track Wi-Fi configuration without an internet connection, see: /boot/wifi/readme.
+    Automatic MAC-address spoofing when cheap network cards are used (they all seem to have the same MAC address).
+    Wi-Fi configuration is now editable (passphrase not visible).
+    IPv6 IP-address formats for Static DNS servers supported.
+    Access Point configuration bug's fixed.
+    Problems with Access Point NAT fixed.
+    Access Point security aspects improved.
+    Access Point reset to defaults, see: /boot/wifi/readme.
+    Network interface USB-dongles (Wi-Fi & Wired Ethernet) are plug & play.
+Local browser (only available on multiprocessor models):
+    Fixed xbindkeys in the local browser, it had been broken since 0.5b.
+    Fixed the local browser startup/shutdown/restart splash screens.
+    UI volume control scales correctly on small and large local display's.
+    Added simplified small screen saver for small displays.
+    Built in support for Waveshare LCD cards (XPT2046 / ADS7846 tft touch-screens).
+    Added rotate for Waveshare LCD cards (XPT2046 / ADS7846 tft touch-screens).
+    Added UI control for overscan (black border around the active display area).
+    The luakit browser used by default, chromium is used when luakit wont work.
+    Experimented with weston to replace xorg X11, but it is not quite mature/stable enough.
+Global Random play (randomly adding songs to the queue when empty, using ashuffle):
+    Reworked to improve stability.
+    Random album play added.
+    Number of songs ready to play in the queue can be adjusted.
+    Specified genres can be excluded from random play.
+    New ashuffle features implemented which allow 'cross-fade' to work correctly.
+    Stop/start/reset added to the Playlist UI.
+    Upmpdcli streaming now works correctly in combination with ashuffle.
+ReplayGain (experimental):
+    Experimental routines added in the /dev UI to add, update & remove ReplayGain tags for flac files. These are
+        considered reliable.
+    Experimental routines added in the /dev UI to add, update & remove ReplayGain tags for all music files. These
+        are NOT considered reliable.
+Reworked the backup and restore function:
+    Improved diagnostics and reliability.
+    Improved web-radio backup and restore.
+    All important distribution files are backed up.
+    One step restore.
+    Better support for restore to different Pi models and OS.
+    NAS mounts now come back correctly after a restore.
+    Restore now has better support for version upgrades (but not everything is possible).
+Reworked the Settings UI:
+    More logical ordering of items.
+    Removed obsolete controls.
+    Added extra 'apply settings' buttons to avoid excessive scrolling.
+Fonts:
+    Latest version of Font Awesome added for newer glyphs, the old glyphs have been retained.
+    Lato Fonts updated.
+    Non-western fonts added:
+        Korean font support (ttf-baekmuk).
+        Japanese font support (ttf-hanazono).
+        Simplified Chinese font support (ttf-arphic-uming).
+Security:
+    Even though RuneAudio is not a secure application, and some of its components state this explicitly, some
+        improvements.
+    UI prompt to change the default Linux root password.
+    UI prompt to change the Access Point password.
+    Mechanism to allow a change of forgotten Linux root password, see: /boot/password/readme.
+    Mechanism to allow a reset to defaults for the Access Point configuration, see: /boot/wifi/readme.
+Other:
+    Cookbook for image generation reworked with improved automated package version testing.
+    New cookbook for the Rasbian based RPiOS image.
+    Image reset script, for automated image deployment, improved to support the latest modifications.
+    All source code tided up, inconstant use of tabs, spaces, etc. corrected.
+    Default cpu temperature limit set to 75'C.
+    Added under-power, overheating and throttling diagnostics in debug (primarily for the Pi B4 model).
+    Under-clocking features for the Pi3 and Pi4 models is available in the /dev menu. The lower speed is intended
+        to lower the operating temperature and therefore reduce noise. Passive cooling on a Pi B4 could also be
+        possible.
+    Improved reporting concerning Pi type and Linux type in Debug and the Settings > Status UI.
+    Automatic setting of the time-zone after initial boot.
+    Automatic setting of the Wi-Fi regulatory domain country code. This improves Wi-Fi reliability and in most
+        countries allows higher transmission power.
+    Removed the option of using chrony/chronyd for NTP synchronisation. Now only systemd-timesyncd is used.
+    Availability of internet services are now tracked, features are automatically disabled when the required
+        services are unavailable.
+    When MPD cannot determine the values for some high-resolution audio types, 'getid3' is used to determine
+        playback rates (bit rate & sample rate).
+    Variable bit rate playback rates are shown as average bit rate (for example FLAC and some MP3 encoding).
+    Fixed some bugs in the amixer-webui.
+    Asynchronous 'jobs' are run sequentially (fifo) in the background, which helps to keep memory use to a minimum
+        for the low-memory Pi systems.
+    ZeroClipboard, used for copying the debug text to the clipboard, removed and replaced due to its dependency on
+        end-of-life Adobe Flash Player.
+    Pre-configured to use gpio-ir overlays replacing depreciated lirc for Infra-Red remote control.
+    Smart semi-persistent generic cache implemented for album art, song metadata and artist information.
+    Reworked Debug UI data and processing.
+    The MPD logfile size is tracked and recycled when too big.
+    PHP opcache size is automatically optimised.
+    Caching for CIFS mounts enabled by default.
+    Some general UI reorganisation and textual changes.
+    A number of 'Advanced settings' added to the /dev UI.
+    Tool uglify-js implemented to minimise/optimise JavaScript files.
+    Updated credits.
