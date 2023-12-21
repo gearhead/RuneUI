@@ -66,6 +66,7 @@ $savecpuMpdLog = 600;
 $savecpuTimezone = 60;
 $savecpuOpCache = 7200;
 $savecpuFixLogs = 36;
+$savecpuVc4Hdmi = 1800;
 $allmounted = 0;
 $retriesmounting = 100;
 //
@@ -1682,6 +1683,13 @@ while (true) {
         // run the script async
         sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_opcache_async.php');
     }
+    // Check and correct vc4 hdmi allowed formats after 1800 cycles (+/-15 mins), then every +/-1800 cycles (= every +/-15 minutes)
+    // hopefully this can be removed in the near future
+    if ($savecpuVc4Hdmi-- <= 0) {
+        $savecpuVc4Hdmi = 1750 + rand(0, 100);
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/set_vc4_hdmi_allowed_formats.php');
+    }
+
     // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
     // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
     //  will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync

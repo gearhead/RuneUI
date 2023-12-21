@@ -3175,14 +3175,29 @@ function wrk_audioOutput($redis, $action)
             unset($countErr, $cnt);
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
             //  also eliminate loopback card definitions, these are used for internal routing of the sound path
-            if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 1)) {
+            //  vc4 HDMI cards appear regardless of attached device or setting on-board cards off, ignore these when on board cards is set off
+            if ($redis->exists('hdmivc4hw') && (($redis->get('hdmivc4hw') == 1) || ($redis->get('hdmivc4hw') == 3))) {
                 // handle vc4 as hardware cards
-                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
+                if ($redis->get('audio_on_off')) {
+                    // all cards when on-board audio is enabled
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
+                } else {
+                    // eliminate hdmi cards when on-board audio is disabled
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback" | grep -vi "hdmi"');
+                }
             } else {
-                // handle vc4 as software cards
+                // eliminate vc4 from the hardware cards
                 $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
-                // get a separate list of SW HDMI vc4 cards
-                $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                // handle vc4 as software cards, but only when on-board audio is enabled
+                if ($redis->get('audio_on_off')) {
+                    // get a separate list of SW HDMI vc4 cards
+                    $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                    foreach ($cardlistHDMIvc4 as $key => $cardHDMIvc4) {
+                        if (!sysCmd("amixer -D ".$cardHDMIvc4." scontrols | grep -ic pcm | xargs")[0]) {
+                            unset($cardlistHDMIvc4[$key]);
+                        }
+                    }
+                }
             }
             $acards = array();
             // reformat the output of the card list
@@ -3401,20 +3416,16 @@ function wrk_audioOutput($redis, $action)
                 if ((!isset($details['description']) || !$details['description']) && isset($details['type']) && $details['type']) {
                     if ($details['type'] == 'integrated') {
                         if (isset($details['sysname']) && $details['sysname']) {
-                            if (strpos(' '.$details['sysname'], 'vc4-') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 4));
-                            } else if (strpos(' '.$details['sysname'], 'vc4') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 3));
+                            if (strpos(' '.$details['sysname'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($details['sysname']);
                             } else if (strpos(' '.$details['sysname'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
                             } else {
                                 $details['description'] = 'Raspberry Pi: '.trim($details['sysname']);
                             }
                         } else if (isset($details['extlabel']) && $details['extlabel']) {
-                            if (strpos(' '.$details['extlabel'], 'vc4-') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 4));
-                            } else if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 3));
+                            if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($details['extlabel']);
                             } else if (strpos(' '.$details['extlabel'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
                             } else {
@@ -3555,10 +3566,15 @@ function wrk_audioOutput($redis, $action)
                 //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
                 //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
                 //          20 bits, or 24 bits at up to 8 channels
-                //      we choose to run at 24 bit, 2 channels for the specified sample rates
+                //      we choose to run at 16 or 24 bit, with any number channels for the specified sample rates
                 if ((!isset($details['card_option']) || !$details['card_option']) && strpos(' '.strtolower($details['sysname']), 'hdmi')) {
                     // add allowed formats to the card options
-                    $details['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
+                    $hwplatformid = $redis->get('hwplatformid');
+                    if ($hwplatformid == '08') {
+                        $details['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                    } else {
+                        $details['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                    }
                 }
                 if (isset($details['sysname']) && $details['sysname']) {
                     // a card has been determined, process it
@@ -3578,6 +3594,11 @@ function wrk_audioOutput($redis, $action)
                         // $data['mixer_device'] = "hw:".$details['mixer_numid'];
                         $data['mixer_device'] = "hw:".$card['number'];
                         $data['mixer_control'] = $details['mixer_control'];
+                    }
+                    // if its a vc4 hdmi card and hdmivc4hw is set to 3 (process as hardware & set mixer_control to PCM) add PCM as mixer_control
+                    if (strpos(' '.strtolower($details['sysname']), 'hdmi') && strpos(' '.strtolower($details['sysname']), 'vc4') && $redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 3)) {
+                        $data['mixer_control'] = 'PCM';
+                        unset($data['mixer_device']);
                     }
                     if (isset($details['sysname']) && ($details['sysname'] === $card['sysname'])) {
                         if ($details['type'] === 'integrated_sub') {
@@ -3643,15 +3664,17 @@ function wrk_audioOutput($redis, $action)
             //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
             //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
             //          20 bits, or 24 bits at up to 8 channels
-            //      we choose to run at 24 bit, 2 channels for the specified sample rates
-            // first delete any existing HDMI vc4 cards
-            $acardKeys = $redis->hKeys('acards');
-            foreach ($acardKeys as $acardKey) {
-                $acardKeyLower = ' '.strtolower($acardKey);
-                if (strpos($acardKeyLower, 'hdmi')) {
-                    if (strpos($acardKeyLower, 'vc4')) {
-                        // delete any hardware HDMI vc4 cards, delete this one
-                        $redis->hDel('acards', $acardKey);
+            //      we choose to run at 16 or 24 bit, with any number channels for the specified sample rates
+            // first delete any existing HDMI vc4 cards, when hdmivc4hw is unset or = 2 (unset = use software, 2 = use software with PCM)
+            if (!$redis->exists('hdmivc4hw') || ($redis->get('hdmivc4hw') == 2)) {
+                $acardKeys = $redis->hKeys('acards');
+                foreach ($acardKeys as $acardKey) {
+                    $acardKeyLower = ' '.strtolower($acardKey);
+                    if (strpos($acardKeyLower, 'hdmi')) {
+                        if (strpos($acardKeyLower, 'vc4')) {
+                            // delete any hardware HDMI vc4 cards, delete this one
+                            $redis->hDel('acards', $acardKey);
+                        }
                     }
                 }
             }
@@ -3666,12 +3689,18 @@ function wrk_audioOutput($redis, $action)
                         $acardHDMIvc4['sysname'] = $cardname;
                         $acardHDMIvc4['type'] = 'alsa';
                         if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 2)) {
+                            // hdmivc4hw = 2: use software card definition and set mixer_control to PCM
                             $acardHDMIvc4['mixer_control'] = 'PCM';
                         }
-                        $acardHDMIvc4['description'] = 'Raspberry Pi: SW'.$cardname;
+                        $acardHDMIvc4['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($cardname);
                         // add allowed formats to the card options
-                        $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
-                        $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+                        $hwplatformid = $redis->get('hwplatformid');
+                        if ($hwplatformid == '08') {
+                            $acardHDMIvc4['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        } else {
+                            $acardHDMIvc4['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        }
+                        $redis->hSet('acards', $acardHDMIvc4['sysname'], json_encode($acardHDMIvc4));
                     }
                 }
             }
@@ -3793,6 +3822,11 @@ function wrk_audio_on_off($redis, $args)
         } else {
             sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' '".$redis->get('p1mountpoint')."/config.txt'");
         }
+        // delete the hdmi card cache as these will always be included in mpd.conf as this is an overhead,
+        //  or there is a chance that these will have become unreliable
+        $redis->del('hdmiacards');
+        // refresh the audio cards
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_ao');
     }
 }
 
@@ -11410,20 +11444,30 @@ function getMusicFileMatadata($redis, $fileName)
 }
 
 // get the value of the first matching key in a single or multidimensional array
-function search_array_keys($myArray, $search)
+function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty=false)
 // returns the first non-null/non-false value of an array node when its key matching the search string
 // it really only works well returning strings, null and boolean values give incorrect results
 // no match returns false, a match with a null or boolean false value also return false
 {
+    if ($caseInsensative) {
+        $search = strtolower($search);
+    }
     foreach ($myArray as $key => $value) {
         if (is_array($value)) {
-            $retval = search_array_keys($value, $search);
+            $retval = search_array_keys($value, $search, $caseinsensative, $skipEmpty);
             if ($retval) {
                 return $retval;
             }
         } else {
+            if ($caseInsensative) {
+                $key = strtolower($key);
+            }
             if ($key == $search) {
-                return $value;
+                if ($skipEmpty && !strlen(trim($value))) {
+                    continue;
+                } else {
+                    return $value;
+                }
             }
         }
     }
@@ -13621,6 +13665,66 @@ function wrk_smt($redis)
     } else {
         // set the disk check frequency to +/-2400 cycles (= +/20 minutes)
         $redis->set('savecpuSmt', 2350 + rand(0, 100));
+    }
+}
+
+// function to decode vc4 hdmi description
+function decode_vc4_hdmi_desc($string)
+//
+{
+    $stringL = strtolower(trim(preg_replace('/[\s-]*/', '', $string)));
+    if (!strpos(' '.$stringL, 'vc4')) {
+        return $string;
+    }
+    if (strpos(' '.$stringL, 'hdmi0')) {
+        return 'HDMI 0';
+    } else if (strpos(' '.$stringL, 'hdmi1')) {
+        return 'HDMI 1';
+    } else if (strpos(' '.$stringL, 'hdmi2')) {
+        return 'HDMI 2';
+    } else if (strpos(' '.$stringL, 'hdmi')) {
+        return 'HDMI';
+    } else {
+        $retval = strtoupper(get_between_data(trim($stringL), vc4));
+        if (!srtlen($retval)) {
+            $retval = $string;
+        }
+        return $retval;
+    }
+}
+
+// function to limit the sample rate for vc4 hdmi ouput
+function set_vc4_hdmi_allowed_formats($redis)
+// the function can only detect limitations when the vc4 hdmi output is actually being used
+//  we only set the reduced allowed formats, we never reset it to its original value
+//  when mpd restarts the allowed formats will revert to their original settings
+//  its only relevant for MPD output, all other output streams are fixed to a sample rate of
+//      44100hz or 48000hz, there are always supported
+// by doing this we use soxr to do resampling, otherwise the awful dmix will be used
+// hdmi output can normally manages 44100:24:*, 48000:24:*, 32000:24:*, 88200:24:*, 96000:24:*, 176400:24:* & 192000:24:*
+//  the introduction of vc4 has reduces it to 44100:24:2 & 48000:24:2, hopefully this will change
+{
+    $ao =$redis->get('ao');
+    if (!strpos(' '.strtolower($ao), 'vc4') || !strpos(' '.strtolower($ao), 'hdmi')) {
+        // output is not vc4 hdmi, nothing to do
+        return;
+    }
+    $currentSetting = sysCmd("mpc outputs | sed -n '/".$ao."/, /Output/{ /Output/!p }' | grep -i 'allowed_formats=' | xargs")[0];
+    if (!isset($currentSetting) || !$currentSetting) {
+        // it should have a value, if not, its incorrect
+        return;
+    }
+    if (strtolower($currentSetting) != strtolower('allowed_formats=48000:24:* 44100:24:* 48000:16:* 44100:16:*')) {
+        // the current setting is incorrect, it should be changed
+        $playing = sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0];
+        if (!isset($playing) || !$playing) {
+            // nothing is playing, we cant do anything
+            return;
+        }
+        if (strpos(' '.strtolower($playing), strtolower('format: IEC958_SUBFRAME_LE subformat: STD'))) {
+            // the profile of the output matches the one which needs to be changed
+            sysCmd('mpc outputset '.$ao.' allowed_formats="48000:24:* 44100:24:* 48000:16:* 44100:16:*"');
+        }
     }
 }
 
