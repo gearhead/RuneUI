@@ -4090,7 +4090,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             wrk_btcfg($redis, 'remove_bt_acards');
             // get acards
             $acards = $redis->hGetAll('acards');
-            // debug
+            //
             // --- audio output ---
             $lastAo = $redis->get('ao_default');
             // ao_default contains the last chosen hardware card (device=hw:...)
@@ -5780,7 +5780,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         // 0b = unknown, treat as a PiB+
                     case "0f":
                         // 0f = internal use only, treat as a PiB+
-                        // single processor (armv6) models no on-board Wi-Fi or Bluetooth
+                        // single processor models no on-board Wi-Fi or Bluetooth
                         $arch = '01';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -5803,7 +5803,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         // 10 = PiCompute Module 3+
                     case "14":
                         // 14 = PiCompute Module 4
-                        // multi processor (armv7 or 64bit) models no on-board Wi-Fi or Bluetooth
+                        // multi processor models no on-board Wi-Fi or Bluetooth
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -5819,7 +5819,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                     case "0c":
                         // 0c = PiZero W
                         $arch = '01';
-                        // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
+                        // single processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
@@ -5858,7 +5858,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         break;
                     default:
                         $arch = '08';
-                        // unknown models assume multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
+                        // unknown models assume multi processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
@@ -14013,12 +14013,12 @@ function wrk_mpd_loopback($redis, $action=null)
         } else {
             $output .="\tmixer_type \t\"none\"\n";
         }
-        // test if there is an option for mpd.conf is set
+        // test if there is an option to set in mpd.conf
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
         if (isset($card_decoded['card_option'])) {
             $output .= "\t".$card_decoded['card_option']."\n";
         }
-        // test if there is an allowed_formats for mpd.conf is set
+        // test if there is an allowed_formats to set in mpd.conf
         // for example the ES9023 audio card expects 24 bit input
         if (isset($acard['allowed_formats'])) {
             $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
