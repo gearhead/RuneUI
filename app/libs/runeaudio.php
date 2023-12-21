@@ -5844,7 +5844,10 @@ function wrk_getHwPlatform($redis, $reset=false)
                     case "13":
                         // 13 = Pi400
                         $arch = '08';
-                        // multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
+                    case "17":
+                        // 17 = Pi5B
+                        $arch = '08';
+                        // multi processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
