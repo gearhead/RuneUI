@@ -462,8 +462,11 @@ while (true)  {
                             unlink($song['albumartfile']);
                         }
                     }
+                    // unset($auinfo['comments']['picture']);
+                    // var_dump($auinfo);
                     // save the other getID3 fields (e.g. average bitrate and sample rate)
                     foreach ($auinfo as $valuekey => $value) {
+                        // echo "valuekey '".$valuekey."'\n";
                         if (!is_array($value)) {
                             // most of the useful information is stored at the first level of the array
                             $value = trim($value);
@@ -472,28 +475,70 @@ while (true)  {
                             }
                         }
                     }
-                    // if there are music brainz id's in the metadata save them
+                    // if there are music brainz id's in the metadata save them, these maks searching for things on internet easier
                     if (!isset($song['artist_mbid'])) {
-                        $artist_mbid = trim(search_array_keys($auinfo, 'artist_mbid'));
+                        $artist_mbid = trim(search_array_keys($auinfo, 'artist_mbid', true, true));
+                        if ($artist_mbid) {
+                            $song['artist_mbid'] = $artist_mbid;
+                        }
+                    }
+                    if (!isset($song['artist_mbid'])) {
+                        $artist_mbid = trim(search_array_keys($auinfo, 'musicbrainz_artistid', true, true));
+                        if ($artist_mbid) {
+                            $song['artist_mbid'] = $artist_mbid;
+                        }
+                    }
+                    if (!isset($song['artist_mbid'])) {
+                        $artist_mbid = trim(search_array_keys($auinfo, 'MusicBrainz Artist Id', true, true));
                         if ($artist_mbid) {
                             $song['artist_mbid'] = $artist_mbid;
                         }
                     }
                     if (!isset($song['album_mbid'])) {
-                        $album_mbid = trim(search_array_keys($auinfo, 'album_mbid'));
+                        $album_mbid = trim(search_array_keys($auinfo, 'album_mbid', true, true));
+                        if ($album_mbid) {
+                            $song['album_mbid'] = $album_mbid;
+                        }
+                    }
+                    if (!isset($song['album_mbid'])) {
+                        $album_mbid = trim(search_array_keys($auinfo, 'musicbrainz_albumid', true, true));
+                        if ($album_mbid) {
+                            $song['album_mbid'] = $album_mbid;
+                        }
+                    }
+                    if (!isset($song['album_mbid'])) {
+                        $album_mbid = trim(search_array_keys($auinfo, 'MusicBrainz Album Id', true, true));
                         if ($album_mbid) {
                             $song['album_mbid'] = $album_mbid;
                         }
                     }
                     if (!isset($song['song_mbid'])) {
-                        $song_mbid = trim(search_array_keys($auinfo, 'song_mbid'));
+                        $song_mbid = trim(search_array_keys($auinfo, 'song_mbid', true, true));
+                        if ($song_mbid) {
+                            $song['song_mbid'] = $song_mbid;
+                        }
+                    }
+                    if (!isset($song['song_mbid'])) {
+                        $song_mbid = trim(search_array_keys($auinfo, 'track_mbid', true, true));
+                        if ($song_mbid) {
+                            $song['song_mbid'] = $song_mbid;
+                        }
+                    }
+                    if (!isset($song['song_mbid'])) {
+                        $song_mbid = trim(search_array_keys($auinfo, 'musicbrainz_trackid', true, true));
+                        if ($song_mbid) {
+                            $song['song_mbid'] = $song_mbid;
+                        }
+                    }
+                    if (!isset($song['song_mbid'])) {
+                        $song_mbid = trim(search_array_keys($auinfo, 'MusicBrainz Track Id', true, true));
                         if ($song_mbid) {
                             $song['song_mbid'] = $song_mbid;
                         }
                     }
                     // check for average bit rate (avg_bit_rate)
                     if (!isset($song['avg_bit_rate'])) {
-                        $avg_bit_rate = trim(search_array_keys($auinfo, 'avg_bit_rate'));
+                        $avg_bit_rate = trim(search_array_keys($auinfo, 'avg_bit_rate', true, true));
                         if ($avg_bit_rate) {
                             $song['avg_bit_rate'] = $avg_bit_rate;
                         }
@@ -518,17 +563,7 @@ while (true)  {
                     }
                     if (!isset($song['song_lyrics']) || !trim($song['song_lyrics'])) {
                         foreach ($lyricsTags as $key => $lyricsTag) {
-                            $lyricsTagLower = strtolower($lyricsTag);
-                            if (lyricsTagLower != $lyricsTag) {
-                                $lyrics = trim(search_array_keys($auinfo, $lyricsTagLower));
-                                if (isset($lyrics) && $lyrics) {
-                                    $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
-                                    if (trim($song['song_lyrics'])) {
-                                        break;
-                                    }
-                                }
-                            }
-                            $lyrics = trim(search_array_keys($auinfo, $lyricsTag));
+                            $lyrics = trim(search_array_keys($auinfo, $lyricsTag, true, true));
                             if (isset($lyrics) && $lyrics) {
                                 $song['song_lyrics'] = strip_synchronised_lyrics($lyrics);
                                 if (trim($song['song_lyrics'])) {
@@ -583,17 +618,20 @@ while (true)  {
                     $status['smallArtURL'] = $song['albumarturl'];
                 }
                 if (isset($song['avg_bit_rate']) && $song['avg_bit_rate']) {
+                    // echo "song['avg_bit_rate']: '".$song['avg_bit_rate']."'\n";
                     if (!is_numeric($song['avg_bit_rate'])) {
                         $status['bitrate'] = $song['avg_bit_rate'];
                     } else {
                         $status['bitrate'] = intval(intval($song['avg_bit_rate'])/1000);
                     }
                 }
+                // echo "song['sample_rate']: '".$song['sample_rate']."'\n";
                 if (!isset($status['audio_sample_rate']) || !trim($status['audio_sample_rate'])) {
                     if (isset($song['sample_rate']) && $song['sample_rate']) {
                         $status['audio_sample_rate'] = round($song['sample_rate']/1000, 1);
                     }
                 }
+                // echo "song['bits_per_sample']: '".$song['bits_per_sample']."'\n";
                 if (!isset($status['audio_sample_depth']) || !trim($status['audio_sample_depth'])) {
                     if (isset($song['bits_per_sample']) && $song['bits_per_sample']) {
                         $status['audio_sample_depth'] = $song['bits_per_sample'];
