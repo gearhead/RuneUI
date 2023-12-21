@@ -3588,9 +3588,11 @@ function wrk_audioOutput($redis, $action)
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 3,5");
                         //$volsteps = explode(' ', $volsteps[0]);
                         $volsteps = sysCmd("amixer -c ".$card['number']." get \"".$details['mixer_control']."\" | grep -i limits:");
-                        $volsteps = explode(' - ',preg_replace('/[^0-9- ]/', '', trim($volsteps[0])));
-                        if (isset($volsteps[0])) $data['volmin'] = trim($volsteps[0]);
-                        if (isset($volsteps[1])) $data['volmax'] = trim($volsteps[1]);
+                        if (isset($volsteps[0]) && $volsteps[0]) {
+                            $volsteps = explode(' - ',preg_replace('/[^0-9- ]/', '', trim($volsteps[0])));
+                            if (isset($volsteps[0])) $data['volmin'] = trim($volsteps[0]);
+                            if (isset($volsteps[1])) $data['volmax'] = trim($volsteps[1]);
+                        }
                         // $data['mixer_device'] = "hw:".$details['mixer_numid'];
                         $data['mixer_device'] = "hw:".$card['number'];
                         $data['mixer_control'] = $details['mixer_control'];
@@ -11498,7 +11500,15 @@ function set_alsa_default_card($redis, $cardName=null)
     }
     if (!isset($acard['device']) || !$acard['device']) {
         // invalid card
-        echo "Invalid ao card: '$cardName', '$oa'\n";
+        echo "Invalid ao card: '$cardName', '$ao'\n";
+        $aoTest = $redis->get('ao');
+        $ao_default = $redis->get('ao_default');
+        if (($aoTest == $cardName) || ($aoTest == $ao)) {
+            $redis->set('ao', '');
+        }
+        if (($ao_default == $cardName) || ($ao_default == $ao)) {
+            $redis->set('ao_default', '');
+        }
         return;
     }
     //

@@ -827,7 +827,7 @@ if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
         # pacman -Scc --noconfirm
         # rank mirrors and refresh repo's
         /srv/http/command/rank_mirrors.sh
-    elif [ "$od" == "RPiOS" ] ; then
+    elif [ "$os" == "RPiOS" ] ; then
         apt --fix-broken -y install
         apt autoclean
         apt autoremove
