@@ -36,12 +36,22 @@ set +e # continue on errors
 cd /home
 #
 # determine the OS
-if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+pacman_cnt=$( find / -maxdepth 3 -name pacman | wc -l | xargs )
+apt_cnt=$( find / -maxdepth 3 -name apt | wc -l | xargs )
+if [ "$pacman_cnt" == "0" ] && [ "$apt_cnt" != "0" ] ; then
     os="RPiOS"
-elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+elif [ "$pacman_cnt" != "0" ] && [ "$apt_cnt" == "0" ] ; then
     os="ARCH"
 fi
 redis-cli set os $os
+#
+# determine the codename
+if [ "$os" == 'ARCH' ] ; then
+    codename=""
+elif [ "$os" == 'RPiOS' ] ; then
+    codename=$( grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs )
+fi
+redis-cli set codename "$codename"
 #
 # Image reset script
 if [ "$1" == "full" ] ; then
@@ -394,9 +404,6 @@ php -f /srv/http/db/redis_acards_details
 # always clear player ID and hardware platform ID
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
-# refresh $os and $codename
-os=$( redis-cli get os )
-codename=$( redis-cli get codename )
 #
 # install raspi-rotate, only when xwindows is installed
 if [ -f "/bin/xinit" ] ; then
@@ -623,7 +630,6 @@ rm /etc/systemd/system/php-fpm.service.ARCH
 rm /etc/systemd/system/php-fpm.service.RPiOS7.4
 rm /etc/systemd/system/php-fpm.service.RPiOS8.2
 # for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
-codename=$( redis-cli get codename )
 if [ "$codename" == "bookworm" ] ; then
     # set up a redis variable to point to the mount point of mmcblk0p1
     redis-cli set p1mountpoint '/boot/firmware'
@@ -689,8 +695,6 @@ for f in $files ; do
     fi
     # first delete any lines containing an 'Include'
     sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\//d' $f
-    os=$( redis-cli get os )
-    codename=$( redis-cli get codename )
     if [ "$os" == "" ] ; then
         # Note: this currently does not work for any of the current RuneAudio OS-types
         # use the include in 'sshd_config'
@@ -873,13 +877,13 @@ if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
     experimental="Alpha"
 fi
 if [ "$os" == "RPiOS" ] ; then
-    codename="-$( redis-cli get codename )"
+    cname="-$codename"
 else
-    codename = ""
+    cname = ""
 fi
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($linuxver $os$codename)"
+line3="Hw-env: Raspberry Pi ($linuxver $os$cname)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
