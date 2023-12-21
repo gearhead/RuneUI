@@ -54,7 +54,7 @@ fi
 redis-cli set codename "$codename"
 #
 # Image reset script
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Running full cleanup and image initialisation for a distribution image"
 else
     echo "Running quick image initialisation"
@@ -112,9 +112,13 @@ declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-moni
     plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk\
     rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil udisks2\
     upmpdcli upower winbind winbindd)
-declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1 haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
-    rsyncd@ rsyslog systemd-homed systemd-logind udisks2 upower)
-# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower) # this one will enable console login
+if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
+        rsyncd@ rsyslog systemd-homed udisks2 upower)
+else
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1 haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
+        rsyncd@ rsyslog systemd-homed udisks2 upower)
+fi
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
@@ -325,7 +329,7 @@ git pull --no-edit
 git stash
 git stash
 git pull --no-edit
-if [ "$1" == "full" ]; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     # clear the stash stack
     git stash clear
     git reset HEAD -- .
@@ -809,13 +813,13 @@ rm /srv/http/.config/chromium/Singleton*
 # make sure that all files are unix format and have the correct ownerships and protections
 /srv/http/command/convert_dos_files_to_unix_script.sh
 # generate locales and missing ssh keys for a full image reset
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     locale-gen
     ssh-keygen -A
 fi
 #
 # for a distribution image remove the pacman or apt history. It makes a lot of space free, but that history is useful when developing
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     if [ "$os" == "ARCH" ] ; then
         # remove pacman history and no longer installed packages from the package database
         pacman -Sc --noconfirm
@@ -985,7 +989,7 @@ mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the compressed distribution image will then be very small
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
     # zero fill the file system
     cd /boot
