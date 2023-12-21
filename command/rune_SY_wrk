@@ -209,7 +209,8 @@ if ($playerid_db === '') {
     // load Wi-Fi configuration, refresh nics & set up avahi
     wrk_netconfig($redis, 'boot-initialise');
     refresh_nics($redis);
-    wrk_avahiconfig($redis, strtolower(trim($redis->get('hostname'))));
+    wrk_avahiconfig($redis, 'hostname', strtolower(trim($redis->get('hostname'))));
+    wrk_avahiconfig($redis, 'check_ip');
     //
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
@@ -1538,6 +1539,10 @@ while (true) {
         } else if (is_firstTime($redis, 'debug_collector')) {
             // run debug collector to initialise the datafile for today
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'avahi_check_ip')) {
+            // check that avahi has the correct ip settings;
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_ip_avahiconfig_async.php');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation

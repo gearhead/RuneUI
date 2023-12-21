@@ -318,7 +318,6 @@ function redisDatastore($redis,$action) {
             $redis->set('mpdconfchange', 0);
             $redis->set('sssconfchange', 0);
             $redis->set('libaoconfchange', 0);
-            $redis->set('avahiconfchange', 0);
             $redis->set('mpd_max_logsize', 200000);
             // ashuffle global random
             $redis->hSet('globalrandom', 'addrandom', 0);
@@ -360,6 +359,10 @@ function redisDatastore($redis,$action) {
             $redis->hSet('local_browser', 'zoomfactor', 1);
             //
             $redis->set('playernamemenu', 1);
+            // avahi
+            $redis->hSet('avahi', 'confchange', 0);
+            $redis->hSet('avahi', 'ip_setup', 'a');
+            $redis->hSet('avahi', 'nic', '');
             // plugins api-keys
             $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hSet('lastfm', 'apikey', 'ba8ad00468a50732a3860832eaed0882');
@@ -410,7 +413,6 @@ function redisDatastore($redis,$action) {
             $redis->set('network_storedProfiles', json_encode(array()));
             $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
             $redis->del('fix_mac');
-            $redis->set('avahi_nic', '');
             $redis->del('regdom');
             $redis->set('timezone', 'Pacific/Pago_Pago');
             // proxy settings
@@ -696,8 +698,11 @@ function redisDatastore($redis,$action) {
             $redis->exists('mpdconfchange') || $redis->set('mpdconfchange', 0);
             $redis->exists('sssconfchange') || $redis->set('sssconfchange', 0);
             $redis->exists('libaoconfchange') || $redis->set('libaoconfchange', 0);
-            $redis->exists('avahiconfchange') || $redis->set('avahiconfchange', 0);
             $redis->exists('mpd_max_logsize') || $redis->set('mpd_max_logsize', 200000);
+            // avahi
+            $redis->hExists('avahi', 'confchange') || $redis->hSet('avahi', 'confchange', 0);
+            $redis->hExists('avahi', 'ip_setup') || $redis->hSet('avahi', 'ip_setup', 'b');
+            $redis->hExists('avahi', 'nic') || $redis->hSet('avahi', 'nic', '');
             // plugins api-keys
             $redis->exists('lastfm_apikey') || $redis->set('lastfm_apikey', 'ba8ad00468a50732a3860832eaed0882');
             $redis->hExists('lastfm', 'apikey') || $redis->hSet('lastfm', 'apikey', 'ba8ad00468a50732a3860832eaed0882');
@@ -745,7 +750,6 @@ function redisDatastore($redis,$action) {
             $redis->exists('network_interfaces') || $redis->set('network_interfaces', json_encode(array()));
             $redis->exists('network_storedProfiles') || $redis->set('network_storedProfiles', json_encode(array()));
             $redis->exists('network_mac_spoof') || $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
-            $redis->exists('avahi_nic') || $redis->set('avahi_nic', '');
             $redis->exists('timezone') || $redis->set('timezone', 'Pacific/Pago_Pago');
             // lock keys
             $redis->exists('lock_clean_music_metadata') || $redis->set('lock_clean_music_metadata', 0);

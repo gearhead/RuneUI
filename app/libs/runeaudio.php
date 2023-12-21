@@ -1980,35 +1980,119 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
     }
 }
 
-function wrk_avahiconfig($redis, $hostname)
+function wrk_avahiconfig($redis, $action, $args=null, $jobID=null)
+// actions:
+//  set_ip: set the way this function works
+//      valid args values: 'a' (automatic), '4' (IPv4 only), '6' (IPv6 only), b (both IPv4 and IPv6)
+//  check_ip: check and sets the avahi configuration, avahi will be restarted if required
+//  hostname: sets the hostname
+//      valid args values: a hostname
+// the redis hash variable avahi is used
 {
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/etc/avahi/services/runeaudio.service');
-    if (!file_exists('/etc/avahi/services/runeaudio.service')) {
-        runelog('avahi service descriptor not present, initializing...');
-        sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
-    }
-    $file = '/etc/avahi/services/runeaudio.service';
-    $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
-    // Commit changes to /tmp/runeaudio.service
-    $newfile = '/tmp/runeaudio.service';
-    $fp = fopen($newfile, 'w');
-    fwrite($fp, implode("", $newArray));
-    fclose($fp);
-    // check that the conf file has changed
-    if (md5_file($file) === md5_file($newfile)) {
-        // nothing has changed, set avahiconfchange off
-        $redis->set('avahiconfchange', 0);
-        sysCmd('rm -f '.$newfile);
-    } else {
-        // avahi configuration has changed, set avahiconfchange on
-        $redis->set('avahiconfchange', 1);
-        sysCmd('cp '.$newfile.' '.$file);
-        sysCmd('rm -f '.$newfile);
-        // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
-        sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
-        // and line beginning with ::1 (IPv6)
-        sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+    switch ($action) {
+        case 'set_ip':
+            // validate the value of $args
+            if (!isset($args) || !$args || !strpos(' a46b', $args)) {
+                ui_notifyError($redis, 'Avahi config', 'Invalid choice: '.$args);
+                break;
+            }
+            // set the redis variable
+            $redis->hSet('avahi', 'ip_setup', $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            // no break;
+        case 'check_ip':
+            // avahi config file
+            $file = '/etc/avahi/avahi-daemon.conf';
+            // get the current avahi ip setup
+            $curIpv4 = sysCmd('grep -ic "\s*use-ipv4\s*=\s*yes" '.$file)[0];
+            $curIpv6 = sysCmd('grep -ic "\s*use-ipv6\s*=\s*yes" '.$file)[0];
+            if ($curIpv4 && $curIpv6) {
+                $currentSetup = 'b';
+            } else if ($curIpv4 && !$curIpv6) {
+                $currentSetup = '4';
+            } else if (!$curIpv4 && $curIpv6) {
+                $currentSetup = '6';
+            } else {
+                $currentSetup = 'n';
+            }
+            // get the redis value for $args
+            $args = $redis->hGet('avahi', 'ip_setup');
+            // determine the automatic configuration
+            if ($args = 'a') {
+                // determined by the scope of the ip addresses, 'global' (or 'site', ipv6 only) are routable
+                $ipv4Routable = sysCmd("ip add | grep -i 'inet\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
+                $ipv6Routable = sysCmd("ip add | grep -i 'inet6\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
+                if ($ipv4Routable && $ipv6Routable) {
+                    $args = 'b';
+                } else if ($ipv4Routable && !$ipv6Routable) {
+                    $args = '4';
+                } else if (!$ipv4Routable && $ipv6Routable) {
+                    $args = '6';
+                } else {
+                    // should never happen!
+                    $args = 'b';
+                }
+            }
+            // if it is already set correctly just return
+            if ($currentSetup == $args) {
+                break;
+            }
+            // from this point we know that we will change the configuration
+            // check that lines containing use-ipv4 and use-ipv6 exist and add then when that is not the case
+            //  they are added in the [server] section
+            $ipv4 = sysCmd('grep -ic "use-ipv4" '.$file)[0];
+            $ipv6 = sysCmd('grep -ic "use-ipv6" '.$file)[0];
+            if (!$ipv4) {
+                sysCmd("sed -i '/\[server\]/a # use-ipv4=yes' ".$file);
+            }
+            if (!$ipv6) {
+                sysCmd("sed -i '/\[server\]/a # use-ipv6=yes' ".$file);
+            }
+            // set up the configuration
+            //  first comment all the use-ipv* lines out, then uncomment the relevant lines
+            sysCmd("sed -i '/^\s*use-ipv.\s*=.*/ s/./# &/' ".$file);
+            if (($args == '4') || ($args == 'b')) {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
+            }
+            if (($args == '6') || ($args == 'b')) {
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
+            }
+            // restart avahi
+            sysCmd('systemctl restart avahi-daemon');
+            break;
+        case 'hostname':
+            $hostname = $args;
+            // clear the cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, '/etc/avahi/services/runeaudio.service');
+            if (!file_exists('/etc/avahi/services/runeaudio.service')) {
+                runelog('avahi service descriptor not present, initializing...');
+                sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
+            }
+            $file = '/etc/avahi/services/runeaudio.service';
+            $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
+            // Commit changes to /tmp/runeaudio.service
+            $newfile = '/tmp/runeaudio.service';
+            $fp = fopen($newfile, 'w');
+            fwrite($fp, implode("", $newArray));
+            fclose($fp);
+            // check that the conf file has changed
+            if (md5_file($file) === md5_file($newfile)) {
+                // nothing has changed, set avahi confchange off
+                $redis->hSet('avahi', 'confchange', 0);
+                sysCmd('rm -f '.$newfile);
+            } else {
+                // avahi configuration has changed, set avahi confchange on
+                $redis->hSet('avahi', 'confchange', 1);
+                sysCmd('cp '.$newfile.' '.$file);
+                sysCmd('rm -f '.$newfile);
+                // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
+                sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+                // and line beginning with ::1 (IPv6)
+                sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+            }
+            break;
     }
 }
 
@@ -6216,9 +6300,9 @@ function wrk_changeHostname($redis, $newhostname)
     // if 'host-name' is commented out, no problem, nothing will change
     sysCmd('sed -i '."'".'s|^[[:space:]]*host-name.*|host-name='.strtolower($newhostname).'|g'."'".' /etc/avahi/avahi-daemon.conf');
     // update AVAHI service data
-    wrk_avahiconfig($redis, strtolower($newhostname));
+    wrk_avahiconfig($redis, 'hostname', strtolower($newhostname));
     // activate when a change has been made
-    if ($redis->get('avahiconfchange')) {
+    if ($redis->hGet('avahi', 'confchange')) {
         // reload or restart avahi-daemon if it is running (active), some users switch it off
         // it is also started automatically when shairport-sync starts
         sysCmd('pgrep avahi-daemon && systemctl stop avahi-daemon');
@@ -6232,7 +6316,7 @@ function wrk_changeHostname($redis, $newhostname)
         // restart SAMBA
         wrk_restartSamba($redis);
     }
-    $redis->set('avahiconfchange', 0);
+    $redis->hSet('avahi', 'confchange', 0);
     // set process priority
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
@@ -8137,7 +8221,7 @@ function refresh_nics($redis)
     // the last detected wired (ethernet) interface will be used
     // when only Wi-Fi networks are detected no interfaces are specifically selected
     //
-    if ($redis->get('avahi_nic') != $avahiNic) {
+    if ($redis->hGet('avahi', 'nic') != $avahiNic) {
         // the nic assigned to avahi need to be changed
         if ($avahiNic === '') {
             $avahiLine = '#allow-interfaces=eth0';
@@ -8147,7 +8231,7 @@ function refresh_nics($redis)
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
         // avahi needs to be restarted to activate the new entry in the config file
         sysCmd('systemctl daemon-reload; systemctl restart avahi-daemon');
-        $redis->set('avahi_nic', $avahiNic);
+        $redis->hSet('avahi', 'nic', $avahiNic);
     }
     //
     // optimise wifi for the next reboot and the first time after setting up a Wi-Fi network
