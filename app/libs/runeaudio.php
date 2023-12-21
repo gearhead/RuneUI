@@ -5929,7 +5929,8 @@ function wrk_setHwPlatform($redis, $reset=false)
     list($arch, $model) = wrk_getHwPlatform($redis, $reset);
     runelog('arch= ', $arch);
     // register the player ID
-    $redis->set('playerid', wrk_playerID($arch));
+    $playerid = wrk_playerID($arch);
+    $redis->set('playerid', $playerid);
     runelog('playerid= ', $playerid);
     // register the hardware platform into database
     $redis->set('hwplatformid', $arch);
@@ -5984,6 +5985,7 @@ function wrk_setHwPlatform($redis, $reset=false)
         default:
             $redis->set('hwplatform', 'unknown');
     }
+    return array($arch, $model);
 }
 
 function wrk_startPlayer($redis, $newPlayer)
