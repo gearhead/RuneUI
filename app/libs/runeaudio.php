@@ -5699,7 +5699,7 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hDel('AccessPoint', 'enable');
         // set the default local browser windows and browser type
         $redis->hSet('local_browser', 'windows', 'xorg');
-        $redis->hSet('local_browser', 'browser', 'luakit');
+        $redis->hSet('local_browser', 'browser', 'chromium');
         $redis->del('acards');
         $redis->del('hdmiacards');
     }
