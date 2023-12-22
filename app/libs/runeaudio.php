@@ -5706,18 +5706,30 @@ function wrk_getHwPlatform($redis, $reset=false)
     $file = '/proc/cpuinfo';
     $fileData = file($file);
     foreach($fileData as $line) {
-        if (substr($line, 0, 8) == 'Revision') {
-            $revision = trim(substr($line, 11, 50));
+        if ((substr(strtolower($line), 0, 8) == 'revision') && strpos(' '.$line, ':')) {
+            $revision = trim(explode(':', $line, 2)[1]);
             // debug
             runelog('[wrk_getHwPlatform] /proc/cpuinfo revision', $revision);
         }
-
-        if (substr($line, 0, 8) == 'Hardware') {
-            $hardware = trim(substr($line, 11, 50));
+        if ((substr(strtolower($line), 0, 8) == 'hardware') && strpos(' '.$line, ':')) {
+            $hardware = trim(explode(':', $line, 2)[1]);
             // debug
             runelog('[wrk_getHwPlatform] /proc/cpuinfo hardware', $hardware);
         }
+        if (substr(strtolower($line), 0, 5) == 'model') {
+            if (strpos(' '.strtolower($line), 'raspberry pi')) {
+                $model = 'raspberry pi';
+            } else {
+                $model = trim($line);
+            }
+            // debug
+            runelog('[wrk_getHwPlatform] /proc/cpuinfo model', $model);
+        }
     }
+    if (!isset($hardware) || !$hardware) {
+        $hardware = $model;
+    }
+    unset($model);
 
     switch($hardware) {
         // RaspberryPi
@@ -5728,6 +5740,7 @@ function wrk_getHwPlatform($redis, $reset=false)
         case 'BCM2835':
         case 'BCM2836':
         case 'BCM2837':
+        case 'raspberry pi':
             if (intval("0x".$revision, 16) < 16) {
                 // RaspberryPi1
                 $arch = '01';
