@@ -11474,7 +11474,7 @@ function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty
     }
     foreach ($myArray as $key => $value) {
         if (is_array($value)) {
-            $retval = search_array_keys($value, $search, $caseinsensative, $skipEmpty);
+            $retval = search_array_keys($value, $search, $caseInsensative, $skipEmpty);
             if ($retval) {
                 return $retval;
             }
