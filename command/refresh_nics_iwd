@@ -166,7 +166,7 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
 //            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
             //
 // iwd AP mode
-// iwd cannot scan while in AP mode, yet, so this is not yet ready
+// iwd cannot scan while in AP mode, yet, but we can set up a virtual interface and use it...
 runelog('########### iwctl AP mode '.$wlanNic);
 // both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
 $IP_components = preg_split('/[.\s:]/', $redis->hGet('AccessPoint', 'ip-address'));
@@ -194,25 +194,24 @@ fwrite($fp, 'Gateway='.$redis->hGet('AccessPoint', 'dhcp-option-router').PHP_EOL
 fwrite($fp, 'Netmask=255.255.255.0'.PHP_EOL);
 fwrite($fp, 'DNSList='.$redis->hGet('AccessPoint', 'dhcp-option-dns').PHP_EOL);
 fclose($fp);
-
- // this to re-scan the settings changed in etc/iwd/main.conf
- sysCmd('systemctl restart iwd');
  // set to ap mode
- sysCmd('/usr/bin/iwctl device '.$wlanNic.' set-property Mode ap');
+ // connman will not allow iwd to be in AP mode and allow a scan of ssids
+ // A way to do this is listed here:
+ // https://lore.kernel.org/linux-wireless/87k0dhdg0d.fsf@bang-olufsen.dk/
+ // basically, create a virtual nic as as ap0 and all works w/o hostapd
+ $apNic = 'ap0';
+ sysCmd('/usr/sbin/iw dev wlan0 interface add '.$apNic.' type __ap');
+ // maybe more slick is to index the wlan0 MAC by 1, but this works
+ sysCmd('ip link set dev '.$apNic.' address b8:27:eb:00:00:00');
+ sysCmd('systemctl restart iwd');
+ sysCmd('/usr/bin/iwctl device '.$apNic.' set-property Mode ap');
  // start ap
- sysCmd('/usr/bin/iwctl ap '.$wlanNic.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
-
-            // NAT configuration
+ sysCmd('/usr/bin/iwctl ap '.$apNic.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
+ // NAT configuration
             if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
-                // enable NAT if enabled and there is a wired nic available
-//                sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
-//                sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-//                sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
-//                sysCmd('sysctl net.ipv4.ip_forward=1');
-// iwd will not nat with all this to work.
-             sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
-             sysCmd('sysctl net.ipv4.ip_forward=1');
-
+            // enable NAT if enabled and there is a wired nic available
+            sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+            sysCmd('sysctl net.ipv4.ip_forward=1');
             }
         }
     }
