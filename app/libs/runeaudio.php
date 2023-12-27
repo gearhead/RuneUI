@@ -996,7 +996,7 @@ function reset_cmd_queue_encoding($redis)
         }
     } else {
         // this is only run once after a boot
-        // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
+        // remove weak ciphers from the array (e.g. ecb, des, rc2, rc4, md5)
         // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
         // need to do some tricks to globalise the variable $cipher_exclude to to make this work
         //  it is removed as a global after use
@@ -1041,6 +1041,9 @@ function reset_cmd_queue_encoding($redis)
                 unset($cipher_array[$cipherIndex]);
                 $cipher_array = array_values($cipher_array);
                 $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
+                // save the invalid entry in the cipher exclude list
+                $cipher_exclude_list .= ' '.$cipher;
+                $redis->set('cipher_exclude_list', $cipher_exclude_list);
                 $ivError = true;
                 $cnt--;
             }
