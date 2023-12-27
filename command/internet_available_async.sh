@@ -44,11 +44,10 @@ set +e # continue on errors
 # if connman has lost a Wi-Fi connection it should reconnect automatically, but the current version does not do it
 # running 'iwctl station <nic> scan' for the Wi-Fi nics should initiate a reconnect, no real issue in running this every time this routine runs
 # get a list of the nics which are down
-DOWN=$(ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs)
+DOWN=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all Wi-Fi nics
-NICS=$(iw dev | grep -i interface | cut -d ' ' -f2 | xargs)
-for NIC in $NICS
-do
+NICS=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
+for NIC in $NICS ; do
     # only for Wi-Fi nics
     if [[ "$DOWN" =~ "$NIC" ]]; then
         # only for nics which are down
@@ -63,8 +62,12 @@ do
         # the /tmp directory is a TMPFS file-system which will be recreated on reboot
         touch /tmp/$NIC.up
     fi
-    # scan for wireless networks per wireless nic
-    iwctl station $NIC scan
+    # scan for wireless networks per wireless nic, but not access points
+    AP=$( iw $NIC info | grep -ic 'type\s*ap' | xargs )
+    if [ "$AP" == "0" ] ; then
+        # its not an access point
+        iwctl station $NIC scan
+    fi
 done
 #
 # internet
