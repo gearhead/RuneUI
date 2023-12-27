@@ -963,9 +963,9 @@ function reset_cmd_queue_encoding($redis)
         $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
     }
     $cipher_exclude_array = explode(' ', $cipher_exclude_list);
-    // randomise the cipher to use from the list of possibles
     //
-    if (is_firstTime($redis, 'cmd_queue_cipher_array')) {
+    $first_time = is_firstTime($redis, 'cmd_queue_cipher_array');
+    if ($first_time) {
         // create the cipher array, run only once after a boot
         //  retry 20 times, wait 1 second in the loop
         $cnt = 20;
@@ -991,13 +991,14 @@ function reset_cmd_queue_encoding($redis)
             // cant do anything, abort with an error
             // Use '126	ENOKEY	Required key not available' as exit code
             // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cypher array, aborting\n";
+            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cipher array, aborting\n";
             exit(126);
         }
-    } else {
+    }
+    if ($first_time) {
         // this is only run once after a boot
-        // remove weak ciphers from the array (e.g. ecb, des, rc2, rc4, md5)
-        // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
+        // remove weak ciphers (e.g. ecb, des, rc2, rc4, md5) and ciphers which have failed from the array
+        //  the failed ciphers are those which require a 'tag' (e.g. gcm, ccm, ocb, xts, wrap)
         // need to do some tricks to globalise the variable $cipher_exclude to to make this work
         //  it is removed as a global after use
         global $cipher_exclude;
@@ -1007,6 +1008,7 @@ function reset_cmd_queue_encoding($redis)
             // echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
             runelog('[reset_cmd_queue_encoding] Array length -'.$cipher_exclude.' ', count($cipher_array));
         }
+        // remove the golbaised $cipher_exclude
         unset($GLOBALS['cipher_exclude']);
         // ensure the cipher array indexes are sequential
         $cipher_array = array_values($cipher_array);
@@ -1032,12 +1034,14 @@ function reset_cmd_queue_encoding($redis)
             $test = base64_encode(openssl_encrypt(gzdeflate('Test', 9), $cipher, $passphrase, 0, $iv));
             $test = trim(gzinflate(openssl_decrypt(base64_decode($test), $cipher, $passphrase, 0, $iv)));
             if ($test == 'Test') {
+                // encode and decode successful
                 $ivError = false;
                 // break the loop
                 break;
             } else {
+                // encode and decode failed
                 echo "Warning: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Encode/decode invalid cipher: '$cipher'\n";
-                // remove the invalid entry form the array and save it
+                // remove the invalid entry from the array and save it
                 unset($cipher_array[$cipherIndex]);
                 $cipher_array = array_values($cipher_array);
                 $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
