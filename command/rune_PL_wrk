@@ -185,6 +185,7 @@ while (true) {
             $saveCurrentalbum = '';
             $saveFile = '';
             $saveChanged = '';
+            $saveUpdating_db = false;
             $subscriptionCnt = 1;
             $mpdFixFile = '';
             do {
@@ -271,6 +272,18 @@ while (true) {
                 } else {
                     $newStatus['radioname'] = '';
                     $newStatus['radio'] = false;
+                }
+                // the mpd priority is adjusted when it is updating
+                if (isset($newStatus['updating_db']) && $newStatus['updating_db']) {
+                    if (!$saveUpdating_db) {
+                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                        $saveUpdating_db = true;
+                    }
+                } else {
+                    if ($saveUpdating_db) {
+                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                        $saveUpdating_db = false;
+                    }
                 }
                 // the redis variable 'act_player_info' also gets modified in the script rune_MPDEM_wrk, refresh it here
                 //  also update the variable, this acts as a sort of optimistic lock
@@ -623,8 +636,12 @@ while (true) {
                 }
                 // start the job to retrieve extra metadata when coverart is enabled
                 if ($coverartRequired) {
-                    sysCmd('pgrep rune_MPDEM_wrk || systemctl start rune_MPDEM_wrk');
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                    // it may already be running, check first
+                    $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
+                    if ($retval != 'active') {
+                        sysCmd('systemctl start rune_MPDEM_wrk');
+                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                    }
                 }
                 // debug information
                 if (isset($socket['sockVarName']) && isset($socket['description'])) {

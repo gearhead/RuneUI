@@ -37,13 +37,21 @@ prio_nice () {
 renice -1 $(pgrep -w bluealsa)
 renice -1 $(pgrep -w bluealsa-aplay)
 renice -1 $(pgrep -w bluetooth)
-renice -1 $(ps -Teo spid,pid,ni,pri,fname | grep -i 'mpd' | sed -e 's/^[[:space:]]*//' | cut -d ' ' -f 1)
 # MPD has the capability of setting its own priority in real time
-# the following is to make sure that its associated processes are also set to a higher priority
-for pid in $(pgrep -w mpd); do
-    renice -1 $pid;
-done;
-renice -1 $(pgrep -w mpd)
+# the following is to make sure that its basis priority is set
+# when mpd is updating keep its niceness to -1, otherwise -5
+mpd_updating=$( mpc status | xargs | grep -ic 'updating db' | xargs )
+if [ "$mpd_updating" == "1" ] ; then
+    for pid in $(pgrep -w mpd); do
+        renice -1 $pid;
+    done
+    renice -1 $(pgrep -w mpd)
+else
+    for pid in $(pgrep -w mpd); do
+        renice -5 $pid;
+    done
+    renice -5 $(pgrep -w mpd)
+fi
 renice -1 $(pgrep -w shairport-sync)
 renice -1 $(pgrep -w spotifyd)
 renice -1 $(pgrep -w upmpdcli)
@@ -52,7 +60,7 @@ renice 4 $(pgrep -w ashuffle)
 renice 4 $(pgrep -w bt_mon_switch)
 for pid in $(pgrep -w chromium); do
     renice 10 $pid;
-done;
+done
 renice 10 $(pgrep -w chromium)
 renice 6 $(pgrep -w cmd_async_queue)
 renice 4 $(pgrep -w local-browser)
@@ -65,7 +73,7 @@ renice 3 $(pgrep -w rune_PL_wrk)
 renice 4 $(pgrep -w rune_SSM_wrk)
 renice 4 $(pgrep -w rune_SDM_wrk)
 renice 3 $(pgrep -w rune_SY_wrk)
-renice 10 $(pgrep -w rune_MPDEM_wrk)
+renice 9 $(pgrep -w rune_MPDEM_wrk)
 renice 2 $(pgrep -w smbd)
 renice 2 $(pgrep -w smb)
 renice 2 $(pgrep -w sshd)
@@ -79,7 +87,7 @@ renice 10 $(pgrep -w weston)
 renice 2 $(pgrep -w winbind)
 renice 2 $(pgrep -w winbindd)
 }
-
+#
 prio_default () {
 # always leave chromium, luakit, Webkit, matchbox-window, upowerd & uwsgi at a lower priority
 renice 0 $(pgrep -w ashuffle)
@@ -94,7 +102,7 @@ renice 0 $(pgrep -w local-browser)
 # renice 0 $(pgrep -w matchbox-window)
 for pid in $(pgrep -w mpd); do
     renice 0 $pid;
-done;
+done
 renice 0 $(pgrep -w mpd)
 renice 0 $(pgrep -w mpdscribble)
 renice 0 $(pgrep -w nmb)
