@@ -91,6 +91,11 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
     runelog('------------------ try to start AP if no IP is assigned ---------------------');
     $apWifiNicFound = false;
     $ethNicConnected = false;
+    if ($redis->exists('iwctlAP') && $redis->get('iwctlAP')) {
+        $iwctlAP = true;
+    } else {
+        $iwctlAP = false;
+    }
     // walk through the array $networkInterfaces, this contains all wireless nics plus the connected wired nics
     foreach($networkInterfaces as $nic) {
         // check if accesspoint is enabled and the Wi-Fi nic is not connected, technology is 'wifi' and it supports AP
@@ -144,7 +149,9 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
             $fp = fopen($file, 'w');
             $return = fwrite($fp, implode('', $newArray));
             fclose($fp);
-//            sysCmd('systemctl start hostapd');
+            if (!$iwctlAP) {
+                sysCmd('systemctl start hostapd');
+            }
             //
             $file = '/etc/dnsmasq.conf';
             // change dhcp-range
@@ -160,58 +167,92 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
             $fp = fopen($file, 'w');
             $return = fwrite($fp, implode('', $newArray));
             fclose($fp);
-//            sysCmd('systemctl start dnsmasq');
+            if (!$iwctlAP) {
+                sysCmd('systemctl start dnsmasq');
+                // enable the AP by switching braodcast on
+                sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
+            }
             //
-            // enable the AP by switching braodcast on
-//            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$wlanNic);
             //
-// iwd AP mode
-// iwd cannot scan while in AP mode, yet, but we can set up a virtual interface and use it...
-runelog('########### iwctl AP mode '.$wlanNic);
-// both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
-$IP_components = preg_split('/[.\s:]/', $redis->hGet('AccessPoint', 'ip-address'));
-$IP_components[3]='0';
-$base_address = implode('.',$IP_components);
-$file = '/etc/iwd/main.conf';
-$newArray = wrk_replaceTextLine($file, '' , 'APRanges=', 'APRanges='.$base_address.'/24');
-$fp = fopen($file, 'w');
-$return = fwrite($fp, implode('', $newArray));
-fclose($fp);
-
-// ssid is set by the file name ssid.ap
-// remove all *.ap files
-sysCmd('sudo /usr/bin/mkdir -p /var/lib/iwd/ap/');
-sysCmd('sudo /usr/bin/rm /var/lib/iwd/ap/*.ap');
-$file = '/var/lib/iwd/ap/'.$redis->hGet('AccessPoint', 'ssid').'.ap';
-$fp = fopen($file, 'a');
-fwrite($fp, '[General]'.PHP_EOL);
-fwrite($fp, 'DisableHT=true'.PHP_EOL);
-fwrite($fp, '[Security]'.PHP_EOL);
-fwrite($fp, 'Passphrase='.$redis->hGet('AccessPoint', 'passphrase').PHP_EOL);
-fwrite($fp, '[IPv4]'.PHP_EOL);
-fwrite($fp, 'Address='.$redis->hGet('AccessPoint', 'ip-address').PHP_EOL);
-fwrite($fp, 'Gateway='.$redis->hGet('AccessPoint', 'dhcp-option-router').PHP_EOL);
-fwrite($fp, 'Netmask=255.255.255.0'.PHP_EOL);
-fwrite($fp, 'DNSList='.$redis->hGet('AccessPoint', 'dhcp-option-dns').PHP_EOL);
-fclose($fp);
- // set to ap mode
- // connman will not allow iwd to be in AP mode and allow a scan of ssids
- // A way to do this is listed here:
- // https://lore.kernel.org/linux-wireless/87k0dhdg0d.fsf@bang-olufsen.dk/
- // basically, create a virtual nic as as ap0 and all works w/o hostapd
- $apNic = 'ap0';
- sysCmd('/usr/sbin/iw dev wlan0 interface add '.$apNic.' type __ap');
- // maybe more slick is to index the wlan0 MAC by 1, but this works
- sysCmd('ip link set dev '.$apNic.' address b8:27:eb:00:00:00');
- sysCmd('systemctl restart iwd');
- sysCmd('/usr/bin/iwctl device '.$apNic.' set-property Mode ap');
- // start ap
- sysCmd('/usr/bin/iwctl ap '.$apNic.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
- // NAT configuration
+            if ($iwctlAP) {
+                // iwd AP mode
+                // iwd cannot scan while in AP mode, yet, but we can set up a virtual interface and use it...
+                runelog('########### iwctl AP mode '.$wlanNic);
+                // both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
+                $IP_components = preg_split('/[.\s:]/', $redis->hGet('AccessPoint', 'ip-address'));
+                $IP_components[3]='0';
+                $base_address = implode('.',$IP_components);
+                $file = '/etc/iwd/main.conf';
+                $newArray = wrk_replaceTextLine($file, '' , 'APRanges=', 'APRanges='.$base_address.'/24');
+                $fp = fopen($file, 'w');
+                $return = fwrite($fp, implode('', $newArray));
+                fclose($fp);
+                //
+                // ssid is set by the file name ssid.ap
+                // remove all *.ap files
+                sysCmd('mkdir -p /var/lib/iwd/ap/');
+                sysCmd('rm /var/lib/iwd/ap/*.ap');
+                $file = '/var/lib/iwd/ap/'.$redis->hGet('AccessPoint', 'ssid').'.ap';
+                $fp = fopen($file, 'a');
+                fwrite($fp, '[General]'.PHP_EOL);
+                fwrite($fp, 'DisableHT=true'.PHP_EOL);
+                fwrite($fp, '[Security]'.PHP_EOL);
+                fwrite($fp, 'Passphrase='.$redis->hGet('AccessPoint', 'passphrase').PHP_EOL);
+                fwrite($fp, '[IPv4]'.PHP_EOL);
+                fwrite($fp, 'Address='.$redis->hGet('AccessPoint', 'ip-address').PHP_EOL);
+                fwrite($fp, 'Gateway='.$redis->hGet('AccessPoint', 'dhcp-option-router').PHP_EOL);
+                fwrite($fp, 'Netmask=255.255.255.0'.PHP_EOL);
+                fwrite($fp, 'DNSList='.$redis->hGet('AccessPoint', 'dhcp-option-dns').PHP_EOL);
+                fclose($fp);
+                // set to ap mode
+                // connman will not allow iwd to be in AP mode and allow a scan of ssids
+                // A way to do this is listed here:
+                // https://lore.kernel.org/linux-wireless/87k0dhdg0d.fsf@bang-olufsen.dk/
+                // basically, create a virtual nic as as ap0 and all works w/o hostapd
+                $apNic = 'ap0';
+                sysCmd('iw dev '.$wlanNic.' interface add '.$apNic.' type __ap');
+                // determine network MAC addresses which cannot be used
+                $excludeMACs = sysCmd("{ arp -na | cut -d ' ' -f 4 ; avahi-browse -atv 2>/dev/null | grep '\[' | cut -d '[' -f 3 | cut -d ']' -f 1 ; echo '".implode("\n",json_decode($redis->get('network_mac_spoof')))."' ;} | sort -u | grep -v '^\s*$'");
+                // determine the known Bluetooth MAC's which also cannot be used
+                if ($redis->exists('bluetooth_status')) {
+                    $bluetooth_devices = json_decode($redis->get('bluetooth_status'), true)
+                    foreach ($bluetooth_devices as $key => $bluetooth_device) {
+                        $excludeMACs[] = $key;
+                    }
+                }
+                $bluetooth_devices = sysCmd('bluetoothctl list | cut -d ' ' -f 2');
+                foreach ($bluetooth_devices as $bluetooth_device) {
+                    $excludeMACs[] = $bluetooth_device;
+                }
+                // make all excluded MAC addresses lower case
+                foreach ($excludeMACs as &$excludeMAC) {
+                    $excludeMAC = strtolower(excludeMAC);
+                }
+                // determine the MAC address of $apNic
+                $apNicMac = sysCmd("ip -o -br link show ".$wlanNic." | xargs | cut -d ' ' -f 3")[0];
+                // generate a new mac address eliminating the know MAC addresses
+                $apNicMacNew = strtolower($apNicMac);
+                $cnt = 20;
+                while (in_array($apNicMacNew, $excludeMACs) && ($cnt-- >= 0) {
+                    // leave the first part of the mac address unchanged, this is the vendor ID
+                    $apNicMacNew = substr($apNicMacNew, 0, 9).implode(':', str_split(substr(md5(mt_rand()), 0, 6), 2));
+                    // sleep 1/20 a second
+                    usleep(50000);
+                }
+                // use the generated MAC for the virtual nic
+                sysCmd('ip link set dev '.$apNic.' address '.$apNicMacNew);
+                sysCmd('systemctl restart iwd');
+                sysCmd('/usr/bin/iwctl device '.$apNic.' set-property Mode ap');
+                // start ap
+                sysCmd('/usr/bin/iwctl ap '.$apNic.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
+            } else {
+                $base_address = $redis->hGet('AccessPoint', 'ip-address');
+            }
+            // NAT configuration
             if ($redis->hGet('AccessPoint', 'enable-NAT') && ($ethNicConnected)) {
-            // enable NAT if enabled and there is a wired nic available
-            sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
-            sysCmd('sysctl net.ipv4.ip_forward=1');
+                // enable NAT if enabled and there is a wired nic available
+                sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+                sysCmd('sysctl net.ipv4.ip_forward=1');
             }
         }
     }
