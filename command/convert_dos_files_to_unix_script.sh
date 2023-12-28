@@ -294,7 +294,7 @@ find /usr/lib/systemd/network/ -type f -executable -exec chmod -x {} \;
 find /usr/lib/udev/rules.d/ -type f -executable -exec chmod -x {} \;
 find /usr/lib/udev/hwdb.d/ -type f -executable -exec chmod -x {} \;
 # udevil will fail when it is not explicitly given system privileges
-chmod +s /usr/bin/udevil
+find / -maxdepth 3 -type f -name udevil \! -perm -u+s -exec chmod +s {} \;
 # luakit will fail to start when it cant read its recovery session (luakit runs as http)
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -perm 666 -exec chmod 666 {} \;
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user http -exec chown http:http {} \;
