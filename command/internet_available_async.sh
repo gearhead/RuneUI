@@ -44,31 +44,60 @@ set +e # continue on errors
 # if connman has lost a Wi-Fi connection it should reconnect automatically, but the current version does not do it
 # running 'iwctl station <nic> scan' for the Wi-Fi nics should initiate a reconnect, no real issue in running this every time this routine runs
 # get a list of the nics which are down
-DOWN=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
+down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all Wi-Fi nics
-NICS=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
-for NIC in $NICS ; do
+nics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
+for nic in $nics ; do
     # only for Wi-Fi nics
-    if [[ "$DOWN" =~ "$NIC" ]]; then
+    if [[ "$down" =~ "$nic" ]]; then
         # only for nics which are down
-        if [ -f "/tmp/$NIC.up" ]; then
+        if [ -f "/tmp/$nic.up" ]; then
             # only for nics which were previously up
-            ip link set dev $NIC down
-            ip link set dev $NIC up
+            ip link set dev $nic down
+            ip link set dev $nic up
         fi
     else
         # nic is up
         # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
         # the /tmp directory is a TMPFS file-system which will be recreated on reboot
-        touch /tmp/$NIC.up
+        touch /tmp/$nic.up
     fi
     # scan for wireless networks per wireless nic, but not access points
-    AP=$( iw $NIC info | grep -ic 'type\s*ap' | xargs )
-    if [ "$AP" == "0" ] ; then
+    ap=$( iw $nic info | grep -ic 'type\s*ap' | xargs )
+    if [ "$ap" == "0" ] ; then
         # its not an access point
-        iwctl station $NIC scan
+        iwctl station $nic scan
     fi
 done
+# determine if there is a non-AP nic which is up
+up_cnt="0"
+up=$( ip -o -br  address | grep -i 'up' | cut -d ' ' -f1 | xargs )
+for nic in $up ; do
+    ap=$( iw $nic info 2>/dev/null | grep -ic 'type\s*ap' | xargs )
+    if [ "$ap" == "0" ] ; then
+        # its not an access point
+        up_cnt="1"
+        break
+    fi
+done
+if [ "$up_cnt" == "0" ] ; then
+    # no nics connected
+    redis-cli hset service internet 0
+    redis-cli hset service webradio 0
+    redis-cli hset service dirble 0
+    redis-cli hset service lastfm 0
+    redis-cli hset service makeitpersonal 0
+    redis-cli hset service chartlyrics 0
+    redis-cli hset service azlyrics 0
+    redis-cli hset service musicbrainz 0
+    redis-cli hset service coverartarchiveorg 0
+    redis-cli hset service wikipedia 0
+    redis-cli hset service discogs 0
+    redis-cli hset service fanarttv 0
+    redis-cli hset service jamendo 0
+    exit
+fi
+
 #
 # internet
 # determine if we can see google.com, this command will give up after +/-20 seconds (= timeout x tries)
