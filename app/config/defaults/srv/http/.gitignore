@@ -1,0 +1,15 @@
+test/**
+sync.ffs_db
+node_modules
+/.alsaequal.bin
+/.cache/
+/.config/**
+/.local/**
+.pki/**
+/.xbindkeysrc
+/amixer/amixer-webui.ini
+/amixer/__pycache__/
+tmp/**
+/app/libs/composer.phar
+*.save
+/assets/js/runeui.min.js.map
