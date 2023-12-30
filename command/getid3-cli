@@ -1,0 +1,312 @@
+#!/usr/bin/php
+<?php
+/*
+ * Copyright (C) 2013-2015 RuneAudio Team
+ * http://www.runeaudio.com
+ *
+ * RuneUI
+ * copyright (C) 2013-2015 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+ *
+ * RuneOS
+ * copyright (C) 2013-2015 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+ *
+ * RuneAudio website and logo
+ * copyright (C) 2013-2015 - ACX webdesign (Andrea Coiutti)
+ *
+ * This Program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This Program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RuneAudio; see the file COPYING. If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.txt>.
+ *
+ *  file: command/getid3-cli
+ *  version: 0.6
+ *  coder: janui
+ *  date: December 2023
+ */
+// this utility uses the James Heinrich composer utility to get ID3 information from a music file
+// usage format: /srv/http/command/getid3-cli <options> <filename>
+//  when used without <options> the tags (excluding the image tags) will be echoed as human readable format on std_out
+//  options:
+//      -h (--help)                                     this text
+//      -i <number> (--image <number>)                  the <number> (1 to n) image will be echoed (raw) on std_out, when <number> is not specified the first image is used
+//      -j (--json)                                     all tags (excluding the image tags) and their values will be returned in std_out in json format
+//      -f <filename> (--tagfile=<filename>)            all tags (excluding the image tags) and their values will be saved in the <filename> is json format
+//      -r <redis_variable> (--redis=<redis_variable>   all tags (excluding the image tags) and their values will be saved in the <redis_variable> is json format
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
+ini_set('error_log', '/var/log/runeaudio/getid3-cli.log');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend
+require_once('/srv/http/app/libs/openredis.php');
+// getid3 needs to operate in directory /srv/http/app/libs/vendor
+chdir('/srv/http/app/libs/vendor');
+require_once('getid3/audioinfo.class.php');
+//
+define('APP', '/srv/http/app/');
+// reset logfile
+sysCmd('echo "--------------- start: getid3-cli ---------------" > /var/log/runeaudio/getid3-cli.log');
+runelog('WORKER getid3-cli.php STARTING...');
+//
+// process the options and file
+$a_cnt = count($argv);
+if ($a_cnt == 1) {
+    fwrite(STDERR, "Invalid parameters, missing file name\n");
+    fwrite(STDERR, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+    fwrite(STDERR, "Use: /srv/http/command/getid3-cli --help for more information\n");
+    exit(1);
+}
+if ((substr($argv[1], 0, 2) == '-h') || ($argv[1] == '--help')) {
+    fwrite(STDOUT, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+    fwrite(STDOUT, "When used without <options> the tags (excluding the image tags) will be echoed as human readable\n");
+    fwrite(STDOUT, "                                       format to std_out\n");
+    fwrite(STDOUT, "Options:\n");
+    fwrite(STDOUT, " -h : --help                           This text\n");
+    fwrite(STDOUT, " -j : --json                           All tags (excluding the image tags) and their values\n");
+    fwrite(STDOUT, "                                        will be returned to std_out in json format\n");
+    fwrite(STDOUT, " -i (<number>) : --image(=<number>)    The image will be echoed (raw) to std_out. When <number> is not \n");
+    fwrite(STDOUT, "                                        specified the first image is used, <number> may have any positive value\n");
+    fwrite(STDOUT, " -f <filename> : --filename=<filename> Send the image to <filename> instead of std_out\n");
+    fwrite(STDOUT, " -t <filename> : --tagfile=<filename>  All tags (excluding the image tags) and their values will\n");
+    fwrite(STDOUT, "                                        be saved in the <filename> instead of std_out in json format \n");
+    fwrite(STDOUT, " -r <redis_variable> : --redis=<redis_variable>\n");
+    fwrite(STDOUT, "                                       All tags (excluding the image tags) and their values will \n");
+    fwrite(STDOUT, "                                        be saved in the <redis_variable> instead of std_out in json format\n");
+    exit(0);
+}
+$infile = $argv[$a_cnt - 1];
+clearstatcache(true, $infile);
+if ((substr($infile, 0, 1) == '-') || !file_exists($infile)) {
+    fwrite(STDERR, "Invalid parameters, missing or invalid file name\n");
+    fwrite(STDERR, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+    fwrite(STDERR, "Use: /srv/http/command/getid3-cli --help for more information\n");
+    exit(1);
+} else {
+    unset($argv[$a_cnt - 1]);
+}
+$json = false;
+$image = false;
+$image_number = 0;
+$image_outfile = false;
+$tag_outfile = false;
+$tag_redis = false;
+foreach ($argv as $key => $arg) {
+    $arg_lower = strtolower($arg);
+    if ($key == '0') {
+        continue;
+    }
+    while ((substr($arg_lower, 0, 1) == '-') && strpos(' hjiftr', substr($arg_lower, 2, 1))) {
+        if (substr($arg_lower, 1, 1) == 'h') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+        } else if (substr($arg_lower, 1, 1) == 'j') {
+            $json = true;
+            $arg_lower = '-'.substr($arg_lower, 2);
+        } else if (substr($arg_lower, 1, 1) == 'i') {
+            $image = true;
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1]) != '-') && is_numeric($argv[$key + 1])) {
+                $image_number = max(0, $argv[$key + 1] - 1);
+                $argv[$key + 1] = '';
+            }
+        } else if (substr($arg_lower, 1, 1) == 'f') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $image = true;
+                $image_outfile = $argv[$key + 1];
+                $argv[$key + 1] = '';
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 't') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $tag_outfile = $argv[$key + 1];
+                $argv[$key + 1] = '';
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 'r') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $tag_redis = $argv[$key + 1];
+                $argv[$key + 1] = '';
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        }
+    }
+    if ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) != 1)) {
+        fwrite(STDERR, "Invalid options: (-[h|j]) (-i (<number>)) (-f <filename>) (-t <filename>) (-r <redis_var>)\n");
+        fwrite(STDERR, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+        fwrite(STDERR, "Use: /srv/http/command/getid3-cli --help for more information\n");
+        exit(1);
+    }
+    if (substr($arg_lower, 1, 2) == '--') {
+        if (substr($arg_lower, 2) == 'json') {
+            $json = true;
+            continue;
+        }
+        if (substr($arg_lower, 2) == 'image') {
+            $image = true;
+            continue;
+        }
+        if (substr($arg_lower, 2, 8) == 'image=') {
+            $image = true;
+            $image_number = explode('=', $arg, 2)[1];
+            if (isset($image_number) && $image_number && is_numeric($image_number)) {
+                $image_number = max(0, $image_number - 1);
+                continue;
+            }
+        }
+        if (substr($arg, 2, 9) == 'filename=') {
+            $image_outfile = explode('=', $arg, 2)[1];
+            if (isset($image_outfile) && $image_outfile) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 8) == 'tagfile=') {
+            $tag_outfile = explode('=', $arg, 2)[1];
+            if (isset($tag_outfile) && $tag_outfile) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 6) == 'redis=') {
+            $tag_redis = explode('=', $arg, 2)[1];
+            if (isset($tag_redis) && $tag_redis) {
+                continue;
+            }
+        }
+        fwrite(STDERR, "Invalid options: (--[help|json]) (--image(=<number>)) (--filename=<filename>) (--tagfile=<filename>) (--redis=<redis_var>)\n");
+        fwrite(STDERR, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+        fwrite(STDERR, "Use: /srv/http/command/getid3-cli --help for more information\n");
+        exit(1);
+    }
+}
+//
+// getID3 needs to operate in directory /srv/http/app/libs/vendor
+chdir('/srv/http/app/libs/vendor');
+//
+// run getID3 and trap any errors
+$auOK = true;
+unset($au, $auinfo);
+try {
+    // Code that may throw an Exception or Error.
+    $au = new AudioInfo();
+    $auinfo =  $au->Info($infile);
+}
+catch (Throwable $t) {
+    // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+    $auOK = false;
+    fwrite(STDERR, "[getid3-cli] Caught Throwable ('{$t->getMessage()}')\n{$t}\n");
+    runelog('WORKER getid3-cli', "[getid3-cli] Caught Throwable ('{$t->getMessage()}')\n{$t}\n");
+    exit(1);
+}
+catch (Exception $e) {
+    // Executed only in PHP 5 and lower, will not match in PHP 7 and higher
+    $auOK = false;
+    fwrite(STDERR, "[getid3-cli] Caught Exception ('{$e->getMessage()}')\n{$e}\n");
+    runelog('WORKER getid3-cli', "[getid3-cli] Caught Exception ('{$e->getMessage()}')\n{$e}\n");
+    exit(1);
+}
+if (!$auOK || !is_array($auinfo)) {
+    fwrite(STDERR, "Error decoding: '".$infile."', no ID3 data found\n");
+    fwrite(STDERR, "Usage: /srv/http/command/getid3-cli <options> <filename>\n");
+    fwrite(STDERR, "Use: /srv/http/command/getid3-cli --help for more information\n");
+}
+//
+// process the image
+if ($image) {
+    $image_key = -1;
+    foreach ($auinfo['comments']['picture'] as $key => &$picturedata) {
+        if (($image_number == 0) && isset($picturedata['data']) &&(strlen($picturedata['data']) > 200)) {
+            $image_key = $key;
+            continue;
+        } else if (($image_number == $key) && isset($picturedata['data']) &&(strlen($picturedata['data']) > 200)) {
+            $image_key = $key;
+            continue;
+        }
+        //
+        unset($picturedata['data']);
+    }
+    //
+    // process the image file
+    if ($image_key > -1) {
+        // there is an image available
+        if ($image_outfile) {
+            // send the image to the file
+            file_put_contents($image_outfile, $auinfo['comments']['picture'][$image_key]['data']);
+        } else {
+            // send the image to std_out
+            fwrite(STDOUT, $auinfo['comments']['picture'][$image_key]['data']);
+        }
+        $auinfo['comments']['getid3info'] = 'Image ['.$image_key.'] correctly processed';
+    } else {
+        // no valid image
+        // return a blank image
+        $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
+        if ($image_outfile) {
+            // send the image to the file
+            file_put_contents($image_outfile, file_get_contents($artUrl.'/black.png'));
+        } else {
+            // send the image to std_out
+            fwrite(STDOUT, file_get_contents($artUrl.'/black.png'));
+        }
+        $auinfo['comments']['getid3info'] = 'Image ['.$image_key.'] invalid';
+    }
+} else {
+    $auinfo['comments']['getid3info'] = 'No image selected';
+}
+
+//
+// and unset all the images to free up memory
+unset($auinfo['comments']['picture']);
+//
+// process the tags to the specified file
+if ($tag_outfile) {
+    file_put_contents($tag_outfile, json_encode($auinfo));
+}
+//
+// process the tags to the specified redis variable
+if ($tag_redis) {
+    $redis->set($tag_redis, json_encode($auinfo));
+}
+//
+// process the tags to std_out
+if (!$image) {
+    if ($json) {
+        fwrite(STDOUT, json_encode($auinfo));
+    } else {
+        print_array($auinfo);
+    }
+}
+
+function print_array($array, $spaces='')
+{
+    foreach ($array as $key => $value){
+        if (is_array($value)) {
+            fwrite(STDOUT, $spaces.'"'.$key."\"\n");
+            print_array($value, $spaces.' ');
+        } else {
+            $spacer = max(1, 30 - strlen($key) - strlen($spaces));
+            fwrite(STDOUT, $spaces.'"'.$key.'" :'.str_repeat(' ', $spacer).'"'.$value."\"\n");
+        }
+    }
+}
+
+runelog('WORKER getid3-cli END...');
