@@ -613,8 +613,9 @@ while (true)  {
                 foreach ($coverArtFileNames as $coverArtFileName) {
                     clearstatcache(true, $coverArtDirectory.$coverArtFileName);
                     if (file_exists($coverArtDirectory.$coverArtFileName)) {
-                        // there is a valid art file in the album directory, copy it to the art directory
-                        copy($coverArtDirectory.$coverArtFileName, $song['albumartfile']);
+                        // there is a valid art file in the album directory, copy it to the art directory and reduce its size to maximum 350x350px
+                        sysCmd('convert -resize 350x350\> \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
+                        // copy($coverArtDirectory.$coverArtFileName, $song['albumartfile']);
                         $song['artFound'] = true;
                         // finish when one is found, exit the innermost loop
                         break;
