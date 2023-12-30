@@ -573,6 +573,25 @@ while (true)  {
                         }
                     }
                 }
+                // when more mbid's are returned (these are comma delimited) just use the first one
+                if (isset($song['artist_mbid']) && $song['artist_mbid']) {
+                    $commapos = strpos(' '.$song['artist_mbid'], ',');
+                    if ($commapos) {
+                        $song['artist_mbid'] = substr($song['artist_mbid'], 0, $commapos);
+                    }
+                }
+                if (isset($song['album_mbid']) && $song['album_mbid']) {
+                    $commapos = strpos(' '.$song['album_mbid'], ',');
+                    if ($commapos) {
+                        $song['album_mbid'] = substr($song['album_mbid'], 0, $commapos);
+                    }
+                }
+                if (isset($song['song_mbid']) && $song['song_mbid']) {
+                    $commapos = strpos(' '.$song['song_mbid'], ',');
+                    if ($commapos) {
+                        $song['song_mbid'] = substr($song['song_mbid'], 0, $commapos);
+                    }
+                }
                 unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate, $lyrics);
             }
             if (isset($song['file']) && $song['file']) {
