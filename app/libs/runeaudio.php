@@ -11471,7 +11471,7 @@ function getMusicFileMatadata($redis, $fileName)
 }
 
 // get the value of the first matching key in a single or multidimensional array
-function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty=false)
+function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty=false, $checkValueArrayZero=false)
 // returns the first non-null/non-false value of an array node when its key matching the search string
 // it really only works well returning strings, null and boolean values give incorrect results
 // no match returns false, a match with a null or boolean false value also return false
@@ -11480,21 +11480,28 @@ function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty
         $search = strtolower($search);
     }
     foreach ($myArray as $key => $value) {
-        if (is_array($value)) {
-            $retval = search_array_keys($value, $search, $caseInsensative, $skipEmpty);
-            if ($retval) {
-                return $retval;
+        if ($caseInsensative) {
+            $key = strtolower($key);
+        }
+        if ($key == $search) {
+            // match
+            if ($checkValueArrayZero && is_array($value) && isset($value[0]) && !is_array($value[0])) {
+                // check value[0], value is an array with a [0] element which is not an array, use the value of [0]
+                $value = $value[0];
             }
-        } else {
-            if ($caseInsensative) {
-                $key = strtolower($key);
-            }
-            if ($key == $search) {
-                if ($skipEmpty && !strlen(trim($value))) {
-                    continue;
-                } else {
+            if ($skipEmpty && (is_array($value) || !strlen(trim($value)))) {
+                // empty values are skipped and value is empty or an array, do nothing
+            } else {
+                if (!is_array($value)) {
+                    // value is not an array, but may be empty, return it anyway
                     return $value;
                 }
+            }
+        }
+        if (is_array($value)) {
+            $retval = search_array_keys($value, $search, $caseInsensative, $skipEmpty, $checkValueArrayZero);
+            if ($retval) {
+                return $retval;
             }
         }
     }
