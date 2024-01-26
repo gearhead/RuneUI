@@ -65,7 +65,10 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);
             // debug
             // runelog('--- [command/index.php] --- CLOSE MPD SOCKET <<< (1) ---','');
-            if (!isset($response) || !$response) $response = readMpdResponse($mpd);
+            // ui_notify($redis, 'MPD command', $_GET['cmd']);
+            if (isset($mpdSendResponse) && $mpdSendResponse) $response = readMpdResponse($mpd);
+            // debug
+            // ui_notify($redis, 'MPD response', $response);
             // catch any volume change set in the UI, and save its value
             //  the volume can also be set by streaming services this code is not used in those cases
             if (strpos(' '.$_GET['cmd'], 'setvol') && $mpdSendResponse && strpos(' '.$response, 'OK')) {
