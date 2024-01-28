@@ -4235,6 +4235,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tdsd_usb \t\"yes\"\n";
                     }
                 }
+                if ($card_decoded['type'] == 'alsa') {
+                    $output .="\tbuffer_time \t\"200000\"\n";
+                    $output .="\tperiod_time \t\"5084\"\n";
+                }
                 $output .="\tauto_resample \t\"no\"\n";
                 $output .="\tauto_format \t\"no\"\n";
                 if ($ao === $main_acard_name) {
