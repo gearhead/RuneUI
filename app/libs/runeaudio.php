@@ -2058,16 +2058,20 @@ function wrk_avahiconfig($redis, $action, $args=null, $jobID=null)
                 sysCmd("sed -i '/\[server\]/a # use-ipv6=yes' ".$file);
             }
             // set up the configuration
-            //  first comment all the use-ipv* lines out, then uncomment the relevant lines
+            //  first comment all the use-ipv* lines out, then uncomment/change the relevant lines
             sysCmd("sed -i '/^\s*use-ipv.\s*=.*/ s/./# &/' ".$file);
-            if (($args == '4') || ($args == 'b')) {
+            if ($args == '4') {
                 sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
-            }
-            if (($args == '6') || ($args == 'b')) {
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=no' ".$file);
+            } else  if ($args == '6') {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=no' ".$file);
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
+            } else  if ($args == 'b') {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
                 sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
             }
-            // restart avahi
-            sysCmd('systemctl restart avahi-daemon');
+            // reload avahi
+            sysCmd('systemctl reload avahi-daemon');
             break;
         case 'hostname':
             $hostname = $args;
