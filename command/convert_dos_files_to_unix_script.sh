@@ -237,9 +237,10 @@ if [ "$1" == "cleanfiles" ] || [ "$2" == "cleanfiles" ] || [ "$3" == "cleanfiles
     if [ "$os" == "ARCH" ] ; then
         pacman -Q uglify-js || pacman -Sy uglify-js --noconfirm
     elif [ ! -f /bin/uglifyjs ] ; then
-        apt install uglifyjs
+        apt install -y uglifyjs
     fi
     cd /srv/http/
+    # create a compacted javascript file
     uglifyjs --verbose --mangle --keep-fnames --warn --validate --webkit --ie8 assets/js/runeui.js --source-map --output assets/js/runeui.min.js
     cd /home
 fi
