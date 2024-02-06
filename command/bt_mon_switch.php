@@ -213,12 +213,14 @@ while (true) {
     if ($delayCnt-- <= 0) {
         // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
         // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
+        // also check that connected Bluetooth outputs are listed in the UI
         if (!isset($devices)) {
             // this routine is expensive to run, so only run it when required
             $devices = wrk_btcfg($redis, 'status');
         }
         if ($redis->get('activePlayer') != 'Bluetooth') {
             $refresMpd = false;
+            $connectAttempt = false;
             foreach ($devices as $device) {
                 // we are only interested in sink devices
                 if ($device['sink'] && $device['device']) {
@@ -226,10 +228,14 @@ while (true) {
                     if (!$device['connected'] && $device['trusted'] && !$device['blocked']) {
                         // attempt to connect
                         wrk_btcfg($redis, 'connect', $device['device']);
-                        // check that mpd.conf has been updated
+                        $connectAttempt = true;
                     }
                     // check that mpd.conf has been updated with the bluetooth outputs
                     if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
+                        $refresMpd = true;
+                    }
+                    // check that the card is included in acards
+                    if (!$redis->hExists('acards', $device['name'])) {
                         $refresMpd = true;
                     }
                 }
@@ -237,6 +243,8 @@ while (true) {
             if ($refresMpd) {
                 // update mpd.conf when required
                 wrk_mpdconf($redis, 'refresh');
+                // calling wrk_btcfg 'status' will add the card to acards
+                wrk_btcfg($redis, 'status');
             }
         }
         // set delay count to 3: this routing runs every 9 seconds (3x3 = 9 seconds)
