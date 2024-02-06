@@ -33,100 +33,149 @@
 #####################################
 set +e # continue on errors
 prio_nice () {
-# higher priority
-renice -1 $(pgrep -w bluealsa)
-renice -1 $(pgrep -w bluealsa-aplay)
-renice -1 $(pgrep -w bluetooth)
+# use the file /srv/http/db/prio_nice.txt
+# loop through each record the file, each record contains the 'process name', the required nice value
+#   and its default nice value separated by a spaces
+while IFS="" read -r p || [ -n "$p" ] ; do
+    # remove leading and trailing whitespace and replace embedded whitespace with one space
+    p=$( echo "$p" | xargs )
+    # skip empty and comment lines
+    first_char=${p:0:1}
+    if [ "$p" == "" ] || [ "$first_char" == ";" ] || [ "$first_char" == "#" ] ; then
+        # empty line or comment
+        continue
+    fi
+    # extract the process name
+    process=""
+    process=$( echo "$p" | cut -d ' ' -f 1 | xargs )
+    if [ "$process" == "" ] ; then
+        # no process
+        continue
+    fi
+    # extract the required nice value as an integer and validate
+    declare -i nice_val=40
+    nice_val=$( echo "$p" | cut -d ' ' -f 2 | xargs )
+    if [ $nice_val -lt -20 ] || [ $nice_val -gt 20 ] ; then
+        # invalid required nice value
+        continue
+    fi
+    # check that the process exists by getting the pid and validate
+    pid=""
+    pid=$( pgrep -w $process | xargs )
+    if [ "$pid" == "" ] ; then
+        # no pid
+        continue
+    fi
+    # get the current nice value as an integer and validate (we can get more nice values returned)
+    declare -i cur_nice=40
+    declare -i n
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    for n in $cur_nice_arr ; do
+        if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
+            # invalid current nice value
+            continue
+        fi
+        if [ $nice_val -lt 0 ] && [ $n -gt $nice_val ] ; then
+            cur_nice=$(( n ))
+            break
+        elif [ $nice_val -gt 0 ] && [ $n -lt $nice_val ] ; then
+            cur_nice=$(( n ))
+            break
+        elif [ $nice_val -eq 0 ] && [ $n -ne $nice_val ] ; then
+            cur_nice=$(( n ))
+            break
+        fi
+    done
+    if [ $cur_nice -lt -20 ] || [ $cur_nice -gt 20 ] ; then
+        # invalid current nice value
+        continue
+    fi
+    # when the required nice value is negative, change it when the current nice value is higher
+    # otherwise when the required nice value is positive, change it when the current nice value is lower
+    # otherwise when the required nice value is zero, change it when the current nice value is non-zero
+    #   we do this because some processes (e.g. mpd) rase or lower their niceness value automatically
+    #   alter niceness is only when necessary
+    if [ $nice_val -lt 0 ] && [ $cur_nice -gt $nice_val ] ; then
+        # required nice negative
+        renice $nice_val $( pgrep -w $process )
+    elif [ $nice_val -gt 0 ] && [ $cur_nice -lt $nice_val ] ; then
+        # required nice positive
+        renice $nice_val $( pgrep -w $process )
+    elif [ $nice_val -eq 0 ] && [ $cur_nice -ne $nice_val ] ; then
+        # required nice zero
+        renice $nice_val $( pgrep -w $process )
+    fi
+done < /srv/http/db/prio_nice.txt
+#
 # MPD has the capability of setting its own priority in real time
-# the following is to make sure that its basis priority is set
-# when mpd is updating keep its niceness to -1, otherwise -5
+# the following is to make sure that its basis priority is set slightly lower
+# when mpd is updating; keep its niceness to -1
 mpd_updating=$( mpc status | xargs | grep -ic 'updating db' | xargs )
 if [ "$mpd_updating" == "1" ] ; then
-    for pid in $(pgrep -w mpd); do
-        renice -1 $pid;
-    done
     renice -1 $(pgrep -w mpd)
-else
-    for pid in $(pgrep -w mpd); do
-        renice -5 $pid;
-    done
-    renice -5 $(pgrep -w mpd)
 fi
-renice -1 $(pgrep -w shairport-sync)
-renice -1 $(pgrep -w spotifyd)
-renice -1 $(pgrep -w upmpdcli)
-# lower priority
-renice 4 $(pgrep -w ashuffle)
-renice 4 $(pgrep -w bt_mon_switch)
-for pid in $(pgrep -w chromium); do
-    renice 10 $pid;
-done
-renice 10 $(pgrep -w chromium)
-renice 6 $(pgrep -w cmd_async_queue)
-renice 4 $(pgrep -w local-browser)
-renice 10 $(pgrep -w luakit)
-renice 4 $(pgrep -w matchbox-window)
-renice 3 $(pgrep -w mpdscribble)
-renice 2 $(pgrep -w nmbd)
-renice 2 $(pgrep -w nmb)
-renice 3 $(pgrep -w rune_PL_wrk)
-renice 4 $(pgrep -w rune_SSM_wrk)
-renice 4 $(pgrep -w rune_SDM_wrk)
-renice 3 $(pgrep -w rune_SY_wrk)
-renice 9 $(pgrep -w rune_MPDEM_wrk)
-renice 2 $(pgrep -w smbd)
-renice 2 $(pgrep -w smb)
-renice 2 $(pgrep -w sshd)
-renice 6 $(pgrep -w upowerd)
-renice 4 $(pgrep -w uwsgi)
-renice 3 $(pgrep -w xbindkeys)
-renice 10 $(pgrep -w xinit)
-renice 10 $(pgrep -w Xorg)
-renice 10 $(pgrep -w WebKit)
-renice 10 $(pgrep -w weston)
-renice 2 $(pgrep -w winbind)
-renice 2 $(pgrep -w winbindd)
 }
 #
 prio_default () {
-# always leave chromium, luakit, Webkit, matchbox-window, upowerd & uwsgi at a lower priority
-renice 0 $(pgrep -w ashuffle)
-renice 0 $(pgrep -w bluealsa)
-renice 0 $(pgrep -w bluealsa-aplay)
-renice 0 $(pgrep -w bluetooth)
-renice 0 $(pgrep -w bt_mon_switch)
-# renice 10 $(pgrep -w chromium)
-renice 0 $(pgrep -w cmd_async_queue)
-renice 0 $(pgrep -w local-browser)
-# renice 0 $(pgrep -w luakit)
-# renice 0 $(pgrep -w matchbox-window)
-for pid in $(pgrep -w mpd); do
-    renice 0 $pid;
-done
-renice 0 $(pgrep -w mpd)
-renice 0 $(pgrep -w mpdscribble)
-renice 0 $(pgrep -w nmb)
-renice 0 $(pgrep -w nmbd)
-renice 0 $(pgrep -w rune_MPDEM_wrk)
-renice 0 $(pgrep -w rune_PL_wrk)
-renice 0 $(pgrep -w rune_SDM_wrk)
-renice 0 $(pgrep -w rune_SSM_wrk)
-renice 0 $(pgrep -w rune_SY_wrk)
-renice 0 $(pgrep -w shairport-sync)
-renice 0 $(pgrep -w smb)
-renice 0 $(pgrep -w smbd)
-renice 0 $(pgrep -w spotifyd)
-renice 0 $(pgrep -w sshd)
-renice 0 $(pgrep -w upmpdcli)
-# renice 0 $(pgrep -w upowerd)
-# renice 0 $(pgrep -w uwsgi)
-# renice 0 $(pgrep -w WebKit)
-renice 0 $(pgrep -w weston)
-renice 0 $(pgrep -w winbind)
-renice 0 $(pgrep -w winbindd)
-renice 0 $(pgrep -w xbindkeys)
-renice 0 $(pgrep -w xinit)
-renice 0 $(pgrep -w Xorg)
+# use the file /srv/http/db/prio_nice.txt
+# loop through each record the file, each record contains the 'process name', the required nice value
+#   and its default nice value separated by a spaces
+while IFS="" read -r p || [ -n "$p" ] ; do
+    # remove leading and trailing whitespace and replace embedded whitespace with one space
+    p=$( echo "$p" | xargs )
+    # skip empty and comment lines
+    # skip empty and comment lines
+    first_char=${p:0:1}
+    if [ "$p" == "" ] || [ "$first_char" == ";" ] || [ "$first_char" == "#" ] ; then
+        # empty line or comment
+        continue
+    fi
+    # extract the process name
+    process=""
+    process=$( echo "$p" | cut -d ' ' -f 1 | xargs )
+    if [ "$process" == "" ] ; then
+        # no process
+        continue
+    fi
+    # extract the required default nice value as an integer and validate
+    declare -i default_nice=40
+    default_nice=$( echo "$p" | cut -d ' ' -f 3 | xargs )
+    if [ $default_nice -lt -20 ] || [ $default_nice -gt 20 ] ; then
+        # invalid required nice value
+        continue
+    fi
+    # check that the process exists by getting the pid and validate
+    pid=""
+    pid=$(  pgrep -w $process | xargs  )
+    if [ "$pid" == "" ] ; then
+        # no pid
+        continue
+    fi
+    # get the current nice value as an integer and validate (we can get more nice values returned)
+    declare -i cur_nice=40
+    declare -i n
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    for n in $cur_nice_arr ; do
+        if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
+            # invalid current nice value
+            continue
+        fi
+        if [ $n -ne $default_nice ] ; then
+            cur_nice=$(( n ))
+            break
+        fi
+    done
+    if [ $cur_nice -lt -20 ] || [ $cur_nice -gt 20 ] ; then
+        # invalid current nice value
+        continue
+    fi
+    # when the default nice value differs from the current nice value change it
+    # alter niceness is only when necessary
+    if [ $cur_nice -ne $default_nice ] ; then
+        # default nice and current nice differ
+        renice $default_nice $( pgrep -w $process )
+    fi
+done < /srv/http/db/prio_nice.txt
 }
 
 if [ "$1" == "default" ]; then

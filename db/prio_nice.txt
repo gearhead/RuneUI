@@ -1,0 +1,43 @@
+# this is part of RuneAudio
+#
+# this table defines the nice and default nice values for various processes
+# it is used by /srv/http/command/rune_prio
+# format: <process_name> <nice_value> <default_nice_value> (space delimited)
+#
+
+# higher priority
+bluealsa -1 0
+bluealsa-aplay -1 0
+bluetooth -1 0
+mpd -5 0
+shairport-sync -1 0
+spotifyd -1 0
+upmpdcli -1 0
+# lower priority
+ashuffle 4 0
+bt_mon_switch 4 0
+chromium 10 10
+cmd_async_queue 6 0
+local-browser 4 0
+luakit 10 10
+matchbox-window 4 4
+mpdscribble 3 0
+nmb 2 0
+nmbd 2 0
+rune_MPDEM_wrk 9 0
+rune_PL_wrk 3 0
+rune_SDM_wrk 4 0
+rune_SSM_wrk 4 0
+rune_SY_wrk 3 0
+smb 2 0
+smbd 2 0
+sshd 2 0
+upowerd 10 10
+uwsgi 4 4
+WebKit 10 10
+weston 10 0
+winbind 2 0
+winbindd 2 0
+xbindkeys 3 0
+xinit 10 0
+Xorg 10 0
