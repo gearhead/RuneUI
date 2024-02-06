@@ -11967,14 +11967,6 @@ function wrk_fixlogs()
 // configures, enables and disables llmnrd
 function wrk_llmnrd($redis)
 {
-    // make sure the variables are set, these lines can be removed in the next version
-    if (!$redis->exists('llmnrdonoff')) {
-        $redis->set('llmnrdonoff', 1);
-    }
-    if (!$redis->exists('llmnrdipv6')) {
-        $redis->set('llmnrdipv6', 1);
-    }
-    // remove up to here
     // depending on llmnrdipv6 set up llmnrd
     $ipv6Status = trim(sysCmd('grep -ic "llmnrd -6" /etc/systemd/system/llmnrd.service')[0]);
     $ipv6Setting = $redis->get('llmnrdipv6');
