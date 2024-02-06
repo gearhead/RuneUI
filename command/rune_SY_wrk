@@ -803,35 +803,45 @@ while (true) {
                 }
                 break;
             case 'lastfm':
+                if ($job->args->user != $redis->hGet('lastfm', 'user') OR $job->args->pass != $redis->hGet('lastfm', 'pass')) {
+                    // mpdscribble.conf
+                    $file = '/etc/mpdscribble.conf';
+                    $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
+                    $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
+                    // Commit changes to /etc/mpdscribble.conf
+                    $fp = fopen($file, 'w');
+                    fwrite($fp, implode("", $newArray));
+                    fclose($fp);
+                    unset($newArray);
+                    // write LastFM auth data to Redis datastore
+                    setLastFMauth($redis, $job->args);
+                    $action = 'Login changed';
+                }
                 if ($job->action === 'start') {
-                    if ($job->args->user != $redis->hGet('lastfm', 'user') OR $job->args->pass != $redis->hGet('lastfm', 'pass')) {
-                        // mpdscribble.conf
-                        $file = '/etc/mpdscribble.conf';
-                        $newArray = wrk_replaceTextLine($file, '', 'username =', 'username = '.$job->args->user, 'last.fm', 2);
-                        $newArray = wrk_replaceTextLine('', $newArray, 'password =', 'password = '.$job->args->pass, 'last.fm', 3);
-                        // Commit changes to /etc/mpdscribble.conf
-                        $fp = fopen($file, 'w');
-                        fwrite($fp, implode("", $newArray));
-                        fclose($fp);
-                        unset($newArray);
-                        // write LastFM auth data to Redis datastore
-                        setLastFMauth($redis, $job->args);
-                    }
+                    $redis->hSet('lastfm', 'enable', 1);
+                    $redis->sRem('w_lock', $jobID);
                     sysCmd('systemctl stop mpdscribble');
                     runelog('service: MPDSCRIBBLE start');
                     sysCmd('systemctl start mpdscribble');
-                    $redis->hSet('lastfm', 'enable', 1);
-                    $action = 'enabled';
-                }
-                if ($job->action === 'stop') {
-                    sysCmd('systemctl stop mpdscribble');
+                    if (isset($action)) {
+                        $action .= ' and enabled';
+                    } else {
+                        $action = 'Enabled';
+                    }
+                } else if ($job->action === 'stop') {
                     $redis->hSet('lastfm', 'enable', 0);
-                    $action = 'disabled';
+                    $redis->sRem('w_lock', $jobID);
+                    sysCmd('systemctl stop mpdscribble');
+                    if (isset($action)) {
+                        $action .= ' and disabled';
+                    } else {
+                        $action = 'Disabled';
+                    }
                 }
                 $redis->sRem('w_lock', $jobID);
                 if (isset($action) && $action) {
                     // send notfy to UI
-                    ui_notify($redis, 'Last.FM scrobbling', 'mpdscribble '.$action);
+                    ui_notify($redis, 'Last.FM scrobbling', $action);
                 }
                 unset($file, $newArray, $fp, $action);
                 break;
