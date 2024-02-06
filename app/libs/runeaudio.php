@@ -3308,7 +3308,7 @@ function wrk_audioOutput($redis, $action)
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
             //  also eliminate loopback card definitions, these are used for internal routing of the sound path
             //  vc4 HDMI cards appear regardless of attached device or setting on-board cards off, ignore these when on board cards is set off
-            if ($redis->exists('hdmivc4hw') && (($redis->get('hdmivc4hw') == 1) || ($redis->get('hdmivc4hw') == 3))) {
+            if ($redis->exists('hdmivc4hw') && (($redis->get('hdmivc4hw') == 1) || ($redis->get('hdmivc4hw') == 3) || ($redis->get('hdmivc4hw') == 4))) {
                 // handle vc4 as hardware cards
                 if ($redis->get('audio_on_off')) {
                     // all cards when on-board audio is enabled
@@ -3323,7 +3323,10 @@ function wrk_audioOutput($redis, $action)
                 // handle vc4 as software cards, but only when on-board audio is enabled
                 if ($redis->get('audio_on_off')) {
                     // get a separate list of SW HDMI vc4 cards
-                    $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                    if (!$redis->exists('hdmivc4hw') || $redis->get('hdmivc4hw') == 2) {
+                        // search for 'default'
+                        $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                    }
                     foreach ($cardlistHDMIvc4 as $key => $cardHDMIvc4) {
                         if (!sysCmd("amixer -D ".$cardHDMIvc4." scontrols | grep -ic pcm | xargs")[0]) {
                             unset($cardlistHDMIvc4[$key]);
@@ -3782,6 +3785,26 @@ function wrk_audioOutput($redis, $action)
                         $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['sysname']];
                     }
                 }
+                // when hdmivc4hw = 4 (process as hardware but use the software device name)
+                //  remove the vc4 hdmi card when no mixer control has been found, this means that it is not connected
+                //  change the device name to the software device
+                if (($redis->get('hdmivc4hw') == 4) && strpos(' '.strtolower($details['sysname']), 'hdmi') && strpos(' '.strtolower($details['sysname']), 'vc4')) {
+                    if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                        // this vc4 hdmi card is not connected, skip it
+                        unset($details, $data, $card);
+                        continue;
+                    }
+                    // format of the software device is 'sysdefault:CARD=' followed by the sysname with all hyphens, underscores and whitespace removed
+                    $swDevice = 'sysdefault:CARD='.preg_replace('/[\s_-]+/' ,'' , $details['sysname']);
+                    // check that the software device is defined
+                    if (sysCmd("aplay -L | grep -c '^".$swDevice."' | xargs")[0]) {
+                        // its there, so use it
+                        $data['device'] = $swDevice;
+                    } else {
+                        // just in case it goes wrong
+                        ui_notify($redis, 'vc4 hdmi audio', 'Failed to determine the software device name: "'.$details['sysname'].'", "'.$swDevice.'". Please report this on the forum', '', 1);
+                    }
+                }
                 if (!isset($sub_interfaces[0]) || (!$sub_interfaces[0])) {
                     $data['sysname'] = $card['sysname'];
                     $data['type'] = 'alsa';
@@ -3799,7 +3822,8 @@ function wrk_audioOutput($redis, $action)
             //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
             //          20 bits, or 24 bits at up to 8 channels
             //      we choose to run at 16 or 24 bit, with any number channels for the specified sample rates
-            // first delete any existing HDMI vc4 cards, when hdmivc4hw is unset or = 2 (unset = use software, 2 = use software with PCM)
+            // first delete any existing HDMI vc4 cards, when hdmivc4hw is unset or = 2
+            //  unset = use 'default' software definition without PCM, 2 = use 'default' software definition with PCM
             if (!$redis->exists('hdmivc4hw') || ($redis->get('hdmivc4hw') == 2)) {
                 $acardKeys = $redis->hKeys('acards');
                 foreach ($acardKeys as $acardKey) {
@@ -3825,6 +3849,8 @@ function wrk_audioOutput($redis, $action)
                         if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 2)) {
                             // hdmivc4hw = 2: use software card definition and set mixer_control to PCM
                             $acardHDMIvc4['mixer_control'] = 'PCM';
+                            // set the mixer device to null
+                            $acardHDMIvc4['mixer_device'] = '';
                         }
                         $acardHDMIvc4['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($cardname);
                         // add allowed formats to the card options
@@ -4318,10 +4344,16 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\ttype \t\t\"".$card_decoded['type']."\"\n";
                 $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
                 if ($hwmixer) {
-                     if (isset($card_decoded['mixer_control'])) {
-                        $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                    if (isset($card_decoded['mixer_control'])) {
+                        // mixer control is set
+                        if ($card_decoded['mixer_control']) {
+                            // mixer control has a value
+                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                        }
+                        // hardware mixer type is set when mixer control is set, even if mixer control has no value
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        if (isset($card_decoded['mixer_device'])) {
+                        if (isset($card_decoded['mixer_device']) && $card_decoded['mixer_device']) {
+                            // mixer device is set and has a value
                             $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
                         }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
@@ -4518,6 +4550,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
             $startBluetooth = false;
+            $disableNull = false;
             if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
                 $redis->set('ao', $args);
                 if (isset($jobID) && $jobID) {
@@ -4536,8 +4569,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // enable the null output, its needed when a bluetooth connection is lost
                     sysCmd('mpc enable null');
                     $startBluetooth = true;
+                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
+                    // enable the null output, its needed for vc4 hdmi output, which always appears as a valid output even when it is not connected
+                    sysCmd('mpc enable null');
                 } else {
-                    sysCmd('mpc disable null');
+                    $disableNull = true;
                 }
                 // check for "special" sub_interfaces
                 if (isset($acard['integrated_sub']) && $acard['integrated_sub']) {
@@ -4550,6 +4586,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // switch interface
                 sysCmd('mpc enable "'.$args.'"');
                 sysCmd('mpc disable "'.$oldMpdout.'"');
+                if ($disableNull) {
+                    sysCmd('mpc disable null');
+                }
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
             } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
@@ -4560,6 +4599,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 sysCmd('mpc enable "'.$oldMpdout.'"');
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
+                    sysCmd('mpc enable null');
+                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
+                    // enable the null output, its needed for vc4 hdmi output, which always appears as a valid output even when it is not connected
                     sysCmd('mpc enable null');
                 } else {
                     sysCmd('mpc disable null');
@@ -5176,8 +5218,17 @@ function wrk_shairport($redis, $ao = null, $name = null)
     }
     $redis->hSet('airplay', 'ao', $ao);
     //
-    $acard = $redis->hGet('acards', $ao);
-    $acard = json_decode($acard, true);
+    $acard = json_decode($redis->hGet('acards', $ao), true);
+    if (!isset($acard) || !is_array($acard) || !isset($acard['name'])) {
+        // no output devices
+        $redis->hSet('airplay', 'ao', '');
+        $redis->hSet('airplay', 'alsa_mixer_control', '');
+        $redis->hSet('airplay', 'alsa_mixer_device', '');
+        $redis->hSet('airplay', 'alsa_output_device', '');
+        // stop shairport-sync
+        sysCmd('pgrep shairport-sync && systemctl stop shairport-sync');
+        return 0;
+    }
     runelog('wrk_shairport acard name         : ', $acard['name']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
