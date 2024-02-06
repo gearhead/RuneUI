@@ -108,16 +108,19 @@ if (isset($_POST)) {
             // create worker job (stop shairport-sync)
             $redis->hGet('airplay','enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplay', 'action' => 'stop', 'args' => $_POST['features']['airplay']['name']));
         }
-        if (isset($_POST['features']['dlna']['enable']) && $_POST['features']['dlna']['enable']) {
-            if (!isset($_POST['features']['dlna']['queueowner'])) $_POST['features']['dlna']['queueowner'] = 0;
-            if (isset($_POST['features']['dlna']['name']) && (($redis->hGet('dlna','enable') !== $_POST['features']['dlna']['enable']) || ($redis->hGet('dlna','name') !== $_POST['features']['dlna']['name']) || ($redis->hGet('dlna','queueowner') !== $_POST['features']['dlna']['queueowner']))) {
-                if (trim($_POST['features']['dlna']['name']) == "") $_POST['features']['dlna']['enable'] = "RuneAudio";
+        if (isset($_POST['features']['dlna'])) {
+            if ((!isset($_POST['features']['dlna']['enable']) || !$_POST['features']['dlna']['enable'])) $_POST['features']['dlna']['enable'] = '0';
+            if ((!isset($_POST['features']['dlna']['queueowner']) || !$_POST['features']['dlna']['queueowner'])) $_POST['features']['dlna']['queueowner'] = '0';
+            if (isset($_POST['features']['dlna']['enable']) && $_POST['features']['dlna']['enable'] && !$redis->hGet('dlna','enable')) {
                 // create worker job (start upmpdcli)
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'start', 'args' => $_POST['features']['dlna']));
+            } else if (isset($_POST['features']['dlna']['enable']) && !$_POST['features']['dlna']['enable'] && $redis->hGet('dlna','enable')) {
+                // create worker job (stop upmpdcli)
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
+            } else if (isset($_POST['features']['dlna']['name']) || isset($_POST['features']['dlna']['queueowner']) || isset($_POST['features']['dlna']['services'])) {
+                // create worker job (update upmpdcli)
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'args' => $_POST['features']['dlna']));
             }
-        } else {
-            // create worker job (stop upmpdcli)
-            $redis->hGet('dlna','enable') === '0' || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
         }
         if (isset($_POST['features']['local_browser']['enable']) && $_POST['features']['local_browser']['enable']) {
             $redis->hGet('local_browser', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'start', 'args' => 1));

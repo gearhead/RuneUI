@@ -6507,36 +6507,105 @@ function wrk_changeHostname($redis, $newhostname)
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
 
-function wrk_upmpdcli($redis, $name = null, $queueowner = null)
+function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null, $enable = null, $jobID = null)
 {
-    if (!isset($name)) {
-        $name = $redis->hGet('dlna', 'name');
+    $nameOld = $redis->hGet('dlna', 'name');
+    if (isset($name) && $name) {
+        $redis->hSet('dlna', 'name', $name);
+    } else {
+        $name = $nameOld;
     }
-    if (!isset($queueowner)) {
-        $queueowner = $redis->hGet('dlna', 'queueowner');
+    $queueownerOld = $redis->hGet('dlna', 'queueowner');
+    if (isset($queueowner) && strlen($queueowner)) {
+        $redis->hSet('dlna', 'queueowner', $queueowner);
+    } else {
+        $queueowner = $queueownerOld;
     }
-    if ($queueowner != 1) {
-        $queueowner = '0';
+    $servicesOld = $redis->hGet('dlna', 'services');
+    if (isset($services) && $services) {
+        $redis->hSet('dlna', 'services', $services);
+    } else {
+        $services = $servicesOld;
     }
+    $enableOld = $redis->hGet('dlna', 'enable');
+    if (isset($enable) && strlen($enable)) {
+        $redis->hSet('dlna', 'enable', $enable);
+    } else {
+        $enable = $enableOld;
+    }
+    if (isset($jobID) && $jobID) {
+        $redis->sRem('w_lock', $jobID);
+    }
+    $serviceFile = '/etc/systemd/system/upmpdcli.service';
+    $configFile = '/etc/upmpdcli.conf';
+    // set the name and log level
+    sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."' '".$configFile."'");
+    sysCmd('sed -i '."'".'/^ohproductroom/ s|.*|ohproductroom = '.$name.'|'."' '".$configFile."'");
+    sysCmd('sed -i '."'".'/^loglevel/ s|.*/|loglevel = '.$logLevel.'|'."' '".$configFile."'");
     $logFile = $redis->hGet('dlna', 'logfile');
     $logLevel = $redis->hGet('dlna', 'loglevel');
-    $file = '/etc/systemd/system/upmpdcli.service';
-    sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."'".' /etc/systemd/system/upmpdcli.service');
-    // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
-    // modify them all
-    sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^ohproductroom/ s|.*|ohproductroom = '.$name.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^ownqueue/ s|.*|ownqueue = '.$queueowner.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^logfilename/ s|.*|logfilename = '.$logFile.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^loglevel/ s|.*/|loglevel = '.$logLevel.'|'."'".' /etc/upmpdcli.conf');
-    if ($redis->hGet('dlna','enable') === '1') {
+    if (($name != $nameOld) || ($queueowner != $queueownerOld)) {
+        $action = 'Updated';
+        sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
         // update systemd
         sysCmd('systemctl daemon-reload');
-        runelog('restart upmpdcli');
-        sysCmd('systemctl reload-or-restart upmpdcli');
+        // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
+        // modify them all
+        sysCmd('sed -i '."'".'/^ownqueue/ s|.*|ownqueue = '.$queueowner.'|'."' '".$configFile."'");
+        sysCmd('sed -i '."'".'/^logfilename/ s|.*|logfilename = '.$logFile.'|'."' '".$configFile."'");
+        // update systemd
+        sysCmd('systemctl daemon-reload');
+        if ($enable) {
+            runelog('restart upmpdcli');
+            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+        }
     }
-    // set process priority
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    if (($services != $servicesOld)) {
+        $action = 'Updated';
+        sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
+        // update systemd
+        sysCmd('systemctl daemon-reload');
+        if ($services == 'UPnP AV') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 1|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 0|'."' '".$configFile."'");
+        } else if ($services == 'OpenHome') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 0|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 1|'."' '".$configFile."'");
+        } else if ($services == 'Both') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 1|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 1|'."' '".$configFile."'");
+        }
+        if ($enable) {
+            runelog('restart upmpdcli');
+            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+        }
+    }
+    if ($enable) {
+        runelog('start upmpdcli');
+        if ($enable != $enableOld) {
+            if (isset($action)) {
+                $action .= ' and enabled';
+            } else {
+                $action = 'Enabled';
+            }
+        }
+        sysCmd('pgrep upmpdcli || systemctl start upmpdcli');
+        // set process priority
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    } else {
+        runelog('stop upmpdcli');
+        if ($enable != $enableOld) {
+            if (isset($action)) {
+                $action .= ' and disabled';
+            } else {
+                $action = 'Disabled';
+            }
+        }
+        sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+    }
+    if (isset($action)) {
+        ui_notify($redis, 'UPnP/DLNA', 'UPnP/DLNA '.$action);
+    }
 }
 
 function alsa_findHwMixerControl($cardID)

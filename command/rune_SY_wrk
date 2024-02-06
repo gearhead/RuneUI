@@ -667,43 +667,37 @@ while (true) {
                 unset($cnt);
                 break;
             case 'dlna':
-                sysCmd('systemctl stop upmpdcli');
-                if (($job->args->name !== $redis->hGet('dlna', 'name')) OR ($job->args->queueowner !== $redis->hGet('dlna', 'queueowner'))) {
-                    $redis->hSet('dlna', 'name', $job->args->name);
-                    $redis->hSet('dlna', 'queueowner', $job->args->queueowner);
-                    // update upmpdcli startup config
-                    wrk_upmpdcli($redis, $redis->hGet('dlna', 'name'), $redis->hGet('dlna', 'queueowner'));
-                    $action = 'updated';
+                if (isset($job->args->name) && $job->args->name) {
+                    $name = $job->args->name;
+                } else {
+                    $name = '';
                 }
-                // start upmpdcli
-                if ($job->action === 'start') {
+                if (isset($job->args->queueowner) && strlen($job->args->queueowner)) {
+                    $queueowner = $job->args->queueowner;
+                } else {
+                    $queueowner = '';
+                }
+                // services
+                if (isset($job->args->services) && strlen($job->args->services)) {
+                    $services = $job->args->services;
+                } else {
+                    $services = '';
+                }
+                if (isset($job->action) && ($job->action == 'start')) {
+                    // start upmpdcli
                     runelog('service: UPMPDCLI start');
-                    // start or re-start upmpdcli service
-                    sysCmd('systemctl start upmpdcli');
-                    $redis->hSet('dlna', 'enable', 1);
-                    if (isset($action) && $action) {
-                        $action .= ' and enabled';
-                    } else {
-                        $action = 'enabled';
-                    }
-                }
-                // stop upmpdcli
-                if ($job->action === 'stop') {
+                    wrk_upmpdcli($redis, $name, $queueowner, $services, '1', $jobID);
+                } else if (isset($job->action) && ($job->action == 'stop')) {
+                    // stop upmpdcli
                     runelog('service: UPMPDCLI stop');
-                    $redis->hSet('dlna', 'enable', 0);
-                    sysCmd('systemctl stop upmpdcli');
-                    if (isset($action) && $action) {
-                        $action .= ' and disabled';
-                    } else {
-                        $action = 'disabled';
-                    }
+                    wrk_upmpdcli($redis, $name, $queueowner, $services, '0', $jobID);
+                } else if (($name != '') || ($queueowner != '')) {
+                    // update upmpdcli
+                    runelog('service: UPMPDCLI update');
+                    wrk_upmpdcli($redis, $name, $queueowner, $services, '', $jobID);
                 }
                 $redis->sRem('w_lock', $jobID);
-                if (isset($action) && $action) {
-                    // send notfy to UI
-                    ui_notify($redis, 'UPnP / DLNA', 'UPnP / DLNA '.$action);
-                }
-                unset($action);
+                unset($name, $queueowner);
                 break;
             case 'gitpull':
                 $redis->sRem('w_lock', $jobID);

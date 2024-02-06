@@ -274,6 +274,16 @@
                             <span class="help-block">When OFF: sending an UPnP/DLNA streamed song will add next and play in the MPD queue,<br>
                             When ON: sending an UPnP/DLNA streamed song will clear the MPD queue then add and play the song</span>
                         </div>
+                        <label class="control-label col-sm-2" for="dlna-services">Connection Services</label>
+                        <div class="col-sm-10">
+                            <select id="dlna-services" class="selectpicker" name="features[dlna][services]" data-style="btn-default btn-lg">
+                                <option value="UPnP AV" <?php if($this->dlna['services'] === 'UPnP AV'): ?> selected <?php endif ?>> UPnP AV Services</option>
+                                <option value="OpenHome" <?php if($this->dlna['services'] === 'OpenHome'): ?> selected <?php endif ?>> OpenHome Services</option>
+                                <option value="Both"  <?php if($this->dlna['services'] === 'Both'): ?>  selected <?php endif ?>> Both UPnP AV and OpenHome Services</option>
+                            </select>
+                            <span class="help-block">Choose the UPnP/DLNA connection services to support, <strong>OpenHome</strong> is the default value. The UPnP AV Services setting is required to support Microsoft Windows Media Player.
+                                BubbleUPnP supports both service types, which can confusing when both are enabled since it will display the UPnP/DLNA name twice. The vendor recommends that OpenHome should be enabled</span>
+                        </div>
                     </div>
                     <div class="form-group form-actions">
                         <div class="col-sm-offset-2 col-sm-10">
