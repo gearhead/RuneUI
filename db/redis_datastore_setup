@@ -677,8 +677,9 @@ function redisDatastore($redis,$action) {
             $redis->hExists('lyrics', 'match_percentage') || $redis->hSet('lyrics', 'match_percentage', 50);
             // last.fm
             $redis->hExists('lastfm', 'enable') || $redis->hSet('lastfm', 'enable', 0);
-            $redis->hExists('lastfm', 'username') || $redis->hSet('lastfm', 'username', '');
-            $redis->hExists('lastfm', 'password') || $redis->hSet('lastfm', 'password', '');
+            $redis->hExists('lastfm', 'user') || $redis->hSet('lastfm', 'user', 'user');
+            $redis->hExists('lastfm', 'pass') || $redis->hSet('lastfm', 'pass', 'pass');
+            //
             $redis->exists('cmediafix') || $redis->set('cmediafix', 0);
             $redis->exists('stoppedPlayer') || $redis->set('stoppedPlayer', '');
             $redis->exists('remoteSStime') || $redis->set('remoteSStime', -1);
