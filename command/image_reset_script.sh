@@ -422,8 +422,8 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 #
 # reset root password and save the date set
 echo -e "rune\nrune" | passwd root
-passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
-redis-cli set passworddate $passworddate
+passworddate=$( chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs )
+redis-cli set passworddate "$passworddate"
 #
 # make sure that Rune-specific users are created
 #   first the user http, this has a specific default account

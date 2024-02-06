@@ -12961,11 +12961,11 @@ function wrk_security($redis, $action, $args=null)
             //          YYYY-MM-DD and DD/MM/YYYY have been seen there are possibly others
             //          this routine needs to have a consonant format of YYYY-MM-DD
             $today = date('Y-m-d');
-            $passwordInfo = strtolower(sysCmd('passwd -S root | xargs')[0]);
-            $passwordDate = date_to_Y_m_d(get_between_data($passwordInfo, 'root p ', ' '));
+            $passwordInfo = sysCmd("chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs")[0];
+            $passwordDate = date_to_Y_m_d($passwordInfo);
             if (!$passwordDate) {
                 // date error report it
-                echo '[wrk_security] passwordDate format error \''.get_between_data($passwordInfo, 'root p ', ' ')."'\n";
+                echo '[wrk_security] passwordDate format error \''.$passwordInfo."'\n";
             }
             $passwordDateInitial = date_to_Y_m_d($redis->get('passworddate'));
             if (!$passwordDateInitial) {
@@ -13013,8 +13013,7 @@ function wrk_security($redis, $action, $args=null)
                     }
                     sysCmd('rm -r '.$dirname.'/*');
                     sysCmd('cp /srv/http/app/config/defaults/boot/password/readme '.$dirname.'/readme');
-                    $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-                    $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
+                    $passwordDate = sysCmd("chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs")[0];
                     $redis->set('passworddate', $passwordDate);
                     break;
                 }
@@ -13920,37 +13919,91 @@ function count_word_occurancies($search, $target='')
 
 // function to normalise a date format
 function date_to_Y_m_d($date)
-// the function accepts an 8 date in YYYY-MM-DD or DD-MM-YYYY format with any separator (e.g. DD/MM/YYYY)
-//  and returns a date in YYYY-MM-DD format
+// the function accepts a 10 character date in YYYY-MM-DD or DD-MM-YYYY format with any separator (e.g. DD/MM/YYYY)
+//  the function is inaccurate for formats YYYY-DD-MM and MM-DD-YYYY
+// the function also accepts a longer date in the 'mmm DD YYYY' with its fields in any order and with any separator (e.g. format 'Dec 30, 2023')
+// the function returns a date in YYYY-MM-DD format
 {
-    $date = trim($date);
-    if (strlen($date) != 10) {
-        //invalid date format
-        return false;
+    $date = trim(strtolower($date));
+    //
+    // assume the date is in the 10 character format YYYY-MM-DD or DD-MM-YYYY
+    $date10character = true;
+    // replace any non-numeric characters with a single hyphen and trim leading/trailing hyphens & spaces
+    $date_wrk = trim(preg_replace('/[^0-9]+/', '-', $date), '- ');
+    if (substr_count($date_wrk, '-') == 2) {
+        // there are two hyphens
+        if (strlen($date_wrk) == 10) {
+            // the string length is 10
+            if (strpos($date_wrk, '-') == 2) {
+                // looks like DD-MM-YYYY
+                list($d, $m, $y) = explode('-', $date_wrk);
+            } else if (strpos($date_wrk, '-') == 4) {
+                // looks like YYYY-MM-DD
+                list($y, $m, $d) = explode('-', $date_wrk);
+            }
+        }
     }
-    $date = preg_replace('/[^0-9]/', '-', $date);
-    if (substr_count($date, '-') != 2) {
-        //invalid date format
-        return false;
-    }
-    if (strpos($date, '-') == 2) {
-        list($d, $m, $y) = explode('-', $date);
-    } else if (strpos($date, '-') == 4) {
-        list($y, $m, $d) = explode('-', $date);
-    } else {
-        //invalid date format
-        return false;
+    //
+    if (!isset($y) || !isset($m) || !isset($d) || (strlen($y) != 4) || (strlen($m) != 2) || (strlen($d) != 2)) {
+        // the date is not in the format YYYY-MM-DD or DD-MM-YYYY
+        $date10character = false;
+        // now assume the date is in the format 'mmm DD, YYYY'
+        // replace any non-numeric or non-lower-case-alpha characters with a single hyphen and trim leading/trailing hyphens & spaces
+        $date = trim(preg_replace('/[^0-9a-z]+/', '-', $date), '- ');
+        if (substr_count($date, '-') != 2) {
+            // invalid date format
+            return false;
+        }
+        // there are two hyphens, split the sting on the hyphens
+        $list = explode('-', $date);
+        // walk through the list
+        foreach ($list as $element) {
+            if (strlen($element) == 1) {
+                // could be a D, should not happen
+                $d = '0'.$element;
+            } else if (strlen($element) == 2) {
+                // this is a DD
+                $d = $element;
+            } else if (strlen($element) == 3) {
+                // this is a mmm
+                $mmm = $element;
+            } else if (strlen($element) == 4) {
+                // this is a YYYY
+                $y = $element;
+            }
+        }
+        if (!isset($d) || !isset($mmm) || !isset($y)) {
+            //invalid date format
+            return false;
+        }
+        // convert the alpha month to numeric
+        $months = array('', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec');
+        $m = array_search($mmm, $months);
+        if (strlen($m) == 1) {
+            // month contains one character, add a leading zero
+            $m = '0'.$m;
+        }
     }
     if ((strlen($y) != 4) || ($y < 1)) {
-        //invalid date format
+        // invalid date format
         return false;
     }
-    if ((strlen($m) != 2) || ($m < 1) || ($m > 12)) {
-        //invalid date format
+    if ((strlen($m) != 2) || ($m < 1)) {
+        // invalid date format
         return false;
     }
-    if ((strlen($d) != 2) || ($d < 1) || ($d > 31)) {
-        //invalid date format
+    if ((strlen($d) != 2) || ($d < 1)) {
+        // invalid date format
+        return false;
+    }
+    if (($m > 12) && $date10character) {
+        // day and month seem to be interchanged, this is very risky workaround, only do it for the 10 character date format
+        $x = $m;
+        $m = $d;
+        $d = $x;
+    }
+    if ($m > 12 || ($d > 31)) {
+        // invalid date format
         return false;
     }
     $date = $y.'-'.$m.'-'.$d;
