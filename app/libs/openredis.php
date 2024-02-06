@@ -36,6 +36,7 @@
 // this file is included into all scripts which use redis
 // in the backup and other functions redis is stopped and restarted, it is possible that
 // redis is still starting when this code executes, so trap any errors
+// this function also sets the default timezone for PHP
 $redisError = true;
 // a massive repeat value for looping, it should work on the first try
 //  but, if no redis is connected is made the rest will fail, so keep trying
@@ -90,6 +91,16 @@ while ($redisError) {
         sleep($redisSleepTime);
     }
 }
-unset($redisError, $redisErrorCount, $redisSleepTime, $redisOpenOneTime);
+// set the default timezone for PHP
+if ($redis->exists('timezone')) {
+    // timezone is set
+    $timezone = $redis->get('timezone');
+    if ($timezone) {
+        // timezone has a value, use it
+        date_default_timezone_set($timezone);
+    }
+}
+//
+unset($redisError, $redisErrorCount, $redisSleepTime, $redisOpenOneTime, $timezone, $t, $e);
 // end open redis
 //
