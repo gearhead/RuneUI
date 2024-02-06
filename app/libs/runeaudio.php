@@ -2588,86 +2588,6 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
     // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
     return $return;
 }
-// function wrk_apconfig($redis, $action, $args = null)
-// {
-    // $return = array();
-    // runelog('wrk_apconfig args = ', $args);
-    // switch ($action) {
-        // case 'writecfg':
-            // if (isset($args->{'enable'})) {
-                // $redis->hSet('AccessPoint', 'enable', $args->{'enable'});
-            // } else {
-                // $redis->hSet('AccessPoint', 'enable', 0);
-            // }
-            // $redis->hSet('AccessPoint', 'ssid', $args->{'ssid'});
-            // $redis->hSet('AccessPoint', 'passphrase', $args->{'passphrase'});
-            // $redis->hSet('AccessPoint', 'ip-address', $args->{'ip-address'});
-            // $redis->hSet('AccessPoint', 'broadcast', $args->{'broadcast'});
-            // $redis->hSet('AccessPoint', 'dhcp-range', $args->{'dhcp-range'});
-            // $redis->hSet('AccessPoint', 'dhcp-option-dns', $args->{'dhcp-option-dns'});
-            // $redis->hSet('AccessPoint', 'dhcp-option-router', $args->{'dhcp-option-router'});
-            // if ($args->{'enable-NAT'} === '1') {
-                // $redis->hSet('AccessPoint', 'enable-NAT', $args->{'enable-NAT'});
-            // } else {
-                // $redis->hSet('AccessPoint', 'enable-NAT', 0);
-            // }
-            // if ($args->{'reboot'} === '1') {
-                // runelog('**** AP reboot requested ****', $args);
-                // $return = 'reboot';
-            // } elseif ($args->{'restart'} === '1') {
-                // runelog('**** AP restart requested ****', $args);
-                // // change AP name
-                // $file = '/etc/hostapd/hostapd.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args->{'ssid'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // // change passphrase
-                // $file = '/etc/hostapd/hostapd.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'wpa_passphrase=', 'wpa_passphrase='.$args->{'passphrase'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // sysCmd('systemctl start hostapd');
-                // // change dhcp-range
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args->{'dhcp-range'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // // change dhcp-option
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args->{'dhcp-option-dns'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args->{'dhcp-option-router'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // sysCmd('ip addr flush dev wlan0');
-                // sysCmd('ip addr add '.$args->{'ip-address'}.'/24 broadcast '.$args->{'broadcast'}.' dev wlan0');
-                // sysCmd('systemctl reload-or-restart hostapd');
-                // sysCmd('systemctl reload-or-restart dnsmasq');
-                // if ($args->{'enable-NAT'} === '1') {
-                    // sysCmd('iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
-                    // sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-                    // sysCmd('iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT');
-                    // sysCmd('sysctl net.ipv4.ip_forward=1');
-                // } else {
-                    // sysCmd('sysctl net.ipv4.ip_forward=0');
-                // }
-                // $return = '';
-            // }
-            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args->ssid.';T:WPA2;P:'.$args->passphrase.';;"');
-            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args->{'ip-address'});
-            // break;
-        // case 'reset':
-            // break;
-    // }
-    // return $return;
-// }
 
 function wrk_netconfig($redis, $action, $arg = '', $args = array())
 {
@@ -4308,7 +4228,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
             }
             // ui_notify($redis, 'MPD', 'config file part one finished');
-            // remove Bluetooth cards form acards
+            // remove Bluetooth cards from acards
             wrk_btcfg($redis, 'remove_bt_acards');
             // get acards
             $acards = $redis->hGetAll('acards');
@@ -4502,7 +4422,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .= "}\n";
                 }
             }
-            // add null output devices to acards
+            // add Bluetooth output devices to acards
             wrk_btcfg($redis, 'status');
             // add a null output device
             $output .="audio_output {\n";

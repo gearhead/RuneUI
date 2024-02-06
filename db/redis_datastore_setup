@@ -233,6 +233,7 @@ function redisDatastore($redis,$action) {
             $redis->set('usb_db_autorebuild', 1);
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
+            // Bluetooth
             $redis->hSet('bluetooth', 'def_volume_in', '-1');
             // $redis->hSet('bluetooth', 'def_volume_out', '-1');
             $redis->hSet('bluetooth', 'initialising', 0);
@@ -246,6 +247,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('bluetooth', 'timeout', 20);
             $redis->set('bluetooth_status', json_encode(array()));
             $redis->del('bluetooth_on');
+            // Spotify Connect
             $redis->hDel('spotifyconnect', 'metadata_enabled');
             $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hSet('spotifyconnect', 'api_id', '');
@@ -273,6 +275,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
+            // Airplay
             $redis->hDel('airplay', 'artworkonoff');
             $redis->hDel('airplay', 'metadataonoff');
             $redis->hDel('airplay', 'metadata_enabled');
@@ -329,6 +332,7 @@ function redisDatastore($redis,$action) {
             $redis->hSet('lastfm', 'user', 'user');
             $redis->hSet('lastfm', 'pass', 'pass');
             $redis->set('stoppedPlayer', '');
+            //
             $redis->set('mpd_start_volume', -1);
             $redis->set('lastmpdvolume', 40);
             $redis->set('mpd_autoplay', 0);
@@ -587,6 +591,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('usb_db_autorebuild') || $redis->set('usb_db_autorebuild', 1);
             $redis->exists('usb_db_autorebuild_retry') || $redis->set('usb_db_autorebuild_retry', 0);
             $redis->hExists('bluetooth', 'def_volume_in') || $redis->hSet('bluetooth', 'def_volume_in', -1);
+            // Bluetooth
             // $redis->hExists('bluetooth', 'def_volume_out') || $redis->hSet('bluetooth', 'def_volume_out', -1);
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hExists('bluetooth', 'IO_toggle') || $redis->hSet('bluetooth', 'IO_toggle', 'both');
@@ -599,6 +604,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('bluetooth', 'timeout') || $redis->hSet('bluetooth', 'timeout', 20);
             $redis->exists('bluetooth_status') || $redis->set('bluetooth_status', json_encode(array()));
             $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
+            // Spotify Connect
             $redis->hExists('spotifyconnect', 'ao') || $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hExists('spotifyconnect', 'api_id') || $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hExists('spotifyconnect', 'api_secret') || $redis->hSet('spotifyconnect', 'api_secret', '');
@@ -625,6 +631,7 @@ function redisDatastore($redis,$action) {
             $redis->hExists('spotifyconnect', 'use_mpris') || $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hExists('spotifyconnect', 'volume_control') || $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hExists('spotifyconnect', 'volume_normalisation') || $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
+            // airplay
             $redis->hExists('airplay', 'alac_decoder') || $redis->hSet('airplay', 'alac_decoder', 'apple');
             $redis->hExists('airplay', 'alsa_mixer_control') || $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
             $redis->hExists('airplay', 'alsa_mixer_device') || $redis->hSet('airplay', 'alsa_mixer_device', 'default');
