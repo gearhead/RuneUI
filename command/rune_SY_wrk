@@ -1160,6 +1160,10 @@ while (true) {
                 }
                 unset($key, $value, $param, $retval, $action);
                 break;
+            case 'network_ipv6':
+                $redis->sRem('w_lock', $jobID);
+                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php');
+                break;
             case 'btcfg':
                 // $job->action is always set, $job->args can also contain information
                 if (isset($job->args)) {
@@ -1569,6 +1573,10 @@ while (true) {
         } else if (is_firstTime($redis, 'avahi_check_ip')) {
             // check that avahi has the correct ip settings;
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_ip_avahiconfig_async.php');
+            $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'check_connman')) {
+            // check and correct the connman settings
+            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php norestart');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation

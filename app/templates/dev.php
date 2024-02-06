@@ -245,8 +245,24 @@
                                 <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($this->optwifionof)) && ($this->optwifionof)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">Automatic Wi-Fi Optimisation is set <strong>ON</strong> by default. <i>It should be left <strong>ON</strong> unless you have more than one Wi-Fi
-                            adaptor or are having problems with the default network settings</i></span>
+                        <span class="help-block">Automatic Wi-Fi Optimisation is set <strong>ON</strong> by default.
+                            It should be left <strong>ON</strong> unless you have more than one Wi-Fi
+                            adaptor or are having problems with the default network settings</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">IPv6 Connections</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="IPv6onoff" name="mode[IPv6onoff][enable]" type="checkbox" value="1"<?php if((isset($this->IPv6onoff)) && ($this->IPv6onoff)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">IPv6 Connections is set <strong>ON</strong> by default.
+                            It should be left <strong>ON</strong> unless you have problems with network connections.<br>
+                            <i>Notes:
+                            Regardless of the setting, the IPv6 stack is unaltered and activated.
+                            IPv6 addresses will be processed normally, this switch only effects the connections which RuneAudio makes within your local network.<br>
+                            You may temporarily lose network connectivity after changing this value, if so, wait a few seconds and retry</i></span>
                     </div>
                 </div>
             </div>

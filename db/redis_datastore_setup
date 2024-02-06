@@ -404,18 +404,19 @@ function redisDatastore($redis,$action) {
             $redis->hSet('samba', 'enable', 0);
             $redis->hSet('samba', 'readwrite', 0);
             // network parameters
-            $redis->set('network_autoOptimiseWifi', 1);
-            $redis->set('llmnrdonoff', 1);
-            $redis->set('llmnrdipv6', 1);
-            $redis->set('network_info', json_encode(array()));
-            $redis->set('translate_mac_nic', json_encode(array()));
-            $redis->set('network_interfaces', json_encode(array()));
-            $redis->set('network_storedProfiles', json_encode(array()));
-            $redis->set('network_storedProfiles', json_encode(array()));
-            $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
             $redis->del('fix_mac');
             $redis->del('regdom');
+            $redis->set('llmnrdipv6', 1);
+            $redis->set('llmnrdonoff', 0);  // now disabled as default
+            $redis->set('network_autoOptimiseWifi', 1);
+            $redis->set('network_info', json_encode(array()));
+            $redis->set('network_interfaces', json_encode(array()));
+            $redis->set('network_ipv6', 1);
+            $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
+            $redis->set('network_storedProfiles', json_encode(array()));
+            $redis->set('network_storedProfiles', json_encode(array()));
             $redis->set('timezone', 'Pacific/Pago_Pago');
+            $redis->set('translate_mac_nic', json_encode(array()));
             // proxy settings
             $redis->hSet('proxy', 'enable', 0);
             $redis->hSet('proxy', 'host', '');
@@ -744,15 +745,16 @@ function redisDatastore($redis,$action) {
             $redis->hExists('samba', 'enable') || $redis->hSet('samba', 'enable', 0);
             $redis->hExists('samba', 'readwrite') || $redis->hSet('samba', 'readwrite', 0);
             // network parameters
-            $redis->exists('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
-            $redis->exists('llmnrdonoff') || $redis->set('llmnrdonoff', 1);
             $redis->exists('llmnrdipv6') || $redis->set('llmnrdipv6', 1);
+            $redis->exists('llmnrdonoff') || $redis->set('llmnrdonoff', 0);
+            $redis->exists('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);
             $redis->exists('network_info') || $redis->set('network_info', json_encode(array()));
-            $redis->exists('translate_mac_nic') || $redis->set('translate_mac_nic', json_encode(array()));
             $redis->exists('network_interfaces') || $redis->set('network_interfaces', json_encode(array()));
-            $redis->exists('network_storedProfiles') || $redis->set('network_storedProfiles', json_encode(array()));
+            $redis->exists('network_ipv6') || $redis->set('network_ipv6', 1);
             $redis->exists('network_mac_spoof') || $redis->set('network_mac_spoof', json_encode(array('00:e0:4c:53:44:58', '')));
+            $redis->exists('network_storedProfiles') || $redis->set('network_storedProfiles', json_encode(array()));
             $redis->exists('timezone') || $redis->set('timezone', 'Pacific/Pago_Pago');
+            $redis->exists('translate_mac_nic') || $redis->set('translate_mac_nic', json_encode(array()));
             // lock keys
             $redis->exists('lock_clean_music_metadata') || $redis->set('lock_clean_music_metadata', 0);
             $redis->exists('lock_debug_collector') || $redis->set('lock_debug_collector', 0);

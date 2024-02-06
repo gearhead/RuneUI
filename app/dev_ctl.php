@@ -185,6 +185,18 @@ if (isset($_POST)) {
         } else {
             !$redis->get('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 0);
         }
+        // ----- IPv6 Connections -----
+        if ((isset($_POST['mode']['IPv6onoff']['enable'])) && ($_POST['mode']['IPv6onoff']['enable'])) {
+            if (!$redis->get('network_ipv6')) {
+                $redis->set('network_ipv6', 1);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'network_ipv6'));
+            }
+        } else {
+            if ($redis->get('network_ipv6')) {
+                $redis->set('network_ipv6', 0);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'network_ipv6'));
+            }
+        }
         // ----- llmnrd -----
         $llmnrd = false;
         // ----- llmnrd on/off -----
@@ -354,6 +366,7 @@ $template->hostname = $redis->get('hostname');
 $template->airplayof = $redis->hGet('airplay', 'alsa_output_format');
 $template->airplayor = $redis->hGet('airplay', 'alsa_output_rate');
 $template->optwifionof = $redis->get('network_autoOptimiseWifi');
+$template->IPv6onoff = $redis->get('network_ipv6');
 $template->llmnrdonoff = $redis->get('llmnrdonoff');
 $template->llmnrdipv6 = $redis->get('llmnrdipv6');
 $template->underclocking = $redis->get('underclocking');

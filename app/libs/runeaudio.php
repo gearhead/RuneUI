@@ -2765,6 +2765,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         $profileFileContent .= 'Hidden=false'."\n";
                     }
                 }
+                if ($redis->get('network_ipv6')) {
+                    $profileFileContent .= 'IPv6=auto'."\n";
+                } else {
+                    $profileFileContent .= 'IPv6=off'."\n";
+                }
                 // sort the profile array on ssid (case insensitive)
                 $ssidCol = array_column($storedProfiles, 'ssid');
                 $ssidCol = array_map('strtolower', $ssidCol);
@@ -2906,12 +2911,23 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             } else {
                 $profileFileContent .= 'Hidden=false'."\n";
             }
+            if ($redis->get('network_ipv6')) {
+                $profileFileContent .= 'IPv6=auto'."\n";
+            } else {
+                $profileFileContent .= 'IPv6=off'."\n";
+            }
             if ($args['ipAssignment'] === 'DHCP') {
                 if (isset($args['connmanString'])) {
                     $args['connmanString'] = trim($args['connmanString']);
                     if ($args['connmanString']) {
                         // make sure that connman has the correct values
-                        sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                        if ($redis->get('network_ipv6')) {
+                            // ipv6 is enabled
+                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                        } else {
+                            // ipv6 is disabled
+                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
+                        }
                         sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                     }
                 }
@@ -2949,7 +2965,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // just delete the config file and remove the stored profile
                 wrk_netconfig($redis, 'delete', '', $args);
                 // make sure that connman has the correct values
-                sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                if ($redis->get('network_ipv6')) {
+                    // ipv6 is enabled
+                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                } else {
+                    // ipv6 is disabled
+                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
+                }
                 sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                 // take the nic down and bring it up to reset its ip-address
                 sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
@@ -3002,6 +3024,105 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     unlink($tmpFileName);
                 }
             }
+            break;
+        case 'check_connman':
+            // enables and disables ipv6 and corrects the all configuration files
+            //  IPv6.privacy=disabled to IPv6.privacy=preferred
+            // get the ipv6 setting
+            $network_ipv6 = $redis->get('network_ipv6');
+            // check the llmnrd ipv6 setting
+            if ($redis->get('llmnrdipv6') != $network_ipv6) {
+                // correct the llmnrd ipv6 setting
+                $redis->set('llmnrdipv6', $network_ipv6);
+            }
+            // refresh the nics to refresh the 'network_info'
+            refresh_nics($redis);
+            // get the networks
+            $network_info = json_decode($redis->get('network_info'), true);
+            // set connman restart switch to false
+            $restartConnman = 0;
+            // walk through the networks
+            foreach ($network_info as $network) {
+                if (isset($network['configured']) && $network['configured']) {
+                    // this is a configured network, check its ipv6 status
+                    if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'auto') && !$network_ipv6) {
+                        // network is configured for ipv6 and the setting is disabled, disable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl
+                            sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 off');
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*auto/s/.*/IPv6\=off/' '".$configFile."'");
+                            }
+                        }
+                    } else if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'off') && $network_ipv6) {
+                        // network is not configured for ipv6 and the setting is enabled, enable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl, but only for dhcp assigned networks (ipv6 is always disabled for static networks)
+                            if (isset($network['ipAssignment']) && ($network['ipAssignment'] == 'DHCP')) {
+                                sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 auto');
+                                // when ipv6 is switched off the IPv6.privacy=preferred is automatically set to IPv6.privacy=disabled
+                                // test here if it needs to be set to IPv6.privacy=preferred
+                                if (isset($network['macAddress'])) {
+                                    // the mac address is set, its required for the config file name
+                                    $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                                    // check that the config file exists
+                                    clearstatcache(true, $configFile);
+                                    if (file_exists($configFile)) {
+                                        // determine whether the config file needs changing and if connman needs to be restarted
+                                        $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                        if (!$restartConnman) {
+                                            $restartConnman = $changeFile;
+                                        }
+                                        if ($changeFile) {
+                                            sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*off/s/.*/IPv6\=auto/' '".$configFile."'");
+                            }
+                        }
+                    }
+                    if (isset($network['technology']) && isset($network['ipv6.privacy']) && ($network['technology'] == 'ethernet') && ($network['ipv6.privacy'] == 'disabled')) {
+                        // its an ethernet nic and ipv6 privacy is disabled, set IPv6.privacy=preferred
+                        if (isset($network['macAddress'])) {
+                            // the mac address is set, its required for the config file name
+                            $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                // determine whether the config file needs changing and if connman needs to be restarted
+                                $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                if (!$restartConnman) {
+                                    $restartConnman = $changeFile;
+                                }
+                                if ($changeFile) {
+                                    sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if ($restartConnman && ($arg != 'norestart')) {
+                sysCmd('systemctl restart connman');
+            }
+            unset($network_ipv6, $network_info, $network, $configFile, $changeFile, $restartConnman);
             break;
         case 'reconnect':
             // no break;
@@ -8067,17 +8188,17 @@ function refresh_nics($redis)
         // get the signal strength, security, DNS name servers and gateway from connman
         $connmanLines = sysCmd('connmanctl services '.$connmanString);
         foreach ($connmanLines as $connmanLine) {
-            if (strpos(' '.$connmanLine, '.Configuration')) {
-                // don't use the configuration lines
-                continue;
-            }
             $connmanLineParts = explode('=', $connmanLine, 2);
             if (count($connmanLineParts) !=2) {
-                // skip the line if it has no value (or '=' charecter)
+                // skip the line if it has no value (or '=' character)
                 continue;
             }
             $entry = ' '.strtolower(trim($connmanLineParts[0]));
             $value = strtolower(trim($connmanLineParts[1], " \t\n\r\0\x0B]["));
+            if (strpos(' '.$entry, '.configuration') && !strpos(' '.$entry, 'ipv6.')) {
+                // don't use the .configuration lines unless its ipv6.configuration
+                continue;
+            }
             if (strpos($entry, 'security')) {
                 $networkInfo[$macAddress.'_'.$ssidHex]['security'] = strtoupper($value);
             } else if (strpos($entry, 'strength')) {
@@ -8195,6 +8316,21 @@ function refresh_nics($redis)
                     }
                 } else {
                     $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Mask'] = $networkInterfaces[$nic]['ipv4Mask'];
+                }
+            } else if (strpos($entry, 'ipv6.configuration')) {
+                if ($value) {
+                    If (strpos($value, ',')) {
+                        $ipv6Configuration = explode(',', $value);
+                    } else {
+                        $ipv6Configuration[0] = $value;
+                    }
+                    foreach ($ipv6Configuration as $ipv6Part) {
+                        $ipv6Part = trim($ipv6Part);
+                        if (strpos(' '.$ipv6Part, '=')) {
+                            list($ipv6Item, $ipv6Value) = explode('=', $ipv6Part, 2);
+                            $networkInfo[$macAddress.'_'.$ssidHex]['ipv6.'.trim($ipv6Item)] = trim($ipv6Value);
+                        }
+                    }
                 }
             }
         }
