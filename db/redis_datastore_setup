@@ -134,26 +134,40 @@ function redisDatastore($redis,$action) {
         case 'apreset':
             // Access Point
             $redis->hDel('AccessPoint', 'enable');
-            $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
             $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
-            $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
-            $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
-            $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
+            $redis->hSet('AccessPoint', 'channel', '7');
             $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
             $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
+            $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
             $redis->hSet('AccessPoint', 'enable-NAT', 0);
+            $redis->hSet('AccessPoint', 'ethNic', '');
+            $redis->hSet('AccessPoint', 'host', 'iwd'); // can also be set to hostapd
+            $redis->hSet('AccessPoint', 'interface', '');
+            $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
+            $redis->hSet('AccessPoint', 'NAT-configured', 0);
+            $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
+            $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
+            $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);   // can be set to 0 when host = hostapd
+            $redis->hSet('AccessPoint', 'wlanNic', '');
             break;
         case 'apcheck':
             // Access Point
-            $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
-            $redis->hExists('AccessPoint', 'ip-address') || $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
             $redis->hExists('AccessPoint', 'broadcast') || $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
-            $redis->hExists('AccessPoint', 'ssid') || $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
-            $redis->hExists('AccessPoint', 'passphrase') || $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
-            $redis->hExists('AccessPoint', 'dhcp-range') || $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
+            $redis->hExists('AccessPoint', 'channel') || $redis->hSet('AccessPoint', 'channel', '7');
             $redis->hExists('AccessPoint', 'dhcp-option-dns') || $redis->hSet('AccessPoint', 'dhcp-option-dns', '192.168.5.1');
             $redis->hExists('AccessPoint', 'dhcp-option-router') || $redis->hSet('AccessPoint', 'dhcp-option-router', '192.168.5.1');
+            $redis->hExists('AccessPoint', 'dhcp-range') || $redis->hSet('AccessPoint', 'dhcp-range', '192.168.5.2,192.168.5.254,24h');
+            $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
             $redis->hExists('AccessPoint', 'enable-NAT') || $redis->hSet('AccessPoint', 'enable-NAT', 0);
+            $redis->hExists('AccessPoint', 'ethNic') || $redis->hSet('AccessPoint', 'ethNic', '');
+            $redis->hExists('AccessPoint', 'host') || $redis->hSet('AccessPoint', 'host', 'iwd');   // can also be set to hostapd
+            $redis->hExists('AccessPoint', 'interface') || $redis->hSet('AccessPoint', 'interface', '');
+            $redis->hExists('AccessPoint', 'ip-address') || $redis->hSet('AccessPoint', 'ip-address', '192.168.5.1');
+            $redis->hExists('AccessPoint', 'NAT-configured') || $redis->hSet('AccessPoint', 'NAT-configured', 0);
+            $redis->hExists('AccessPoint', 'passphrase') || $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
+            $redis->hExists('AccessPoint', 'ssid') || $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
+            $redis->hExists('AccessPoint', 'virtual_ap_dev') || $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);   // can be set to 0 when host = hostapd
+            $redis->hExists('AccessPoint', 'wlanNic') || $redis->hSet('AccessPoint', 'wlanNic', '');
             break;
         case 'reset':
             // os & kernel

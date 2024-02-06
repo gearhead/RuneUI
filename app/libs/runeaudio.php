@@ -2409,119 +2409,183 @@ function net_CidrToNetmask($cidr) {
     return join('.', $netmask);
 }
 
-function wrk_apconfig($redis, $action, $args = null)
+function wrk_apconfig($redis, $action, $args = null, $jobID = null)
 {
     runelog('wrk_apconfig args = ', $args);
     $return = '';
     switch ($action) {
         case 'writecfg':
-            if (isset($args['enable'])) {
-                $redis->hSet('AccessPoint', 'enable', $args['enable']);
-            } else {
-                $redis->hSet('AccessPoint', 'enable', 0);
+            if (isset($args['ssid']) && $args['ssid'] && ($args['ssid'] != $redis->hGet('AccessPoint', 'ssid'))) {
+                $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
+                $args['restart'] = 1;
             }
-            $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
-            $redis->hSet('AccessPoint', 'passphrase', $args['passphrase']);
-            $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
-            $redis->hSet('AccessPoint', 'broadcast', $args['broadcast']);
-            $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
-            $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
-            $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
-            if (isset($args['enable-NAT'])) {
-                $redis->hSet('AccessPoint', 'enable-NAT', $args['enable-NAT']);
-            } else {
+            if (isset($args['passphrase']) && $args['passphrase'] && ($args['passphrase'] != $redis->hGet('AccessPoint', 'passphrase'))) {
+                $redis->hSet('AccessPoint', 'passphrase', $args['passphrase']);
+                $args['restart'] = 1;
+            }
+            $ipAddressOld = $redis->hGet('AccessPoint', 'ip-address');
+            if (isset($args['ip-address']) && $args['ip-address'] && ($args['ip-address'] != $redis->hGet('AccessPoint', 'ip-address'))) {
+                $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['broadcast']) && $args['broadcast'] && ($args['broadcast'] != $redis->hGet('AccessPoint', 'broadcast'))) {
+                $redis->hSet('AccessPoint', 'broadcast', $args['broadcast']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-range']) && $args['dhcp-range'] && ($args['dhcp-range'] != $redis->hGet('AccessPoint', 'dhcp-range'))) {
+                $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-dns']) && $args['dhcp-option-dns'] && ($args['dhcp-option-dns'] != $redis->hGet('AccessPoint', 'dhcp-option-dns'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-router']) && $args['dhcp-option-router'] && ($args['dhcp-option-router'] != $redis->hGet('AccessPoint', 'dhcp-option-router'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
+                $args['restart'] = 1;
+            }
+            if ($args['restart'] == 1) {
+                $message = "Configuration changed";
+            }
+            if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is true and current state is false
+                $redis->hSet('AccessPoint', 'enable-NAT', 1);
+                $args['rescan'] = 1;
+            } else if ((!isset($args['enable-NAT']) || !$args['enable-NAT']) && $redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is false and current state is true
                 $redis->hSet('AccessPoint', 'enable-NAT', 0);
+                $args['rescan'] = 1;
             }
-            $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            if ($args['rescan'] == 1) {
+                $message = "Configuration changed";
+            }
+            var_dump($args);
+            if (isset($args['enable']) && $args['enable'] && !$redis->hGet('AccessPoint', 'enable')) {
+                // enable requested, was disabled
+                $redis->hSet('AccessPoint', 'enable', $args['enable']);
+                unset_is_firstTime($redis, 'AP-start');
+                $args['restart'] = 0;
+                $args['rescan'] = 1;
+                if (isset($message)) {
+                    $message .= ' and enabled';
+                } else {
+                    $message = 'Enabled';
+                }
+            } else if ((!isset($args['enable']) || !$args['enable']) && $redis->hGet('AccessPoint', 'enable')) {
+                // disable requested, was enabled
+                $redis->hSet('AccessPoint', 'enable', 0);
+                if ($redis->hGet('AccessPoint', 'NAT-configured')) {
+                    // NAT is configured, remove the configuration
+                    sysCmd('iptables -F');
+                    sysCmd('iptables -t nat -F');
+                    sysCmd('sysctl net.ipv4.ip_forward=0');
+                    $redis->hSet('AccessPoint', 'NAT-configured', 0);
+                }
+                // stop the hostapd AP jobs if they are running
+                sysCmd('pgrep hostapd && systemctl stop hostapd ; pgrep dnsmasq && systemctl stop dnsmasq');
+                // stop the iwd access point
+                sysCmd('iwctl ap '.$interface.' stop');
+                // get the wlan nic used for accesspoint
+                $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+                //
+                // determine the AP wlan nic(s) by searching the ip addresses for the current and previous AP ip-address (these may have the same value)
+                $wlanNics = explode(' ', sysCmd("ip -o add | grep -iE '".$ipAddressOld."|".$redis->hGet('AccessPoint', 'ip-address')."' | xargs | cut -d ' ' -f 2 | xargs")[0]);
+                // check that the stored wlan nic is included in the wlan nics array
+                $interface = $redis->hGet('AccessPoint', 'interface');
+                if (isset($interface) && $interface && !in_array($interface, $wlanNics)) {
+                    // not found in array, add it
+                    $wlanNics[] = $interface;
+                }
+                // get the names of the physical nics
+                $physNics = sysCmd('dir -1 /sys/class/net/');
+                // process all the relevant wlan nics (normally one or none)
+                foreach ($wlanNics as $wlanNicInterface) {
+                    // just in case the use of virtual nics may have been switched, we don't use the redis hash 'AccessPoint'  'virtual_ap_dev'
+                    //  to determine a physical or virtual nic
+                    if (in_array($wlanNicInterface, $physNics)  && ($wlanNic == $wlanNicInterface)) {
+                        // the nic is in the list of physical nics and its name is the same as the wlan nic
+                        // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
+                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
+                    } else {
+                        // the nic is not in the list of physical nics or its name is different to the wlan nic
+                        // delete the virtual nic
+                        sysCmd('iw dev '.$wlanNicInterface.' del');
+                    }
+                }
+                // comment out any lines in the iwd configuration file /etc/iwd/main.conf containing 'APRanges='
+                sysCmd("sed -i /APRanges=/s/^/# / '/etc/iwd/main.conf'");
+                // remove any iwd AP definition files
+                sysCmd('mkdir -p /var/lib/iwd/ap/');
+                sysCmd('rm /var/lib/iwd/ap/*.ap');
+                // do we need to restart iwd? I don't think it is necessary - need to test
+                // sysCmd('systemctl restart iwd');
+                // unset the AP nic names
+                $redis->hSet('AccessPoint', 'ethNic', '');
+                $redis->hSet('AccessPoint', 'wlanNic', '');
+                $redis->hSet('AccessPoint', 'interface', '');
+                $args['restart'] = 0;
+                if (isset($args['norescan']) && $args['norescan']) {
+                    $args['rescan'] = 0;
+                } else {
+                    $args['rescan'] = 1;
+                }
+                if (isset($message)) {
+                    $message .= ', and disabled';
+                } else {
+                    $message = 'Disabled';
+                }
+            }
             break;
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
             wrk_getHwPlatform($redis);
-            if (is_array($args)) {
-                $args = array_merge($args, $redis->hgetall('AccessPoint'));
-            } else {
-                $args = $redis->hgetall('AccessPoint');
-            }
+            $args['restart'] = 1;
+            $message = "Resetting Access Point to default values";
             break;
     }
-    if ($args['enable']) {
-        if ($args['reboot']) {
-            runelog('**** AP reboot requested ****', $args);
-            $return = 'reboot';
-        } elseif ($args['restart']) {
-            $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
-            // $procCount has value 2 when both hostapd and dnsmasq are running, cannot restart if these are not running
-            if ($procCount === 2) {
-                runelog('**** AP restart requested ****', $args);
-                $file = '/etc/hostapd/hostapd.conf';
-                // change AP name
-                $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args['ssid']);
-                // change passphrase
-                $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$args['passphrase']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode('', $newArray));
-                fclose($fp);
-                $file = '/etc/dnsmasq.conf';
-                // change dhcp-range
-                $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args['dhcp-range']);
-                // change dhcp-option dns-server
-                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args['dhcp-option-dns']);
-                // change dhcp-option router
-                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args['dhcp-option-router']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode('', $newArray));
-                fclose($fp);
-                $dnsmasqLines = sysCmd('grep -i interface /etc/dnsmasq.conf');
-                foreach ($dnsmasqLines as $dnsmasqLine) {
-                    list($id, $value) = explode('=', $dnsmasqLine, 2);
-                    if ($id === 'interface') {
-                        $wlanNic = $value;
-                    }
-                    if ($id === 'no-dhcp-interface') {
-                        $ethNic = $value;
-                    }
-                }
-                if (isset($wlanNic)) {
-                    // flush the wlan nic then take it down and bring it up, this will turn the AP off
-                    sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
-                    sysCmd('systemctl restart hostapd');
-                    sysCmd('systemctl restart dnsmasq');
-                    // enable the AP by switching braodcast on
-                    sysCmd('ip addr add '.$args['ip-address'].'/24 broadcast '.$args['broadcast'].' dev '.$wlanNic);
-                    if (isset($ethNic)) {
-                        $ethNicConnected = sysCmd('ip address | grep -ic '.$ethNic)[0];
-                    } else {
-                        $ethNicConnected = false;
-                    }
-                    if (($args['enable-NAT'] === '1') && $ethNicConnected) {
-                        // enable NAT if enabled and there is a wired nic available
-                        sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
-                        sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-                        sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
-                        sysCmd('sysctl net.ipv4.ip_forward=1');
-                    } else {
-                        sysCmd('sysctl net.ipv4.ip_forward=0');
-                    }
-                }
-            }
-        }
-        // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
-        //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
-        //  currently disabled, the UI will only display QR-codes for the default settings
-        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
-        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
-    } else {
-        // now disabled
-        $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
-        // $procCount has value 2 when both hostapd and dnsmasq are running and 1 when one is running
-        if ($procCount) {
-            // one of the processes is running, so turn it off
-            sysCmd('pgrep -x hostapd && systemctl stop hostapd');
-            sysCmd('pgrep -x dnsmasq && systemctl stop dnsmasq');
-            // flush the wlan nic then take it down and bring it up, this will turn the AP off
-            sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
-        }
+    if (isset($jobID) && $jobID) {
+        $redis->sRem('w_lock', $jobID);
     }
+    if ((!isset($args['silent']) || !$args['silent']) && isset($message) && $message) {
+        ui_notify($redis, 'AccessPoint', $message);
+    }
+    // reboot and restart can be selected in the UI
+    // restart will be automatically deselected when not required
+    // restart and rescan are automatically selected in this function when required
+    if (isset($args['reboot']) && $args['reboot']) {
+        // reboot requested from the UI
+        runelog('**** AP reboot requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'Reboot requested');
+        $return = 'reboot';
+    } else if (isset($args['restart']) && $args['restart']) {
+        // a restart has been requested from the UI or automatically determined
+        runelog('**** AP restart requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
+        ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
+        // stop the access point, by disabling it
+        $restart_args = array();
+        $restart_args['enable'] = 0;
+        $restart_args['norescan'] = 1;
+        $restart_args['silent'] = 1;
+        // nat will automatically be disabled when the AP is stopped, save its current value
+        $natSave = $redis->hGet('AccessPoint', 'enable-NAT');
+        wrk_apconfig($redis, 'writecfg', $restart_args);
+        // start the access point by enabling it
+        $restart_args = array();
+        $restart_args['enable'] = 1;
+        $restart_args['silent'] = 1;
+        // restore nat to its previous value
+        $restart_args['enable-NAT'] = $natSave;
+        wrk_apconfig($redis, 'writecfg', $restart_args);
+    } else if (isset($args['rescan']) && $args['rescan']) {
+        ui_notify($redis, 'AccessPoint', 'Applying changes');
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    }
+    // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
+    //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
+    //  currently disabled, the UI will only display QR-codes for the default settings
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
     return $return;
 }
 // function wrk_apconfig($redis, $action, $args = null)
@@ -8110,8 +8174,9 @@ function refresh_nics($redis)
                 // skip nics in the excluded list
                 continue;
             }
-            // array for pysical device id to nic name translation
-            $wirelessNic[$phyDev] = $nic;
+            // array for pysical device id to nic name translation, there can be more nics per physical device
+            // $wirelessNic[$nic] = $phyDev;
+            $wirelessNic[$phyDev]['nics'][] = $nic;
             // register the technology as wifi
             $networkInterfaces[$nic]['technology'] = 'wifi';
             // save the physical device
@@ -8157,18 +8222,18 @@ function refresh_nics($redis)
         $deviceInfoLine = ' '.trim($deviceInfoLine);
         if (strpos($deviceInfoLine, 'Wiphy')) {
             $phyDev = trim(explode(' ', trim($deviceInfoLine))[1]);
-            if (isset($wirelessNic[$phyDev])) {
-                $nic = $wirelessNic[$phyDev];
-            } else {
-                $nic = '';
-            }
         } else if (strpos($deviceInfoLine, 'Supported interface modes:')) {
             // the 'Supported interface modes:' section of the file is terminated with a line containing a colon (:)
             $intMode = true;
         } else if (strpos($deviceInfoLine, '* AP')) {
-            if (($nic != '') && ($intMode)) {
+            if ($intMode) {
                 // access point (AP) is listed as a 'Supported interface mode'
-                $networkInterfaces[$nic]['apSupported'] = true;
+                if (isset($wirelessNic[$phyDev]['nics']) && is_array($wirelessNic[$phyDev]['nics'])) {
+                    $wirelessNic[$phyDev]['apSupported'] = true;
+                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {
+                        $networkInterfaces[$nic]['apSupported'] = true;
+                    }
+                }
                 $phyDev = '';
                 $intMode = false;
                 $nic = '';

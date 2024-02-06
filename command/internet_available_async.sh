@@ -66,7 +66,7 @@ for nic in $nics ; do
     ap=$( iw $nic info | grep -ic 'type\s*ap' | xargs )
     if [ "$ap" == "0" ] ; then
         # its not an access point
-        iwctl station $nic scan
+        connmanctl scan wifi
     fi
 done
 # determine if there is a non-AP nic which is up

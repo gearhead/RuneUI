@@ -6,9 +6,9 @@
         <form id="network-interface-list" class="button-list" method="post">
         <?php foreach ($this->nics as $nic): ?>
             <?php if ($nic['technology'] === 'wifi'): ?>
-                <p><a href="/network/wifi_scan/<?=$nic['nic']?>" class="btn btn-lg btn-default btn-block">
+                <p><a <?php if ($nic['nic'] != $this->virtNic): ?>href="/network/wifi_scan/<?=$nic['nic']?>"<?php else:?>href="/accesspoint"<?php endif;?> class="btn btn-lg btn-default btn-block">
                     <span class="fa <?php if ($nic['connected']):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>
-                    <strong><?=$nic['nic']?></strong>&nbsp;&nbsp;&nbsp; [<?php if ($nic['type']=='AP'):?>Access Point: <?php endif;?><?php if ($nic['ssid']!=''):?><?=$nic['ssid']?> <?php endif;?><?=$nic['technology']?>]
+                    <strong><?=$nic['nic']?></strong>&nbsp;&nbsp;&nbsp; [<?php if ($nic['type']=='AP'):?>Access Point<?php if ($this->nat=='1'):?> with NAT<?php endif;?>: <?php endif;?><?php if ($nic['ssid']!=''):?><i><?=$nic['ssid']?></i> <?php endif;?><?=$nic['technology']?>]
                     [<?php if ($nic['connected']):?><?=$nic['ipv4Address']?><?php else:?>No IP assigned<?php endif;?>]
                 </a></p>
             <?php else:?>
@@ -19,7 +19,6 @@
                 </a></p>
             <?php endif;?>
         <?php endforeach; ?>
-
         <?php if(isset($this->btenable) && $this->btenable): ?>
             <p><a href="/bluetooth" class="btn btn-lg btn-default btn-block">
                 <span class="fa <?php if ($this->btstring):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>

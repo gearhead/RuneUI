@@ -276,6 +276,14 @@ if ($template->action === 'wifi_scan') {
     $template->networks = array();
     $template->storedProfiles = array();
     $template->profile = array();
+    $interface = $redis->hGet('AccessPoint', 'interface');
+    $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+    if (isset($interface) && isset($wlanNic) && ($interface != $wlanNic)) {
+        $template->virtNic = $interface;
+    } else {
+        $template->virtNic = '';
+    }
+    $template->nat = $redis->hGet('AccessPoint', 'enable-NAT');
     $template->apenable = $redis->hGet('AccessPoint', 'enable');
     $template->wifienable = $redis->get('wifi_on');
     $template->btenable = $redis->get('bluetooth_on');
@@ -310,6 +318,6 @@ if ($template->action === 'wifi_scan') {
         // disable switching Wi-Fi on/off
         $template->wifiswitch = 0;
     }
-    unset($networks, $storedProfiles, $btDevices, $wired, $wifi);
+    unset($networks, $storedProfiles, $btDevices, $wired, $wifi, $interface, $wlanNic);
     // only the contents of $template->nics is used
 }

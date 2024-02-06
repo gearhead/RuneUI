@@ -112,12 +112,21 @@
                     <div class="checkbox">
                         <br>
                         <label>
-                            <input class="sx" type="checkbox" name="settings[restart]" value="1"> Restart Access Point after saving settings
+                            <input class="sx" type="checkbox" name="settings[restart]" value="1"> Restart Access Point (after saving settings)
                         </label>
                         <label>
-                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Reboot after saving settings
+                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Reboot (after saving settings)
                         </label>
-                        <span class="help-block">A reboot is often required to activate the settings</span>
+                        <span class="help-block">Changes to the Access Point configuration will be activated immediately after saving, this may involve an automatic Access Point restart.
+                        So, if you are connected via the Access Point you will lose your connection after saving changes and you will need to reconnect with the new settings.<br>
+                        Switching the Access Point ON or OFF will also be acted on immediately. Don't switch it OFF before you have your Wi-Fi network has been successfully configured.<br>
+                        After setting up a a Wi-Fi network configuration restarting the Access Point will switch the Access Point OFF and attempt to use the new network configuration settings.
+                        If the Wi-Fi network configuration fails to connect the access point will restart.<br>
+                        <i>Notes: A reboot should not be necessary.<br>
+                        If you use RuneAudio in a Wi-Fi only configuration, it is recommended to leave the Access Point enabled.
+                        It will start only when the configured network fails, this then provides access to RuneAudio to reconfigure your network settings.<br>
+                        Disable the Access Point if you do not need it. Or, if you leave it enabled, please change your Access Point Password (Passphrase)!
+                        </i></span>
                     </div>
                 </div>
             </div>
