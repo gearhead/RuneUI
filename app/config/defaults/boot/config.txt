@@ -125,21 +125,50 @@
 #
 ##  Memory settings ##
 #   These are considered legacy settings and may become depreciated, check the documentation
+# for all processor types, except when overridden below
 gpu_mem=64
+# Pi 1, override
 [pi1]
 gpu_mem=16
+# Pi Zero override
 [pi0]
 gpu_mem=16
 [all]
-# Pi Zero 2 W (512MB)
+# Pi Zero 2 W (512MB) override
 [pi02]
 gpu_mem=24
 [all]
-# Pi 3 A+ (512MB)
+# Pi 3 A+ (512MB) override
 [board-type=0x0e]
 gpu_mem=24
 [board-type=0xe]
 gpu_mem=24
+[all]
+##  vc4 settings ##
+#   These settings enable/disable Enable Eric Anholt's DRM VC4 HDMI/HVS/V3D driver
+#   When enabled HDMI audio appears to be connected and will be presented as a valid audio output, even though it is not available for use
+#   When enabled the HDMI audio is limited to 44100:16:*, 44100:24:*, 48000:16:* or 48000:24:*
+#   When disabled HDMI audio will run at 32000:16:*, 32000:24:*, 44100:16:*, 44100:24:*, 48000:16:*, 48000:24:*, 88200:16:*,
+#     88200:24:*, 96000:16:*, 96000:24:*, 176400:16:*, 176400:24:*, 192000:16:* or 192000:24:*
+#   For all single processor models, where a local browser in not used, vc4 should be disabled
+#   The gpu_men (see above) should be set to a minimum of 64 when vc4 is enabled
+#   For RuneAudio it is preferable to leave vc4 disabled
+# Pi 2
+[pi2]
+#dtoverlay=vc4-kms-v3d
+# Pi 3
+[pi3]
+#dtoverlay=vc4-kms-v3d
+# Pi Zero 2 W
+[pi02]
+#dtoverlay=vc4-kms-v3d
+# Pi 4
+[pi4]
+#dtoverlay=vc4-kms-v3d-pi4
+# Pi 5
+[pi5]
+# for the pi5 the overlay must be enabled for hdmi audio, hopefully this will change in a later release
+dtoverlay=vc4-kms-v3d-pi5
 [all]
 #
 ##  Bluetooth settings ##
@@ -238,7 +267,7 @@ display_auto_detect=1
 #   See internet for documentation on overclocking options for A, B and Zero
 #       models, be careful, check 2 independent sources!
 [pi1]
-# Conditional for Model A, Model B, Compute Module
+# Conditional for Pi Model A, Model B, Compute Module
 ## None
 #arm_freq=700
 #core_freq=250
