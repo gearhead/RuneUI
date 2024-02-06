@@ -336,7 +336,7 @@ function timeConvert3(ss) {
     ss = Math.floor(ss -(hr*3600) -(mm * 60));
     if (hr > 0) {
         if (hr < 10){
-            hr = '0' + hr + 'h ';
+            hr = '0' + hr;
         }
         hr += 'h ';
     } else {
