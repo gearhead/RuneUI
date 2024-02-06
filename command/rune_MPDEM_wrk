@@ -448,18 +448,94 @@ while (true)  {
                     //  of this, the browser seems to test the image file type and use it correctly
                     $song['albumartfile'] = $artDir.'/'.$imagename.'.jpg';
                     $song['albumarturl'] = $artUrl.'/'.$imagename.'.jpg';
-                    if (isset($auinfo['comments']['picture'][0]['data']) && (strlen($auinfo['comments']['picture'][0]['data']) > 200)) {
+                    unset ($pictureIndex);
+                    if (isset($auinfo['comments']['picture']) && is_array($auinfo['comments']['picture'])) {
+                        // there appears to be images available
+                        for ($i = 0; $i <= array_key_last($auinfo['comments']['picture']); $i++) {
+                            if (!isset($pictureIndex) && isset($auinfo['comments']['picture'][$i]['data']) && (strlen($auinfo['comments']['picture'][$i]['data']) > 200)) {
+                                // found a valid image, save the key
+                                $pictureIndex = $i;
+                                continue;
+                            }
+                            // unset any other picture data to save memory
+                            unset($auinfo['comments']['picture'][$i]);
+                        }
+                    }
+                    if (isset($pictureIndex)) {
                         // the music file has embedded metadata and it has a size of more than 200 bytes, save it
-                        file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
-                        // get some information about the file
-                        list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
-                        // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                        if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                            // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
-                            $song['artFound'] = true;
+
+                        // send the image to the file using ImageMagick, this will convert to the required format
+                        $descriptorspec = array(
+                           0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+                           1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+                           2 => array("pipe", "w"),  // stderr is a pipe that the child will write to
+                        );
+                        $cwd = '/tmp';
+                        $magick_opts = trim($redis->get('magick_opts'));
+                        if ($magick_opts) {
+                            $process = proc_open('convert -resize '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
                         } else {
-                            // the image file has an invalid format or is very small, delete it
-                            unlink($song['albumartfile']);
+                            $process = proc_open('convert - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
+                        }
+                        $return_value = 0;
+                        if (is_resource($process)) {
+                            // $pipes now looks like this:
+                            // 0 => writeable handle connected to child stdin
+                            // 1 => readable handle connected to child stdout
+                            // Any error output will be appended to /tmp/error-output.txt
+                            fwrite($pipes[0], $auinfo['comments']['picture'][$pictureIndex]['data']);
+                            fclose($pipes[0]);
+                            // empty and close the pipes
+                            $std_out = stream_get_contents($pipes[1]);
+                            fclose($pipes[1]);
+                            $std_err = stream_get_contents($pipes[2]);
+                            fclose($pipes[2]);
+                            // debug
+                            if (is_array($std_out)) {
+                                $std_out = implode("\n", $std_out);
+                            }
+                            $std_out = trim($std_out);
+                            if (isset($std_out) && $std_out) {
+                                echo "[rune_MPDEM_wrk] ImageMagick error, std_out: ".$std_out."\n";
+                            }
+                            if (is_array($std_err)) {
+                                $std_err = implode("\n", $std_err);
+                            }
+                            $std_err = trim($std_err);
+                            if (isset($std_err) && $std_err) {
+                                echo "[rune_MPDEM_wrk] ImageMagick error, std_err: ".$std_err."\n";
+                            }
+                            // It is important that you close any pipes before calling
+                            // proc_close in order to avoid a deadlock
+                            $return_value = proc_close($process);
+                        } else {
+                            // failed to start the ImageMagick convert
+                            file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
+                        }
+                        if ($return_value) {
+                            // zero is returned for correct execution, so it has failed, but sometimes the image conversion is correct
+                            // get some information about the file
+                            list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                            // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                            if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
+                                // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                                $song['artFound'] = true;
+                            } else {
+                                // the image file has an invalid format or is very small, write the unaltered image
+                                file_put_contents($song['albumartfile'], $auinfo['comments']['picture'][0]['data']);
+                            }
+                        }
+                        if (!$song['artFound']) {
+                            // get some information about the file
+                            list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                            // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                            if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
+                                // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                                $song['artFound'] = true;
+                            } else {
+                                // the image file has an invalid format or is very small, delete it
+                                unlink($song['albumartfile']);
+                            }
                         }
                     }
                     // unset($auinfo['comments']['picture']);
@@ -613,12 +689,24 @@ while (true)  {
                 foreach ($coverArtFileNames as $coverArtFileName) {
                     clearstatcache(true, $coverArtDirectory.$coverArtFileName);
                     if (file_exists($coverArtDirectory.$coverArtFileName)) {
-                        // there is a valid art file in the album directory, copy it to the art directory and reduce its size to maximum 350x350px
-                        sysCmd('convert -resize 350x350\> \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
-                        // copy($coverArtDirectory.$coverArtFileName, $song['albumartfile']);
-                        $song['artFound'] = true;
-                        // finish when one is found, exit the innermost loop
+                        // there is a valid art file in the album directory, copy it to the art directory and reduce its size as specified
+                        $magick_opts = trim($redis->get('magick_opts'));
+                        if ($magick_opts) {
+                            sysCmd('convert -resize '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
+                        } else {
+                            sysCmd('convert -resize 350x350\> \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
+                        }
+                        list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                        // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                        if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
+                            // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                            $song['artFound'] = true;
+                            // finish when one is found, exit the innermost loop
                         break;
+                        } else {
+                            // the image file has an invalid format or is very small, delete it
+                            unlink($song['albumartfile']);
+                        }
                     }
                 }
                 unset($coverArtFileNames, $coverArtDirectory);

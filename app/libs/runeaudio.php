@@ -9089,14 +9089,14 @@ function wrk_check_MPD_outputs($redis)
 
 // function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
 //  and local cached album art
-function wrk_clean_music_metadata($redis, $clearAll=null)
+function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
 // when $clearAll is set to a true value all cached information will be cleared
 // it should be noted that the synchronisation of a upper directory with a lower directory within a overlay file system should
 //  not work correctly or consistently
 //  the overlay file system is not aware of the synchronisation action and it remembers what should be in the upper and lower
 //      directories regardless of their actual content
 //      there is a trick implemented to make it work, see the last lines in this function for details
-//  the trick works here because the availability of a cached file is not critical, runeaudio will do some extra work, but it will
+//  the trick works here because the availability of a cached file is not critical, runeaudio may do some extra work, but it will
 //      still work fine, the trick is not advisable for critical content
 {
     // initialise variables
@@ -9118,7 +9118,6 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             return;
         }
         // sync the files part 1
-        //  image files are not synced
         //  the file timestamp in the upper files directory is changed on file use, ignore this change
         //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
         //  the lower directory is ordered on creation date, the upper directory on usage date
@@ -9129,12 +9128,13 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             '--include="*.album" '.
             '--include="*.artist" '.
             '--include="*.song" '.
+            '--include="*.mpd" '.
+            '--include="*.jpg" '.
             '--exclude="*" '.
             $cleanUpperDir.'/ '.
             $cleanLowerDir.'/';
         sysCmd($rsyncCommand);
         // sync the files part 2
-        //  image files are not synced
         //  the file timestamp in the upper files directory is changed on file use, ignore this change
         //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
         //  the lower directory is ordered on creation date, the upper directory on usage date
@@ -9150,10 +9150,18 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $cleanUpperDir = $artDir;
         unset($cleanLowerDir);
     }
-    // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
+    // process clear all
     if ($clearAll) {
         $fileToSave = 0;
+        if (isset($cleanLowerDir)) {
+            sysCmd('rm -r '.$cleanLowerDir.'/*');
+            sysCmd('umount '.$artDir);
+        }
+        sysCmd('rm -r '.$cleanUpperDir.'/*');
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/create_work_dirs.sh');
+        return;
     } else {
+        // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
         $fileToSave = 10;
     }
     // clean up the album art files in the upper directory
@@ -9174,6 +9182,29 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $cleaned = true;
     }
     unset($today);
+    // check for large files
+    // if they exist in the lower directory delete them in the upper directory
+    // this should not be happening, but it is:
+    //  the remounting of the overlay cache could be creating anomalies or the ImageMagick size reduction is sometimes failing
+    if ($overlay_art_cache) {
+        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
+        if ($maxsize == 0) {
+            // when $maxsize is unset, set it to 100 and save it
+            $maxsize = 100;
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        // we are interested in *.jpg files created more than 15 minutes ago with a size greater than $maxsize
+        $files = sysCmd("find '".$cleanUpperDir."' -maxdepth 1 -type f -mmin +15 -size +".$maxsize."k -name '*.jpg'");
+        foreach ($files as $file) {
+            $fileName = $cleanLowerDir.'/'.basename($file);
+            clearstatcache(true, $fileName);
+            if (file_exists($fileName)) {
+                unlink($file);
+                $cleaned = true;
+            }
+        }
+        unset($files, $file, $fileName);
+    }
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // if the art is using tmpfs get the physical memory information
@@ -9209,6 +9240,22 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     }
     if ($recoverKB) {
         $cleaned = true;
+        // logging
+        if (isset($logfile) && $logfile) {
+            $output = "\nRecover Upper ".$cleanUpperDir." ".date(DATE_RFC2822)."\n";
+            $output .= implode("\n", sysCmd('df -h'))."\n";
+            $output = "totalSpaceKB:     ".$totalSpaceKB."\n";
+            $output = "freeSpaceKB:      ".$freeSpaceKB."\n";
+            $output = "percFreeDisk:     ".$percFreeDisk."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            $output .= implode("\n", sysCmd('free'))."\n";
+            $output = "mem['total']:     ".$mem['total']."\n";
+            $output = "mem['available']: ".$mem['available']."\n";
+            $output = "percFreeMem:      ".$percFreeMem."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            file_put_contents($logfile, $output, FILE_APPEND);
+            unset($output);
+        }
         // need to recover diskspace
         // first get the number of files in the directory
         $filesInArtDir = sysCmd('ls -q1 "'.$cleanUpperDir.'" | wc -l | xargs')[0];
@@ -9275,6 +9322,20 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
         $redis->hSet('cleancache', '90lowerdate', $today);
         $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '30lowerdate_jpg')) {
+        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the strategy is that we have used them for 1 month, but their source information may now have changed
+        // these files are large
+        sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +30 -exec rm {} \;");
+        $redis->hSet('cleancache', '30lowerdate_jpg', $today);
+        $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
+        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the strategy is that we have used them for 1 month, but their source information may now have changed
+        // there are many of these files
+        sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
+        $redis->hSet('cleancache', '30lowerdate_mpd', $today);
+        $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
         // artist files without any content (these can contain the text 'Sorry, no details available') are deleted after 30 days
         // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
@@ -9294,7 +9355,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // song files without any content (these can contain the text 'No lyrics available') are deleted after 30 days
         // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' >> '/tmp/exclude.filelist'");
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
         $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
@@ -9309,7 +9370,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
         // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
         //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' >> '/tmp/exclude.filelist'");
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
         $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
@@ -9320,6 +9381,55 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         }
         $redis->hSet('cleancache', '1lowerdate_song', $today);
         $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
+        // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
+        // even though ImageMagick shows a error the files can be converted correctly, here we try to convert large the files again
+        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
+        if ($maxsize == 0) {
+            // when $maxsize is unset, set it to 100 and save it
+            $maxsize = 100;
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        // we search for *.jpg files with a file size greater than $maxsize
+        $files = sysCmd("find '".$cleanLowerDir."' -maxdepth 1 -type f -size +".$maxsize."k -name '*.jpg'");
+        // convert the files
+        $magick_opts = trim($redis->get('magick_opts'));
+        $magickSize = substr($magick_opts, 0, strpos($magick_opts, 'x'));
+        $reduceMaxsize = true;
+        foreach ($files as $file) {
+            // use ImageMagick to resize the file
+            sysCmd("convert -resize ".$magick_opts." '".$file."' '".$file."'");
+            // check that it is a valid image file, get some information about the file
+            clearstatcache(true, $file);
+            // check that the file is an image
+            list($width, $height, $type, $attr) = getimagesize($file);
+            // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+            if (!isset($width) || !isset($height) || !isset($type) || !($width > 20) || !($height > 20) || !$type) {
+                // it is not a valid image file (or at least it has a invalid header) or it is smaller than 20x20px
+                // the image file has an invalid format or is very small, delete it
+                unlink($file);
+            } else {
+                // it is a valid image file
+                if (($width == $magickSize) || ($height == $magickSize)) {
+                    // the size of the file is the same as requested for the ImageMagick reduction
+                    // get the file size in kb
+                    $fileSizeK = intval(intval(filesize($file)) / 1024);
+                    if ($fileSizeK > $maxsize)  {
+                        // the file size is greater than the defined $maxsize, increase $maxsize
+                        $maxsize = $fileSizeK;
+                        $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+                        $reduceMaxsize = false;
+                    }
+                }
+            $cleaned = true;
+            }
+        }
+        if ($reduceMaxsize) {
+            // files have been processed and no file had a larger size than $maxsize, reduce $maxsize by 2% (but not lower than 55)
+            $maxsize = max(intval(intval($maxsize) * 0.98), 55);
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        $redis->hSet('cleancache', '0lowerdate_large_jpg', $today);
     }
     unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
@@ -9334,7 +9444,19 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // less than 20% available, recover to make 35% available
         $recoverKB = intval(((35 - $percFreeDisk) * $totalSpaceKB)/100);
     }
-    if ($recoverKB) {
+    if ($recoverKB && !$cleaned) {
+        // but dont run this until the other cleaning actions have completed
+        // logging
+        if (isset($logfile) && $logfile) {
+            $output = "\nRecover Lower ".$cleanLowerDir." ".date(DATE_RFC2822)."\n";
+            $output .= implode("\n", sysCmd('df -h'))."\n";
+            $output = "totalSpaceKB:     ".$totalSpaceKB."\n";
+            $output = "freeSpaceKB:      ".$freeSpaceKB."\n";
+            $output = "percFreeDisk:     ".$percFreeDisk."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            file_put_contents($logfile, $output, FILE_APPEND);
+            unset($output);
+        }
         $cleaned = true;
         // need to recover diskspace
         // first get the number of files in the directory

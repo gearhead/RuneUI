@@ -212,7 +212,7 @@ if [ "$memory" != "" ] && [[ "$memory" =~ ^-?[0-9]+$ ]]; then
         # get the model type
         model=$( redis-cli get pi_model )
         if [ "$model" == "0d" ] || [ "$model" == "12" ] || [ "$model" == "" ]; then
-            # its a Pi 3 A+Pi, a Zero 2W or unknown with 512MB, multiprocessor & local browser support
+            # its a Pi 3 A+, a Pi Zero 2W or unknown with 512MB, multiprocessor & local browser support
             # increase the size to 20MB (up to 40Mb will probably be OK)
             mount -o remount,size=20M http-tmp
         else

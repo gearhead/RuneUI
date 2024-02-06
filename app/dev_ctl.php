@@ -141,6 +141,17 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Local album art resizing -----
+        if ((isset($_POST['mode']['artResizing'])) && ($_POST['mode']['artResizing'])) {
+            // value is set
+            $magick_opts = $_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].'\>';
+            if ($redis->get('magick_opts') != $magick_opts) {
+                // value has changed, save it
+                $redis->set('magick_opts', $magick_opts);
+                $redis->del('cleancache');
+            }
+            unset($magick_opts);
+        }
         // ----- Webstreaming encoder and bitrate -----
         if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
             // value is set
@@ -375,6 +386,10 @@ $template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');
 $template->conf = $redis->hGetAll('mpdconf');
 $template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 $template->lyrics = $redis->hGetAll('lyrics');
+// $template->artResizing = trim($redis->get('magick_opts'));
+$magick_opts = trim($redis->get('magick_opts'));
+$template->artResizing = substr($magick_opts, 0, strpos($magick_opts, 'x'));
+unset($magick_opts);
 
 // debug
 // var_dump($template->dev);

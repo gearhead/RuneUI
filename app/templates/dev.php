@@ -603,6 +603,21 @@
                         large and small images</i></span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="artResizing">Local album art resizing</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="number" id="artResizing" name="mode[artResizing]" value="<?=$this->artResizing ?>" min="100" max="1000" placeholder="350" data-trigger="change">
+                        <span class="help-block">In the main UI the locally sourced album art is displayed with a maximum format of n pixels high and n pixels wide.
+                        When the locally sourced album art is larger it will be reduced in size so that it fits into n by n pixels.
+                        The image aspect ratio remains unchanged.
+                        You can change the 'n' value if you require a lower or higher image resolution.
+                        Valid values are 100 to 1000, the default is 350 (350x350 pixels).<br>
+                        <i>Notes: Local album art is embedded in the music files or stored in the directories with the music.
+                        The images are cached in memory to improve performance.
+                        By limiting format of album art the performance of the UI is further improved and system I/O overhead is lowered,
+                        which can improve audio quality</i></span>
+                    </div>
+                </div>
             </div>
             <!--
             <legend>Local Browser - Advanced settings</legend>

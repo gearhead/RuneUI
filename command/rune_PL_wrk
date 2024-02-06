@@ -654,8 +654,8 @@ while (true) {
                     $errorcode = true;
                     runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
                 }
-                // clean up the metadata, async and at low priority
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+                // clean up the metadata, async and at low priority, 20 will set the highest niceness and lowest priority
+                sysCmdAsync($redis, 'nice --adjustment=20 /srv/http/command/clean_music_metadata_async.php');
             } while ((!$errorcode) && ($redis->get('activePlayer') === 'MPD'));
             unset($status['local_volume_control']);
 

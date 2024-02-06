@@ -44,12 +44,15 @@ require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend
 require_once('/srv/http/app/libs/openredis.php');
 // reset logfile
-sysCmd('echo "--------------- start: clean_music_metadata_async.php ---------------" > /var/log/runeaudio/clean_music_metadata_async.log');
+$logfile = '/var/log/runeaudio/clean_music_metadata_async.log';
+clearstatcache(true, $logfile);
+if (!file_exists('/var/log/runeaudio/clean_music_metadata_async.log')) {
+    sysCmd('echo "--------------- start: clean_music_metadata_async.php ---------------" > '.$logfile);
+}
 // logging starting message
 runelog('WORKER clean_music_metadata_async.php STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
-
 // get the lock status
 $lock = $redis->get('lock_clean_music_metadata');
 runelog('lock status ', $lock);
@@ -57,12 +60,13 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     // set the lock
     $redis->set('lock_clean_music_metadata', '1');
     // clean the music metadata
-    wrk_clean_music_metadata($redis);
+    wrk_clean_music_metadata($redis, $logfile);
     // unlock
     $redis->set('lock_clean_music_metadata', '0');
 } else {
+
     runelog("LOCKED!", '');
-    echo "LOCKED!";
+    echo date(DATE_RFC2822)." LOCKED!";
     // just in case something goes wrong increment the lock value by 1
     // when it reaches 9 (this should never happen) it will be processed as if there is no lock
     $lock += 1;
