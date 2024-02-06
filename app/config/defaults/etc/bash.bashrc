@@ -24,7 +24,7 @@ esac
 
 # set variable identifying the filesystem you work in (used in the prompt below)
 fs_mode=$(mount | sed -n -e "s/^\/dev\/mmcblk0p2 on \/ .*(\(r[w|o]\).*/\1/p")
- 
+
 alias set_ro='mount -o remount,ro / ; fs_mode=$(mount | sed -n -e "s/^\/dev\/mmcblk0p2 on \/ .*(\(r[w|o]\).*/\1/p")'
 alias set_rw='mount -o remount,rw / ; fs_mode=$(mount | sed -n -e "s/^\/dev\/mmcblk0p2 on \/ .*(\(r[w|o]\).*/\1/p")'
 
@@ -42,7 +42,7 @@ fi
 
 # colored GCC warnings and errors
 #export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
- 
+
 # setup fancy prompt
 export PS1='\[\033[01;32m\]\u@\h${fs_mode:+($fs_mode)}\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
@@ -51,3 +51,6 @@ export EDITOR=nano
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
+
+# alias for getid3-cli tool
+alias getid3-cli='/srv/http/command/getid3-cli'
