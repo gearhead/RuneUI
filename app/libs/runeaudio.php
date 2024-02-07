@@ -2444,7 +2444,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
                 $args['restart'] = 1;
             }
-            if ($args['restart'] == 1) {
+            if (isset($args['restart']) && ($args['restart'] == 1)) {
                 $message = "Configuration changed";
             }
             if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
@@ -2456,7 +2456,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 $redis->hSet('AccessPoint', 'enable-NAT', 0);
                 $args['rescan'] = 1;
             }
-            if ($args['rescan'] == 1) {
+            if (isset($args['rescan']) && ($args['rescan'] == 1)) {
                 $message = "Configuration changed";
             }
             var_dump($args);
@@ -2484,6 +2484,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 // stop the hostapd AP jobs if they are running
                 sysCmd('pgrep hostapd && systemctl stop hostapd ; pgrep dnsmasq && systemctl stop dnsmasq');
                 // stop the iwd access point
+                $interface = $redis->hGet('AccessPoint', 'interface');
                 sysCmd('iwctl ap '.$interface.' stop');
                 // get the wlan nic used for accesspoint
                 $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
@@ -2491,7 +2492,6 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 // determine the AP wlan nic(s) by searching the ip addresses for the current and previous AP ip-address (these may have the same value)
                 $wlanNics = explode(' ', sysCmd("ip -o add | grep -iE '".$ipAddressOld."|".$redis->hGet('AccessPoint', 'ip-address')."' | xargs | cut -d ' ' -f 2 | xargs")[0]);
                 // check that the stored wlan nic is included in the wlan nics array
-                $interface = $redis->hGet('AccessPoint', 'interface');
                 if (isset($interface) && $interface && !in_array($interface, $wlanNics)) {
                     // not found in array, add it
                     $wlanNics[] = $interface;
