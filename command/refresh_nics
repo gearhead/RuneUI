@@ -242,15 +242,17 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
                 // change dhcp-option dns-server
                 $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:dns-server,', 'dhcp-option=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
                 // change dhcp-option router
                 $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:router,', 'dhcp-option=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
                 // change Wi-Fi nic
                 $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface, 'WIFI-Interface', 1);
                 // change no-dhcp-interface nics
                 // it contains a comma delimted list of all the detected nics except the interface nic
                 $noDhcpInterfaceNics = '';
                 if (!in_array('ap0', $nicList)) {
-                    $nicList[] = 'ap0'
+                    $nicList[] = 'ap0';
                 }
                 foreach ($nicList as $nic) {
                     $nic = trim($nic);
