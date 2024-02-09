@@ -1535,6 +1535,10 @@ while (true) {
             // check that the redis database is up to date
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/db/redis_datastore_setup check');
             $savecpuOneTimeActions = 11 + rand(0, 10);
+        } else if (is_firstTime($redis, 'connman_check')) {
+            // fix any IPv6.privacy entries in the connman ethernet files
+            sysCmdAsync($redis, "nice --adjustment=10 sed -i '/IPv6.privacy=disabled/c\IPv6.privacy=preferred' /var/lib/connman/ethernet*/settings");
+            $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'debug_collector')) {
             // run debug collector to initialise the datafile for today
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
