@@ -336,7 +336,7 @@ function timeConvert3(ss) {
     ss = Math.floor(ss -(hr*3600) -(mm * 60));
     if (hr > 0) {
         if (hr < 10){
-            hr = '0' + hr + 'h ';
+            hr = '0' + hr;
         }
         hr += 'h ';
     } else {
@@ -2325,11 +2325,11 @@ function renderModal(text){
     toggleLoader('close');
     if ((typeof isLocalHost === "undefined") || !isLocalHost) {
         // don't display these pop-ups on the local browser
-        var modal = text[0];
-        $('#' + modal.id).on('hidden.bs.modal', function(){
+        var modal_info = text[0];
+        $('#' + modal_info.id).on('hidden.bs.modal', function(){
                $(this).find('input').val('');
             });
-        $('#' + modal.id).modal();
+        $('#' + modal_info.id).modal();
     }
 }
 
@@ -2529,6 +2529,9 @@ if ($('#section-index').length) {
         libraryChannel();
         // startChannel(queueChannel());
 
+        // open the modal channel
+        modalChannel();
+
         // first GUI update
         // updateGUI();
 
@@ -2542,9 +2545,6 @@ if ($('#section-index').length) {
         PNotify.prototype.options.stack.spacing2 = 10;
         // open notify channel
         notifyChannel();
-
-        // open the modal channel
-        modalChannel();
 
         // use the property name to generate the prefixed event name
         var visProp = getHiddenProp();
