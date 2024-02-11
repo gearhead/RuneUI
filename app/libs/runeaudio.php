@@ -2414,6 +2414,16 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
     runelog('wrk_apconfig args = ', $args);
     $return = '';
     switch ($action) {
+        case 'enable':
+            // no break
+        case 'disable':
+            // action is enable or disable
+            if ($action == 'enable') {
+                $args['enable'] = 1;
+            } else if ($action == 'disable') {
+                $args['enable'] = 0;
+            }
+            // no break
         case 'writecfg':
             if (isset($args['ssid']) && $args['ssid'] && ($args['ssid'] != $redis->hGet('AccessPoint', 'ssid'))) {
                 $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
@@ -2424,7 +2434,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 $args['restart'] = 1;
             }
             $ipAddressOld = $redis->hGet('AccessPoint', 'ip-address');
-            if (isset($args['ip-address']) && $args['ip-address'] && ($args['ip-address'] != $redis->hGet('AccessPoint', 'ip-address'))) {
+            if (isset($args['ip-address']) && $args['ip-address'] && ($args['ip-address'] != $ipAddressOld)) {
                 $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
                 $args['restart'] = 1;
             }
@@ -2459,7 +2469,6 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
             if (isset($args['rescan']) && ($args['rescan'] == 1)) {
                 $message = "Configuration changed";
             }
-            var_dump($args);
             if (isset($args['enable']) && $args['enable'] && !$redis->hGet('AccessPoint', 'enable')) {
                 // enable requested, was disabled
                 $redis->hSet('AccessPoint', 'enable', $args['enable']);

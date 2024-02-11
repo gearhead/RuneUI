@@ -47,9 +47,9 @@ if (isset($_POST)) {
     }
     if (isset($_POST['apenable'])) {
         if ($_POST['apenable'] && !$redis->hGet('AccessPoint', 'enable')) {
-            $redis->hSet('AccessPoint', 'enable', 1);
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'enable'));
         } else if (!$_POST['apenable'] && $redis->hGet('AccessPoint', 'enable')) {
-            $redis->hSet('AccessPoint', 'enable', 0);
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'disable'));
         }
     }
     if (isset($_POST['btenable'])) {

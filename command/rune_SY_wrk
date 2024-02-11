@@ -1142,14 +1142,12 @@ while (true) {
                         // convert the sudo-object to a normal array
                         $param[$key] = $value;
                     }
+                } else {
+                    $param = array();
                 }
-                if ($job->action === 'reset') {
-                    // reset accesspoint configuration to default settings
-                    $retval = wrk_apconfig($redis, 'reset', $param, $jobID);
-                } else if ($job->action === 'config') {
-                    // write accesspoint configuration
-                    $retval = wrk_apconfig($redis, 'writecfg', $param, $jobID);
-                }
+                // perform the updat and actions
+                $retval = wrk_apconfig($redis, $job->action, $param, $jobID);
+                // unlock the UI
                 $redis->sRem('w_lock', $jobID);
                 // check if reboot is needed !!!
                 if ($retval === 'reboot') {
