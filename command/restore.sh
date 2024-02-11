@@ -126,6 +126,7 @@ redis-cli del kernel
 redis-cli del os
 redis-cli del codename
 redis-cli del p1mountpoint
+redis-cli del hdmivc4hw
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
 # unset any locks
