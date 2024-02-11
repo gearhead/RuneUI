@@ -71,7 +71,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
 //  this is used for reopening a timed out socket with the same socket name
 // the success return value is an array containing 'resource' = the socket resource or object (previously a resource,
 //  from php v8 socket is an object), 'sockVarName' = the socket variable name, 'type' = connection type and
-//  'description' = a description of the socket object derives van a var_dump of the resource
+//  'description' = a description of the socket object derived from a var_dump of the resource
 // the variable with the name contained in the variable sockVarName is a global, accessible outside this function
 //  within the current php job, it is referenced to by using the $$ variable variable construction
 //  so $sock['sockVarName'] contains the name of the global variable containing the globally defined resource or object
