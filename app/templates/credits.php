@@ -3,7 +3,7 @@
     <div class="row">
         <div class="col-md-8">
             <div class="alert alert-info">
-                Release version: <strong id="release-version"><?=$this->release ?></strong> (<a href="https://www.runeaudio.com/forum/runeaudio-0-5-beta-for-all-raspberry-pi-models-t6532.html#p25819" target="_blank">build: <?=$this->buildversion ?></a>)
+                Release version: <strong id="release-version"><?=$this->release ?></strong> (<a href="https://www.runeaudio.com/forum/runeaudio-0-6-beta-for-most-raspberry-pi-models-t7585.html" target="_blank">build: <?=$this->buildversion ?>-<?=$this->patchlevel ?></a>)
             </div>
             <h2>RuneAudio team</h2><h3>Version 0.6</h3>
             <div class="alert alert-info">
