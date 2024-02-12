@@ -103,6 +103,20 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
         if (
                 !$apUp &&
                 // No configured and running AP detected
+                ($nic['type'] == 'AP') &&
+                // it is a configured AP
+                ($nic['technology'] === 'wifi') &&
+                // its a Wi-Fi nic
+                ($nic['ipStatus'] === 'UP')
+                // the nic is UP
+                )
+        {
+            $apUp = true;
+            $apWifiNicFound = false;
+        }
+        if (
+                !$apUp &&
+                // No configured and running AP detected
                 !$nic['connected'] &&
                 // the nic was not connected when the nics array was created
                 !$apWifiNicFound &&
@@ -130,20 +144,7 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
             $ethNic = $nic['nic'];
             $ethNicConnected = true;
         }
-        if (
-                !$apUp &&
-                // No configured and running AP detected
-                ($nic['type'] == 'AP') &&
-                // it is a configured AP
-                ($nic['technology'] === 'wifi') &&
-                // its a Wi-Fi nic
-                ($nic['ipStatus'] === 'UP')
-                // the nic is UP
-                )
-            {
-                $apUp = true;
-                $apWifiNicFound = false;
-            }
+        // create a list of all the nics
         $nicList[] = $nic['nic'];
     }
     //
@@ -249,9 +250,14 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 // change Wi-Fi nic
                 $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface, 'WIFI-Interface', 1);
                 // change no-dhcp-interface nics
-                // it contains a comma delimted list of all the detected nics except the interface nic
+                // it contains a comma delimted list of all the detected nics except the AP interface nic
                 $noDhcpInterfaceNics = '';
+                // if (!in_array('lo', $nicList)) {
+                    // // add the loopback interface
+                    // $nicList[] = 'lo';
+                // }
                 if (!in_array('ap0', $nicList)) {
+                    // add the virtual access point 'ap0'
                     $nicList[] = 'ap0';
                 }
                 foreach ($nicList as $nic) {
@@ -259,8 +265,10 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                     if ($nic == trim($interface)) {
                         continue;
                     }
+                    // build a string with all nics except the AP interface (the string will have an extra trailing comma)
                     $noDhcpInterfaceNics .= $nic.',';
                 }
+                // remove trailing commas
                 $noDhcpInterfaceNics = rtrim($noDhcpInterfaceNics, ',');
                 $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$noDhcpInterfaceNics);
                 $fp = fopen($file, 'w');

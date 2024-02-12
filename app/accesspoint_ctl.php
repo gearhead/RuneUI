@@ -38,7 +38,11 @@ if (isset($_POST)) {
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'reset', 'args' => $_POST['settings']));
     }
     if (isset($_POST['save'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'config', 'args' => $_POST['settings']));
+        if (!isset($_POST['settings']['passphrase']) || !$_POST['settings']['passphrase'] || ($_POST['settings']['passphrase'] == 'RuneAudio')) {
+            // no paraphrase or it has the default value, disable NAT
+            $_POST['settings']['enable-NAT'] = 0;
+        }
+        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'writecfg', 'args' => $_POST['settings']));
     }
 }
 
@@ -46,9 +50,14 @@ waitSyWrk($redis,$jobID);
 
 $template->enable = $redis->hGet('AccessPoint', 'enable');
 $template->accesspoint = $redis->hGetAll('AccessPoint');
+// seems double, but there are circumstances when this is required
 if (!isset($template->accesspoint['passphrase']) || !$template->accesspoint['passphrase'] || ($template->accesspoint['passphrase'] == 'RuneAudio')) {
-    $template->accesspoint['enable-NAT'] = 0;
-    $redis->hSet('AccessPoint', 'enable-NAT', 0);
+    // no paraphrase or it has the default value, NAT should be disabled
+    if ($redis->hGet('AccessPoint', 'enable-NAT')) {
+        // NAT is enabled, disable it
+        $template->accesspoint['enable-NAT'] = 0;
+        $redis->hSet('AccessPoint', 'enable-NAT', 0);
+    }
 }
 $template->hostname = $redis->get('hostname');
 $nics = json_decode($redis->Get('network_interfaces'), true);

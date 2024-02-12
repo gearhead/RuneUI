@@ -2571,13 +2571,13 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
         runelog('**** AP restart requested ****', $args);
         ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
         ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
+        // nat will automatically be disabled when the AP is stopped, save its current value
+        $natSave = $redis->hGet('AccessPoint', 'enable-NAT');
         // stop the access point, by disabling it
         $restart_args = array();
         $restart_args['enable'] = 0;
         $restart_args['norescan'] = 1;
         $restart_args['silent'] = 1;
-        // nat will automatically be disabled when the AP is stopped, save its current value
-        $natSave = $redis->hGet('AccessPoint', 'enable-NAT');
         wrk_apconfig($redis, 'writecfg', $restart_args);
         // start the access point by enabling it
         $restart_args = array();
