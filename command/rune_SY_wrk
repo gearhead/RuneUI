@@ -336,6 +336,8 @@ if ($playerid_db === '') {
     if (is_firstTime($redis, 'AP-reset')) {
         $redis->hset('AccessPoint', 'ethNic', '');
         $redis->hset('AccessPoint', 'wlanNic', '');
+        $redis->hset('AccessPoint', 'interface', '');
+        $redis->hset('AccessPoint', 'NAT-configured', 0);
     }
     //
     // store the memory and number of cores
