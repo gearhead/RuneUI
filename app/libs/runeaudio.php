@@ -6151,6 +6151,41 @@ function wrk_setHwPlatform($redis, $reset=false)
             $redis->hSet('local_browser', 'browser', 'chromium');
         }
     }
+    if ($model == '17') {
+        // its a Pi5
+        //  the audio card 'Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' has differing overlays for Pi5 compared to the other hardware types
+        $filename = '/srv/http/app/config/defaults/inno-dac-pro.dtbo';
+        clearstatcache(true, $filename);
+        if (file_exists($filename)) {
+            if ($redis->get('codename') == 'bookworm') {
+                sysCmd('cp -n '.$filename.' /boot/firmware/overlays/inno-dac-pro.dtbo');
+                if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                    sysCmd("sed -i '/dtoverlay=allo-katana-dac-audio/s/.*/dtoverlay=inno-dac-pro/' '/boot/firmware/config.txt'");
+                }
+            } else {
+                sysCmd('cp -n '.$filename.' /boot/overlays/inno-dac-pro.dtbo');
+                if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                    sysCmd("sed -i '/dtoverlay=allo-katana-dac-audio/s/.*/dtoverlay=inno-dac-pro/' '/boot/config.txt'");
+                }
+            }
+            if (!sysCmd("grep -ic 'inno-dac-pro|Inno-Maker' /srv/http/.config/i2s_table.txt | xargs")[0]) {
+                sysCmd("sed -i '/Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/s/.*/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/' '/srv/http/.config/i2s_table.txt'");
+            }
+        }
+    } else {
+        if (!sysCmd("grep -ic 'allo-katana-dac-audio|Inno-Maker' /srv/http/.config/i2s_table.txt | xargs")[0]) {
+            sysCmd("sed -i '/Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/s/.*/allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/' '/srv/http/.config/i2s_table.txt'");
+        }
+        if ($redis->get('codename') == 'bookworm') {
+            if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                sysCmd("sed -i '/dtoverlay=inno-dac-pro/s/.*/dtoverlay=allo-katana-dac-audio/' '/boot/firmware/config.txt'");
+            }
+        } else {
+            if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                sysCmd("sed -i '/dtoverlay=inno-dac-pro/s/.*/dtoverlay=allo-katana-dac-audio/' '/boot/config.txt'");
+            }
+        }
+    }
     //
     switch($arch) {
         case '01':

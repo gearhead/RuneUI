@@ -42,32 +42,39 @@ fe-pi-audio|Fe-Pi Audio Sound Card
 ghost-amp|Ghost amplifier
 hifiberry-amp|HiFiBerry Amp
 hifiberry-amp|HiFiBerry Amp+
-hifiberry-amp100|HifiBerry AMP100 audio card
-hifiberry-amp100,slave|HifiBerry AMP100 audio card in slave mode
+hifiberry-amp100|HifiBerry AMP100
+hifiberry-amp100,slave|HifiBerry AMP100 in slave mode
 hifiberry-dacplus|HiFiBerry Amp2
 hifiberry-amp3|HiFiBerry Amp3
+hifiberry-dac|HiFiBerry Beocreate
 hifiberry-dac|HiFiBerry DAC
-hifiberry-dacplus|HiFiBerry DAC Plus
-hifiberry-dacplusadc|HiFiBerry DAC Plus ADC
-i2s-dac|HiFiBerry DAC Plus Lite
-hifiberry-dacplus|HiFiBerry DAC Plus Pro
-hifiberry-dacplus|HiFiBerry DAC Plus Pro XLR
-hifiberry-dacplus|HiFiBerry DAC Plus RTC
-hifiberry-dacplus|HiFiBerry DAC Plus Standard
-hifiberry-dac|HiFiBerry DAC Plus Zero
-hifiberry-dacplushd|HifiBerry DAC+ HD audio card
-hifiberry-dacplusadc|HifiBerry DAC+ADC  audio card
-hifiberry-dacplusadcpro|HifiBerry DAC+ADC PRO audio card
-hifiberry-dacplusdsp|HifiBerry DAC+DSP audio card
+hifiberry-dac|HiFiBerry DAC fo RPi 1
+hifiberry-dac|HiFiBerry DAC Zero
+hifiberry-dacplus|HiFiBerry DAC+
+hifiberry-dacplusadc|HiFiBerry DAC+ ADC
+hifiberry-dacplusadc|HifiBerry DAC+ ADC
+hifiberry-dacplusadcpro|HifiBerry DAC+ ADC Pro
+hifiberry-dacplusdsp|HifiBerry DAC+ DSP
+hifiberry-dacplushd|HifiBerry DAC+ HD
+i2s-dac|HiFiBerry DAC+ Lite
+hifiberry-dacplus|HiFiBerry DAC+ Pro
+hifiberry-dacplus|HiFiBerry DAC+ Pro XLR
+hifiberry-dacplus|HiFiBerry DAC+ RTC
+hifiberry-dacplus|HiFiBerry DAC+ Standard
+hifiberry-dac|HiFiBerry DAC+ Zero
 hifiberry-dacplushd|HiFiBerry DAC2 HD
 hifiberry-dacplus|HiFiBerry DAC2 Pro
 hifiberry-digi|HiFiBerry Digi
-hifiberry-digi|HiFiBerry Digi Plus
-hifiberry-digi-pro|HiFiBerry Digi Plus Pro
 hifiberry-digi-pro|HiFiBerry Digi Pro
+hifiberry-digi|HiFiBerry Digi+
+hifiberry-digi-pro|HiFiBerry Digi+ Pro
+hifiberry-digi-pro|HiFiBerry Digi2 Pro
+hifiberry-dac|HiFiBerry Miniamp
 merus-amp|Infineon MERUS merus-amp audio card
 hifiberry-amp|Inno-Maker Raspberry Pi HiFi AMP HAT TAS5713
+merus-amp|Inno-Maker Raspberry Pi HiFi AMP Pro MA1270P
 allo-boss-dac-pcm512x-audio|Inno-Maker Raspberry Pi HiFi DAC HAT PCM5122
+allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M
 iqaudio-dacplus|IQaudIO Amp
 iqaudio-dacplus,auto_mute_amp|IQaudIO Amp - with auto mute
 iqaudio-dacplus,unmute_amp|IQaudIO Amp - with unmute
