@@ -9536,7 +9536,10 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
         // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
-        // even though ImageMagick shows a error the files can be converted correctly, here we try to convert large the files again
+        // even though ImageMagick shows an error the files can be converted correctly, here we try to convert large the files again
+        // Important: only files with an image size larger than the specified magick options will be converted, regardless of the file size
+        //  there seems to be a bug in ImageMagick which causes repeatedly resized files to grow by about 150b per conversion
+        //  resizing files changes their creation date, so these will never be purged after their cache-expiry (30 days)
         $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
         if ($maxsize == 0) {
             // when $maxsize is unset, set it to 100 and save it
@@ -9550,8 +9553,6 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
         $magickSize = substr($magick_opts, 0, strpos($magick_opts, 'x'));
         $reduceMaxsize = true;
         foreach ($files as $file) {
-            // use ImageMagick to resize the file
-            sysCmd("convert -resize ".$magick_opts." '".$file."' '".$file."'");
             // check that it is a valid image file, get some information about the file
             clearstatcache(true, $file);
             // check that the file is an image
@@ -9561,8 +9562,18 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
                 // it is not a valid image file (or at least it has a invalid header) or it is smaller than 20x20px
                 // the image file has an invalid format or is very small, delete it
                 unlink($file);
+                $cleaned = true;
             } else {
                 // it is a valid image file
+                if (($width > $magickSize) || ($height > $magickSize)) {
+                    // the image size (h x w) is larger than the requested size
+                    // use ImageMagick to resize the image
+                    sysCmd("convert -resize ".$magick_opts." '".$file."' '".$file."'");
+                    $cleaned = true;
+                    // get the modified image height and width
+                    clearstatcache(true, $file);
+                    list($width, $height, $type, $attr) = getimagesize($file);
+                }
                 if (($width == $magickSize) || ($height == $magickSize)) {
                     // the size of the file is the same as requested for the ImageMagick reduction
                     // get the file size in kb
@@ -9574,7 +9585,6 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
                         $reduceMaxsize = false;
                     }
                 }
-            $cleaned = true;
             }
         }
         if ($reduceMaxsize) {
