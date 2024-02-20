@@ -471,11 +471,12 @@ while (true)  {
                            2 => array("pipe", "w"),  // stderr is a pipe that the child will write to
                         );
                         $cwd = '/tmp';
-                        $magick_opts = trim($redis->get('magick_opts'));
-                        if ($magick_opts) {
-                            $process = proc_open('convert -resize '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
+                        $magick_opts = trim($redis->hGet('magick', 'opts'));
+                        $magick_resize = trim($redis->hGet('magick', 'resize'));
+                        if ($magick_resize) {
+                            $process = proc_open('convert -resize '.$magick_resize.' '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
                         } else {
-                            $process = proc_open('convert - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
+                            $process = proc_open('convert '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
                         }
                         $return_value = 0;
                         if (is_resource($process)) {
@@ -690,11 +691,12 @@ while (true)  {
                     clearstatcache(true, $coverArtDirectory.$coverArtFileName);
                     if (file_exists($coverArtDirectory.$coverArtFileName)) {
                         // there is a valid art file in the album directory, copy it to the art directory and reduce its size as specified
-                        $magick_opts = trim($redis->get('magick_opts'));
-                        if ($magick_opts) {
-                            sysCmd('convert -resize '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
+                        $magick_opts = trim($redis->hGet('magick', 'opts'));
+                        $magick_resize = trim($redis->hGet('magick', 'resize'));
+                        if ($magick_resize) {
+                            sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
                         } else {
-                            sysCmd('convert -resize 350x350\> \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
+                            sysCmd('convert -resize 350x350\> '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'")[0];
                         }
                         list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid
@@ -702,7 +704,7 @@ while (true)  {
                             // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
                             $song['artFound'] = true;
                             // finish when one is found, exit the innermost loop
-                        break;
+                            break;
                         } else {
                             // the image file has an invalid format or is very small, delete it
                             unlink($song['albumartfile']);

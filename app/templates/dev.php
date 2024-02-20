@@ -613,9 +613,19 @@
                         You can change the 'n' value if you require a lower or higher image resolution.
                         Valid values are 100 to 1000, the default is 350 (350x350 pixels).<br>
                         <i>Notes: Local album art is embedded in the music files or stored in the directories with the music.
+                        An attempt has been made to find a balance between image quality and processing overhead.
                         The images are cached in memory to improve performance.
                         By limiting format of album art the performance of the UI is further improved and system I/O overhead is lowered,
                         which can improve audio quality</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="artResizingOpts">Local album art resizing options</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" id="artResizingOpts" name="mode[artResizingOpts]" value="<?=$this->artResizingOpts ?>" placeholder="-strip -interlace Plane -quality 90" data-trigger="change">
+                        <span class="help-block">The options used by ImageMagic to optimize the resized images, see the ImageMagick manual for details.
+                        The default settings are '<strong>-strip -interlace Plane -quality 90</strong>', you can change these if required.<br>
+                        <i>Note: The values of changed resizing options are not validated, please ensure that the new settings are tested</i></span>
                     </div>
                 </div>
             </div>

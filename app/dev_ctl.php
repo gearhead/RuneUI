@@ -144,13 +144,22 @@ if (isset($_POST)) {
         // ----- Local album art resizing -----
         if ((isset($_POST['mode']['artResizing'])) && ($_POST['mode']['artResizing'])) {
             // value is set
-            $magick_opts = $_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].'\>';
-            if ($redis->get('magick_opts') != $magick_opts) {
+            $magick_resize = $_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].'\>';
+            if ($redis->hGet('magick', 'resize') != $magick_resize) {
                 // value has changed, save it
-                $redis->set('magick_opts', $magick_opts);
+                $redis->hSet('magick', 'resize', $magick_resize);
                 $redis->del('cleancache');
             }
             unset($magick_opts);
+        }
+        // ----- Local album art resizing options-----
+        if ((isset($_POST['mode']['artResizingOpts'])) && ($_POST['mode']['artResizingOpts'])) {
+            // value is set
+            if ($redis->hGet('magick', 'opts') != $_POST['mode']['artResizingOpts']) {
+                // value has changed, save it
+                $redis->hSet('magick', 'opts', $_POST['mode']['artResizingOpts']);
+                $redis->del('cleancache');
+            }
         }
         // ----- Webstreaming encoder and bitrate -----
         if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
@@ -386,10 +395,10 @@ $template->WSsamplerate = $redis->hGet('webstreaming', 'samplerate');
 $template->conf = $redis->hGetAll('mpdconf');
 $template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 $template->lyrics = $redis->hGetAll('lyrics');
-// $template->artResizing = trim($redis->get('magick_opts'));
-$magick_opts = trim($redis->get('magick_opts'));
-$template->artResizing = substr($magick_opts, 0, strpos($magick_opts, 'x'));
-unset($magick_opts);
+$template->artResizingOpts = trim($redis->hGet('magick', 'opts'));
+$magick_resize = trim($redis->hGet('magick', 'resize'));
+$template->artResizing = substr($magick_resize, 0, strpos($magick_resize, 'x'));
+unset($magick_resize);
 
 // debug
 // var_dump($template->dev);

@@ -9549,8 +9549,9 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
         // we search for *.jpg files with a file size greater than $maxsize
         $files = sysCmd("find '".$cleanLowerDir."' -maxdepth 1 -type f -size +".$maxsize."k -name '*.jpg'");
         // convert the files
-        $magick_opts = trim($redis->get('magick_opts'));
-        $magickSize = substr($magick_opts, 0, strpos($magick_opts, 'x'));
+        $magick_opts = trim($redis->hGet('magick', 'opts'));
+        $magick_resize = trim($redis->hGet('magick', 'resize'));
+        $magickSize = substr($magick_resize, 0, strpos($magick_resize, 'x'));
         $reduceMaxsize = true;
         foreach ($files as $file) {
             // check that it is a valid image file, get some information about the file
@@ -9568,7 +9569,11 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
                 if (($width > $magickSize) || ($height > $magickSize)) {
                     // the image size (h x w) is larger than the requested size
                     // use ImageMagick to resize the image
-                    sysCmd("convert -resize ".$magick_opts." '".$file."' '".$file."'");
+                    if ($magick_resize) {
+                        sysCmd("convert -resize ".$magick_resize." ".$magick_opts." '".$file."' '".$file."'");
+                    } else {
+                        sysCmd("convert -resize 350x350\> ".$magick_opts." '".$file."' '".$file."'");
+                    }
                     $cleaned = true;
                     // get the modified image height and width
                     clearstatcache(true, $file);
