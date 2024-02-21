@@ -2900,14 +2900,18 @@ if ($('#section-index').length) {
             $.post('/db/?cmd=pl-ashuffle-reset', '');
         });
 
+        // todo: add randomise playlist here with a $.scrollTo(0 , 500);
+
         // playlist delete played songs action
         $('#pl-clear-played-button').click(function(){
             $.post('/db/?cmd=pl-clear-played', '');
+            $.scrollTo(0 , 500);
         });
 
         // playlist crop action
         $('#pl-crop-button').click(function(){
             $.post('/db/?cmd=pl-crop', '');
+            $.scrollTo(0 , 500);
         });
 
         // playlist save action
