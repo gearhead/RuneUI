@@ -142,7 +142,7 @@ foreach ($usbDevices as $usbDevice) {
 // store all the mounted device information in redis
 // get the mounted usb devices
 $usbMounts = sysCmd("df -hl | grep '/mnt/MPD/USB'");
-// walk through the 
+// walk through the
 foreach ($usbMounts as $usbMount) {
     // replace whitespace with single space and trim the usb mount information
     //  this will also convert multiple spaces in the mount name to single spaces
