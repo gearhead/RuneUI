@@ -9495,20 +9495,21 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
     if ($today != $redis->hGet('cleancache', '90lowerdate')) {
         // the following command removes all files from the lower directory which are older than 90 days
         // the strategy is that we have used them for 3 months, but their source information may now have changed
-        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
+        // song files are never deleted, these contain validated lyrics, those without lyrics are deleted elsewhere
+        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 \! -name *.song -exec rm {} \;');
         $redis->hSet('cleancache', '90lowerdate', $today);
         $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '30lowerdate_jpg')) {
+    } else if ($today != $redis->hGet('cleancache', '60lowerdate_jpg')) {
         // the following command removes all *.jpg files from the lower directory which are older than 30 days
-        // the strategy is that we have used them for 1 month, but their source information may now have changed
+        // the strategy is that we have used them for 2 months, but their source information may now have changed
         // these files are large
         sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +30 -exec rm {} \;");
-        $redis->hSet('cleancache', '30lowerdate_jpg', $today);
+        $redis->hSet('cleancache', '60lowerdate_jpg', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
         // the following command removes all *.jpg files from the lower directory which are older than 30 days
         // the strategy is that we have used them for 1 month, but their source information may now have changed
-        // there are many of these files
+        // there is one file for each played song, so lots of files
         sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
         $redis->hSet('cleancache', '30lowerdate_mpd', $today);
         $cleaned = true;
@@ -9528,12 +9529,13 @@ function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
         $redis->hSet('cleancache', '30lowerdate_artist', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
-        // song files without any content (these can contain the text 'No lyrics available') are deleted after 30 days
+        // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted') are
+        //  deleted after 30 days
         // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
         sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song &> /dev/null");
+        $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
