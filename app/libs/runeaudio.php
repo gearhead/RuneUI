@@ -3254,6 +3254,16 @@ function wrk_checkMount($mpname)
     }
 }
 
+function wrk_checkMountUsb($mount)
+{
+    $check_mp = sysCmd('grep -hc "'.$mount.'" /proc/mounts')[0];
+    if ($check_mp) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 function wrk_cleanDistro()
 {
     runelog('function CLEAN DISTRO invoked!!!','');
@@ -5846,17 +5856,30 @@ function wrk_sourcecfg($redis, $action, $args=null)
             // for some unknown reason usb devices sometimes get mounted twice check that it is dismounted, if not run again
             // clean up any invalid mount points
             sysCmd('udevil clean');
-            if (wrk_checkMount($args)) {
+            $redis->hSet('usbunmounts', $args, 1);
+            if (wrk_checkMountUsb($args)) {
                 sysCmd('udevil umount '.$args);
                 // clean up any invalid mount points
                 sysCmd('udevil clean');
                 // udevil is becoming less reliable, if the disk is still mounted dismount with umount
                 //  the code below needs to run as root, umount has the +s flag
-                if (wrk_checkMount($args)) {
+                if (wrk_checkMountUsb($args)) {
                     sysCmd('umount '.$args);
                     // clean up any invalid mount points
                     sysCmd('udevil clean');
                 }
+            }
+            if (wrk_checkMountUsb($args)) {
+                if (strpos(' '.sysCmd('mpc status | xargs')[0], '[playing]')) {
+                    $txt = 'The device is in use, stop the player and try again.';
+                } else {
+                    $txt = 'The device is probably in use.';
+                }
+                ui_notify($redis, 'USB unmount', 'Failed. '.$txt);
+                $redis->hDel('usbunmounts', $args);
+            } else {
+                $redis->hDel('usbmounts', $args);
+                $redis->hSet('usbunmounts', $args, 1);
             }
             break;
     }

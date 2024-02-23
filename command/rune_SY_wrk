@@ -61,6 +61,8 @@ $savecpuAvd = 8;
 $savecpuFixdnssec = 20;
 $savecpuRefreshNics = 24;
 $savecpuRefreshNicsPrev = $savecpuRefreshNics;
+$savecpuUsbMount = 16;
+$savecpuUsbMountPrev = $savecpuUsbMount;
 $savecpuOneTimeActions = 30;
 $savecpuMpdLog = 600;
 $savecpuTimezone = 60;
@@ -473,8 +475,11 @@ while (true) {
                 // it should not really happen, but if rune_SY_wrk gets stopped and restarted in the wrong place it could happen
                 $redis->del('w_lock');
                 $redis->set('waitSyWrk', 0);
+                // add a job to process the queued messages
+                wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
             }
             $jobID = '';
+            usleep(500000);
             continue;
         }
         // read the job information from the work queue
@@ -486,6 +491,7 @@ while (true) {
             // no work queue entry for the fifo queue entry, this should never happen!
             //  something went wrong, just skip and get the next one
             $jobID = '';
+            usleep(500000);
             continue;
         }
         runelog('(loop) start job', $jobID);
@@ -510,7 +516,7 @@ while (true) {
                 break;
             case 'notify_async':
                 $redis->sRem('w_lock', $jobID);
-                if (!$redis->sCard('w_message')) {
+                if (!$redis->exists('w_message')) {
                     // no messages to process, finished
                     break;
                 }
@@ -1303,7 +1309,9 @@ while (true) {
                 wrk_spotifyd($redis);
                 break;
             case 'sourcecfg':
-                if (wrk_sourcecfg($redis, $job->action, $job->args)) sysCmd('mpc update');
+                if (wrk_sourcecfg($redis, $job->action, $job->args)) {
+                    sysCmd('mpc update');
+                }
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'switchplayer':
@@ -1528,6 +1536,19 @@ while (true) {
         $random = min(100,max(2, intval($savecpuRefreshNics/20)));
         $savecpuRefreshNics = $savecpuRefreshNics - $random + rand(0, $random*2);
         $savecpuRefreshNicsPrev = $savecpuRefreshNics;
+        unset($random);
+    }
+    // Run usbmount periodically, run it first after 16 cycles (+/-8 seconds), and increase the repeat cycle time by 100%
+    //  it should run at least once per hour
+    //  connman works (should work) in this exponential way of detecting WiFi networks and nics
+    if ($savecpuUsbMount-- <= 0) {
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait');
+        // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
+        $savecpuUsbMount = min(7200, intval($savecpuUsbMountPrev*2));
+        // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
+        $random = min(100,max(2, intval($savecpuUsbMount/20)));
+        $savecpuUsbMount = $savecpuUsbMount - $random + rand(0, $random*2);
+        $savecpuUsbMountPrev = $savecpuUsbMount;
         unset($random);
     }
     // One time actions, run first after 30 cycles (+/-15 seconds), then only on every +/-16th cycle (= every +/-8 seconds) until everything is done when it repeats after 10,000,000 cycles (58 days)
