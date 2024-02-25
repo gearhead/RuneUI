@@ -120,7 +120,7 @@ rmdir /mnt/MPD/USB/*
 udevil clean
 # unmount the persistent cache subsystem
 umount /srv/http/tmp/art
-umount /home/cache
+umount /home/cache/art
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
