@@ -213,11 +213,7 @@
                                 <span><span>NO</span><span>YES</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">If you experience problems, set this to <strong>YES</strong><br>
-                        <?php if ($this->profile['type'] === 'AP') :?>
-                            <strong>When configuring via the RuneAudio Access Point a reboot is required to activate the settings</strong>
-                        <?php else:?>
-                            <i>A Reboot is often required to activate the profile after saving</i>
-                        <?php endif;?>
+                        <i>A Reboot is sometimes required to activate the profile after saving</i>
                         </span>
                     </div>
                 </div>
@@ -226,6 +222,20 @@
                         <a class="btn btn-default btn-lg" href="/network/wifi_scan/<?=$this->profile['nic']?>">Cancel</a>
                         <button class="btn btn-primary btn-lg" id="profile[action][save]" name="profile[action]" value="saveWifi" type="submit">Save and apply</button>
                         <!-- <button type="submit" id="save" class="btn btn-primary btn-lg" name="save" value="saveWifi">Save and apply</button> -->
+                    </div>
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <?php if ($this->connection === 'AP') :?>
+                            <span class="help-block"><br>Clicking Save and Apply will cause your <strong>network connection to disconnect</strong>.
+                            This happens because you are connected via the Access Point.
+                            You should be able to <strong>reconnect</strong> using the newly defined network with the URL <a href="http://<?=$this->hostname?>.local" target="_blank" rel="nofollow">http://<?=$this->hostname?>.local</a>.
+                            <i>If the newly defined network fails to connect the Access Point will restart and you will need to reconnect to it</i></span>
+                        <?php elseif ($this->connection === 'ethernet') :?>
+                            <span class="help-block"><br>Clicking Save and Apply will cause all Wi-Fi networks to reconnect, a different network may become connected.
+                            Your connection should be <strong>unaffected</strong></span>
+                        <?php elseif ($this->connection === 'WiFi') :?>
+                            <span class="help-block"><br>Clicking Save and Apply will cause all Wi-Fi networks to reconnect, a different network may become connected.
+                            You may temporarily <strong>lose your connection</strong>, it should <strong>reconnect automatically</strong></span>
+                        <?php endif;?>
                     </div>
                 </div>
             </fieldset>

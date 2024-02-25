@@ -2572,20 +2572,20 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
         ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
         ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
         // nat will automatically be disabled when the AP is stopped, save its current value
-        $natSave = $redis->hGet('AccessPoint', 'enable-NAT');
+        $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
         // stop the access point, by disabling it
-        $restart_args = array();
-        $restart_args['enable'] = 0;
-        $restart_args['norescan'] = 1;
-        $restart_args['silent'] = 1;
-        wrk_apconfig($redis, 'writecfg', $restart_args);
+        $apArgs = array();
+        $apArgs['enable'] = 0;
+        $apArgs['norescan'] = 1;
+        $apArgs['silent'] = 1;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
         // start the access point by enabling it
-        $restart_args = array();
-        $restart_args['enable'] = 1;
-        $restart_args['silent'] = 1;
+        $apArgs = array();
+        $apArgs['enable'] = 1;
+        $apArgs['silent'] = 1;
         // restore nat to its previous value
-        $restart_args['enable-NAT'] = $natSave;
-        wrk_apconfig($redis, 'writecfg', $restart_args);
+        $apArgs['enable-NAT'] = $apNatSave;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
     } else if (isset($args['rescan']) && $args['rescan']) {
         ui_notify($redis, 'AccessPoint', 'Applying changes');
         sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
@@ -2945,6 +2945,22 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             array_multisort($ssidCol, SORT_ASC, $storedProfiles);
             // save the profile array
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
+            // if required, stop the Access Point by disabeling it
+            if ($redis->hGet('AccessPoint', 'enable')) {
+                // nat will automatically be disabled when the AP is stopped, save its current value
+                $apaNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+                // save the old Access Point status
+                $apEnable = true;
+                // set up the arguments to disable the Access Point
+                $apArgs = array();
+                $apArgs['enable'] = 0;
+                $apArgs['norescan'] = 1;
+                $apArgs['silent'] = 1;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
+            } else {
+                // save the old Access Point status
+                $apEnable = false;
+            }
             // commit the config file, creating a new file triggers connman to use it
             $fp = fopen($tmpFileName, 'w');
             fwrite($fp, $profileFileContent);
@@ -2954,6 +2970,18 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 rename($tmpFileName, $profileFileName);
             } else {
                 unlink($tmpFileName);
+            }
+            // try restarting the Access Point if it was enabled
+            //  the Access Point will not start if the new saved network profile successfully connects
+            if ($apEnable) {
+                // start the access point by enabling it
+                $apArgs = array();
+                // set up the arguments to enable the Access Point
+                $apArgs['enable'] = 1;
+                $apArgs['silent'] = 1;
+                // restore nat to its previous value
+                $apArgs['enable-NAT'] = $apNatSave;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
             }
             break;
         case 'saveEthernet':
@@ -3146,23 +3174,45 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('connmanctl disconnect '.$args['connmanString']);
             // no break;
         case 'delete':
-            // delete a connection, also removes the stored profile and configuration files
+            // delete a connection, also removes the stored profile and configuration files and clears the IP address(es) from the nic
             // wifi
-            if (isset($args['ssidHex']) && isset($storedProfiles[$ssidHexKey])) {
+            if (isset($storedProfiles[$ssidHexKey])) {
+                // remove the connman profile
+                sysCmd('connmanctl config '.$args['connmanString'].' --remove');
+                // stop connman otherwise the cache files will be replaced after deletion
                 sysCmd('systemctl stop connman');
-                unset($storedProfiles[$ssidHexKey]);
-                unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
-                sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
-                sysCmd("iwctl known-networks '".$args['ssid']."' forget");
-                sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
+                if (isset($args['ssidHex'])) {
+                    // remove the connman configuration files and cache
+                    unset($storedProfiles[$ssidHexKey]);
+                    unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
+                    sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
+                }
+                if (isset($args['ssid'])) {
+                    // remove the iwd network cache
+                    sysCmd("iwctl known-networks '".$args['ssid']."' forget");
+                    sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
+                }
+                if (isset($args['nic'])) {
+                    // disconnect the nic
+                    sysCmd("iwctl station '".$args['nic']."' disconnect");
+                }
+                // restart connman
                 sysCmd('systemctl start connman');
+                if (isset($args['nic'])) {
+                    // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
+                    //  make a connection if there is a valid network available
+                    sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
+                }
             }
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
+                // stop connman otherwise the cache files will be replaced after deletion
                 sysCmd('systemctl stop connman');
+                // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
                 unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
                 sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+                // restart connman
                 sysCmd('systemctl start connman');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
@@ -13176,6 +13226,11 @@ function wrk_security($redis, $action, $args=null)
                 $redis->hSet('AccessPoint', 'passphrase', $args);
                 // send notfy to UI
                 ui_notify($redis, 'Security', 'Access Point password changed, reboot to activate');
+                // // note: we could change the passphrase/password without rebooting using the following code
+                // $apArgs = array();
+                // // set up the arguments to change the Access Point passphrase/password
+                // $apArgs['passphrase'] = $args;
+                // wrk_apconfig($redis, 'writecfg', $apArgs);
             } else {
                 // send notfy to UI
                 ui_notifyError($redis, 'Security', 'Access Point password change failed, invalid format. You will get a new reminder');

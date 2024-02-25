@@ -115,26 +115,38 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
             $apWifiNicFound = false;
         }
         if (
+                !$apWifiNicFound &&
+                // we have not yet found a valid AP nic
                 !$apUp &&
                 // No configured and running AP detected
-                !$nic['connected'] &&
-                // the nic was not connected when the nics array was created
-                !$apWifiNicFound &&
-                // still haven't found a suitable nic in the array
                 ($nic['technology'] === 'wifi') &&
                 // its a Wi-Fi nic
                 $nic['apSupported']
                 // the nic supports AP
                 )
         {
-            // sleep for 20 seconds to ensure that connman has time to connect/reconnect
-            sleep(20);
-            // double-check that the nic is still not connected
-            if (!sysCmd('ip -o  address | sed '."'".'s,[ ]\+, ,g'."'".' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'])[0]) {
-                // the nic is still not connected, use it and skip the rest
-                runelog('########### got a nic for AP: '.$nic['nic']);
-                $wlanNic = $nic['nic'];
-                $apWifiNicFound = true;
+            if (
+                    !$nic['connected'] ||
+                    (($nic['ipv4Address'] == '') && ($nic['ipv6Address'] != '') && !strpos(' '.$nic['ipv6Rest'], $nic['nic'])))
+            {
+                // nic is not connected
+                // or
+                // there no ipv4 address, but there is an ipv6 address and the nic is not listed in the ipv6 description,
+                //  this is not connected even though it reported that it is
+                // flush the nic to clear any ip addresses, then bring the nic down and up to trigger a connman connect
+                //  if there is a valid network available
+                sysCmd('ip address flush dev '.$nic['nic'].' ; ip link set dev '.$nic['nic'].' down ; ip link set dev '.$nic['nic'].' up');
+                // sleep for 20 seconds to ensure that connman has time to connect/reconnect
+                sleep(20);
+                // double-check that the nic is still not connected
+                $inetConnected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                $inet6Connected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet6 '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                if (!$inetConnected && !$inet6Connected) {
+                    // the nic is still not connected, use it
+                    runelog('########### got a nic for AP: '.$nic['nic']);
+                    $wlanNic = $nic['nic'];
+                    $apWifiNicFound = true;
+                }
             }
         }
         // check if the nic technology is 'ethernet' and it has an allocated IP address

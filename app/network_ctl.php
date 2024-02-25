@@ -161,6 +161,7 @@ if ($template->action === 'wifi_scan') {
     $ssidHex = (string) trim($ssidHex);
     $ssidHexKey = 'ssidHex:'.$ssidHex;
     $first = true;
+    $template->connection = '';
     foreach ($template->nics as $nic) {
         if (($nic['technology'] === 'wifi') && $first) {
             // use the first wifi profile as a default
@@ -170,7 +171,14 @@ if ($template->action === 'wifi_scan') {
         if ($nic['macAddress'] === $macAddress) {
             // if a match is found use it end exit the loop
             $template->profile = array_merge($template->profile, $nic);
-            break;
+            // break;
+        }
+        if (($nic['technology'] == 'ethernet') && $nic['connected']) {
+            $template->connection = 'ethernet';
+        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'managed') && $nic['connected'] && ($template>connection == '')) {
+            $template->connection = 'wifi';
+        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'AP') && $nic['connected'] && ($template>connection != 'ethernet')) {
+            $template->connection = 'AP';
         }
     }
     // add the network to the profile
