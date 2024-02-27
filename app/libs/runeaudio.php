@@ -139,7 +139,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
     }
 }
 
-function closeMpdSocket($sock, $retainSockVarName = false)
+function closeMpdSocket($sock, $retainSockVarName = 0)
 // when $retainSockVarName is set to true the socket variable name will not be unset
 //  this is used when reopening a timed out socket with the same name
 {
@@ -509,7 +509,7 @@ function getMpdOutputs($mpd)
     }
 }
 
-function getMpdCurrentsongInfo($mpd, $raw=false)
+function getMpdCurrentsongInfo($mpd, $raw = 0)
 // returns the current song information unaltered (as returned by MPD) or as an array of information elements
 // by default an array is returned, by specifying a non-false value for $raw the the data from MPD is returned unaltered
 {
@@ -555,7 +555,7 @@ function deleteBookmark($redis, $id)
     return $return;
 }
 
-function browseDB($sock, $browsemode, $query='')
+function browseDB($sock, $browsemode, $query = '')
 {
     // debug for quotes in library items
     // file_put_contents('/srv//http/tmp/browseDB.txt', 'Before:'.$browsemode.':'.$query."\n", FILE_APPEND | LOCK_EX);
@@ -1109,7 +1109,7 @@ function getMpdDaemonDetalis()
 }
 
 // using an array as needles in strpos
-function strposa($haystack, $needle, $offset=0)
+function strposa($haystack, $needle, $offset = 0)
 {
     if (!is_array($needle)) $needle = array($needle);
     foreach ($needle as $query) {
@@ -1119,7 +1119,7 @@ function strposa($haystack, $needle, $offset=0)
 }
 
 // format Output for the "library", no longer used for the "playlist"
-function _parseFileListResponse($resp, $extraAction=null)
+function _parseFileListResponse($resp, $extraAction = null)
 // Extra action can be optionally specified, values:
 //  'htmlspecialchars': values of ampersand, double quote, single quote, less then and more then are encoded as &amp;, &quot, &#039, &lt; and &gt;
 //  'escaped': values of double quote, single quote, backslash and null are escaped by inserting a backslash before the value
@@ -1659,7 +1659,7 @@ function pushFile($redis, $filepath)
 }
 
 // check if mpd.conf or interfaces was modified outside
-function hashCFG($redis, $action='check_mpd')
+function hashCFG($redis, $action = 'check_mpd')
 {
     switch ($action) {
         // case 'check_net':
@@ -1759,7 +1759,7 @@ function getmac($nicname)
     return trim($mac);
 }
 
-function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
+function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
 {
     switch ($action) {
         case 'start':
@@ -1987,7 +1987,7 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
     }
 }
 
-function wrk_avahiconfig($redis, $action, $args=null, $jobID=null)
+function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
 // actions:
 //  set_ip: set the way this function works
 //      valid args values: 'a' (automatic), '4' (IPv4 only), '6' (IPv6 only), b (both IPv4 and IPv6)
@@ -5470,7 +5470,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     $redis->set('libaoconfchange', 0);
 }
 
-function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
+function wrk_sourcemount($redis, $action, $id = null, $quiet = 0, $quick = 0)
 {
     switch ($action) {
         case 'mount':
@@ -5817,7 +5817,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
     return $return;
 }
 
-function wrk_sourcecfg($redis, $action, $args=null)
+function wrk_sourcecfg($redis, $action, $args = null)
 {
     runelog('function wrk_sourcecfg('.$action.')', $args);
     $return = true;
@@ -5936,7 +5936,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
     return $return;
 }
 
-function wrk_getHwPlatform($redis, $reset=false)
+function wrk_getHwPlatform($redis, $reset = 0)
 {
     if ($reset) {
         // remove the redis variables set in this routine
@@ -6195,7 +6195,7 @@ function wrk_getHwPlatform($redis, $reset=false)
     return array($arch, $model);
 }
 
-function wrk_setHwPlatform($redis, $reset=false)
+function wrk_setHwPlatform($redis, $reset = 0)
 {
     list($arch, $model) = wrk_getHwPlatform($redis, $reset);
     runelog('arch= ', $arch);
@@ -7365,7 +7365,7 @@ function ui_mpd_fix($redis, $status)
     return $status;
 }
 
-function ui_libraryHome($redis, $clientUUID=null)
+function ui_libraryHome($redis, $clientUUID = null)
 {
     // Internet available
     $internetAvailable = $redis->hGet('service', 'internet');
@@ -7702,7 +7702,7 @@ function wrk_setRegDom($redis)
     return $newCountryCode;
 }
 
-function ui_update($redis, $sock=null, $clientUUID=null)
+function ui_update($redis, $sock = null, $clientUUID = null)
 {
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
@@ -7824,9 +7824,11 @@ function netmask($bitcount)
 }
 
 // sort multi-dimensional array by key
-function osort(&$array, $key, $descending=false, $ignoreCase=false)
+function osort(&$array, $key, $descending = 0, $ignoreCase = 0)
 // $array is passed by reference, nothing needs to be returned
-// two parameters:
+// four parameters:
+//  $array the array to be sorted, passed by reference
+//  $key the array element which will be used as a sort key
 //  $descending: default false, when true sorts descending
 //  $ignoreCase: default false, when true sorts ignoring case
 {
@@ -8004,7 +8006,7 @@ function webradioStringRemovePrefix($redis, $string)
 }
 
 // clean up strings for lyrics and artistinfo
-function metadataStringClean($string, $type='')
+function metadataStringClean($string, $type = '')
 {
     // convert escaped characters (backslash followed by something) to their actual value
     $string = stripcslashes($string);
@@ -9315,7 +9317,7 @@ function wrk_check_MPD_outputs($redis)
 
 // function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
 //  and local cached album art
-function wrk_clean_music_metadata($redis, $logfile=null, $clearAll=null)
+function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
 // when $clearAll is set to a true value all cached information will be cleared
 // it should be noted that the synchronisation of a upper directory with a lower directory within a overlay file system should
 //  not work correctly or consistently
@@ -10353,7 +10355,7 @@ function get_coverartarchiveorg($redis, $url)
 }
 
 // function to initialise the array used for artist, album, metadata
-function setup_metadata_array($metadataArray=array())
+function setup_metadata_array($metadataArray = array())
 // returns the array with all the values defined
 // if the optional input parameter is supplied and is not an array an error will be returned
 // see the calling function for details of the content
@@ -10383,7 +10385,7 @@ function setup_metadata_array($metadataArray=array())
 }
 
 // function to search internet sources for song information
-function get_songInfo($redis, $info=array())
+function get_songInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -10562,7 +10564,7 @@ function get_songInfo($redis, $info=array())
 }
 
 // function to search internet sources for album information
-function get_albumInfo($redis, $info=array())
+function get_albumInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -10838,7 +10840,7 @@ function get_albumInfo($redis, $info=array())
 }
 
 // function to search internet sources for artist information
-function get_artistInfo($redis, $info=array())
+function get_artistInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -11380,7 +11382,7 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
 }
 
 // function to return a string between two delimiters
-function get_between_data($string, $start='', $end='', $occurrence=1)
+function get_between_data($string, $start = '', $end = '', $occurrence = 1)
 // $start can be blank/null, then occurrence is ignored, selection is from the first position in $string
 // $end can be blank/null, then selection to end of string
 // when $start and $end are specified but no match if found a zero length string is returned
@@ -11976,7 +11978,7 @@ function getMusicFileMatadata($redis, $fileName)
 }
 
 // get the value of the first matching key in a single or multidimensional array
-function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty=false, $checkValueArrayZero=false)
+function search_array_keys($myArray, $search, $caseInsensative = 0, $skipEmpty = 0, $checkValueArrayZero = 0)
 // returns the first non-null/non-false value of an array node when its key matching the search string
 // it really only works well returning strings, null and boolean values give incorrect results
 // no match returns false, a match with a null or boolean false value also return false
@@ -12014,7 +12016,7 @@ function search_array_keys($myArray, $search, $caseInsensative=false, $skipEmpty
 }
 
 // sets the default alsa card and the bluealsa ouput card, based on the card name
-function set_alsa_default_card($redis, $cardName=null)
+function set_alsa_default_card($redis, $cardName = null)
 {
     $alsaFileName = '/etc/asound.conf';
     $bluealsaFileName = '/etc/default/bluealsa-aplay';
@@ -13118,7 +13120,7 @@ function is_playing($redis)
     return false;
 }
 
-function wrk_security($redis, $action, $args=null)
+function wrk_security($redis, $action, $args = null)
 {
     $retval = true;
     switch ($action) {
@@ -13241,7 +13243,7 @@ function wrk_security($redis, $action, $args=null)
     return $retval;
 }
 
-function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
+function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
 // functions for attached CD drive
 // returns true
 {
@@ -13599,7 +13601,7 @@ function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
     }
 }
 
-function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null)
+function wrk_hwinput($redis, $action = '', $args = null, $device = null, $jobID = null)
 // functions for hardware input device
 // returns true
 {
@@ -14047,7 +14049,7 @@ function strip_synchronised_lyrics($lyrics)
 }
 
 // calculate and return the percentage of words in string $search which occur in string $target
-function count_word_occurancies($search, $target='')
+function count_word_occurancies($search, $target = '')
 // $search and $target are strings, return value is an integer (0 = no matches, 100 = all match)
 // the string matching is case insensitive
 // an empty $search string returns a 100% match
@@ -14326,7 +14328,7 @@ function set_vc4_hdmi_allowed_formats($redis)
 }
 
 // function to control alsa equaliser
-function wrk_alsa_equaliser($redis, $action, $args=null, $jobID=null)
+function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
 //
 {
     if ($redis->hget('alsa_equaliser', 'enable')) {
@@ -14472,7 +14474,7 @@ function wrk_alsa_equaliser($redis, $action, $args=null, $jobID=null)
 }
 
 // Function to control the loading of the ALSA loopback connector
-function wrk_snd_aloop($redis, $action, $component=null)
+function wrk_snd_aloop($redis, $action, $component = null)
 // when the redis hash variable 'snd-aloop' has a value the loopback connector will loaded
 //  when the redis hash variable 'snd-aloop' has no a value the loopback connector will unloaded on the next boot
 // the loopback connector is used by several sound processing components, e.g. ALSA Equaliser, SnapCast, etc.
@@ -14520,7 +14522,7 @@ function wrk_snd_aloop($redis, $action, $component=null)
 
 // this function modifies the mpd sub-config file called /etc/mpd_loopback.conf, which configures outputs to the loopcack connector
 //  the mpd sub-config file is included into the mpd config file
-function wrk_mpd_loopback($redis, $action=null)
+function wrk_mpd_loopback($redis, $action = null)
 // the /etc/mpd_loopback.conf file is empty when the loopback connector is not activated
 // when the loopback connector is activated it contains configuration files for the three sound processing components:
 //  alsa_equaliser      uses loopback device 0 subdevice 0 input and device 1 subdevice 0 output

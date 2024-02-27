@@ -138,7 +138,7 @@ if ($template->action === 'wifi_scan') {
         }
     }
     // sort the network array into strength descending order
-    osort($template->networks, 'strength', true);
+    osort($template->networks, 'strength', 1, 0);
     // clean up
     $template->profile = array();
     unset($networks, $storedProfiles);
@@ -175,9 +175,9 @@ if ($template->action === 'wifi_scan') {
         }
         if (($nic['technology'] == 'ethernet') && $nic['connected']) {
             $template->connection = 'ethernet';
-        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'managed') && $nic['connected'] && ($template>connection == '')) {
+        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'managed') && $nic['connected'] && ($template->connection == '')) {
             $template->connection = 'wifi';
-        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'AP') && $nic['connected'] && ($template>connection != 'ethernet')) {
+        } else if (($nic['technology'] == 'wifi') && ($nic['type'] == 'AP') && $nic['connected'] && ($template->connection != 'ethernet')) {
             $template->connection = 'AP';
         }
     }
