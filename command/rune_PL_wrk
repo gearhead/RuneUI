@@ -812,10 +812,13 @@ while (true) {
                     if (isset($pcmInfo['input']['running']) && $pcmInfo['input']['running']) {
                         if ($pcmInfo['input']['channels'] == 1) {
                             $audio_channels = 'Mono';
+                            $audio_channels_number = 1;
                         } else if ($pcmInfo['input']['channels'] == 2) {
                             $audio_channels = 'Stereo';
+                            $audio_channels_number = 2;
                         } else {
                             $audio_channels = 'Multichannel';
+                            $audio_channels_number = $pcmInfo['input']['channels'];
                         }
                         $audio_sample_depth = preg_replace('/[^0-9]/', '', $pcmInfo['input']['format']);
                         $audio_sample_rate = $pcmInfo['input']['sampling'];
@@ -912,7 +915,7 @@ while (true) {
                     $status['audio'] = $audio;
                     $status['audio_channels'] = $audio_channels;
                     $status['audio_sample_depth'] = $audio_sample_depth;
-                    $status['audio_sample_rate'] = round($audio_sample_rate/1000, 1);
+                    $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
                     $status['currentalbum'] = $btDeviceName;
                     $status['currentsong'] = 'Streaming';
                     $status['bitrate'] = $bitrate;

@@ -2945,10 +2945,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             array_multisort($ssidCol, SORT_ASC, $storedProfiles);
             // save the profile array
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
-            // if required, stop the Access Point by disabeling it
+            // if required, stop the Access Point by disabling it
             if ($redis->hGet('AccessPoint', 'enable')) {
                 // nat will automatically be disabled when the AP is stopped, save its current value
-                $apaNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+                $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
                 // save the old Access Point status
                 $apEnable = true;
                 // set up the arguments to disable the Access Point
@@ -5089,9 +5089,13 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
-    runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
-    runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
+    if (isset($acard['name']) {
+        runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
+        runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
+        runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
+    } else {
+        runelog('[wrk_spotifyd] acard name         : ', 'not set');
+    }
     //
     !empty($acard['device']) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
     //
