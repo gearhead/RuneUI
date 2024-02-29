@@ -5089,7 +5089,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    if (isset($acard['name']) {
+    if (isset($acard['name'])) {
         runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
         runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
         runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
