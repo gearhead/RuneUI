@@ -33,10 +33,10 @@
 #
 # customisation of the apt command
 # this script will automatically increase the size of the tmpfs /var/tmp to 100M before running the apt command
-# this is only valid for RPiOS Bookworm
+# this is only valid for RPiOS bookworm
 os=$( redis-cli get os )
 codename=$( redis-cli get codeneme )
-if [ "$os" != "RPiOS" ] || [ "$codename" != "Bookworm" ]; then
+if [ "$os" != "RPiOS" ] || [ "$codename" != "bookworm" ]; then
     # this file should not be there, remove it
     rm /usr/local/sbin/apt
 else
