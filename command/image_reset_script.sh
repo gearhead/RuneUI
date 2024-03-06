@@ -892,9 +892,11 @@ if [ "$os" == "RPiOS" ] ; then
 else
     cname = ""
 fi
+wordlength=$( getconf LONG_BIT | xargs )
+wordlength="-$wordlength""bit"
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($linuxver $os$cname)"
+line3="Hw-env: Raspberry Pi ($linuxver $os$cname$wordlength)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
@@ -999,7 +1001,11 @@ mount http-tmp
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
     # zero fill the file system
-    cd /boot
+    if [ "$codename" == "bookworm" ] ; then
+        cd /boot/firmware
+    else
+        cd /boot
+    fi
     sync
     cat /dev/zero > zero.file
     sync
