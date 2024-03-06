@@ -35,13 +35,16 @@
 # this script will automatically increase the size of the tmpfs /var/tmp to 100M before running the apt command
 # this is only valid for RPiOS bookworm
 os=$( redis-cli get os )
-codename=$( redis-cli get codeneme )
+codename=$( redis-cli get codename )
 if [ "$os" != "RPiOS" ] || [ "$codename" != "bookworm" ]; then
     # this file should not be there, remove it
     rm /usr/local/sbin/apt
 else
-    # remount the tmpfs /var/tmp with 100M disk space
-    mount -o remount,size=100M /var/tmp
+    remounted=$( df -h | grep -i '/var/tmp' | grep -ic '100M' | xargs )
+    if [ "$remounted" != "1" ] ; then
+        # remount the tmpfs /var/tmp with 100M disk space
+        mount -o remount,size=100M /var/tmp
+    fi
 fi
 # now find the real apt command
 paths=$( echo $PATH | sed 's/:/\n/g' )
@@ -49,13 +52,14 @@ for p in $paths ; do
     if [ "$p" == "/usr/local/sbin" ] ; then
         continue
     fi
-    aptpath=$( find $p -maxdepth 1 -name apt 2> /dev/null )
+    aptpath=$( find $p -maxdepth 1 -type f -name apt 2> /dev/null )
     if [ "$aptpath" != "" ] ; then
+        aptcommand="$aptpath $@"
         break
     fi
 done
-if [ "$aptpath" != "" ] ; then
-    $aptpath ${*}
+if [ "$aptcommand" != "" ] ; then
+    eval $aptcommand
 else
     echo "apt: No such file or directory"
     exit 2
