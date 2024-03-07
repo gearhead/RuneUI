@@ -1573,7 +1573,7 @@ while (true) {
             ui_render('modal', json_encode($data));
             unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
-        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd('find '.$p1mountpoint.'/webradios -name "*.pls" | wc -l | xargs')[0]) {
+        } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd("find ".$p1mountpoint."/webradios -name '*.pls' | wc -l | xargs")[0]) {
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'CD_detect')) {
