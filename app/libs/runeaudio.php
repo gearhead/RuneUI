@@ -7849,22 +7849,30 @@ function osort(&$array, $key, $descending = 0, $ignoreCase = 0)
 
     if ($descending) {
         // descending  sort
-        usort($array, function($b, $a) use ($key) {
-            if ($ignoreCase) {
+        if ($ignoreCase) {
+            // descending, ignore case
+            usort($array, function($b, $a) use ($key) {
                 return strtolower($a[$key]) <=> strtolower($b[$key]);
-            } else {
+            });
+        } else {
+            // descending case specific
+            usort($array, function($b, $a) use ($key) {
                 return $a[$key] <=> $b[$key];
-            }
-        });
+            });
+        }
     } else {
         // ascending sort
-        usort($array, function($a, $b) use ($key) {
-            if ($ignoreCase) {
+        if ($ignoreCase) {
+            // ascending, ignore case
+            usort($array, function($a, $b) use ($key) {
                 return strtolower($a[$key]) <=> strtolower($b[$key]);
-            } else {
+            });
+        } else {
+            // ascending case specific
+            usort($array, function($a, $b) use ($key) {
                 return $a[$key] <=> $b[$key];
-            }
-        });
+            });
+        }
     }
     return true;
 }
