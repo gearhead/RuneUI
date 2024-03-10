@@ -40,8 +40,9 @@ if (isset($_POST)) {
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'set_alsa', 'args' => $_POST['alsa_settings']));
     }
 }
-
-waitSyWrk($redis, $jobID);
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
+}
 // collect alsa settings
 
 $cards = sysCmd("/usr/bin/cat /proc/asound/cards | /usr/bin/grep : | /usr/bin/cut -b 5-19 | /usr/bin/sed -e 's/[[:space:]]*$//'");

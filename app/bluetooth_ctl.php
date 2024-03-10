@@ -135,8 +135,9 @@ if (isset($_POST)) {
 if (!$redis->get('bluetooth_on') || (sysCmd('systemctl is-active bluetooth')[0] == 'inactive')) {
     $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
 }
-
-waitSyWrk($redis,$jobID);
+if (isset($jobID)) {
+    waitSyWrk($redis,$jobID);
+}
 
 $template->hostname = $redis->get('hostname');
 $template->enable = $redis->get('bluetooth_on');
