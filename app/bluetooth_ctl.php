@@ -135,9 +135,10 @@ if (isset($_POST)) {
 if (!$redis->get('bluetooth_on') || (sysCmd('systemctl is-active bluetooth')[0] == 'inactive')) {
     $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
 }
+if (isset($jobID)) {
+    waitSyWrk($redis, $jobID);
 
-waitSyWrk($redis,$jobID);
-
+}
 $template->hostname = $redis->get('hostname');
 $template->enable = $redis->get('bluetooth_on');
 // testing for an active Blutooth controller seems to give a false negative on its first try, repeat it max 3 times with a half second delay

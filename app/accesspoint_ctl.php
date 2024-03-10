@@ -45,8 +45,9 @@ if (isset($_POST)) {
         $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'apcfg', 'action' => 'writecfg', 'args' => $_POST['settings']));
     }
 }
-
-waitSyWrk($redis,$jobID);
+if (isset($jobID)) {
+    waitSyWrk($redis,$jobID);
+}
 
 $template->enable = $redis->hGet('AccessPoint', 'enable');
 $template->accesspoint = $redis->hGetAll('AccessPoint');
