@@ -4619,11 +4619,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $args);
                 }
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
-                    // enable the null output, its needed when a bluetooth connection is lost
+                    // enable the null output, its required when a bluetooth connection is lost
                     sysCmd('mpc enable null');
                     $startBluetooth = true;
                 } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
-                    // enable the null output, its needed for vc4 hdmi output, which always appears as a valid output even when it is not connected
+                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
                     sysCmd('mpc enable null');
                 } else {
                     $disableNull = true;
@@ -4654,7 +4654,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
                     sysCmd('mpc enable null');
                 } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
-                    // enable the null output, its needed for vc4 hdmi output, which always appears as a valid output even when it is not connected
+                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
                     sysCmd('mpc enable null');
                 } else {
                     sysCmd('mpc disable null');
@@ -5089,15 +5089,19 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    if (isset($acard['name'])) {
-        runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
+    if (isset($acard['sysname'])) {
+        runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
         runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
         runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
     } else {
-        runelog('[wrk_spotifyd] acard name         : ', 'not set');
+        runelog('[wrk_spotifyd] acard sysname      : ', 'not set');
     }
     //
-    !empty($acard['device']) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
+        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    } else {
+        $redis->hSet('spotifyconnect', 'device', trim($acard['device']));
+    }
     //
     if (!empty($acard['mixer_control'])) {
         $mixer = trim($acard['mixer_control']);
@@ -5243,6 +5247,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
 
 function wrk_shairport($redis, $ao = null, $name = null)
 {
+    // debug
+    // echo "wrk_shairport ao  :'".$ao."'\n";
+    // echo "wrk_shairport name:'".$name."'\n";
     if (!isset($name) || empty($name) || !$name) {
         $name = trim($redis->hGet('airplay', 'device_name'));
         if ($name == '') {
@@ -5274,9 +5281,12 @@ function wrk_shairport($redis, $ao = null, $name = null)
         $ao = trim($ao);
     }
     $redis->hSet('airplay', 'ao', $ao);
+    // debug
+    // echo "wrk_shairport ao  :'".$ao."'\n";
+    // echo "wrk_shairport name:'".$name."'\n";
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    if (!isset($acard) || !is_array($acard) || !isset($acard['name'])) {
+    if (!isset($acard) || !is_array($acard) || !isset($acard['sysname'])) {
         // no output devices
         $redis->hSet('airplay', 'ao', '');
         $redis->hSet('airplay', 'alsa_mixer_control', '');
@@ -5286,42 +5296,37 @@ function wrk_shairport($redis, $ao = null, $name = null)
         sysCmd('pgrep shairport-sync && systemctl stop shairport-sync');
         return 0;
     }
-    runelog('wrk_shairport acard name         : ', $acard['name']);
+    runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
     // shairport-sync output device is specified without a subdevice if only one subdevice exists
     // determining the number of sub devices is done by counting the number of alsa info file for the device
     // shairport-sync output device is always specified without a subdevice! Possible that this will need extra work for USB DAC's
-    $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
+        $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    } else {
+        $redis->hSet('airplay', 'alsa_output_device', trim($acard['device']));
+    }
     //
-    if (!empty($acard['mixer_device'])) {
+    if (isset($acard['mixer_device']) && trim($acard['mixer_device'])) {
         $alsa_mixer_device = trim($acard['mixer_device']);
     } else {
-        $alsa_mixer_device = '';
-    }
-    if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
         $alsa_mixer_device = '';
     }
     runelog('wrk_shairport alsa_mixer_device : ', $alsa_mixer_device);
     $redis->hSet('airplay', 'alsa_mixer_device', $alsa_mixer_device);
     unset($alsa_mixer_device);
     //
-    if (!empty($acard['mixer_control'])) {
+    if (isset($acard['mixer_device']) && trim($acard['mixer_device']) && isset($acard['mixer_control']) && trim($acard['mixer_control'])) {
         $alsa_mixer_control = trim($acard['mixer_control']);
     } else {
-        $alsa_mixer_control = 'PCM';
-    }
-    if ($alsa_mixer_control === '') {
-        $alsa_mixer_control = 'PCM';
-    }
-    if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
-        $alsa_mixer_control = 'PCM';
+        $alsa_mixer_control = 'Software';
     }
     runelog('wrk_shairport acard alsa_mixer_control: ', $alsa_mixer_control);
     $redis->hSet('airplay', 'alsa_mixer_control', $alsa_mixer_control);
     unset($alsa_mixer_control);
     //
-    if (!empty($acard['description'])) {
+    if (isset($acard['description']) && trim($acard['description'])) {
         $description = trim($acard['description']);
     } else {
         $description = '';
@@ -5381,7 +5386,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$airplay['run_this_after_play_ends'].'"; // run_this_after_play_ends');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$airplay['run_this_wait_for_completion'].'"; // run_this_wait_for_completion');
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_device', 'output_device="'.$airplay['alsa_output_device'].'"; // alsa_output_device');
-    if ($airplay['alsa_mixer_control'] === 'PCM') {
+    if ($airplay['alsa_mixer_control'] === 'Software') {
         $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
     } else {
         $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
@@ -6699,11 +6704,11 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null
     $serviceFile = '/etc/systemd/system/upmpdcli.service';
     $configFile = '/etc/upmpdcli.conf';
     // set the name and log level
+    $logFile = $redis->hGet('dlna', 'logfile');
+    $logLevel = $redis->hGet('dlna', 'loglevel');
     sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."' '".$configFile."'");
     sysCmd('sed -i '."'".'/^ohproductroom/ s|.*|ohproductroom = '.$name.'|'."' '".$configFile."'");
     sysCmd('sed -i '."'".'/^loglevel/ s|.*/|loglevel = '.$logLevel.'|'."' '".$configFile."'");
-    $logFile = $redis->hGet('dlna', 'logfile');
-    $logLevel = $redis->hGet('dlna', 'loglevel');
     if (($name != $nameOld) || ($queueowner != $queueownerOld)) {
         $action = 'Updated';
         sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
