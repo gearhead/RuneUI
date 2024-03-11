@@ -4752,7 +4752,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    runelog('[wrk_spotifyd] acard name         : ', $acard['name']);
+    runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
     runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
     runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
     //
@@ -4936,7 +4936,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     //
     $acard = $redis->hGet('acards', $ao);
     $acard = json_decode($acard, true);
-    runelog('wrk_shairport acard name         : ', $acard['name']);
+    runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
     // shairport-sync output device is specified without a subdevice if only one subdevice exists
