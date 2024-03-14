@@ -31,6 +31,11 @@
  *  version: 1.3
  *  coder: Simone De Gregori
  *
+ *  Notes: since 0.6b this file is run repeatedly from rune_SY_wrk to recover from mounting problems
+ *         the routine now mounts and dismounts usb storage devices when erroneous situations have developed
+ *         typical reasons for the erroneous situations include mounts failing due to power issues and
+ *          unplugging usb devices without dismounting
+ *         the redis database is also managed better to reflect the actual observed status of the usb devices
  */
 // common include
 ini_set('display_errors', '1');
@@ -42,129 +47,232 @@ require_once('/srv/http/app/libs/runeaudio.php');
 require_once('/srv/http/app/libs/openredis.php');
 //
 // when requested run this file asynchronously
-if (isset($argv[1]) && ($argv[1] == 'async')) {
+if (isset($argv[1]) && array_search('async', $argv)) {
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount');
     exit(0);
 }
 //
 // when requested run this file asynchronously
-if (isset($argv[1]) && ($argv[1] == 'asyncnow')) {
+if (isset($argv[1]) && array_search('asyncnow', $argv)) {
+    // this needs to be run as root via the back-end
+    // wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'usbmount', 'action' => 'asyncnow'));
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount', 0);
     exit(0);
 }
+//
 // handle HFS+ mount
 if (strpos(file_get_contents('/proc/mounts'), '/mnt/MPD/USB/EFI vfat')) {
     sysCmd('devmon --unmount /mnt/MPD/USB/EFI');
 }
 //
+// use udevil clean to remove any ghost entries
+sysCmd('udevil clean');
+//
 // sleep for 5 seconds to allow devmon and udevil to complete mounting, don't sleep when nowait is given as a parameter
-if (!isset($argv[1]) || ($argv[1] != 'nowait')) {
+if (!isset($argv[1]) || !array_search('nowait', $argv)) {
     // nowait not specified
     sleep(5);
 }
 //
-// remove 'ghost' usb mounts
-// use udevil clean to remove any ghost entries
-sysCmd('udevil clean');
-//
-// remove invalid mount point info in redis
-// get a list of mounted devices
+// unmount any mounted devices which are no longer valid
+// get a list of the usb devices which are mounted
 $usbMountedList = sysCmd("df -hl | grep '/mnt/MPD/USB'");
+if (count($usbMountedList)) {
+    // set up the sleep indicator
+    $sleep = false;
+    // get a list of the mountable devices
+    $usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINTS  | grep '^sd[a-z][0-9]'");
+    foreach ($usbMountedList as $usbMountedDevice) {
+        // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
+        $usbMountedDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMountedDevice));
+        // extract the device name ([0]), size ([1]), used ([2]), available([3]), use as % ([4]) and mount point ([5])
+        $usbMountedDeviceInfo = explode(' ', $usbMountedDevice);
+        foreach ($usbDevices as $usbDevice) {
+            // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
+            $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbDevice));
+            // extract the devics name ([0]), file system ([1]) and mount point ([2])
+            $devInfo = explode(' ', $usbDevice);
+            $usbDevice = '/dev/'.$devInfo[0];
+            if ($usbDevice == $usbMountedDeviceInfo[0]) {
+                // the mounted device is valid, continue in the outside loop
+                continue 2;
+            }
+        }
+        // the current device is not valid dismount it (it has probably been unplugged without dismounting)
+        sysCmd('udevil umount '.$usbMountedDeviceInfo[0]);
+        // remove entries for this device from the unmounted list and the mounted list (don't bother to check for the existence of these hashes)
+        $redis-hDel('usbunmounts', $usbMountedDeviceInfo[0]);
+        $redis-hDel('usbmounts', $usbMountedDeviceInfo[0]);
+        $sleep = true;
+    }
+    if ($sleep) {
+        // sleep for 5 seconds to allow the udevil umount to complete
+        sleep(5);
+    }
+}
+unset($sleep, $usbDevices, $usbMountedList, $usbMountedDevice, $usbMountedDeviceInfo, $usbDevice, $devInfo);
+//
+// remove invalid mounts info in redis
 // get the redis list of mounted devices
 $usbMounts = $redis->hgetall('usbmounts');
-// walk through the usb mount list
-foreach ($usbMounts as $key => $usbMount) {
-    foreach ($usbMountedList as $usbMounted) {
-        if (strpos(' '.$usbMounted, $key)) {
-            // this one is mounted, continue the outside loop
-            continue 2;
+if (count($usbMounts)) {
+    // get a list of mounted devices
+    $usbMountedList = sysCmd("df -hl | grep '/mnt/MPD/USB'");
+    // walk through the usb mount list
+    foreach ($usbMounts as $key => $usbMount) {
+        foreach ($usbMountedList as $usbMounted) {
+            if (strpos(' '.$usbMounted, $key)) {
+                // this one is mounted, continue the outside loop
+                continue 2;
+            }
         }
+        // this one has not been found, delete it from redis
+        $redis->hDel('usbmounts', $key);
     }
-    // this one has not been found, delete it from redis
-    $redis->hDel('usbmounts', $key);
 }
-// remove invalid unmounted device info in redis
-// get a list of usb devices
-$usbDevices = sysCmd('dir /dev/sd* -1');
-// get the redis list of unmounted devices
+unset($usbMountedList, $usbMounts, $key, $usbMount);
+//
+// remove invalid unmounted device info in redis for devices which have been removed (unplugged)
+// get the redis list of devices which have been unmounted
 $usbUnMounts = $redis->hgetall('usbunmounts');
-// walk through the usb unmount list
-foreach ($usbUnMounts as $key => $usbUnMount) {
-    foreach ($usbDevices as $usbDevice) {
-        $usbDevice = trim($usbDevice);
-        if (strlen($usbDevice) < 9) {
-            // the is a usb device root, real devices have a string length of 9 (or more), e.g. /dev/sda1
-            continue;
+if (count($usbUnMounts)) {
+    // get a list of usb devices
+    $usbDevices = sysCmd('dir /dev/sd* -1');
+    // walk through the usb unmount list
+    foreach ($usbUnMounts as $key => $usbUnMount) {
+        foreach ($usbDevices as $usbDevice) {
+            $usbDevice = trim($usbDevice);
+            if (strlen($usbDevice) < 9) {
+                // the is a usb device root, real devices have a string length of 9 (or more), e.g. /dev/sda1
+                continue;
+            }
+            if (trim($key) == $usbDevice) {
+                // this one is available, continue the outside loop
+                continue 2;
+            }
         }
-        if (trim($key) == $usbDevice) {
-            // this one is available, continue the outside loop
-            continue 2;
+        // this one has not been found, its been removed, delete it from redis
+        $redis->hDel('usbunmounts', $key);
+    }
+}
+unset($usbUnMounts, $usbDevices, $key, $usbUnMount, $usbDevice);
+//
+// remove invalid unmounted device info in redis for devices which have been remounted (unplugged and then plugged in)
+// get the redis list of devices which have been unmounted
+$usbUnMounts = $redis->hgetall('usbunmounts');
+if (count($usbUnMounts)) {
+    // get a list of mounted devices
+    $usbMountedList = sysCmd("df -hl | grep '/mnt/MPD/USB'");
+    // walk through the usb unmount list
+    foreach ($usbUnMounts as $key => $usbUnMount) {
+        foreach ($usbMountedList as $usbMountedDevice) {
+            if (strpos(' '.$usbMountedDevice, $key)) {
+                // this one has been remounted, remove it from the unmounted list and continue the outside loop
+                $redis->hDel('usbunmounts', $key);
+                continue 2;
+            }
         }
     }
-    // this one has not been found, its been removed, delete it from redis
-    $redis->hDel('usbunmounts', $key);
 }
+unset($usbUnMounts, $usbMountedList, $key, $usbUnMount, $usbMountedDevice);
 //
 // mount any unmounted devices, providing they are not in the unmounted list
 // get a list of usb devices
-$usbDevices = sysCmd('dir /dev/sd* -1');
+$usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINTS  | grep '^sd[a-z][0-9]'");
 // get the list of unmounted usb devices
 $usbUnMounts = $redis->hgetall('usbunmounts');
 // get a list of mounted devices
 $usbMountedList = sysCmd("df -hl | grep '/mnt/MPD/USB'");
+// set sleep indicator
+$sleep = false;
 // walk through the usb devices, attempting to mount unmounted devices
 foreach ($usbDevices as $usbDevice) {
-    $usbDevice = trim($usbDevice);
-    if (strlen($usbDevice) < 9) {
-        // the is a usb device root, real devices have a string length of 9 (or more), e.g. /dev/sda1
+    // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
+    $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbDevice));
+    // debug
+    // echo "usbDevice:'".$usbDevice."'\n";
+    // extract the devics name ([0]), file system ([1]) and mount point ([2])
+    $devInfo = explode(' ', $usbDevice);
+    if (!isset($devInfo[1])) {
+        // this device has no defined file system, it will never be mounted, just ignore it
         continue;
     }
-    foreach ($usbUnMounts as $key => $usbUnMount) {
-        // check that this device has not been unmounted
-        echo "key: '".$key."'\n";
-        echo "usbDevice: '".$usbDevice."'\n";
-        if (trim($key) == $usbDevice) {
-            // skip this one it's been unmounted, continue in the outside loop
-            continue 2;
+    if (isset($devInfo[2]) && strpos(' '.$devInfo[2],'/mnt/MPD/USB/')) {
+        // this device is mounted
+        continue;
+    }
+    $usbDevice = '/dev/'.$devInfo[0];
+    if (strlen($usbDevice) < 9) {
+        // invalid device, real devices have a string length of 9 (or more), e.g. /dev/sda1
+        continue;
+    }
+    if (count($usbUnMounts)) {
+        foreach ($usbUnMounts as $key => $usbUnMount) {
+            // debug
+            // echo "key: '".$key."'\n";
+            // echo "usbDevice: '".$usbDevice."'\n";
+            // check that this device has not been unmounted
+            if (trim($key) == $usbDevice) {
+                // skip this one it's been unmounted, continue in the outside loop
+                continue 2;
+            }
         }
     }
-    foreach ($usbMountedList as $usbMounted) {
-        if (strpos(' '.$usbMounted, $usbDevice)) {
-            // skip this one, it is mounted, continue the outside loop
-            continue 2;
+    if (count($usbMountedList)) {
+        foreach ($usbMountedList as $usbMounted) {
+            if (strpos(' '.$usbMounted, $usbDevice)) {
+                // skip this one, it is mounted, continue the outside loop
+                continue 2;
+            }
         }
     }
     // this one has not been mounted, try mounting it with udevil
     sysCmd('udevil mount '.$usbDevice);
+    $sleep = true;
+}
+if ($sleep) {
+    // sleep for 5 seconds to allow the udevil mount to complete
     sleep(5);
 }
+unset($sleep, $usbDevices, $usbUnMounts, $usbMountedList, $usbDevice, $devInfo, $usbUnMount, $usbMounted);
 //
 // store all the mounted device information in redis
 // get the mounted usb devices
 $usbMounts = sysCmd("df -hl | grep '/mnt/MPD/USB'");
-// walk through the
-foreach ($usbMounts as $usbMount) {
-    // replace whitespace with single space and trim the usb mount information
-    //  this will also convert multiple spaces in the mount name to single spaces
-    $usbMount = trim(preg_replace('!\s+!', ' ', $usbMount));
-    // get the details, the mount name can contain spaces so limit the explode to 6 fields
-    unset($device, $size, $used, $avail, $use, $name);
-    list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
-    // save the values
-    if (isset($name) && strlen($name)) {
-        // it's a valid set of data
-        $redis->hSet('usbmounts', $device, json_encode(array('device' => $device, 'size' => $size, 'use' => $use, 'name' => substr($name, 9))));
-        // anything which is mounted should be removed from the unmounted list
-        $redis->hDel('usbunmounts', $key);
+// walk through the mounted devices
+if (count($usbMounts)) {
+    foreach ($usbMounts as $usbMount) {
+        // clear the usb mount variables
+        unset($device, $size, $used, $avail, $use, $name);
+        // if possible, split the usb mount string into two parts the first up to and including the % and the second for the rest
+        if (substr_count($usbMount, '%') == 1) {
+            list($usbMount1, $usbMount2) = explode('%', $usbMount, 2);
+            // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
+            $usbMount1 = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount1.'%'));
+            // get the details
+            list($device, $size, $used, $avail, $use) = explode(' ', $usbMount, 5);
+            $name = trim($usbMount2);
+        } else {
+            // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
+            //  Note: this will also convert multiple spaces in the mount name to single spaces
+            $usbMount = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount));
+            // get the details, the mount name can contain spaces so limit the explode to 6 fields
+            list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
+        }
+        // save the values
+        if (isset($name) && strlen($name)) {
+            // it's a valid set of data
+            $redis->hSet('usbmounts', $device, json_encode(array('device' => $device, 'size' => $size, 'use' => $use, 'name' => substr($name, 9))));
+        }
+        // debug
+        // echo "usbMount: '".$usbMount."'\n";
+        runelog('[usbmount] usbMount: ', $usbMount);
     }
-    // debug
-    // echo "usbMount: '".$usbMount."'\n";
-    runelog('[usbmount] usbMount: ', $usbMount);
 }
+unset($usbMounts, $usbMount, $usbMount1, $usbMount2, $device, $size, $used, $avail, $use, $name);
 // set file protection and ownership of USB mounts
-sysCmd('chown mpd.audio /mnt/MPD/USB ; chown mpd.audio /mnt/MPD/USB/*');
+sysCmd('chown mpd:audio /mnt/MPD/USB ; chown mpd:audio /mnt/MPD/USB/*');
 sysCmd('chmod 777 /mnt/MPD/USB ; chmod 777 /mnt/MPD/USB/*');
-// remove 'ghost' usb mounts
 // use udevil clean to remove any ghost entries
 sysCmd('udevil clean');
 // check if usb autorebuild is set

@@ -97,12 +97,6 @@ if [ "$windows" == "weston" ] ; then
     sleep 1
     pgrep -x weston && pkill -15 weston
 fi
-systemctl stop nginx
-if [ "$shutdownmode" != "" ] ; then
-    # force redis to save all its variables to disk and stop it
-    redis-cli shutdown save
-    systemctl stop redis
-fi
 # stop most of the systemd units which can be stopped
 declare -a stop_arr=(amixer-webui avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
@@ -111,16 +105,24 @@ declare -a stop_arr=(amixer-webui avahi-daemon\
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
+# remove any registered local disk unmounts
+redis-cli del usbunmounts
+systemctl stop nginx
+if [ "$shutdownmode" != "" ] ; then
+    # force redis to save all its variables to disk and stop it
+    redis-cli shutdown save
+    systemctl stop redis
+fi
 # unmount the local and network storage devices
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
-# udevil mount points have a file in them which causes the previous line to fail, the line below cleans them up
+# udevil mount points have a file in them which causes the rmdir lines to fail, the line below cleans them up
 udevil clean
 # unmount the persistent cache subsystem
 umount /srv/http/tmp/art
-umount /home/cache
+umount /home/cache/art
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers

@@ -304,6 +304,8 @@ if ($playerid_db === '') {
     if (is_firstTime($redis, 'mount_all_shares_async')) {
         $redis->set('allmounted', $allmounted);
         sysCmdAsync($redis, 'nice --adjustment=10 php -f /srv/http/command/mount_async.php');
+        // also remove any registered unmounts of local disks
+        $redis->del('usbunmounts');
     }
     //
     // store the memory and number of cores
