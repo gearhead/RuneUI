@@ -56,10 +56,16 @@ function updateOS($redis) {
             ui_notify($redis, 'Post update processing', 'Patchlevel 2');
             sysCmd("sed -i '/^success_rootexec/s/.*/success_rootexec = \/var\/www\/command\/usbmount asyncnow/' '/etc/udevil/udevil.conf'");
         }
-        // if ($redis->get('patchlevel') == 2) {
-            // // 3rd update
-            // $redis->set('patchlevel', 3);
-            // ui_notify($redis, 'Post update processing', 'Patchlevel 3');
+        if ($redis->get('patchlevel') == 2) {
+            // 3rd update
+            $redis->set('patchlevel', 3);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 3');
+            sysCmd("sed -i '/^success_rootexec/s/.*/success_rootexec = \/var\/www\/command\/usbmount/' '/etc/udevil/udevil.conf'");
+        }
+        // if ($redis->get('patchlevel') == 3) {
+            // // 4th update
+            // $redis->set('patchlevel', 4);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 4');
         // }
     }
 }
