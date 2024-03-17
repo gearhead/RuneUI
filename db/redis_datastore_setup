@@ -202,6 +202,7 @@ function redisDatastore($redis,$action) {
             $redis->del('cleancache');
             $redis->set('savecpuSmt', 480);
             $redis->set('hdmivc4hw', 4);
+            $redis->set('aocardexceptions', '');
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -561,6 +562,7 @@ function redisDatastore($redis,$action) {
             $redis->exists('overlay_art_cache') || $redis->set('overlay_art_cache', 0);
             $redis->exists('savecpuSmt') || $redis->set('savecpuSmt', 480);
             $redis->exists('hdmivc4hw') || $redis->set('hdmivc4hw', 4);
+            $redis->exists('aocardexceptions') || $redis->set('aocardexceptions', '');
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing

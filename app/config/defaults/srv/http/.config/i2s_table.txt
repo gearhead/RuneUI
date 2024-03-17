@@ -31,6 +31,7 @@ i-sabre-q2m|AUDIOPHONICS I-Sabre DAC ES9038Q2M
 hifiberry-dac|AUDIOPHONICS I-TDA1387 TCXO DAC
 audiosense-pi|AudioSense-Pi add-on soundcard
 pisound|Blokas Labs pisound card
+pisound-pi5|Blokas Labs pisound card
 chipdip-dac|Chip Dip audio card
 cirrus-wm5102|Cirrus Logic Audio Card
 dacberry400|Dacberry400 soundcard
@@ -44,8 +45,14 @@ hifiberry-amp|HiFiBerry Amp
 hifiberry-amp|HiFiBerry Amp+
 hifiberry-amp100|HifiBerry AMP100
 hifiberry-amp100,slave|HifiBerry AMP100 in slave mode
+hifiberry-amp100,slave,auto_mute|HifiBerry AMP100 in slave mode with auto-mute
+hifiberry-amp100,auto_mute|HifiBerry AMP100 with automute
 hifiberry-dacplus|HiFiBerry Amp2
 hifiberry-amp3|HiFiBerry Amp3
+hifiberry-amp4pro|HiFiBerry Amp4
+hifiberry-amp4pro,slave|HiFiBerry Amp4 in slave mode
+hifiberry-amp4pro,slave,auto_mute|HiFiBerry Amp4 in slave mode with auto-mute
+hifiberry-amp4pro,auto_mute|HiFiBerry Amp4 with automute
 hifiberry-dac|HiFiBerry Beocreate
 hifiberry-dac|HiFiBerry DAC
 hifiberry-dac|HiFiBerry DAC fo RPi 1
@@ -64,6 +71,7 @@ hifiberry-dacplus|HiFiBerry DAC+ Standard
 hifiberry-dac|HiFiBerry DAC+ Zero
 hifiberry-dacplushd|HiFiBerry DAC2 HD
 hifiberry-dacplus|HiFiBerry DAC2 Pro
+hifiberry-dac8x|HiFiBerry DAC8X
 hifiberry-digi|HiFiBerry Digi
 hifiberry-digi-pro|HiFiBerry Digi Pro
 hifiberry-digi|HiFiBerry Digi+
@@ -75,6 +83,9 @@ hifiberry-amp|Inno-Maker Raspberry Pi HiFi AMP HAT TAS5713
 merus-amp|Inno-Maker Raspberry Pi HiFi AMP Pro MA1270P
 allo-boss-dac-pcm512x-audio|Inno-Maker Raspberry Pi HiFi DAC HAT PCM5122
 allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M
+inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M
+interludeaudio-analog|Interlude Audio Analog Hat
+interludeaudio-digital|Interlude Audio Digital Hat
 iqaudio-dacplus|IQaudIO Amp
 iqaudio-dacplus,auto_mute_amp|IQaudIO Amp - with auto mute
 iqaudio-dacplus,unmute_amp|IQaudIO Amp - with unmute

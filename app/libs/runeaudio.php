@@ -6150,6 +6150,16 @@ function wrk_getHwPlatform($redis, $reset = 0)
                         break;
                 }
             }
+            if ($reset) {
+                // its a reset, configure Pi5 audio card exceptions
+                if ($model == '17') {
+                    // its a Pi5
+                    audioCardPi5($redis);
+                } else {
+                    // its not a Pi5
+                    audioCardNonPi5($redis);
+                }
+            }
             break;
 
         // UDOO
@@ -14732,5 +14742,92 @@ function wrk_mpd_loopback($redis, $action = null)
             wrk_mpdconf($redis, 'forcerestart');
         }
         return 'changed';
+    }
+}
+
+// function to correct audio cards exceptions when booted on a Pi5
+function audioCardPi5($redis)
+// some audio cards are specific to the Pi5, non-Pi5 audio cards are removed in this routine
+// some audio card overlays have special version for the Pi5, these are corrected in this routine
+// these are the impacted overlays:
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
+// 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+{
+    if ($redis->get('aocardexceptions') == 'Pi5') {
+        // corrections have already been applied
+        return;
+    }
+    // set up the i2s table
+    copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
+    sysCmd("sed -i '/pisound|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
+    // change the file privileges to read only and owner/group to http:http
+    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    $i2smodule_select = trim($redis->get('i2smodule_select'));
+    $reboot = false;
+    if (substr($i2smodule_select, 0, 5) != 'none|') {
+        // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
+        if ($i2smodule_select == 'pisound|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound-pi5');
+            $redis->set('i2smodule_select', 'pisound-pi5|Blokas Labs pisound card');
+            $reboot = true;
+        } else if ($i2smodule_select == 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
+            wrk_i2smodule($redis, 'inno-dac-pro');
+            $redis->set('i2smodule_select', 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
+            $reboot = true;
+        }
+    }
+    $redis->set('aocardexceptions', 'Pi5');
+    if ($reboot) {
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured for Pi5 specific settings, rebooting to activate');
+        sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
+    }
+}
+
+// function to correct audio cards exceptions when booted on a non-Pi5
+function audioCardNonPi5($redis)
+// some audio cards are specific to non-Pi5 models, Pi5 audio cards are removed in this routine
+// some audio card overlays have special version for the Pi5, non-Pi5 corrections are applied in this routine
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
+// 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+{    if ($redis->get('aocardexceptions') == 'Non-Pi5') {
+        // corrections have already been applied
+        return;
+    }
+    // set up the i2s table
+    copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
+    sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dac8x|HiFiBerry DAC8X/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
+    // change the file privileges to read only and owner/group to http:http
+    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    $i2smodule_select = trim($redis->get('i2smodule_select'));
+    $reboot = false;
+    if (substr($i2smodule_select, 0, 5) != 'none|') {
+        // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
+        if ($i2smodule_select == 'pisound-pi5|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound');
+            $redis->set('i2smodule_select', 'pisound|Blokas Labs pisound card');
+            $reboot = true;
+        } else if ($i2smodule_select == 'hifiberry-dac8x|HiFiBerry DAC8X') {
+            wrk_i2smodule($redis, 'none');
+            $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
+            $reboot = true;
+        } else if ($i2smodule_select == 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
+            wrk_i2smodule($redis, 'allo-katana-dac-audio');
+            $redis->set('i2smodule_select', 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
+            $reboot = true;
+        }
+    }
+    $redis->set('aocardexceptions', 'Non-Pi5');
+    if ($reboot) {
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured from Pi5 specific settings, rebooting to activate');
+        sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
     }
 }
