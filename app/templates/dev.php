@@ -259,6 +259,8 @@
                             </label>
                         <span class="help-block">IPv6 Connections is set <strong>ON</strong> by default.
                             It should be left <strong>ON</strong> unless you have problems with network connections.<br>
+                            When the Firefox browser is used, IPv6 will automatically be switched off.
+                            This solves some performance and functionality problems.<br>
                             <i>Notes:
                             Regardless of the setting, the IPv6 stack is unaltered and activated.
                             IPv6 addresses will be processed normally, this switch only effects the connections which RuneAudio makes within your local network.<br>

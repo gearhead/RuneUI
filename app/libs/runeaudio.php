@@ -14826,3 +14826,24 @@ function audioCardNonPi5($redis)
         sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
     }
 }
+
+// function which checks and disables IPv6 connections
+function autoIpv6ConnectionsOff($redis)
+// this function is called when the Firefox browser is used
+// when IPv4 connections are valid IPv6 connections are disabled
+{
+    if ($redis->get('network_ipv6')) {
+        // IPv6 is on
+        if (is_firstTime($redis, 'autoIpv6ConnectionsOff')) {
+            // this routine has not been run today
+            // run command to: list ip addresses, get the IPv4 lines, exclude virtual access points, count the number with 'scope global'
+            if (sysCmd("ip add | grep -i 'inet\s' | grep -iv 'ap[0-9]' | grep -ic 'scope\s*global' | xargs")[0]) {
+                // there is at least one IPv4 connection with a global scope, we can set IPv6 off
+                $redis->set('network_ipv6', 0);
+                ui_notify($redis, "Firefox automatic network configuration", 'You may lose your connection, please wait and retry');
+                return 1;
+            }
+        }
+    }
+    return 0;
+}

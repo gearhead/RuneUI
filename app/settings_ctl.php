@@ -31,6 +31,22 @@
  *  coder: Simone De Gregori
  *
  */
+// check the user agent for Firefox browser, then attempt to set IPv6 off
+if (isset($_SERVER['HTTP_USER_AGENT'])) {
+    if (strpos($_SERVER['HTTP_USER_AGENT'], 'Opera') || strpos($user_agent, 'OPR/')) $browser = 'Opera';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Edge')) $browser = 'Edge';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Chrome')) $browser = 'Chrome';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Safari')) $browser = 'Safari';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Firefox')) $browser = 'Firefox';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSIE') || strpos($user_agent, 'Trident/7')) $browser = 'Internet Explorer';
+    else $browser = 'Other';
+    //
+    $redis->hSet('browser', $browser, 1);
+    if ($browser == 'Firefox') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'firefox', 'action' => 'IPv6Off'));
+    }
+}
+//
 // inspect POST
 if (isset($_POST)) {
     // ----- TIME SETTINGS -----

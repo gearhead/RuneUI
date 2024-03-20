@@ -391,15 +391,15 @@ fi
 # redis reset
 # remove the redis variables used for:
 #   Access Point info (accesspoint), audio cards & hdmi acards (acard), access point (access), airplay (airplay), audio output (ao),
-#       global random (ashuffle & random), bluetooth (bluetooth), music metadata caching (cleancache), debug data - historical (debugdata),
-#       dirble (dirble), dlna (dlna), first time boot (first), HDMI info (hdmi), jamendo (jamendo), local browser (local),
-#       lock indicators (lock_), lyrics (lyric), MAC address (mac), ImageMagick (magick), mounted volume information (mou), MPD, (mpd),
-#       network information (net), Network interface card information (nic), batch processing queues (queue),
-#       DNS resolve information - historical (resolv), samba server (samba), OS update file md5 stamp (update),
-#       USB mounts and status (usb), web streaming (web), debug variables (wrk)
+#       global random (ashuffle & random), bluetooth (bluetooth), browser (browser), music metadata caching (cleancache),
+#       debug data - historical (debugdata), dirble (dirble), dlna (dlna), first time boot (first), HDMI info (hdmi), jamendo (jamendo),
+#       local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), ImageMagick (magick),
+#       mounted volume information (mou), MPD, (mpd), network information (net), Network interface card information (nic),
+#       batch processing queues (queue), DNS resolve information - historical (resolv), samba server (samba),
+#       OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), debug variables (wrk)
 #   at some time in the future we should delete the whole redis database here
 #   run in two steps, part 1
-redisvars=$( redis-cli --scan | grep -iE 'accesspoint|acard|access|airplay|ao|ashuffle|bluetooth|cleancache|debugdata|dirble|dlna|first|hdmi' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'accesspoint|acard|access|airplay|ao|ashuffle|bluetooth|browser|cleancache|debugdata|dirble|dlna|first|hdmi' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done

@@ -1465,6 +1465,14 @@ while (true) {
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'firefox':
+                $redis->sRem('w_lock', $jobID);
+                if ($job->action == 'IPv6Off') {
+                    if (autoIpv6ConnectionsOff($redis)) {
+                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php');
+                    }
+                }
+                break;
         } // end switch
         // delete processed job from the w_queue
         $redis->hDel('w_queue', $jobID);
