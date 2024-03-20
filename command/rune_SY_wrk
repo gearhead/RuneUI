@@ -213,27 +213,10 @@ if ($playerid_db === '') {
     // reset mpdconf to defaults
     runelog('reset mpdconf to defaults');
     wrk_mpdconf($redis, 'reset');
-    // check that mpd is running
-    // wrk_mpdconf($redis, 'start');
-    // ashuffle gets started automatically
-    // reconnect to new instance of MPD
-    // clear MPD database
-    //$mpd = openMpdSocket('/run/mpd/socket', 0);
-    //$mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
-    //sendMpdCommand($mpd, 'update');
-    // sysCmd('mpc update');
-    // system ENV files check and replace
-        // runelog("system ENV files check and replace",'');
-        // wrk_sysEnvCheck($arch,1);
-    // set HOSTNAME << TODO: integrate in wrk_sysEnvCheck >>
-    // check that MPD only has one output enabled
-    // $count = sysCmd('mpc outputs | grep -c -i enabled');
-    // $countMpdEnabled = $count[0];
-    // unset($count);
-    // if ($countMpdEnabled != 1) {
-        // sysCmd("mpc enable only 1");
-    // }
-    //
+    // start mpd
+    wrk_mpdconf($redis, 'start');
+    // set the mpd volume to the default level
+    set_last_mpd_volume($redis);
     // load Wi-Fi configuration, refresh nics & set up avahi
     wrk_netconfig($redis, 'boot-initialise');
     refresh_nics($redis);

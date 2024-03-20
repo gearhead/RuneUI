@@ -9845,18 +9845,13 @@ function set_last_mpd_volume($redis)
             $retries_volume = 20;
             do {
                 // retry getting the volume until MPD is up and returns a valid entry
-                $retval = sysCmd('mpc volume | grep "volume:" | xargs');
-                if (!isset($retval[0]) || !$retval[0]) {
+                $retval = sysCmd('mpc volume | grep "volume:" | xargs')[0];
+                if (!isset($retval) || !$retval) {
                     // no response
                     sleep(2);
                     continue;
                 }
-                if (!isset($retval[0])) {
-                    // invalid response
-                    sleep(2);
-                    continue;
-                }
-                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                 if (!isset($retval[1])) {
                     // invalid response
                     sleep(2);
@@ -9877,9 +9872,9 @@ function set_last_mpd_volume($redis)
                     if (abs($mpdvolume - $lastmpdvolume) > 4) {
                         // set the mpd volume, do a soft increase/decrease
                         $setvolume = $mpdvolume - round((($mpdvolume-$lastmpdvolume)/2), 0, PHP_ROUND_HALF_UP);
-                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs');
-                        if (isset($retval[0])) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs')[0];
+                        if (isset($retval)) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                         } else {
                             // invalid response
                             sleep(2);
@@ -9894,9 +9889,9 @@ function set_last_mpd_volume($redis)
                         sleep(1);
                     } else {
                         // set the mpd volume directly
-                        $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs');
-                        if (isset($retval[0])) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs')[0];
+                        if (isset($retval)) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                         } else {
                             // invalid response
                             sleep(2);
