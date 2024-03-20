@@ -1000,7 +1000,7 @@ mount http-tmp
 # this takes ages to run, but the compressed distribution image will then be very small
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
-    # zero fill the file system
+    # zero fill the file system : codename="bookworm"
     if [ "$codename" == "bookworm" ] ; then
         cd /boot/firmware
     else
