@@ -225,9 +225,9 @@ if ($playerid_db === '') {
     //
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
-        wrk_btcfg($redis, 'enable', 'async');
+        wrk_btcfg($redis, 'enable');
     } else {
-        wrk_btcfg($redis, 'disable', 'async');
+        wrk_btcfg($redis, 'disable');
     }
     // setup the bluealsa config files to reflect their redis values
     wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
