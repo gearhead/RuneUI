@@ -54,7 +54,7 @@ if (isset($argv[1]) && array_search('async', $argv)) {
 //
 // when requested run this file asynchronously
 if (isset($argv[1]) && array_search('asyncnow', $argv)) {
-    // this needs to be run as root via the back-end
+    // // this needs to be run as root via the back-end
     // wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'usbmount', 'action' => 'asyncnow'));
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount', 0);
     exit(0);
@@ -74,7 +74,7 @@ if (!isset($argv[1]) || !array_search('nowait', $argv)) {
     sleep(5);
 }
 //
-// unmount any mounted devices which are no longer valid
+// unmount any mounted device which is no longer valid
 // get a list of the usb devices which are mounted
 $usbMountedList = sysCmd("df -hl | grep '/mnt/MPD/USB'");
 if (count($usbMountedList)) {
@@ -98,7 +98,7 @@ if (count($usbMountedList)) {
                 continue 2;
             }
         }
-        // the current device is not valid dismount it (it has probably been unplugged without dismounting)
+        // the current device is not valid dismount it (it has possibly been unplugged without dismounting)
         sysCmd('udevil umount '.$usbMountedDeviceInfo[0]);
         // remove entries for this device from the unmounted list and the mounted list (don't bother to check for the existence of these hashes)
         $redis-hDel('usbunmounts', $usbMountedDeviceInfo[0]);
@@ -250,12 +250,20 @@ if (count($usbMounts)) {
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
             $usbMount1 = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount1.'%'));
             // get the details
-            list($device, $size, $used, $avail, $use) = explode(' ', $usbMount, 5);
+            list($device, $size, $used, $avail, $use) = explode(' ', $usbMount1, 5);
             $name = trim($usbMount2);
-        } else {
+        }
+        if (!isset($device) || !isset($size) || !isset($used) || !isset($avail) || !isset($use) || !isset($name)) {
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
             //  Note: this will also convert multiple spaces in the mount name to single spaces
             $usbMount = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount));
+            // get the details, the mount name can contain spaces so limit the explode to 6 fields
+            list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
+        }
+        if (!isset($device) || !isset($size) || !isset($used) || !isset($avail) || !isset($use) || !isset($name)) {
+            // convert whitespace characters  to a single space
+            //  Note: this will also convert multiple spaces in the mount name to single spaces
+            $usbMount = trim(preg_replace('/[\s]+/',' ', $usbMount));
             // get the details, the mount name can contain spaces so limit the explode to 6 fields
             list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
         }
