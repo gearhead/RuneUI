@@ -81,7 +81,7 @@ if (count($usbMountedList)) {
     // set up the sleep indicator
     $sleep = false;
     // get a list of the mountable devices
-    $usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINTS  | grep '^sd[a-z][0-9]'");
+    $usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINT | grep '^sd[a-z][0-9]'");
     foreach ($usbMountedList as $usbMountedDevice) {
         // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
         $usbMountedDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMountedDevice));
@@ -178,7 +178,7 @@ unset($usbUnMounts, $usbMountedList, $key, $usbUnMount, $usbMountedDevice);
 //
 // mount any unmounted devices, providing they are not in the unmounted list
 // get a list of usb devices
-$usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINTS  | grep '^sd[a-z][0-9]'");
+$usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINT | grep '^sd[a-z][0-9]'");
 // get the list of unmounted usb devices
 $usbUnMounts = $redis->hgetall('usbunmounts');
 // get a list of mounted devices
