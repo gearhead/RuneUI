@@ -358,7 +358,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-default btn-lg" title="Cancel and close this layer" data-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear all songs from queue" data-cmd="clear" data-dismiss="modal">Clear</button>
-                <button id="pl-crop-button"type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the queue except the current song" data-dismiss="modal">Crop</button>
+                <button id="pl-crop-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the queue except the current song" data-dismiss="modal">Crop</button>
                 <button id="pl-clear-played-button" type="button" class="btn btn-primary btn-lg btn-cmd" title="Clear the songs before the current song" data-dismiss="modal">Clear Played</button>
             </div>
         </div>

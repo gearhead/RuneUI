@@ -43,7 +43,8 @@ if [ "$pacman_cnt" == "0" ] && [ "$apt_cnt" != "0" ] ; then
 elif [ "$pacman_cnt" != "0" ] && [ "$apt_cnt" == "0" ] ; then
     os="ARCH"
 fi
-redis-cli set os $os
+redis-cli set os "$os"
+#
 #
 # determine the codename
 if [ "$os" == 'ARCH' ] ; then

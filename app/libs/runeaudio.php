@@ -14383,7 +14383,7 @@ function decode_vc4_hdmi_desc($string)
     } else if (strpos(' '.$stringL, 'hdmi')) {
         return 'HDMI';
     } else {
-        $retval = strtoupper(get_between_data(trim($stringL), vc4));
+        $retval = strtoupper(get_between_data(trim($stringL), 'vc4'));
         if (!srtlen($retval)) {
             $retval = $string;
         }
