@@ -14952,7 +14952,7 @@ function getHtmlSambaInfo($redis, $format = 'both')
             // this should never happen, the share name line comes first
             continue;
         }
-        // replace whitespace with a single space in the parameter line 
+        // replace whitespace with a single space in the parameter line
         $SambaSharesLine = trim(preg_replace('/\s+/', ' ', $SambaSharesLine));
         if (strpos($SambaSharesLine, '=')) {
             // its a parameter line, split it into its parts
