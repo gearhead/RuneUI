@@ -628,6 +628,23 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             ui_notify($redis, 'CD Input', 'Eject requested');
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'eject'));
             break;
+        case 'sambadetails':
+            // // ui_notify($redis, 'SAMBA', 'Details requested');
+            // $args = array();
+            // if (isset($_POST['clientUUID']) && $_POST['clientUUID']) {
+                // $args['clientUUID'] = $_POST['clientUUID'];
+            // }
+            // wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sambadetails', 'args' => $args));
+            // unset($args)
+            $data = array();
+            $data = getHtmlSambaInfo($redis);
+            $data['id'] = 'modal-display-text';
+            if (isset($_POST['clientUUID']) && $_POST['clientUUID']) {
+                $data['clientUUID'] = $_POST['clientUUID'];
+            }
+            ui_render('modal', json_encode($data));
+            unset($data);
+            break;
     }
 } else {
   echo 'MPD DB INTERFACE<br>';

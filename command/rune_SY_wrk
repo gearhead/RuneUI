@@ -978,6 +978,27 @@ while (true) {
                 }
                 wrk_restartSamba($redis);
                 break;
+            case 'sambadetails':
+                $redis->sRem('w_lock', $jobID);
+                $data = array();
+                $args = array();
+                if (isset($job->args) && $job->args) {
+                    foreach ($job->args as $jobArgKey => $jobArg) {
+                        $args[$key] = $jobArg;
+                    }
+                }
+                if (isset($args['format']) && $args['format']) {
+                    $data = getHtmlSambaInfo($redis, $args['format']);
+                } else {
+                    $data = getHtmlSambaInfo($redis);
+                }
+                $data['id'] = 'modal-display-text';
+                if (isset($args['clientUUID']) && $args['clientUUID']) {
+                    $data['clientUUID'] = $args['clientUUID'];
+                }
+                ui_render('modal', json_encode($data));
+                unset($data, $args);
+                break;
             case 'rerninstall':
                 $redis->sRem('w_lock', $jobID);
                 ui_notify($redis, "Install Rern's Addons", 'It takes some time .....');

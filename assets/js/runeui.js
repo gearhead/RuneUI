@@ -2322,14 +2322,34 @@ function libraryHome(text) {
 function renderModal(text){
     // alert("renderModal");
     // console.log('renderModal, text[0] = ', text[0]);
+    // console.log('renderModal, isLocalHost = ', isLocalHost);
+    // console.log('renderModal, location.hostname = ', location.hostname);
+    // console.log('renderModal, window.location.hostname = ', window.location.hostname);
     toggleLoader('close');
     if ((typeof isLocalHost === "undefined") || !isLocalHost) {
         // don't display these pop-ups on the local browser
         var modal_info = text[0];
-        $('#' + modal_info.id).on('hidden.bs.modal', function(){
-               $(this).find('input').val('');
-            });
-        $('#' + modal_info.id).modal();
+        if ((typeof modal_info.clientUUID === "undefined") || (modal_info.clientUUID === GUI.clientUUID)) {
+            // clientUUID is undefined or it matches this one
+            if (modal_info.id === 'modal-display-text') {
+                // this is the generic text display pop-up
+                // its contents are passed as parameters
+                if (typeof modal_info.header !== "undefined") {
+                    $('#modal-display-text-title').html(modal_info.header);
+                } else {
+                    $('#modal-display-text-title').html('');
+                }
+                if (typeof modal_info.text !== "undefined") {
+                    $('#modal-display-text-text').html(modal_info.text);
+                } else {
+                    $('#modal-display-text-text').html('');
+                }
+            }
+            $('#' + modal_info.id).on('hidden.bs.modal', function(){
+                   $(this).find('input').val('');
+                });
+            $('#' + modal_info.id).modal();
+        }
     }
 }
 
@@ -3499,6 +3519,9 @@ if ($('#section-index').length) {
         // first GUI update
         // updateGUI();
 
+        // open the modal channel
+        modalChannel();
+
         // PNotify init options
         PNotify.prototype.options.styling = 'fontawesome';
         PNotify.prototype.options.stack.dir1 = 'up';
@@ -3607,7 +3630,7 @@ if ($('#section-index').length) {
 
         if ($('#section-settings').length) {
 
-            // show/hide AirPlay name form
+            // show/hide AirPlay details
             $('#airplay').change(function(){
                 if ($(this).prop('checked')) {
                     $('#airplayName').removeClass('hide');
@@ -3618,7 +3641,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide Last.fm auth form
+            // show/hide Last.fm auth details
             $('#scrobbling-lastfm').change(function(){
                 if ($(this).prop('checked')) {
                     $('#lastfmAuth').removeClass('hide');
@@ -3629,7 +3652,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide proxy settings form
+            // show/hide proxy settings details
             $('#proxy').change(function(){
                 if ($(this).prop('checked')) {
                     $('#proxyAuth').removeClass('hide');
@@ -3640,7 +3663,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide UPnP/dlna name form
+            // show/hide UPnP/dlna details
             $('#dlna').change(function(){
                 if ($(this).prop('checked')) {
                     $('#dlnaName').removeClass('hide');
@@ -3651,7 +3674,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide local browser name form
+            // show/hide local browser details
             $('#local_browser').change(function(){
                 if ($(this).prop('checked')) {
                     $('#local_browserName').removeClass('hide');
@@ -3662,7 +3685,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide CD input form
+            // show/hide CD input details
             $('#cdinput').change(function(){
                 if ($(this).prop('checked')) {
                     $('#cdDetails').removeClass('hide');
@@ -3673,7 +3696,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide UPnP/dlna Tidal name form
+            // show/hide UPnP/dlna Tidal details
             $('#dlnaTidal').change(function(){
                 if ($(this).prop('checked')) {
                     $('#dlnaTidalName').removeClass('hide');
@@ -3684,7 +3707,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide UPnP/dlna Google Music name form
+            // show/hide UPnP/dlna Google Music details
             $('#dlnaGoogle').change(function(){
                 if ($(this).prop('checked')) {
                     $('#dlnaGoogleName').removeClass('hide');
@@ -3695,7 +3718,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide UPnP/dlna Qobuz streaming service name form
+            // show/hide UPnP/dlna Qobuz streaming service details
             $('#dlnaQobuz').change(function(){
                 if ($(this).prop('checked')) {
                     $('#dlnaQobuzName').removeClass('hide');
@@ -3706,7 +3729,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide Spotify Connect auth form
+            // show/hide Spotify Connect details
             $('#spotifyconnect').change(function(){
                 if ($(this).prop('checked')) {
                     $('#spotifyconnectAuth').removeClass('hide');
@@ -3717,7 +3740,7 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide Samba on/off form
+            // show/hide Samba details
             $('#samba').change(function(){
                 if ($(this).prop('checked')) {
                     $('#sambaAuth').removeClass('hide');
@@ -3728,7 +3751,16 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide Bluetooth on/off form
+            // click detect on Samba shares details button
+            $('#sambadetails').click(function(){
+                $.post('/db/?cmd=sambadetails',
+                    // pass the clientUUID, the results will shown only when the receiving browser clientUUID matches
+                    {
+                        'clientUUID' : GUI.clientUUID
+                    });
+            });
+
+            // show/hide Bluetooth details
             $('#bluetooth').change(function(){
                 if ($(this).prop('checked')) {
                     $('#bluetoothAuth').removeClass('hide');
