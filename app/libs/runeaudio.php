@@ -6634,6 +6634,7 @@ function wrk_restartSamba($redis, $args = 'restart')
     $sambaDisableCommand = '';
     $sambaStartCommand = '';
     $sambaEnableCommand = '';
+    $sambaReloadCommand = '';
     foreach ($stopServiceNames as $serviceName) {
         $sambaStopCommand .= 'systemctl stop '.$serviceName.' ; ';
         $sambaDisableCommand .= 'systemctl disable '.$serviceName.' ; ';
