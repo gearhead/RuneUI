@@ -175,7 +175,7 @@ if ($playerid_db === '') {
     wrk_netconfig($redis, 'reset');
     // reset USB mounts
     runelog('invoke USB mounts reset');
-    sysCmd('/srv/http/command/usbmount');
+    sysCmd('/srv/http/command/usbmount nowait');
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_mpdconf($redis, 'stop');
@@ -345,7 +345,7 @@ if ($playerid_db === '') {
     runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
     // collect USB storage information for the UI (also starts samba)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait');
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
         runelog('service: SPOTIFYD start','');
@@ -1051,6 +1051,27 @@ while (true) {
                 // restart samba if required (e.g. when in dev mode)
                 wrk_restartSamba($redis);
                 $redis->sRem('w_lock', $jobID);
+                break;
+            case 'sambadetails':
+                $redis->sRem('w_lock', $jobID);
+                $data = array();
+                $args = array();
+                if (isset($job->args) && $job->args) {
+                    foreach ($job->args as $jobArgKey => $jobArg) {
+                        $args[$key] = $jobArg;
+                    }
+                }
+                if (isset($args['format']) && $args['format']) {
+                    $data = getHtmlSambaInfo($redis, $args['format']);
+                } else {
+                    $data = getHtmlSambaInfo($redis);
+                }
+                $data['id'] = 'modal-display-text';
+                if (isset($args['clientUUID']) && $args['clientUUID']) {
+                    $data['clientUUID'] = $args['clientUUID'];
+                }
+                ui_render('modal', json_encode($data));
+                unset($data, $args);
                 break;
             case 'soxrmpd':
                 $redis->set('soxrmpdonoff', $job->action);

@@ -62,10 +62,25 @@ function updateOS($redis) {
             ui_notify($redis, 'Post update processing', 'Patchlevel 3');
             sysCmd("sed -i '/^success_rootexec/s/.*/success_rootexec = \/var\/www\/command\/usbmount/' '/etc/udevil/udevil.conf'");
         }
-        // if ($redis->get('patchlevel') == 3) {
-            // // 4th update
-            // $redis->set('patchlevel', 4);
-            // ui_notify($redis, 'Post update processing', 'Patchlevel 4');
+        if ($redis->get('patchlevel') == 3) {
+            // 4th update
+            $redis->set('patchlevel', 4);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 4');
+            sysCmd('cp /srv/http/app/config/defaults/etc/tmpfiles.d/smb.conf /etc/tmpfiles.d/smb.conf');
+            sysCmd('cp /srv/http/app/config/defaults/etc/samba/smb-dev.conf /etc/samba/smb-dev.conf');
+            sysCmd('cp /srv/http/app/config/defaults/etc/samba/smb-prod.conf /etc/samba/smb-prod.conf');
+            if ($redis->get('os') == 'RPiOS') {
+                sysCmd('apt install -y wsdd');
+            } else if ($redis->get('os') == 'ARCH') {
+                sysCmd('pacman -Sy wsdd --noconfirm');
+            }
+            sysCmd('systemctl daemon-reload ; systemctl disable wsdd ; systemctl stop wsdd');
+            wrk_restartSamba($redis);
+        }
+        // if ($redis->get('patchlevel') == 4) {
+            // // 5th update
+            // $redis->set('patchlevel', 5);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 5');
         // }
     }
 }

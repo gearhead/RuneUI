@@ -6110,36 +6110,126 @@ function wrk_NTPsync($ntpserver)
     }
 }
 
-function wrk_restartSamba($redis)
-// restart Samba
+// function to start, stop and configure samba and associated components
+function wrk_restartSamba($redis, $args = 'restart')
+// start, stop, restart or reload Samba and its components based on the value of redis variables 'dev', the redis hash 'samba', 'enable'
+//  and the parameter $args
+// also switches 'read/write' and 'read only' access depending on the value of redis variables 'dev', the redis hash 'samba', 'readwrite'
+// parameters ($args) can be:
+//  restart : which stops and disables automatic restart of all Samba components when Samba is disabled or
+//              stops and starts all Samba components when Samba is enabled and the components are running or
+//             starts and enables automatic restart all Samba components when Samba is enabled and the components are not running
+//  reload : which stops and disables automatic restart of all Samba components when Samba is disabled or
+//             reloads all Samba components when Samba is enabled and the components are running or
+//             starts and enables automatic restart all Samba components when Samba is enabled and the components are not running
+// the redis variable
 {
-    // on RPiOS smbd, nmbd and winbindd services are used, while on ARCH they are smb, nmb and winbind
-    //  the latest standard uses smb, nmb and winbind, Debian (and RIPiOS) will support both in the future
-    //  depending on the available files set up the stop, start, enable and disable systemctl command strings
-    // no need for clearstatcache() the service files are static
-    if (file_exists('/usr/lib/systemd/system/smb.service')) {
-        $serviceNames = array("smb", "nmb", "winbind");
-    } else if (file_exists('/usr/lib/systemd/system/smbd.service')) {
-        $serviceNames = array("smbd", "nmbd", "winbindd");
-    } else if (file_exists('/etc/systemd/system/smb.service')) {
-        $serviceNames = array("smb", "nmb", "winbind");
-    } else if (file_exists('/etc/systemd/system/smbd.service')) {
-        $serviceNames = array("smbd", "nmbd", "winbindd");
-    } else if (file_exists('/lib/systemd/system/smb.service')) {
-        $serviceNames = array("smb", "nmb", "winbind");
-    } else if (file_exists('/lib/systemd/system/smbd.service')) {
-        $serviceNames = array("smbd", "nmbd", "winbindd");
+    if (is_firstTime($redis, 'wrk_restartSamba')) {
+        // on RPiOS smbd, nmbd and winbindd services were used, while on ARCH they are smb, nmb and winbind
+        //  the latest standard uses smb, nmb and winbind, Debian (and RIPiOS) will support both in the future
+        //  RPiOS (Linux 6.6) uses smbd, nmbd and winbind with symlinks for smb and nmb, a symlink for winbindd is missing
+        // depending on the available files set up the stop, start, enable and disable systemctl command strings
+        // no need for clearstatcache() as the service files are static
+        $startServiceNames = array();
+        $stopServiceNames = array();
+        // the services to start and stop are based on the existence of the standard service files in /usr/lib/systemd/system
+        //  and the user modified service files in /etc/system/systemd
+        //  while ignoring service files which are symlinks in /usr/lib/systemd/system
+        // the services which start samba are (nmb or nmbd) and (winbind or winbindd) and (smb or smdb),
+        //  existence of a user modified service file takes preference over a standard service file in determining the service names
+        //  existence of a service ending with a 'd' has preference over those not ending in a 'd'
+        //  when installed wsdd (Web Services Dynamic Discovery host daemon) will also be started/stopped
+        // all detected variations are used to stop samba
+        // start order: (smb or smdb), (nmb or nmbd), (winbind or winbindd) then wsdd - this is important!
+        // stop order: wsdd, winbindd, winbindd, nmbd then nmb, smbd, smd (each being stopped when applicable)
+        if (is_file('/usr/lib/systemd/system/smb.service') && !is_link('/usr/lib/systemd/system/smb.service')) {
+            $stopServiceNames[6] = 'smb';
+            $startServiceNames[0] = 'smb';
+        }
+        if (is_file('/usr/lib/systemd/system/smbd.service') && !is_link('/usr/lib/systemd/system/smbd.service')) {
+            $stopServiceNames[5] = 'smbd';
+            $startServiceNames[0] = 'smbd';
+        }
+        if (is_file('/usr/lib/systemd/system/nmb.service') && !is_link('/usr/lib/systemd/system/nmb.service')) {
+            $stopServiceNames[4] = 'nmb';
+            $startServiceNames[1] = 'nmb';
+        }
+        if (is_file('/usr/lib/systemd/system/nmbd.service') && !is_link('/usr/lib/systemd/system/nmbd.service')) {
+            $stopServiceNames[3] = 'nmbd';
+            $startServiceNames[1] = 'nmbd';
+        }
+        if (is_file('/usr/lib/systemd/system//winbind.service') && !is_link('/usr/lib/systemd/system/winbind.service')) {
+            $stopServiceNames[2] = 'winbind';
+            $startServiceNames[2] = 'winbind';
+        }
+        if (is_file('/usr/lib/systemd/system//winbindd.service') && !is_link('/usr/lib/systemd/system/winbindd.service')) {
+            $stopServiceNames[1] = 'winbindd';
+            $startServiceNames[1] = 'winbindd';
+        }
+        if (is_file('/usr/lib/systemd/system/wsdd.service') && !is_link('/usr/lib/systemd/system/wsdd.service')) {
+            $stopServiceNames[0] = 'wsdd';
+            $startServiceNames[3] = 'wsdd';
+        }
+        if (is_file('/etc/system/systemd/smb.service')) {
+            $stopServiceNames[6] = 'smb';
+            $startServiceNames[0] = 'smb';
+        }
+        if (is_file('/etc/system/systemd/smbd.service')) {
+            $stopServiceNames[5] = 'smbd';
+            $startServiceNames[0] = 'smbd';
+        }
+        if (is_file('/etc/system/systemd/nmb.service')) {
+            $stopServiceNames[4] = 'nmb';
+            $startServiceNames[1] = 'nmb';
+        }
+        if (is_file('/etc/system/systemd/nmbd.service')) {
+            $stopServiceNames[3] = 'nmbd';
+            $startServiceNames[1] = 'nmbd';
+        }
+        if (is_file('/etc/system/systemd/winbind.service')) {
+            $stopServiceNames[2] = 'winbind';
+            $startServiceNames[2] = 'winbind';
+        }
+        if (is_file('/etc/system/systemd/winbindd.service')) {
+            $stopServiceNames[1] = 'winbindd';
+            $startServiceNames[2] = 'winbindd';
+        }
+        if (is_file('/etc/system/systemd/wsdd.service')) {
+            $stopServiceNames[0] = 'wsdd';
+            $startServiceNames[3] = 'wsdd';
+        }
+        // sort the arrays in to the correct order
+        ksort($stopServiceNames);
+        ksort($startServiceNames);
+        // remove empty array elements
+        $stopServiceNames = array_values($stopServiceNames);
+        $startServiceNames = array_values($startServiceNames);
+        // save the arrays
+        $redis->hSet('samba', 'stopservicesnames', json_encode($stopServiceNames));
+        $redis->hSet('samba', 'startservicesnames', json_encode($startServiceNames));
     } else {
-        $serviceNames = array("smb", "nmb", "winbind");
+        // retrieve the arrays
+        $stopServiceNames = json_decode($redis->hGet('samba', 'stopservicesnames'), true);
+        $startServiceNames = json_decode($redis->hGet('samba', 'startservicesnames'), true);
     }
-    $sambaStopCommand = 'systemctl stop '.$serviceNames[0].' ; systemctl stop '.$serviceNames[1].' ; systemctl stop '.$serviceNames[2];
-    $sambaDisableCommand = 'systemctl disable '.$serviceNames[0].' ; systemctl disable '.$serviceNames[1].' ; systemctl disable '.$serviceNames[2];
-    $sambaStartCommand = 'systemctl start '.$serviceNames[0].' ; systemctl start '.$serviceNames[1].' ; systemctl start '.$serviceNames[2];
-    $sambaEnableCommand = 'systemctl enable '.$serviceNames[0].' ; systemctl enable '.$serviceNames[1].' ; systemctl enable '.$serviceNames[2];
+    $sambaStopCommand = '';
+    $sambaDisableCommand = '';
+    $sambaStartCommand = '';
+    $sambaEnableCommand = '';
+    foreach ($stopServiceNames as $serviceName) {
+        $sambaStopCommand .= 'systemctl stop '.$serviceName.' ; ';
+        $sambaDisableCommand .= 'systemctl disable '.$serviceName.' ; ';
+    }
+    foreach ($startServiceNames as $serviceName) {
+        $sambaStartCommand .= 'systemctl start '.$serviceName.' ; ';
+        $sambaEnableCommand .= 'systemctl enable '.$serviceName.' ; ';
+        $sambaReloadCommand .= 'systemctl reload-or-restart '.$serviceName.' ; ';
+    }
+    $sambaStopCommand = rtrim($sambaStopCommand, ' ;');
+    $sambaDisableCommand = rtrim($sambaDisableCommand, ' ;');
+    $sambaStartCommand = rtrim($sambaStartCommand, ' ;');
+    $sambaEnableCommand = rtrim($sambaEnableCommand, ' ;');
     //
-    runelog('Samba Stopping...', '');
-    sysCmd($sambaStopCommand);
-    sysCmd($sambaDisableCommand);
     runelog('Samba Dev Mode   :', $redis->get('dev'));
     runelog('Samba Enable     :', $redis->hGet('samba', 'enable'));
     runelog('Samba Read/Write :', $redis->hGet('samba', 'readwrite'));
@@ -6174,11 +6264,22 @@ function wrk_restartSamba($redis)
             }
         }
     }
+    sysCmd('systemctl daemon-reload');
     if ($redis->get('dev') || $redis->hGet('samba', 'enable')) {
-        runelog('Samba Restarting...', '');
-        sysCmd('systemctl daemon-reload');
-        sysCmd($sambaStartCommand);
         sysCmd($sambaEnableCommand);
+        if ($args != 'reload') {
+            runelog('Samba Reloading...', '');
+            sysCmd($sambaReloadCommand);
+        } else {
+            runelog('Samba Restarting...', '');
+            sysCmd($sambaStopCommand);
+            sysCmd($sambaStartCommand);
+        }
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    } else {
+        runelog('Samba Stopping...', '');
+        sysCmd($sambaStopCommand);
+        sysCmd($sambaDisableCommand);
     }
 }
 
@@ -13964,4 +14065,143 @@ function wrk_mpd_loopback($redis, $action=null)
         }
         return 'changed';
     }
+}
+
+// function to return html formatted text showing the current samba shares
+function getHtmlSambaInfo($redis, $format = 'both')
+// the return value is an array with the header and text
+{
+    // set the format to lower case to for consistency
+    $format = strtolower($format);
+    // get a subset of the lines in the active samba configuration file
+    $SambaSharesLines = sysCmd("grep -iE '^\[|comment|read only|path|guest ok|valid users' /etc/samba/smb.conf | grep -iv 'global' | grep -iv '^\s*#'");
+    // get the hostname
+    $hostname = strtolower($redis->get('hostname'));
+    // initialise the main array
+    $SambaShares = array();
+    foreach ($SambaSharesLines as $SambaSharesLine) {
+        $SambaSharesLine = trim($SambaSharesLine);
+        if (substr($SambaSharesLine, 0, 1) == '[') {
+            // this line defines the share name
+            $sambaShareName = trim(get_between_data($SambaSharesLine, '[', ']'));
+            // save it
+            $SambaShares[$sambaShareName]['sharename'] = $sambaShareName;
+            $SambaShares[$sambaShareName]['login'] = 'no&nbsp;login&nbsp;required';
+            $SambaShares[$sambaShareName]['validusers'] = '';
+            continue;
+        }
+        if (!isset($sambaShareName)) {
+            // this should never happen, the share name line comes first
+            continue;
+        }
+        // replace whitespace with a single space in the parameter line
+        $SambaSharesLine = trim(preg_replace('/\s+/', ' ', $SambaSharesLine));
+        if (strpos($SambaSharesLine, '=')) {
+            // its a parameter line, split it into its parts
+            list($param, $value) = explode('=', $SambaSharesLine, 2);
+            // remove spaces from the parameter name and make it lower case
+            $param = strtolower(trim(preg_replace('/\s+/', '', $param)));
+            // trim the parameter value
+            if (isset($value)) {
+                $value = trim($value);
+            } else {
+                // this should never happen
+                $value = '';
+            }
+            if (strpos(' '.$param, 'guestok')) {
+                // reformat 'guest ok' parameter
+                $param = 'login';
+                $value = filter_var(strtolower($value), FILTER_VALIDATE_BOOLEAN);
+                if ($value) {
+                    $value = 'no login required';
+                } else {
+                    $value = 'login&nbsp;required';
+                }
+            }
+            if (strpos(' '.$param, 'validusers')) {
+                // reformat 'valid users' parameter
+                if ($value) {
+                    $value = ', valid users:&nbsp;'.$value;
+                } else {
+                    $value = '';
+                }
+            }
+            if (strpos(' '.$param, 'readonly')) {
+                // reformat the 'read only' parameter
+                $param = 'access';
+                $value = filter_var(strtolower($value), FILTER_VALIDATE_BOOLEAN);
+                if ($value) {
+                    $value = 'read&nbsp;only';
+                } else {
+                    $value = 'read/write';
+                }
+            }
+            // save the parameter in the array
+            $SambaShares[$sambaShareName][$param] = $value;
+            // add an extra entry into the array containing all the names of the mounted USB storage devices and the mounted network shares
+            if (strpos(' '.$param, 'path')) {
+                if (strpos(' '.$value, '/MPD/NAS') || strpos(' '.$value, '/MPD/USB')) {
+                    $paths = sysCmd('find '.$value.' -maxdepth 1 -type d');
+                    $pathArray = array();
+                    foreach ($paths as $path) {
+                        $pathArray[] = trim(substr($path, 12));
+                    }
+                    $SambaShares[$sambaShareName]['sharepaths'] = json_encode($pathArray);
+                } else {
+                    $SambaShares[$sambaShareName]['sharepaths'] = json_encode(array(''));
+                }
+            }
+        }
+    }
+    unset($SambaSharesLines, $SambaSharesLine, $sambaShareName, $param, $value, $paths, $path, $pathArray);
+    $header = "<strong>Summary of active Samba shares";
+    if ($format == 'linux') {
+        $header .= " in Linux/Apple format</strong>\n";
+    } else if ($format == 'windows') {
+        $header .= " in Windows format</strong>\n";
+    } else {
+        $header .= "</strong>\n";
+    }
+    $text = '';
+    if (($format == 'both') || ($format == 'linux')) {
+        if ($format == 'both') {
+            $text .= "<strong>Paths in Linux/Apple format</strong><br>\n";
+        }
+        foreach ($SambaShares as $SambaShare) {
+            $text .= "Samba share: '<strong>".$SambaShare['sharename']."</strong>' on '<strong>".$hostname."</strong>'. ";
+            $sharepaths = json_decode($SambaShare['sharepaths'], true);
+            if (count($sharepaths) == 1) {
+                $vp = '';
+            } else {
+                $vp = 's';
+            }
+            $text .= "Details: ".$SambaShare['comment'].", ".$SambaShare['access'].", ".$SambaShare['login'].$SambaShare['validusers'].". Path".$vp.":<br>\n";
+            foreach ($sharepaths as $sharepath) {
+                $text .= "&nbsp;&nbsp;&nbsp;&nbsp;//".$hostname."/".$SambaShare['sharename'].$sharepath."<br>\n";
+            }
+        }
+    }
+    if (($format == 'both') || ($format == 'windows')) {
+        if ($format == 'both') {
+            $text .= "<br>\n<strong>Paths in Windows format</strong><br>\n";
+        }
+        foreach ($SambaShares as $SambaShare) {
+            $text .= "Samba share: '<strong>".$SambaShare['sharename']."</strong>' on '<strong>".$hostname."</strong>'. ";
+            $sharepaths = json_decode($SambaShare['sharepaths'], true);
+            if (count($sharepaths) == 1) {
+                $vp = '';
+            } else {
+                $vp = 's';
+            }
+            $text .= "Details: ".$SambaShare['comment'].", ".$SambaShare['access'].", ".$SambaShare['login'].$SambaShare['validusers'].". Path".$vp.":<br>\n";
+            foreach ($sharepaths as $sharepath) {
+                $sharepath = str_replace("/", "\\", $sharepath);
+                $text .= "&nbsp;&nbsp;&nbsp;&nbsp;\\\\".$hostname."\\".$SambaShare['sharename'].$sharepath."<br>\n";
+            }
+        }
+    }
+    $retval = array();
+    $retval['header'] = $header;
+    $retval['text'] = $text;
+    return $retval;
 }

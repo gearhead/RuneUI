@@ -56,7 +56,7 @@ if (isset($argv[1]) && array_search('async', $argv)) {
 if (isset($argv[1]) && array_search('asyncnow', $argv)) {
     // // this needs to be run as root via the back-end
     // wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'usbmount', 'action' => 'asyncnow'));
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount', 0);
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait', 0);
     exit(0);
 }
 //
@@ -295,7 +295,13 @@ if ($redis->get('usb_db_autorebuild')) {
 }
 // update library panel to display the new mount
 ui_libraryHome($redis);
-// restart Samba in order to pick up the new USB mount
-wrk_restartSamba($redis);
+// restart Samba in order to pick up the new USB mount when no parameter is given or it is the first time
+//  no parameter is given only when called from udevil
+//  otherwise reload samba
+if (is_firstTime($redis, 'usbmount') || !isset($argv[1])) {
+    wrk_restartSamba($redis);
+} else {
+    wrk_restartSamba($redis, 'reload');
+}
 // close Redis connection
 $redis->close();

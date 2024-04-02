@@ -631,6 +631,9 @@
                     <div class="form-group form-actions">
                         <div class="col-sm-offset-2 col-sm-10">
                             <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <?php if((isset($this->samba['enable'])) && ($this->samba['enable'])): ?>
+                                <button class="btn btn-default btn-lg" type="button" name="sambadetails" value="1" id="sambadetails"><i class="fa fa-info"></i> Show share details</button>
+                            <?php endif ?>
                             <span class="help-block"> </span>
                         </div>
                     </div>

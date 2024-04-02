@@ -71,6 +71,22 @@
         </div>
     </div>
 </div>
+<div id="modal-display-text" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modal-display-text" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h3 class="modal-title" id="modal-display-text-title">Default modal-display-text header</h3>
+            </div>
+            <div class="modal-body" id="modal-display-text-text">
+                Default modal-display-text text
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default btn-lg" title="Remind me later" data-dismiss="modal"> Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- loader -->
 <div id="loader"<?php if ($this->section == 'dev'): ?> class="hide" <?php endif ?>>
     <div id="loaderbg">
@@ -84,22 +100,22 @@
 <?php if ($this->section == 'debug'): ?>
 <?php endif ?>
 <?php if ($this->section == 'index'): ?>
-<script src="<?=$this->asset('/js/vendor/jquery.plugin.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/jquery.countdown.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/jquery.knob.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/bootstrap-contextmenu.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/jquery.scrollTo.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/Sortable.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/fastclick.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/jquery.plugin.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/jquery.countdown.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/jquery.knob.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/bootstrap-contextmenu.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/jquery.scrollTo.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/Sortable.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/fastclick.min.js')?>"></script>
 <?php else: ?>
-<script src="<?=$this->asset('/js/vendor/bootstrap-select.min.js')?>"></script>
-<script src="<?=$this->asset('/js/vendor/parsley.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/bootstrap-select.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/vendor/parsley.min.js')?>"></script>
 <?php endif ?>
 <?php if ($this->dev === '0'):?>
-<script src="<?=$this->asset('/js/runeui.min.js')?>"></script>
+    <script src="<?=$this->asset('/js/runeui.min.js')?>"></script>
 <?php else: ?>
 <!-- DEV mode ACTIVE -->
-<script src="<?=$this->asset('/js/runeui.js')?>"></script>
+    <script src="<?=$this->asset('/js/runeui.js')?>"></script>
 <?php endif; ?>
 <?php if (is_localhost()): ?>
     <script src="<?=$this->asset('/js/vendor/jquery.onScreenKeyboard.js')?>"></script>

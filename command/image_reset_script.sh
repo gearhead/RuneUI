@@ -36,15 +36,29 @@ set +e # continue on errors
 cd /home
 #
 # determine the OS
-if [ ! -f /bin/pacman ] && [ -f /bin/apt ] ; then
+pacman_cnt=$( find / -maxdepth 3 -name pacman | wc -l | xargs )
+apt_cnt=$( find / -maxdepth 3 -name apt | wc -l | xargs )
+if [ "$pacman_cnt" == "0" ] && [ "$apt_cnt" != "0" ] ; then
     os="RPiOS"
-elif [ -f /bin/pacman ] && [ ! -f /bin/apt ] ; then
+elif [ "$pacman_cnt" != "0" ] && [ "$apt_cnt" == "0" ] ; then
     os="ARCH"
 fi
-redis-cli set os $os
+redis-cli set os "$os"
+#
+# determine the word length
+wordlength=$( getconf LONG_BIT | xargs )
+redis-cli set wordlength "$wordlength"
+#
+# determine the codename
+if [ "$os" == 'ARCH' ] ; then
+    codename=""
+elif [ "$os" == 'RPiOS' ] ; then
+    codename=$( grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs )
+fi
+redis-cli set codename "$codename"
 #
 # Image reset script
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Running full cleanup and image initialisation for a distribution image"
 else
     echo "Running quick image initialisation"
@@ -92,7 +106,7 @@ rm -rf /var/lib/bluetooth/*
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
     bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile haveged hciuart hostapd llmnrd\
     local-browser local-browser-w mpd mpdscribble nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff\
-    plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk shairport-sync smartmontools smb smbd\
+    plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc shairport-sync smartmontools smb smbd\
     systemd-homed systemd-networkd udevil udisks2 upmpdcli upower winbind winbindd)
 declare -a enable_arr=(amixer-webui avahi-daemon connman dbus iwd mosquitto mpdversion nginx redis rune_SY_wrk sshd systemd-journald\
     systemd-resolved systemd-timesyncd udevil)
@@ -100,11 +114,15 @@ declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-moni
     bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile\
     haveged hciuart llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb nmbd pcscd php7.4-fpm php8.2-fpm php-fpm\
     plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rsyslog rune_PL_wrk\
-    rune_shutdown rune_SSM_wrk rune_SY_wrk shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd udevil udisks2\
-    upmpdcli upower winbind winbindd)
-declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1 haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
-    rsyncd@ rsyslog systemd-homed systemd-logind udisks2 upower)
-# declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower) # this one will enable console login
+    rune_shutdown rune_SSM_wrk rune_SY_wrk samba-ad-dc shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd\
+    udevil udisks2 upmpdcli upower winbind winbindd)
+if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
+        rsyncd@ rsyslog systemd-homed udisks2 upower)
+else
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1 haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd\
+        rsyncd@ rsyslog systemd-homed udisks2 upower)
+fi
 declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
@@ -315,7 +333,7 @@ git pull --no-edit
 git stash
 git stash
 git pull --no-edit
-if [ "$1" == "full" ]; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     # clear the stash stack
     git stash clear
     git reset HEAD -- .
@@ -376,14 +394,21 @@ fi
 #
 # redis reset
 # remove the redis variables used for:
-#   audio cards & hdmi acards (acard), access point (access), airplay (airplay), audio output (ao) global random (ashuffle & random),
-#       bluetooth (bluetooth), music metadata caching (cleancache), debug data - historical (debugdata), dirble (dirble), dlna (dlna),
-#       first time boot (first), jamendo (jamendo), local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac),
+#   Access Point info (accesspoint), audio cards & hdmi acards (acard), access point (access), airplay (airplay), audio output (ao),
+#       global random (ashuffle & random), bluetooth (bluetooth), browser (browser), music metadata caching (cleancache),
+#       debug data - historical (debugdata), dirble (dirble), dlna (dlna), first time boot (first), HDMI info (hdmi), jamendo (jamendo),
+#       local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), ImageMagick (magick),
 #       mounted volume information (mou), MPD, (mpd), network information (net), Network interface card information (nic),
 #       batch processing queues (queue), DNS resolve information - historical (resolv), samba server (samba),
-#       OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), debug variables (wrk)
+#       OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), wordlength (wordlength), debug variables (wrk)
 #   at some time in the future we should delete the whole redis database here
-redisvars=$( redis-cli --scan | grep -iE 'acard|access|airplay|ao|ashuffle|bluetooth|cleancache|debugdata|dirble|dlna|first|jamendo|local|lock_|lyric|mac|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wrk' | xargs )
+#   run in two steps, part 1
+redisvars=$( redis-cli --scan | grep -iE 'accesspoint|acard|access|airplay|ao|ashuffle|bluetooth|browser|cleancache|debugdata|dirble|dlna|first|hdmi' | xargs )
+for redisvar in $redisvars ; do
+    redis-cli del $redisvar
+done
+#   run in two steps, part 2
+redisvars=$( redis-cli --scan | grep -iE 'jamendo|local|lock_|lyric|mac|magick|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wordlength|wrk' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
@@ -394,9 +419,6 @@ php -f /srv/http/db/redis_acards_details
 # always clear player ID and hardware platform ID
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
-# refresh $os and $codename
-os=$( redis-cli get os )
-codename=$( redis-cli get codename )
 #
 # install raspi-rotate, only when xwindows is installed
 if [ -f "/bin/xinit" ] ; then
@@ -411,8 +433,8 @@ pdbedit -L | grep -o ^[^:]* | smbpasswd -x
 #
 # reset root password and save the date set
 echo -e "rune\nrune" | passwd root
-passworddate=$( passwd -S root | cut -d ' ' -f 3 | xargs )
-redis-cli set passworddate $passworddate
+passworddate=$( chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs )
+redis-cli set passworddate "$passworddate"
 #
 # make sure that Rune-specific users are created
 #   first the user http, this has a specific default account
@@ -623,7 +645,6 @@ rm /etc/systemd/system/php-fpm.service.ARCH
 rm /etc/systemd/system/php-fpm.service.RPiOS7.4
 rm /etc/systemd/system/php-fpm.service.RPiOS8.2
 # for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
-codename=$( redis-cli get codename )
 if [ "$codename" == "bookworm" ] ; then
     # set up a redis variable to point to the mount point of mmcblk0p1
     redis-cli set p1mountpoint '/boot/firmware'
@@ -689,8 +710,6 @@ for f in $files ; do
     fi
     # first delete any lines containing an 'Include'
     sed -i '/^\s*[;|#]*\s*[I|i]nclude\s*\//d' $f
-    os=$( redis-cli get os )
-    codename=$( redis-cli get codename )
     if [ "$os" == "" ] ; then
         # Note: this currently does not work for any of the current RuneAudio OS-types
         # use the include in 'sshd_config'
@@ -805,13 +824,13 @@ rm /srv/http/.config/chromium/Singleton*
 # make sure that all files are unix format and have the correct ownerships and protections
 /srv/http/command/convert_dos_files_to_unix_script.sh
 # generate locales and missing ssh keys for a full image reset
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     locale-gen
     ssh-keygen -A
 fi
 #
 # for a distribution image remove the pacman or apt history. It makes a lot of space free, but that history is useful when developing
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     if [ "$os" == "ARCH" ] ; then
         # remove pacman history and no longer installed packages from the package database
         pacman -Sc --noconfirm
@@ -819,7 +838,7 @@ if [ "$1" == "full" ] ; then
         # pacman -Scc --noconfirm
         # rank mirrors and refresh repo's
         /srv/http/command/rank_mirrors.sh
-    elif [ "$od" == "RPiOS" ] ; then
+    elif [ "$os" == "RPiOS" ] ; then
         apt --fix-broken -y install
         apt autoclean
         apt autoremove
@@ -873,13 +892,15 @@ if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
     experimental="Alpha"
 fi
 if [ "$os" == "RPiOS" ] ; then
-    codename="-$( redis-cli get codename )"
+    cname="-$codename"
 else
-    codename = ""
+    cname = ""
 fi
+wordlength=$( getconf LONG_BIT | xargs )
+wordlength="-$wordlength""bit"
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($linuxver $os$codename)"
+line3="Hw-env: Raspberry Pi ($linuxver $os$cname$wordlength)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
@@ -981,10 +1002,14 @@ mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the compressed distribution image will then be very small
-if [ "$1" == "full" ] ; then
+if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
-    # zero fill the file system
-    cd /boot
+    # zero fill the file system : codename="bookworm"
+    if [ "$codename" == "bookworm" ] ; then
+        cd /boot/firmware
+    else
+        cd /boot
+    fi
     sync
     cat /dev/zero > zero.file
     sync
