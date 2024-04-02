@@ -6216,6 +6216,7 @@ function wrk_restartSamba($redis, $args = 'restart')
     $sambaDisableCommand = '';
     $sambaStartCommand = '';
     $sambaEnableCommand = '';
+    $sambaReloadCommand = '';
     foreach ($stopServiceNames as $serviceName) {
         $sambaStopCommand .= 'systemctl stop '.$serviceName.' ; ';
         $sambaDisableCommand .= 'systemctl disable '.$serviceName.' ; ';
@@ -6229,6 +6230,7 @@ function wrk_restartSamba($redis, $args = 'restart')
     $sambaDisableCommand = rtrim($sambaDisableCommand, ' ;');
     $sambaStartCommand = rtrim($sambaStartCommand, ' ;');
     $sambaEnableCommand = rtrim($sambaEnableCommand, ' ;');
+    $sambaReloadCommand = rtrim($sambaReloadCommand, ' ;');
     //
     runelog('Samba Dev Mode   :', $redis->get('dev'));
     runelog('Samba Enable     :', $redis->hGet('samba', 'enable'));
