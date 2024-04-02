@@ -6528,14 +6528,25 @@ function wrk_NTPsync($ntpserver)
     }
 }
 
-function wrk_restartSamba($redis)
-// restart Samba
+// function to start, stop and configure samba and associated components
+function wrk_restartSamba($redis, $args = 'restart')
+// start, stop, restart or reload Samba and its components based on the value of redis variables 'dev', the redis hash 'samba', 'enable'
+//  and the parameter $args
+// also switches 'read/write' and 'read only' access depending on the value of redis variables 'dev', the redis hash 'samba', 'readwrite'
+// parameters ($args) can be:
+//  restart : which stops and disables automatic restart of all Samba components when Samba is disabled or
+//              stops and starts all Samba components when Samba is enabled and the components are running or
+//             starts and enables automatic restart all Samba components when Samba is enabled and the components are not running
+//  reload : which stops and disables automatic restart of all Samba components when Samba is disabled or
+//             reloads all Samba components when Samba is enabled and the components are running or
+//             starts and enables automatic restart all Samba components when Samba is enabled and the components are not running
+// the redis variable
 {
     if (is_firstTime($redis, 'wrk_restartSamba')) {
-        // on RPiOS smbd, nmbd and winbindd services are used, while on ARCH they are smb, nmb and winbind
+        // on RPiOS smbd, nmbd and winbindd services were used, while on ARCH they are smb, nmb and winbind
         //  the latest standard uses smb, nmb and winbind, Debian (and RIPiOS) will support both in the future
         //  RPiOS (Linux 6.6) uses smbd, nmbd and winbind with symlinks for smb and nmb, a symlink for winbindd is missing
-        //  depending on the available files set up the stop, start, enable and disable systemctl command strings
+        // depending on the available files set up the stop, start, enable and disable systemctl command strings
         // no need for clearstatcache() as the service files are static
         $startServiceNames = array();
         $stopServiceNames = array();
@@ -6545,61 +6556,65 @@ function wrk_restartSamba($redis)
         // the services which start samba are (nmb or nmbd) and (winbind or winbindd) and (smb or smdb),
         //  existence of a user modified service file takes preference over a standard service file in determining the service names
         //  existence of a service ending with a 'd' has preference over those not ending in a 'd'
+        //  when installed wsdd (Web Services Dynamic Discovery host daemon) will also be started/stopped
         // all detected variations are used to stop samba
-        // start order: (nmb or nmbd), (winbind or winbindd), (smb or smdb) then wsdd - this is important!
-        // stop order: wsdd smbd, smd, winbindd, winbindd, nmbd then nmb (each being stopped when applicable)
-        if (is_file('/usr/lib/systemd/system/nmb.service') && !is_link('/usr/lib/systemd/system/nmb.service')) {
-            $stopServiceNames[6] = 'nmb';
-            $startServiceNames[0] = 'nmb';
-            $startServiceNames = array_diff($startServiceNames, array('nmbd'));
-        }
-        if (is_file('/usr/lib/systemd/system/nmbd.service') && !is_link('/usr/lib/systemd/system/nmbd.service')) {
-            $stopServiceNames[5] = 'nmbd';
-            $startServiceNames[0] = 'nmbd';
-        }
-        if (is_file('/usr/lib/systemd/system//winbind.service') && !is_link('/usr/lib/systemd/system/winbind.service')) {
-            $stopServiceNames[4] = 'winbind';
-            $startServiceNames[1] = 'winbind';
-        }
-        if (is_file('/usr/lib/systemd/system//winbindd.service') && !is_link('/usr/lib/systemd/system/winbindd.service')) {
-            $stopServiceNames[3] = 'winbindd';
-            $startServiceNames[1] = 'winbindd';
-        }
+        // start order: (smb or smdb), (nmb or nmbd), (winbind or winbindd) then wsdd - this is important!
+        // stop order: wsdd, winbindd, winbindd, nmbd then nmb, smbd, smd (each being stopped when applicable)
         if (is_file('/usr/lib/systemd/system/smb.service') && !is_link('/usr/lib/systemd/system/smb.service')) {
-            $stopServiceNames[2] = 'smb';
-            $startServiceNames[2] = 'smb';
+            $stopServiceNames[6] = 'smb';
+            $startServiceNames[0] = 'smb';
         }
         if (is_file('/usr/lib/systemd/system/smbd.service') && !is_link('/usr/lib/systemd/system/smbd.service')) {
-            $stopServiceNames[1] = 'smbd';
-            $startServiceNames[2] = 'smbd';
+            $stopServiceNames[5] = 'smbd';
+            $startServiceNames[0] = 'smbd';
+        }
+        if (is_file('/usr/lib/systemd/system/nmb.service') && !is_link('/usr/lib/systemd/system/nmb.service')) {
+            $stopServiceNames[4] = 'nmb';
+            $startServiceNames[1] = 'nmb';
+        }
+        if (is_file('/usr/lib/systemd/system/nmbd.service') && !is_link('/usr/lib/systemd/system/nmbd.service')) {
+            $stopServiceNames[3] = 'nmbd';
+            $startServiceNames[1] = 'nmbd';
+        }
+        if (is_file('/usr/lib/systemd/system//winbind.service') && !is_link('/usr/lib/systemd/system/winbind.service')) {
+            $stopServiceNames[2] = 'winbind';
+            $startServiceNames[2] = 'winbind';
+        }
+        if (is_file('/usr/lib/systemd/system//winbindd.service') && !is_link('/usr/lib/systemd/system/winbindd.service')) {
+            $stopServiceNames[1] = 'winbindd';
+            $startServiceNames[1] = 'winbindd';
         }
         if (is_file('/usr/lib/systemd/system/wsdd.service') && !is_link('/usr/lib/systemd/system/wsdd.service')) {
             $stopServiceNames[0] = 'wsdd';
             $startServiceNames[3] = 'wsdd';
         }
-        if (is_file('/etc/system/systemd/nmb.service')) {
-            $stopServiceNames[5] = 'nmb';
-            $startServiceNames[0] = 'nmb';
-        }
-        if (is_file('/etc/system/systemd/nmbd.service')) {
-            $stopServiceNames[4] = 'nmbd';
-            $startServiceNames[0] = 'nmbd';
-        }
-        if (is_file('/etc/system/systemd/winbind.service')) {
-            $stopServiceNames[3] = 'winbind';
-            $startServiceNames[1] = 'winbind';
-        }
-        if (is_file('/etc/system/systemd/winbindd.service')) {
-            $stopServiceNames[2] = 'winbindd';
-            $startServiceNames[1] = 'winbindd';
-        }
         if (is_file('/etc/system/systemd/smb.service')) {
-            $stopServiceNames[1] = 'smb';
-            $startServiceNames[2] = 'smb';
+            $stopServiceNames[6] = 'smb';
+            $startServiceNames[0] = 'smb';
         }
         if (is_file('/etc/system/systemd/smbd.service')) {
-            $stopServiceNames[0] = 'smbd';
-            $startServiceNames[2] = 'smbd';
+            $stopServiceNames[5] = 'smbd';
+            $startServiceNames[0] = 'smbd';
+        }
+        if (is_file('/etc/system/systemd/nmb.service')) {
+            $stopServiceNames[4] = 'nmb';
+            $startServiceNames[1] = 'nmb';
+        }
+        if (is_file('/etc/system/systemd/nmbd.service')) {
+            $stopServiceNames[3] = 'nmbd';
+            $startServiceNames[1] = 'nmbd';
+        }
+        if (is_file('/etc/system/systemd/winbind.service')) {
+            $stopServiceNames[2] = 'winbind';
+            $startServiceNames[2] = 'winbind';
+        }
+        if (is_file('/etc/system/systemd/winbindd.service')) {
+            $stopServiceNames[1] = 'winbindd';
+            $startServiceNames[2] = 'winbindd';
+        }
+        if (is_file('/etc/system/systemd/wsdd.service')) {
+            $stopServiceNames[0] = 'wsdd';
+            $startServiceNames[3] = 'wsdd';
         }
         // sort the arrays in to the correct order
         ksort($stopServiceNames);
@@ -6626,15 +6641,13 @@ function wrk_restartSamba($redis)
     foreach ($startServiceNames as $serviceName) {
         $sambaStartCommand .= 'systemctl start '.$serviceName.' ; ';
         $sambaEnableCommand .= 'systemctl enable '.$serviceName.' ; ';
+        $sambaReloadCommand .= 'systemctl reload-or-restart '.$serviceName.' ; ';
     }
     $sambaStopCommand = rtrim($sambaStopCommand, ' ;');
     $sambaDisableCommand = rtrim($sambaDisableCommand, ' ;');
     $sambaStartCommand = rtrim($sambaStartCommand, ' ;');
     $sambaEnableCommand = rtrim($sambaEnableCommand, ' ;');
     //
-    runelog('Samba Stopping...', '');
-    sysCmd($sambaStopCommand);
-    sysCmd($sambaDisableCommand);
     runelog('Samba Dev Mode   :', $redis->get('dev'));
     runelog('Samba Enable     :', $redis->hGet('samba', 'enable'));
     runelog('Samba Read/Write :', $redis->hGet('samba', 'readwrite'));
@@ -6669,11 +6682,22 @@ function wrk_restartSamba($redis)
             }
         }
     }
+    sysCmd('systemctl daemon-reload');
     if ($redis->get('dev') || $redis->hGet('samba', 'enable')) {
-        runelog('Samba Restarting...', '');
-        sysCmd('systemctl daemon-reload');
-        sysCmd($sambaStartCommand);
         sysCmd($sambaEnableCommand);
+        if ($args != 'reload') {
+            runelog('Samba Reloading...', '');
+            sysCmd($sambaReloadCommand);
+        } else {
+            runelog('Samba Restarting...', '');
+            sysCmd($sambaStopCommand);
+            sysCmd($sambaStartCommand);
+        }
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    } else {
+        runelog('Samba Stopping...', '');
+        sysCmd($sambaStopCommand);
+        sysCmd($sambaDisableCommand);
     }
 }
 

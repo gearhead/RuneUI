@@ -202,7 +202,7 @@ if ($playerid_db === '') {
     wrk_netconfig($redis, 'reset');
     // reset USB mounts
     runelog('invoke USB mounts reset');
-    sysCmd('/srv/http/command/usbmount');
+    sysCmd('/srv/http/command/usbmount nowait');
     // reset sourcecfg to defaults
     runelog('reset sourcecfg to defaults');
     wrk_mpdconf($redis, 'stop');
@@ -364,7 +364,7 @@ if ($playerid_db === '') {
     runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
     // collect USB storage information for the UI (also starts samba)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount');
+    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait');
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
         runelog('service: SPOTIFYD start','');
