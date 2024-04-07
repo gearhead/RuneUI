@@ -1,0 +1,506 @@
+#!/usr/bin/php
+<?php
+/*
+ * Copyright (C) 2013-2015 RuneAudio Team
+ * http://www.runeaudio.com
+ *
+ * RuneUI
+ * copyright (C) 2013-2015 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+ *
+ * RuneOS
+ * copyright (C) 2013-2015 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+ *
+ * RuneAudio website and logo
+ * copyright (C) 2013-2015 - ACX webdesign (Andrea Coiutti)
+ *
+ * This Program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This Program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RuneAudio; see the file COPYING. If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.txt>.
+ *
+ *  file: command/getid3-cli
+ *  version: 0.6
+ *  coder: janui
+ *  date: January 2024
+ */
+// this utility uses the James Heinrich composer utility to extract ID3 information from a music files
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+// Connect to Redis backend
+require_once('/srv/http/app/libs/openredis.php');
+// getid3 needs to operate in directory /srv/http/app/libs/vendor
+chdir('/srv/http/app/libs/vendor');
+require_once('getid3/audioinfo.class.php');
+//
+define('APP', '/srv/http/app/');
+//
+// determine whether this script has been called from directly or indirectly
+$caller = strtolower(sysCmd(" ps -o comm= $( ps -o ppid= ".getmypid()." ) | xargs")[0]);
+$alias = sysCmd('grep -ic " getid3-cli=" /etc/bash.bashrc | xargs')[0];
+if (($caller == 'bash') && !$alias) {
+    // called from bash or the alias is not present
+    $path = '/srv/http/command/';
+} else {
+    // called from a script or an alias is present
+    $path = '';
+}
+$wordlength = $redis->get('wordlength');
+//
+// process the options and validate the input file
+$a_cnt = count($argv);
+if ($a_cnt == 1) {
+    fwrite(STDERR, "Invalid parameters, missing input file name\n");
+    fwrite(STDERR, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
+    fwrite(STDERR, "Use: ".$path."getid3-cli --help for more information\n");
+    exit(1);
+}
+if ((substr($argv[1], 0, 2) == '-h') || ($argv[1] == '--help')) {
+    fwrite(STDOUT, "Extract ID3 information from a music files using the James Heinrich GETID3 utility\n");
+    fwrite(STDOUT, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
+    fwrite(STDOUT, "Where: <input_filename> is a music file name, including the full path, which contains ID3 tags.\n");
+    fwrite(STDOUT, "Options:\n");
+    fwrite(STDOUT, " -h : --help          This text\n");
+    fwrite(STDOUT, " -p : --print         All tags and their values (excluding the image tag values) will\n");
+    fwrite(STDOUT, "                      be echoed to std_out in human readable format.\n");
+    fwrite(STDOUT, " -j : --json          All tags and their values will be echoed to std_out in json format.\n");
+    fwrite(STDOUT, " -l (number) : --length(=<number>)\n");
+    fwrite(STDOUT, "                      The maximum length in characters of the tag value, default 200 characters.\n");
+    fwrite(STDOUT, "                      When exceeded the tag value will be replaced with an explanatory text.\n");
+    fwrite(STDOUT, " -i (<number>) : --image(=<number>)\n");
+    fwrite(STDOUT, "                      The image will be echoed (raw) to std_out. When <number> is 1 or\n");
+    fwrite(STDOUT, "                      is not specified, the first valid (or front) image is used,\n");
+    fwrite(STDOUT, "                      <number> may have any positive integer value.\n");
+    fwrite(STDOUT, " -o <filename> : --outfile=<filename>\n");
+    fwrite(STDOUT, "                      Send the image to <filename> instead of std_out. The file extension\n");
+    fwrite(STDOUT, "                      determines the output image format\n");
+    fwrite(STDOUT, " -m <options> : --magick=<magickopts>\n");
+    fwrite(STDOUT, "                      ImageMagick processing options to apply to the -o (--outfile) file name.\n");
+    fwrite(STDOUT, "                      See the ImageMagick documentation for usage details.\n");
+    fwrite(STDOUT, " -t <filename> : --tagfile=<filename>\n");
+    fwrite(STDOUT, "                      All tags and their values will be saved in json format in the <filename>\n");
+    fwrite(STDOUT, "                      instead of std_out.\n");
+    fwrite(STDOUT, " -r <redis_variable> : --redis=<redis_variable>\n");
+    fwrite(STDOUT, "                      All tags and their values will be saved in json format in the\n");
+    fwrite(STDOUT, "                      <redis_variable> instead of std_out.\n");
+    fwrite(STDOUT, "Notes: The raw image tag values are always replaced with an explanatory text in the tag output.\n");
+    fwrite(STDOUT, "       Options -p, -j and -m will be ignored when -i is set without -o.\n");
+    fwrite(STDOUT, "       When no options are set, -p is set automatically.\n");
+    fwrite(STDOUT, "       Any file name or parameter containing spaces must be enclosed with single or double\n");
+    fwrite(STDOUT, "       quotes. Examples:\n");
+    fwrite(STDOUT, "       getid3-cli -o \"/tmp/my output file.jpg\" -m '-resize 350x350\>' '/tmp/my input file.flac'\n");
+    fwrite(STDOUT, "       getid3-cli --output='/tmp/my output file.jpg' --magick=\"-resize 350x350\>\" \"/tmp/my input file.mp3\"\n");
+    exit(0);
+}
+$infile = $argv[$a_cnt - 1];
+clearstatcache(true, $infile);
+if ((substr($infile, 0, 1) == '-') || !file_exists($infile)) {
+    fwrite(STDERR, "Invalid parameters, missing or invalid file name\n");
+    fwrite(STDERR, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
+    fwrite(STDERR, "Use: ".$path."getid3-cli --help for more information\n");
+    exit(1);
+} else {
+    unset($argv[$a_cnt - 1]);
+}
+$print= false;
+$json = false;
+$image = false;
+$image_number = 0;
+$tag_value_length = 100;
+$image_outfile = false;
+$magick_opts = false;
+$tag_outfile = false;
+$tag_redis = false;
+$skipnext = false;
+foreach ($argv as $key => $arg) {
+    $arg_lower = strtolower($arg);
+    if ($key == '0') {
+        continue;
+    }
+    if ($skipnext) {
+        $skipnext = false;
+        continue;
+    }
+    while ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) > 1) && strpos(' hpjilomtr', substr($arg_lower, 1, 1))) {
+        if (substr($arg_lower, 1, 1) == 'h') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+        } else if (substr($arg_lower, 1, 1) == 'p') {
+            $print = true;
+            $arg_lower = '-'.substr($arg_lower, 2);
+        } else if (substr($arg_lower, 1, 1) == 'j') {
+            $json = true;
+            $arg_lower = '-'.substr($arg_lower, 2);
+        } else if (substr($arg_lower, 1, 1) == 'i') {
+            $image = true;
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1]) != '-') && is_numeric($argv[$key + 1]) && (intval($argv[$key + 1]) == $argv[$key + 1])) {
+                $image_number = max(0, intval($argv[$key + 1] - 1));
+                $skipnext = true;
+            }
+        } else if (substr($arg_lower, 1, 1) == 'l') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $tag_value_length = intval($argv[$key + 1]);
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 'o') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $image = true;
+                $image_outfile = $argv[$key + 1];
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 'm') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1])) {
+                $magick_opts = $argv[$key + 1];
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 't') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $tag_outfile = $argv[$key + 1];
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        } else if (substr($arg_lower, 1, 1) == 'r') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $tag_redis = $argv[$key + 1];
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
+        }
+    }
+    if (substr($arg_lower, 0, 2) == '--') {
+        if (substr($arg_lower, 2) == 'print') {
+            $print = true;
+            continue;
+        }
+        if (substr($arg_lower, 2) == 'json') {
+            $json = true;
+            continue;
+        }
+        if (substr($arg_lower, 2) == 'image') {
+            $image = true;
+            continue;
+        }
+        if (substr($arg_lower, 2, 6) == 'image=') {
+            $image = true;
+            $image_number = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($image_number) && $image_number && is_numeric($image_number)) {
+                $image_number = max(0, intval($image_number) - 1);
+                continue;
+            }
+        }
+        if (substr($arg, 2, 7) == 'length=') {
+            $tag_value_length = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($tag_value_length) && $tag_value_length) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 8) == 'outfile=') {
+            $image_outfile = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($image_outfile) && $image_outfile) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 7) == 'magick=') {
+            $magick_opts = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($magick_opts) && $magick_opts) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 8) == 'tagfile=') {
+            $tag_outfile = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($tag_outfile) && $tag_outfile) {
+                continue;
+            }
+        }
+        if (substr($arg, 2, 6) == 'redis=') {
+            $tag_redis = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($tag_redis) && $tag_redis) {
+                continue;
+            }
+        }
+        if ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) > 1)) {
+            fwrite(STDERR, "Invalid options: (-[h|p|j]) (-l <number>) (-i (<number>)) (-o <filename>) (-m <magickopts>)...\n");
+            fwrite(STDERR, "                 (-t <filename>) (-r <redis_var>)\n");
+            fwrite(STDERR, "             Or: (--[help|print|json]) (--length=<number>) (--image(=<number>)) (--outfile=<filename>)...\n");
+            fwrite(STDERR, "                 (--magick=<magickopts>) (--tagfile=<filename>) (--redis=<redis_var>)\n");
+            fwrite(STDERR, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
+            fwrite(STDERR, "Use: ".$path."getid3-cli --help for more information\n");
+            exit(1);
+        }
+    }
+}
+if ($json) {
+    $print = false;
+}
+if ($tag_outfile || $tag_redis || ($image && !$image_outfile)) {
+    $print = false;
+    $json = false;
+}
+if ($image_outfile) {
+    $image = true;
+} else {
+    $magick_opts = false;
+}
+if (!$json && !$tag_outfile && !$tag_redis && !$image && !$image_outfile && !$magick_opts) {
+    $print = true;
+}
+//
+// getID3 needs to operate in directory /srv/http/app/libs/vendor
+chdir('/srv/http/app/libs/vendor');
+//
+// run getID3 and trap any errors
+$auOK = true;
+unset($au, $auinfo);
+try {
+    // Code that may throw an Exception or Error.
+    // $au = new AudioInfo();
+    // $auinfo =  $au->Info($infile);
+    $au = new getID3;
+    if ($wordlength == 32) {
+        // ape tags throw lots of warnings for the 32bit image, they cannot be decoded properly, switch ape tags off
+        $au->setOption(array('option_tag_apetag' => false));
+    }
+    $auinfo =  $au->analyze($infile);
+}
+catch (Throwable $t) {
+    // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
+    $auOK = false;
+    fwrite(STDERR, "[getid3-cli] Caught Throwable ('{$t->getMessage()}')\n{$t}\n");
+    exit(1);
+}
+catch (Exception $e) {
+    // Executed only in PHP 5 and lower, will not match in PHP 7 and higher
+    $auOK = false;
+    fwrite(STDERR, "[getid3-cli] Caught Exception ('{$e->getMessage()}')\n{$e}\n");
+    exit(1);
+}
+if (!$auOK || !is_array($auinfo)) {
+    fwrite(STDERR, "Error decoding: '".$infile."', no ID3 data found\n");
+    fwrite(STDERR, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
+    fwrite(STDERR, "Use: ".$path."getid3-cli --help for more information\n");
+}
+//
+// select the image and clear other images to free memory
+$image_key = -1;
+if (isset($auinfo['comments']['picture'])) {
+    foreach ($auinfo['comments']['picture'] as $key => &$picturedata) {
+        if (($image_number == 0) && ($image_key == -1) && isset($picturedata['data']) &&(strlen($picturedata['data']) > 200)) {
+            // when no image number is specified or image 1 is specified, use the first valid image we can find
+            $image_key = $key;
+            continue;
+        } else if (($image_number == 0) && isset($picturdata['picturetype']) && strpos(' '.strtolower($picturdata['picturetype']), 'front') && isset($picturedata['data']) &&(strlen($picturedata['data']) > 200)) {
+            // when no image number is specified or image 1 is specified, use the image which is specified as 'front', when it exists and is valid
+            if ($image_key != -1) {
+                // we has already selected an image, clear it to free memory
+                $dataLen = strlen($auinfo['comments']['picture'][$image_key]['data']);
+                if ($dataLen >= 100) {
+                    $auinfo['comments']['picture'][$image_key]['data'] = 'Long data string of '.$dataLen.' characters omitted';
+                } else {
+                    $auinfo['comments']['picture'][$image_key]['data'] = 'Image data string of '.$dataLen.' characters omitted';
+                }
+            }
+            $image_key = $key;
+            continue;
+        } else if (($image_number == $key) && isset($picturedata['data']) &&(strlen($picturedata['data']) > 200)) {
+            // when an image number is specified , use the image which matches, when it exists and is valid
+            $image_key = $key;
+            continue;
+        }
+        //
+        $dataLen = strlen($picturedata['data']);
+        if ($dataLen >= 100) {
+            $picturedata['data'] = 'Long data string of '.$dataLen.' characters omitted';
+        } else {
+            $picturedata['data'] = 'Image data string of '.$dataLen.' characters omitted';
+        }
+    }
+}
+//
+// process the image file
+$return_value = 0;
+if ($image) {
+    if ($image_key > -1) {
+        // there is an image available
+        if ($image_outfile) {
+            // send the image to the file using ImageMagick, this will convert to the required format
+            $descriptorspec = array(
+               0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+               1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+               2 => array("pipe", "w"),  // stderr is a pipe that the child will write to
+               // 2 => array("file", "/home/error-output.txt", "a") // stderr is a file to write to
+            );
+            $cwd = '/tmp';
+            if ($magick_opts) {
+                $process = proc_open('convert '.$magick_opts.' - \''.$image_outfile.'\'', $descriptorspec, $pipes, $cwd);
+            } else {
+                $process = proc_open('convert - \''.$image_outfile.'\'', $descriptorspec, $pipes, $cwd);
+            }
+            if (is_resource($process)) {
+                // $pipes now looks like this:
+                // 0 => writeable handle connected to child stdin
+                // 1 => readable handle connected to child stdout
+                // Any error output will be appended to /tmp/error-output.txt
+                fwrite($pipes[0], $auinfo['comments']['picture'][$image_key]['data']);
+                fclose($pipes[0]);
+                fwrite(STDERR, stream_get_contents($pipes[1]));
+                fclose($pipes[1]);
+                fwrite(STDERR, stream_get_contents($pipes[2]));
+                fclose($pipes[2]);
+                // It is important that you close any pipes before calling
+                // proc_close in order to avoid a deadlock
+                $return_value = proc_close($process);
+            }
+        } else {
+            // send the image to std_out
+            fwrite(STDOUT, $auinfo['comments']['picture'][$image_key]['data']);
+        }
+        $auinfo['getid3info'] = 'Image ['.$image_key.'] correctly processed';
+    } else {
+        // no valid image
+        // return a blank image
+        $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+        if ($image_outfile) {
+            // send the image to the file
+            $descriptorspec = array(
+               0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+               1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+               2 => array("pipe", "w"),  // stderr is a pipe that the child will write to
+               // 2 => array("file", "/home/error-output.txt", "a") // stderr is a file to write to
+            );
+            $cwd = '/tmp';
+            if ($magick_opts) {
+                $process = proc_open('convert '.$magick_opts.' - \''.$image_outfile.'\'', $descriptorspec, $pipes, $cwd);
+            } else {
+                $process = proc_open('convert - \''.$image_outfile.'\'', $descriptorspec, $pipes, $cwd);
+            }
+            if (is_resource($process)) {
+                // $pipes now looks like this:
+                // 0 => writeable handle connected to child stdin
+                // 1 => readable handle connected to child stdout
+                // Any error output will be appended to /tmp/error-output.txt
+                fwrite($pipes[0], file_get_contents($artDir.'/black.png'));
+                fclose($pipes[0]);
+                fwrite(STDERR, stream_get_contents($pipes[1]));
+                fclose($pipes[1]);
+                fwrite(STDERR, stream_get_contents($pipes[2]));
+                fclose($pipes[2]);
+                // It is important that you close any pipes before calling
+                // proc_close in order to avoid a deadlock
+                $return_value = proc_close($process);
+            }
+        } else {
+            // send the image to std_out
+            fwrite(STDOUT, file_get_contents($artDir.'/black.png'));
+        }
+        $auinfo['getid3info'] = 'Image ['.$image_key.'] invalid';
+    }
+} else {
+    $auinfo['getid3info'] = 'No image processing selected';
+}
+//
+// and unset the processed image to free up memory
+if ($image_key != -1) {
+    $dataLen = strlen($auinfo['comments']['picture'][$image_key]['data']);
+    if ($dataLen >= 100) {
+        $auinfo['comments']['picture'][$image_key]['data'] = 'Long data string of '.$dataLen.' characters omitted';
+    } else {
+        $auinfo['comments']['picture'][$image_key]['data'] = 'Image data string of '.$dataLen.' characters omitted';
+    }
+}
+//
+// process the tags to std_out human readable
+if ($print) {
+    fwrite(STDOUT, "File: \"".$infile."\"\n");
+    print_array($auinfo);
+}
+//
+// process the tags to std_out json format
+if ($json) {
+    fix_long_data(auinfo);
+    fwrite(STDOUT, json_encode($auinfo));
+}
+//
+// process the tags to the specified file
+if ($tag_outfile) {
+    fix_long_data($auinfo);
+    file_put_contents($tag_outfile, json_encode($auinfo));
+}
+//
+// process the tags to the specified redis variable
+if ($tag_redis) {
+    fix_long_data($auinfo);
+    $redis->set($tag_redis, json_encode($auinfo));
+}
+//
+// functions
+function print_array($array, $spaces='')
+{
+    $tag_value_length = $GLOBALS['tag_value_length'];
+    foreach ($array as $key => $value){
+        if (is_array($value)) {
+            fwrite(STDOUT, $spaces.'"'.$key."\"\n");
+            print_array($value, $spaces.' ');
+        } else {
+            $spacer = max(1, 30 - strlen($key) - strlen($spaces));
+            if (!isset($value)) {
+                $value = '';
+            }
+            $dataLen = strlen($value);
+            if ($dataLen >= $tag_value_length) {
+                $value = 'Long data string of '.$dataLen.' characters omitted';
+            }
+            fwrite(STDOUT, $spaces.'"'.$key.'" :'.str_repeat(' ', $spacer).'"'.$value."\"\n");
+        }
+    }
+}
+function fix_long_data($array)
+{
+    $tag_value_length = $GLOBALS['tag_value_length'];
+    foreach ($array as $key => &$value){
+        if (is_array($value)) {
+            print_array($value);
+        } else {
+            if (!isset($value)) {
+                $value = '';
+            }
+            $dataLen = strlen($value);
+            if ($dataLen >= $tag_value_length) {
+                $value = 'Long data string of '.$dataLen.' characters omitted';
+            }
+        }
+    }
+}
+
+//
+exit($return_value);

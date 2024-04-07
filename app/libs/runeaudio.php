@@ -71,7 +71,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
 //  this is used for reopening a timed out socket with the same socket name
 // the success return value is an array containing 'resource' = the socket resource or object (previously a resource,
 //  from php v8 socket is an object), 'sockVarName' = the socket variable name, 'type' = connection type and
-//  'description' = a description of the socket object derives van a var_dump of the resource
+//  'description' = a description of the socket object derived from a var_dump of the resource
 // the variable with the name contained in the variable sockVarName is a global, accessible outside this function
 //  within the current php job, it is referenced to by using the $$ variable variable construction
 //  so $sock['sockVarName'] contains the name of the global variable containing the globally defined resource or object
@@ -139,7 +139,7 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
     }
 }
 
-function closeMpdSocket($sock, $retainSockVarName = false)
+function closeMpdSocket($sock, $retainSockVarName = 0)
 // when $retainSockVarName is set to true the socket variable name will not be unset
 //  this is used when reopening a timed out socket with the same name
 {
@@ -509,7 +509,7 @@ function getMpdOutputs($mpd)
     }
 }
 
-function getMpdCurrentsongInfo($mpd, $raw=false)
+function getMpdCurrentsongInfo($mpd, $raw = 0)
 // returns the current song information unaltered (as returned by MPD) or as an array of information elements
 // by default an array is returned, by specifying a non-false value for $raw the the data from MPD is returned unaltered
 {
@@ -555,7 +555,7 @@ function deleteBookmark($redis, $id)
     return $return;
 }
 
-function browseDB($sock, $browsemode, $query='')
+function browseDB($sock, $browsemode, $query = '')
 {
     // debug for quotes in library items
     // file_put_contents('/srv//http/tmp/browseDB.txt', 'Before:'.$browsemode.':'.$query."\n", FILE_APPEND | LOCK_EX);
@@ -963,9 +963,9 @@ function reset_cmd_queue_encoding($redis)
         $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
     }
     $cipher_exclude_array = explode(' ', $cipher_exclude_list);
-    // randomise the cipher to use from the list of possibles
     //
-    if (is_firstTime($redis, 'cmd_queue_cipher_array')) {
+    $first_time = is_firstTime($redis, 'cmd_queue_cipher_array');
+    if ($first_time) {
         // create the cipher array, run only once after a boot
         //  retry 20 times, wait 1 second in the loop
         $cnt = 20;
@@ -991,13 +991,14 @@ function reset_cmd_queue_encoding($redis)
             // cant do anything, abort with an error
             // Use '126	ENOKEY	Required key not available' as exit code
             // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cypher array, aborting\n";
+            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cipher array, aborting\n";
             exit(126);
         }
-    } else {
+    }
+    if ($first_time) {
         // this is only run once after a boot
-        // remove weak ciphers from the array (ecb, des, rc2, rc4, md5)
-        // remove AEAD ciphers which require an authentication tag from the array (gcm, ccm, ocb, xts, wrap)
+        // remove weak ciphers (e.g. ecb, des, rc2, rc4, md5) and ciphers which have failed from the array
+        //  the failed ciphers are those which require a 'tag' (e.g. gcm, ccm, ocb, xts, wrap)
         // need to do some tricks to globalise the variable $cipher_exclude to to make this work
         //  it is removed as a global after use
         global $cipher_exclude;
@@ -1007,6 +1008,7 @@ function reset_cmd_queue_encoding($redis)
             // echo "Array length -".$cipher_exclude." ".count($cipher_array)."\n";
             runelog('[reset_cmd_queue_encoding] Array length -'.$cipher_exclude.' ', count($cipher_array));
         }
+        // remove the golbaised $cipher_exclude
         unset($GLOBALS['cipher_exclude']);
         // ensure the cipher array indexes are sequential
         $cipher_array = array_values($cipher_array);
@@ -1032,15 +1034,20 @@ function reset_cmd_queue_encoding($redis)
             $test = base64_encode(openssl_encrypt(gzdeflate('Test', 9), $cipher, $passphrase, 0, $iv));
             $test = trim(gzinflate(openssl_decrypt(base64_decode($test), $cipher, $passphrase, 0, $iv)));
             if ($test == 'Test') {
+                // encode and decode successful
                 $ivError = false;
                 // break the loop
                 break;
             } else {
+                // encode and decode failed
                 echo "Warning: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Encode/decode invalid cipher: '$cipher'\n";
-                // remove the invalid entry form the array and save it
+                // remove the invalid entry from the array and save it
                 unset($cipher_array[$cipherIndex]);
                 $cipher_array = array_values($cipher_array);
                 $redis->hSet('cmd_queue_encoding', 'cipher_array', json_encode($cipher_array));
+                // save the invalid entry in the cipher exclude list
+                $cipher_exclude_list .= ' '.$cipher;
+                $redis->set('cipher_exclude_list', $cipher_exclude_list);
                 $ivError = true;
                 $cnt--;
             }
@@ -1102,7 +1109,7 @@ function getMpdDaemonDetalis()
 }
 
 // using an array as needles in strpos
-function strposa($haystack, $needle, $offset=0)
+function strposa($haystack, $needle, $offset = 0)
 {
     if (!is_array($needle)) $needle = array($needle);
     foreach ($needle as $query) {
@@ -1112,7 +1119,7 @@ function strposa($haystack, $needle, $offset=0)
 }
 
 // format Output for the "library", no longer used for the "playlist"
-function _parseFileListResponse($resp, $extraAction=null)
+function _parseFileListResponse($resp, $extraAction = null)
 // Extra action can be optionally specified, values:
 //  'htmlspecialchars': values of ampersand, double quote, single quote, less then and more then are encoded as &amp;, &quot, &#039, &lt; and &gt;
 //  'escaped': values of double quote, single quote, backslash and null are escaped by inserting a backslash before the value
@@ -1652,7 +1659,7 @@ function pushFile($redis, $filepath)
 }
 
 // check if mpd.conf or interfaces was modified outside
-function hashCFG($redis, $action='check_mpd')
+function hashCFG($redis, $action = 'check_mpd')
 {
     switch ($action) {
         // case 'check_net':
@@ -1752,7 +1759,7 @@ function getmac($nicname)
     return trim($mac);
 }
 
-function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
+function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
 {
     switch ($action) {
         case 'start':
@@ -1980,35 +1987,123 @@ function wrk_localBrowser($redis, $action, $args=null, $jobID=null)
     }
 }
 
-function wrk_avahiconfig($redis, $hostname)
+function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
+// actions:
+//  set_ip: set the way this function works
+//      valid args values: 'a' (automatic), '4' (IPv4 only), '6' (IPv6 only), b (both IPv4 and IPv6)
+//  check_ip: check and sets the avahi configuration, avahi will be restarted if required
+//  hostname: sets the hostname
+//      valid args values: a hostname
+// the redis hash variable avahi is used
 {
-    // clear the cache otherwise file_exists() returns incorrect values
-    clearstatcache(true, '/etc/avahi/services/runeaudio.service');
-    if (!file_exists('/etc/avahi/services/runeaudio.service')) {
-        runelog('avahi service descriptor not present, initializing...');
-        sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
-    }
-    $file = '/etc/avahi/services/runeaudio.service';
-    $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
-    // Commit changes to /tmp/runeaudio.service
-    $newfile = '/tmp/runeaudio.service';
-    $fp = fopen($newfile, 'w');
-    fwrite($fp, implode("", $newArray));
-    fclose($fp);
-    // check that the conf file has changed
-    if (md5_file($file) === md5_file($newfile)) {
-        // nothing has changed, set avahiconfchange off
-        $redis->set('avahiconfchange', 0);
-        sysCmd('rm -f '.$newfile);
-    } else {
-        // avahi configuration has changed, set avahiconfchange on
-        $redis->set('avahiconfchange', 1);
-        sysCmd('cp '.$newfile.' '.$file);
-        sysCmd('rm -f '.$newfile);
-        // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
-        sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
-        // and line beginning with ::1 (IPv6)
-        sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+    switch ($action) {
+        case 'set_ip':
+            // validate the value of $args
+            if (!isset($args) || !$args || !strpos(' a46b', $args)) {
+                ui_notifyError($redis, 'Avahi config', 'Invalid choice: '.$args);
+                break;
+            }
+            // set the redis variable
+            $redis->hSet('avahi', 'ip_setup', $args);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            // no break;
+        case 'check_ip':
+            // avahi config file
+            $file = '/etc/avahi/avahi-daemon.conf';
+            // get the current avahi ip setup
+            $curIpv4 = sysCmd('grep -ic "\s*use-ipv4\s*=\s*yes" '.$file)[0];
+            $curIpv6 = sysCmd('grep -ic "\s*use-ipv6\s*=\s*yes" '.$file)[0];
+            if ($curIpv4 && $curIpv6) {
+                $currentSetup = 'b';
+            } else if ($curIpv4 && !$curIpv6) {
+                $currentSetup = '4';
+            } else if (!$curIpv4 && $curIpv6) {
+                $currentSetup = '6';
+            } else {
+                $currentSetup = 'n';
+            }
+            // get the redis value for $args
+            $args = $redis->hGet('avahi', 'ip_setup');
+            // determine the automatic configuration
+            if ($args = 'a') {
+                // determined by the scope of the ip addresses, 'global' (or 'site', ipv6 only) are routable
+                $ipv4Routable = sysCmd("ip add | grep -i 'inet\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
+                $ipv6Routable = sysCmd("ip add | grep -i 'inet6\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
+                if ($ipv4Routable && $ipv6Routable) {
+                    $args = 'b';
+                } else if ($ipv4Routable && !$ipv6Routable) {
+                    $args = '4';
+                } else if (!$ipv4Routable && $ipv6Routable) {
+                    $args = '6';
+                } else {
+                    // should never happen!
+                    $args = 'b';
+                }
+            }
+            // if it is already set correctly just return
+            if ($currentSetup == $args) {
+                break;
+            }
+            // from this point we know that we will change the configuration
+            // check that lines containing use-ipv4 and use-ipv6 exist and add then when that is not the case
+            //  they are added in the [server] section
+            $ipv4 = sysCmd('grep -ic "use-ipv4" '.$file)[0];
+            $ipv6 = sysCmd('grep -ic "use-ipv6" '.$file)[0];
+            if (!$ipv4) {
+                sysCmd("sed -i '/\[server\]/a # use-ipv4=yes' ".$file);
+            }
+            if (!$ipv6) {
+                sysCmd("sed -i '/\[server\]/a # use-ipv6=yes' ".$file);
+            }
+            // set up the configuration
+            //  first comment all the use-ipv* lines out, then uncomment/change the relevant lines
+            sysCmd("sed -i '/^\s*use-ipv.\s*=.*/ s/./# &/' ".$file);
+            if ($args == '4') {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=no' ".$file);
+            } else  if ($args == '6') {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=no' ".$file);
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
+            } else  if ($args == 'b') {
+                sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
+                sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
+            }
+            // reload avahi
+            sysCmd('systemctl reload avahi-daemon');
+            break;
+        case 'hostname':
+            $hostname = $args;
+            // clear the cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, '/etc/avahi/services/runeaudio.service');
+            if (!file_exists('/etc/avahi/services/runeaudio.service')) {
+                runelog('avahi service descriptor not present, initializing...');
+                sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
+            }
+            $file = '/etc/avahi/services/runeaudio.service';
+            $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
+            // Commit changes to /tmp/runeaudio.service
+            $newfile = '/tmp/runeaudio.service';
+            $fp = fopen($newfile, 'w');
+            fwrite($fp, implode("", $newArray));
+            fclose($fp);
+            // check that the conf file has changed
+            if (md5_file($file) === md5_file($newfile)) {
+                // nothing has changed, set avahi confchange off
+                $redis->hSet('avahi', 'confchange', 0);
+                sysCmd('rm -f '.$newfile);
+            } else {
+                // avahi configuration has changed, set avahi confchange on
+                $redis->hSet('avahi', 'confchange', 1);
+                sysCmd('cp '.$newfile.' '.$file);
+                sysCmd('rm -f '.$newfile);
+                // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
+                sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+                // and line beginning with ::1 (IPv6)
+                sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+            }
+            break;
     }
 }
 
@@ -2314,201 +2409,194 @@ function net_CidrToNetmask($cidr) {
     return join('.', $netmask);
 }
 
-function wrk_apconfig($redis, $action, $args = null)
+function wrk_apconfig($redis, $action, $args = null, $jobID = null)
 {
     runelog('wrk_apconfig args = ', $args);
     $return = '';
     switch ($action) {
+        case 'enable':
+            // no break
+        case 'disable':
+            // action is enable or disable
+            if ($action == 'enable') {
+                $args['enable'] = 1;
+            } else if ($action == 'disable') {
+                $args['enable'] = 0;
+            }
+            // no break
         case 'writecfg':
-            if (isset($args['enable'])) {
-                $redis->hSet('AccessPoint', 'enable', $args['enable']);
-            } else {
-                $redis->hSet('AccessPoint', 'enable', 0);
+            if (isset($args['ssid']) && $args['ssid'] && ($args['ssid'] != $redis->hGet('AccessPoint', 'ssid'))) {
+                $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
+                $args['restart'] = 1;
             }
-            $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
-            $redis->hSet('AccessPoint', 'passphrase', $args['passphrase']);
-            $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
-            $redis->hSet('AccessPoint', 'broadcast', $args['broadcast']);
-            $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
-            $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
-            $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
-            if (isset($args['enable-NAT'])) {
-                $redis->hSet('AccessPoint', 'enable-NAT', $args['enable-NAT']);
-            } else {
+            if (isset($args['passphrase']) && $args['passphrase'] && ($args['passphrase'] != $redis->hGet('AccessPoint', 'passphrase'))) {
+                $redis->hSet('AccessPoint', 'passphrase', $args['passphrase']);
+                $args['restart'] = 1;
+            }
+            $ipAddressOld = $redis->hGet('AccessPoint', 'ip-address');
+            if (isset($args['ip-address']) && $args['ip-address'] && ($args['ip-address'] != $ipAddressOld)) {
+                $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['broadcast']) && $args['broadcast'] && ($args['broadcast'] != $redis->hGet('AccessPoint', 'broadcast'))) {
+                $redis->hSet('AccessPoint', 'broadcast', $args['broadcast']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-range']) && $args['dhcp-range'] && ($args['dhcp-range'] != $redis->hGet('AccessPoint', 'dhcp-range'))) {
+                $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-dns']) && $args['dhcp-option-dns'] && ($args['dhcp-option-dns'] != $redis->hGet('AccessPoint', 'dhcp-option-dns'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-router']) && $args['dhcp-option-router'] && ($args['dhcp-option-router'] != $redis->hGet('AccessPoint', 'dhcp-option-router'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['restart']) && ($args['restart'] == 1)) {
+                $message = "Configuration changed";
+            }
+            if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is true and current state is false
+                $redis->hSet('AccessPoint', 'enable-NAT', 1);
+                $args['rescan'] = 1;
+            } else if ((!isset($args['enable-NAT']) || !$args['enable-NAT']) && $redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is false and current state is true
                 $redis->hSet('AccessPoint', 'enable-NAT', 0);
+                $args['rescan'] = 1;
             }
-            $args = array_merge($args, $redis->hgetall('AccessPoint'));
+            if (isset($args['rescan']) && ($args['rescan'] == 1)) {
+                $message = "Configuration changed";
+            }
+            if (isset($args['enable']) && $args['enable'] && !$redis->hGet('AccessPoint', 'enable')) {
+                // enable requested, was disabled
+                $redis->hSet('AccessPoint', 'enable', $args['enable']);
+                unset_is_firstTime($redis, 'AP-start');
+                $args['restart'] = 0;
+                $args['rescan'] = 1;
+                if (isset($message)) {
+                    $message .= ' and enabled';
+                } else {
+                    $message = 'Enabled';
+                }
+            } else if ((!isset($args['enable']) || !$args['enable']) && $redis->hGet('AccessPoint', 'enable')) {
+                // disable requested, was enabled
+                $redis->hSet('AccessPoint', 'enable', 0);
+                if ($redis->hGet('AccessPoint', 'NAT-configured')) {
+                    // NAT is configured, remove the configuration
+                    sysCmd('iptables -F');
+                    sysCmd('iptables -t nat -F');
+                    sysCmd('sysctl net.ipv4.ip_forward=0');
+                    $redis->hSet('AccessPoint', 'NAT-configured', 0);
+                }
+                // stop the hostapd AP jobs if they are running
+                sysCmd('pgrep hostapd && systemctl stop hostapd ; pgrep dnsmasq && systemctl stop dnsmasq');
+                // stop the iwd access point
+                $interface = $redis->hGet('AccessPoint', 'interface');
+                sysCmd('iwctl ap '.$interface.' stop');
+                // get the wlan nic used for accesspoint
+                $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+                //
+                // determine the AP wlan nic(s) by searching the ip addresses for the current and previous AP ip-address (these may have the same value)
+                $wlanNics = explode(' ', sysCmd("ip -o add | grep -iE '".$ipAddressOld."|".$redis->hGet('AccessPoint', 'ip-address')."' | xargs | cut -d ' ' -f 2 | xargs")[0]);
+                // check that the stored wlan nic is included in the wlan nics array
+                if (isset($interface) && $interface && !in_array($interface, $wlanNics)) {
+                    // not found in array, add it
+                    $wlanNics[] = $interface;
+                }
+                // get the names of the physical nics
+                $physNics = sysCmd('dir -1 /sys/class/net/');
+                // process all the relevant wlan nics (normally one or none)
+                foreach ($wlanNics as $wlanNicInterface) {
+                    // just in case the use of virtual nics may have been switched, we don't use the redis hash 'AccessPoint'  'virtual_ap_dev'
+                    //  to determine a physical or virtual nic
+                    if (in_array($wlanNicInterface, $physNics)  && ($wlanNic == $wlanNicInterface)) {
+                        // the nic is in the list of physical nics and its name is the same as the wlan nic
+                        // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
+                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
+                    } else {
+                        // the nic is not in the list of physical nics or its name is different to the wlan nic
+                        // delete the virtual nic
+                        sysCmd('iw dev '.$wlanNicInterface.' del');
+                    }
+                }
+                // comment out any lines in the iwd configuration file /etc/iwd/main.conf containing 'APRanges='
+                sysCmd("sed -i /APRanges=/s/^/# / '/etc/iwd/main.conf'");
+                // remove any iwd AP definition files
+                sysCmd('mkdir -p /var/lib/iwd/ap/');
+                sysCmd('rm /var/lib/iwd/ap/*.ap');
+                // do we need to restart iwd? I don't think it is necessary - need to test
+                // sysCmd('systemctl restart iwd');
+                // unset the AP nic names
+                $redis->hSet('AccessPoint', 'ethNic', '');
+                $redis->hSet('AccessPoint', 'wlanNic', '');
+                $redis->hSet('AccessPoint', 'interface', '');
+                $args['restart'] = 0;
+                if (isset($args['norescan']) && $args['norescan']) {
+                    $args['rescan'] = 0;
+                } else {
+                    $args['rescan'] = 1;
+                }
+                if (isset($message)) {
+                    $message .= ', and disabled';
+                } else {
+                    $message = 'Disabled';
+                }
+            }
             break;
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
             wrk_getHwPlatform($redis);
-            if (is_array($args)) {
-                $args = array_merge($args, $redis->hgetall('AccessPoint'));
-            } else {
-                $args = $redis->hgetall('AccessPoint');
-            }
+            $args['restart'] = 1;
+            $message = "Resetting Access Point to default values";
             break;
     }
-    if ($args['enable']) {
-        if ($args['reboot']) {
-            runelog('**** AP reboot requested ****', $args);
-            $return = 'reboot';
-        } elseif ($args['restart']) {
-            $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
-            // $procCount has value 2 when both hostapd and dnsmasq are running, cannot restart if these are not running
-            if ($procCount === 2) {
-                runelog('**** AP restart requested ****', $args);
-                $file = '/etc/hostapd/hostapd.conf';
-                // change AP name
-                $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args['ssid']);
-                // change passphrase
-                $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$args['passphrase']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode('', $newArray));
-                fclose($fp);
-                $file = '/etc/dnsmasq.conf';
-                // change dhcp-range
-                $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args['dhcp-range']);
-                // change dhcp-option dns-server
-                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args['dhcp-option-dns']);
-                // change dhcp-option router
-                $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args['dhcp-option-router']);
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode('', $newArray));
-                fclose($fp);
-                $dnsmasqLines = sysCmd('grep -i interface /etc/dnsmasq.conf');
-                foreach ($dnsmasqLines as $dnsmasqLine) {
-                    list($id, $value) = explode('=', $dnsmasqLine, 2);
-                    if ($id === 'interface') {
-                        $wlanNic = $value;
-                    }
-                    if ($id === 'no-dhcp-interface') {
-                        $ethNic = $value;
-                    }
-                }
-                if (isset($wlanNic)) {
-                    // flush the wlan nic then take it down and bring it up, this will turn the AP off
-                    sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
-                    sysCmd('systemctl restart hostapd');
-                    sysCmd('systemctl restart dnsmasq');
-                    // enable the AP by switching braodcast on
-                    sysCmd('ip addr add '.$args['ip-address'].'/24 broadcast '.$args['broadcast'].' dev '.$wlanNic);
-                    if (isset($ethNic)) {
-                        $ethNicConnected = sysCmd('ip address | grep -ic '.$ethNic)[0];
-                    } else {
-                        $ethNicConnected = false;
-                    }
-                    if (($args['enable-NAT'] === '1') && $ethNicConnected) {
-                        // enable NAT if enabled and there is a wired nic available
-                        sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
-                        sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-                        sysCmd('iptables -A FORWARD -i '.$wlanNic.' -o '.$ethNic.' -j ACCEPT');
-                        sysCmd('sysctl net.ipv4.ip_forward=1');
-                    } else {
-                        sysCmd('sysctl net.ipv4.ip_forward=0');
-                    }
-                }
-            }
-        }
-        // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
-        //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
-        //  currently disabled, the UI will only display QR-codes for the default settings
-        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
-        // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
-    } else {
-        // now disabled
-        $procCount = sysCmd('pgrep -x "hostapd|dnsmasq" | wc -l')[0];
-        // $procCount has value 2 when both hostapd and dnsmasq are running and 1 when one is running
-        if ($procCount) {
-            // one of the processes is running, so turn it off
-            sysCmd('pgrep -x hostapd && systemctl stop hostapd');
-            sysCmd('pgrep -x dnsmasq && systemctl stop dnsmasq');
-            // flush the wlan nic then take it down and bring it up, this will turn the AP off
-            sysCmd('ip addr flush '.$wlanNic.';ip link set dev '.$wlanNic.' down;ip link set dev '.$wlanNic.' up');
-        }
+    if (isset($jobID) && $jobID) {
+        $redis->sRem('w_lock', $jobID);
     }
+    if ((!isset($args['silent']) || !$args['silent']) && isset($message) && $message) {
+        ui_notify($redis, 'AccessPoint', $message);
+    }
+    // reboot and restart can be selected in the UI
+    // restart will be automatically deselected when not required
+    // restart and rescan are automatically selected in this function when required
+    if (isset($args['reboot']) && $args['reboot']) {
+        // reboot requested from the UI
+        runelog('**** AP reboot requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'Reboot requested');
+        $return = 'reboot';
+    } else if (isset($args['restart']) && $args['restart']) {
+        // a restart has been requested from the UI or automatically determined
+        runelog('**** AP restart requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
+        ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
+        // nat will automatically be disabled when the AP is stopped, save its current value
+        $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+        // stop the access point, by disabling it
+        $apArgs = array();
+        $apArgs['enable'] = 0;
+        $apArgs['norescan'] = 1;
+        $apArgs['silent'] = 1;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
+        // start the access point by enabling it
+        $apArgs = array();
+        $apArgs['enable'] = 1;
+        $apArgs['silent'] = 1;
+        // restore nat to its previous value
+        $apArgs['enable-NAT'] = $apNatSave;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
+    } else if (isset($args['rescan']) && $args['rescan']) {
+        ui_notify($redis, 'AccessPoint', 'Applying changes');
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    }
+    // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
+    //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
+    //  currently disabled, the UI will only display QR-codes for the default settings
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
     return $return;
 }
-// function wrk_apconfig($redis, $action, $args = null)
-// {
-    // $return = array();
-    // runelog('wrk_apconfig args = ', $args);
-    // switch ($action) {
-        // case 'writecfg':
-            // if (isset($args->{'enable'})) {
-                // $redis->hSet('AccessPoint', 'enable', $args->{'enable'});
-            // } else {
-                // $redis->hSet('AccessPoint', 'enable', 0);
-            // }
-            // $redis->hSet('AccessPoint', 'ssid', $args->{'ssid'});
-            // $redis->hSet('AccessPoint', 'passphrase', $args->{'passphrase'});
-            // $redis->hSet('AccessPoint', 'ip-address', $args->{'ip-address'});
-            // $redis->hSet('AccessPoint', 'broadcast', $args->{'broadcast'});
-            // $redis->hSet('AccessPoint', 'dhcp-range', $args->{'dhcp-range'});
-            // $redis->hSet('AccessPoint', 'dhcp-option-dns', $args->{'dhcp-option-dns'});
-            // $redis->hSet('AccessPoint', 'dhcp-option-router', $args->{'dhcp-option-router'});
-            // if ($args->{'enable-NAT'} === '1') {
-                // $redis->hSet('AccessPoint', 'enable-NAT', $args->{'enable-NAT'});
-            // } else {
-                // $redis->hSet('AccessPoint', 'enable-NAT', 0);
-            // }
-            // if ($args->{'reboot'} === '1') {
-                // runelog('**** AP reboot requested ****', $args);
-                // $return = 'reboot';
-            // } elseif ($args->{'restart'} === '1') {
-                // runelog('**** AP restart requested ****', $args);
-                // // change AP name
-                // $file = '/etc/hostapd/hostapd.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$args->{'ssid'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // // change passphrase
-                // $file = '/etc/hostapd/hostapd.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'wpa_passphrase=', 'wpa_passphrase='.$args->{'passphrase'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // sysCmd('systemctl start hostapd');
-                // // change dhcp-range
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$args->{'dhcp-range'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // // change dhcp-option
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$args->{'dhcp-option-dns'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // $file = '/etc/dnsmasq.conf';
-                // $newArray = wrk_replaceTextLine($file, '', 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$args->{'dhcp-option-router'});
-                // $fp = fopen($file, 'w');
-                // $return = fwrite($fp, implode("", $newArray));
-                // fclose($fp);
-                // sysCmd('ip addr flush dev wlan0');
-                // sysCmd('ip addr add '.$args->{'ip-address'}.'/24 broadcast '.$args->{'broadcast'}.' dev wlan0');
-                // sysCmd('systemctl reload-or-restart hostapd');
-                // sysCmd('systemctl reload-or-restart dnsmasq');
-                // if ($args->{'enable-NAT'} === '1') {
-                    // sysCmd('iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
-                    // sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
-                    // sysCmd('iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT');
-                    // sysCmd('sysctl net.ipv4.ip_forward=1');
-                // } else {
-                    // sysCmd('sysctl net.ipv4.ip_forward=0');
-                // }
-                // $return = '';
-            // }
-            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args->ssid.';T:WPA2;P:'.$args->passphrase.';;"');
-            // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args->{'ip-address'});
-            // break;
-        // case 'reset':
-            // break;
-    // }
-    // return $return;
-// }
 
 function wrk_netconfig($redis, $action, $arg = '', $args = array())
 {
@@ -2674,6 +2762,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         $profileFileContent .= 'Hidden=false'."\n";
                     }
                 }
+                if ($redis->get('network_ipv6')) {
+                    $profileFileContent .= 'IPv6=auto'."\n";
+                } else {
+                    $profileFileContent .= 'IPv6=off'."\n";
+                }
                 // sort the profile array on ssid (case insensitive)
                 $ssidCol = array_column($storedProfiles, 'ssid');
                 $ssidCol = array_map('strtolower', $ssidCol);
@@ -2815,12 +2908,23 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             } else {
                 $profileFileContent .= 'Hidden=false'."\n";
             }
+            if ($redis->get('network_ipv6')) {
+                $profileFileContent .= 'IPv6=auto'."\n";
+            } else {
+                $profileFileContent .= 'IPv6=off'."\n";
+            }
             if ($args['ipAssignment'] === 'DHCP') {
                 if (isset($args['connmanString'])) {
                     $args['connmanString'] = trim($args['connmanString']);
                     if ($args['connmanString']) {
                         // make sure that connman has the correct values
-                        sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                        if ($redis->get('network_ipv6')) {
+                            // ipv6 is enabled
+                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                        } else {
+                            // ipv6 is disabled
+                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
+                        }
                         sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                     }
                 }
@@ -2841,6 +2945,22 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             array_multisort($ssidCol, SORT_ASC, $storedProfiles);
             // save the profile array
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
+            // if required, stop the Access Point by disabling it
+            if ($redis->hGet('AccessPoint', 'enable')) {
+                // nat will automatically be disabled when the AP is stopped, save its current value
+                $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+                // save the old Access Point status
+                $apEnable = true;
+                // set up the arguments to disable the Access Point
+                $apArgs = array();
+                $apArgs['enable'] = 0;
+                $apArgs['norescan'] = 1;
+                $apArgs['silent'] = 1;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
+            } else {
+                // save the old Access Point status
+                $apEnable = false;
+            }
             // commit the config file, creating a new file triggers connman to use it
             $fp = fopen($tmpFileName, 'w');
             fwrite($fp, $profileFileContent);
@@ -2851,6 +2971,18 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             } else {
                 unlink($tmpFileName);
             }
+            // try restarting the Access Point if it was enabled
+            //  the Access Point will not start if the new saved network profile successfully connects
+            if ($apEnable) {
+                // start the access point by enabling it
+                $apArgs = array();
+                // set up the arguments to enable the Access Point
+                $apArgs['enable'] = 1;
+                $apArgs['silent'] = 1;
+                // restore nat to its previous value
+                $apArgs['enable-NAT'] = $apNatSave;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
+            }
             break;
         case 'saveEthernet':
             // is only used to set/remove a static IP-address
@@ -2858,7 +2990,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // just delete the config file and remove the stored profile
                 wrk_netconfig($redis, 'delete', '', $args);
                 // make sure that connman has the correct values
-                sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                if ($redis->get('network_ipv6')) {
+                    // ipv6 is enabled
+                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                } else {
+                    // ipv6 is disabled
+                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
+                }
                 sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                 // take the nic down and bring it up to reset its ip-address
                 sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
@@ -2912,6 +3050,105 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             break;
+        case 'check_connman':
+            // enables and disables ipv6 and corrects the all configuration files
+            //  IPv6.privacy=disabled to IPv6.privacy=preferred
+            // get the ipv6 setting
+            $network_ipv6 = $redis->get('network_ipv6');
+            // check the llmnrd ipv6 setting
+            if ($redis->get('llmnrdipv6') != $network_ipv6) {
+                // correct the llmnrd ipv6 setting
+                $redis->set('llmnrdipv6', $network_ipv6);
+            }
+            // refresh the nics to refresh the 'network_info'
+            refresh_nics($redis);
+            // get the networks
+            $network_info = json_decode($redis->get('network_info'), true);
+            // set connman restart switch to false
+            $restartConnman = 0;
+            // walk through the networks
+            foreach ($network_info as $network) {
+                if (isset($network['configured']) && $network['configured']) {
+                    // this is a configured network, check its ipv6 status
+                    if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'auto') && !$network_ipv6) {
+                        // network is configured for ipv6 and the setting is disabled, disable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl
+                            sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 off');
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*auto/s/.*/IPv6\=off/' '".$configFile."'");
+                            }
+                        }
+                    } else if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'off') && $network_ipv6) {
+                        // network is not configured for ipv6 and the setting is enabled, enable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl, but only for dhcp assigned networks (ipv6 is always disabled for static networks)
+                            if (isset($network['ipAssignment']) && ($network['ipAssignment'] == 'DHCP')) {
+                                sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 auto');
+                                // when ipv6 is switched off the IPv6.privacy=preferred is automatically set to IPv6.privacy=disabled
+                                // test here if it needs to be set to IPv6.privacy=preferred
+                                if (isset($network['macAddress'])) {
+                                    // the mac address is set, its required for the config file name
+                                    $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                                    // check that the config file exists
+                                    clearstatcache(true, $configFile);
+                                    if (file_exists($configFile)) {
+                                        // determine whether the config file needs changing and if connman needs to be restarted
+                                        $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                        if (!$restartConnman) {
+                                            $restartConnman = $changeFile;
+                                        }
+                                        if ($changeFile) {
+                                            sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*off/s/.*/IPv6\=auto/' '".$configFile."'");
+                            }
+                        }
+                    }
+                    if (isset($network['technology']) && isset($network['ipv6.privacy']) && ($network['technology'] == 'ethernet') && ($network['ipv6.privacy'] == 'disabled')) {
+                        // its an ethernet nic and ipv6 privacy is disabled, set IPv6.privacy=preferred
+                        if (isset($network['macAddress'])) {
+                            // the mac address is set, its required for the config file name
+                            $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                // determine whether the config file needs changing and if connman needs to be restarted
+                                $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                if (!$restartConnman) {
+                                    $restartConnman = $changeFile;
+                                }
+                                if ($changeFile) {
+                                    sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if ($restartConnman && ($arg != 'norestart')) {
+                sysCmd('systemctl restart connman');
+            }
+            unset($network_ipv6, $network_info, $network, $configFile, $changeFile, $restartConnman);
+            break;
         case 'reconnect':
             // no break;
         case 'connect':
@@ -2937,23 +3174,45 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('connmanctl disconnect '.$args['connmanString']);
             // no break;
         case 'delete':
-            // delete a connection, also removes the stored profile and configuration files
+            // delete a connection, also removes the stored profile and configuration files and clears the IP address(es) from the nic
             // wifi
-            if (isset($args['ssidHex']) && isset($storedProfiles[$ssidHexKey])) {
+            if (isset($storedProfiles[$ssidHexKey])) {
+                // remove the connman profile
+                sysCmd('connmanctl config '.$args['connmanString'].' --remove');
+                // stop connman otherwise the cache files will be replaced after deletion
                 sysCmd('systemctl stop connman');
-                unset($storedProfiles[$ssidHexKey]);
-                unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
-                sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
-                sysCmd("iwctl known-networks '".$args['ssid']."' forget");
-                sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
+                if (isset($args['ssidHex'])) {
+                    // remove the connman configuration files and cache
+                    unset($storedProfiles[$ssidHexKey]);
+                    unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
+                    sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
+                }
+                if (isset($args['ssid'])) {
+                    // remove the iwd network cache
+                    sysCmd("iwctl known-networks '".$args['ssid']."' forget");
+                    sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
+                }
+                if (isset($args['nic'])) {
+                    // disconnect the nic
+                    sysCmd("iwctl station '".$args['nic']."' disconnect");
+                }
+                // restart connman
                 sysCmd('systemctl start connman');
+                if (isset($args['nic'])) {
+                    // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
+                    //  make a connection if there is a valid network available
+                    sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
+                }
             }
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
+                // stop connman otherwise the cache files will be replaced after deletion
                 sysCmd('systemctl stop connman');
+                // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
                 unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
                 sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+                // restart connman
                 sysCmd('systemctl start connman');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
@@ -3101,14 +3360,32 @@ function wrk_audioOutput($redis, $action)
             unset($countErr, $cnt);
             // note: eliminate HW HDMI vc4 cards, they wont work correctly, software vc4 cards are added at the end of the function
             //  also eliminate loopback card definitions, these are used for internal routing of the sound path
-            if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 1)) {
+            //  vc4 HDMI cards appear regardless of attached device or setting on-board cards off, ignore these when on board cards is set off
+            if ($redis->exists('hdmivc4hw') && (($redis->get('hdmivc4hw') == 1) || ($redis->get('hdmivc4hw') == 3) || ($redis->get('hdmivc4hw') == 4))) {
                 // handle vc4 as hardware cards
-                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
+                if ($redis->get('audio_on_off')) {
+                    // all cards when on-board audio is enabled
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
+                } else {
+                    // eliminate hdmi cards when on-board audio is disabled
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback" | grep -vi "hdmi"');
+                }
             } else {
-                // handle vc4 as software cards
+                // eliminate vc4 from the hardware cards
                 $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
-                // get a separate list of SW HDMI vc4 cards
-                $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                // handle vc4 as software cards, but only when on-board audio is enabled
+                if ($redis->get('audio_on_off')) {
+                    // get a separate list of SW HDMI vc4 cards
+                    if (!$redis->exists('hdmivc4hw') || $redis->get('hdmivc4hw') == 2) {
+                        // search for 'default'
+                        $cardlistHDMIvc4 = sysCmd('aplay -L -v | grep -i "^default" | grep -i "vc4" | grep -i hdmi');
+                    }
+                    foreach ($cardlistHDMIvc4 as $key => $cardHDMIvc4) {
+                        if (!sysCmd("amixer -D ".$cardHDMIvc4." scontrols | grep -ic pcm | xargs")[0]) {
+                            unset($cardlistHDMIvc4[$key]);
+                        }
+                    }
+                }
             }
             $acards = array();
             // reformat the output of the card list
@@ -3327,20 +3604,16 @@ function wrk_audioOutput($redis, $action)
                 if ((!isset($details['description']) || !$details['description']) && isset($details['type']) && $details['type']) {
                     if ($details['type'] == 'integrated') {
                         if (isset($details['sysname']) && $details['sysname']) {
-                            if (strpos(' '.$details['sysname'], 'vc4-') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 4));
-                            } else if (strpos(' '.$details['sysname'], 'vc4') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 3));
+                            if (strpos(' '.$details['sysname'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($details['sysname']);
                             } else if (strpos(' '.$details['sysname'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['sysname'], 8));
                             } else {
                                 $details['description'] = 'Raspberry Pi: '.trim($details['sysname']);
                             }
                         } else if (isset($details['extlabel']) && $details['extlabel']) {
-                            if (strpos(' '.$details['extlabel'], 'vc4-') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 4));
-                            } else if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
-                                $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 3));
+                            if (strpos(' '.$details['extlabel'], 'vc4') == 1) {
+                                $details['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($details['extlabel']);
                             } else if (strpos(' '.$details['extlabel'], 'bcm2835 ') == 1) {
                                 $details['description'] = 'Raspberry Pi: '.trim(substr($details['extlabel'], 8));
                             } else {
@@ -3481,10 +3754,15 @@ function wrk_audioOutput($redis, $action)
                 //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
                 //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
                 //          20 bits, or 24 bits at up to 8 channels
-                //      we choose to run at 24 bit, 2 channels for the specified sample rates
+                //      we choose to run at 16 or 24 bit, with any number channels for the specified sample rates
                 if ((!isset($details['card_option']) || !$details['card_option']) && strpos(' '.strtolower($details['sysname']), 'hdmi')) {
                     // add allowed formats to the card options
-                    $details['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
+                    $hwplatformid = $redis->get('hwplatformid');
+                    if ($hwplatformid == '08') {
+                        $details['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                    } else {
+                        $details['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                    }
                 }
                 if (isset($details['sysname']) && $details['sysname']) {
                     // a card has been determined, process it
@@ -3498,12 +3776,19 @@ function wrk_audioOutput($redis, $action)
                         //$volsteps = sysCmd("amixer -c ".$card_index." get \"".$details['mixer_control']."\" | grep Limits | cut -d ':' -f 2 | cut -d ' ' -f 3,5");
                         //$volsteps = explode(' ', $volsteps[0]);
                         $volsteps = sysCmd("amixer -c ".$card['number']." get \"".$details['mixer_control']."\" | grep -i limits:");
-                        $volsteps = explode(' - ',preg_replace('/[^0-9- ]/', '', trim($volsteps[0])));
-                        if (isset($volsteps[0])) $data['volmin'] = trim($volsteps[0]);
-                        if (isset($volsteps[1])) $data['volmax'] = trim($volsteps[1]);
+                        if (isset($volsteps[0]) && $volsteps[0]) {
+                            $volsteps = explode(' - ',preg_replace('/[^0-9- ]/', '', trim($volsteps[0])));
+                            if (isset($volsteps[0])) $data['volmin'] = trim($volsteps[0]);
+                            if (isset($volsteps[1])) $data['volmax'] = trim($volsteps[1]);
+                        }
                         // $data['mixer_device'] = "hw:".$details['mixer_numid'];
                         $data['mixer_device'] = "hw:".$card['number'];
                         $data['mixer_control'] = $details['mixer_control'];
+                    }
+                    // if its a vc4 hdmi card and hdmivc4hw is set to 3 (process as hardware & set mixer_control to PCM) add PCM as mixer_control
+                    if (strpos(' '.strtolower($details['sysname']), 'hdmi') && strpos(' '.strtolower($details['sysname']), 'vc4') && $redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 3)) {
+                        $data['mixer_control'] = 'PCM';
+                        unset($data['mixer_device']);
                     }
                     if (isset($details['sysname']) && ($details['sysname'] === $card['sysname'])) {
                         if ($details['type'] === 'integrated_sub') {
@@ -3553,6 +3838,26 @@ function wrk_audioOutput($redis, $action)
                         $data['allowed_formats'] = $allowedFormats[$activeOverlayAndName.$card['sysname']];
                     }
                 }
+                // when hdmivc4hw = 4 (process as hardware but use the software device name)
+                //  remove the vc4 hdmi card when no mixer control has been found, this means that it is not connected
+                //  change the device name to the software device
+                if (($redis->get('hdmivc4hw') == 4) && strpos(' '.strtolower($details['sysname']), 'hdmi') && strpos(' '.strtolower($details['sysname']), 'vc4')) {
+                    if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                        // this vc4 hdmi card is not connected, skip it
+                        unset($details, $data, $card);
+                        continue;
+                    }
+                    // format of the software device is 'sysdefault:CARD=' followed by the sysname with all hyphens, underscores and whitespace removed
+                    $swDevice = 'sysdefault:CARD='.preg_replace('/[\s_-]+/' ,'' , $details['sysname']);
+                    // check that the software device is defined
+                    if (sysCmd("aplay -L | grep -c '^".$swDevice."' | xargs")[0]) {
+                        // its there, so use it
+                        $data['device'] = $swDevice;
+                    } else {
+                        // just in case it goes wrong
+                        ui_notify($redis, 'vc4 hdmi audio', 'Failed to determine the software device name: "'.$details['sysname'].'", "'.$swDevice.'". Please report this on the forum', '', 1);
+                    }
+                }
                 if (!isset($sub_interfaces[0]) || (!$sub_interfaces[0])) {
                     $data['sysname'] = $card['sysname'];
                     $data['type'] = 'alsa';
@@ -3569,15 +3874,18 @@ function wrk_audioOutput($redis, $action)
             //  allowed formats (example syntax: allowed_formats = "96000:16:* 192000:24:* dsd64:=dop *:dsd:")
             //      HDMI, valid audio format: sample rates 32 kHz, 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, 176.4 kHz, or 192 at 16 bits,
             //          20 bits, or 24 bits at up to 8 channels
-            //      we choose to run at 24 bit, 2 channels for the specified sample rates
-            // first delete any existing HDMI vc4 cards
-            $acardKeys = $redis->hKeys('acards');
-            foreach ($acardKeys as $acardKey) {
-                $acardKeyLower = ' '.strtolower($acardKey);
-                if (strpos($acardKeyLower, 'hdmi')) {
-                    if (strpos($acardKeyLower, 'vc4')) {
-                        // delete any hardware HDMI vc4 cards, delete this one
-                        $redis->hDel('acards', $acardKey);
+            //      we choose to run at 16 or 24 bit, with any number channels for the specified sample rates
+            // first delete any existing HDMI vc4 cards, when hdmivc4hw is unset or = 2
+            //  unset = use 'default' software definition without PCM, 2 = use 'default' software definition with PCM
+            if (!$redis->exists('hdmivc4hw') || ($redis->get('hdmivc4hw') == 2)) {
+                $acardKeys = $redis->hKeys('acards');
+                foreach ($acardKeys as $acardKey) {
+                    $acardKeyLower = ' '.strtolower($acardKey);
+                    if (strpos($acardKeyLower, 'hdmi')) {
+                        if (strpos($acardKeyLower, 'vc4')) {
+                            // delete any hardware HDMI vc4 cards, delete this one
+                            $redis->hDel('acards', $acardKey);
+                        }
                     }
                 }
             }
@@ -3592,12 +3900,20 @@ function wrk_audioOutput($redis, $action)
                         $acardHDMIvc4['sysname'] = $cardname;
                         $acardHDMIvc4['type'] = 'alsa';
                         if ($redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 2)) {
+                            // hdmivc4hw = 2: use software card definition and set mixer_control to PCM
                             $acardHDMIvc4['mixer_control'] = 'PCM';
+                            // set the mixer device to null
+                            $acardHDMIvc4['mixer_device'] = '';
                         }
-                        $acardHDMIvc4['description'] = 'Raspberry Pi: SW'.$cardname;
+                        $acardHDMIvc4['description'] = 'Raspberry Pi: '.decode_vc4_hdmi_desc($cardname);
                         // add allowed formats to the card options
-                        $acardHDMIvc4['card_option'] = "allowed_formats \"44100:24:2 48000:24:2 32000:24:2 88200:24:2 96000:24:2 176400:24:2 192000:24:2\"";
-                        $redis->hSet('acards', $acardHDMIvc4['name'], json_encode($acardHDMIvc4));
+                        $hwplatformid = $redis->get('hwplatformid');
+                        if ($hwplatformid == '08') {
+                            $acardHDMIvc4['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        } else {
+                            $acardHDMIvc4['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        }
+                        $redis->hSet('acards', $acardHDMIvc4['sysname'], json_encode($acardHDMIvc4));
                     }
                 }
             }
@@ -3719,6 +4035,11 @@ function wrk_audio_on_off($redis, $args)
         } else {
             sysCmd("sed -i '/dtparam=audio=/c\dtparam=audio=off' '".$redis->get('p1mountpoint')."/config.txt'");
         }
+        // delete the hdmi card cache as these will always be included in mpd.conf as this is an overhead,
+        //  or there is a chance that these will have become unreliable
+        $redis->del('hdmiacards');
+        // refresh the audio cards
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_ao');
     }
 }
 
@@ -3976,11 +4297,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
             }
             // ui_notify($redis, 'MPD', 'config file part one finished');
-            // remove Bluetooth cards form acards
+            // remove Bluetooth cards from acards
             wrk_btcfg($redis, 'remove_bt_acards');
             // get acards
             $acards = $redis->hGetAll('acards');
-            // debug
+            //
             // --- audio output ---
             $lastAo = $redis->get('ao_default');
             // ao_default contains the last chosen hardware card (device=hw:...)
@@ -4076,10 +4397,16 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\ttype \t\t\"".$card_decoded['type']."\"\n";
                 $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
                 if ($hwmixer) {
-                     if (isset($card_decoded['mixer_control'])) {
-                        $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                    if (isset($card_decoded['mixer_control'])) {
+                        // mixer control is set
+                        if ($card_decoded['mixer_control']) {
+                            // mixer control has a value
+                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                        }
+                        // hardware mixer type is set when mixer control is set, even if mixer control has no value
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        if (isset($card_decoded['mixer_device'])) {
+                        if (isset($card_decoded['mixer_device']) && $card_decoded['mixer_device']) {
+                            // mixer device is set and has a value
                             $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
                         }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
@@ -4164,7 +4491,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .= "}\n";
                 }
             }
-            // add null output devices to acards
+            // add Bluetooth output devices to acards
             wrk_btcfg($redis, 'status');
             // add a null output device
             $output .="audio_output {\n";
@@ -4276,6 +4603,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
             $startBluetooth = false;
+            $disableNull = false;
             if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
                 $redis->set('ao', $args);
                 if (isset($jobID) && $jobID) {
@@ -4291,11 +4619,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $args);
                 }
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
-                    // enable the null output, its needed when a bluetooth connection is lost
+                    // enable the null output, its required when a bluetooth connection is lost
                     sysCmd('mpc enable null');
                     $startBluetooth = true;
+                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
+                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
+                    sysCmd('mpc enable null');
                 } else {
-                    sysCmd('mpc disable null');
+                    $disableNull = true;
                 }
                 // check for "special" sub_interfaces
                 if (isset($acard['integrated_sub']) && $acard['integrated_sub']) {
@@ -4308,6 +4639,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // switch interface
                 sysCmd('mpc enable "'.$args.'"');
                 sysCmd('mpc disable "'.$oldMpdout.'"');
+                if ($disableNull) {
+                    sysCmd('mpc disable null');
+                }
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
             } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
@@ -4318,6 +4652,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 sysCmd('mpc enable "'.$oldMpdout.'"');
                 if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
+                    sysCmd('mpc enable null');
+                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
+                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
                     sysCmd('mpc enable null');
                 } else {
                     sysCmd('mpc disable null');
@@ -4752,11 +5089,19 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
-    runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
-    runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
-    runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
+    if (isset($acard['sysname'])) {
+        runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
+        runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
+        runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
+    } else {
+        runelog('[wrk_spotifyd] acard sysname      : ', 'not set');
+    }
     //
-    !empty($acard['device']) && $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
+        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    } else {
+        $redis->hSet('spotifyconnect', 'device', trim($acard['device']));
+    }
     //
     if (!empty($acard['mixer_control'])) {
         $mixer = trim($acard['mixer_control']);
@@ -4902,6 +5247,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
 
 function wrk_shairport($redis, $ao = null, $name = null)
 {
+    // debug
+    // echo "wrk_shairport ao  :'".$ao."'\n";
+    // echo "wrk_shairport name:'".$name."'\n";
     if (!isset($name) || empty($name) || !$name) {
         $name = trim($redis->hGet('airplay', 'device_name'));
         if ($name == '') {
@@ -4933,45 +5281,52 @@ function wrk_shairport($redis, $ao = null, $name = null)
         $ao = trim($ao);
     }
     $redis->hSet('airplay', 'ao', $ao);
+    // debug
+    // echo "wrk_shairport ao  :'".$ao."'\n";
+    // echo "wrk_shairport name:'".$name."'\n";
     //
-    $acard = $redis->hGet('acards', $ao);
-    $acard = json_decode($acard, true);
+    $acard = json_decode($redis->hGet('acards', $ao), true);
+    if (!isset($acard) || !is_array($acard) || !isset($acard['sysname'])) {
+        // no output devices
+        $redis->hSet('airplay', 'ao', '');
+        $redis->hSet('airplay', 'alsa_mixer_control', '');
+        $redis->hSet('airplay', 'alsa_mixer_device', '');
+        $redis->hSet('airplay', 'alsa_output_device', '');
+        // stop shairport-sync
+        sysCmd('pgrep shairport-sync && systemctl stop shairport-sync');
+        return 0;
+    }
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
     // shairport-sync output device is specified without a subdevice if only one subdevice exists
     // determining the number of sub devices is done by counting the number of alsa info file for the device
     // shairport-sync output device is always specified without a subdevice! Possible that this will need extra work for USB DAC's
-    $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
+        $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    } else {
+        $redis->hSet('airplay', 'alsa_output_device', trim($acard['device']));
+    }
     //
-    if (!empty($acard['mixer_device'])) {
+    if (isset($acard['mixer_device']) && trim($acard['mixer_device'])) {
         $alsa_mixer_device = trim($acard['mixer_device']);
     } else {
-        $alsa_mixer_device = '';
-    }
-    if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
         $alsa_mixer_device = '';
     }
     runelog('wrk_shairport alsa_mixer_device : ', $alsa_mixer_device);
     $redis->hSet('airplay', 'alsa_mixer_device', $alsa_mixer_device);
     unset($alsa_mixer_device);
     //
-    if (!empty($acard['mixer_control'])) {
+    if (isset($acard['mixer_device']) && trim($acard['mixer_device']) && isset($acard['mixer_control']) && trim($acard['mixer_control'])) {
         $alsa_mixer_control = trim($acard['mixer_control']);
     } else {
-        $alsa_mixer_control = 'PCM';
-    }
-    if ($alsa_mixer_control === '') {
-        $alsa_mixer_control = 'PCM';
-    }
-    if ($redis->hGet('mpdconf', 'mixer_type') != 'hardware') {
-        $alsa_mixer_control = 'PCM';
+        $alsa_mixer_control = 'Software';
     }
     runelog('wrk_shairport acard alsa_mixer_control: ', $alsa_mixer_control);
     $redis->hSet('airplay', 'alsa_mixer_control', $alsa_mixer_control);
     unset($alsa_mixer_control);
     //
-    if (!empty($acard['description'])) {
+    if (isset($acard['description']) && trim($acard['description'])) {
         $description = trim($acard['description']);
     } else {
         $description = '';
@@ -5031,7 +5386,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$airplay['run_this_after_play_ends'].'"; // run_this_after_play_ends');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$airplay['run_this_wait_for_completion'].'"; // run_this_wait_for_completion');
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_device', 'output_device="'.$airplay['alsa_output_device'].'"; // alsa_output_device');
-    if ($airplay['alsa_mixer_control'] === 'PCM') {
+    if ($airplay['alsa_mixer_control'] === 'Software') {
         $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', '// mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
     } else {
         $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_control_name', 'mixer_control_name="'.$airplay['alsa_mixer_control'].'"; // alsa_mixer_control_name');
@@ -5124,7 +5479,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     $redis->set('libaoconfchange', 0);
 }
 
-function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
+function wrk_sourcemount($redis, $action, $id = null, $quiet = 0, $quick = 0)
 {
     switch ($action) {
         case 'mount':
@@ -5471,7 +5826,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = f
     return $return;
 }
 
-function wrk_sourcecfg($redis, $action, $args=null)
+function wrk_sourcecfg($redis, $action, $args = null)
 {
     runelog('function wrk_sourcecfg('.$action.')', $args);
     $return = true;
@@ -5590,7 +5945,7 @@ function wrk_sourcecfg($redis, $action, $args=null)
     return $return;
 }
 
-function wrk_getHwPlatform($redis, $reset=false)
+function wrk_getHwPlatform($redis, $reset = 0)
 {
     if ($reset) {
         // remove the redis variables set in this routine
@@ -5606,25 +5961,37 @@ function wrk_getHwPlatform($redis, $reset=false)
         $redis->hDel('AccessPoint', 'enable');
         // set the default local browser windows and browser type
         $redis->hSet('local_browser', 'windows', 'xorg');
-        $redis->hSet('local_browser', 'browser', 'luakit');
+        $redis->hSet('local_browser', 'browser', 'chromium');
         $redis->del('acards');
         $redis->del('hdmiacards');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);
     foreach($fileData as $line) {
-        if (substr($line, 0, 8) == 'Revision') {
-            $revision = trim(substr($line, 11, 50));
+        if ((substr(strtolower($line), 0, 8) == 'revision') && strpos(' '.$line, ':')) {
+            $revision = trim(explode(':', $line, 2)[1]);
             // debug
             runelog('[wrk_getHwPlatform] /proc/cpuinfo revision', $revision);
         }
-
-        if (substr($line, 0, 8) == 'Hardware') {
-            $hardware = trim(substr($line, 11, 50));
+        if ((substr(strtolower($line), 0, 8) == 'hardware') && strpos(' '.$line, ':')) {
+            $hardware = trim(explode(':', $line, 2)[1]);
             // debug
             runelog('[wrk_getHwPlatform] /proc/cpuinfo hardware', $hardware);
         }
+        if (substr(strtolower($line), 0, 5) == 'model') {
+            if (strpos(' '.strtolower($line), 'raspberry pi')) {
+                $model = 'raspberry pi';
+            } else {
+                $model = trim($line);
+            }
+            // debug
+            runelog('[wrk_getHwPlatform] /proc/cpuinfo model', $model);
+        }
     }
+    if (!isset($hardware) || !$hardware) {
+        $hardware = $model;
+    }
+    unset($model);
 
     switch($hardware) {
         // RaspberryPi
@@ -5635,6 +6002,7 @@ function wrk_getHwPlatform($redis, $reset=false)
         case 'BCM2835':
         case 'BCM2836':
         case 'BCM2837':
+        case 'raspberry pi':
             if (intval("0x".$revision, 16) < 16) {
                 // RaspberryPi1
                 $arch = '01';
@@ -5687,7 +6055,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         // 0b = unknown, treat as a PiB+
                     case "0f":
                         // 0f = internal use only, treat as a PiB+
-                        // single processor (armv6) models no on-board Wi-Fi or Bluetooth
+                        // single processor models no on-board Wi-Fi or Bluetooth
                         $arch = '01';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -5710,7 +6078,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         // 10 = PiCompute Module 3+
                     case "14":
                         // 14 = PiCompute Module 4
-                        // multi processor (armv7 or 64bit) models no on-board Wi-Fi or Bluetooth
+                        // multi processor models no on-board Wi-Fi or Bluetooth
                         $arch = '08';
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 0);
@@ -5726,7 +6094,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                     case "0c":
                         // 0c = PiZero W
                         $arch = '01';
-                        // single processor (armv6) models with on-board Wi-Fi and/or Bluetooth
+                        // single processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
@@ -5751,7 +6119,10 @@ function wrk_getHwPlatform($redis, $reset=false)
                     case "13":
                         // 13 = Pi400
                         $arch = '08';
-                        // multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
+                    case "17":
+                        // 17 = Pi5B
+                        $arch = '08';
+                        // multi processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
@@ -5765,7 +6136,7 @@ function wrk_getHwPlatform($redis, $reset=false)
                         break;
                     default:
                         $arch = '08';
-                        // unknown models assume multi processor (atrmv7 or 64bit) models with on-board Wi-Fi and/or Bluetooth
+                        // unknown models assume multi processor models with on-board Wi-Fi and/or Bluetooth
                         $redis->exists('soxrmpdonoff') || $redis->set('soxrmpdonoff', 1);
                         $redis->exists('bluetooth_on') || $redis->set('bluetooth_on', 1);
                         $redis->exists('wifi_on') || $redis->set('wifi_on', 1);
@@ -5777,6 +6148,16 @@ function wrk_getHwPlatform($redis, $reset=false)
                         $redis->hExists('spotifyconnect', 'metadata_enabled') || $redis->hSet('spotifyconnect', 'metadata_enabled', 1);
                         $redis->hExists('AccessPoint', 'enable') || $redis->hSet('AccessPoint', 'enable', 1);
                         break;
+                }
+            }
+            if ($reset) {
+                // its a reset, configure Pi5 audio card exceptions
+                if ($model == '17') {
+                    // its a Pi5
+                    audioCardPi5($redis);
+                } else {
+                    // its not a Pi5
+                    audioCardNonPi5($redis);
                 }
             }
             break;
@@ -5833,12 +6214,13 @@ function wrk_getHwPlatform($redis, $reset=false)
     return array($arch, $model);
 }
 
-function wrk_setHwPlatform($redis, $reset=false)
+function wrk_setHwPlatform($redis, $reset = 0)
 {
     list($arch, $model) = wrk_getHwPlatform($redis, $reset);
     runelog('arch= ', $arch);
     // register the player ID
-    $redis->set('playerid', wrk_playerID($arch));
+    $playerid = wrk_playerID($arch);
+    $redis->set('playerid', $playerid);
     runelog('playerid= ', $playerid);
     // register the hardware platform into database
     $redis->set('hwplatformid', $arch);
@@ -5859,6 +6241,41 @@ function wrk_setHwPlatform($redis, $reset=false)
         if (file_exists($filename)) {
             // chromium is installed, use it
             $redis->hSet('local_browser', 'browser', 'chromium');
+        }
+    }
+    if ($model == '17') {
+        // its a Pi5
+        //  the audio card 'Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' has differing overlays for Pi5 compared to the other hardware types
+        $filename = '/srv/http/app/config/defaults/inno-dac-pro.dtbo';
+        clearstatcache(true, $filename);
+        if (file_exists($filename)) {
+            if ($redis->get('codename') == 'bookworm') {
+                sysCmd('cp -n '.$filename.' /boot/firmware/overlays/inno-dac-pro.dtbo');
+                if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                    sysCmd("sed -i '/dtoverlay=allo-katana-dac-audio/s/.*/dtoverlay=inno-dac-pro/' '/boot/firmware/config.txt'");
+                }
+            } else {
+                sysCmd('cp -n '.$filename.' /boot/overlays/inno-dac-pro.dtbo');
+                if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                    sysCmd("sed -i '/dtoverlay=allo-katana-dac-audio/s/.*/dtoverlay=inno-dac-pro/' '/boot/config.txt'");
+                }
+            }
+            if (!sysCmd("grep -ic 'inno-dac-pro|Inno-Maker' /srv/http/.config/i2s_table.txt | xargs")[0]) {
+                sysCmd("sed -i '/Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/s/.*/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/' '/srv/http/.config/i2s_table.txt'");
+            }
+        }
+    } else {
+        if (!sysCmd("grep -ic 'allo-katana-dac-audio|Inno-Maker' /srv/http/.config/i2s_table.txt | xargs")[0]) {
+            sysCmd("sed -i '/Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/s/.*/allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/' '/srv/http/.config/i2s_table.txt'");
+        }
+        if ($redis->get('codename') == 'bookworm') {
+            if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                sysCmd("sed -i '/dtoverlay=inno-dac-pro/s/.*/dtoverlay=allo-katana-dac-audio/' '/boot/firmware/config.txt'");
+            }
+        } else {
+            if (strpos(strtolower($redis->get('i2smodule_select')), strtolower('Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M'))) {
+                sysCmd("sed -i '/dtoverlay=inno-dac-pro/s/.*/dtoverlay=allo-katana-dac-audio/' '/boot/config.txt'");
+            }
         }
     }
     //
@@ -5893,6 +6310,7 @@ function wrk_setHwPlatform($redis, $reset=false)
         default:
             $redis->set('hwplatform', 'unknown');
     }
+    return array($arch, $model);
 }
 
 function wrk_startPlayer($redis, $newPlayer)
@@ -6346,9 +6764,9 @@ function wrk_changeHostname($redis, $newhostname)
     // if 'host-name' is commented out, no problem, nothing will change
     sysCmd('sed -i '."'".'s|^[[:space:]]*host-name.*|host-name='.strtolower($newhostname).'|g'."'".' /etc/avahi/avahi-daemon.conf');
     // update AVAHI service data
-    wrk_avahiconfig($redis, strtolower($newhostname));
+    wrk_avahiconfig($redis, 'hostname', strtolower($newhostname));
     // activate when a change has been made
-    if ($redis->get('avahiconfchange')) {
+    if ($redis->hGet('avahi', 'confchange')) {
         // reload or restart avahi-daemon if it is running (active), some users switch it off
         // it is also started automatically when shairport-sync starts
         sysCmd('pgrep avahi-daemon && systemctl stop avahi-daemon');
@@ -6362,41 +6780,110 @@ function wrk_changeHostname($redis, $newhostname)
         // restart SAMBA
         wrk_restartSamba($redis);
     }
-    $redis->set('avahiconfchange', 0);
+    $redis->hSet('avahi', 'confchange', 0);
     // set process priority
     sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
 }
 
-function wrk_upmpdcli($redis, $name = null, $queueowner = null)
+function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null, $enable = null, $jobID = null)
 {
-    if (!isset($name)) {
-        $name = $redis->hGet('dlna', 'name');
+    $nameOld = $redis->hGet('dlna', 'name');
+    if (isset($name) && $name) {
+        $redis->hSet('dlna', 'name', $name);
+    } else {
+        $name = $nameOld;
     }
-    if (!isset($queueowner)) {
-        $queueowner = $redis->hGet('dlna', 'queueowner');
+    $queueownerOld = $redis->hGet('dlna', 'queueowner');
+    if (isset($queueowner) && strlen($queueowner)) {
+        $redis->hSet('dlna', 'queueowner', $queueowner);
+    } else {
+        $queueowner = $queueownerOld;
     }
-    if ($queueowner != 1) {
-        $queueowner = '0';
+    $servicesOld = $redis->hGet('dlna', 'services');
+    if (isset($services) && $services) {
+        $redis->hSet('dlna', 'services', $services);
+    } else {
+        $services = $servicesOld;
     }
+    $enableOld = $redis->hGet('dlna', 'enable');
+    if (isset($enable) && strlen($enable)) {
+        $redis->hSet('dlna', 'enable', $enable);
+    } else {
+        $enable = $enableOld;
+    }
+    if (isset($jobID) && $jobID) {
+        $redis->sRem('w_lock', $jobID);
+    }
+    $serviceFile = '/etc/systemd/system/upmpdcli.service';
+    $configFile = '/etc/upmpdcli.conf';
+    // set the name and log level
     $logFile = $redis->hGet('dlna', 'logfile');
     $logLevel = $redis->hGet('dlna', 'loglevel');
-    $file = '/etc/systemd/system/upmpdcli.service';
-    sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."'".' /etc/systemd/system/upmpdcli.service');
-    // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
-    // modify them all
-    sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^ohproductroom/ s|.*|ohproductroom = '.$name.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^ownqueue/ s|.*|ownqueue = '.$queueowner.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^logfilename/ s|.*|logfilename = '.$logFile.'|'."'".' /etc/upmpdcli.conf');
-    sysCmd('sed -i '."'".'/^loglevel/ s|.*/|loglevel = '.$logLevel.'|'."'".' /etc/upmpdcli.conf');
-    if ($redis->hGet('dlna','enable') === '1') {
+    sysCmd('sed -i '."'".'/^friendlyname/ s|.*|friendlyname = '.$name.'|'."' '".$configFile."'");
+    sysCmd('sed -i '."'".'/^ohproductroom/ s|.*|ohproductroom = '.$name.'|'."' '".$configFile."'");
+    sysCmd('sed -i '."'".'/^loglevel/ s|.*/|loglevel = '.$logLevel.'|'."' '".$configFile."'");
+    if (($name != $nameOld) || ($queueowner != $queueownerOld)) {
+        $action = 'Updated';
+        sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
         // update systemd
         sysCmd('systemctl daemon-reload');
-        runelog('restart upmpdcli');
-        sysCmd('systemctl reload-or-restart upmpdcli');
+        // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
+        // modify them all
+        sysCmd('sed -i '."'".'/^ownqueue/ s|.*|ownqueue = '.$queueowner.'|'."' '".$configFile."'");
+        sysCmd('sed -i '."'".'/^logfilename/ s|.*|logfilename = '.$logFile.'|'."' '".$configFile."'");
+        // update systemd
+        sysCmd('systemctl daemon-reload');
+        if ($enable) {
+            runelog('restart upmpdcli');
+            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+        }
     }
-    // set process priority
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    if (($services != $servicesOld)) {
+        $action = 'Updated';
+        sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
+        // update systemd
+        sysCmd('systemctl daemon-reload');
+        if ($services == 'UPnP AV') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 1|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 0|'."' '".$configFile."'");
+        } else if ($services == 'OpenHome') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 0|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 1|'."' '".$configFile."'");
+        } else if ($services == 'Both') {
+            sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 1|'."' '".$configFile."'");
+            sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 1|'."' '".$configFile."'");
+        }
+        if ($enable) {
+            runelog('restart upmpdcli');
+            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+        }
+    }
+    if ($enable) {
+        runelog('start upmpdcli');
+        if ($enable != $enableOld) {
+            if (isset($action)) {
+                $action .= ' and enabled';
+            } else {
+                $action = 'Enabled';
+            }
+        }
+        sysCmd('pgrep upmpdcli || systemctl start upmpdcli');
+        // set process priority
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    } else {
+        runelog('stop upmpdcli');
+        if ($enable != $enableOld) {
+            if (isset($action)) {
+                $action .= ' and disabled';
+            } else {
+                $action = 'Disabled';
+            }
+        }
+        sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+    }
+    if (isset($action)) {
+        ui_notify($redis, 'UPnP/DLNA', 'UPnP/DLNA '.$action);
+    }
 }
 
 function alsa_findHwMixerControl($cardID)
@@ -7000,7 +7487,7 @@ function ui_mpd_fix($redis, $status)
     return $status;
 }
 
-function ui_libraryHome($redis, $clientUUID=null)
+function ui_libraryHome($redis, $clientUUID = null)
 {
     // Internet available
     $internetAvailable = $redis->hGet('service', 'internet');
@@ -7337,7 +7824,7 @@ function wrk_setRegDom($redis)
     return $newCountryCode;
 }
 
-function ui_update($redis, $sock=null, $clientUUID=null)
+function ui_update($redis, $sock = null, $clientUUID = null)
 {
     ui_libraryHome($redis, $clientUUID);
     switch ($redis->get('activePlayer')) {
@@ -7459,9 +7946,11 @@ function netmask($bitcount)
 }
 
 // sort multi-dimensional array by key
-function osort(&$array, $key, $descending=false, $ignoreCase=false)
+function osort(&$array, $key, $descending = 0, $ignoreCase = 0)
 // $array is passed by reference, nothing needs to be returned
-// two parameters:
+// four parameters:
+//  $array the array to be sorted, passed by reference
+//  $key the array element which will be used as a sort key
 //  $descending: default false, when true sorts descending
 //  $ignoreCase: default false, when true sorts ignoring case
 {
@@ -7647,7 +8136,7 @@ function webradioStringRemovePrefix($redis, $string)
 }
 
 // clean up strings for lyrics and artistinfo
-function metadataStringClean($string, $type='')
+function metadataStringClean($string, $type = '')
 {
     // convert escaped characters (backslash followed by something) to their actual value
     $string = stripcslashes($string);
@@ -7854,8 +8343,9 @@ function refresh_nics($redis)
                 // skip nics in the excluded list
                 continue;
             }
-            // array for pysical device id to nic name translation
-            $wirelessNic[$phyDev] = $nic;
+            // array for pysical device id to nic name translation, there can be more nics per physical device
+            // $wirelessNic[$nic] = $phyDev;
+            $wirelessNic[$phyDev]['nics'][] = $nic;
             // register the technology as wifi
             $networkInterfaces[$nic]['technology'] = 'wifi';
             // save the physical device
@@ -7901,18 +8391,18 @@ function refresh_nics($redis)
         $deviceInfoLine = ' '.trim($deviceInfoLine);
         if (strpos($deviceInfoLine, 'Wiphy')) {
             $phyDev = trim(explode(' ', trim($deviceInfoLine))[1]);
-            if (isset($wirelessNic[$phyDev])) {
-                $nic = $wirelessNic[$phyDev];
-            } else {
-                $nic = '';
-            }
         } else if (strpos($deviceInfoLine, 'Supported interface modes:')) {
             // the 'Supported interface modes:' section of the file is terminated with a line containing a colon (:)
             $intMode = true;
         } else if (strpos($deviceInfoLine, '* AP')) {
-            if (($nic != '') && ($intMode)) {
+            if ($intMode) {
                 // access point (AP) is listed as a 'Supported interface mode'
-                $networkInterfaces[$nic]['apSupported'] = true;
+                if (isset($wirelessNic[$phyDev]['nics']) && is_array($wirelessNic[$phyDev]['nics'])) {
+                    $wirelessNic[$phyDev]['apSupported'] = true;
+                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {
+                        $networkInterfaces[$nic]['apSupported'] = true;
+                    }
+                }
                 $phyDev = '';
                 $intMode = false;
                 $nic = '';
@@ -8056,17 +8546,17 @@ function refresh_nics($redis)
         // get the signal strength, security, DNS name servers and gateway from connman
         $connmanLines = sysCmd('connmanctl services '.$connmanString);
         foreach ($connmanLines as $connmanLine) {
-            if (strpos(' '.$connmanLine, '.Configuration')) {
-                // don't use the configuration lines
-                continue;
-            }
             $connmanLineParts = explode('=', $connmanLine, 2);
             if (count($connmanLineParts) !=2) {
-                // skip the line if it has no value (or '=' charecter)
+                // skip the line if it has no value (or '=' character)
                 continue;
             }
             $entry = ' '.strtolower(trim($connmanLineParts[0]));
             $value = strtolower(trim($connmanLineParts[1], " \t\n\r\0\x0B]["));
+            if (strpos(' '.$entry, '.configuration') && !strpos(' '.$entry, 'ipv6.')) {
+                // don't use the .configuration lines unless its ipv6.configuration
+                continue;
+            }
             if (strpos($entry, 'security')) {
                 $networkInfo[$macAddress.'_'.$ssidHex]['security'] = strtoupper($value);
             } else if (strpos($entry, 'strength')) {
@@ -8185,6 +8675,21 @@ function refresh_nics($redis)
                 } else {
                     $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Mask'] = $networkInterfaces[$nic]['ipv4Mask'];
                 }
+            } else if (strpos($entry, 'ipv6.configuration')) {
+                if ($value) {
+                    If (strpos($value, ',')) {
+                        $ipv6Configuration = explode(',', $value);
+                    } else {
+                        $ipv6Configuration[0] = $value;
+                    }
+                    foreach ($ipv6Configuration as $ipv6Part) {
+                        $ipv6Part = trim($ipv6Part);
+                        if (strpos(' '.$ipv6Part, '=')) {
+                            list($ipv6Item, $ipv6Value) = explode('=', $ipv6Part, 2);
+                            $networkInfo[$macAddress.'_'.$ssidHex]['ipv6.'.trim($ipv6Item)] = trim($ipv6Value);
+                        }
+                    }
+                }
             }
         }
         $networkInfo[$macAddress.'_'.$ssidHex]['ssid'] = $ssid;
@@ -8275,7 +8780,7 @@ function refresh_nics($redis)
     // the last detected wired (ethernet) interface will be used
     // when only Wi-Fi networks are detected no interfaces are specifically selected
     //
-    if ($redis->get('avahi_nic') != $avahiNic) {
+    if ($redis->hGet('avahi', 'nic') != $avahiNic) {
         // the nic assigned to avahi need to be changed
         if ($avahiNic === '') {
             $avahiLine = '#allow-interfaces=eth0';
@@ -8283,9 +8788,9 @@ function refresh_nics($redis)
             $avahiLine = 'allow-interfaces='.$avahiNic;
         }
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
-        // avahi needs to be restarted to activate the new entry in the config file
-        sysCmd('systemctl daemon-reload; systemctl restart avahi-daemon');
-        $redis->set('avahi_nic', $avahiNic);
+        // avahi needs to be reloaded to activate the new entry in the config file
+        sysCmd('systemctl daemon-reload; systemctl reload avahi-daemon');
+        $redis->hSet('avahi', 'nic', $avahiNic);
     }
     //
     // optimise wifi for the next reboot and the first time after setting up a Wi-Fi network
@@ -8942,14 +9447,14 @@ function wrk_check_MPD_outputs($redis)
 
 // function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
 //  and local cached album art
-function wrk_clean_music_metadata($redis, $clearAll=null)
+function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
 // when $clearAll is set to a true value all cached information will be cleared
 // it should be noted that the synchronisation of a upper directory with a lower directory within a overlay file system should
 //  not work correctly or consistently
 //  the overlay file system is not aware of the synchronisation action and it remembers what should be in the upper and lower
 //      directories regardless of their actual content
 //      there is a trick implemented to make it work, see the last lines in this function for details
-//  the trick works here because the availability of a cached file is not critical, runeaudio will do some extra work, but it will
+//  the trick works here because the availability of a cached file is not critical, runeaudio may do some extra work, but it will
 //      still work fine, the trick is not advisable for critical content
 {
     // initialise variables
@@ -8971,7 +9476,6 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             return;
         }
         // sync the files part 1
-        //  image files are not synced
         //  the file timestamp in the upper files directory is changed on file use, ignore this change
         //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
         //  the lower directory is ordered on creation date, the upper directory on usage date
@@ -8982,12 +9486,13 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
             '--include="*.album" '.
             '--include="*.artist" '.
             '--include="*.song" '.
+            '--include="*.mpd" '.
+            '--include="*.jpg" '.
             '--exclude="*" '.
             $cleanUpperDir.'/ '.
             $cleanLowerDir.'/';
         sysCmd($rsyncCommand);
         // sync the files part 2
-        //  image files are not synced
         //  the file timestamp in the upper files directory is changed on file use, ignore this change
         //  changing the timestamp on use forces the file to be cached in memory in the tmpfs
         //  the lower directory is ordered on creation date, the upper directory on usage date
@@ -9003,10 +9508,18 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $cleanUpperDir = $artDir;
         unset($cleanLowerDir);
     }
-    // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
+    // process clear all
     if ($clearAll) {
         $fileToSave = 0;
+        if (isset($cleanLowerDir)) {
+            sysCmd('rm -r '.$cleanLowerDir.'/*');
+            sysCmd('umount '.$artDir);
+        }
+        sysCmd('rm -r '.$cleanUpperDir.'/*');
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/create_work_dirs.sh');
+        return;
     } else {
+        // we will always leave 10 files regardless of the memory which we want to recover unless $clearAll is set to true
         $fileToSave = 10;
     }
     // clean up the album art files in the upper directory
@@ -9027,6 +9540,29 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $cleaned = true;
     }
     unset($today);
+    // check for large files
+    // if they exist in the lower directory delete them in the upper directory
+    // this should not be happening, but it is:
+    //  the remounting of the overlay cache could be creating anomalies or the ImageMagick size reduction is sometimes failing
+    if ($overlay_art_cache) {
+        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
+        if ($maxsize == 0) {
+            // when $maxsize is unset, set it to 100 and save it
+            $maxsize = 100;
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        // we are interested in *.jpg files created more than 15 minutes ago with a size greater than $maxsize
+        $files = sysCmd("find '".$cleanUpperDir."' -maxdepth 1 -type f -mmin +15 -size +".$maxsize."k -name '*.jpg'");
+        foreach ($files as $file) {
+            $fileName = $cleanLowerDir.'/'.basename($file);
+            clearstatcache(true, $fileName);
+            if (file_exists($fileName)) {
+                unlink($file);
+                $cleaned = true;
+            }
+        }
+        unset($files, $file, $fileName);
+    }
     // initialise the amount of diskspace to recover (kB)
     $recoverKB = 0;
     // if the art is using tmpfs get the physical memory information
@@ -9062,6 +9598,22 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     }
     if ($recoverKB) {
         $cleaned = true;
+        // logging
+        if (isset($logfile) && $logfile) {
+            $output = "\nRecover Upper ".$cleanUpperDir." ".date(DATE_RFC2822)."\n";
+            $output .= implode("\n", sysCmd('df -h'))."\n";
+            $output = "totalSpaceKB:     ".$totalSpaceKB."\n";
+            $output = "freeSpaceKB:      ".$freeSpaceKB."\n";
+            $output = "percFreeDisk:     ".$percFreeDisk."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            $output .= implode("\n", sysCmd('free'))."\n";
+            $output = "mem['total']:     ".$mem['total']."\n";
+            $output = "mem['available']: ".$mem['available']."\n";
+            $output = "percFreeMem:      ".$percFreeMem."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            file_put_contents($logfile, $output, FILE_APPEND);
+            unset($output);
+        }
         // need to recover diskspace
         // first get the number of files in the directory
         $filesInArtDir = sysCmd('ls -q1 "'.$cleanUpperDir.'" | wc -l | xargs')[0];
@@ -9125,8 +9677,23 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
     if ($today != $redis->hGet('cleancache', '90lowerdate')) {
         // the following command removes all files from the lower directory which are older than 90 days
         // the strategy is that we have used them for 3 months, but their source information may now have changed
-        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 -exec rm {} \;');
+        // song files are never deleted, these contain validated lyrics, those without lyrics are deleted elsewhere
+        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 \! -name *.song -exec rm {} \;');
         $redis->hSet('cleancache', '90lowerdate', $today);
+        $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '60lowerdate_jpg')) {
+        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the strategy is that we have used them for 2 months, but their source information may now have changed
+        // these files are large
+        sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +30 -exec rm {} \;");
+        $redis->hSet('cleancache', '60lowerdate_jpg', $today);
+        $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
+        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the strategy is that we have used them for 1 month, but their source information may now have changed
+        // there is one file for each played song, so lots of files
+        sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
+        $redis->hSet('cleancache', '30lowerdate_mpd', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
         // artist files without any content (these can contain the text 'Sorry, no details available') are deleted after 30 days
@@ -9144,12 +9711,13 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         $redis->hSet('cleancache', '30lowerdate_artist', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
-        // song files without any content (these can contain the text 'No lyrics available') are deleted after 30 days
+        // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted') are
+        //  deleted after 30 days
         // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' >> '/tmp/exclude.filelist'");
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'No lyrics available' ".$cleanLowerDir."/*.song &> /dev/null");
+        $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
@@ -9162,7 +9730,7 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
         // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
         //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' >> '/tmp/exclude.filelist'");
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
         $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
@@ -9173,6 +9741,70 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         }
         $redis->hSet('cleancache', '1lowerdate_song', $today);
         $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
+        // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
+        // even though ImageMagick shows an error the files can be converted correctly, here we try to convert large the files again
+        // Important: only files with an image size larger than the specified magick options will be converted, regardless of the file size
+        //  there seems to be a bug in ImageMagick which causes repeatedly resized files to grow by about 150b per conversion
+        //  resizing files changes their creation date, so these will never be purged after their cache-expiry (30 days)
+        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
+        if ($maxsize == 0) {
+            // when $maxsize is unset, set it to 100 and save it
+            $maxsize = 100;
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        // we search for *.jpg files with a file size greater than $maxsize
+        $files = sysCmd("find '".$cleanLowerDir."' -maxdepth 1 -type f -size +".$maxsize."k -name '*.jpg'");
+        // convert the files
+        $magick_opts = trim($redis->hGet('magick', 'opts'));
+        $magick_resize = trim($redis->hGet('magick', 'resize'));
+        $magickSize = substr($magick_resize, 0, strpos($magick_resize, 'x'));
+        $reduceMaxsize = true;
+        foreach ($files as $file) {
+            // check that it is a valid image file, get some information about the file
+            clearstatcache(true, $file);
+            // check that the file is an image
+            list($width, $height, $type, $attr) = getimagesize($file);
+            // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+            if (!isset($width) || !isset($height) || !isset($type) || !($width > 20) || !($height > 20) || !$type) {
+                // it is not a valid image file (or at least it has a invalid header) or it is smaller than 20x20px
+                // the image file has an invalid format or is very small, delete it
+                unlink($file);
+                $cleaned = true;
+            } else {
+                // it is a valid image file
+                if (($width > $magickSize) || ($height > $magickSize)) {
+                    // the image size (h x w) is larger than the requested size
+                    // use ImageMagick to resize the image
+                    if ($magick_resize) {
+                        sysCmd("convert -resize ".$magick_resize." ".$magick_opts." '".$file."' '".$file."'");
+                    } else {
+                        sysCmd("convert -resize 350x350\> ".$magick_opts." '".$file."' '".$file."'");
+                    }
+                    $cleaned = true;
+                    // get the modified image height and width
+                    clearstatcache(true, $file);
+                    list($width, $height, $type, $attr) = getimagesize($file);
+                }
+                if (($width == $magickSize) || ($height == $magickSize)) {
+                    // the size of the file is the same as requested for the ImageMagick reduction
+                    // get the file size in kb
+                    $fileSizeK = intval(intval(filesize($file)) / 1024);
+                    if ($fileSizeK > $maxsize)  {
+                        // the file size is greater than the defined $maxsize, increase $maxsize
+                        $maxsize = $fileSizeK;
+                        $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+                        $reduceMaxsize = false;
+                    }
+                }
+            }
+        }
+        if ($reduceMaxsize) {
+            // files have been processed and no file had a larger size than $maxsize, reduce $maxsize by 2% (but not lower than 55)
+            $maxsize = max(intval(intval($maxsize) * 0.98), 55);
+            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
+        }
+        $redis->hSet('cleancache', '0lowerdate_large_jpg', $today);
     }
     unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
@@ -9187,7 +9819,19 @@ function wrk_clean_music_metadata($redis, $clearAll=null)
         // less than 20% available, recover to make 35% available
         $recoverKB = intval(((35 - $percFreeDisk) * $totalSpaceKB)/100);
     }
-    if ($recoverKB) {
+    if ($recoverKB && !$cleaned) {
+        // but dont run this until the other cleaning actions have completed
+        // logging
+        if (isset($logfile) && $logfile) {
+            $output = "\nRecover Lower ".$cleanLowerDir." ".date(DATE_RFC2822)."\n";
+            $output .= implode("\n", sysCmd('df -h'))."\n";
+            $output = "totalSpaceKB:     ".$totalSpaceKB."\n";
+            $output = "freeSpaceKB:      ".$freeSpaceKB."\n";
+            $output = "percFreeDisk:     ".$percFreeDisk."\n";
+            $output = "recoverKB:        ".$recoverKB."\n";
+            file_put_contents($logfile, $output, FILE_APPEND);
+            unset($output);
+        }
         $cleaned = true;
         // need to recover diskspace
         // first get the number of files in the directory
@@ -9304,18 +9948,13 @@ function set_last_mpd_volume($redis)
             $retries_volume = 20;
             do {
                 // retry getting the volume until MPD is up and returns a valid entry
-                $retval = sysCmd('mpc volume | grep "volume:" | xargs');
-                if (!isset($retval[0]) || !$retval[0]) {
+                $retval = sysCmd('mpc volume | grep "volume:" | xargs')[0];
+                if (!isset($retval) || !$retval) {
                     // no response
                     sleep(2);
                     continue;
                 }
-                if (!isset($retval[0])) {
-                    // invalid response
-                    sleep(2);
-                    continue;
-                }
-                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                 if (!isset($retval[1])) {
                     // invalid response
                     sleep(2);
@@ -9336,9 +9975,9 @@ function set_last_mpd_volume($redis)
                     if (abs($mpdvolume - $lastmpdvolume) > 4) {
                         // set the mpd volume, do a soft increase/decrease
                         $setvolume = $mpdvolume - round((($mpdvolume-$lastmpdvolume)/2), 0, PHP_ROUND_HALF_UP);
-                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs');
-                        if (isset($retval[0])) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs')[0];
+                        if (isset($retval)) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                         } else {
                             // invalid response
                             sleep(2);
@@ -9353,9 +9992,9 @@ function set_last_mpd_volume($redis)
                         sleep(1);
                     } else {
                         // set the mpd volume directly
-                        $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs');
-                        if (isset($retval[0])) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval[0])));
+                        $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs')[0];
+                        if (isset($retval)) {
+                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
                         } else {
                             // invalid response
                             sleep(2);
@@ -9841,7 +10480,7 @@ function get_coverartarchiveorg($redis, $url)
 }
 
 // function to initialise the array used for artist, album, metadata
-function setup_metadata_array($metadataArray=array())
+function setup_metadata_array($metadataArray = array())
 // returns the array with all the values defined
 // if the optional input parameter is supplied and is not an array an error will be returned
 // see the calling function for details of the content
@@ -9871,7 +10510,7 @@ function setup_metadata_array($metadataArray=array())
 }
 
 // function to search internet sources for song information
-function get_songInfo($redis, $info=array())
+function get_songInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -10050,7 +10689,7 @@ function get_songInfo($redis, $info=array())
 }
 
 // function to search internet sources for album information
-function get_albumInfo($redis, $info=array())
+function get_albumInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -10326,7 +10965,7 @@ function get_albumInfo($redis, $info=array())
 }
 
 // function to search internet sources for artist information
-function get_artistInfo($redis, $info=array())
+function get_artistInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
 //  the string delevered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
@@ -10868,7 +11507,7 @@ function wrk_get_mpd_art($redis, $artist, $album, $song, $file)
 }
 
 // function to return a string between two delimiters
-function get_between_data($string, $start='', $end='', $occurrence=1)
+function get_between_data($string, $start = '', $end = '', $occurrence = 1)
 // $start can be blank/null, then occurrence is ignored, selection is from the first position in $string
 // $end can be blank/null, then selection to end of string
 // when $start and $end are specified but no match if found a zero length string is returned
@@ -10904,7 +11543,7 @@ function get_between_data($string, $start='', $end='', $occurrence=1)
             $substr_data = "";
         }
         else {
-            $substr_data = trim(substr($substr_data, 0, $pos_end));
+            $substr_data = substr($substr_data, 0, $pos_end);
         }
     }
     return $substr_data;
@@ -11464,20 +12103,37 @@ function getMusicFileMatadata($redis, $fileName)
 }
 
 // get the value of the first matching key in a single or multidimensional array
-function search_array_keys($myArray, $search)
+function search_array_keys($myArray, $search, $caseInsensative = 0, $skipEmpty = 0, $checkValueArrayZero = 0)
 // returns the first non-null/non-false value of an array node when its key matching the search string
 // it really only works well returning strings, null and boolean values give incorrect results
 // no match returns false, a match with a null or boolean false value also return false
 {
+    if ($caseInsensative) {
+        $search = strtolower($search);
+    }
     foreach ($myArray as $key => $value) {
+        if ($caseInsensative) {
+            $key = strtolower($key);
+        }
+        if ($key == $search) {
+            // match
+            if ($checkValueArrayZero && is_array($value) && isset($value[0]) && !is_array($value[0])) {
+                // check value[0], value is an array with a [0] element which is not an array, use the value of [0]
+                $value = $value[0];
+            }
+            if ($skipEmpty && (is_array($value) || !strlen(trim($value)))) {
+                // empty values are skipped and value is empty or an array, do nothing
+            } else {
+                if (!is_array($value)) {
+                    // value is not an array, but may be empty, return it anyway
+                    return $value;
+                }
+            }
+        }
         if (is_array($value)) {
-            $retval = search_array_keys($value, $search);
+            $retval = search_array_keys($value, $search, $caseInsensative, $skipEmpty, $checkValueArrayZero);
             if ($retval) {
                 return $retval;
-            }
-        } else {
-            if ($key == $search) {
-                return $value;
             }
         }
     }
@@ -11485,7 +12141,7 @@ function search_array_keys($myArray, $search)
 }
 
 // sets the default alsa card and the bluealsa ouput card, based on the card name
-function set_alsa_default_card($redis, $cardName=null)
+function set_alsa_default_card($redis, $cardName = null)
 {
     $alsaFileName = '/etc/asound.conf';
     $bluealsaFileName = '/etc/default/bluealsa-aplay';
@@ -11506,7 +12162,15 @@ function set_alsa_default_card($redis, $cardName=null)
     }
     if (!isset($acard['device']) || !$acard['device']) {
         // invalid card
-        echo "Invalid ao card: '$cardName', '$oa'\n";
+        echo "Invalid ao card: '$cardName', '$ao'\n";
+        $aoTest = $redis->get('ao');
+        $ao_default = $redis->get('ao_default');
+        if (($aoTest == $cardName) || ($aoTest == $ao)) {
+            $redis->set('ao', '');
+        }
+        if (($ao_default == $cardName) || ($ao_default == $ao)) {
+            $redis->set('ao_default', '');
+        }
         return;
     }
     //
@@ -11564,14 +12228,6 @@ function wrk_fixlogs()
 // configures, enables and disables llmnrd
 function wrk_llmnrd($redis)
 {
-    // make sure the variables are set, these lines can be removed in the next version
-    if (!$redis->exists('llmnrdonoff')) {
-        $redis->set('llmnrdonoff', 1);
-    }
-    if (!$redis->exists('llmnrdipv6')) {
-        $redis->set('llmnrdipv6', 1);
-    }
-    // remove up to here
     // depending on llmnrdipv6 set up llmnrd
     $ipv6Status = trim(sysCmd('grep -ic "llmnrd -6" /etc/systemd/system/llmnrd.service')[0]);
     $ipv6Setting = $redis->get('llmnrdipv6');
@@ -12589,7 +13245,7 @@ function is_playing($redis)
     return false;
 }
 
-function wrk_security($redis, $action, $args=null)
+function wrk_security($redis, $action, $args = null)
 {
     $retval = true;
     switch ($action) {
@@ -12598,11 +13254,11 @@ function wrk_security($redis, $action, $args=null)
             //          YYYY-MM-DD and DD/MM/YYYY have been seen there are possibly others
             //          this routine needs to have a consonant format of YYYY-MM-DD
             $today = date('Y-m-d');
-            $passwordInfo = strtolower(sysCmd('passwd -S root | xargs')[0]);
-            $passwordDate = date_to_Y_m_d(get_between_data($passwordInfo, 'root p ', ' '));
+            $passwordInfo = sysCmd("chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs")[0];
+            $passwordDate = date_to_Y_m_d($passwordInfo);
             if (!$passwordDate) {
                 // date error report it
-                echo '[wrk_security] passwordDate format error \''.get_between_data($passwordInfo, 'root p ', ' ')."'\n";
+                echo '[wrk_security] passwordDate format error \''.$passwordInfo."'\n";
             }
             $passwordDateInitial = date_to_Y_m_d($redis->get('passworddate'));
             if (!$passwordDateInitial) {
@@ -12650,8 +13306,7 @@ function wrk_security($redis, $action, $args=null)
                     }
                     sysCmd('rm -r '.$dirname.'/*');
                     sysCmd('cp /srv/http/app/config/defaults/boot/password/readme '.$dirname.'/readme');
-                    $passwordInfo = sysCmd('passwd -S root | xargs')[0];
-                    $passwordDate = get_between_data($passwordInfo, 'root P ', ' ');
+                    $passwordDate = sysCmd("chage -l root | grep -i 'Last password change' | cut -d ':' -f 2 | xargs")[0];
                     $redis->set('passworddate', $passwordDate);
                     break;
                 }
@@ -12698,6 +13353,11 @@ function wrk_security($redis, $action, $args=null)
                 $redis->hSet('AccessPoint', 'passphrase', $args);
                 // send notfy to UI
                 ui_notify($redis, 'Security', 'Access Point password changed, reboot to activate');
+                // // note: we could change the passphrase/password without rebooting using the following code
+                // $apArgs = array();
+                // // set up the arguments to change the Access Point passphrase/password
+                // $apArgs['passphrase'] = $args;
+                // wrk_apconfig($redis, 'writecfg', $apArgs);
             } else {
                 // send notfy to UI
                 ui_notifyError($redis, 'Security', 'Access Point password change failed, invalid format. You will get a new reminder');
@@ -12708,7 +13368,7 @@ function wrk_security($redis, $action, $args=null)
     return $retval;
 }
 
-function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
+function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
 // functions for attached CD drive
 // returns true
 {
@@ -13066,7 +13726,7 @@ function wrk_CD($redis, $action='', $args=null, $track=null, $jobID=null)
     }
 }
 
-function wrk_hwinput($redis, $action='', $args=null, $device=null, $jobID = null)
+function wrk_hwinput($redis, $action = '', $args = null, $device = null, $jobID = null)
 // functions for hardware input device
 // returns true
 {
@@ -13514,7 +14174,7 @@ function strip_synchronised_lyrics($lyrics)
 }
 
 // calculate and return the percentage of words in string $search which occur in string $target
-function count_word_occurancies($search, $target='')
+function count_word_occurancies($search, $target = '')
 // $search and $target are strings, return value is an integer (0 = no matches, 100 = all match)
 // the string matching is case insensitive
 // an empty $search string returns a 100% match
@@ -13557,37 +14217,91 @@ function count_word_occurancies($search, $target='')
 
 // function to normalise a date format
 function date_to_Y_m_d($date)
-// the function accepts an 8 date in YYYY-MM-DD or DD-MM-YYYY format with any separator (e.g. DD/MM/YYYY)
-//  and returns a date in YYYY-MM-DD format
+// the function accepts a 10 character date in YYYY-MM-DD or DD-MM-YYYY format with any separator (e.g. DD/MM/YYYY)
+//  the function is inaccurate for formats YYYY-DD-MM and MM-DD-YYYY
+// the function also accepts a longer date in the 'mmm DD YYYY' with its fields in any order and with any separator (e.g. format 'Dec 30, 2023')
+// the function returns a date in YYYY-MM-DD format
 {
-    $date = trim($date);
-    if (strlen($date) != 10) {
-        //invalid date format
-        return false;
+    $date = trim(strtolower($date));
+    //
+    // assume the date is in the 10 character format YYYY-MM-DD or DD-MM-YYYY
+    $date10character = true;
+    // replace any non-numeric characters with a single hyphen and trim leading/trailing hyphens & spaces
+    $date_wrk = trim(preg_replace('/[^0-9]+/', '-', $date), '- ');
+    if (substr_count($date_wrk, '-') == 2) {
+        // there are two hyphens
+        if (strlen($date_wrk) == 10) {
+            // the string length is 10
+            if (strpos($date_wrk, '-') == 2) {
+                // looks like DD-MM-YYYY
+                list($d, $m, $y) = explode('-', $date_wrk);
+            } else if (strpos($date_wrk, '-') == 4) {
+                // looks like YYYY-MM-DD
+                list($y, $m, $d) = explode('-', $date_wrk);
+            }
+        }
     }
-    $date = preg_replace('/[^0-9]/', '-', $date);
-    if (substr_count($date, '-') != 2) {
-        //invalid date format
-        return false;
-    }
-    if (strpos($date, '-') == 2) {
-        list($d, $m, $y) = explode('-', $date);
-    } else if (strpos($date, '-') == 4) {
-        list($y, $m, $d) = explode('-', $date);
-    } else {
-        //invalid date format
-        return false;
+    //
+    if (!isset($y) || !isset($m) || !isset($d) || (strlen($y) != 4) || (strlen($m) != 2) || (strlen($d) != 2)) {
+        // the date is not in the format YYYY-MM-DD or DD-MM-YYYY
+        $date10character = false;
+        // now assume the date is in the format 'mmm DD, YYYY'
+        // replace any non-numeric or non-lower-case-alpha characters with a single hyphen and trim leading/trailing hyphens & spaces
+        $date = trim(preg_replace('/[^0-9a-z]+/', '-', $date), '- ');
+        if (substr_count($date, '-') != 2) {
+            // invalid date format
+            return false;
+        }
+        // there are two hyphens, split the sting on the hyphens
+        $list = explode('-', $date);
+        // walk through the list
+        foreach ($list as $element) {
+            if (strlen($element) == 1) {
+                // could be a D, should not happen
+                $d = '0'.$element;
+            } else if (strlen($element) == 2) {
+                // this is a DD
+                $d = $element;
+            } else if (strlen($element) == 3) {
+                // this is a mmm
+                $mmm = $element;
+            } else if (strlen($element) == 4) {
+                // this is a YYYY
+                $y = $element;
+            }
+        }
+        if (!isset($d) || !isset($mmm) || !isset($y)) {
+            //invalid date format
+            return false;
+        }
+        // convert the alpha month to numeric
+        $months = array('', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec');
+        $m = array_search($mmm, $months);
+        if (strlen($m) == 1) {
+            // month contains one character, add a leading zero
+            $m = '0'.$m;
+        }
     }
     if ((strlen($y) != 4) || ($y < 1)) {
-        //invalid date format
+        // invalid date format
         return false;
     }
-    if ((strlen($m) != 2) || ($m < 1) || ($m > 12)) {
-        //invalid date format
+    if ((strlen($m) != 2) || ($m < 1)) {
+        // invalid date format
         return false;
     }
-    if ((strlen($d) != 2) || ($d < 1) || ($d > 31)) {
-        //invalid date format
+    if ((strlen($d) != 2) || ($d < 1)) {
+        // invalid date format
+        return false;
+    }
+    if (($m > 12) && $date10character) {
+        // day and month seem to be interchanged, this is very risky workaround, only do it for the 10 character date format
+        $x = $m;
+        $m = $d;
+        $d = $x;
+    }
+    if ($m > 12 || ($d > 31)) {
+        // invalid date format
         return false;
     }
     $date = $y.'-'.$m.'-'.$d;
@@ -13678,8 +14392,68 @@ function wrk_smt($redis)
     }
 }
 
+// function to decode vc4 hdmi description
+function decode_vc4_hdmi_desc($string)
+//
+{
+    $stringL = strtolower(trim(preg_replace('/[\s-]*/', '', $string)));
+    if (!strpos(' '.$stringL, 'vc4')) {
+        return $string;
+    }
+    if (strpos(' '.$stringL, 'hdmi0')) {
+        return 'HDMI 0';
+    } else if (strpos(' '.$stringL, 'hdmi1')) {
+        return 'HDMI 1';
+    } else if (strpos(' '.$stringL, 'hdmi2')) {
+        return 'HDMI 2';
+    } else if (strpos(' '.$stringL, 'hdmi')) {
+        return 'HDMI';
+    } else {
+        $retval = strtoupper(get_between_data(trim($stringL), 'vc4'));
+        if (!srtlen($retval)) {
+            $retval = $string;
+        }
+        return $retval;
+    }
+}
+
+// function to limit the sample rate for vc4 hdmi ouput
+function set_vc4_hdmi_allowed_formats($redis)
+// the function can only detect limitations when the vc4 hdmi output is actually being used
+//  we only set the reduced allowed formats, we never reset it to its original value
+//  when mpd restarts the allowed formats will revert to their original settings
+//  its only relevant for MPD output, all other output streams are fixed to a sample rate of
+//      44100hz or 48000hz, there are always supported
+// by doing this we use soxr to do resampling, otherwise the awful dmix will be used
+// hdmi output can normally manages 44100:24:*, 48000:24:*, 32000:24:*, 88200:24:*, 96000:24:*, 176400:24:* & 192000:24:*
+//  the introduction of vc4 has reduces it to 44100:24:2 & 48000:24:2, hopefully this will change
+{
+    $ao =$redis->get('ao');
+    if (!strpos(' '.strtolower($ao), 'vc4') || !strpos(' '.strtolower($ao), 'hdmi')) {
+        // output is not vc4 hdmi, nothing to do
+        return;
+    }
+    $currentSetting = sysCmd("mpc outputs | sed -n '/".$ao."/, /Output/{ /Output/!p }' | grep -i 'allowed_formats=' | xargs")[0];
+    if (!isset($currentSetting) || !$currentSetting) {
+        // it should have a value, if not, its incorrect
+        return;
+    }
+    if (strtolower($currentSetting) != strtolower('allowed_formats=48000:24:* 44100:24:* 48000:16:* 44100:16:*')) {
+        // the current setting is incorrect, it should be changed
+        $playing = sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0];
+        if (!isset($playing) || !$playing) {
+            // nothing is playing, we cant do anything
+            return;
+        }
+        if (strpos(' '.strtolower($playing), strtolower('format: IEC958_SUBFRAME_LE subformat: STD'))) {
+            // the profile of the output matches the one which needs to be changed
+            sysCmd('mpc outputset '.$ao.' allowed_formats="48000:24:* 44100:24:* 48000:16:* 44100:16:*"');
+        }
+    }
+}
+
 // function to control alsa equaliser
-function wrk_alsa_equaliser($redis, $action, $args=null, $jobID=null)
+function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
 //
 {
     if ($redis->hget('alsa_equaliser', 'enable')) {
@@ -13825,7 +14599,7 @@ function wrk_alsa_equaliser($redis, $action, $args=null, $jobID=null)
 }
 
 // Function to control the loading of the ALSA loopback connector
-function wrk_snd_aloop($redis, $action, $component=null)
+function wrk_snd_aloop($redis, $action, $component = null)
 // when the redis hash variable 'snd-aloop' has a value the loopback connector will loaded
 //  when the redis hash variable 'snd-aloop' has no a value the loopback connector will unloaded on the next boot
 // the loopback connector is used by several sound processing components, e.g. ALSA Equaliser, SnapCast, etc.
@@ -13873,7 +14647,7 @@ function wrk_snd_aloop($redis, $action, $component=null)
 
 // this function modifies the mpd sub-config file called /etc/mpd_loopback.conf, which configures outputs to the loopcack connector
 //  the mpd sub-config file is included into the mpd config file
-function wrk_mpd_loopback($redis, $action=null)
+function wrk_mpd_loopback($redis, $action = null)
 // the /etc/mpd_loopback.conf file is empty when the loopback connector is not activated
 // when the loopback connector is activated it contains configuration files for the three sound processing components:
 //  alsa_equaliser      uses loopback device 0 subdevice 0 input and device 1 subdevice 0 output
@@ -13951,12 +14725,12 @@ function wrk_mpd_loopback($redis, $action=null)
         } else {
             $output .="\tmixer_type \t\"none\"\n";
         }
-        // test if there is an option for mpd.conf is set
+        // test if there is an option to set in mpd.conf
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
         if (isset($card_decoded['card_option'])) {
             $output .= "\t".$card_decoded['card_option']."\n";
         }
-        // test if there is an allowed_formats for mpd.conf is set
+        // test if there is an allowed_formats to set in mpd.conf
         // for example the ES9023 audio card expects 24 bit input
         if (isset($acard['allowed_formats'])) {
             $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
@@ -14067,6 +14841,114 @@ function wrk_mpd_loopback($redis, $action=null)
         }
         return 'changed';
     }
+}
+
+// function to correct audio cards exceptions when booted on a Pi5
+function audioCardPi5($redis)
+// some audio cards are specific to the Pi5, non-Pi5 audio cards are removed in this routine
+// some audio card overlays have special version for the Pi5, these are corrected in this routine
+// these are the impacted overlays:
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
+// 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+{
+    if ($redis->get('aocardexceptions') == 'Pi5') {
+        // corrections have already been applied
+        return;
+    }
+    // set up the i2s table
+    copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
+    sysCmd("sed -i '/pisound|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
+    // change the file privileges to read only and owner/group to http:http
+    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    $i2smodule_select = trim($redis->get('i2smodule_select'));
+    $reboot = false;
+    if (substr($i2smodule_select, 0, 5) != 'none|') {
+        // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
+        if ($i2smodule_select == 'pisound|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound-pi5');
+            $redis->set('i2smodule_select', 'pisound-pi5|Blokas Labs pisound card');
+            $reboot = true;
+        } else if ($i2smodule_select == 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
+            wrk_i2smodule($redis, 'inno-dac-pro');
+            $redis->set('i2smodule_select', 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
+            $reboot = true;
+        }
+    }
+    $redis->set('aocardexceptions', 'Pi5');
+    if ($reboot) {
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured for Pi5 specific settings, rebooting to activate');
+        sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
+    }
+}
+
+// function to correct audio cards exceptions when booted on a non-Pi5
+function audioCardNonPi5($redis)
+// some audio cards are specific to non-Pi5 models, Pi5 audio cards are removed in this routine
+// some audio card overlays have special version for the Pi5, non-Pi5 corrections are applied in this routine
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
+// 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+{    if ($redis->get('aocardexceptions') == 'Non-Pi5') {
+        // corrections have already been applied
+        return;
+    }
+    // set up the i2s table
+    copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
+    sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dac8x|HiFiBerry DAC8X/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
+    // change the file privileges to read only and owner/group to http:http
+    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    $i2smodule_select = trim($redis->get('i2smodule_select'));
+    $reboot = false;
+    if (substr($i2smodule_select, 0, 5) != 'none|') {
+        // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
+        if ($i2smodule_select == 'pisound-pi5|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound');
+            $redis->set('i2smodule_select', 'pisound|Blokas Labs pisound card');
+            $reboot = true;
+        } else if ($i2smodule_select == 'hifiberry-dac8x|HiFiBerry DAC8X') {
+            wrk_i2smodule($redis, 'none');
+            $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
+            $reboot = true;
+        } else if ($i2smodule_select == 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
+            wrk_i2smodule($redis, 'allo-katana-dac-audio');
+            $redis->set('i2smodule_select', 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
+            $reboot = true;
+        }
+    }
+    $redis->set('aocardexceptions', 'Non-Pi5');
+    if ($reboot) {
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured from Pi5 specific settings, rebooting to activate');
+        sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
+    }
+}
+
+// function which checks and disables IPv6 connections
+function autoIpv6ConnectionsOff($redis)
+// this function is called when the Firefox browser is used
+// when IPv4 connections are valid IPv6 connections are disabled
+{
+    if ($redis->get('network_ipv6')) {
+        // IPv6 is on
+        if (is_firstTime($redis, 'autoIpv6ConnectionsOff')) {
+            // this routine has not been run today
+            // run command to: list ip addresses, get the IPv4 lines, exclude virtual access points, count the number with 'scope global'
+            if (sysCmd("ip add | grep -i 'inet\s' | grep -iv 'ap[0-9]' | grep -ic 'scope\s*global' | xargs")[0]) {
+                // there is at least one IPv4 connection with a global scope, we can set IPv6 off
+                $redis->set('network_ipv6', 0);
+                ui_notify($redis, "Firefox automatic network configuration", 'You may lose your connection, please wait and retry');
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 // function to return html formatted text showing the current samba shares
