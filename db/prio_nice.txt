@@ -6,16 +6,16 @@
 #
 
 # higher priority
-bluealsa -5 0
-bluealsa-aplay -5 0
+bluealsa -4 0
+bluealsa-aplay -4 0
 bluetooth -1 0
 mpd -5 0
 nmb -1 0
 nmbd -1 0
-shairport-sync -5 0
+shairport-sync -4 0
 smb -1 0
 smbd -1 0
-spotifyd -5 0
+spotifyd -4 0
 upmpdcli -4 0
 winbind -1 0
 winbindd -1 0
@@ -26,7 +26,7 @@ chromium 10 10
 cmd_async_queue 6 0
 local-browser 4 0
 luakit 10 10
-matchbox-window 4 4
+matchbox-window 5 5
 mpdscribble 3 0
 rune_MPDEM_wrk 9 0
 rune_PL_wrk 3 0

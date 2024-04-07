@@ -11543,7 +11543,7 @@ function get_between_data($string, $start = '', $end = '', $occurrence = 1)
             $substr_data = "";
         }
         else {
-            $substr_data = trim(substr($substr_data, 0, $pos_end));
+            $substr_data = substr($substr_data, 0, $pos_end);
         }
     }
     return $substr_data;

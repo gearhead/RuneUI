@@ -45,6 +45,9 @@ elif [ "$pacman_cnt" != "0" ] && [ "$apt_cnt" == "0" ] ; then
 fi
 redis-cli set os "$os"
 #
+# determine the word length
+wordlength=$( getconf LONG_BIT | xargs )
+redis-cli set wordlength "$wordlength"
 #
 # determine the codename
 if [ "$os" == 'ARCH' ] ; then
@@ -397,7 +400,7 @@ fi
 #       local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), ImageMagick (magick),
 #       mounted volume information (mou), MPD, (mpd), network information (net), Network interface card information (nic),
 #       batch processing queues (queue), DNS resolve information - historical (resolv), samba server (samba),
-#       OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), debug variables (wrk)
+#       OS update file md5 stamp (update), USB mounts and status (usb), web streaming (web), wordlength (wordlength), debug variables (wrk)
 #   at some time in the future we should delete the whole redis database here
 #   run in two steps, part 1
 redisvars=$( redis-cli --scan | grep -iE 'accesspoint|acard|access|airplay|ao|ashuffle|bluetooth|browser|cleancache|debugdata|dirble|dlna|first|hdmi' | xargs )
@@ -405,7 +408,7 @@ for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
 #   run in two steps, part 2
-redisvars=$( redis-cli --scan | grep -iE 'jamendo|local|lock_|lyric|mac|magick|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wrk' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'jamendo|local|lock_|lyric|mac|magick|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wordlength|wrk' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done

@@ -171,7 +171,8 @@ function redisDatastore($redis,$action) {
             break;
         case 'reset':
             // os & kernel
-            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $wordlength = trim(sysCmd('getconf LONG_BIT | xargs')[0]);
+            $bit = '('.$wordlength.'bit)';
             $release = trim(sysCmd('uname -sr')[0]);
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
@@ -186,6 +187,7 @@ function redisDatastore($redis,$action) {
             } else {
                 $p1mountpoint = '/boot';
             }
+            $redis->set('wordlength', $wordlength);
             $redis->set('os', $os);
             $redis->set('codename', $codename);
             $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
@@ -534,7 +536,8 @@ function redisDatastore($redis,$action) {
             break;
         case 'check':
             // os & kernel
-            $bit = '('.trim(sysCmd('getconf LONG_BIT')[0]).'bit)';
+            $wordlength = trim(sysCmd('getconf LONG_BIT | xargs')[0]);
+            $bit = '('.$wordlength.'bit)';
             $release = trim(sysCmd('uname -sr')[0]);
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
@@ -549,6 +552,7 @@ function redisDatastore($redis,$action) {
             } else {
                 $p1mountpoint = '/boot';
             }
+            $redis->exists('wordlength') || $redis->set('wordlength', $wordlength);
             $redis->exists('os') || $redis->set('os', $os);
             $redis->exists('codename') || $redis->set('codename', $codename);
             $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);

@@ -51,6 +51,10 @@ $redis->hSet('spotifyconnect', 'last_track_id', '');
 // clear the spotify connect metadata queues
 $redis->del('s_queue');
 $redis->del('s_queue_fifo');
+// initialise the MPD socket variables
+$socket = 0;
+$socketConnect = false;
+$socketLoopCount = 10;
 //
 // some radio stations never supply metadata, add them to the array below (case insensitive)
 //  or create a redis variable, e.g.: redis-cli set radio_skip_meta_strings '["BBC World Service","BBC Radio","Your String To Omit"]'
@@ -81,18 +85,46 @@ while (true) {
     $proxy = $redis->hGetall('proxy');
     $lastfm_apikey = $redis->get('lastfm_apikey');
     runelog('rune_PL_wrk: open MPD local UNIX socket');
+    if ($socket) {
+        // close the socket if open
+        closeMpdSocket($socket);
+        $socket = 0;
+    }
     $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
     if (!$socket) {
+        // cant make a connection with MPD
+        // close redis
         $redis->close();
+        // sleep for 5 seconds
         sleep(5);
-        continue;
+        if ($socketConnect) {
+            // there was a connected socket, but no longer able to connect
+            // exit with error status, the routine will restart
+            echo "MPD socket error\n";
+            // user error code 111 'Connection refused'
+            exit(111);
+        } else {
+            // there has never been a connected socket, maybe MPD is still starting, loop until the loop limit
+            if ($socketLoopCount-- <= 0) {
+                // the loop limit has been reached
+                // exit with error status, the routine will restart
+                echo "MPD socket error\n";
+                // user error code 111 'Connection refused'
+                exit(111);
+            } else  {
+                // the loop limit has not been reached
+                continue;
+            }
+        }
+    } else {
+        // socket connect, set the indicator to true
+        $socketConnect = true;
+        // reset the process priorities
+        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
     }
-    if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect")) {
-        // exit script
-        // die();
+    if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect") && ($activePlayer !== 'Bluetooth')) {
         runelog('rune_PL_wrk: no valid socket or streamer');
         $forceupdate = 1;
-        sleep(3);
     } else {
         // MPD playback engine
         if ($activePlayer === 'MPD') {
@@ -101,6 +133,9 @@ while (true) {
             if ($forceupdate !== 0) {
                 $forceupdate = 0;
                 $status = json_decode($redis->get('act_player_info'), true);
+                if (!isset($status) || !is_array($status)) {
+                    $status = array();
+                }
                 runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
                 // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                 $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
@@ -124,6 +159,7 @@ while (true) {
                 // no status returned, assume mpd not yet ready
                 if ($socket) {
                     closeMpdSocket($socket);
+                    $socket = 0;
                 }
                 continue;
             }
@@ -200,6 +236,7 @@ while (true) {
                     // call close MPD socket to clean up the socket
                     if ($socket) {
                         closeMpdSocket($socket);
+                        $socket = 0;
                     }
                     break;
                 }
@@ -210,6 +247,7 @@ while (true) {
                     $redis->set('act_player_info', json_encode($status));
                     if ($socket) {
                         closeMpdSocket($socket);
+                        $socket = 0;
                     }
                     break;
                 }
@@ -453,6 +491,9 @@ while (true) {
                 // the current $status will be filled with extra information for each new song, this information is not delivered by MPD,
                 //  and it should not be lost, the routines which create this extra information are time consuming and should only be run
                 //  when when a new song is detected
+                if (!isset($status) || !is_array($status)) {
+                    $status = array();
+                }
                 if (($newStatus['radio'] === $saveRadio) && ($newStatus['currentsong'] === $saveCurrentsong) && ($newStatus['file'] === $saveFile)) {
                     // same song, just replace specific parts of $status
                     unset($newStatus['currentartist'],
@@ -662,7 +703,10 @@ while (true) {
             // close Redis connection
             //$redis->close();
             runelog('rune_PL_wrk: close MPD local UNIX socket');
-            closeMpdSocket($socket);
+            if ($socket) {
+                closeMpdSocket($socket);
+                $socket = 0;
+            }
             $forceupdate = 1;
         } else if ($activePlayer === 'Airplay') {
             //
@@ -672,6 +716,9 @@ while (true) {
                 $forceupdate = 0;
                 $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE Airplay ----------------------------------');
+                if (!isset($status) || !is_array($status)) {
+                    $status = array();
+                }
                 $status = array_merge($status, initialise_playback_array($redis, 'Airplay'));
             }
             $airplay_timeout = $redis->hGet('airplay', 'timeout');
@@ -711,6 +758,9 @@ while (true) {
                 $forceupdate = 0;
                 $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE SpotifyConnect ----------------------------------');
+                if (!isset($status) || !is_array($status)) {
+                    $status = array();
+                }
                 $status = array_merge($status, initialise_playback_array($redis, 'Spotify connect'));
             }
             $redis->hSet('spotifyconnect', 'last_track_id', '');

@@ -58,6 +58,7 @@ if (($caller == 'bash') && !$alias) {
     // called from a script or an alias is present
     $path = '';
 }
+$wordlength = $redis->get('wordlength');
 //
 // process the options and validate the input file
 $a_cnt = count($argv);
@@ -283,8 +284,14 @@ $auOK = true;
 unset($au, $auinfo);
 try {
     // Code that may throw an Exception or Error.
-    $au = new AudioInfo();
-    $auinfo =  $au->Info($infile);
+    // $au = new AudioInfo();
+    // $auinfo =  $au->Info($infile);
+    $au = new getID3;
+    if ($wordlength == 32) {
+        // ape tags throw lots of warnings for the 32bit image, they cannot be decoded properly, switch ape tags off
+        $au->setOption(array('option_tag_apetag' => false));
+    }
+    $auinfo =  $au->analyze($infile);
 }
 catch (Throwable $t) {
     // Executed only in PHP 7 and higher, will not match in PHP 5 and lower
@@ -459,12 +466,16 @@ if ($tag_redis) {
 // functions
 function print_array($array, $spaces='')
 {
+    $tag_value_length = $GLOBALS['tag_value_length'];
     foreach ($array as $key => $value){
         if (is_array($value)) {
             fwrite(STDOUT, $spaces.'"'.$key."\"\n");
             print_array($value, $spaces.' ');
         } else {
             $spacer = max(1, 30 - strlen($key) - strlen($spaces));
+            if (!isset($value)) {
+                $value = '';
+            }
             $dataLen = strlen($value);
             if ($dataLen >= $tag_value_length) {
                 $value = 'Long data string of '.$dataLen.' characters omitted';
@@ -475,10 +486,14 @@ function print_array($array, $spaces='')
 }
 function fix_long_data($array)
 {
+    $tag_value_length = $GLOBALS['tag_value_length'];
     foreach ($array as $key => &$value){
         if (is_array($value)) {
             print_array($value);
         } else {
+            if (!isset($value)) {
+                $value = '';
+            }
             $dataLen = strlen($value);
             if ($dataLen >= $tag_value_length) {
                 $value = 'Long data string of '.$dataLen.' characters omitted';
