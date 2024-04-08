@@ -5462,17 +5462,23 @@ function wrk_shairport($redis, $ao = null, $name = null)
         sysCmd('systemctl daemon-reload');
         if ($airplay['enable']) {
             runelog('restart shairport-sync');
+            sysCmd('pgrep -x mosquitto || systemctl start mosquitto');
             sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
+            sysCmd('systemctl enable mosquitto');
         }
     } else {
         // nothing has changed, check that shairport-sync is running or stopped as required
         if ($airplay['enable']) {
             runelog('start shairport-sync');
+            sysCmd('pgrep -x mosquitto || systemctl start mosquitto');
             sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
+            sysCmd('systemctl enable mosquitto');
         } else {
             runelog('stop shairport-sync');
             sysCmd('pgrep -x shairport-sync && systemctl stop shairport-sync');
             sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
+            sysCmd('pgrep -x mosquitto && systemctl stop mosquitto');
+            sysCmd('systemctl disable mosquitto');
         }
     }
     $redis->set('sssconfchange', 0);
