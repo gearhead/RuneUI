@@ -404,6 +404,7 @@ if ($playerid_db === '') {
         // start local browser quickly
         wrk_localBrowser($redis, 'start', '1');
     } else {
+        // stop the local browser asynchronously
         sysCmdAsync($redis, '/srv/http/command/local_browser_stop_async.php');
     }
     //

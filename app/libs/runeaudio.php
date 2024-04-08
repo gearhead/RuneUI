@@ -6227,22 +6227,17 @@ function wrk_setHwPlatform($redis, $reset = 0)
     // register the model into database
     $redis->set('hwmodel', $model);
     //
-    // fix for broken luakit on the Pi4
-    if ($model == '11') {
-        // its a Pi4
-        $filename = '/usr/bin/chromium';
-        clearstatcache(true, $filename);
-        if (file_exists($filename)) {
-            // chromium is installed, use it
-            $redis->hSet('local_browser', 'browser', 'chromium');
-        }
-    } else {
-        // fix for poor performance of luakit on all platforms, use chromium
-        if (file_exists($filename)) {
-            // chromium is installed, use it
-            $redis->hSet('local_browser', 'browser', 'chromium');
+    // disable/enable startup jobs for graphics, single processor Pi's cannot support graphics
+    $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
+    if ($reset || ($cores != $redis->get('cores'))) {
+        if ($cores == 1) {
+            sysCmdAsync($redis, 'systemctl disable rp1-test ; systemctl disable glamor-test');
+        } else {
+            sysCmdAsync($redis, 'systemctl enable rp1-test ; systemctl enable glamor-test ; systemctl start rp1-test ; systemctl start glamor-test');
         }
     }
+    //
+    // fixes for Pi5 specific soundcards
     if ($model == '17') {
         // its a Pi5
         //  the audio card 'Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' has differing overlays for Pi5 compared to the other hardware types
