@@ -262,37 +262,51 @@ display_auto_detect=1
 #dtoverlay=gpio-ir,<param>=<val>
 #
 ##  Some overclocking settings ##
-#   The values below are valid for the B+ model
-#   Overclocking is not required for the Pi 2B, 3B, 3B+, 4B and Zero 2W models
+#   The values below are valid for the Pi A, B A+, B+ and Zero models
+#   Overclocking is not required for the Pi 2B, 3B, 3B+, 4B, 5B and Zero 2W models
 #   See internet for documentation on overclocking options for A, B and Zero
-#       models, be careful, check 2 independent sources!
+#       models before uncommenting the lines below, be careful, check 2 independent sources!
 [pi1]
-# Conditional for Pi Model A, Model B, Compute Module
+# Conditional for Pi Model A, Model B, Compute Module 1
 ## None
 #arm_freq=700
 #core_freq=250
 #sdram_freq=400
 #over_voltage=0
+#arm_boost=1
 ## Modest
 #arm_freq=800
 #core_freq=300
 #sdram_freq=400
 #over_voltage=0
+#arm_boost=1
 ## Medium
 #arm_freq=900
 #core_freq=333
 #sdram_freq=450
 #over_voltage=2
+#arm_boost=1
 ## High
 #arm_freq=950
 #core_freq=450
 #sdram_freq=450
 #over_voltage=6
+#arm_boost=1
 ## Turbo
 #arm_freq=1000
 #core_freq=500
 #sdram_freq=500
 #over_voltage=6
+#arm_boost=1
+[pi0]
+# Conditional for Pi Model Zero, Model Zero W (and Model Zero 2W)
+## Medium/High
+#arm_freq=1095
+#core_freq=515
+#sdram_freq=533
+#over_voltage=2
+#over_voltage_sdram=1
+#arm_boost=1
 [all]
 # Conditional end
 #
@@ -305,21 +319,25 @@ display_auto_detect=1
 #       mode DAC's it is probably not a requirement. Switching it off will make the PI run cooler (with possibly
 #       less audio noise). Alternative is turbo on demand (force_turbo=0)
 force_turbo=1
-#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when turbo is set on
+#   Lowering max CPU temperature from 85 (standard) to 70 or 75 degrees gives some headroom when force turbo is set on
 #   If the max temp is reached the cpu will automatically be throttled back
-#       Heatsinks are a good idea on Pi 3 and 4 models, a ventilator (fan) should be used on the Pi 4
+#       Heatsinks are a good idea on Pi 2, 3 and 4 models, a ventilator (fan) should be used on the Pi 4 and 5
 temp_limit=75
 #   Boot delay sometimes needs to be set to higher values when overclocking is enabled
 #       Default boot delay is 1 second, the Pi 3B+ needs a delay of 2 seconds
 boot_delay=2
 #   Set the max usb current to 1200mA (in theory this is depreciated and should not be required)
 max_usb_current=1
-#   For the Pi4 set the default turbo-mode clock to be set to 1.5GHz or 1.8GHz. As default we use 1.5GHz (this
+#   For the Pi4 the default turbo-mode clock is set to 1.5GHz or 1.8GHz. As default we use 1.5GHz (this
 #       is very fast). The turbo-mode clock can be increased to to 1.8GHz (faster, hotter, possibly more audio
-#       noise) by setting arm_boost on (arm_boost=1)
+#       noise) by setting arm_boost on (arm_boost=1). The same applies to the Pi 5.
 [pi4]
-# Conditional for Model 4
+# Conditional for Pi Model 4
 # The Pi 4 is very fast, we don't need the extra speed of arm_boost for RuneAudio, switch it off
+arm_boost=0
+[pi5]
+# Conditional for Pi Model 5
+# The Pi 5 is very fast, we don't need the extra speed of arm_boost for RuneAudio, switch it off
 arm_boost=0
 [all]
 # Conditional end
