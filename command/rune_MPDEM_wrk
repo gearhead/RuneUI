@@ -385,22 +385,27 @@ while (true)  {
             //
             // retrieve and validate the cached information
             //
-            // the file name is not unique for cue lists which play multiple songs from a single file, so use album, artist, title and date
+            // the file name is not unique for cue lists which play multiple songs from a single file, so use album, artist, title, date and uri (filename)
+            //  to determine the $datafile file name
+            // the logic used to determine the $datafile name is used in two places, be sure to make changes in both places
+            //  the two places are app/libs/runeaudio.php function ui_mpd_fix and command/rune_MPDEM_wrk (here)
             if (isset($song['album']) && isset($song['artist']) && isset($song['title']) && isset($song['date'])
                     && $song['album'] && $song['artist'] && $song['title'] && $song['date']) {
-                $datafile = md5($song['album'].$song['artist'].$song['title'].$song['date'].$song['file']);
+                $datafile = md5($song['album'].$song['artist'].$song['title'].$song['date'].$song['uri']);
             } else if (isset($song['album']) && isset($song['albumartist']) && isset($song['title']) && isset($song['date'])
                     && $song['album'] && $song['albumartist'] && $song['title'] && $song['date']) {
-                $datafile = md5($song['album'].$song['albumartist'].$song['title'].$song['date'].$song['file']);
+                $datafile = md5($song['album'].$song['albumartist'].$song['title'].$song['date'].$song['uri']);
             } else if (isset($song['album']) && isset($song['artist']) && isset($song['title'])
                     && $song['album'] && $song['artist'] && $song['title']) {
-                $datafile = md5($song['album'].$song['artist'].$song['title'].$song['file']);
+                $datafile = md5($song['album'].$song['artist'].$song['title'].$song['uri']);
             } else if (isset($song['album']) && isset($song['albumartist']) && isset($song['title'])
                     && $song['album'] && $song['albumartist'] && $song['title']) {
-                $datafile = md5($song['album'].$song['albumartist'].$song['title'].$song['file']);
+                $datafile = md5($song['album'].$song['albumartist'].$song['title'].$song['uri']);
             } else {
-                $datafile = md5($song['file']);
+                $datafile = md5($song['uri']);
             }
+            //
+            // determine the image file name
             if (isset($song['album']) && isset($song['albumartist']) && isset($song['date'])
                     && $song['album'] && $song['albumartist'] && $song['date']) {
                 $imagename = md5($song['album'].$song['albumartist'].$song['date']);
@@ -414,8 +419,9 @@ while (true)  {
                     && $song['album'] && $song['artist']) {
                 $imagename = md5($song['album'].$song['artist']);
             } else {
-                $imagename = md5($song['file']);
+                $imagename = md5($song['uri']);
             }
+            //
             $song['datafile'] = $artDir.'/'.$datafile.'.mpd';
             clearstatcache(true, $song['datafile']);
             if (file_exists($song['datafile'])) {
