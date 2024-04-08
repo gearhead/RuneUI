@@ -7440,8 +7440,25 @@ function ui_mpd_fix($redis, $status)
         $musicDir = rtrim($redis->hGet('mpdconf', 'music_directory'), '/');
         $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
         $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
-        // the name of the file name is always the hash of its path
-        $datafile = md5($musicDir.'/'.$status['file']);
+        // the file name is not unique for cue lists which play multiple songs from a single file, so use album, currentartist, title and date
+        // the logic used to determine the $datafile name is used in two places, be sure to make changes in both places
+        //  the two places are app/libs/runeaudio.php function ui_mpd_fix (here) and command/rune_MPDEM_wrk
+        if (isset($status['currentalbum']) && isset($status['currentartist']) && isset($status['currentsong']) && isset($status['date'])
+                && $status['currentalbum'] && $status['currentartist'] && $status['currentsong'] && $status['date']) {
+            $datafile = md5($status['currentalbum'].$status['currentartist'].$status['currentsong'].$status['date'].$status['file']);
+        } else if (isset($status['currentalbum']) && isset($status['currentalbumartist']) && isset($status['currentsong']) && isset($status['date'])
+                && $status['currentalbum'] && $status['currentalbumartist'] && $status['currentsong'] && $status['date']) {
+            $datafile = md5($status['currentalbum'].$status['currentalbumartist'].$status['currentsong'].$status['date'].$status['file']);
+        } else if (isset($status['currentalbum']) && isset($status['currentartist']) && isset($status['currentsong'])
+                && $status['currentalbum'] && $status['currentartist'] && $status['currentsong']) {
+            $datafile = md5($status['currentalbum'].$status['currentartist'].$status['currentsong'].$status['file']);
+        } else if (isset($status['currentalbum']) && isset($status['currentalbumartist']) && isset($status['currentsong'])
+                && $status['currentalbum'] && $status['currentalbumartist'] && $status['currentsong']) {
+            $datafile = md5($status['currentalbum'].$status['currentalbumartist'].$status['currentsong'].$status['file']);
+        } else {
+            $datafile = md5($status['file']);
+        }
+        //
         $fileName = $artDir.'/'.$datafile.'.mpd';
         // when $datafile is set we can determine a file name
         // ui_notify($redis, 'Test file name ', $fileName);
