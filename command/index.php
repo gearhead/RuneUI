@@ -72,33 +72,12 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             // catch any volume change set in the UI, and save its value
             //  the volume can also be set by streaming services this code is not used in those cases
             if (strpos(' '.$_GET['cmd'], 'setvol') && $mpdSendResponse && strpos(' '.$response, 'OK')) {
-                // 'setvol [+|-]<999>' is the command, the command was successfully sent and the response was OK, save the value
+                // 'setvol <999>' is the command, the command was successfully sent and the response was OK, save the value
                 // remove all non-numeric values from the command
                 $volume = trim(preg_replace('/[^0-9]/', '', $_GET['cmd']));
-                // get the optional + or - sign
-                $sign = substr(trim(preg_replace('/[^+-]/', '', $_GET['cmd'])), 0, 1);
-                if ($volume && ($volume >= 0) && ($volume <= 100)) {
+                if (strlen($volume) && ($volume >= 0) && ($volume <= 100)) {
                     // $volume is set and it has a value between 0 and 100 inclusive, thus valid
-                    if (!$sign) {
-                        // no sign set, just save the set the volume
-                        $redis->set('lastmpdvolume', $volume);
-                    } else if ($sign === '+') {
-                        // delta volume set, increase the saved volume with the value
-                        // currently not used in Runeaudio
-                        $lastvolume = $redis->get('lastmpdvolume');
-                        $volume = $lastvolume + $volume;
-                        // maximum value is 100
-                        if ($volume > 100) $volume = 100;
-                        $redis->set('lastmpdvolume', $volume);
-                    } else if ($sign === '-') {
-                        // delta volume set, decrease the saved volume with the value
-                        // currently not used in Runeaudio
-                        $lastvolume = $redis->get('lastmpdvolume');
-                        $volume = $lastvolume - $volume;
-                        // minimum value is 0
-                        if ($volume < 0) $volume = 0;
-                        $redis->set('lastmpdvolume', $volume);
-                    }
+                    $redis->set('lastmpdvolume', $volume);
                 }
                 unset($mpdSendResponse, $volume, $sign, $lastvolume);
             }

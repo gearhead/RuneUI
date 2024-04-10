@@ -9957,86 +9957,125 @@ function convertToHumanReadable($bytes)
 
 // function to set the mpd volume to the last volume set via the UI
 function set_last_mpd_volume($redis)
-// set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
-// the streaming services can change the alsa volume, we want to change it back to the last set value
+// when a mpd start volume is set and it is the first time this routine is run set the mpd volume to preset start volume
+//  otherwise set the mpd volume to the last value set via the UI
+//  the streaming services can change the alsa volume, we want to change it back to the last set value
+// 
 {
-    if (($redis->exists('lastmpdvolume')) && ($redis->hGet('mpdconf', 'mixer_type') != 'disabled')) {
-        $lastmpdvolume = $redis->get('lastmpdvolume');
-        if ($lastmpdvolume && is_numeric($lastmpdvolume) && ($lastmpdvolume >= 0) && ($lastmpdvolume <= 100)) {
-            $retries_volume = 20;
-            do {
-                // retry getting the volume until MPD is up and returns a valid entry
-                $retval = sysCmd('mpc volume | grep "volume:" | xargs')[0];
+    if ($redis->hGet('mpdconf', 'mixer_type') != 'disabled') {
+        // volume control is active
+        $saveMpdVolume = -1000;
+        $firstTimeVolumeMatch = false;
+        // sometimes mpd fails to start correctly (e.g. when the incorrect audio card overlay is specified)
+        //  then it will never return a volume value so limit the number of retries with a counter
+        // it can sometimes take several attempts to receive a valid volume level form mpd, this happens mostly
+        //  when mpd is starting or restarting, retrying solves this in most cases
+        $retriesVolume = 20;
+        do {
+            // determine the volume which needs to be set
+            $startMpdVolume = $redis->get('mpd_start_volume');
+            $lastMpdVolume = $redis->get('lastmpdvolume');
+            if (is_firstTime($redis, 'set_mpd_volume')) {
+                // its the first time, the chance that mpd is not running is higher, bump the number of retries up to 40
+                $retriesVolume = 40;
+                if ($startMpdVolume != -1) {
+                    $setMpdVolume = $startMpdVolume;
+                    $redis->set('lastmpdvolume', $setMpdVolume);
+                }
+            }
+            if (!isset($setMpdVolume)) {
+                if (isset($lastMpdVolume) && strlen($lastMpdVolume) && is_numeric($lastMpdVolume)) {
+                    $setMpdVolume = $lastMpdVolume;
+                } else {
+                    $setMpdVolume = $startMpdVolume;
+                    $redis->set('lastmpdvolume', $setMpdVolume);
+                }
+            }
+            //
+            if (is_numeric($setMpdVolume) && ($setMpdVolume >= 0) && ($setMpdVolume <= 100)) {
+                // try and retry getting the volume until MPD is up and returns a valid entry
+                $retval = trim(sysCmd('mpc volume | grep "volume:" | xargs')[0]);
                 if (!isset($retval) || !$retval) {
-                    // no response
+                    // no response, invalid response
                     sleep(2);
                     continue;
                 }
-                $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
-                if (!isset($retval[1])) {
-                    // invalid response
+                if (!strpos(' '.$retval, ':')) {
+                    // no ':' in response, invalid response
                     sleep(2);
                     continue;
                 }
-                if ($retval[1] === 'n/a') {
+                $retval = explode(':',$retval, 2)[1];
+                if (!isset($retval)) {
+                    // empty volume, invalid response
+                    sleep(2);
+                    continue;
+                }
+                if (strpos(' '.$retval, 'n/a')) {
                     // something wrong, mismatch between redis and mpd volume 'disabled' values, give up
-                    $retries_volume = 0;
+                    // set the redis variable 'lastmpdvolume' back to its initial value
+                    $redis->set('lastmpdvolume', $lastMpdVolume);
+                    $retriesVolume = 0;
                     continue;
                 }
-                // strip any non-numeric values from the string
-                $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
-                // careful: the volume control works in steps so the return value after stetting it may not be exactly the
-                //  same as the requested value
-                // use a soft increase/decrease when the difference is more than 4%, otherwise directly set the last saved value
-                if ($mpdvolume && is_numeric($mpdvolume) && ($mpdvolume >= 0) && ($mpdvolume <= 100)) {
-                    // a valid current volume has been returned
-                    if (abs($mpdvolume - $lastmpdvolume) > 4) {
-                        // set the mpd volume, do a soft increase/decrease
-                        $setvolume = $mpdvolume - round((($mpdvolume-$lastmpdvolume)/2), 0, PHP_ROUND_HALF_UP);
-                        $retval = sysCmd('mpc volume '.$setvolume.' | grep "volume:" | xargs')[0];
-                        if (isset($retval)) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
-                        } else {
-                            // invalid response
-                            sleep(2);
-                            continue;
-                        }
-                        if (isset($retval[1])) {
-                            $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
-                        } else {
-                            $mpdvolume = '';
-                        }
+                // strip any non-numeric values from the string a hyphen (negative sign is retained)
+                //  a -1 return value indicates that the value cannot be retrieved
+                $retval = trim(preg_replace('/[^0-9-]/', '', $retval));
+                if (!strlen($retval) || !is_numeric($retval) || ($retval < 0) || ($retval > 100) ) {
+                    // mpd volume out of range
+                    sleep(2);
+                    continue;
+                } else {
+                    $mpdVolume = intval($retval);
+                }
+                // a valid current volume has been returned
+                //
+                // don't trust the first time volume response without verification
+                if (!$firstTimeVolumeMatch && ($mpdVolume != $saveMpdVolume)) {
+                    // loop again, first time valid volume has been returned
+                    $saveMpdVolume = $mpdVolume;
+                    sleep(1);
+                    continue;
+                } else {
+                    $firstTimeVolumeMatch = true;
+                }
+                // careful: the volume control works in steps, these steps are based on the capabilities of the sound card, so
+                //  the return value after setting the volume may not be exactly the same as the requested value
+                // use a soft increase/decrease when the difference greater than 4%, otherwise directly set the pre-set value
+                //  if the current volume is 99% and the requested volume is 1% it works something like this:
+                //      99 > 50 > 25 > 13 > 7 > 4 > 1 - maximum 6 retries used from the 40 available 
+                //
+                if ($mpdVolume == $setMpdVolume) {
+                    // volume already correct, nothing to do
+                    break;
+                } else if (abs($mpdVolume - $setMpdVolume) > 4) {
+                    // set the mpd volume, do a soft increase/decrease
+                    $setVolume = $mpdVolume - round((($mpdVolume - $setMpdVolume) / 2), 0, PHP_ROUND_HALF_UP);
+                    sysCmd('mpc volume '.$setVolume);
+                    // sleep 1 second before looping
+                    sleep(1);
+                } else {
+                    // set the mpd volume directly
+                    $retval = trim(sysCmd('mpc volume '.$setMpdVolume.' | grep "volume:" | xargs')[0]);
+                    if (!strpos(' '.$retval, ':')) {
+                        // no ':' in $retval, invalid response
                         // sleep 1 second before looping
                         sleep(1);
-                    } else {
-                        // set the mpd volume directly
-                        $retval = sysCmd('mpc volume '.$lastmpdvolume.' | grep "volume:" | xargs')[0];
-                        if (isset($retval)) {
-                            $retval = explode(':',trim(preg_replace('!\s+!', ' ', $retval)));
-                        } else {
-                            // invalid response
-                            sleep(2);
-                            continue;
-                        }
-                        if (isset($retval[1])) {
-                            $mpdvolume = trim(preg_replace('/[^0-9]/', '', $retval[1]));
-                        } else {
-                            $mpdvolume = '';
-                        }
-                        if ($mpdvolume && is_numeric($mpdvolume) && ($mpdvolume >= 0) && ($mpdvolume <= 100)) {
-                            // when $mpdvolume has a valid value we are finished
-                            $retries_volume = 0;
-                        } else {
-                            // sleep 1 second before looping
-                            sleep(1);
-                        }
+                        continue;
                     }
-                } else {
-                    // no valid current volume returned
-                    sleep(2);
+                    $retval = explode(':' ,$retval, 2)[1];
+                    $mpdVolume = trim(preg_replace('/[^0-9-]/', '', $retval));
+                    if (strlen($mpdVolume) && is_numeric($mpdVolume) && ($mpdVolume >= 0) && ($mpdVolume <= 100)) {
+                        // when $mpdVolume has a valid value we are finished
+                        break;
+                    } else {
+                        // sleep 1 second before looping
+                        sleep(1);
+                        continue;
+                    }
                 }
-            } while (--$retries_volume > 0);
-        }
+            }
+        } while (--$retriesVolume > 0);
     }
 }
 
