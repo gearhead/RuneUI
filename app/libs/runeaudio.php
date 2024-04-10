@@ -10054,6 +10054,7 @@ function set_last_mpd_volume($redis)
                     sysCmd('mpc volume '.$setVolume);
                     // sleep 1 second before looping
                     sleep(1);
+                    continue;
                 } else {
                     // set the mpd volume directly
                     $retval = trim(sysCmd('mpc volume '.$setMpdVolume.' | grep "volume:" | xargs')[0]);
