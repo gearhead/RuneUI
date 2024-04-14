@@ -9960,7 +9960,7 @@ function set_last_mpd_volume($redis)
 // when a mpd start volume is set and it is the first time this routine is run set the mpd volume to preset start volume
 //  otherwise set the mpd volume to the last value set via the UI
 //  the streaming services can change the alsa volume, we want to change it back to the last set value
-// 
+//
 {
     if ($redis->hGet('mpdconf', 'mixer_type') != 'disabled') {
         // volume control is active
@@ -10043,7 +10043,7 @@ function set_last_mpd_volume($redis)
                 //  the return value after setting the volume may not be exactly the same as the requested value
                 // use a soft increase/decrease when the difference greater than 4%, otherwise directly set the pre-set value
                 //  if the current volume is 99% and the requested volume is 1% it works something like this:
-                //      99 > 50 > 25 > 13 > 7 > 4 > 1 - maximum 6 retries used from the 40 available 
+                //      99 > 50 > 25 > 13 > 7 > 4 > 1 - maximum 6 retries used from the 40 available
                 //
                 if ($mpdVolume == $setMpdVolume) {
                     // volume already correct, nothing to do
@@ -11717,7 +11717,7 @@ function add_udev_rules($rulesFileName)
     }
     copy($rulesFileName, $tmpRulesFileName);
     symlink($tmpRulesFileName, $udevRulesFileName);
-    sysCmd('sync');
+    sysCmd('sync ; udevadm control --reload-rules && udevadm trigger');
 }
 
 // function to retrieve Spotify metadata from the spotifyd journal based on a track ID
