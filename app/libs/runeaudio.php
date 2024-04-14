@@ -11717,7 +11717,7 @@ function add_udev_rules($rulesFileName)
     }
     copy($rulesFileName, $tmpRulesFileName);
     symlink($tmpRulesFileName, $udevRulesFileName);
-    sysCmd('sync');
+    sysCmd('sync ; udevadm control --reload-rules && udevadm trigger');
 }
 
 // function to retrieve Spotify metadata from the spotifyd journal based on a track ID

@@ -57,9 +57,14 @@ redis-cli shutdown save
 systemctl stop redis
 # save a copy of the redis database
 cp /var/lib/redis/rune.rdb /var/lib/redis/rune.rdb.copy
-# stop most rune systemd units
-declare -a stop_arr=(ashuffle cmd_async_queue mpd mpdscribble nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk\
-    rune_SSM_wrk shairport-sync smb smbd spotifyd udevil upmpdcli)
+# stop most rune systemd units, do it in two steps
+# step 1 - the back-end jobs
+declare -a stop_arr=(bluetoothctl_scan bt_mon_switch bt_scan_output cmd_async_queue nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk rune_SY_wrk smb smbd udevil upmpdcli)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
+# step 2 - the audio jobs
+declare -a stop_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor mpd mpdscribble shairport-sync spotifyd)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
