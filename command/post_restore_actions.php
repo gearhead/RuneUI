@@ -98,3 +98,6 @@ if ($redis->get('wifi_on')) {
 } else {
     wrk_netconfig($redis, 'disableWiFi');
 }
+// refresh the nic's data store
+refresh_nics($redis);
+

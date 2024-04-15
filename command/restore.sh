@@ -41,6 +41,10 @@ echo "restore started"
 # remove runeaudio udev rules
 rm /tmp/*runeaudio.rules
 udevadm control --reload-rules && udevadm trigger
+# set player to MPD, set its state to stop and stop the player
+redis-cli set mpd_playback_status stop
+mpc stop
+curl 'http://localhost/command/?switchplayer=MPD'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
@@ -62,7 +66,7 @@ systemctl stop redis
 cp /var/lib/redis/rune.rdb /var/lib/redis/rune.rdb.copy
 # stop most rune systemd units, do it in two steps
 # step 1 - the back-end jobs
-declare -a stop_arr=(bluetoothctl_scan bt_mon_switch bt_scan_output cmd_async_queue nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk rune_SY_wrk smb smbd udevil upmpdcli)
+declare -a stop_arr=(bluetoothctl_scan bt_mon_switch bt_scan_output cmd_async_queue nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk smb smbd udevil upmpdcli)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
@@ -159,11 +163,12 @@ redis-cli set regdom "$regdom"
 # regenerate audio card details
 /srv/http/db/redis_acards_details
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# refresh audio outputs
+# set up the i2s module
 i2smodule=$( redis-cli get i2smodule | xargs )
 if [ "$i2smodule" != "" ] ; then
     dtoverlay $i2smodule
 fi
+# refresh the audio output configuration
 /srv/http/command/refresh_ao
 /srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
 # run some php based post restore actions
@@ -192,15 +197,14 @@ redis-cli del acards
 /srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
 # generate Wi-Fi profile files in <p1mountpoint>/wifi for the restored Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
-# refresh the nic's
 /srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
-/srv/http/command/refresh_nics
 # run the shutdown script and reboot
 /srv/http/command/rune_shutdown reboot
 echo "restore finished"
 } > /var/log/runeaudio/restore.log 2>&1
 # debug
 #} > /home/restore.log 2>&1
+sync
 reboot
 #---
 #End script
