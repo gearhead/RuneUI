@@ -5895,7 +5895,10 @@ function wrk_sourcecfg($redis, $action, $args = null)
             // for some unknown reason usb devices sometimes get mounted twice check that it is dismounted, if not run again
             // clean up any invalid mount points
             sysCmd('udevil clean');
+            // save the unmounted device name
             $redis->hSet('usbunmounts', $args, 1);
+            // stop play and stop ashuffle if running
+            sysCmd('mpc stop ; pgrep -x ashuffle && systemctl stop ashuffle');
             if (wrk_checkMountUsb($args)) {
                 sysCmd('udevil umount '.$args);
                 // clean up any invalid mount points
@@ -5914,9 +5917,10 @@ function wrk_sourcecfg($redis, $action, $args = null)
                 } else {
                     $txt = 'The device is probably in use.';
                 }
-                ui_notify($redis, 'USB unmount', 'Failed. '.$txt);
+                ui_notifyError($redis, 'USB unmount', 'Failed. '.$txt);
                 $redis->hDel('usbunmounts', $args);
             } else {
+                ui_notify($redis, 'USB unmount', 'Unmounted '.$args.'. Refresh the screen to show the actual status of the sources');
                 $redis->hDel('usbmounts', $args);
                 $redis->hSet('usbunmounts', $args, 1);
             }
@@ -9175,6 +9179,10 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                         $mpdSingleRepeatRandomStopped = false;
                     }
                     unset($mpcStatus, $queueEmpty);
+                }
+                $retval = sysCmd("journalctl -u ashuffle | tail -n 1 | grep -ic 'Picking random songs out of a pool of' | xargs")[0];
+                if (!$retval) {
+                    sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
                 }
                 $retval = sysCmd('systemctl is-active ashuffle');
                 if ($retval[0] == 'active') {
