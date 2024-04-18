@@ -4185,7 +4185,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     case 'audio_output_interface':
                         // --- audio output interface ---
                         // do nothing
-                        // no break
+                        break;
                     case 'dsd_usb':
                         // --- DSD USB ---
                         // do nothing
@@ -4287,18 +4287,12 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         }
                         break;
                     case 'brutefir':
-                        // --- brutefir pipe output ---
-                        if ($value) {
-                            // save the indicator, add the output after the normal output interfaces
-                            $brutefirCommand = $value;
-                        }
+                        // no longer used, remove the redis variable, note: it may still be stored in a backup file
+                        $redis->hdel('mpdconf', 'brutefir');
                         break;
                     case 'snapcast':
-                        // --- snapcast fifo output ---
-                        if ($value) {
-                            // save the indicator, add the output after the normal output interfaces
-                            $snapcastPath = $value;
-                        }
+                        // no longer used, remove the redis variable, note: it may still be stored in a backup file
+                        $redis->hdel('mpdconf', 'snapcast');
                         break;
                     default:
                         $output .= $param." \t\"".$value."\"\n";
@@ -4509,35 +4503,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .="\tenabled \t\"yes\"\n";
             $output .="}\n";
             // ui_notify($redis, 'MPD', 'config file part two finished');
-            // add the snapcast fifo output if requested
-            if (isset($snapcastPath) && $snapcastPath) {
-                $output .="audio_output {\n";
-                $output .="\tname \t\t\"snapcast_fifo\"\n";
-                $output .="\ttype \t\t\"fifo\"\n";
-                $output .="\tpath \t\t\"".$snapcastPath."\"\n";
-                $output .="\tformat \t\t\"48000:16:2\"\n";
-                $output .="\tmixer_type \t\t\"software\"\n";
-                $output .="\tenabled \t\t\"no\"\n";
-                $output .="}\n";
-            }
-            // add the brutefir pipe output if requested
-            if (isset($brutefirCommand) && $brutefirCommand) {
-                $output .="audio_output {\n";
-                $output .="\tname \t\t\"".$redis->get('hostname')."_pipe\"\n";
-                $output .="\ttype \t\t\"pipe\"\n";
-                // Command format examples:
-                //   command     "aplay -f cd 2>/dev/null"
-                // Or if you want to use AudioCompress
-                //  command     "AudioCompress -m | aplay -f cd 2>/dev/null"
-                // Or to send raw PCM stream through PCM:
-                //  command     "nc example.org 8765"
-                // Or if you want to use brutefir:
-                //  command     "/usr/local/bin/brutefir -nodefault /home/brutefir/.brutefir_config"
-                $output .="\tcommand \t\t\"".$brutefirCommand."\"\n";
-                $output .="\tformat \t\t\"96000:24:2\"\n";
-                $output .="\tenabled \t\t\"no\"\n";
-                $output .="}\n";
-            }
             // add the webstreaming output if requested
             if (isset($websteaming) && $websteaming) {
                 $output .="audio_output {\n";
