@@ -53,6 +53,7 @@ for nic in $nics ; do
         # only for nics which are down
         if [ -f "/tmp/$nic.up" ]; then
             # only for nics which were previously up
+            ip addr flush $nic
             ip link set dev $nic down
             ip link set dev $nic up
         fi
