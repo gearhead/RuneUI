@@ -2795,7 +2795,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // set access point to default values
                 wrk_apconfig($redis, 'reset');
                 // set wifi on and reboot it required
-                if (!$redis->get(wifi_on)) {
+                if (!$redis->get('wifi_on')) {
                     wrk_netconfig($redis, 'enableWifi');
                     ui_notify($redis, 'Wi-Fi reset', 'Restarting to enable Wi-Fi');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
