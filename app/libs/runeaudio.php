@@ -2261,12 +2261,21 @@ function wrk_restore($redis, $backupfile)
     if (substr($backupfile, 0, $lenDestDir) === $fileDestDir) {
         // only allow a restore from the backup directory
         ui_notify($redis, 'Restore backup starting', 'please wait for a restart...');
-        sysCmd('/srv/http/command/restore.sh '.$backupfile);
-        // a reboot will be initiated in restore.sh, it will never come back here
+        // its important to run the restore in the async command queue
+        //  during the restore process redis is switched off, this can cause runs_SY_wrk to fail which would otherwise be the parent job
+        //  of restore.sh, causing it to terminate.
+        // delete any commands in the async command queue, restore will then start next
+        $redis->del('cmd_queue');
+        // start the restore
+        sysCmdAsync($redis, '/srv/http/command/restore.sh \''.$backupfile.'\'');
+        // a reboot will be initiated asynchronously in restore.sh
     } else {
         ui_notifyError($redis, 'Error', 'Attempted to restore from the incorrect directory: '.$backupfile);
-        // delete the backup file, OK if this fails
-        unlink($backupfile);
+        // delete the backup file
+        clearstatcache(true, $backupfile);
+        if (file_exists($backupfile)) {
+            unlink($backupfile);
+        }
     }
     return;
 }

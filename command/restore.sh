@@ -36,18 +36,17 @@
 set -x # echo commands
 set +e # continue on errors
 echo "restore started"
-
-/srv/http/command/ui_notify.php 'Working' 'It takes a while, please wait, restart will follow...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, it takes a while, please wait, restart will follow...' 'simplemessage'
 # remove runeaudio udev rules
 rm /tmp/*runeaudio.rules
 udevadm control --reload-rules && udevadm trigger
 # set player to MPD, set its state to stop and stop the player
 redis-cli set mpd_playback_status stop
 mpc stop
-curl 'http://localhost/command/?switchplayer=MPD'
+curl -s 'http://localhost/command/?switchplayer=MPD'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # generate Wi-Fi profile files in <p1mountpoint>/wifi for the current Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
 # save the passworddate
@@ -58,25 +57,28 @@ timezone=$( redis-cli get timezone )
 regdom=$( redis-cli get regdom )
 # create a reference list of valid redis variables
 /srv/http/command/create_redis_ref_list.php
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
+# stop most rune systemd units, do it in two steps
+# step 1 - the back-end jobs, the order is important
+declare -a stop_arr=(bluetoothctl_scan bt_mon_switch bt_scan_output nmb nmbd rune_SY_wrk rune_PL_wrk rune_MPDEM_wrk rune_SDM_wrk rune_SSM_wrk smb smbd udevil)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
+# step 2 - the audio jobs, the order is important
+declare -a stop_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor mpdscribble upmpdcli mpd shairport-sync spotifyd mosquitto)
+for i in "${stop_arr[@]}" ; do
+   systemctl stop "$i"
+done
 # shutdown redis
 redis-cli shutdown save
 systemctl stop redis
 # save a copy of the redis database
 cp /var/lib/redis/rune.rdb /var/lib/redis/rune.rdb.copy
-# stop most rune systemd units, do it in two steps
-# step 1 - the back-end jobs
-declare -a stop_arr=(bluetoothctl_scan bt_mon_switch bt_scan_output cmd_async_queue nmb nmbd redis rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk smb smbd udevil upmpdcli)
-for i in "${stop_arr[@]}" ; do
-   systemctl stop "$i"
-done
-# step 2 - the audio jobs
-declare -a stop_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor mpd mpdscribble shairport-sync spotifyd)
-for i in "${stop_arr[@]}" ; do
-   systemctl stop "$i"
-done
 # restore the backup, do it file for file as some may not exist, non-existant files will cause bsdtar to exit on error with unpredictable results
 bsdtar -x -p -f "$1" -C / --include var/lib/redis/rune.rdb
+# refresh systemd and restart redis
+systemctl daemon-reload
+systemctl start redis
 bsdtar -x -p -f "$1" -C / --include etc/samba/*.conf
 bsdtar -x -p -f "$1" -C / --include etc/mpd.conf
 bsdtar -x -p -f "$1" -C / --include mnt/MPD/Webradio/*
@@ -84,9 +86,6 @@ bsdtar -x -p -f "$1" -C / --include var/lib/connman/*.config
 bsdtar -x -p -f "$1" -C / --include var/lib/mpd/*
 bsdtar -x -p -f "$1" -C / --include home/config.txt.diff
 bsdtar -x -p -f "$1" -C / --include home/your-extra-mpd.conf
-# refresh systemd and restart redis
-systemctl daemon-reload
-systemctl start redis
 # check redis is running
 redis_pid=$( pgrep -x redis-server | xargs )
 if [ "$redis_pid" == "" ] ; then
@@ -106,7 +105,7 @@ else
     # redis has started, remove the redis database copy and continue
     rm -f /var/lib/redis/rune.rdb.copy
 fi
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # try to recover changes in the <p1mountpoint>/config.txt
 if [ -f "/home/config.txt.diff" ] ; then
     p1mountpoint=$( redis-cil get p1mountpoint )
@@ -114,7 +113,7 @@ if [ -f "/home/config.txt.diff" ] ; then
     rm -f /home/config.txt.diff
     rm -f /home/config.txt.rej
 fi
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # delete any redis variables not included in the reference list
 #   variable name and type must be valid, otherwise delete
 /srv/http/command/work_redis_ref_list.php
@@ -125,7 +124,7 @@ ohostnm=$( hostnamectl hostname )
 if [ "$hostnm" != "$ohostnm" ] ; then
     # reset UI message queueing, this is normally done in rune_SY_wrk, but this job could crash because redis was stopped
     redis-cli set waitSyWrk 0
-    /srv/http/command/ui_notify.php 'Working' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'permanotice'
+    /srv/http/command/ui_notify.php 'Restore' "Setting new hostname ($hostnm), please wait for restart and connect with the new hostname, working..." 'permanotice'
 fi
 sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/conf.d/opcache.ini
 # delete the restore file
@@ -139,6 +138,16 @@ redis-cli del os
 redis-cli del codename
 redis-cli del p1mountpoint
 redis-cli del hdmivc4hw
+# set various options off, setting them on will validate the new hardware environment, no data will be lost
+redis-cli hset spotifyconnect enable '0'
+redis-cli hset airplay enable '0'
+redis-cli hset dlna enable '0'
+redis-cli hset lastfm enable '0'
+redis-cli hset dlna enable '0'
+redis-cli hset samba readwrite '0'
+# remove various redis variables which cause problems (mostly from mpdconf), most redundant setting have no effect
+redis-cli hdel mpdconf snapcast
+redis-cli hdel mpdconf brutefir
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
 # unset any locks
@@ -146,14 +155,16 @@ locks=$( redis-cli --scan --pattern lock_* | sort -u )
 for lock in $locks ; do
     redis-cli set "$lock" 0
 done
+# unset any back-end UI job locks
+redis-cli del w_lock
+# reset UI message queueing wait
+redis-cli set waitSyWrk 0
 # possibly an old setup value for mpd mixer_type type has been restored, valid values are now 'hardware', 'disabled' and 'hide'
 mpdMixer=$( redis-cli hget mpdconf mixer_type )
 if [ "$mpdMixer" != "hardware" ] && [ "$mpdMixer" != "disabled" ] && [ "$mpdMixer" != "hide" ] ; then
     # set software to hardware
     redis-cli hset mpdconf mixer_type hardware
 fi
-# reset UI message queueing (again)
-redis-cli set waitSyWrk 0
 # reset the passworddate
 redis-cli set passworddate "$passworddate"
 # reset the timezone
@@ -162,7 +173,7 @@ redis-cli set timezone "$timezone"
 redis-cli set regdom "$regdom"
 # regenerate audio card details
 /srv/http/db/redis_acards_details
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # set up the i2s module
 i2smodule=$( redis-cli get i2smodule | xargs )
 if [ "$i2smodule" != "" ] ; then
@@ -170,14 +181,10 @@ if [ "$i2smodule" != "" ] ; then
 fi
 # refresh the audio output configuration
 /srv/http/command/refresh_ao
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # run some php based post restore actions
 /srv/http/command/post_restore_actions.php
-/srv/http/command/ui_notify.php 'Working' 'Please wait...' 'simplemessage'
-# set various options off, setting them on will validate the new hardware environment, no data will be lost
-redis-cli hset spotifyconnect enable '0'
-redis-cli hset airplay enable '0'
-redis-cli hset dlna enable '0'
+/srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # set up the player name in the UI
 set +e
 count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
@@ -194,11 +201,12 @@ redis-cli set debug '0'
 redis-cli del acards
 # regenerate webradios
 /srv/http/command/webradiodb.sh
-/srv/http/command/ui_notify.php 'Working' 'Almost done...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Working, almost done...' 'simplemessage'
 # generate Wi-Fi profile files in <p1mountpoint>/wifi for the restored Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
-/srv/http/command/ui_notify.php 'Restarting now' 'Please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Finished, restarting now, please wait...' 'simplemessage'
 # run the shutdown script and reboot
+sleep 3
 /srv/http/command/rune_shutdown reboot
 echo "restore finished"
 } > /var/log/runeaudio/restore.log 2>&1

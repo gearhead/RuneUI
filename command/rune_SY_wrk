@@ -628,7 +628,7 @@ while (true) {
                 break;
              case 'restore':
                 $redis->sRem('w_lock', $jobID);
-                ui_notify($redis, 'Working', 'It takes some time....');
+                ui_notify($redis, 'Restore', 'Working, it takes some time....');
                 wrk_restore($redis, $job->args);
                 // a reboot will take place after a successful restore, if it comes back here something has gone wrong
                 $redis->sRem('w_lock', $jobID);

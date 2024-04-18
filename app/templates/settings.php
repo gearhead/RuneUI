@@ -713,7 +713,7 @@
                             Browse... <input type="file" name="filebackup" value="">
                         </span>
                         <span id="backup-file"></span>
-                        <span class="help-block">Restore a previously exported backup. This process takes quite a while, be patient.<br>
+                        <span class="help-block">Restore a previously exported backup. This process takes quite a while, please be patient.<br>
                         <strong>The system will reboot</strong> after restoring the backup. Wait until the reboot completes!!<br>
                         <i><strong>Tip:</strong> Make a new backup after checking and correcting each restore and after updating/upgrading to a new version.
                         Otherwise information concerning new features may be missing in the backup. <strong>Warning:</strong> Manually edited files will not be backed up or restored</i></span>

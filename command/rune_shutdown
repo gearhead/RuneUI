@@ -97,10 +97,14 @@ if [ "$windows" == "weston" ] ; then
     sleep 1
     pgrep -x weston && pkill -15 weston
 fi
+# remove entries in the async command queue
+#   but don't stop the cmd_async_queue or rune_SY_wrk processes - this routine is called by by these processes
+#   stopping these process will terminate this routine
+redis-cli del cmd_queue
 # stop most of the systemd units which can be stopped
 declare -a stop_arr=(amixer-webui avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
-    cmd_async_queue llmnrd nmb nmbd rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd\
+    llmnrd mosquitto nmb nmbd rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk samba shairport-sync smb smbd\
     spotifyd systemd-udevd udevil)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
@@ -122,7 +126,6 @@ rmdir /mnt/MPD/USB/*
 udevil clean
 # unmount the persistent cache subsystem
 umount /srv/http/tmp/art
-umount /home/cache/art
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
 # flush the filesystem buffers
