@@ -127,43 +127,47 @@ declare -a unmask_arr=(systemd-journald)
 #
 # stop specified services
 for i in "${stop_arr[@]}" ; do
-   systemctl stop "$i"
+    systemctl stop "$i"
 done
 #
 # unmask masked services, do this first otherwise other settings are ignored for masked services
 alreadymasked=$( systemctl list-unit-files --state=masked | grep -i service | cut -f 1 -d " " )
 for i in $alreadymasked ; do
-   systemctl unmask "$i"
+    systemctl unmask "$i"
 done
 #
 # disable specified services
 for i in "${disable_arr[@]}" ; do
-   systemctl disable "$i"
+    systemctl disable "$i"
+    userservice="/usr/lib/systemd/user/$i.service"
+    if [ -f "$userservice" ] ; then
+        systemctl --global disable "$i"
+    fi
 done
 #
 # enable specified services
 for i in "${enable_arr[@]}" ; do
-   systemctl enable "$i"
+    systemctl enable "$i"
 done
 #
 # mask specified services
 for i in "${mask_arr[@]}" ; do
-   systemctl mask "$i"
+    systemctl mask "$i"
 done
 #
 # unmask specified services
 for i in "${unmask_arr[@]}" ; do
-   systemctl unmask "$i"
+    systemctl unmask "$i"
 done
 #
 # stop specified services
 for i in "${stop_arr[@]}" ; do
-   systemctl stop "$i"
+    systemctl stop "$i"
 done
 #
 # stop twice, rune_SY_wrk will try to restart some services (e.g. ashuffle)
 for i in "${stop_arr[@]}" ; do
-   systemctl stop "$i"
+    systemctl stop "$i"
 done
 
 # make sure xwindows has stopped
