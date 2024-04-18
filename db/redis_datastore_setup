@@ -46,7 +46,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
             $redis->hSet('mpdconf', 'auto_update', 'no');
             $redis->hSet('mpdconf', 'bind_to_address', '/run/mpd/socket');
-            $redis->hSet('mpdconf', 'brutefir', 0);
             $redis->hSet('mpdconf', 'consume', 0);
             $redis->hSet('mpdconf', 'crossfade', 0);
             $redis->hSet('mpdconf', 'curl', 'yes');
@@ -68,7 +67,6 @@ function redisDatastore($redis,$action) {
             $redis->hSet('mpdconf', 'proxy_node', '');
             $redis->hSet('mpdconf', 'proxy_port', '6600');
             $redis->hSet('mpdconf', 'replaygain', 'off');
-            $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hSet('mpdconf', 'state_file_enable', 'yes');
             $redis->hSet('mpdconf', 'state_file_interval', '5');
@@ -91,7 +89,6 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'audio_buffer_size') || $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
             $redis->hExists('mpdconf', 'auto_update') || $redis->hSet('mpdconf', 'auto_update', 'no');
             $redis->hExists('mpdconf', 'bind_to_address') || $redis->hSet('mpdconf', 'bind_to_address', '/run/mpd/socket');
-            $redis->hExists('mpdconf', 'brutefir') || $redis->hSet('mpdconf', 'brutefir', 0);
             $redis->hExists('mpdconf', 'consume') || $redis->hSet('mpdconf', 'consume', 0);
             $redis->hExists('mpdconf', 'crossfade') || $redis->hSet('mpdconf', 'crossfade', 0);
             $redis->hExists('mpdconf', 'curl') || $redis->hSet('mpdconf', 'curl', 'yes');
@@ -113,7 +110,6 @@ function redisDatastore($redis,$action) {
             $redis->hExists('mpdconf', 'proxy_node') || $redis->hSet('mpdconf', 'proxy_node', '');
             $redis->hExists('mpdconf', 'proxy_port') || $redis->hSet('mpdconf', 'proxy_port', '6600');
             $redis->hExists('mpdconf', 'replaygain') || $redis->hSet('mpdconf', 'replaygain', 'off');
-            $redis->hExists('mpdconf', 'snapcast') || $redis->hSet('mpdconf', 'snapcast', 0);
             $redis->hExists('mpdconf', 'state_file') || $redis->hSet('mpdconf', 'state_file', '/var/lib/mpd/mpdstate');
             $redis->hExists('mpdconf', 'state_file_enable') || $redis->hSet('mpdconf', 'state_file_enable', 'yes');
             $redis->hExists('mpdconf', 'state_file_interval') || $redis->hSet('mpdconf', 'state_file_interval', '5');
