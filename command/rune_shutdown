@@ -136,6 +136,7 @@ if [ "$shutdownmode" == "poweroff" ] && [ "$windows" == "xorg" ] ; then
     xset dpms force off
 fi
 date
+fake-hwclock save
 echo "rune_shutdown finished"
 } > /var/log/runeaudio/rune_shutdown.log 2>&1
 # debug
