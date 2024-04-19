@@ -1778,6 +1778,8 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             }
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
+            // start the service to switch off the rpi-display backlight on shutdown, it terminates when no rpi-display is present
+            sysCmdAsync($redis, 'pgrep -f rpi-display-backlight || systemctl start rpi-display-backlight');
             $windows = $redis->hGet('local_browser', 'windows');
             if ($windows == 'xorg') {
                 sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
@@ -1792,6 +1794,10 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             }
             // sometimes x11/chomium fails to start, check it, it starts ok on the second attempt
             sysCmdAsync($redis, '/srv/http/command/local_browser_check_async.sh');
+            // turn on the rpi-display backlight if the display is present
+            if (is_dir('/proc/device-tree/rpi_backlight')) {
+                sysCmdAsync($redis, "sh -c 'echo 0 > /sys/class/backlight/rpi_backlight/bl_power'");
+            }
             sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
             break;
         case 'stop':
@@ -1806,6 +1812,12 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
             sysCmd('pgrep -x xinit && systemctl stop local-browser ; export DISPLAY=:0 ; xset dpms force off');
             sysCmd('pgrep -x weston && systemctl stop local-browser-w');
+            // dont stop rpi-display-backlight
+            // sysCmd('pgrep -f rpi-display-backlight && systemctl stop rpi-display-backlight');
+            // turn off the rpi-display backlight if the display is present
+            if (is_dir('/proc/device-tree/rpi_backlight')) {
+                sysCmdAsync($redis, "sh -c 'echo 1 > /sys/class/backlight/rpi_backlight/bl_power'");
+            }
             break;
         case 'restart':
             wrk_localBrowser($redis, 'stop');
