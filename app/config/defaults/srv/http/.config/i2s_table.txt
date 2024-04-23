@@ -1,4 +1,7 @@
 none|I&#178;S disabled (default)
+hifiberry-dacplus|52Pi NVDAC
+hifiberry-dacplus,slave|52Pi NVDAC for Pi 5
+hifiberry-digi|52Pi Nvdigi
 allo-boss-dac-pcm512x-audio|Allo Boss DAC
 allo-boss-dac-pcm512x-audio,slave|Allo Boss DAC in slave mode
 allo-boss2-dac-audio|Allo Boss2 DAC audio card
