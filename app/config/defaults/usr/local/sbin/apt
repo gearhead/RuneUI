@@ -59,7 +59,32 @@ for p in $paths ; do
     fi
 done
 if [ "$aptcommand" != "" ] ; then
-    eval $aptcommand
+    declare -i mem=$( redis-cli get memoryKb )
+    if [ $mem < 600 ] ; then
+        redis-cli set mpd_playback_status stop
+        mpc stop
+        curl -s 'http://localhost/command/?switchplayer=MPD'
+        systemctl stop rune_SY_wrk
+        systemctl stop cmd_async_queue
+        systemctl stop rune_PL_wrk
+        systemctl stop rune_MPDEM_wrk
+        systemctl stop spotifyd
+        systemctl stop shairport_async
+        systemctl stop rune_SSM_wrk
+        systemctl stop rune_SDM_wrk
+        systemctl stop mpd
+        umount /srv/http/tmp/art
+        redis-cli save
+        sync
+        echo 3 > /proc/sys/vm/drop_caches
+        eval $aptcommand
+        systemctl start mpd
+        systemctl start cmd_async_queue
+        systemctl start rune_SY_wrk
+    else
+        eval $aptcommand
+    fi
+        
 else
     echo "apt: No such file or directory"
     exit 2
