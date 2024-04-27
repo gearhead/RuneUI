@@ -60,7 +60,7 @@ for p in $paths ; do
 done
 if [ "$aptcommand" != "" ] ; then
     declare -i mem=$( redis-cli get memoryKb )
-    if [ $mem < 600 ] ; then
+    if [ $mem -lt 600000 ] ; then
         redis-cli set mpd_playback_status stop
         mpc stop
         curl -s 'http://localhost/command/?switchplayer=MPD'
