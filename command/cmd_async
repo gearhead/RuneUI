@@ -47,6 +47,7 @@ if (isset($argv[1])) {
         echo "wait for ".$argv[2]." seconds\n";
         sleep($argv[2]);
     }
+    proc_nice(10);
     echo "execute command: ".$argv[1]."\n";
     $output = sysCmd($argv[1]);
     echo "command response:\n";

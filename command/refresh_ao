@@ -58,7 +58,7 @@ if (isset($argv[2]) && ($argv[2] === 'udev')) {
 //  the first parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[1]) && ($argv[1] === 'async')) {
     runelog('running asynchronously');
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_ao');
+    sysCmdAsync($redis, '/srv/http/command/refresh_ao');
 } else {
     // get the lock status
     $lock = $redis->get('lock_refresh_ao');

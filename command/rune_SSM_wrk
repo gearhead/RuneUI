@@ -790,7 +790,7 @@ while (true) {
                             ui_render('playback', json_encode($render));
                             // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
                             // clean up the metadata, async and at low priority
-                            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+                            sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
                             //$status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
                             //$status['time_last_elapsed'] = microtime(true);

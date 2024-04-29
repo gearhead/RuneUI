@@ -48,15 +48,15 @@ require_once('/srv/http/app/libs/openredis.php');
 //
 // when requested run this file asynchronously
 if (isset($argv[1]) && array_search('async', $argv)) {
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount');
+    sysCmdAsync($redis, '/srv/http/command/usbmount');
     exit(0);
 }
 //
-// when requested run this file asynchronously
+// when requested run this file asynchronously now
 if (isset($argv[1]) && array_search('asyncnow', $argv)) {
     // // this needs to be run as root via the back-end
     // wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'usbmount', 'action' => 'asyncnow'));
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait', 0);
+    sysCmdAsync($redis, '/srv/http/command/usbmount nowait', 0);
     exit(0);
 }
 //

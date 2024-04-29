@@ -303,18 +303,18 @@ if ($playerid_db === '') {
     $start3 = microtime(true);
     //
     // set the async command queue driver to a lower priority
-    sysCmdAsync($redis, 'nice --adjustment=10 renice 6 $(pgrep -w cmd_async_queue)');
+    sysCmdAsync($redis, 'renice 10 $(pgrep -w cmd_async_queue)');
     //
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/create_work_dirs.sh');
+    sysCmdAsync($redis, '/srv/http/command/create_work_dirs.sh');
     //
     // check and set HOSTNAME
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/sethost_async.php');
+    sysCmdAsync($redis, '/srv/http/command/sethost_async.php');
     //
     // mount the network drives asynchronously on the first pass
     if (is_firstTime($redis, 'mount_all_shares_async')) {
         $redis->set('allmounted', $allmounted);
-        sysCmdAsync($redis, 'nice --adjustment=10 php -f /srv/http/command/mount_async.php');
+        sysCmdAsync($redis, 'php -f /srv/http/command/mount_async.php');
         // also remove any registered unmounts of local disks
         $redis->del('usbunmounts');
     }
@@ -350,11 +350,11 @@ if ($playerid_db === '') {
     add_udev_rules('/srv/http/app/config/defaults/etc/udev/rules.d/99-runeaudio.rules');
     //
     // check and set the active player
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/setplayer_async.php');
+    sysCmdAsync($redis, '/srv/http/command/setplayer_async.php');
     // set the mpd volume - important on the first boot, subsequently less so as MPD remembers the last volume level
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/set_mpd_volume.php');
+    sysCmdAsync($redis, '/srv/http/command/set_mpd_volume.php');
     // check that MPD only has one output enabled and if not correct it
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
+    sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
     // start rune_PL_wrk
     sysCmdAsync($redis, 'pgrep -x rune_PL_wrk || systemctl start rune_PL_wrk', 0);
     //
@@ -362,27 +362,27 @@ if ($playerid_db === '') {
     $orionprofile = $redis->get('orionprofile');
     $hwplatformid = $redis->get('hwplatformid');
     runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
+    sysCmdAsync($redis, '/srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
     // collect USB storage information for the UI (also starts samba)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait');
+    sysCmdAsync($redis, '/srv/http/command/usbmount nowait');
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
         runelog('service: SPOTIFYD start','');
         // start spotifyd if it is not already started
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/wrk_spotifyd_async.php');
+        sysCmdAsync($redis, '/srv/http/command/wrk_spotifyd_async.php');
     }
     // start shairport-sync (Airplay)
     if ($redis->hGet('airplay', 'enable')) {
         runelog('service: SHAIRPORT-SYNC start','');
         // start shairport-sync if it is not already started
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/wrk_shairport_async.php');
+        sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php');
     }
     // check the availability of internet and services
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/internet_available_async.sh');
+    sysCmdAsync($redis, '/srv/http/command/internet_available_async.sh');
     // refresh nics, this will start the AP if required
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    sysCmdAsync($redis, '/srv/http/command/refresh_nics');
     // refresh the bluetooth status
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_status_async.php');
+    sysCmdAsync($redis, '/srv/http/command/bt_status_async.php');
     //
     // load i2smodule, not relevant for Raspberry Pi
     if ($arch_db === '10') {
@@ -415,7 +415,7 @@ if ($playerid_db === '') {
         sysCmdAsync($redis, "curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
     }
     // set process priority (to nice)
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+    sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
     if ($redis->get('first_time_boot')) {
         // display the first boot message
         sysCmdAsync($redis, "ply-image '/usr/share/bootsplash/runeaudio_first_time.png'", 0);
@@ -568,7 +568,7 @@ while (true) {
                     }
                 }
                 $redis->sRem('w_lock', $jobID);
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/wrk_shairport_async.php');
+                sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php');
                 if (isset($action) && $action) {
                     // send notfy to UI
                     ui_notify($redis, 'AirPlay', 'AirPlay '.$action);
@@ -591,7 +591,7 @@ while (true) {
                     // stop rune_SSM_wrk
                     sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
                 }
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'localbrowser':
@@ -644,7 +644,7 @@ while (true) {
                 wrk_cleanDistro();
                 break;
             case 'debug':
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
+                sysCmdAsync($redis, '/srv/http/command/debug_collector');
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'debug-refresh':
@@ -657,11 +657,11 @@ while (true) {
                     }
                     if ($cnt <= 0) {
                         // this should not happen, run the debug collector again when we get here
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
+                        sysCmdAsync($redis, '/srv/http/command/debug_collector');
                     }
                 } else {
                     // debug collector had already finished, run it again for the next time
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
+                    sysCmdAsync($redis, '/srv/http/command/debug_collector');
                 }
                 $redis->sRem('w_lock', $jobID);
                 unset($cnt);
@@ -768,7 +768,7 @@ while (true) {
                     wrk_i2smodule($redis, trim($job->args));
                     // check that MPD only has one output enabled and if not correct it
                     $redis->sRem('w_lock', $jobID);
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
+                    sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                     // send notification
                     ui_notify($redis, 'I&#178;S kernel module', 'Completed, set to '.$job->args);
                 }
@@ -777,7 +777,7 @@ while (true) {
                 wrk_audio_on_off($redis, $job->args);
                 // check that MPD only has one output enabled and if not correct it
                 $redis->sRem('w_lock', $jobID);
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_MPD_outputs_async.php');
+                sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                 // send notification
                 if ($job->args) {
                     $action = 'Enabled';
@@ -888,14 +888,14 @@ while (true) {
             case 'pl_rem_dup':
                 // $job>args contains the playlist name
                 // run the job async with a lower priority
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/remove_playlist_duplicates.sh '."'".$job->args."'");
+                sysCmdAsync($redis, '/srv/http/command/remove_playlist_duplicates.sh '."'".$job->args."'");
                 ui_notify($redis, 'Remove duplicates started for playlist:', $job->args);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'pl_rem_invalid':
                 // $job>args contains the playlist name
                 // run the job async with a lower priority
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/remove_playlist_invalid.sh '."'".$job->args."'");
+                sysCmdAsync($redis, '/srv/http/command/remove_playlist_invalid.sh '."'".$job->args."'");
                 ui_notify($redis, 'Remove invalid entries started for playlist:', $job->args);
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1172,7 +1172,7 @@ while (true) {
                 break;
             case 'network_ipv6':
                 $redis->sRem('w_lock', $jobID);
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php');
+                sysCmdAsync($redis, '/srv/http/command/check_connman_async.php');
                 break;
             case 'btcfg':
                 // $job->action is always set, $job->args can also contain information
@@ -1303,7 +1303,7 @@ while (true) {
                 if ($redis->get('activePlayer') === 'SpotifyConnect') {
                     wrk_stopPlayer($redis);
                 }
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/wrk_spotifyd_async.php');
+                sysCmdAsync($redis, '/srv/http/command/wrk_spotifyd_async.php');
                 if (isset($action) && $action) {
                     // send notfy to UI
                     ui_notify($redis, 'Spotify Connect', 'Spotify Connect client '.$action);
@@ -1433,22 +1433,22 @@ while (true) {
             case 'replaygain':
                 $redis->sRem('w_lock', $jobID);
                 if ($job->action === 'addRGtagsFlac') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/add_replaygain_flac_to_local.sh silent continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/add_replaygain_flac_to_local.sh silent continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Add ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'updateRGtagsFlac') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/add_replaygain_flac_to_local.sh silent skip continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/add_replaygain_flac_to_local.sh silent skip continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Update ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'delRGtagsFlac') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/remove_replaygain_flac_from_local.sh silent continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/remove_replaygain_flac_from_local.sh silent continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Remove ReplayGain tags from Flac files", 'Job started');
                 } else if ($job->action === 'addRGtagsAll') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/add_replaygain_all_to_local.sh silent continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/add_replaygain_all_to_local.sh silent continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Add ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'updateRGtagsAll') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/add_replaygain_all_to_local.sh silent skip continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/add_replaygain_all_to_local.sh silent skip continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Update ReplayGain tags for Flac files", 'Job started');
                 } else if ($job->action === 'delRGtagsAll') {
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/remove_replaygain_all_from_local.sh silent continue > /dev/null 2>&1', 0);
+                    sysCmdAsync($redis, '/srv/http/command/remove_replaygain_all_from_local.sh silent continue > /dev/null 2>&1', 0);
                     ui_notify($redis, "Remove ReplayGain tags from Flac files", 'Job started');
                 }
                 break;
@@ -1491,7 +1491,7 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 if ($job->action == 'IPv6Off') {
                     if (autoIpv6ConnectionsOff($redis)) {
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php');
+                        sysCmdAsync($redis, '/srv/http/command/check_connman_async.php');
                     }
                 }
                 break;
@@ -1535,7 +1535,7 @@ while (true) {
             if ($retriesmounting-- >= 0) {
                 runelog('wrk_SY: error mounting shares, trying it again! Count: '.$retriesmounting);
                 // run asynchronous mount script
-                sysCmdAsync($redis, 'nice --adjustment=10 php -f /srv/http/command/mount_async.php');
+                sysCmdAsync($redis, 'php -f /srv/http/command/mount_async.php');
             }
             $savecpuMnt = 1750 + rand(0, 100);
         }
@@ -1557,7 +1557,7 @@ while (true) {
     //  it should run at least once per hour
     //  connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuUsbMount-- <= 0) {
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/usbmount nowait');
+        sysCmdAsync($redis, '/srv/http/command/usbmount nowait');
         // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
         $savecpuUsbMount = min(7200, intval($savecpuUsbMountPrev*2));
         // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
@@ -1589,27 +1589,27 @@ while (true) {
             unset($data);
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'webradio_boot_import') && sysCmd("find ".$p1mountpoint."/webradios -name '*.pls' | wc -l | xargs")[0]) {
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/webradiodb.sh');
+            sysCmdAsync($redis, '/srv/http/command/webradiodb.sh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'CD_detect')) {
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect delete_from_queue');
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect refresh');
+            sysCmdAsync($redis, '/srv/http/command/CD_detect delete_from_queue');
+            sysCmdAsync($redis, '/srv/http/command/CD_detect refresh');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'redis_datastore_setup_check')) {
             // check that the redis database is up to date
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/db/redis_datastore_setup check');
+            sysCmdAsync($redis, '/srv/http/db/redis_datastore_setup check');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'debug_collector')) {
             // run debug collector to initialise the datafile for today
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/debug_collector');
+            sysCmdAsync($redis, '/srv/http/command/debug_collector');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'avahi_check_ip')) {
             // check that avahi has the correct ip settings;
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_ip_avahiconfig_async.php');
+            sysCmdAsync($redis, '/srv/http/command/check_ip_avahiconfig_async.php');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'check_connman')) {
             // check and correct the connman settings
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_connman_async.php norestart');
+            sysCmdAsync($redis, '/srv/http/command/check_connman_async.php norestart');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'changewindow')) {
             // change the window for ahuffle, this helps improve the randomisation
@@ -1633,7 +1633,7 @@ while (true) {
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'ssh_keygen')) {
             // regenerate any missing ssh keys
-            sysCmdAsync($redis, 'nice --adjustment=10 ssh-keygen -A');
+            sysCmdAsync($redis, 'ssh-keygen -A');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else {
             $savecpuOneTimeActions = 10000000;
@@ -1667,7 +1667,7 @@ while (true) {
     //  it should run at least once each 15 minutes, it is also run once early in the start-up sequence
     if ($savecpuInc-- <= 0) {
         // run the tests and disable/enable the artistinfo & lyrics asynchronously
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/internet_available_async.sh');
+        sysCmdAsync($redis, '/srv/http/command/internet_available_async.sh');
         // increase the repeat cycle time by 100% with a maximum of 1800 (= 15 mins, 15 x 60 x 2)
         $savecpuInc = min(1800, intval($savecpuIncPrev*2));
         // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
@@ -1698,7 +1698,7 @@ while (true) {
     //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
     //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
     if ($savecpuSmt-- <= 0) {
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/smt_async.php');
+        sysCmdAsync($redis, '/srv/http/command/smt_async.php');
         $savecpuSmt = $redis->get('savecpuSmt');
     } else if ($savecpuSmt > $redis->get('savecpuSmt')) {
         // smt runs asynchronously, so the redis variable savecpuSmt could be set at any time
@@ -1720,7 +1720,7 @@ while (true) {
                 $savecpuSps = 7100 + rand(0, 200);
             } else {
                 // Airplay is not running so stop and restart it
-                sysCmdAsync($redis, 'nice --adjustment=10 systemctl daemon-reload ; systemctl restart shairport-sync');
+                sysCmdAsync($redis, 'systemctl daemon-reload ; systemctl restart shairport-sync');
             }
         }
     }
@@ -1734,11 +1734,11 @@ while (true) {
         $activePlayer = $redis->get('activePlayer');
         if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay') || is_firstTime($redis, 'restart_avahi_daemon')) {
             // reload avahi-daemon
-            sysCmdAsync($redis, 'nice --adjustment=10 systemctl reload avahi-daemon');
+            sysCmdAsync($redis, 'systemctl reload avahi-daemon');
             $savecpuAvd = 3550 + rand(0, 100);
         } else {
             // restart avahi-daemon
-            sysCmdAsync($redis, 'nice --adjustment=10 systemctl restart avahi-daemon');
+            sysCmdAsync($redis, 'systemctl restart avahi-daemon');
             $savecpuAvd = 10700 + rand(0, 200);
         }
     }
@@ -1747,13 +1747,13 @@ while (true) {
     if ($savecpuOpCache-- <= 0) {
         $savecpuOpCache = 7100 + rand(0, 200);
         // run the script async
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/check_opcache_async.php');
+        sysCmdAsync($redis, '/srv/http/command/check_opcache_async.php');
     }
     // Check and correct vc4 hdmi allowed formats after 1800 cycles (+/-15 mins), then every +/-1800 cycles (= every +/-15 minutes)
     // hopefully this can be removed in the near future
     if ($savecpuVc4Hdmi-- <= 0) {
         $savecpuVc4Hdmi = 1750 + rand(0, 100);
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/set_vc4_hdmi_allowed_formats.php');
+        sysCmdAsync($redis, '/srv/http/command/set_vc4_hdmi_allowed_formats.php');
     }
 
     // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
@@ -1764,7 +1764,7 @@ while (true) {
         $savecpuFixdnssec = 1750 + rand(0, 100);
         if (!sysCmd('systemctl is-active systemd-resolved.service | grep -ic inactive')[0]) {
             // not inactive - systemd-resolved.service is running
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/dnssec_fix.sh');
+            sysCmdAsync($redis, '/srv/http/command/dnssec_fix.sh');
         }
     }
     // Check the usb_db_autorebuild_retry variable, when set update the MPD USB library

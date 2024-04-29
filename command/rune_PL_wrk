@@ -120,7 +120,7 @@ while (true) {
         // socket connect, set the indicator to true
         $socketConnect = true;
         // reset the process priorities
-        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
     }
     if (!$socket && ($activePlayer !== "Airplay") && ($activePlayer !== "SpotifyConnect") && ($activePlayer !== 'Bluetooth')) {
         runelog('rune_PL_wrk: no valid socket or streamer');
@@ -171,7 +171,7 @@ while (true) {
                 $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
                 if ($retval != 'active') {
                     sysCmd('systemctl start rune_MPDEM_wrk');
-                    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                    sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                 }
             }
             // store next songid
@@ -314,12 +314,12 @@ while (true) {
                 // the mpd priority is adjusted when it is updating
                 if (isset($newStatus['updating_db']) && $newStatus['updating_db']) {
                     if (!$saveUpdating_db) {
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                         $saveUpdating_db = true;
                     }
                 } else {
                     if ($saveUpdating_db) {
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                         $saveUpdating_db = false;
                     }
                 }
@@ -681,7 +681,7 @@ while (true) {
                     $retval = sysCmd('systemctl is-active rune_MPDEM_wrk')[0];
                     if ($retval != 'active') {
                         sysCmd('systemctl start rune_MPDEM_wrk');
-                        sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+                        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                     }
                 }
                 // debug information
@@ -696,7 +696,7 @@ while (true) {
                     runelog('MPD last socket error for unknown socket = ', 'Unspecified error');
                 }
                 // clean up the metadata, async and at low priority, 20 will set the highest niceness and lowest priority
-                sysCmdAsync($redis, 'nice --adjustment=20 /srv/http/command/clean_music_metadata_async.php');
+                sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
             } while ((!$errorcode) && ($redis->get('activePlayer') === 'MPD'));
             unset($status['local_volume_control']);
 

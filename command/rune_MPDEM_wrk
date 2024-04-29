@@ -70,7 +70,7 @@ define('APP', '/srv/http/app/');
 // reset the systemd reset counter for this job, this job is designed to restart when problems occur
 sysCmd('systemctl reset-failed rune_MPDEM_wrk');
 // reset the process priorities
-sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/rune_prio nice');
+sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 // get the album art directory and url dir
 $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
 $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");

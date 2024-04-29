@@ -329,7 +329,7 @@ do {
     }
 } while (($active_player == 'SpotifyConnect') && isset($jobID) && $jobID);
 // clean up the metadata, async and at low priority
-sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
 // unlock
 $redis->set('lock_spotify_connect_metadata', '0');
 runelog('lock status ', $redis->get('lock_spotify_connect_metadata'));

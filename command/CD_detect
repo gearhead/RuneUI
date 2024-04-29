@@ -70,7 +70,7 @@ if (isset($argv[1]) && isset($cdTracks) && isset($actPlayerInfo['file']) && isse
 //  the second parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[2]) && ($argv[2] === 'async')) {
     runelog('running asynchronously');
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/CD_detect '.$action);
+    sysCmdAsync($redis, '/srv/http/command/CD_detect '.$action);
     // close Redis connection
     $redis->close();
     runelog('WORKER CD_detect END...');

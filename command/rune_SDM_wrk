@@ -498,7 +498,7 @@ do {
         // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         if (isset($job['track_id']) && $job['track_id'] && ($last_track_id != $job['track_id'])) {
             // clean up the metadata cache when track ID changes
-            sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/clean_music_metadata_async.php');
+            sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
             $last_track_id = $job['track_id'];
             $redis->hSet('spotifyconnect', 'last_track_id', $last_track_id);
         }

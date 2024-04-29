@@ -55,7 +55,7 @@ define('APP', '/srv/http/app/');
 //  the first parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[1]) && ($argv[1] === 'async')) {
     runelog('running asynchronously');
-    sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/refresh_nics');
+    sysCmdAsync($redis, '/srv/http/command/refresh_nics');
     // close Redis connection
     $redis->close();
     runelog('WORKER refresh_nics END...');
