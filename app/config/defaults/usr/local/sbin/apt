@@ -84,7 +84,7 @@ if [ "$aptcommand" != "" ] ; then
     else
         eval $aptcommand
     fi
-        
+
 else
     echo "apt: No such file or directory"
     exit 2
