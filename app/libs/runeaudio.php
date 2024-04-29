@@ -3413,14 +3413,15 @@ function wrk_audioOutput($redis, $action)
             $cardChange = false;
             if (is_array($cardlist)) {
                 foreach ($cardlist as $card) {
-                    $cardNr=get_between_data($card, 'card', ':');
+                    $cardNr=trim(get_between_data($card, 'card', ':'));
                     // some cards have multiple devices, use the first one
                     if (!isset($acards[$cardNr]['number'])) {
                         // first time for the card number, use this one
                         $acards[$cardNr]['number'] = $cardNr;
-                        $acards[$cardNr]['device'] = get_between_data($card, ', device', ':');
-                        $acards[$cardNr]['sysname'] = get_between_data($card, '[', ']');
-                        $acards[$cardNr]['sysdesc'] = get_between_data($card, '[', ']', 2);
+                        $acards[$cardNr]['device'] = trim(get_between_data($card, ', device', ':'));
+                        $acards[$cardNr]['swdevice'] = preg_replace('/\s+/', '', 'hw:CARD='.get_between_data($card, ': ', ' [').',DEV='.$acards[$cardNr]['device']);
+                        $acards[$cardNr]['sysname'] = trim(get_between_data($card, '[', ']'));
+                        $acards[$cardNr]['sysdesc'] = trim(get_between_data($card, '[', ']', 2));
                         // check to see if the individual cards have changed
                         if (!$cardChange) {
                             if (!$redis->hexists('acards', $acards[$cardNr]['sysname'])) {
@@ -3515,6 +3516,7 @@ function wrk_audioOutput($redis, $action)
                 //$subdeviceid = explode(' ', trim($subdeviceid[1]));
                 //$data['device'] = 'hw:'.$card_index.','.$subdeviceid[1];
                 $data['device'] = 'hw:'.$card['number'].','.$card['device'];
+                $data['swdevice'] = $card['swdevice'];
                 // get the hardware platform descriptor,format is two numeric characters, eg 01, 02, 03, etc
                 $hwplatformid = $redis->get('hwplatformid');
                 // read the matching predefined configuration for this audio card
@@ -3802,14 +3804,15 @@ function wrk_audioOutput($redis, $action)
                             if (isset($volsteps[0])) $data['volmin'] = trim($volsteps[0]);
                             if (isset($volsteps[1])) $data['volmax'] = trim($volsteps[1]);
                         }
-                        // $data['mixer_device'] = "hw:".$details['mixer_numid'];
                         $data['mixer_device'] = "hw:".$card['number'];
+                        $data['swmixer_device'] = get_between_data($data['swdevice'], '', ',');
                         $data['mixer_control'] = $details['mixer_control'];
                     }
                     // if its a vc4 hdmi card and hdmivc4hw is set to 3 (process as hardware & set mixer_control to PCM) add PCM as mixer_control
                     if (strpos(' '.strtolower($details['sysname']), 'hdmi') && strpos(' '.strtolower($details['sysname']), 'vc4') && $redis->exists('hdmivc4hw') && ($redis->get('hdmivc4hw') == 3)) {
                         $data['mixer_control'] = 'PCM';
                         unset($data['mixer_device']);
+                        unset($data['swmixer_device']);
                     }
                     if (isset($details['sysname']) && ($details['sysname'] === $card['sysname'])) {
                         if ($details['type'] === 'integrated_sub') {
@@ -3853,6 +3856,8 @@ function wrk_audioOutput($redis, $action)
                     if (isset($details['card_option']) && $details['card_option']) {
                         $data['card_option'] = $details['card_option'];
                     }
+                    // if we have determined a swcardname use it
+
                     // test if there is a set of allowed formats for this card
                     // for example the ES9023 audio card expects 24 bit input
                     if (isset($allowedFormats[$activeOverlayAndName.$card['sysname']]) && $allowedFormats[$activeOverlayAndName.$card['sysname']]) {
@@ -3869,11 +3874,13 @@ function wrk_audioOutput($redis, $action)
                         continue;
                     }
                     // format of the software device is 'sysdefault:CARD=' followed by the sysname with all hyphens, underscores and whitespace removed
-                    $swDevice = 'sysdefault:CARD='.preg_replace('/[\s_-]+/' ,'' , $details['sysname']);
+                    $cardname = preg_replace('/[\s_-]+/' ,'' , $details['sysname']);
+                    $swDevice = 'sysdefault:CARD='.$cardname;
                     // check that the software device is defined
                     if (sysCmd("aplay -L | grep -c '^".$swDevice."' | xargs")[0]) {
                         // its there, so use it
                         $data['device'] = $swDevice;
+                        $data['swdevice'] = $swDevice;
                     } else {
                         // just in case it goes wrong
                         ui_notify($redis, 'vc4 hdmi audio', 'Failed to determine the software device name: "'.$details['sysname'].'", "'.$swDevice.'". Please report this on the forum', '', 1);
@@ -3917,6 +3924,7 @@ function wrk_audioOutput($redis, $action)
                     if ($cardname) {
                         $acardHDMIvc4 = array();
                         $acardHDMIvc4['device'] = $card;
+                        $acardHDMIvc4['swdevice'] = $cardname;
                         $acardHDMIvc4['extlabel'] = $cardname;
                         $acardHDMIvc4['sysname'] = $cardname;
                         $acardHDMIvc4['type'] = 'alsa';
@@ -4410,7 +4418,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $output .="\tname \t\t\"".$main_acard_name."\"\n";
                 }
                 $output .="\ttype \t\t\"".$card_decoded['type']."\"\n";
-                $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
+                // $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
+                $output .="\tdevice \t\t\"".$card_decoded['swdevice']."\"\n";
                 if ($hwmixer) {
                     if (isset($card_decoded['mixer_control'])) {
                         // mixer control is set
@@ -4422,7 +4431,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tmixer_type \t\"hardware\"\n";
                         if (isset($card_decoded['mixer_device']) && $card_decoded['mixer_device']) {
                             // mixer device is set and has a value
-                            $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
+                            // $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
+                            $output .="\tmixer_device \t\"".$card_decoded['swmixer_device']."\"\n";
                         }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
@@ -4552,13 +4562,16 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             fwrite($fh, $output);
             fclose($fh);
             // check whether the /tmp/mpd.conf is not the same as /etc/mpd.conf and has not the same md5 as stored
-            if (($redis->get('mpdconfhash') !== md5_file('/tmp/mpd.conf')) || ($redis->get('mpdconfhash') !== md5_file('/etc/mpd.conf'))) {
+            $md5Current = md5_file('/etc/mpd.conf');
+            $md5New = md5_file('/tmp/mpd.conf');
+            $md5Redis = $redis->get('mpdconfhash');
+            if (($md5Redis !== $md5New) || ($md5Redis !== $md5Current)) {
                 // mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
                 $redis->set('mpdconfchange', 1);
                 sysCmd('cp /tmp/mpd.conf /etc/mpd.conf');
                 sysCmd('rm -f /tmp/mpd.conf');
                 // update hash
-                $redis->set('mpdconfhash', md5_file('/etc/mpd.conf'));
+                $redis->set('mpdconfhash', $md5New);
             } else {
                 // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
                 sysCmd('rm -f /tmp/mpd.conf');
@@ -4630,6 +4643,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
+                sysCmdAsync($redis, '/srv/http/command/mpdconf_writecfg_async.php');
             } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
                 // save the previous card if it is a 'hw:' type
                 $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
@@ -5079,14 +5093,15 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
         runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
         runelog('[wrk_spotifyd] acard device       : ', $acard['device']);
+        runelog('[wrk_spotifyd] acard swdevice     : ', $acard['swdevice']);
     } else {
         runelog('[wrk_spotifyd] acard sysname      : ', 'not set');
     }
     //
-    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
-        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
+        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
     } else {
-        $redis->hSet('spotifyconnect', 'device', trim($acard['device']));
+        $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
     }
     //
     if (!empty($acard['mixer_control'])) {
@@ -5199,7 +5214,23 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         if ($redis->hGet('spotifyconnect', 'enable')) {
             // when nothing has changed check that spotifyd is running
             runelog('start spotifyd');
+            // when starting spotifyd the volume jumps momentarily to 71% then returns to the preset value,
+            //  when mpd is playing and the volume is set lower than 71% its important to pause mpd while starting spotifyd
+            // pause play, only when mpd is playing, volume control is enabled and last mpd volume is lower than 71%
+            $retval = strtolower(sysCmd("mpc status | grep -i '\[playing]' | xargs")[0]);
+            unset($playState);
+            if (strpos(' '.$retval, '[playing]')) {
+                if (($redis->hGet('mpdconf', 'mixer_type') != 'disabled') && ($redis->get('lastmpdvolume') < 72)) {
+                    $playState = 'play';
+                    sysCmd('mpc pause');
+                }
+            }
+            // start spotifyd
             sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
+            // restart play, only when we have paused it
+            if (isset($playState)) {
+                sysCmd('mpc '.$playState);
+            }
         } else {
             // stop spotifyd & rune_SDM_wrk, they should already have stopped
             runelog('stop spotifyd');
@@ -5225,7 +5256,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             runelog('restart spotifyd');
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start'));
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
             // no need to start this, spotifyconnect is disconnected //wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
         }
     }
@@ -5285,17 +5316,18 @@ function wrk_shairport($redis, $ao = null, $name = null)
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
+    runelog('wrk_shairport acard swdevice     : ', $acard['swdevice']);
     // shairport-sync output device is specified without a subdevice if only one subdevice exists
     // determining the number of sub devices is done by counting the number of alsa info file for the device
     // shairport-sync output device is always specified without a subdevice! Possible that this will need extra work for USB DAC's
-    if ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:')) {
-        $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['device'])[0]);
+    if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
+        $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
     } else {
-        $redis->hSet('airplay', 'alsa_output_device', trim($acard['device']));
+        $redis->hSet('airplay', 'alsa_output_device', trim($acard['swdevice']));
     }
     //
-    if (isset($acard['mixer_device']) && trim($acard['mixer_device'])) {
-        $alsa_mixer_device = trim($acard['mixer_device']);
+    if (isset($acard['swmixer_device']) && trim($acard['swmixer_device'])) {
+        $alsa_mixer_device = trim($acard['swmixer_device']);
     } else {
         $alsa_mixer_device = '';
     }
@@ -5303,7 +5335,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
     $redis->hSet('airplay', 'alsa_mixer_device', $alsa_mixer_device);
     unset($alsa_mixer_device);
     //
-    if (isset($acard['mixer_device']) && trim($acard['mixer_device']) && isset($acard['mixer_control']) && trim($acard['mixer_control'])) {
+    if (isset($acard['swmixer_device']) && trim($acard['swmixer_device']) && isset($acard['mixer_control']) && trim($acard['mixer_control'])) {
         $alsa_mixer_control = trim($acard['mixer_control']);
     } else {
         $alsa_mixer_control = 'Software';
@@ -6724,12 +6756,12 @@ function wrk_changeHostname($redis, $newhostname)
     if ((trim($redis->hGet('spotifyconnect', 'device_name')) === $rhn) && ($newhostname != $rhn)) {
         $redis->hSet('spotifyconnect', 'device_name', $newhostname);
         wrk_spotifyd($redis, $redis->get('ao'), $newhostname);
-        if ($redis->hGet('spotifyconnect','enable') === '1') {
-            runelog("service: spotifyconnect restart",'');
-            sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
-            $redis->hSet('spotifyconnect', 'last_track_id', '');
-            sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-        }
+        // if ($redis->hGet('spotifyconnect','enable') === '1') {
+            // runelog("service: spotifyconnect restart",'');
+            // sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
+            // $redis->hSet('spotifyconnect', 'last_track_id', '');
+            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+        // }
     }
     // update dlna name
     if ((trim($redis->hGet('dlna', 'name')) === $rhn) && ($newhostname != $rhn)) {
@@ -9956,6 +9988,7 @@ function set_last_mpd_volume($redis)
 //  the streaming services can change the alsa volume, we want to change it back to the last set value
 //
 {
+    sysCmd('echo "set_last_mpd_volume" >> /tmp/volume.log');
     if ($redis->hGet('mpdconf', 'mixer_type') != 'disabled') {
         // volume control is active
         $saveMpdVolume = -1000;
@@ -10033,6 +10066,7 @@ function set_last_mpd_volume($redis)
                 } else {
                     $firstTimeVolumeMatch = true;
                 }
+                sysCmd('echo "startMpdVolume :'.$startMpdVolume.', lastMpdVolume :'.$lastMpdVolume.', mpdVolume :'.$mpdVolume.', setMpdVolume :'.$setMpdVolume.'" >> /tmp/volume.log');
                 // careful: the volume control works in steps, these steps are based on the capabilities of the sound card, so
                 //  the return value after setting the volume may not be exactly the same as the requested value
                 // use a soft increase/decrease when the difference greater than 4%, otherwise directly set the pre-set value
@@ -12228,8 +12262,8 @@ function set_alsa_default_card($redis, $cardName = null)
     //
     $device = $acard['device'];
     $cardNumber = get_between_data($device, ':', ',');
-    if (isset($acard['mixer_device']) && isset($acard['mixer_control']) && $acard['mixer_device'] && $acard['mixer_control']) {
-        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+    if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
+        $mixerInfo = ' --mixer-device='.$acard['swmixer_device'].' --mixer-name='.$acard['mixer_control'];
     } else {
         $mixerInfo = '';
     }
@@ -12261,7 +12295,7 @@ function set_alsa_default_card($redis, $cardName = null)
         }
     }
     // also configure bluealsa to point at the default card
-    sysCmd('echo "OPTIONS=\"--pcm='.$device.$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
+    sysCmd('echo "OPTIONS=\"--pcm='.$acard['swdevice'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
@@ -12331,7 +12365,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'enable':
             // enable Bluetooth, a reboot is required if it was disabled
             if (isset($param) && ($param = 'async')) {
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_on.sh');
+                sysCmdAsync($redis, '/srv/http/command/bt_on.sh');
             } else {
                 sysCmd('/srv/http/command/bt_on.sh');
             }
@@ -12339,7 +12373,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'disable':
             // run the command file to disable Bluetooth, a reboot is required if it was enabled
             if (isset($param) && ($param = 'async')) {
-                sysCmdAsync($redis, 'nice --adjustment=10 /srv/http/command/bt_off.sh');
+                sysCmdAsync($redis, '/srv/http/command/bt_off.sh');
             } else {
                 sysCmd('/srv/http/command/bt_off.sh');
             }
@@ -12750,6 +12784,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                                                 if (strpos(' '.$pcmsService, 'a2dp')) {
                                                     // add this valid bluetooth card to the acards data structure
                                                     $btCard['device'] = 'bluealsa:DEV='.$deviceArray[$pcmsDevice]['device'].',PROFILE=a2dp';
+                                                    $btCard['swdevice'] = $btCard['device'];
                                                     // hardware mixer, wont work
                                                     // $btCard['volmin'] = '0'; // always 0 for bluealsa
                                                     // $btCard['volmax'] = '127'; // always 127 for bluealsa
@@ -13291,7 +13326,7 @@ function is_playing($redis)
     // vc4 hdmi output
     if (isset($device) && $device && strpos(' '.strtolower($device), 'vc4') && strpos(' '.strtolower($device), 'hdmi')) {
         // output device is software vc4 hdmi
-        //  don't know how to do this one
+        //  don't know how to do this one, probably already handled as hardware device
     }
 
     return false;
@@ -13919,7 +13954,7 @@ function wrk_hwinput($redis, $action = '', $args = null, $device = null, $jobID 
                         $socket = openMpdSocket($bindToAdderess, 0);
                         $status = _parseMpdresponse(MpdStatus($socket));
                         // for each track build up a mpd protocol command to retrieve its position in the queue
-                        $command = 'playlistsearch "(file == '."'".$hwDevice['file']."'".')"';
+                        $command = 'playlistsearch "(file == '.'\"'.$hwDevice['file'].'\")"';
                         // send the command
                         sendMpdCommand($socket, $command);
                         // get the response
