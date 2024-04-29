@@ -128,6 +128,11 @@ declare -a unmask_arr=(systemd-journald)
 # stop specified services
 for i in "${stop_arr[@]}" ; do
     systemctl stop "$i"
+    userservice="/usr/lib/systemd/user/$i.service"
+    if [ -f "$userservice" ] ; then
+        systemctl --global stop "$i"
+        systemctl --user stop "$i"
+    fi
 done
 #
 # unmask masked services, do this first otherwise other settings are ignored for masked services
