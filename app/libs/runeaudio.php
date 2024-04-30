@@ -4362,19 +4362,27 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // debug
             runelog('detected ACARDS ', count($acards), __FUNCTION__);
-            // get hdmi acards and merge with acards
-            //  these are hdmi outputs which have been used in the past on this machine
-            //  by always including them in mpd.conf it will prevent restarting mpd when hdmi output is is active/inactive on subsequent start-ups
+            // get hdmi and usb acards and merge with acards
+            //  these are hdmi and usb outputs which have been used in the past on this machine
+            //  by always including them in mpd.conf it will prevent restarting mpd when hdmi and usb output is is active/inactive on subsequent start-ups
             if ($redis->exists('hdmiacards')) {
                 $acards = array_merge($redis->hgetall('hdmiacards'), $acards);
             }
-            // save hdmi acards
-            //  first delete the current hdmi acards
+            if ($redis->exists('hdmiacards')) {
+                $acards = array_merge($redis->hgetall('usbacards'), $acards);
+            }
+            // save hdmi and usb acards
+            //  first delete the current hdmi and usb acards
             $redis->del('hdmiacards');
+            $redis->del('usbacards');
+            $usbDevices = '|'.implode('|', sysCmd("lsusb -v 2>/dev/null | grep -i 'iProduct' | sed 's/\s*iProduct\s*[0-9]\s*//'")).'|';
             foreach ($acards as $key => $acard) {
                 if (strpos(' '.strtolower($key), 'hdmi')) {
                     // the card name contains hdmi, save it
                     $redis->hSet('hdmiacards', $key, $acard);
+                } else if (strpos($usbDevices, $key)) {
+                    // the card name contains hdmi, save it
+                    $redis->hSet('usbacards', $key, $acard);
                 }
             }
             $sub_count = 0;
