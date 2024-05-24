@@ -342,8 +342,18 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 // set to ap mode
                 sysCmd('systemctl restart iwd');
                 sysCmd('iwctl device '.$interface.' set-property Mode ap');
-                // start ap
-                sysCmd('iwctl ap '.$interface.' start-profile '.$redis->hGet('AccessPoint', 'ssid'));
+                // start ap: this sometimes fails on the Pi5
+                //  when it fails wait 3 second and repeat maximum 4 times
+                $repeat = -4;
+                $apOK = 1;
+                while (($repeat++ < 0) && ($apOK != 0)) {
+                    $apOK = sysCmd('iwctl ap '.$interface.' start-profile '.$redis->hGet('AccessPoint', 'ssid').' 2>&1 >/dev/null ; echo $?')[0];
+                    if ($apOK != 0) {
+                        // debug
+                        // sysCmd('echo "\n[refresh_ncs] apOK: ".$apOK.", repeat:".$repeat."\n" > /var/log/runeaudio/refresh_nics.log');
+                        sleep(3);
+                    }
+                }
                 //
                 $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
                 $redis->hSet('AccessPoint', 'interface', $interface);
