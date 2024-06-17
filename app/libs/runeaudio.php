@@ -12399,7 +12399,9 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'clear':
             // remove all cached Bluetooth information
             wrk_btcfg($redis, 'remove_bt_acards');
+            wrk_btcfg($redis, 'correct_bt_ao');
             sysCmd('rm -r /var/lib/bluetooth/*');
+            $redis->del('bluetooth_status');
             wrk_btcfg($redis, 'reset');
             break;
         case 'input_connect':
@@ -12453,6 +12455,11 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             wrk_btcfg($redis, 'pair', $param);
             sysCmd('timeout 5 bluetoothctl connect '.$param);
             wrk_btcfg($redis, 'trust', $param);
+            if (!$redis->sIsMember('bluetooth_connects', $param)) {
+                sysCmd('systemctl restart bluetooth ; systemctl restart bluealsa ; systemctl restart bluealsa-aplay');
+                $redis->sAdd('bluetooth_connects', $param);
+                sysCmd('timeout 5 bluetoothctl connect '.$param);
+            }
             break;
         case 'disconnect':
             // disconnect a specific or all Bluetooth devices
@@ -12594,6 +12601,12 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 }
                 sysCmd('timeout 5 bluetoothctl remove '.$param);
                 sysCmd('find /var/lib/bluetooth/ -name *'.$param.'* -exec rm -rf {} \;');
+                $deviceArray = json_decode($redis->get('bluetooth_status'), true);
+                if (isset($deviceArray[$param])) {
+                    unset($deviceArray[$param]);
+                    $redis->set('bluetooth_status', json_encode($deviceArray));
+                }
+                $redis->sRem('bluetooth_connects', $param);
             } else {
                 $bluetoothDevices = sysCmd('timeout 5 bluetoothctl devices');
                 if (isset($bluetoothDevices[0]) && trim($bluetoothDevices[0])) {
@@ -12604,6 +12617,10 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                             wrk_btcfg($redis, 'forget', $bluetoothDeviceMac);
                         }
                     }
+                    $redis->del('bluetooth_status');
+                    $redis->del('bluetooth_connects');
+                    wrk_btcfg($redis, 'remove_bt_acards');
+                    wrk_btcfg($redis, 'correct_bt_ao');
                 }
             }
             break;
