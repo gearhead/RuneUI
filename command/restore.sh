@@ -138,6 +138,8 @@ redis-cli del os
 redis-cli del codename
 redis-cli del p1mountpoint
 redis-cli del hdmivc4hw
+redis-cli del bluetooth_connects
+redis-cli del bluetooth_status
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
 redis-cli hset spotifyconnect enable '0'
 redis-cli hset airplay enable '0'

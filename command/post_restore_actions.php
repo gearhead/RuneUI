@@ -95,6 +95,7 @@ if (!strpos(' '.$bluetoothCodecs, 'ldac')) {
 }
 wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 wrk_btcfg($redis, 'quality_options');
+wrk_btcfg($redis, 'status');
 // set up Wi-Fi
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');
