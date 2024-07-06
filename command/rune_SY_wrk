@@ -303,7 +303,7 @@ if ($playerid_db === '') {
     $start3 = microtime(true);
     //
     // set the async command queue driver to a lower priority
-    sysCmdAsync($redis, 'renice 10 $(pgrep -w cmd_async_queue)');
+    sysCmdAsync($redis, 'renice 15 $(pgrep -w cmd_async_queue)');
     //
     // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
     sysCmdAsync($redis, '/srv/http/command/create_work_dirs.sh');
