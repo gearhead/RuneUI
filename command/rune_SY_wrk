@@ -761,7 +761,7 @@ while (true) {
                 $hash = md5_file('/etc/mpd.conf');
                 $redis->set('mpdconfhash', $hash);
                 // send notfy to UI
-                ui_notify($redis, 'Hostname', 'Hostname changed to:'.$hn);
+                ui_notify($redis, 'Hostname', 'Hostname changed to: '.$hn);
                 break;
             case 'i2smodule':
                 if (isset($job->args) && trim($job->args)) {
