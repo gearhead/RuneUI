@@ -4674,7 +4674,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // check that MPD only has one output enabled and if not correct it
                 sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
             }
-            if ($startBluetooth && sysCmd('mpc status | grep -ic "[playing]"')[0]) {
+            if ($startBluetooth && sysCmd('mpc status | grep -ic "\[playing\]"')[0]) {
                 // // set the initial volume for the bluetooth device
                 // $btVolume = $redis->hGet('bluetooth', 'def_volume_out');
                 // if ($btVolume != -1) {
@@ -5225,9 +5225,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
             // when starting spotifyd the volume jumps momentarily to 71% then returns to the preset value,
             //  when mpd is playing and the volume is set lower than 71% its important to pause mpd while starting spotifyd
             // pause play, only when mpd is playing, volume control is enabled and last mpd volume is lower than 71%
-            $retval = strtolower(sysCmd("mpc status | grep -i '\[playing]' | xargs")[0]);
+            $retval = sysCmd("mpc status | grep -ic '\[playing\]' | xargs")[0];
             unset($playState);
-            if (strpos(' '.$retval, '[playing]')) {
+            if ($retval) {
                 if (($redis->hGet('mpdconf', 'mixer_type') != 'disabled') && ($redis->get('lastmpdvolume') < 72)) {
                     $playState = 'play';
                     sysCmd('mpc pause');
@@ -5964,7 +5964,7 @@ function wrk_sourcecfg($redis, $action, $args = null)
                 }
             }
             if (wrk_checkMountUsb($args)) {
-                if (strpos(' '.sysCmd('mpc status | xargs')[0], '[playing]')) {
+                if (sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0]) {
                     $txt = 'The device is in use, stop the player and try again.';
                 } else {
                     $txt = 'The device is probably in use.';

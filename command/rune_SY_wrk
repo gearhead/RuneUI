@@ -705,7 +705,7 @@ while (true) {
                 // Update RuneUI
                 runelog('Update RuneUI');
                 // stop the player if running
-                if (strpos(' '.strtolower(implode("<br>", sysCmd('mpc'))), '[playing]')) {
+                if (sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0]) {
                     $player_stopped = true;
                     sysCmd('mpc pause');
                     ui_notify($redis, 'Update RuneUI', 'Pausing play, please wait...');
