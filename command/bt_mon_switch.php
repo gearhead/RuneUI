@@ -215,34 +215,45 @@ while (true) {
         // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
         // also check that connected Bluetooth outputs are listed in the UI
         if (!isset($devices)) {
-            // this routine is expensive to run, so only run it when required
+            // this routine is expensive to run, so only run it when needed
             $devices = wrk_btcfg($redis, 'status');
         }
         if ($redis->get('activePlayer') != 'Bluetooth') {
-            $refresMpd = false;
             $connectAttempt = false;
+            $refreshMpd = false;
+            $refreshAcards = false;
             foreach ($devices as $device) {
-                // we are only interested in sink devices
-                if ($device['sink'] && $device['device']) {
+                // we are only interested in unblocked, unconnected, trusted sink devices
+                if ($device['sink'] && $device['device'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
                     // sometime trusted auto-connect wont work, do it manually here
-                    if (!$device['connected'] && $device['trusted'] && !$device['blocked']) {
-                        // attempt to connect
-                        wrk_btcfg($redis, 'connect', $device['device']);
-                        $connectAttempt = true;
-                    }
+                    //  attempt to connect
+                    wrk_btcfg($redis, 'connect', $device['device']);
+                    $connectAttempt = true;
+                }
+            }
+            if ($connectAttempt) {
+                // refresh the devices after a connect attempt
+                $devices = wrk_btcfg($redis, 'status');
+            }
+            foreach ($devices as $device) {
+                // we are only interested in connected sink devices
+                //  these should already be included in the MPD configuration file and the UI output selector
+                if ($device['sink'] && $device['device'] && $device['connected']) {
                     // check that mpd.conf has been updated with the bluetooth outputs
                     if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
-                        $refresMpd = true;
+                        $refreshMpd = true;
                     }
                     // check that the card is included in acards
                     if (!$redis->hExists('acards', $device['name'])) {
-                        $refresMpd = true;
+                        $refreshAcards = true;
                     }
                 }
             }
-            if ($refresMpd) {
+            if ($refreshMpd) {
                 // update mpd.conf when required
                 wrk_mpdconf($redis, 'refresh');
+            }
+            if ($refreshAcards) {
                 // calling wrk_btcfg 'status' will add the card to acards
                 wrk_btcfg($redis, 'status');
             }
@@ -251,7 +262,7 @@ while (true) {
         //  the main loop cycles every 3 seconds
         $delayCnt = 3;
     }
-    unset($devices, $source_connected, $sink_connected, $acard, $card, $bluealsaAplayInactive, $defVolume, $refresMpd);
+    unset($devices, $source_connected, $sink_connected, $acard, $card, $bluealsaAplayInactive, $defVolume, $connectAttempt, $refreshMpd, $refreshAcards);
 }
 //
 runelog('WORKER bt_mon_switch.php END...');
