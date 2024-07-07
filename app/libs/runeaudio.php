@@ -4741,12 +4741,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     start_mpd($redis);
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
+                    sleep(1);
+                    // ashuffle gets started automatically
+                    // restore the player status
+                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    wrk_mpdRestorePlayerStatus($redis);
+                } else {
+                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
                 }
-                sleep(1);
-                // ashuffle gets started automatically
-                // restore the player status
-                sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-                wrk_mpdRestorePlayerStatus($redis);
                 // restart mpdscribble
                 if ($redis->hGet('lastfm', 'enable') === '1') {
                     sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
