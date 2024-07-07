@@ -4731,10 +4731,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'start':
             $activePlayer = $redis->get('activePlayer');
             if ($activePlayer === 'MPD') {
-                $retval = sysCmd('systemctl is-active mpd');
-                if ($retval[0] === 'active') {
-                    // do nothing
-                } else {
+                $retval = sysCmd('systemctl is-active mpd | grep -ic "^active" | xargs')[0];
+                if (!$retval) {
+                    // mpd not running
                     ui_notify($redis, 'MPD', 'starting MPD');
                     // reload systemd daemon to activate any changed unit files
                     sysCmd('systemctl daemon-reload');
@@ -4771,8 +4770,8 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             break;
         case 'stop':
             // don't stop mpd if it is not running
-            $retval = sysCmd('systemctl is-active mpd');
-            if ($retval[0] === 'active') {
+            $retval = sysCmd('systemctl is-active mpd | grep -ic "^active" | xargs')[0];
+            if ($retval) {
                 // mpd is running
                 // don't stop mpd if its configuration or unit file has not been changed
                 if ($redis->get('mpdconfchange')) {
@@ -6528,10 +6527,8 @@ function wrk_NTPsync($ntpserver)
 {
     //debug
     runelog('NTP SERVER', $ntpserver);
-    $retval = sysCmd('systemctl is-active systemd-timesyncd');
-    $return = $retval[0];
-    unset($retval);
-    if ($return === 'active') {
+    $retval = sysCmd('systemctl is-active systemd-timesyncd | grep -ic "^active" | xargs')[0];
+    if ($retval) {
         // systemd-timesyncd is running
         // with systemd-timesyncd the new ntp server can not be validated
         // add the server name to /etc/systemd/timesyncd.conf.d/runeaudio.conf
@@ -9236,8 +9233,8 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                 if (!$retval) {
                     sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
                 }
-                $retval = sysCmd('systemctl is-active ashuffle');
-                if ($retval[0] == 'active') {
+                $retval = sysCmd('systemctl is-active ashuffle | grep -ic "^active" | xargs')[0];
+                if ($retval) {
                     // ashuffle already started
                     if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || $mpdSingleRepeatRandomStopped) {
                         // nothing to play or active player is not MPD or MPS stopped, MPD single, repeat or random is set, so stop ashuffle

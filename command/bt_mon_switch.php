@@ -65,12 +65,12 @@ while (true) {
         sleep(10);
         continue;
     }
-    if (sysCmd('systemctl is-active bluetooth')[0] != 'active') {
+    if (!sysCmd('systemctl is-active bluetooth | grep -ic "^active" | xargs')[0]) {
         // can't do anything if the bluetooth service is not active
         sleep(10);
         continue;
     }
-    if (sysCmd('systemctl is-active bluealsa')[0] != 'active') {
+    if (!sysCmd('systemctl is-active bluealsa | grep -ic "^active" | xargs')[0]) {
         // can't do anything if bluealsa service is not active
         sysCmd('systemctl start bluealsa');
         sleep(10);

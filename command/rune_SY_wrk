@@ -1762,8 +1762,8 @@ while (true) {
     //  to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.
     if ($savecpuFixdnssec-- <= 0) {
         $savecpuFixdnssec = 1750 + rand(0, 100);
-        if (!sysCmd('systemctl is-active systemd-resolved.service | grep -ic inactive')[0]) {
-            // not inactive - systemd-resolved.service is running
+        if (sysCmd('systemctl is-active systemd-resolved.service | grep -ic "^active" | xargs')[0]) {
+            // active - systemd-resolved.service is running
             sysCmdAsync($redis, '/srv/http/command/dnssec_fix.sh');
         }
     }
