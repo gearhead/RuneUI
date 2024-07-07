@@ -23,7 +23,7 @@ winbindd -1 0
 ashuffle 4 0
 bt_mon_switch 4 0
 chromium 10 10
-cmd_async_queue 10 0
+cmd_async_queue 15 0
 local-browser 4 0
 luakit 10 10
 matchbox-window 5 5
