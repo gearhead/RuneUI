@@ -123,6 +123,7 @@ pifi-dac-hd|PiFi DAC HD
 hifiberry-dacplus|PiFi DAC Plus
 pifi-dac-zero|PiFi DAC Zero
 pifi-mini-210|PiFi Mini stereo amplifier
+hifiberry-dac|Pine HatDrive! Piano
 hifiberry-dac|Pirate Audio, all models, no screen support
 proto-codec|PROTO Audio Codec card
 rpi-codeczero|Raspberry Pi Codec Zero sound card

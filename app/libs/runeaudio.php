@@ -14957,14 +14957,14 @@ function audioCardPi5($redis)
 // some audio cards are specific to the Pi5, non-Pi5 audio cards are removed in this routine
 // some audio card overlays have special version for the Pi5, these are corrected in this routine
 // these are the impacted overlays:
-// 'pisound|Blokas Labs pisound card' invalid for Pi5
-// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
-// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
-// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
-// 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5' valid only for Pi5
-
+// 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
+// 'hifiberry-dac|Pine HatDrive! Piano' valid only for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'pisound|Blokas Labs pisound card' invalid for Pi5//
 {
     if ($redis->get('aocardexceptions') == 'Pi5') {
         // corrections have already been applied
@@ -15006,13 +15006,15 @@ function audioCardPi5($redis)
 function audioCardNonPi5($redis)
 // some audio cards are specific to non-Pi5 models, Pi5 audio cards are removed in this routine
 // some audio card overlays have special version for the Pi5, non-Pi5 corrections are applied in this routine
-// 'pisound|Blokas Labs pisound card' invalid for Pi5
-// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
-// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
-// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
-// 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
+// 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5' valid only for Pi5
+// 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
+// 'hifiberry-dac|Pine HatDrive! Piano' valid only for Pi5
+// 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
+// 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+//
 {    if ($redis->get('aocardexceptions') == 'Non-Pi5') {
         // corrections have already been applied
         return;
@@ -15021,6 +15023,7 @@ function audioCardNonPi5($redis)
     copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
     sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dac8x|HiFiBerry DAC8X/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dac|Pine HatDrive! Piano/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dacplus,slave|52Pi NVDAC for Pi 5/d' '/srv/http/.config/i2s_table.txt'");
     // change the file privileges to read only and owner/group to http:http
@@ -15034,6 +15037,10 @@ function audioCardNonPi5($redis)
             $redis->set('i2smodule_select', 'pisound|Blokas Labs pisound card');
             $reboot = true;
         } else if ($i2smodule_select == 'hifiberry-dac8x|HiFiBerry DAC8X') {
+            wrk_i2smodule($redis, 'none');
+            $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
+            $reboot = true;
+        } else if ($i2smodule_select == '/hifiberry-dac|Pine HatDrive! Piano/d') {
             wrk_i2smodule($redis, 'none');
             $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
             $reboot = true;
