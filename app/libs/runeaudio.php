@@ -4792,68 +4792,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'restart':
             wrk_mpdconf($redis, 'stop');
             wrk_mpdconf($redis, 'start');
-            // code below is experimental
-            // $activePlayer = $redis->get('activePlayer');
-            // if ($activePlayer === 'MPD') {
-                // $retval = sysCmd('systemctl is-active mpd');
-                // if ($redis->get('mpdconfchange')) {
-                    // ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
-                    // // reload systemd daemon to activate any changed unit files
-                    // sysCmd('systemctl daemon-reload');
-                    // // restart mpd
-                    // sysCmd('systemctl restart mpd');
-                    // // set mpdconfchange off
-                    // $redis->set('mpdconfchange', 0);
-                // }
-                // sleep(1);
-                // // ashuffle gets started automatically
-                // // restore the player status
-                // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-                // wrk_mpdRestorePlayerStatus($redis);
-                // // restart mpdscribble
-                // if ($redis->hGet('lastfm', 'enable') === '1') {
-                    // sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
-                // }
-                // // restart upmpdcli
-                // if ($redis->hGet('dlna', 'enable') === '1') {
-                    // sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
-                // }
-            // }
-            // // set process priority
-            // sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
-            // unset($activePlayer, $retval);
             break;
         case 'forcerestart':
             wrk_mpdconf($redis, 'forcestop');
             wrk_mpdconf($redis, 'start');
-            // code below is experimental
-            // $activePlayer = $redis->get('activePlayer');
-            // if ($activePlayer === 'MPD') {
-                // $retval = sysCmd('systemctl is-active mpd');
-                // ui_notify($redis, 'MPD', 'restarting MPD, it takes a while');
-                // // reload systemd daemon to activate any changed unit files
-                // sysCmd('systemctl daemon-reload');
-                // // restart mpd
-                // sysCmd('systemctl restart mpd');
-                // // set mpdconfchange off
-                // $redis->set('mpdconfchange', 0);
-                // sleep(1);
-                // // ashuffle gets started automatically
-                // // restore the player status
-                // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-                // wrk_mpdRestorePlayerStatus($redis);
-                // // restart mpdscribble
-                // if ($redis->hGet('lastfm', 'enable') === '1') {
-                    // sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
-                // }
-                // // restart upmpdcli
-                // if ($redis->hGet('dlna', 'enable') === '1') {
-                    // sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
-                // }
-            // }
-            // // set process priority
-            // sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
-            // unset($activePlayer, $retval);
             break;
     }
 }
