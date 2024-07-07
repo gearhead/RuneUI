@@ -3975,7 +3975,7 @@ button.close {
     src: url('../fonts/fontawesome-free-6.4.0-web/webfonts/fa-solid-900.woff2') format('woff2'), url('../fonts/fontawesome-free-6.4.0-web/webfonts/fa-solid-900.ttf') format('truetype'), url('../fonts/fontawesome-free-6.4.0-web/sprites/solid.svg#fontawesomeregular') format('svg');
     font-weight: 400;
     font-style: normal;
-    unicode-range: U+F31E,U+F4FF,U+F51F,U+F83E;
+    unicode-range: U+F31E,U+F4FF,U+F51F,U+F83E,U+F6FF;
 }
 /*!
 @font-face {
@@ -5796,6 +5796,9 @@ button.close {
 }
 .fa-wave-square:before {
     content: "\f83e"
+}
+.fa-network-wired:before {
+    content: "\f6ff"
 }
 @font-face {
     font-family: 'Lato';
