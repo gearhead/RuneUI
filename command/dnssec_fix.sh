@@ -1,8 +1,37 @@
 #!/bin/bash
 #
-# Fix DNSSEC script
+#  Copyright (C) 2013-2014 RuneAudio Team
+#  http://www.runeaudio.com
 #
-# When systemd-resolved is running with DNSSEC is switched on the nts time servers will not be accessable
+#  RuneUI
+#  copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+#  RuneOS
+#  copyright (C) 2013-2014 – Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+#  RuneAudio website and logo
+#  copyright (C) 2013-2014 – ACX webdesign (Andrea Coiutti)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with RuneAudio; see the file COPYING. If not, see
+#  <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: command/dnssec_fix.sh
+#  version: 0.5
+#  coder: janui
+#  date: October 2020
+#
+# When systemd-resolved is running with DNSSEC switched on the nts time servers will not be accessable
 # at boot because time is incorrect. The incorrect time prevents systemd-resolved resoving the NTS URL's.
 #
 # The workaround is to let RuneAudio boot with DNSSEC switched off and after a timesync has taken place to

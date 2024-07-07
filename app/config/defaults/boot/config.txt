@@ -167,7 +167,7 @@ gpu_mem=24
 #dtoverlay=vc4-kms-v3d-pi4
 # Pi 5
 [pi5]
-# for the pi5 the overlay must be enabled for hdmi audio, hopefully this will change in a later release
+# for the pi5 the vc4 overlay must be enabled for hdmi audio and local browser support, hopefully this will change in a later Linux release
 dtoverlay=vc4-kms-v3d-pi5
 [all]
 #
