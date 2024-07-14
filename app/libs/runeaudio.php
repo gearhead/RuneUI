@@ -247,20 +247,26 @@ function sendMpdCommand(&$sock, $cmd)
 }
 
 // detect end of MPD response
-function checkEOR($chunk)
+function checkEOR(&$chunk)
+// chunk is passed by reference
 {
-    if (strpos(' '.$chunk, "OK\n")) {
+    // Note: strpos() is up to 4 times faster than preg_match()
+    if (is_numeric(strpos($chunk, "\nOK\n"))) {
+        // a <line feed> + 'OK' + <line feed> detected
         return true;
-    } else if (strpos(' '.$chunk, 'ACK [')) {
-        // the format is 'ACK [99@9] ...', see: https://www.musicpd.org/doc/html/protocol.html
-        if (preg_match("/(\[[0-9]+@[0-9]+\])/", $chunk)) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
     }
+    if (!strncmp($chunk, "OK\n", 3)) {
+        // the first 3 characters are 'OK' + <line feed>
+        return true;
+    }
+    if (is_numeric(strpos($chunk, 'ACK ['))) {
+        // an 'ACK [' exists in the string
+        // check for the full format 'ACK [99@9] ...', see: https://www.musicpd.org/doc/html/protocol.html
+        if (preg_match("/ACK \[[0-9]+@[0-9]+\]/", $chunk)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function readMpdResponse($sock)
@@ -318,6 +324,30 @@ function readMpdResponse($sock)
                 runelog('[read]['.$sock['description'].'][read-loop]['.$sock['type']."]\t<<<<<< MPD READ INVALID SOCKET: ",$sock['description']);
                 break;
             }
+            // clean up the read data using the the preg_replace_callback_array function,
+            //  this function loads the string into an array performs the match and replace actions in the given sequence then
+            //  converts the array back into a string
+            //  the data is cleaned to ensure that no non-printable characters are passed to nginx and to clean up the
+            //  output to improve efficiency
+            $read = preg_replace_callback_array(
+                // note: <line feed> = "\n" = ascii 10 = hex 10
+                [
+                    '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                        // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
+                        //      <del> (hex 7F),
+                        //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
+                        //      one or more leading spaces or <line feed>'s is any order,
+                        //  replace the match with an empty string
+                        return '';
+                    },
+                    '/[ ]+\n/' => function ($match) {
+                        // match one or more spaces followed by a <line feed>
+                        //  replace the match with a single <line feed>
+                        return "\n";
+                    },
+                ],
+                $read
+            );
             if (checkEOR($read)) {
                 ob_start();
                 echo $read;
@@ -374,12 +404,39 @@ function readMpdResponse($sock)
             // runelog('_1_buffer length:', strlen($output));
             // runelog('_1_iteration:', $i);
             // runelog('_1_timestamp:', $elapsed);
-        } while (!checkEOR($read));
+        } while (!checkEOR($output));
         // debug
         // runelog('END timestamp:', $elapsed);
         // runelog('RESPONSE length:', strlen($output));
         // runelog('EXEC TIME:', $elapsed - $starttime);
-        return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
+        // return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
+        // return the output, but first clean up the data using the the preg_replace_callback_array function,
+        //  this function loads the string into an array performs the match and replace actions in sequence then
+        //  converts the array back into a string
+        //  the data is cleaned to ensure that no non-printable characters are passed to nginx and to clean up the
+        //  output to improve efficiency
+        return preg_replace_callback_array(
+            // note: <line feed> = "\n" = ascii 10 = hex 10
+            [
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                    // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
+                    //      <del> (hex 7F),
+                    //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
+                    //      one or more leading spaces or <line feed>'s is any order,
+                    //  replace the match with an empty string
+                    return '';
+                },
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                    // match one or more spaces followed by oner or more <line feed>'s followed by one or more spaces,
+                    //      one or more <line feed>'s followed by one or more spaces spaces,
+                    //      two or more <line feed>'s,
+                    //      one or more spaces followed by one or more <line feed>'s,
+                    //  replace the match with a single <line feed>
+                    return "\n";
+                },
+            ],
+            $output
+        );
     } else {
         // handle normal mode (blocking) socket session
         $read_monitor = array($$sockVarName);
@@ -414,12 +471,39 @@ function readMpdResponse($sock)
             // runelog('_0_buffer length:', strlen($output));
             // runelog('_0_iteration:', $i);
             // runelog('_0_timestamp:', $elapsed);
-        } while (!checkEOR($read));
+        } while (!checkEOR($output));
         // debug
         // runelog('END timestamp:', $elapsed);
         // runelog('RESPONSE length:', strlen($output));
         // runelog('EXEC TIME:', $elapsed - $starttime);
-        return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
+        // return preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $output);
+        // return the output, but first clean up the data using the the preg_replace_callback_array function,
+        //  this function loads the string into an array performs the match and replace actions in sequence then
+        //  converts the array back into a string
+        //  the data is cleaned to ensure that no non-printable characters are passed to nginx and to clean up the
+        //  output to improve efficiency
+        return preg_replace_callback_array(
+            // note: <line feed> = "\n" = ascii 10 = hex 10
+            [
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                    // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
+                    //      <del> (hex 7F),
+                    //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
+                    //      one or more leading spaces or <line feed>'s is any order,
+                    //  replace the match with an empty string
+                    return '';
+                },
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                    // match one or more spaces followed by oner or more <line feed>'s followed by one or more spaces,
+                    //      one or more <line feed>'s followed by one or more spaces spaces,
+                    //      two or more <line feed>'s,
+                    //      one or more spaces followed by one or more <line feed>'s,
+                    //  replace the match with a single <line feed>
+                    return "\n";
+                },
+            ],
+            $output
+        );
     }
 }
 
@@ -429,7 +513,7 @@ function sendMpdIdle($sock)
     $resp = readMpdResponse($sock);
     if (strpos(' '.$resp, 'OK')) {
         // the response is 'changed:<value>', multiple lines can be returned, followed by 'OK'
-        // convert it to a string delimited by colons, no duplicates, e.g. 'player:playlist:mixer:OK' and not 'player:playlist:player:mixer:OK'
+        // convert it to a string delimited by colons, no duplicates, e.g. 'player:playlist:mixer:OK', not 'player:playlist:player:mixer:OK'
         $plistArray = array();
         $plistLine = strtok($resp, "\n\r");
         while ($plistLine) {
