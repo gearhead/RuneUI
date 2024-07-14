@@ -427,7 +427,7 @@ function readMpdResponse($sock)
                     return '';
                 },
                 '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
-                    // match one or more spaces followed by oner or more <line feed>'s followed by one or more spaces,
+                    // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
                     //      one or more spaces followed by one or more <line feed>'s,
@@ -494,7 +494,7 @@ function readMpdResponse($sock)
                     return '';
                 },
                 '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
-                    // match one or more spaces followed by oner or more <line feed>'s followed by one or more spaces,
+                    // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
                     //      one or more spaces followed by one or more <line feed>'s,
