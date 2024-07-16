@@ -595,7 +595,6 @@ function getPlayQueue($sock)
     return $playqueue;
 }
 
-// Spotify support
 function getMpdOutputs($mpd)
 {
     if (sendMpdCommand($mpd, 'outputs')) {
