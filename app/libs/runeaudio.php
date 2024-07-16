@@ -247,8 +247,8 @@ function sendMpdCommand(&$sock, $cmd)
 }
 
 // detect end of MPD response
-function checkEOR(&$chunk)
-// chunk is passed by reference
+function checkEOR($chunk)
+//
 {
     // Note: strpos() is up to 4 times faster than preg_match()
     if (is_numeric(strpos($chunk, "\nOK\n"))) {

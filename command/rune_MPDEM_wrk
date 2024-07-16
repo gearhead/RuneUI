@@ -85,9 +85,9 @@ $wordlength = $redis->get('wordlength');
 
 // load the lyrics tags, comma delimited, possibly with quotes, normally lower case
 $lyricsTags = explode(',', $redis->hGet('lyrics', 'lyrics_tags'));
-foreach ($lyricsTags as $key => &$lyricsTag) {
+foreach ($lyricsTags as $key => $lyricsTag) {
     // remove quotes from the tag and trim
-    $lyricsTag = trim(preg_replace('/[\"\']/', '', $lyricsTag));
+    $lyricsTags[$key] = trim(preg_replace('/[\"\']/', '', $lyricsTag));
     // skip and remove empty tag names
     if (!$lyricsTag) {
         unset($lyricsTags[$key]);
@@ -95,9 +95,9 @@ foreach ($lyricsTags as $key => &$lyricsTag) {
 }
 // get the genres where lyrics are omitted unless they are supplied as embedded tags, comma delimited, possibly with quotes
 $omit_lyrics = explode(',', $redis->hGet('lyrics', 'omit_lyrics'));
-foreach ($omit_lyrics as $key => &$omit_lyric) {
+foreach ($omit_lyrics as $key => $omit_lyric) {
     // remove quotes from the tag and trim
-    $omit_lyric = trim(preg_replace("/[\"\']/", '', $omit_lyric));
+    $omit_lyrics[$key] = trim(preg_replace("/[\"\']/", '', $omit_lyric));
     // skip and remove empty tag names
     if (!$omit_lyrics) {
         unset($omit_lyrics[$key]);
