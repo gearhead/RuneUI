@@ -251,14 +251,33 @@ function checkEOR($chunk)
 //
 {
     // Note: strpos() is up to 4 times faster than preg_match()
-    if (is_numeric(strpos($chunk, "\nOK\n"))) {
-        // a <line feed> + 'OK' + <line feed> detected
+    // --- two tests - this is probably OK
+    // if (is_numeric(strpos($chunk, "\nOK\n"))) {
+        // // a <line feed> + 'OK' + <line feed> detected
+        // return true;
+    // }
+    // if (!strncmp($chunk, "OK\n", 3)) {
+        // // the first 3 characters are 'OK' + <line feed>
+        // return true;
+    // }
+    // ---
+    // --- single test alternative using new PHP8 function
+    // if (str_ends_with($chunk, "OK\n")) {
+        // // an 'OK' + <line feed> detected at the end of the string
+        // return true;
+    // }
+    // ---
+    // --- single test alternative PHP7 compatible
+    // if (@substr_compare($chunk, "OK\n", -3)==0) {
+        // // an 'OK' + <line feed> detected at the end of the string
+        // return true;
+    // }
+    // // --- single test old PHP compatible
+    if (substr($chunk, -3) === "OK\n") {
+        // an 'OK' + <line feed> detected at the end of the string
         return true;
     }
-    if (!strncmp($chunk, "OK\n", 3)) {
-        // the first 3 characters are 'OK' + <line feed>
-        return true;
-    }
+    // ---
     if (is_numeric(strpos($chunk, 'ACK ['))) {
         // an 'ACK [' exists in the string
         // check for the full format 'ACK [99@9] ...', see: https://www.musicpd.org/doc/html/protocol.html
