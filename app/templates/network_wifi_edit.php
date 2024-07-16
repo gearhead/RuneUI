@@ -249,7 +249,7 @@
                     <?php if ((strlen($value) != 0) && (!strpos('|manual|',$element))) :?>
                         <?php if ($value == '0') $value = 'false';?>
                         <?php if ($value == '1') $value = 'true';?>
-                        <tr><th><?=$element?>:</th><td><?=htmlspecialchars($value)?></td></tr>
+                        <tr><th><?=$element?>:</th><td><?=htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8')?></td></tr>
                     <?php endif; ?>
                 <?php endforeach; ?>
             </tbody>

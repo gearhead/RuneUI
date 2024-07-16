@@ -1243,7 +1243,7 @@ function _parseFileListResponse($resp, $extraAction = null)
                                 break;
                             case 1:
                                 // extra action htmlspecialchars
-                                $value = htmlspecialchars(trim($value), ENT_QUOTES);
+                                $value = htmlspecialchars(trim($value), ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
                                 break;
                             case 2:
                                 // extra action escape
