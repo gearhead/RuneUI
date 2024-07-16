@@ -1779,6 +1779,9 @@ function parseResponse(options) {
         break;
 
     }
+    if (content.includes('\uFFFD')) {
+        renderMSG([{'title': 'Invalid entry', 'text': 'The line containing the \uFFFD character is not selectable. Please correct your audio library!', 'icon': 'fa fa-warning'}]);
+    }
     return content;
 } // end parseResponse()
 
