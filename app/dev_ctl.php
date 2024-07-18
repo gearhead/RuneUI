@@ -277,16 +277,16 @@ if (isset($_POST)) {
             }
             if (isset($_POST['mode']['lyrics']['lyric_tags']) && ($_POST['mode']['lyrics']['lyric_tags'] != $redis->hGet('lyrics', 'lyric_tags'))) {
                 // reformat comma's to comma space in the string
-                $_POST['mode']['lyrics']['lyric_tags'] = preg_replace("/[\s]\,[\s]*/", ', ', $_POST['mode']['lyrics']['lyric_tags']);
+                $_POST['mode']['lyrics']['lyric_tags'] = preg_replace("/[\s]\,[\s]*/u", ', ', $_POST['mode']['lyrics']['lyric_tags']);
                 // convert whitespace to a single space then trim comma's and spaces
-                $_POST['mode']['lyrics']['lyric_tags'] = trim(preg_replace("/[\s]+/", ' ', $_POST['mode']['lyrics']['lyric_tags']), ', ');
+                $_POST['mode']['lyrics']['lyric_tags'] = trim(preg_replace("/[\s]+/u", ' ', $_POST['mode']['lyrics']['lyric_tags']), ', ');
                 $redis->hSet('lyrics', 'lyric_tags', $_POST['mode']['lyrics']['lyric_tags']);
             }
             if (isset($_POST['mode']['lyrics']['omit_lyrics']) && ($_POST['mode']['lyrics']['omit_lyrics'] != $redis->hGet('lyrics', 'omit_lyrics'))) {
                 // reformat comma's to comma space in the string
-                $_POST['mode']['lyrics']['omit_lyrics'] = preg_replace("/[\s]*\,[\s]*/", ', ', $_POST['mode']['lyrics']['omit_lyrics']);
+                $_POST['mode']['lyrics']['omit_lyrics'] = preg_replace("/[\s]*\,[\s]*/u", ', ', $_POST['mode']['lyrics']['omit_lyrics']);
                 // convert whitespace to a single space then trim comma's and spaces
-                $_POST['mode']['lyrics']['omit_lyrics'] = trim(preg_replace("/[\s]+/", ' ', $_POST['mode']['lyrics']['omit_lyrics']), ', ');
+                $_POST['mode']['lyrics']['omit_lyrics'] = trim(preg_replace("/[\s]+/u", ' ', $_POST['mode']['lyrics']['omit_lyrics']), ', ');
                 // set to lower case before saving
                 $redis->hSet('lyrics', 'omit_lyrics', strtolower($_POST['mode']['lyrics']['omit_lyrics']));
             }

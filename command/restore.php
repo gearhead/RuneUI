@@ -87,7 +87,7 @@ if ($fileError) {
     $isError = true;
 } else if (preg_match('/[^a-zA-Z0-9\-_ .]/', $fileName)) {
     ui_notifyError($redis, 'Restore', 'Error! Invalid characters in the file name: '.$fileName);
-    ui_notifyError($redis, 'Restore', 'Error! Invalid characters : '.preg_replace('/[a-zA-Z0-9\-_ .]/', '' ,$fileName));
+    ui_notifyError($redis, 'Restore', 'Error! Invalid characters : '.preg_replace('/[a-zA-Z0-9\-_ .]/u', '' ,$fileName));
     $isError = true;
 } else if (mb_strlen($fileName, "UTF-8") > 225) {
     ui_notifyError($redis, 'Restore', 'Error! File name too long.');

@@ -250,34 +250,15 @@ function sendMpdCommand(&$sock, $cmd)
 function checkEOR($chunk)
 //
 {
-    // Note: strpos() is up to 4 times faster than preg_match()
-    // --- two tests - this is probably OK
-    // if (is_numeric(strpos($chunk, "\nOK\n"))) {
-        // // a <line feed> + 'OK' + <line feed> detected
-        // return true;
-    // }
-    // if (!strncmp($chunk, "OK\n", 3)) {
-        // // the first 3 characters are 'OK' + <line feed>
-        // return true;
-    // }
-    // ---
-    // --- single test alternative using new PHP8 function
-    // if (str_ends_with($chunk, "OK\n")) {
-        // // an 'OK' + <line feed> detected at the end of the string
-        // return true;
-    // }
-    // ---
-    // --- single test alternative PHP7 compatible
-    // if (@substr_compare($chunk, "OK\n", -3)==0) {
-        // // an 'OK' + <line feed> detected at the end of the string
-        // return true;
-    // }
-    // // --- single test old PHP compatible
-    if (substr($chunk, -3) === "OK\n") {
-        // an 'OK' + <line feed> detected at the end of the string
+    // Note: strpos() and other standard string functuions are up to 4 times faster than preg_*() functions
+    if (is_numeric(strpos($chunk, "\nOK\n"))) {
+        // a <line feed> + 'OK' + <line feed> detected = 'OK' alone on a line
         return true;
     }
-    // ---
+    if (!strncmp($chunk, "OK\n", 3)) {
+        // the first 3 characters are 'OK' + <line feed> = 'OK' alone on the first line
+        return true;
+    }
     if (is_numeric(strpos($chunk, 'ACK ['))) {
         // an 'ACK [' exists in the string
         // check for the full format 'ACK [99@9] ...', see: https://www.musicpd.org/doc/html/protocol.html
@@ -351,7 +332,7 @@ function readMpdResponse($sock)
             $read = preg_replace_callback_array(
                 // note: <line feed> = "\n" = ascii 10 = hex 10
                 [
-                    '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                    '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                         // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                         //      <del> (hex 7F),
                         //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -359,7 +340,7 @@ function readMpdResponse($sock)
                         //  replace the match with an empty string
                         return '';
                     },
-                    '/[ ]+\n/' => function ($match) {
+                    '/[ ]+\n/u' => function ($match) {
                         // match one or more spaces followed by a <line feed>
                         //  replace the match with a single <line feed>
                         return "\n";
@@ -437,7 +418,7 @@ function readMpdResponse($sock)
         return preg_replace_callback_array(
             // note: <line feed> = "\n" = ascii 10 = hex 10
             [
-                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                     // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                     //      <del> (hex 7F),
                     //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -445,7 +426,7 @@ function readMpdResponse($sock)
                     //  replace the match with an empty string
                     return '';
                 },
-                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/u' => function ($match) {
                     // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
@@ -504,7 +485,7 @@ function readMpdResponse($sock)
         return preg_replace_callback_array(
             // note: <line feed> = "\n" = ascii 10 = hex 10
             [
-                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                     // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                     //      <del> (hex 7F),
                     //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -512,7 +493,7 @@ function readMpdResponse($sock)
                     //  replace the match with an empty string
                     return '';
                 },
-                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/u' => function ($match) {
                     // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
@@ -5619,7 +5600,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = 0, $quick = 0)
                 }
             }
             // strip special characters, spaces, tabs, etc. (hex 00 to 20 and 7F), from the options string
-            $mp['options'] = preg_replace("|[\\x00-\\x20\\x7F]|", "", $mp['options']);
+            $mp['options'] = preg_replace("|[\\x00-\\x20\\x7F]|u", "", $mp['options']);
             // trim leasing and trailing whitespace from username and password
             $mp['username'] = trim($mp['username']);
             $mp['password'] = trim($mp['password']);
@@ -8147,7 +8128,7 @@ function squashCharacters($str)
         $normalizeChars[chr(191)] = '';  // Inverted question mark >> nothing
     }
     // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-    $str = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $str);
+    $str = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $str);
     // translate the characters based on the array
     return strtr($str, $normalizeChars);
 }
@@ -8170,15 +8151,15 @@ function webradioStringClean($string)
     $string = html_entity_decode($string);
     $string = htmlentities($string, ENT_XML1, 'UTF-8');
     // trim after replacing all combinations of single or multiple tab, space, <cr> and <lf> and slash with a single space
-    $string = trim(preg_replace('/[\t\n\r\s]+/', ' ', $string));
+    $string = trim(preg_replace('/[\t\n\r\s]+/u', ' ', $string));
     // convert escaped characters to their actual value
     $string = stripcslashes($string);
     // replace characters with accents, etc. with normal characters
     $string = squashCharacters($string);
     // replace characters outside of the hex range 00 to FF with a space
-    $string = preg_replace("/[^\x{00}-\x{FF}]+/", ' ', $string);
+    $string = preg_replace("/[^\x{00}-\x{FF}]+/u", ' ', $string);
     // remove leading and trailing spaces, tabs, linefeeds, etc. after reducing all whitespace to a single space
-    $string = trim(preg_replace('!\s+!', ' ', $string));
+    $string = trim(preg_replace('!\s+!u', ' ', $string));
     return $string;
 }
 
@@ -8232,7 +8213,7 @@ function metadataStringClean($string, $type = '')
     // convert escaped characters (backslash followed by something) to their actual value
     $string = stripcslashes($string);
     // trim after replacing all combinations of single or multiple tab, space, <cr> and <lf> and slash with a single space
-    $string = trim(preg_replace('/[\t\n\r\s]+/', ' ', $string));
+    $string = trim(preg_replace('/[\t\n\r\s]+/u', ' ', $string));
     if ($type != 'radiostring') {
         // trim space, open or closed angle, square, round, squiggly brackets, colon, semicolon, comma, backslash, slash,
         //  single and double quotes (in any combinations) in first and last positions
@@ -8255,12 +8236,12 @@ function metadataStringClean($string, $type = '')
     // replace ASCII hex characters 0 to 2F (control characters plus various), 3A to 40 (various),
     //  5B to 60 (various) and 7B to FF (various) with a space
     //  this is a valid string for a file name and for html use
-    $string = preg_replace("/[\x{00}-\x{2F}\x{3A}-\x{40}\x{5B}-\x{60}\x{7B}-\x{FF}]+/", ' ', $string);
+    $string = preg_replace("/[\x{00}-\x{2F}\x{3A}-\x{40}\x{5B}-\x{60}\x{7B}-\x{FF}]+/u", ' ', $string);
     // replace any ASCII hex characters not in the range 0 to FF (so anything higher) with a space
     //  these are graphical characters, boxes, borders, arrows, etc.
-    $string = preg_replace("/[^\x{00}-\x{FF}]+/", ' ', $string);
+    $string = preg_replace("/[^\x{00}-\x{FF}]+/u", ' ', $string);
     // replace whitespace with a single space, trim leading and trailing spaces
-    $string = trim(preg_replace('!\s+!', ' ', $string));
+    $string = trim(preg_replace('!\s+!u', ' ', $string));
     // remove any remaining backslashes
     $string = stripslashes($string);
     return $string;
@@ -10425,9 +10406,9 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
         $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
-        $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
+        $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
         if (!$retval) {
             // retval is an empty string
             $retval = '';
@@ -10503,9 +10484,9 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
         $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
-        $retval = trim(preg_replace('!\s+!', ' ', implode('<br>', $retval)));
+        $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
         $artist = get_between_data($retval, '<LyricArtist>', '</LyricArtist>');
         $song = get_between_data($retval, '<LyricSong>', '</LyricSong>');
         $rank = get_between_data($retval, '<LyricRank>', '</LyricRank>');
@@ -10738,7 +10719,7 @@ function get_songInfo($redis, $info = array())
     $useAlbumArtist = false;
     if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
         $useAlbumArtist = true;
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['albumartist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -10748,7 +10729,7 @@ function get_songInfo($redis, $info = array())
         }
     }
     if (!$useAlbumArtist || !count($searchArtists)) {
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['artist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -10758,7 +10739,7 @@ function get_songInfo($redis, $info = array())
         }
     }
     $searchSongs = array();
-    $song = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['song']))),0, 100);
+    $song = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['song']))),0, 100);
     if ($song && !in_array($song, $searchSongs)) {
         $searchSongs[] = $song;
     }
@@ -10925,7 +10906,7 @@ function get_albumInfo($redis, $info = array())
     //  otherwise use the (track) artist
     if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
         $useAlbumArtist = true;
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['albumartist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -10935,7 +10916,7 @@ function get_albumInfo($redis, $info = array())
         }
     } else {
         $useAlbumArtist = false;
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['artist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -10945,7 +10926,7 @@ function get_albumInfo($redis, $info = array())
         }
     }
     $searchAlbums = array();
-    $album = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['album']))),0, 100);
+    $album = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['album']))),0, 100);
     if ($album && !in_array($album, $searchAlbums)) {
         $searchAlbums[] = $album;
     }
@@ -11201,7 +11182,7 @@ function get_artistInfo($redis, $info = array())
     //  otherwise use the (track) artist
     if (strpos(' '.strtolower($info['artist']), strtolower(trim($info['albumartist'])))) {
         $useAlbumArtist = true;
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['albumartist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['albumartist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -11211,7 +11192,7 @@ function get_artistInfo($redis, $info = array())
         }
     } else {
         $useAlbumArtist = false;
-        $artist = substr(trim(preg_replace('!\s+!', ' ', strtolower($info['artist']))), 0, 100);
+        $artist = substr(trim(preg_replace('!\s+!u', ' ', strtolower($info['artist']))), 0, 100);
         if ($artist && !strpos(' '.$artist, 'various') && !in_array($artist, $searchArtists)) {
             $searchArtists[] = $artist;
         }
@@ -11283,10 +11264,10 @@ function get_artistInfo($redis, $info = array())
                 $bioArtist = '';
             }
             if (!$info['artist_bio_summary'] && isset($retval['artist']['bio']['summary']) && trim($retval['artist']['bio']['summary'])) {
-                $info['artist_bio_summary'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['summary']))));
+                $info['artist_bio_summary'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['summary']))));
             }
             if (!$info['artist_bio_content'] && isset($retval['artist']['bio']['content']) && trim($retval['artist']['bio']['content'])) {
-                $info['artist_bio_content'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/',' ',stripcslashes($retval['artist']['bio']['content']))));
+                $info['artist_bio_content'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['content']))));
             }
             if (!$info['artist_similar'] && isset($retval['artist']['similar']['artist'][0]['name'])) {
                 // similar artist name summary is set
@@ -11445,7 +11426,7 @@ function wrk_get_webradio_art($redis, $radiostring)
         $retval = get_discogs($redis, $url);
         if ($retval) {
             if (isset($retval['results'][0]['title']) && $retval['results'][0]['title']) {
-                $title = explode(' - ', trim(preg_replace('![\s]+!', ' ', $retval['results'][0]['title'])), 2);
+                $title = explode(' - ', trim(preg_replace('![\s]+!u', ' ', $retval['results'][0]['title'])), 2);
                 if (isset($title[0]) && isset($title[1])) {
                     if (!$info['artist']) {
                         $info['artist'] = ucwords($title[0]);
@@ -11455,7 +11436,7 @@ function wrk_get_webradio_art($redis, $radiostring)
                         $info['album'] = ucwords($title[1]);
                     }
                     If (!$info['song']) {
-                        $info['song'] = ucwords(trim(str_replace(trim(preg_replace('![\s\'"]+!', ' ', strtolower($title[0]))), '', $radiostringClean), ' -_'));
+                        $info['song'] = ucwords(trim(str_replace(trim(preg_replace('![\s\'"]+!u', ' ', strtolower($title[0]))), '', $radiostringClean), ' -_'));
                     }
                 }
             }
@@ -11959,14 +11940,14 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         $timeout = true;
         foreach ($trackInfoLines as $workline) {
             // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
+            $line = preg_replace('/[\t\n\r\s]+/u', ' ', $workline);
             // then strip the html out of the response
-            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
-            $line = preg_replace('/\<[\s]*meta name[\s]*="/', '', $line);
-            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
-            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
-            $line = preg_replace('/"[\s]*\>/', '', $line);
-            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
+            $line = preg_replace('/\<[\s]*meta property[\s]*="/u', '', $line);
+            $line = preg_replace('/\<[\s]*meta name[\s]*="/u', '', $line);
+            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/u', '=', $line);
+            $line = preg_replace('!"[\s]*/[\s]*\>!u', '', $line);
+            $line = preg_replace('/"[\s]*\>/u', '', $line);
+            $line = preg_replace('/[\s]*"[\s]*/u', '', $line);
             $line = trim($line);
             if (!strpos(' '.$line, '=')) {
                 continue;
@@ -12036,14 +12017,14 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         $timeout = true;
         foreach ($albumInfoLines as $workline) {
             // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-            $line = preg_replace('/[\t\n\r\s]+/', ' ', $workline);
+            $line = preg_replace('/[\t\n\r\s]+/u', ' ', $workline);
             // then strip the html out of the response
-            $line = preg_replace('/\<[\s]*meta property[\s]*="/', '', $line);
-            $line = preg_replace('/\<[\s]*meta name[\s]*="/', '', $line);
-            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/', '=', $line);
-            $line = preg_replace('!"[\s]*/[\s]*\>!', '', $line);
-            $line = preg_replace('/"[\s]*\>/', '', $line);
-            $line = preg_replace('/[\s]*"[\s]*/', '', $line);
+            $line = preg_replace('/\<[\s]*meta property[\s]*="/u', '', $line);
+            $line = preg_replace('/\<[\s]*meta name[\s]*="/u', '', $line);
+            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/u', '=', $line);
+            $line = preg_replace('!"[\s]*/[\s]*\>!u', '', $line);
+            $line = preg_replace('/"[\s]*\>/u', '', $line);
+            $line = preg_replace('/[\s]*"[\s]*/u', '', $line);
             $line = trim($line);
             if (!strpos(' '.$line, '=')) {
                 continue;
@@ -14264,9 +14245,9 @@ function strip_synchronised_lyrics($lyrics)
     //  Mac to Linux
     $lyrics = str_replace("\r", "\n", $lyrics);
     // replace whitespace with one space
-    $lyrics = preg_replace("/[ \0\f\t\v]+/", " ", $lyrics);
+    $lyrics = preg_replace("/[ \0\f\t\v]+/u", " ", $lyrics);
     // remove leading and trailing spaces
-    $lyrics = trim(preg_replace("/[ \0\f\t\v]*\n[ \0\f\t\v]*/", "\n", $lyrics));
+    $lyrics = trim(preg_replace("/[ \0\f\t\v]*\n[ \0\f\t\v]*/u", "\n", $lyrics));
     // remove a country code if present, always on the first line, format xxx||<lyric>
     if (strpos($lyrics, '||') == 3) {
         $lyrics = substr($lyrics, 5);
@@ -14274,12 +14255,12 @@ function strip_synchronised_lyrics($lyrics)
     // add a leading and trailing new line
     $lyrics = "\n".$lyrics."\n";
     // remove timing information containing 'Walaoke extension: gender', format [mm:ss.xx]D: (the D can also be a F or a M)
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/", "\n", $lyrics);
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/u", "\n", $lyrics);
     // remove standard timing information, format [mm:ss.xx]
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/", "\n", $lyrics);
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u", "\n", $lyrics);
+    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u", "\n", $lyrics);
     // remove timing information containing 'A2 extension: word time tags:', format <mm:ss.xx>
-    $lyrics = preg_replace("/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/", ' ', $lyrics);
+    $lyrics = preg_replace("/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/u", ' ', $lyrics);
     // convert it to an array to process metadata
     $lyrics = explode("\n", $lyrics);
     $artist = '';
@@ -14287,7 +14268,7 @@ function strip_synchronised_lyrics($lyrics)
     $retval = '';
     foreach ($lyrics as $lyric) {
         // replace whitespace with one space & trim
-        $lyric = trim(preg_replace("/[ \0\f\t\v]+/", ' ', $lyric));
+        $lyric = trim(preg_replace("/[ \0\f\t\v]+/u", ' ', $lyric));
         $lyric_test = ' '.strtolower($lyric);
         if (strpos($lyric_test, '[ar:') == 1) {
             $artist = trim(rtrim(substr($lyric, 4), ']'));
@@ -14297,7 +14278,7 @@ function strip_synchronised_lyrics($lyrics)
             $title = trim(rtrim(substr($lyric, 4), ']'));
             continue;
         }
-        if (preg_match("/\[..\:.*\]/", $lyric_test) == 1) {
+        if (preg_match("/\[..\:.*\]/u", $lyric_test) == 1) {
             continue;
         }
         if (strpos($lyric_test, '[length:') == 1) {
@@ -14319,9 +14300,9 @@ function strip_synchronised_lyrics($lyrics)
         }
         $retval = str_replace("\n", '<br>', $retval);
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/", '', $retval);
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
         // this could introduce double spaces, replace whitespace with one space
-        $retval = preg_replace("/[\s]+/", " ", $retval);
+        $retval = preg_replace("/[\s]+/u", " ", $retval);
     } else {
         $retval = '';
     }
@@ -14336,8 +14317,8 @@ function count_word_occurancies($search, $target = '')
 // an empty $target string returns a 0% match
 {
     // convert parameters to lower case, replace whitespace with one space and trim
-    $search = trim(preg_replace("/[\s]+/", ' ', strtolower($search)));
-    $target = trim(preg_replace("/[\s]+/", ' ', strtolower($target)));
+    $search = trim(preg_replace("/[\s]+/u", ' ', strtolower($search)));
+    $target = trim(preg_replace("/[\s]+/u", ' ', strtolower($target)));
     // debug
     // echo "Search: '$search', Target: '$target'\n";
     runelog("[count_word_occurancies]", "Search: '$search', Target: '$target'");
