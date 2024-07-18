@@ -84,12 +84,12 @@ if (count($usbMountedList)) {
     $usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINT | grep '^sd[a-z][0-9]'");
     foreach ($usbMountedList as $usbMountedDevice) {
         // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-        $usbMountedDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMountedDevice));
+        $usbMountedDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbMountedDevice));
         // extract the device name ([0]), size ([1]), used ([2]), available([3]), use as % ([4]) and mount point ([5])
         $usbMountedDeviceInfo = explode(' ', $usbMountedDevice);
         foreach ($usbDevices as $usbDevice) {
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-            $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbDevice));
+            $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbDevice));
             // extract the devics name ([0]), file system ([1]) and mount point ([2])
             $devInfo = explode(' ', $usbDevice);
             $usbDevice = '/dev/'.$devInfo[0];
@@ -188,7 +188,7 @@ $sleep = false;
 // walk through the usb devices, attempting to mount unmounted devices
 foreach ($usbDevices as $usbDevice) {
     // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-    $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbDevice));
+    $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbDevice));
     // debug
     // echo "usbDevice:'".$usbDevice."'\n";
     // extract the devics name ([0]), file system ([1]) and mount point ([2])
@@ -248,7 +248,7 @@ if (count($usbMounts)) {
         if (substr_count($usbMount, '%') == 1) {
             list($usbMount1, $usbMount2) = explode('%', $usbMount, 2);
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-            $usbMount1 = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount1.'%'));
+            $usbMount1 = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbMount1.'%'));
             // get the details
             list($device, $size, $used, $avail, $use) = explode(' ', $usbMount1, 5);
             $name = trim($usbMount2);
@@ -256,14 +256,14 @@ if (count($usbMounts)) {
         if (!isset($device) || !isset($size) || !isset($used) || !isset($avail) || !isset($use) || !isset($name)) {
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
             //  Note: this will also convert multiple spaces in the mount name to single spaces
-            $usbMount = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/',' ', $usbMount));
+            $usbMount = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbMount));
             // get the details, the mount name can contain spaces so limit the explode to 6 fields
             list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
         }
         if (!isset($device) || !isset($size) || !isset($used) || !isset($avail) || !isset($use) || !isset($name)) {
             // convert whitespace characters  to a single space
             //  Note: this will also convert multiple spaces in the mount name to single spaces
-            $usbMount = trim(preg_replace('/[\s]+/',' ', $usbMount));
+            $usbMount = trim(preg_replace('/[\s]+/u',' ', $usbMount));
             // get the details, the mount name can contain spaces so limit the explode to 6 fields
             list($device, $size, $used, $avail, $use, $name) = explode(' ', $usbMount, 6);
         }
