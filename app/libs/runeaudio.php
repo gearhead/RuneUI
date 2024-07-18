@@ -332,7 +332,7 @@ function readMpdResponse($sock)
             $read = preg_replace_callback_array(
                 // note: <line feed> = "\n" = ascii 10 = hex 10
                 [
-                    '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                    '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                         // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                         //      <del> (hex 7F),
                         //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -340,7 +340,7 @@ function readMpdResponse($sock)
                         //  replace the match with an empty string
                         return '';
                     },
-                    '/[ ]+\n/' => function ($match) {
+                    '/[ ]+\n/u' => function ($match) {
                         // match one or more spaces followed by a <line feed>
                         //  replace the match with a single <line feed>
                         return "\n";
@@ -418,7 +418,7 @@ function readMpdResponse($sock)
         return preg_replace_callback_array(
             // note: <line feed> = "\n" = ascii 10 = hex 10
             [
-                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                     // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                     //      <del> (hex 7F),
                     //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -426,7 +426,7 @@ function readMpdResponse($sock)
                     //  replace the match with an empty string
                     return '';
                 },
-                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/u' => function ($match) {
                     // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
@@ -485,7 +485,7 @@ function readMpdResponse($sock)
         return preg_replace_callback_array(
             // note: <line feed> = "\n" = ascii 10 = hex 10
             [
-                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/' => function ($match) {
+                '/[\x{00}-\x{09}\x{0B}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]|^[ \n]+/u' => function ($match) {
                     // match all non-printable characters except <line feed> (hex 00 to 09 and 0B to 1F),
                     //      <del> (hex 7F),
                     //      'not assigned' characters (hex 81, 8D, 8F, 90 and 9D),
@@ -493,7 +493,7 @@ function readMpdResponse($sock)
                     //  replace the match with an empty string
                     return '';
                 },
-                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/' => function ($match) {
+                '/[ ]+\n+[ ]+|\n+[ ]+|\n\n+|[ ]+\n+/u' => function ($match) {
                     // match one or more spaces followed by one or more <line feed>'s followed by one or more spaces,
                     //      one or more <line feed>'s followed by one or more spaces spaces,
                     //      two or more <line feed>'s,
@@ -1243,7 +1243,7 @@ function _parseFileListResponse($resp, $extraAction = null)
                                 break;
                             case 1:
                                 // extra action htmlspecialchars
-                                $value = htmlspecialchars(trim($value), ENT_QUOTES);
+                                $value = htmlspecialchars(trim($value), ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
                                 break;
                             case 2:
                                 // extra action escape

@@ -77,10 +77,15 @@ function updateOS($redis) {
             sysCmd('systemctl daemon-reload ; systemctl disable wsdd ; systemctl stop wsdd');
             wrk_restartSamba($redis);
         }
-        // if ($redis->get('patchlevel') == 4) {
-            // // 5th update
-            // $redis->set('patchlevel', 5);
-            // ui_notify($redis, 'Post update processing', 'Patchlevel 5');
+        if ($redis->get('patchlevel') == 4) {
+            // 5th update
+            $redis->set('patchlevel', 5);
+            ui_notify($redis, 'Post update processing', 'Patchlevel 5');
+        }
+        // if ($redis->get('patchlevel') == 5) {
+            // // 6th update
+            // $redis->set('patchlevel', 6);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 6');
         // }
     }
 }
