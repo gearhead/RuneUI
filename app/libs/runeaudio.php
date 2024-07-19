@@ -7240,11 +7240,11 @@ function ui_status($redis, $mpd, $status)
     // echo "Function: ui_status\n";
     // var_dump($curTrack);
     if (isset($curTrack[0]['Title'])) {
-        // $status['currentalbumartist'] = htmlentities($curTrack[0]['AlbumArtist'], ENT_XML1, 'UTF-8');
-        // $status['currentartist'] = htmlentities($curTrack[0]['Artist'], ENT_XML1, 'UTF-8');
-        // $status['currentsong'] = htmlentities($curTrack[0]['Title'], ENT_XML1, 'UTF-8');
-        // $status['currentalbum'] = htmlentities($curTrack[0]['Album'], ENT_XML1, 'UTF-8');
-        // $status['currentcomposer'] = htmlentities($curTrack[0]['Composer'], ENT_XML1, 'UTF-8');
+        // $status['currentalbumartist'] = htmlentities($curTrack[0]['AlbumArtist'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
+        // $status['currentartist'] = htmlentities($curTrack[0]['Artist'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
+        // $status['currentsong'] = htmlentities($curTrack[0]['Title'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
+        // $status['currentalbum'] = htmlentities($curTrack[0]['Album'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
+        // $status['currentcomposer'] = htmlentities($curTrack[0]['Composer'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
         if (isset($curTrack[0]['AlbumArtist']) && $curTrack[0]['AlbumArtist']) {
             $status['currentalbumartist'] = $curTrack[0]['AlbumArtist'];
         }
@@ -7276,7 +7276,7 @@ function ui_status($redis, $mpd, $status)
         $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
     }
     if (isset($curTrack[0]['Name']) && $curTrack[0]['Name']) {
-        $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1, 'UTF-8');
+        $status['radioname'] = htmlentities($curTrack[0]['Name'], ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
     }
     if (!isset($status['currentalbumartist'])) {
         $status['currentalbumartist'] = '';
@@ -8149,7 +8149,7 @@ function webradioStringClean($string)
     // do some basic cleanup
     $string = urldecode($string);
     $string = html_entity_decode($string);
-    $string = htmlentities($string, ENT_XML1, 'UTF-8');
+    $string = htmlentities($string, ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
     // trim after replacing all combinations of single or multiple tab, space, <cr> and <lf> and slash with a single space
     $string = trim(preg_replace('/[\t\n\r\s]+/u', ' ', $string));
     // convert escaped characters to their actual value
