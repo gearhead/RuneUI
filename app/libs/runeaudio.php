@@ -8233,17 +8233,29 @@ function metadataStringClean($string, $type = '')
     }
     // replace characters with accents, etc. with normal characters
     $string = squashCharacters($string);
-    // replace ASCII hex characters 0 to 2F (control characters plus various), 3A to 40 (various),
-    //  5B to 60 (various) and 7B to FF (various) with a space
-    //  this is a valid string for a file name and for html use
-    $string = preg_replace("/[\x{00}-\x{2F}\x{3A}-\x{40}\x{5B}-\x{60}\x{7B}-\x{FF}]+/u", ' ', $string);
-    // replace any ASCII hex characters not in the range 0 to FF (so anything higher) with a space
-    //  these are graphical characters, boxes, borders, arrows, etc.
-    $string = preg_replace("/[^\x{00}-\x{FF}]+/u", ' ', $string);
-    // replace whitespace with a single space, trim leading and trailing spaces
-    $string = trim(preg_replace('!\s+!u', ' ', $string));
-    // remove any remaining backslashes
-    $string = stripslashes($string);
+    $string = preg_replace_callback_array(
+        // note: <line feed> = "\n" = ascii 10 = hex 10
+        [
+            '/[\x{00}-\x{2F}\x{3A}-\x{40}\x{5B}-\x{60}\x{7B}-\x{FF}]+/u' => function ($match) {
+                // replace ASCII hex characters 0 to 2F (control characters plus various), 3A to 40 (various),
+                //  5B to 60 (various) and 7B to FF (various) with a space
+                //  this is a valid string for a file name and for html use
+                return ' ';
+            },
+            '/[^\x{00}-\x{FF}]+/u' => function ($match) {
+                // replace any ASCII hex characters not in the range 0 to FF (so anything higher) with a space
+                //  these are graphical characters, boxes, borders, arrows, etc.
+                return ' ';
+            },
+            '!\s+!u' => function ($match) {
+            // replace whitespace with a single space
+                return ' ';
+            },
+        ],
+        $string
+    );
+    // remove any remaining backslashes, trim leading and trailing spaces
+    $string = trim(stripslashes($string));
     return $string;
 }
 
@@ -11939,15 +11951,45 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         $trackInfoLines = sysCmd($command);
         $timeout = true;
         foreach ($trackInfoLines as $workline) {
-            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-            $line = preg_replace('/[\t\n\r\s]+/u', ' ', $workline);
-            // then strip the html out of the response
-            $line = preg_replace('/\<[\s]*meta property[\s]*="/u', '', $line);
-            $line = preg_replace('/\<[\s]*meta name[\s]*="/u', '', $line);
-            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/u', '=', $line);
-            $line = preg_replace('!"[\s]*/[\s]*\>!u', '', $line);
-            $line = preg_replace('/"[\s]*\>/u', '', $line);
-            $line = preg_replace('/[\s]*"[\s]*/u', '', $line);
+            $line = $workline;
+            $line = preg_replace_callback_array(
+                // note: <line feed> = "\n" = ascii 10 = hex 10
+                [
+                    '/[\t\n\r\s]+/u' => function ($match) {
+                        // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
+                        return ' ';
+                    },
+                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
+                        // then strip the html out of the response
+                        return '';
+                    },
+                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/\<[\s]*meta name[\s]*="/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/"[\s]*content[\s]*=[\s]*/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '!"[\s]*/[\s]*\>!u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/"[\s]*\>/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/[\s]*"[\s]*/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                ],
+                $line
+            );
             $line = trim($line);
             if (!strpos(' '.$line, '=')) {
                 continue;
@@ -12016,15 +12058,45 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         $albumInfoLines = sysCmd($command);
         $timeout = true;
         foreach ($albumInfoLines as $workline) {
-            // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
-            $line = preg_replace('/[\t\n\r\s]+/u', ' ', $workline);
-            // then strip the html out of the response
-            $line = preg_replace('/\<[\s]*meta property[\s]*="/u', '', $line);
-            $line = preg_replace('/\<[\s]*meta name[\s]*="/u', '', $line);
-            $line = preg_replace('/"[\s]*content[\s]*=[\s]*/u', '=', $line);
-            $line = preg_replace('!"[\s]*/[\s]*\>!u', '', $line);
-            $line = preg_replace('/"[\s]*\>/u', '', $line);
-            $line = preg_replace('/[\s]*"[\s]*/u', '', $line);
+            $line = $workline;
+            $line = preg_replace_callback_array(
+                // note: <line feed> = "\n" = ascii 10 = hex 10
+                [
+                    '/[\t\n\r\s]+/u' => function ($match) {
+                        // replace all combinations of single or multiple tab, space, <cr> or <lf> with a single space
+                        return ' ';
+                    },
+                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
+                        // then strip the html out of the response
+                        return '';
+                    },
+                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/\<[\s]*meta name[\s]*="/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/"[\s]*content[\s]*=[\s]*/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '!"[\s]*/[\s]*\>!u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/"[\s]*\>/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                    '/[\s]*"[\s]*/u' => function ($match) {
+                        // continued, strip the html out of the response
+                        return '';
+                    },
+                ],
+                $line
+            );
             $line = trim($line);
             if (!strpos(' '.$line, '=')) {
                 continue;
@@ -14240,27 +14312,54 @@ function strip_synchronised_lyrics($lyrics)
 // the function returns the lyrics with HTML line breaks (<br>)
 {
     // first convert line ends into standard Linux
-    //  Windows to Linux
+    //  Windows to Linux (\r\n > \n)
     $lyrics = str_replace("\r\n", "\n", $lyrics);
-    //  Mac to Linux
+    //  Mac to Linux (\r > \n)
     $lyrics = str_replace("\r", "\n", $lyrics);
-    // replace whitespace with one space
-    $lyrics = preg_replace("/[ \0\f\t\v]+/u", " ", $lyrics);
+    $lyrics = preg_replace_callback_array(
+        // note: <line feed> = "\n" = ascii 10 = hex 10
+        [
+            '/[ \0\f\t\v]+/u' => function ($match) {
+                // replace whitespace with one space
+                return ' ';
+            },
+            '/[ \0\f\t\v]*\n[ \0\f\t\v]*/u' => function ($match) {
+                // remove leading and trailing spaces
+                return "\n";
+            },
+        ],
+        $lyrics
+    );
     // remove leading and trailing spaces
-    $lyrics = trim(preg_replace("/[ \0\f\t\v]*\n[ \0\f\t\v]*/u", "\n", $lyrics));
+    $lyrics = trim($lyrics);
     // remove a country code if present, always on the first line, format xxx||<lyric>
     if (strpos($lyrics, '||') == 3) {
         $lyrics = substr($lyrics, 5);
     }
     // add a leading and trailing new line
     $lyrics = "\n".$lyrics."\n";
-    // remove timing information containing 'Walaoke extension: gender', format [mm:ss.xx]D: (the D can also be a F or a M)
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/u", "\n", $lyrics);
-    // remove standard timing information, format [mm:ss.xx]
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u", "\n", $lyrics);
-    $lyrics = preg_replace("/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u", "\n", $lyrics);
-    // remove timing information containing 'A2 extension: word time tags:', format <mm:ss.xx>
-    $lyrics = preg_replace("/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/u", ' ', $lyrics);
+    $lyrics = preg_replace_callback_array(
+        // note: <line feed> = "\n" = ascii 10 = hex 10
+        [
+            '/\n[ \0\f\t\v]*\[..\:..\...\][FMDfmd]\:/u' => function ($match) {
+                // remove timing information containing 'Walaoke extension: gender', format [mm:ss.xx]D: (the D can also be a F or a M)
+                return "\n";
+            },
+            '/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u' => function ($match) {
+                // remove standard timing information, format [mm:ss.xx], do it twice, first time
+                return "\n";
+            },
+            '/\n[ \0\f\t\v]*\[..\:..\...\][ \0\f\t\v]*/u' => function ($match) {
+                // remove standard timing information, format [mm:ss.xx], do it twice, second time
+                return "\n";
+            },
+            '/[ \0\f\t\v]*\<..\:..\...\>[ \0\f\t\v]*/u' => function ($match) {
+                // remove timing information containing 'A2 extension: word time tags:', format <mm:ss.xx>
+                return ' ';
+            },
+        ],
+        $lyrics
+    );
     // convert it to an array to process metadata
     $lyrics = explode("\n", $lyrics);
     $artist = '';
@@ -14299,10 +14398,24 @@ function strip_synchronised_lyrics($lyrics)
             $retval = $retval."\n";
         }
         $retval = str_replace("\n", '<br>', $retval);
-        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
-        // this could introduce double spaces, replace whitespace with one space
-        $retval = preg_replace("/[\s]+/u", " ", $retval);
+        $retval = preg_replace_callback_array(
+            // note: <line feed> = "\n" = ascii 10 = hex 10F
+            [
+                '/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u' => function ($match) {
+                    // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+                    return '';
+                },
+                '/[\s]+/u' => function ($match) {
+                    // actions could introduce double spaces, replace whitespace with one space
+                    return ' ';
+                },
+                '/[\s]+<br>|<br>[\s]+/u' => function ($match) {
+                    // actions could introduce leading and trailing spaces per line, replace leading and trailing whitespace in the lines
+                    return '<br>';
+                },
+            ],
+            $retval
+        );
     } else {
         $retval = '';
     }
