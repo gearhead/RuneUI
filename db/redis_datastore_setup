@@ -39,7 +39,7 @@ require_once('/srv/http/app/libs/runeaudio.php');
 require_once('/srv/http/app/libs/openredis.php');
 // ini_set('display_errors',1);
 // error_reporting(E_ALL);
-function redisDatastore($redis,$action) {
+function redisDatastore($redis, $action) {
     switch ($action) {
         case 'mpdreset':
             // default MPD config
@@ -475,7 +475,7 @@ function redisDatastore($redis,$action) {
             // PHP precache (prime) scripts
             $redis->del('php_opcache_prime');
             $transaction = $redis->multi();
-            // Vendor libs
+            // Selected vendor libs
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/autoload.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/ClassLoader.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_classmap.php');
@@ -509,20 +509,25 @@ function redisDatastore($redis,$action) {
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/URI.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
-            // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv 2> /dev/null | grep -vi "vendor" | grep -v ":" | grep -vi git | grep -vi .zip | grep -vi .phar');
+            // Selected RuneAudio scripts
+            $transaction->sAdd('php_opcache_prime', '/srv/http/db/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/opcache.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/cachectl.php');
+            // all RuneAudio UI php scripts
+            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
             foreach ($scripts as $script) {
                 $transaction->sAdd('php_opcache_prime', $script);
             }
             unset($scripts, $script);
-            // // RuneAudio Libs & config
             $transaction->exec();
             // network mounts - 'mount_*'
             // sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
             break;
         case 'opcachecheck':
-            // all RuneAudio php scripts
-            $scripts = sysCmd('grep -Ril "<?php" /srv 2> /dev/null | grep -vi "vendor" | grep -v ":" | grep -vi git | grep -vi .zip | grep -vi .phar');
+            // all RuneAudio UI php scripts
+            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
             foreach ($scripts as $script) {
                 if (!$redis->exists('php_opcache_prime', $script)) {
                     $redis->sAdd('php_opcache_prime', $script);
