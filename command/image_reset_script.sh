@@ -641,13 +641,27 @@ done
 if [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
     rm /etc/php/8.2/fpm/pool.d/www.conf
 fi
-#   php-fpm.service
+#   php-fpm.service & php.int
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed and a new version of
 #       /srv/http/app/config/defaults/etc/systemd/system/php-fpm.service.RPiOS<v.v> should be created
 if [ "$os" == "ARCH" ] ; then
     cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
     cp /etc/systemd/system/php-fpm.service.RPiOS8.2 /etc/systemd/system/php-fpm.service
+    # php.ini was created in the wrong directory (/etc/php/8.2/php.ini), while /etc/php/8.2/fpm/php.ini is the correct location
+    #   distribution files have been corrected, this code will tidy things up
+    if [ ! -f "/etc/php/8.2/fpm/php.ini" ]; then
+        if [ -f "/etc/php/8.2/php.ini" ]; then
+            cp "/etc/php/8.2/php.ini" "/etc/php/8.2/fpm/php.ini"
+            rm "/etc/php/8.2/php.ini"
+        else
+            rm "/etc/php/8.2/php.ini"
+        fi
+    else
+        if [ -f "/etc/php/8.2/php.ini" ]; then
+            rm "/etc/php/8.2/php.ini"
+        fi
+    fi
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "7.4" ] ; then
     cp /etc/systemd/system/php-fpm.service.RPiOS7.4 /etc/systemd/system/php-fpm.service
 fi
