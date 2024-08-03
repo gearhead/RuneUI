@@ -64,7 +64,7 @@ $savecpuRefreshNicsPrev = $savecpuRefreshNics;
 $savecpuUsbMount = 16;
 $savecpuUsbMountPrev = $savecpuUsbMount;
 $savecpuOneTimeActions = 30;
-$savecpuMpdLog = 600;
+$savecpuMpdLog = 240;
 $savecpuTimezone = 60;
 $savecpuOpCache = 7200;
 $savecpuFixLogs = 36;
@@ -1652,14 +1652,19 @@ while (true) {
         wrk_fixlogs();
         $savecpuFixLogs = 7100 + rand(0, 200);
     }
-    // MPD logfile size check, run first after 600 cycles (+/-5 minutes), then repeat on every +/-1200 cycles (+/-10 minutes)
+    // MPD logfile size check, run first after 240 cycles (+/-2 minutes), then repeat on every +/-1200 cycles (+/-10 minutes)
+    //  except when mpd s updating, in that case repeat every 240 cycles (+/- 2 minutes)
     //  if the mpd log is greater than the parameter value (bytes) a new log will be created and the old one deleted
     //  the only reason a log file gets too big is when a very large music library is updated or rebuilt (it then tends to grow quite quickly)
     //  or when rune runs for days on end without reboot
-    //  200000 bytes is enough for about 1500 normal log entries (@ 3mins per song = 3+ days playing time)
+    //  130000 bytes is enough for about 1000 normal log entries (@ 3mins per song = 2+ days playing time)
     if ($savecpuMpdLog-- <= 0) {
         wrk_mpdLog($redis, $redis->get('mpd_max_logsize'));
-        $savecpuMpdLog = 1150 + rand(0, 100);
+        if (sysCmd('mpc status | grep -ic Updating | xargs')[0]) {
+            $savecpuMpdLog = 224 + rand(0, 40);
+        } else {
+            $savecpuMpdLog = 1150 + rand(0, 100);
+        }
     }
     // Test to see if an internet connection is available. Disable the artistinfo, lyrics webradios, etc. functions when no internet is available
     // This will resolve freezing problems due to services being unavailable

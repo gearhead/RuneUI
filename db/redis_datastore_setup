@@ -340,7 +340,7 @@ function redisDatastore($redis, $action) {
             $redis->set('mpdconfchange', 0);
             $redis->set('sssconfchange', 0);
             $redis->set('libaoconfchange', 0);
-            $redis->set('mpd_max_logsize', 200000);
+            $redis->set('mpd_max_logsize', 130000);
             // ashuffle global random
             $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hSet('globalrandom', 'enable', 0);
