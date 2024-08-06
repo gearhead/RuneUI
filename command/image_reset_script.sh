@@ -853,6 +853,9 @@ if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     ssh-keygen -A
 fi
 #
+# switch off the (attempted) use of extended (swap-file) memory by redis, we don't have a swap file
+find /etc -name redis.conf -exec sed -i '/^\s*vm.overcommit_memory\s*=\s*1/c\vm.overcommit_memory = 0' {} \;
+#
 # for a distribution image remove the pacman or apt history. It makes a lot of space free, but that history is useful when developing
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     if [ "$os" == "ARCH" ] ; then
