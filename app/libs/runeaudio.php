@@ -1766,7 +1766,6 @@ function hashCFG($redis, $action = 'check_mpd')
     return true;
 }
 
-
 function runelog($title, $data = null, $function_name = null)
 {
 // Connect to Redis backend
@@ -2383,7 +2382,9 @@ function wrk_opcache($redis, $action)
     switch ($action) {
         case 'prime':
             opcache_reset();
-            if ($redis->get('opcache')) sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+            if ($redis->get('opcache')) {
+                sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+            }
             break;
         case 'forceprime':
             opcache_reset();
@@ -6571,7 +6572,7 @@ function wrk_NTPsync($ntpserver)
         }
         // Commit changes to /etc/systemd/timesyncd.conf
         $fp = fopen($file, 'w');
-        $return = fwrite($fp, implode("", $newArray));
+        fwrite($fp, implode("", $newArray));
         fclose($fp);
         // restart systemd-timesyncd
         sysCmd('systemctl daemon-reload');
@@ -14306,7 +14307,7 @@ function start_mpd($redis)
     sysCmd('pgrep -x mpd || systemctl start mpd.socket');
 }
 
-// function to strip sysncronised encoding from lyrics
+// function to strip synchronised encoding from lyrics
 function strip_synchronised_lyrics($lyrics)
 // the parameter lyrics is the full text of the lyrics including line ends
 // the function returns the lyrics with HTML line breaks (<br>)

@@ -502,8 +502,6 @@ while (true)  {
                 unset($au, $auinfo);
                 try {
                     // Code that may throw an Exception or Error.
-                    // $au = new AudioInfo();
-                    // $auinfo =  $au->Info($song['file']);
                     $au = new getID3;
                     if ($wordlength == 32) {
                         // ape tags throw lots of warnings for the 32bit image, they cannot be decoded properly, switch ape tags off
