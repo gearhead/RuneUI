@@ -15,6 +15,8 @@ nmbd -1 0
 shairport-sync -4 0
 smb -1 0
 smbd -1 0
+# snapclient -4 0
+# snapserver -3 0
 spotifyd -4 0
 upmpdcli -4 0
 winbind -1 0

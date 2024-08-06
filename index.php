@@ -90,6 +90,7 @@ $controllers = array(
     'network',
     'playback',
     'settings',
+//    'snapcast',
     'sources',
     'tun'
 );
