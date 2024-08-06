@@ -2400,26 +2400,36 @@ function wrk_opcache($redis, $action)
             sysCmd('systemctl reload php-fpm');
             break;
         case 'enable':
-            $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null ; grep -Ril --binary-files=without-match "^opcache.enable=" /etc/php 2>/dev/null');
+            $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null');
             foreach ($fileNames as $fileName) {
                 // clear the file cache otherwise file_exists() returns incorrect values
                 clearstatcache(true, $fileName);
                 if (file_exists($fileName)) {
-                    sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=1' '".$fileName."'");
+                    if (!sysCmd("grep -c '^opcache.enable=' '".$fileName."' | xargs")[0]) {
+                        sysCmd("echo 'opcache.enable=1' >> '".$fileName."'");
+                    } else {
+                        sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=1' '".$fileName."'");
+                    }
                 }
             }
             $redis->set('opcache', 1);
+            wrk_opcache($redis, 'reload');
             break;
         case 'disable':
-            $fileNames = sysCmd('find /etc -name opcache.ini');
+            $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null');
             foreach ($fileNames as $fileName) {
                 // clear the file cache otherwise file_exists() returns incorrect values
                 clearstatcache(true, $fileName);
                 if (file_exists($fileName)) {
-                    sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=0' '".$fileName."'");
+                    if (!sysCmd("grep -c '^opcache.enable=' '".$fileName."' | xargs")[0]) {
+                        sysCmd("echo 'opcache.enable=0' >> '".$fileName."'");
+                    } else {
+                        sysCmd("sed -i '/^opcache.enable=/c\opcache.enable=0' '".$fileName."'");
+                    }
                 }
             }
             $redis->set('opcache', 0);
+            wrk_opcache($redis, 'reload');
             break;
         case 'isfull':
             $opCacheStatus = opcache_get_status();
