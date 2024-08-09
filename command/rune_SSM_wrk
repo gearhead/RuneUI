@@ -220,87 +220,87 @@ while (true) {
                 $debugMetadata = true;
                 if ($debugMetadata) {
                     if (($type != 'core') && ($code === 'phbt')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core phbt' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core phbt' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'phb0')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core phb0' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core phb0' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ofps')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ofps' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ofps' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ofmt')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ofmt' should be '$type $code'\n";
-                    } else if (($type != 'core') && ($code === 'styp')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core styp' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ofmt' should be '$type $code'\n";
+                    } else if ((($type != 'core') && ($type != 'ssnc')) && ($code === 'styp')) {
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core styp' and/or 'ssnc styp' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'svna')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core svna' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core svna' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ascp')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core ascp' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ascp' should be '$type $code'\n";
                     } else if (($type != 'xesam') && ($code === 'composer')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'xesam composer' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'xesam composer' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdk')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdk' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdk' should be '$type $code'\n";
                     } else if (($type != 'sps') && ($code === 'songdatakind')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'sps songdatakind' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'sps songdatakind' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'caps')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core caps' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core caps' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astn' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astc')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astc' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astc' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdn' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdc')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asdc' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdc' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asar')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asar' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asar' should be '$type $code'\n";
                     } else if (($type != 'xesam') && ($code === 'albumArtist')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'xesam albumArtist' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'xesam albumArtist' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core astm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astm' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asal')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asal' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asal' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'minm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core minm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core minm' should be '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asgn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'core asgn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asgn' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'stal')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc stal' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc stal' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'mdst')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc mdst' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc mdst' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'mden')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc mden' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc mden' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'prsm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc prsm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc prsm' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'clip')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc clip' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc clip' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'svip')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc svip' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc svip' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'snua')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc snua' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc snua' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'acre')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc acre' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc acre' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'daid')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc daid' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc daid' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'dapo')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc dapo' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc dapo' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pend')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pend' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pend' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'flsr')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc flsr' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc flsr' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pfls')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pfls' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pfls' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pbeg')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pbeg' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pbeg' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pcst')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pcst' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pcst' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pcen')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pcen' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pcen' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'snam')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc snam' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc snam' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pvol')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc pvol' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pvol' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'prgr')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc prgr' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc prgr' should be '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'PICT')) {
-                        echo "rune_SSM_wrk: Incorrect metadata coding, 'ssnc PICT' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc PICT' should be '$type $code'\n";
                     }
                 }
                 switch ($tag) {
@@ -344,6 +344,7 @@ while (true) {
                         runelog('rune_SSM_wrk: Airplay OutputFormat: ', $buf);
                         break;
                     case 'core styp':
+                    case 'ssnc styp':
                         // StreamType
                         $redis->hSet('airplay','Stream_Type', trim($buf));
                         runelog('rune_SSM_wrk: Airplay StreamType: ', $buf);
