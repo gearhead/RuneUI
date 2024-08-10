@@ -15,8 +15,8 @@ OS and environment:
     Partially upgraded composer components to their latest versions.
     All standard and custom packages updated.
     Retired the ARCH Arm image for armv6 (for Pi A, Pi B and Pi Zero), this is now end of life, ARCH Linux stopped
-        supporting at Linux v5.15.35-1. We have a version running at Linux v6.1.11-2, but this version is no longer
-        distributed or supported.
+        supporting it at Linux v5.15.35-1. We have a version running at Linux v6.1.11-2, but this version is no
+        longer distributed or supported.
     Retired the ARCH Arm image for armv7 (for Pi 2B, Pi 3A, Pi 3A+, Pi3B, 3B+, 4B and Zero 2W), this is in
         principle still supported by ARCH Arm Linux. We have a version running at Linux v6.1.21-3, but due to poor
         support from ARCH Arm Linux this version is no longer distributed or supported.
