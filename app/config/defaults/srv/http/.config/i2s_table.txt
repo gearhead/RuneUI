@@ -44,6 +44,17 @@ dionaudio-kiwi|Dion Audio KIWI STREAMER
 dionaudio-loco|Dionaudio Loco DAC-AMP
 dionaudio-loco-v2|Dionaudio Loco V2 DAC-AMP
 fe-pi-audio|Fe-Pi Audio Sound Card
+iqaudio-dacplus|Geekworm AMPi Audio Player
+iqaudio-dacplus,auto_mute_amp|Geekworm AMPi Audio Player - with automute
+iqaudio-dacplus,unmute_amp|Geekworm AMPi Audio Player - with unmute
+allo-boss-dac-pcm512x-audio|Geekworm PCM5122 HIFI Audio DAC
+iqaudio-dacplus|Geekworm X302 HiFi DAC HAT & USB HUB
+hifiberry-dac|Geekworm X450 HiFi DAC+AMP
+hifiberry-dac|Geekworm X5500 HiFi DAC+AMP
+iqaudio-dacplus|Geekworm X930 HiFi DAC
+iqaudio-dacplus|Geekworm X960 AMP
+iqaudio-dacplus,auto_mute_amp|Geekworm X960 AMP - with automute
+iqaudio-dacplus,unmute_amp|Geekworm X960 AMP - with unmute
 ghost-amp|Ghost amplifier
 hifiberry-amp|HiFiBerry Amp
 hifiberry-amp|HiFiBerry Amp+
@@ -138,29 +149,29 @@ superaudioboard|SuperAudioBoard sound card
 wm8960-soundcard|Waveshare wm8960 soundcard
 i2s-dac|X10-DAC BOARD
 hifiberry-dacplus|X400 V3.0 DAC+AMP Expansion Board
-i2s-dac|Generic AK4399 (Alternative 1)
-hifiberry-dac|Generic AK4399 (Alternative 2)
-i2s-dac|Generic AK4452 (Alternative 1)
-hifiberry-dac|Generic AK4452 (Alternative 2)
-i2s-dac|Generic AK449x (Alternative 1)
-hifiberry-dac|Generic AK449x (Alternative 2)
-i2s-dac|Generic ES9018 (Alternative 1)
-hifiberry-dac|Generic ES9018 (Alternative 2)
-i2s-dac|Generic ES9023 (Alternative 1)
-hifiberry-dac|Generic ES9023 (Alternative 2)
+i2s-dac|Generic AK4399 (Alternative 1 - linux driver)
+hifiberry-dac|Generic AK4399 (Alternative 2 - hifiberry driver)
+i2s-dac|Generic AK4452 (Alternative 1 - linux driver)
+hifiberry-dac|Generic AK4452 (Alternative 2 - hifiberry driver)
+i2s-dac|Generic AK449x (Alternative 1 - linux driver)
+hifiberry-dac|Generic AK449x (Alternative 2 - hifiberry driver)
+i2s-dac|Generic ES9018 (Alternative 1 - linux driver)
+hifiberry-dac|Generic ES9018 (Alternative 2 - hifiberry driver)
+i2s-dac|Generic ES9023 (Alternative 1 - lunix driver)
+hifiberry-dac|Generic ES9023 (Alternative 2 - hifiberry driver)
 i-sabre-q2m|Generic ES9028
 i-sabre-q2m|Generic ES9038
 i2s-dac|Generic passive I2S DAC soundcard
-i2s-dac|Generic PCM1794 (Alternative 1)
-hifiberry-dac|Generic PCM1794 (Alternative 2)
+i2s-dac|Generic PCM1794 (Alternative 1 - linux driver)
+hifiberry-dac|Generic PCM1794 (Alternative 2 - hifiberry driver)
 hifiberry-dac|Generic PCM510x
-hifiberry-dacplus|Generic PCM512x (Alternative 1)
-allo-boss-dac-pcm512x-audio|Generic PCM512x (Alternative 2)
+hifiberry-dacplus|Generic PCM512x (Alternative 1 - hifiberry driver)
+allo-boss-dac-pcm512x-audio|Generic PCM512x (Alternative 2 - allo boss driver)
 hifiberry-amp|Generic TAS5713
-i2s-dac|Generic TAS5756M (Alternative 1)
-hifiberry-dacplus|Generic TAS5756M (Alternative 2)
-justboom-dac|Generic TAS5756M (Alternative 3)
-iqaudio-dacplus|Generic TAS5756M (Alternative 4)
+i2s-dac|Generic TAS5756M (Alternative 1 - linux driver)
+hifiberry-dacplus|Generic TAS5756M (Alternative 2 - hifiberry driver)
+justboom-dac|Generic TAS5756M (Alternative 3 - justboom driver)
+iqaudio-dacplus|Generic TAS5756M (Alternative 4 - iqaudio driver)
 hifiberry-dac|Generic TDA1387
 hifiberry-dac|Generic TDA1541
 hifiberry-dac|Generic TDA1543
