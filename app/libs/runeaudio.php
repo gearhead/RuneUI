@@ -4705,7 +4705,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
             $startBluetooth = false;
-            $disableNull = false;
             if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
                 $redis->set('ao', $args);
                 if (isset($jobID) && $jobID) {
@@ -4720,30 +4719,29 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $args);
                 }
-                if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
-                    // enable the null output, its required when a bluetooth connection is lost
-                    sysCmd('mpc enable null');
-                    $startBluetooth = true;
-                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
-                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
-                    sysCmd('mpc enable null');
+                // correct the null output device
+                if (isset($acard['swdevice']) && $acard['swdevice']) {
+                    if (substr($acard['swdevice'], 0, 9) == 'bluealsa:') {
+                        // its a Bluetooth output, enable the null output device
+                        sysCmd('mpc enable null');
+                        // start Bluetooth
+                        $startBluetooth = true;
+                    } else if ((strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
+                            (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
+                        // its a vc4 hdmi or USB output, enable the null output device
+                        sysCmd('mpc enable null');
+                    } else {
+                        // otherwise disable the null output device
+                        sysCmd('mpc disable null');
+                    }
                 } else {
-                    $disableNull = true;
-                }
-                // check for "special" sub_interfaces
-                if (isset($acard['integrated_sub']) && $acard['integrated_sub']) {
-                    // execute special internal route command
-                    sysCmd($acard['route_cmd']);
-                    // TODO: improve this function
-                    sysCmd('amixer -c 0 set PCM unmute');
-                    // $args = $acard->sysname;
+                    // invalid device (should never happen), enable the null output device
+                    sysCmd('mpc enable null');
                 }
                 // switch interface
                 sysCmd('mpc enable "'.$args.'"');
                 sysCmd('mpc disable "'.$oldMpdout.'"');
-                if ($disableNull) {
-                    sysCmd('mpc disable null');
-                }
+                // change the output for Airplay and Spotify Connect
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
                 sysCmdAsync($redis, '/srv/http/command/mpdconf_writecfg_async.php');
@@ -4754,17 +4752,25 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $oldMpdout);
                 }
                 sysCmd('mpc enable "'.$oldMpdout.'"');
-                if (isset($acard['device']) && (substr($acard['device'], 0, 9) == 'bluealsa:')) {
-                    sysCmd('mpc enable null');
-                } else if (isset($acard['device']) && strpos(' '.$acard['device'], 'vc4') && strpos(' '.$acard['device'], 'hdmi')) {
-                    // enable the null output, its required for vc4 hdmi output, which always appears as a valid output even when it is not connected
-                    sysCmd('mpc enable null');
+                // correct the null output device
+                if (isset($acard['swdevice']) && $acard['swdevice']) {
+                    if ((substr($acard['swdevice'], 0, 9) == 'bluealsa:') ||
+                            (strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
+                            (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
+                        // its a Bluetooth, vc4 hdmi or USB output, enable the null output device
+                        sysCmd('mpc enable null');
+                    } else {
+                        // otherwise disable the null output device
+                        sysCmd('mpc disable null');
+                    }
                 } else {
-                    sysCmd('mpc disable null');
+                    // invalid device (could happen), enable the null output device
+                    sysCmd('mpc enable null');
                 }
                 // wrk_shairport($redis, $oldMpdout);
                 // wrk_spotifyd($redis, $oldMpdout);
             } else {
+                // invalid device (could happen), enable the null output device
                 sysCmd('mpc enable null');
                 // check that MPD only has one output enabled and if not correct it
                 sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
@@ -4855,6 +4861,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // set process priority
             sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+            sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
             unset($activePlayer, $retval);
             break;
         case 'forcestop':
@@ -9541,8 +9548,30 @@ function wrk_check_MPD_outputs($redis)
     if ($ao && ($ao != $airplayAo)) {
         wrk_shairport($redis, $ao);
     }
-    // set this card to the default alsa card
-    set_alsa_default_card($redis);
+    // switch null output on or off
+    if ($ao) {
+        $acard = json_decode($redis->hGet('acards', $ao), true);
+        // correct the null output device
+        if (isset($acard['swdevice']) && $acard['swdevice']) {
+            if ((substr($acard['swdevice'], 0, 9) == 'bluealsa:') ||
+                    (strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
+                    (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
+                // its a Bluetooth, vc4 hdmi or USB output, enable the null output device
+                sysCmd('mpc enable null');
+            } else {
+                // otherwise disable the null output device
+                sysCmd('mpc disable null');
+            }
+        } else {
+            // invalid device (could happen), enable the null output device
+            sysCmd('mpc enable null');
+        }
+        // set this card to the default alsa card
+        set_alsa_default_card($redis);
+    } else {
+        // invalid device (could happen), enable the null output device
+        sysCmd('mpc enable null');
+    }
 }
 
 // function which caches and cleans up old cached radio metadata, artist_song metadata, artist_album metadata, artist metadata
