@@ -331,7 +331,12 @@
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="password" id="spotifyconnect_password" name="features[spotifyconnect][password]" value="<?php echo $this->spotifyconnect['password']; ?>" data-trigger="change" placeholder="password" autocomplete="off">
                             <span class="help-block">Insert your Spotify <i>password</i> (case sensitive)<br>
-                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
+                            <i>Notes: Your password is stored as plain text, RuneAudio should only be used in your private network!<br>
+                            <strong>Important!</strong> Spotify have changed something in their authorisation mechanism which causes problems when
+                            a username and password are specified. The current workaround/solution is to empty both the Spotify username and password
+                            fields. The Spotify Connect service will then publish its connection as normal, but will automatically authorise its
+                            connection using encrypted information from the Spotify client on your smart-phone or computer. This method also allows
+                            different Spotify accounts to connect to RuneAudio.</i></span>
                         </div>
                     </div>
                     <div class="form-group">

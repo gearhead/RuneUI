@@ -9870,6 +9870,22 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         }
         $redis->hSet('cleancache', '1lowerdate_song', $today);
         $cleaned = true;
+    } else if ($today != $redis->hGet('cleancache', '1lowerdate_spotify')) {
+        // incomplete spotify artist and song files (these can contain the text 'artist":"Spotify"') are deleted after 1 day
+        // these files are created when the spotify metadata screen scraper has timed out, they have no real cached value
+        //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
+        //  they all have 'spotify' as the artist, so most have a file name 'spotify*.*'
+        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name 'spotify*.*' > '/tmp/exclude.filelist'");
+        //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
+        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'artist\":\"Spotify\"' ".$cleanLowerDir."/* &> /dev/null");
+        //  remove the exclude file
+        unlink('/tmp/exclude.filelist');
+        // delete the files
+        foreach ($files as $file) {
+            unlink($file);
+        }
+        $redis->hSet('cleancache', '1lowerdate_song', $today);
+        $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
         // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
         // even though ImageMagick shows an error the files can be converted correctly, here we try to convert large the files again
@@ -11680,10 +11696,14 @@ function wrk_get_webradio_art($redis, $radiostring)
 function get_between_data($string, $start = '', $end = '', $occurrence = 1)
 // $start can be blank/null, then occurrence is ignored, selection is from the first position in $string
 // $end can be blank/null, then selection to end of string
-// when $start and $end are specified but no match if found a zero length string is returned
+// when $start and $end are specified any are not matched a zero length string is returned
 // when $start and $end are unspecified $string is returned
 // when $occurrence is set (default = 1) it is used to match n'th occurrence of $start, only then is searched for an occurrence of $end
+// when $string is null or empty an empty string is returned
 {
+    if (!isset($string) || is_null($string) || !strlen($string)) {
+        return '';
+    }
     if ($start == '') {
         $substr_data = $string;
     } else {
@@ -11982,11 +12002,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
+        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
         // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
         //
-        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album'."'";
+        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -12000,32 +12020,32 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                         return ' ';
                     },
                     '/\<[\s]*meta property[\s]*="/u' => function ($match) {
-                        // then strip the html out of the response
-                        return '';
-                    },
-                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // then strip leading html out of the response
                         return '';
                     },
                     '/\<[\s]*meta name[\s]*="/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip leading html out of the response
                         return '';
                     },
                     '/"[\s]*content[\s]*=[\s]*/u' => function ($match) {
-                        // continued, strip the html out of the response
-                        return '';
+                        // continued, strip middle bit of the html response, replace with '='
+                        return '=';
                     },
                     '!"[\s]*/[\s]*\>!u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip trailing html out of the response
                         return '';
                     },
                     '/"[\s]*\>/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip trailing html out of the response
                         return '';
                     },
                     '/[\s]*"[\s]*/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip double quote and any leading or trailing spaces out of the response
                         return '';
+                    },
+                    '/[\s]+/u' => function ($match) {
+                        // continued, replace multiple spaces in the the response with a single space
+                        return ' ';
                     },
                 ],
                 $line
@@ -12047,27 +12067,43 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                 $retval['albumart_url'] = trim($lineparts[1]);
                 runelog('[wrk_getSpotifyMetadata] track albumart_url:', $retval['albumart_url']);
             } elseif ($lineparts[0] === 'og:description') {
-                $description = trim($lineparts[1]);
-                $retval['artist'] = trim(get_between_data($description, '', ' · '));
-                if (strpos(' '.$retval['artist'], '، ')) {
-                    $retval['albumartist'] = trim(get_between_data($retval['artist'], '', '، '));
-                    $retval['artist'] = str_replace('،', ',', $retval['artist']);
-                } else if (strpos(' '.$retval['artist'], ', ')) {
+                // debug
+                // echo "Description delimiter count: ".substr_count($lineparts[1], ' '.hex2bin('c2b7').' ')."\n";
+                $description = explode(' '.hex2bin('c2b7').' ', trim($lineparts[1]));
+                if (count($description) == 3) {
+                    $retval['type'] = trim($description[0]);
+                    $retval['artist'] = trim($description[1]);
+                    $retval['year'] = trim($description[2]);
                     $retval['albumartist'] = trim(get_between_data($retval['artist'], '', ', '));
-                } else {
-                    $retval['albumartist'] = $retval['artist'];
+                    runelog('[wrk_getSpotifyMetadata] description:', $lineparts[1]);
+                    runelog('[wrk_getSpotifyMetadata] albumartist:', $retval['albumartist']);
+                    runelog('[wrk_getSpotifyMetadata] artist:', $retval['artist']);
+                    runelog('[wrk_getSpotifyMetadata] year:', $retval['year']);
+                    runelog('[wrk_getSpotifyMetadata] type:', $retval['type']);
                 }
-                $retval['year'] = substr($description, -4);
-                runelog('[wrk_getSpotifyMetadata] description:', $description);
-                runelog('[wrk_getSpotifyMetadata] albumartist:', $retval['albumartist']);
-                runelog('[wrk_getSpotifyMetadata] artist:', $retval['artist']);
-                runelog('[wrk_getSpotifyMetadata] year:', $retval['year']);
             } elseif ($lineparts[0] === 'music:duration') {
                 $retval['duration_in_sec'] = trim($lineparts[1]);
                 runelog('[wrk_getSpotifyMetadata] track duration_in_sec:', $retval['duration_in_sec']);
+            } elseif ($lineparts[0] === 'music:album:track') {
+                $retval['album_tracknumber'] = trim($lineparts[1]);
+                runelog('[wrk_getSpotifyMetadata] track album_tracknumber:', $retval['album_tracknumber']);
             } elseif ($lineparts[0] === 'music:album') {
                 $retval['album_url'] = trim($lineparts[1]);
                 runelog('[wrk_getSpotifyMetadata] track album_url:', $retval['album_url']);
+            } elseif ($lineparts[0] === 'music:release_date') {
+                $lineparts[1] = trim($lineparts[1]);
+                if (strlen($lineparts[1]) == 10) {
+                    $retval['year'] = substr($lineparts[1], 0, 4);
+                    runelog('[wrk_getSpotifyMetadata] year:', $retval['year']);
+                }
+            } elseif ($lineparts[0] === 'music:musician_description') {
+                $lineparts[1] = trim($lineparts[1]);
+                if (strlen($lineparts[1])) {
+                    $retval['artist'] = $lineparts[1];
+                    $retval['albumartist'] = trim(get_between_data($retval['artist'], '', ', '));
+                    runelog('[wrk_getSpotifyMetadata] artist:', $retval['artist']);
+                    runelog('[wrk_getSpotifyMetadata] albumartist:', $retval['albumartist']);
+                }
             }
             unset($lineparts);
         }
@@ -12107,32 +12143,32 @@ function wrk_getSpotifyMetadata($redis, $track_id)
                         return ' ';
                     },
                     '/\<[\s]*meta property[\s]*="/u' => function ($match) {
-                        // then strip the html out of the response
-                        return '';
-                    },
-                    '/\<[\s]*meta property[\s]*="/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // then strip leading html out of the response
                         return '';
                     },
                     '/\<[\s]*meta name[\s]*="/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip leading html out of the response
                         return '';
                     },
                     '/"[\s]*content[\s]*=[\s]*/u' => function ($match) {
-                        // continued, strip the html out of the response
-                        return '';
+                        // continued, strip the middle html out of the response, replace with a '='
+                        return '=';
                     },
                     '!"[\s]*/[\s]*\>!u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip trailing html out of the response
                         return '';
                     },
                     '/"[\s]*\>/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip trailing html out of the response
                         return '';
                     },
                     '/[\s]*"[\s]*/u' => function ($match) {
-                        // continued, strip the html out of the response
+                        // continued, strip double quote and any leading or trailing spaces out of the response
                         return '';
+                    },
+                    '/[\s]+/u' => function ($match) {
+                        // continued, replace multiple spaces in the the response with a single space
+                        return ' ';
                     },
                 ],
                 $line

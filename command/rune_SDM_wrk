@@ -75,21 +75,6 @@ if ($redis->get('remoteSSbigart') === 'album') {
 } else {
     $bigartIsAlbum = false;
 }
-$mixer = $redis->hGet('spotifyconnect', 'mixer');
-if ($mixer == 'PCM' && strlen($card)) {
-    // the card has a PCM 'softvol' (software volume) control or there is no card number available (maybe Bluetooth)
-    $alsaVolume = false;
-} else {
-    // the card has a simple control and a card number
-    $alsaVolume = true;
-    // get the card number
-    $card = preg_replace('/[^0-9]/', '',$redis->hGet('spotifyconnect', 'device'));
-}
-if ($redis->hGet('spotifyconnect', 'save_last_volume')) {
-    $save_last_volume = true;
-} else {
-    $save_last_volume = false;
-}
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
 $status['local_volume_control'] = 0;
@@ -98,7 +83,50 @@ $cnt = 20;
 //
 // make sure we have the last track ID
 $last_track_id = $redis->hGet('spotifyconnect', 'last_track_id');
+// set up last device
+$lastDevice = '';
 do {
+    $device = $redis->hGet('spotifyconnect', 'device');
+    if ($lastDevice != $device) {
+        // debug
+        // echo "Device: ".$device."\n";
+        $mixer = $redis->hGet('spotifyconnect', 'mixer');
+        // debug
+        // echo "Mixer: ".$mixer."\n";
+        if ($mixer == 'PCM' && strlen($device)) {
+            // the card has a PCM 'softvol' (software volume) control or there is no card number available (maybe Bluetooth)
+            $alsaVolume = false;
+        } else {
+            // the card has a simple control and a card number
+            $alsaVolume = true;
+            // get the card name
+            $card = get_between_data($device, 'CARD=');
+            if (strpos(' '.$card, ',')) {
+                $card = get_between_data($card, '', ',');
+            }
+            if (!strlen($card)) {
+                // get the card number
+                $card = preg_replace('/[^0-9]/', '',$device);
+                if (!strlen($card)) {
+                    // no card name or number found
+                    $alsaVolume = false;
+                }
+            }
+        }
+        // debug
+        // if ($alsaVolume) {
+            // echo "Card: ".$card."\n";
+            // echo "Alsa Volume: True\n";
+        // } else {
+            // echo "Alsa Volume: False\n";
+        // }
+        if ($redis->hGet('spotifyconnect', 'save_last_volume')) {
+            $save_last_volume = true;
+        } else {
+            $save_last_volume = false;
+        }
+        $lastDevice = $device;
+    }
     if (isset($job['event'])) {
         $lastEvent = $job['event'];
     } else {
@@ -200,7 +228,9 @@ do {
             // set the volume to the last one used when playing spotify connect
             $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
             if (!isset($lastvolume) && !strlen($lastvolume)) {
+                // lastvolume not set, use the initial volume and save it
                 $lastvolume = $redis->hGet('spotifyconnect', 'initial_volume');
+                $redis->hSet('spotifyconnect', 'lastvolume', $lastvolume);
             }
         } else {
             $lastvolume = $redis->hGet('spotifyconnect', 'initial_volume');
@@ -222,6 +252,7 @@ do {
             $lastvolume = min(100, intval($retval));
             $lastvolume = max(0, $lastvolume);
             $status['volume'] = $lastvolume;
+            $updateUI = true;
             $redis->hSet('spotifyconnect', 'lastvolume', $lastvolume);
             sysCmd("sed -i 's/^initial_volume = .*/initial_volume = ".'"'.$lastvolume.'"'."/' /etc/spotified.conf");
         }
@@ -298,7 +329,7 @@ do {
             if (!isset($spotifyInfo['track_id'])) {
                 // its not in the cache, get the spotify info
                 $spotifyInfo[$job['track_id']] = wrk_getSpotifyMetadata($redis, $job['track_id']);
-                // when nothing is returned try to create some metadata from the jounal file
+                // when nothing is returned try to create some metadata from the journal file
                 if ($spotifyInfo[$job['track_id']]['title'] == '-') {
                     // no metadata returned
                     $spotifyInfo[$job['track_id']] = wrk_getSpotifydJournalMetadata($redis, $job['track_id']);
@@ -451,14 +482,6 @@ do {
             // has a integer value between 0 and 100 inclusive
             $lastvolume = min(100, intval($retval));
             $lastvolume = max(0, $lastvolume);
-            // there is something peculiar (or a bug) in the way spotifyd sets and reports the volume
-            //  this routine will correct it for alsa volume controls when max volume is set
-            // if (($lastvolume > 95) && ($lastvolume != 100) && $alsaVolume) {
-                // if (sysCmd('amixer -c '.$card.' get '.$mixer.' | grep -ic "[100%]"')[0]) {
-                    // $lastvolume = 100;
-                    // sysCmd('mpc volume '.$lastvolume);
-                // }
-            // }
             if ($status['volume'] != $lastvolume) {
                 $status['volume'] = $lastvolume;
                 // save the last set volume
@@ -473,8 +496,6 @@ do {
             if ($status['volume'] != $lastvolume) {
                 $status['volume'] = $lastvolume;
                 $updateUI = true;
-            } else {
-                $updateUI = false;
             }
         }
         // calculate the elapsed time if the UI needs updating and music is playing

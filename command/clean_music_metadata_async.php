@@ -64,7 +64,6 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     // unlock
     $redis->set('lock_clean_music_metadata', '0');
 } else {
-
     runelog("LOCKED!", '');
     echo date(DATE_RFC2822)." LOCKED!";
     // just in case something goes wrong increment the lock value by 1

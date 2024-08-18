@@ -254,8 +254,10 @@ if (isset($_POST)) {
         }
         if (isset($_POST['features']['spotifyconnect']['enable']) && $_POST['features']['spotifyconnect']['enable']) {
             // create worker job (start Spotify Connect)
-            if (!isset($_POST['features']['spotifyconnect']['username']) || (trim($_POST['features']['spotifyconnect']['username']) == "")) $_POST['features']['spotifyconnect']['username'] = "user";
-            if (!isset($_POST['features']['spotifyconnect']['password']) || (trim($_POST['features']['spotifyconnect']['password']) == "")) $_POST['features']['spotifyconnect']['password'] = "pass";
+            // if (!isset($_POST['features']['spotifyconnect']['username']) || (trim($_POST['features']['spotifyconnect']['username']) == "")) $_POST['features']['spotifyconnect']['username'] = "user";
+            // if (!isset($_POST['features']['spotifyconnect']['password']) || (trim($_POST['features']['spotifyconnect']['password']) == "")) $_POST['features']['spotifyconnect']['password'] = "pass";
+            if (!isset($_POST['features']['spotifyconnect']['username'])) $_POST['features']['spotifyconnect']['username'] = "";
+            if (!isset($_POST['features']['spotifyconnect']['password'])) $_POST['features']['spotifyconnect']['password'] = "";
             if (!isset($_POST['features']['spotifyconnect']['device_name']) || (trim($_POST['features']['spotifyconnect']['device_name']) == "")) $_POST['features']['spotifyconnect']['device_name'] = "RuneAudio";
             if (!isset($_POST['features']['spotifyconnect']['volume_normalisation']) || (trim($_POST['features']['spotifyconnect']['volume_normalisation']) == "")) $_POST['features']['spotifyconnect']['volume_normalisation'] = "false";
             if (!isset($_POST['features']['spotifyconnect']['autoplay']) || (trim($_POST['features']['spotifyconnect']['autoplay']) == "")) $_POST['features']['spotifyconnect']['autoplay'] = "false";
