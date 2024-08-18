@@ -5193,67 +5193,67 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     foreach ($sccfg as $param => $value) {
         $value = trim($value);
         switch ($param) {
-        case "backend":
-        case "device":
-        case "device_name":
-        case "device_type":
-        case "mixer":
-        case "onevent":
-        case "password":
-        case "username":
-            if ($value) {
-                $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
-            }
-            break;
-        case "autoplay":
-        case "bitrate":
-        case "use_mpris":
-            if ($value) {
-                $spotifyd_conf .= $param." = ".$value."\n";
-            }
-            break;
-        case "initial_volume":
-            // if (isset($sccfg['save_last_volume']) && $sccfg['save_last_volume']) {
-                // $spotifyd_conf .= "initial_volume = ".'"'.$sccfg['lastvolume'].'"'."\n";
-            // } else {
-                // $spotifyd_conf .= "initial_volume = ".'"'.$value.'"'."\n";
-            // }
-            // use the last MPD volume, it gets set when spotifyd starts, not when the stream starts
-            $spotifyd_conf .= "# initial_volume gets used when spotifyd starts, not when the stream starts\n";
-            $spotifyd_conf .= "initial_volume = ".'"'.$redis->get('lastmpdvolume').'"'."\n";
-            break;
-        case "volume_control":
-            $spotifyd_conf .= "volume-control = ".'"'.$value.'"'."\n";
-            break;
-        case "volume_normalisation":
-            if ($value == 'true') {
-                $spotifyd_conf .= "volume-normalisation = ".$value."\n";
-            } else {
-                $spotifyd_conf .= "volume-normalisation = false\n";
-            }
-            break;
-        case "normalisation_pregain":
-            if (isset($sccfg['volume_normalisation']) && $sccfg['volume_normalisation'] == 'true') {
-                $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
-            } else {
-                $spotifyd_conf .= "normalisation-pregain = 0\n";
-            }
-            break;
-        case "cache_path":
-            if ($value != '') {
-                $spotifyd_conf .= "# Disable the cache, it uses too much memory\n";
-                $spotifyd_conf .= "# ".$param." = ".'"'.$value.'"'."\n";
-                if (isset($sccfg['max_cache_size']) && $sccfg['max_cache_size']) {
-                    $spotifyd_conf .= "# Maximum cache size, defined in bytes\n";
-                    $spotifyd_conf .= "# max_cache_size = ".'"'.$sccfg['max_cache_size'].'"'."\n";
-                } else {
-                    $spotifyd_conf .= "# Maximum cache size 50Kb, defined in bytes\n";
-                    $spotifyd_conf .= "# max_cache_size = 50000\n";
+            case "backend":
+            case "device":
+            case "device_name":
+            case "device_type":
+            case "mixer":
+            case "onevent":
+            case "password":
+            case "username":
+                if ($value) {
+                    $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
                 }
-            }
-            break;
-        default:
-            break;
+                break;
+            case "autoplay":
+            case "bitrate":
+            case "use_mpris":
+                if ($value) {
+                    $spotifyd_conf .= $param." = ".$value."\n";
+                }
+                break;
+            case "initial_volume":
+                // if (isset($sccfg['save_last_volume']) && $sccfg['save_last_volume']) {
+                    // $spotifyd_conf .= "initial_volume = ".'"'.$sccfg['lastvolume'].'"'."\n";
+                // } else {
+                    // $spotifyd_conf .= "initial_volume = ".'"'.$value.'"'."\n";
+                // }
+                // use the last MPD volume, it gets set when spotifyd starts, not when the stream starts
+                $spotifyd_conf .= "# initial_volume gets used when spotifyd starts, not when the stream starts\n";
+                $spotifyd_conf .= "initial_volume = ".'"'.$redis->get('lastmpdvolume').'"'."\n";
+                break;
+            case "volume_control":
+                $spotifyd_conf .= "volume-control = ".'"'.$value.'"'."\n";
+                break;
+            case "volume_normalisation":
+                if ($value == 'true') {
+                    $spotifyd_conf .= "volume-normalisation = ".$value."\n";
+                } else {
+                    $spotifyd_conf .= "volume-normalisation = false\n";
+                }
+                break;
+            case "normalisation_pregain":
+                if (isset($sccfg['volume_normalisation']) && $sccfg['volume_normalisation'] == 'true') {
+                    $spotifyd_conf .= "normalisation-pregain = ".$value."\n";
+                } else {
+                    $spotifyd_conf .= "normalisation-pregain = 0\n";
+                }
+                break;
+            case "cache_path":
+                if ($value != '') {
+                    $spotifyd_conf .= "# Disable the cache, it uses too much memory\n";
+                    $spotifyd_conf .= "# ".$param." = ".'"'.$value.'"'."\n";
+                    if (isset($sccfg['max_cache_size']) && $sccfg['max_cache_size']) {
+                        $spotifyd_conf .= "# Maximum cache size, defined in bytes\n";
+                        $spotifyd_conf .= "# max_cache_size = ".'"'.$sccfg['max_cache_size'].'"'."\n";
+                    } else {
+                        $spotifyd_conf .= "# Maximum cache size 50Kb, defined in bytes\n";
+                        $spotifyd_conf .= "# max_cache_size = 50000\n";
+                    }
+                }
+                break;
+            default:
+                break;
         }
     }
     // write spotifyd.conf file to /tmp location
@@ -9818,7 +9818,7 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         $redis->hSet('cleancache', '60lowerdate_jpg', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
-        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the following command removes all *.mpd files from the lower directory which are older than 30 days
         // the strategy is that we have used them for 1 month, but their source information may now have changed
         // there is one file for each played song, so lots of files
         sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
@@ -11962,7 +11962,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     $retval['duration_in_sec'] = '';
     $retval['year'] = '';
     $retval['date'] = date("Ymd");
-    // it there is a cache file, use it
+    // if there is a cache file, use it
     $cacheFile = $artDir.'/'.trim($track_id).'.spotify';
     clearstatcache(true, $cacheFile);
     if (file_exists($cacheFile)) {
