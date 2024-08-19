@@ -266,11 +266,11 @@ function redisDatastore($redis, $action) {
             $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
-            $redis->hSet('spotifyconnect', 'password', 'pass');
+            $redis->hSet('spotifyconnect', 'password', '');
             $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hSet('spotifyconnect', 'username', 'user');
+            $redis->hSet('spotifyconnect', 'username', '');
             $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
@@ -632,11 +632,11 @@ function redisDatastore($redis, $action) {
             $redis->hExists('spotifyconnect', 'mixer') || $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hExists('spotifyconnect', 'normalisation_pregain') || $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hExists('spotifyconnect', 'onevent') || $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
-            $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', 'pass');
+            $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', '');
             $redis->hExists('spotifyconnect', 'save_last_volume') || $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hExists('spotifyconnect', 'timeout') || $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hExists('spotifyconnect', 'track_id') || $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', 'user');
+            $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', '');
             $redis->hExists('spotifyconnect', 'use_mpris') || $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hExists('spotifyconnect', 'volume_control') || $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hExists('spotifyconnect', 'volume_normalisation') || $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
