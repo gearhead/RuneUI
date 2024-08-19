@@ -82,10 +82,25 @@ function updateOS($redis) {
             $redis->set('patchlevel', 5);
             ui_notify($redis, 'Post update processing', 'Patchlevel 5');
         }
-        // if ($redis->get('patchlevel') == 5) {
-            // // 6th update
-            // $redis->set('patchlevel', 6);
-            // ui_notify($redis, 'Post update processing', 'Patchlevel 6');
+        if ($redis->get('patchlevel') == 5) {
+            // 6th update
+            ui_notify($redis, 'Post update processing', 'Patchlevel 6');
+            // delete the Spotify Connect username and password
+            $spotifyConnect = $redis->hSet('spotifyconnect', 'username', '');
+            $spotifyConnect = $redis->hSet('spotifyconnect', 'password', '');
+            // process the changes
+            wrk_spotifyd($redis);
+            $redis->set('patchlevel', 6);
+            // if Spotify Connect is enabled, reboot
+            if ($redis->hGet('spotifyconnect', 'enable')) {
+                ui_notify($redis, 'Post update processing', 'Reboot required, rebooting');
+                sysCmd('/srv/http/command/rune_shutdown reboot ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
+            }
+        }
+        // if ($redis->get('patchlevel') == 6) {
+            // // 7th update
+            // $redis->set('patchlevel', 7);
+            // ui_notify($redis, 'Post update processing', 'Patchlevel 7');
         // }
     }
 }

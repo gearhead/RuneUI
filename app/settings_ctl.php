@@ -31,6 +31,22 @@
  *  coder: Simone De Gregori
  *
  */
+// check the user agent for Firefox browser, then attempt to set IPv6 off
+if (isset($_SERVER['HTTP_USER_AGENT'])) {
+    if (strpos($_SERVER['HTTP_USER_AGENT'], 'Opera') || strpos($user_agent, 'OPR/')) $browser = 'Opera';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Edge')) $browser = 'Edge';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Chrome')) $browser = 'Chrome';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Safari')) $browser = 'Safari';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Firefox')) $browser = 'Firefox';
+    else if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSIE') || strpos($user_agent, 'Trident/7')) $browser = 'Internet Explorer';
+    else $browser = 'Other';
+    //
+    $redis->hSet('browser', $browser, 1);
+    if ($browser == 'Firefox') {
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'firefox', 'action' => 'IPv6Off'));
+    }
+}
+//
 // inspect POST
 if (isset($_POST)) {
     // ----- TIME SETTINGS -----
@@ -108,16 +124,19 @@ if (isset($_POST)) {
             // create worker job (stop shairport-sync)
             $redis->hGet('airplay','enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplay', 'action' => 'stop', 'args' => $_POST['features']['airplay']['name']));
         }
-        if (isset($_POST['features']['dlna']['enable']) && $_POST['features']['dlna']['enable']) {
-            if (!isset($_POST['features']['dlna']['queueowner'])) $_POST['features']['dlna']['queueowner'] = 0;
-            if (isset($_POST['features']['dlna']['name']) && (($redis->hGet('dlna','enable') !== $_POST['features']['dlna']['enable']) || ($redis->hGet('dlna','name') !== $_POST['features']['dlna']['name']) || ($redis->hGet('dlna','queueowner') !== $_POST['features']['dlna']['queueowner']))) {
-                if (trim($_POST['features']['dlna']['name']) == "") $_POST['features']['dlna']['enable'] = "RuneAudio";
+        if (isset($_POST['features']['dlna'])) {
+            if ((!isset($_POST['features']['dlna']['enable']) || !$_POST['features']['dlna']['enable'])) $_POST['features']['dlna']['enable'] = '0';
+            if ((!isset($_POST['features']['dlna']['queueowner']) || !$_POST['features']['dlna']['queueowner'])) $_POST['features']['dlna']['queueowner'] = '0';
+            if (isset($_POST['features']['dlna']['enable']) && $_POST['features']['dlna']['enable'] && !$redis->hGet('dlna','enable')) {
                 // create worker job (start upmpdcli)
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'start', 'args' => $_POST['features']['dlna']));
+            } else if (isset($_POST['features']['dlna']['enable']) && !$_POST['features']['dlna']['enable'] && $redis->hGet('dlna','enable')) {
+                // create worker job (stop upmpdcli)
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
+            } else if (isset($_POST['features']['dlna']['name']) || isset($_POST['features']['dlna']['queueowner']) || isset($_POST['features']['dlna']['services'])) {
+                // create worker job (update upmpdcli)
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'args' => $_POST['features']['dlna']));
             }
-        } else {
-            // create worker job (stop upmpdcli)
-            $redis->hGet('dlna','enable') === '0' || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'dlna', 'action' => 'stop', 'args' => $_POST['features']['dlna']));
         }
         if (isset($_POST['features']['local_browser']['enable']) && $_POST['features']['local_browser']['enable']) {
             $redis->hGet('local_browser', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'start', 'args' => 1));
@@ -235,8 +254,10 @@ if (isset($_POST)) {
         }
         if (isset($_POST['features']['spotifyconnect']['enable']) && $_POST['features']['spotifyconnect']['enable']) {
             // create worker job (start Spotify Connect)
-            if (!isset($_POST['features']['spotifyconnect']['username']) || (trim($_POST['features']['spotifyconnect']['username']) == "")) $_POST['features']['spotifyconnect']['username'] = "user";
-            if (!isset($_POST['features']['spotifyconnect']['password']) || (trim($_POST['features']['spotifyconnect']['password']) == "")) $_POST['features']['spotifyconnect']['password'] = "pass";
+            // if (!isset($_POST['features']['spotifyconnect']['username']) || (trim($_POST['features']['spotifyconnect']['username']) == "")) $_POST['features']['spotifyconnect']['username'] = "user";
+            // if (!isset($_POST['features']['spotifyconnect']['password']) || (trim($_POST['features']['spotifyconnect']['password']) == "")) $_POST['features']['spotifyconnect']['password'] = "pass";
+            if (!isset($_POST['features']['spotifyconnect']['username'])) $_POST['features']['spotifyconnect']['username'] = "";
+            if (!isset($_POST['features']['spotifyconnect']['password'])) $_POST['features']['spotifyconnect']['password'] = "";
             if (!isset($_POST['features']['spotifyconnect']['device_name']) || (trim($_POST['features']['spotifyconnect']['device_name']) == "")) $_POST['features']['spotifyconnect']['device_name'] = "RuneAudio";
             if (!isset($_POST['features']['spotifyconnect']['volume_normalisation']) || (trim($_POST['features']['spotifyconnect']['volume_normalisation']) == "")) $_POST['features']['spotifyconnect']['volume_normalisation'] = "false";
             if (!isset($_POST['features']['spotifyconnect']['autoplay']) || (trim($_POST['features']['spotifyconnect']['autoplay']) == "")) $_POST['features']['spotifyconnect']['autoplay'] = "false";

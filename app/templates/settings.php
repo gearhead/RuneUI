@@ -3,7 +3,7 @@
     <form class="form-horizontal" method="post" role="form">
         <fieldset>
             <legend>Sound output & sound processing</legend>
-            <?php if($this->hwplatformid === '01' OR $this->hwplatformid === '08'): ?>
+            <?php if(($this->hwplatformid === '01') || ($this->hwplatformid === '08')): ?>
             <!--
             <div class="form-group">
                 <label class="control-label col-sm-2" for="kernel">Linux Kernel</label>
@@ -274,6 +274,16 @@
                             <span class="help-block">When OFF: sending an UPnP/DLNA streamed song will add next and play in the MPD queue,<br>
                             When ON: sending an UPnP/DLNA streamed song will clear the MPD queue then add and play the song</span>
                         </div>
+                        <label class="control-label col-sm-2" for="dlna-services">Connection Services</label>
+                        <div class="col-sm-10">
+                            <select id="dlna-services" class="selectpicker" name="features[dlna][services]" data-style="btn-default btn-lg">
+                                <option value="UPnP AV" <?php if($this->dlna['services'] === 'UPnP AV'): ?> selected <?php endif ?>> UPnP AV Services</option>
+                                <option value="OpenHome" <?php if($this->dlna['services'] === 'OpenHome'): ?> selected <?php endif ?>> OpenHome Services</option>
+                                <option value="Both"  <?php if($this->dlna['services'] === 'Both'): ?>  selected <?php endif ?>> Both UPnP AV and OpenHome Services</option>
+                            </select>
+                            <span class="help-block">Choose the UPnP/DLNA connection services to support, <strong>OpenHome</strong> is the default value. The UPnP AV Services setting is required to support Microsoft Windows Media Player.
+                                BubbleUPnP supports both service types, which can confusing when both are enabled since it will display the UPnP/DLNA name twice. The vendor recommends that OpenHome should be enabled</span>
+                        </div>
                     </div>
                     <div class="form-group form-actions">
                         <div class="col-sm-offset-2 col-sm-10">
@@ -321,7 +331,12 @@
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="password" id="spotifyconnect_password" name="features[spotifyconnect][password]" value="<?php echo $this->spotifyconnect['password']; ?>" data-trigger="change" placeholder="password" autocomplete="off">
                             <span class="help-block">Insert your Spotify <i>password</i> (case sensitive)<br>
-                            <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
+                            <i>Notes: Your password is stored as plain text, RuneAudio should only be used in your private network!<br>
+                            <strong>Important!</strong> Spotify have changed something in their authorisation mechanism which causes problems when
+                            a username and password are specified. The current workaround/solution is to empty both the Spotify username and password
+                            fields. The Spotify Connect service will then publish its connection as normal, but will automatically authorise its
+                            connection using encrypted information from the Spotify client on your smart-phone or computer. This method also allows
+                            different Spotify accounts to connect to RuneAudio.</i></span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -703,8 +718,8 @@
                             Browse... <input type="file" name="filebackup" value="">
                         </span>
                         <span id="backup-file"></span>
-                        <span class="help-block">Restore a previously exported backup.<br>
-                        <strong>The system will reboot</strong> after restoring the backup.<br>
+                        <span class="help-block">Restore a previously exported backup. This process takes quite a while, please be patient.<br>
+                        <strong>The system will reboot</strong> after restoring the backup. Wait until the reboot completes!!<br>
                         <i><strong>Tip:</strong> Make a new backup after checking and correcting each restore and after updating/upgrading to a new version.
                         Otherwise information concerning new features may be missing in the backup. <strong>Warning:</strong> Manually edited files will not be backed up or restored</i></span>
                     </p>
