@@ -138,7 +138,7 @@ function enable_overlay_art_cache {
                         artDirUpper="$artDirRoot/upper"
                         mkdir -p "$artDirWork"
                         mkdir -p "$artDirUpper"
-                        mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                        mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir" /merged
                         redis-cli set overlay_art_cache 1
                     fi
                 else
