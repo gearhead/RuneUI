@@ -3666,7 +3666,7 @@ function wrk_audioOutput($redis, $action)
                             // check that the sysname is the one we want and that the hardware platform matches
                             //  $details['hwplatformid'] can contain multiple hardware platform descriptors, vertical line delimited, eg '01|08'
                             //  hardware platform descriptors ($hwplatformid) is a two character numeric string, eg 01, 02, 03, etc
-                            if (($details['sysname'] != $card['sysname']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
+                            if (($details['sysname'] == $card['sysname']) && strpos('|'.$details['hwplatformid'], $hwplatformid)) {
                                 // found, break the loop
                                 break;
                             } else {
