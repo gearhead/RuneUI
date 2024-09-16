@@ -67,6 +67,10 @@ hifiberry-amp3|HiFiBerry Amp3
 hifiberry-amp4pro|HiFiBerry Amp4
 hifiberry-amp4pro,slave|HiFiBerry Amp4 in slave mode
 hifiberry-amp4pro,slave,auto_mute|HiFiBerry Amp4 in slave mode with auto-mute
+hifiberry-amp4pro|HiFiBerry Amp4 Pro
+hifiberry-amp4pro,slave|HiFiBerry Amp4 Pro in slave mode
+hifiberry-amp4pro,slave,auto_mute|HiFiBerry Amp4 Pro in slave mode with auto-mute
+hifiberry-amp4pro,auto_mute|HiFiBerry Amp4 Pro with automute
 hifiberry-amp4pro,auto_mute|HiFiBerry Amp4 with automute
 hifiberry-dac|HiFiBerry Beocreate
 hifiberry-dac|HiFiBerry DAC
@@ -84,6 +88,7 @@ hifiberry-dacplus|HiFiBerry DAC+ Pro XLR
 hifiberry-dacplus|HiFiBerry DAC+ RTC
 hifiberry-dacplus|HiFiBerry DAC+ Standard
 hifiberry-dac|HiFiBerry DAC+ Zero
+hifiberry-dacplusadcpro|HifiBerry DAC2 ADC Pro
 hifiberry-dacplushd|HiFiBerry DAC2 HD
 hifiberry-dacplus|HiFiBerry DAC2 Pro
 hifiberry-dac8x|HiFiBerry DAC8X
