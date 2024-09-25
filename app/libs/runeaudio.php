@@ -14776,7 +14776,133 @@ function set_vc4_hdmi_allowed_formats($redis)
         $redis->hset('audiofix', $ao, wrk_unit_info($redis, 'get_start_time', 'mpd'));
     }
 }
+
+// function to correct 'Realtek USB2.0 Audio' allowed formats
+function set_realtek_allowed_formats($redis)
+// by default 'Realtek USB2.0 Audio' allowed formats are set to '384000:*:2 192000:*:2 96000:*:2 48000:*:2 44100:*:2' on
+//  a multiprocessor Pi and '192000:*:2 96000:*:2 48000:*:2 44100:*:2' on a single processor Pi
+// when the capability to process another set of formats is detected this routine will correct the settings
+//  this routine seems to be valid for all usb audio devices, but some devices use a different format, e.g. 'Rates: 8000 - 48000 (continuous)'
+//  devices with the comma delimited format will be processed, e.g. 'Rates: 44100, 48000, 96000, 192000, 384000'
+{
+    // check that the current audio output is a 'Realtek USB2.0 Audio'
+    //  can probably be removed to make this routine generic
+    $ao =$redis->get('ao');
+    if ($ao != 'Realtek USB2.0 Audio') {
+        // output is not a 'Realtek USB2.0 Audio', do nothing
+        //  the routine should work for all usb audio devices
+        return;
+    }
+    // check that it is a usb card
+    $acard = json_decode($redis->hGet('acards', $ao), true);
+    if (!isset($acard['description']) || (substr($acard['description'], 0, 4) != 'USB:')) {
+        // its not a usb audio card
+        return;
+    }
+    unset($acard);
+    // check that it has not already run for this card
+    if ($redis->hget('audiofix', $ao) == wrk_unit_info($redis, 'get_start_time', 'mpd')) {
+        // routine has already run since mpd (re)started, do nothing
+        return;
+    }
+    // usb audio valid rates information is retrieved with the following line
+    $capabilities = sysCmd('grep -iE "rates:|channels:|bits:|playback:|capture:" $( grep -Ril "'.$ao.'" /proc/asound/card*/stream* )');
+    // use the following line from the cli for testing:
+    //  grep -iE "rates:|channels:|bits:|playback:|capture:" $( grep -Ril "$( redis-cli get ao )" /proc/asound/card*/stream* )
+    // the output can contain playback and capture sections, we only use the playback section
+    $playbackSection = false;
+    $newRates = array();
+    foreach ($capabilities as $capability) {
+        // this loop will process groups of the values of 'rates:', 'channels:' and 'bits:' lines in the playback section
+        $capability = ' '.trim(str_replace(' ', '', strtolower($capability)));
+        if ($capability == ' playback:') {
+            // playback section start
+            $playbackSection = true;
+            unset($channels, $rates, $bits);
+            continue;
+        } else if ($capability == ' capture:') {
+            // capture section start
+            $playbackSection = false;
+            unset($channels, $rates, $bits);
+            continue;
+        } else if (!$playbackSection) {
+            // ignore lines not in a playback section
+            unset($channels, $rates, $bits);
+            continue;
+        } else if (strpos($capability, 'rates:') == 1) {
+            // detected a 'rates:' line
+            if (isset($rates)) {
+                // if we already had saved a 'rates:' line unset saved 'rates:', 'channels:' and 'bits:'
+                unset($channels, $rates, $bits);
+            }
+            $val = explode(':', $capability);
+            if (isset($val[1]) && $val[1]) {
+                $rates = $val[1];
+            }
+        } else if (strpos($capability, 'channels:') == 1) {
+            // detected a 'channels:' line
+            if (isset($channels)) {
+                // if we already had saved a 'channels:' line unset saved 'rates:', 'channels:' and 'bits:'
+                unset($channels, $rates, $bits);
+            }
+            $val = explode(':', $capability);
+            if (isset($val[1]) && $val[1]) {
+                $channels = $val[1];
+            }
+        } else if (strpos($capability, 'bits:') == 1) {
+            // detected a 'bits:' line
+            if (isset($bits)) {
+                // if we already had saved a 'bits:' line unset saved 'rates:', 'channels:' and 'bits:'
+                unset($channels, $rates, $bits);
+            }
+            $val = explode(':', $capability);
+            if (isset($val[1]) && $val[1]) {
+                $bits = $val[1];
+            }
         }
+        if (isset($channels) && isset($rates) && isset($bits)) {
+            // 'rates:', 'channels:' and 'bits:' are all set, process them
+            if ($channels != 1) {
+                // ignore rates for single channel output
+                $newRates[$bits] = $rates;
+            }
+            unset($channels, $rates, $bits);
+            continue;
+        }
+    }
+    unset($val, $channels, $rates, $bits);
+    if (!count($newRates)) {
+        // if we have not detected any new rates there is nothing to do, return
+        return;
+    } else {
+        $cores = $redis->get('cores');
+        $allowedFormats = '';
+        // double loop to generate valid rates per bits
+        foreach ($newRates as $bits => $chosenRates) {
+            $chosenRatesArray = array();
+            if (strpos(' '.$chosenRates, ',')) {
+                // we only process comma delimited rates
+                $chosenRatesArray = explode(',', $chosenRates);
+            }
+            if (!count($chosenRatesArray)) {
+                // no comma delimited rates detected, continue
+                continue;
+            } else {
+                foreach ($chosenRatesArray as $newRate) {
+                    if (($cores < 4) && ($newRate > 200000)) {
+                        // for single processor players limit the sample rate to less then 200000hz (effectively a maximum of 192khz)
+                        //  this prevents excessive resampling overhead
+                        continue;
+                    }
+                    // build the allowed formats string, always set to 2 channels (stereo)
+                    $allowedFormats .= ' '.$newRate.':'.$bits.':2';
+                }
+            }
+        }
+        // commit the allowed formats
+        sysCmd('mpc outputset "'.$ao.'" allowed_formats="'.trim($allowedFormats).'"');
+        // save the mpd start timestamp, this routine only needs to run after mpd restarts
+        $redis->hset('audiofix', $ao, wrk_unit_info($redis, 'get_start_time', 'mpd'));
     }
 }
 
@@ -15047,6 +15173,78 @@ function getHtmlSambaInfo($redis, $format = 'both')
     $retval['header'] = $header;
     $retval['text'] = $text;
     return $retval;
+}
+
+// function to interact with systemd to start, stop, enable disable units and retrieve unit information 
+function wrk_unit_info($redis, $action, $arg='', $async='')
+// action = start, arg = unit name
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = stop, arg = unit name
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = enable, arg = unit name
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = disable, arg = unit name
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = enable_and_start, arg = unit name
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = disable_and_stop, arg = unit name 
+//  returns true if successful, otherwise false
+//  can be run asynchronously, and then always returns true
+// action = get_start_time, arg = unit name
+//  returns the start date/time or an empty string when not running (false)
+//  the return date/time format is 'Fri 2019-10-11 00:35:58 EEST' or similar
+//  this action always runs synchronously
+// action = is_active, arg = unit name
+//  returns true if active, otherwise false
+//  this action always runs synchronously
+// the parameter async can be set (to any value which translates to true) to run some commands asynchronously,
+//  when set and valid for the action the routine always returns true
+{
+    if (!$arg) {
+        return wrk_unit_info($redis, '');
+    }
+    switch ($action) {
+        case 'start':
+            $cmd = 'pgrep "'.$arg.'" > /dev/null 2>&1 || systemctl start "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'stop':
+            $cmd = 'pgrep "'.$arg.'" > /dev/null 2>&1 && systemctl stop "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'enable':
+            $cmd = 'systemctl enable "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'disable':
+            $cmd = 'systemctl disable "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'enable_and_start':
+            $cmd = 'systemctl enable "'.$arg.'" ; pgrep "'.$arg.'" > /dev/null 2>&1 || systemctl start "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'disable_and_stop':
+            $cmd = 'systemctl disable "'.$arg.'" ; pgrep "'.$arg.'" > /dev/null 2>&1 && systemctl stop "'.$arg.'"  && echo 1 | xargs';
+            break;
+        case 'get_start_time':
+            $retval = sysCmd('systemctl status "'.$arg.'" | grep "Active:" | xargs')[0];
+            return trim(get_between_data($retval, 'since ', '; '));
+            break;
+        case 'is_active':
+            return boolval(sysCmd('systemctl is-active "'.$arg.'" | grep -ic "^active" | xargs')[0]);
+            break;
+        default:
+            ui_notifyError('wrk_unit_info', 'Internal error: Invalid function call');
+            return false;
+            break;
+    }
+    if ($async) {
+        sysCmdAsync($redis, $cmd);
+        return true;
+    } else {
+        return boolval(sysCmd($cmd)[0]);
+    }
 }
 
 /*
