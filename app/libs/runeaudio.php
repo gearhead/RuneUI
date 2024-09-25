@@ -14759,21 +14759,23 @@ function set_vc4_hdmi_allowed_formats($redis)
         // current output is not vc4 hdmi, nothing to do
         return;
     }
-    $currentSetting = sysCmd("mpc outputs | sed -n '/".$ao."/, /Output/{ /Output/!p }' | grep -i 'allowed_formats=' | xargs")[0];
-    if (!isset($currentSetting) || !$currentSetting) {
-        // it should have a value, if not, its incorrect
+    // check that it has not already run for this card
+    if ($redis->hget('audiofix', $ao) == wrk_unit_info($redis, 'get_start_time', 'mpd')) {
+        // routine has already run since mpd (re)started, do nothing
         return;
     }
-    if (strtolower($currentSetting) != strtolower('allowed_formats=48000:24:* 44100:24:* 48000:16:* 44100:16:*')) {
-        // the current setting is incorrect, it should be changed
-        $playing = sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0];
-        if (!isset($playing) || !$playing) {
-            // nothing is playing, we cant do anything
-            return;
-        }
-        if (strpos(' '.strtolower($playing), strtolower('format: IEC958_SUBFRAME_LE subformat: STD'))) {
-            // the profile of the output matches the one which needs to be changed
-            sysCmd('mpc outputset '.$ao.' allowed_formats="48000:24:* 44100:24:* 48000:16:* 44100:16:*"');
+    // the current setting is incorrect, it should be changed
+    $playing = sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0];
+    if (!isset($playing) || !$playing) {
+        // nothing is playing, we cant do anything
+        return;
+    }
+    if (strpos(' '.strtolower($playing), strtolower('format: IEC958_SUBFRAME_LE subformat: STD'))) {
+        // the profile of the output matches the one which needs to be changed
+        sysCmd('mpc outputset "'.$ao.'" allowed_formats="48000:24:* 44100:24:* 48000:16:* 44100:16:*"');
+        $redis->hset('audiofix', $ao, wrk_unit_info($redis, 'get_start_time', 'mpd'));
+    }
+}
         }
     }
 }
