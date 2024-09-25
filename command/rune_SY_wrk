@@ -1639,7 +1639,7 @@ while (true) {
             $savecpuOneTimeActions = 10000000;
         }
     }
-    // Random play auto start and stop, run first after 12 cycles (+/-6 seconds), then only on every +/-30th cycle (= every +/-15 seconds)
+    // Random play auto start and stop, run first after 12 cycles (+/-6 seconds), then only on every +/-30th cycle (+/-15 seconds)
     // Detect deletion of playlist random file and restart if applicable
     // Start Global Random if enabled - check continually, ashuffle get stopped for lots of reasons, this is the only place where it is started
     if ($savecpuRp-- <= 0) {
@@ -1683,8 +1683,8 @@ while (true) {
     }
     // Automatically determine the time-zone
     // Test first after 60 cycles (+/-30 seconds)
-    //  then after success every +/-57600 cycles (= every +/-8 hours)
-    //  or after failure every +/-240 cycles (= every +/-2 minutes)
+    //  then after success every +/-57600 cycles (+/-8 hours)
+    //  or after failure every +/-240 cycles (+/-2 minutes)
     if ($savecpuTimezone-- <= 0) {
         // run the routine, it is here (and not in the start-up routines) because internet needs to be up and be detected
         // it will only change the time-zone when it is set to the initial default value and internet is available
@@ -1700,8 +1700,8 @@ while (true) {
         unset($retval);
     }
     // S.M.A.R.T. monitoring tools
-    //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (= +/-20 minutes)
-    //  when a disk error is detected reduce the test every +/-180 cycles (= +/-1.5 minutes)
+    //  first test after 480 cycles (= +/- 4 minutes) and then at a maximum rate of once per +/-2400 cycles (+/-20 minutes)
+    //  when a disk error is detected reduce the test every +/-180 cycles (+/-1.5 minutes)
     if ($savecpuSmt-- <= 0) {
         sysCmdAsync($redis, '/srv/http/command/smt_async.php');
         $savecpuSmt = $redis->get('savecpuSmt');
@@ -1761,7 +1761,7 @@ while (true) {
         sysCmdAsync($redis, '/srv/http/command/set_vc4_hdmi_allowed_formats.php');
     }
 
-    // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (= every +/-15 minutes)
+    // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (+/-15 minutes)
     // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
     //  will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync
     //  to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.

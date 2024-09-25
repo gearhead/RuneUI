@@ -1913,14 +1913,14 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
         case 'enable-splash':
             $redis->hSet('local_browser', $action, $args);
             if ($args) {
-                // spash on
+                // splash on
                 // enable the systemd boot splash unit
                 sysCmd('systemctl enable bootsplash');
                 // set the redis variable enable-splash to true
                 $redis->hSet('local_browser', 'enable-splash', 1);
             } else {
-                // spash off
-                // enable the systemd boot splash unit
+                // splash off
+                // disable the systemd boot splash unit
                 sysCmd('systemctl disable bootsplash');
                 // set the redis variable enable-splash to false
                 $redis->hSet('local_browser', 'enable-splash', 0);
@@ -14748,14 +14748,14 @@ function set_vc4_hdmi_allowed_formats($redis)
 //  we only set the reduced allowed formats, we never reset it to its original value
 //  when mpd restarts the allowed formats will revert to their original settings
 //  its only relevant for MPD output, all other output streams are fixed to a sample rate of
-//      44100hz or 48000hz, there are always supported
+//      44100hz or 48000hz, these are always supported
 // by doing this we use soxr to do resampling, otherwise the awful dmix will be used
 // hdmi output can normally manages 44100:24:*, 48000:24:*, 32000:24:*, 88200:24:*, 96000:24:*, 176400:24:* & 192000:24:*
 //  the introduction of vc4 has reduces it to 44100:24:2 & 48000:24:2, hopefully this will change
 {
     $ao =$redis->get('ao');
     if (!strpos(' '.strtolower($ao), 'vc4') || !strpos(' '.strtolower($ao), 'hdmi')) {
-        // output is not vc4 hdmi, nothing to do
+        // current output is not vc4 hdmi, nothing to do
         return;
     }
     $currentSetting = sysCmd("mpc outputs | sed -n '/".$ao."/, /Output/{ /Output/!p }' | grep -i 'allowed_formats=' | xargs")[0];
