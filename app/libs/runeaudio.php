@@ -4463,22 +4463,23 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             if ($redis->exists('hdmiacards')) {
                 $acards = array_merge($redis->hgetall('hdmiacards'), $acards);
             }
-            if ($redis->exists('hdmiacards')) {
+            if ($redis->exists('usbacards')) {
                 $acards = array_merge($redis->hgetall('usbacards'), $acards);
             }
             // save hdmi and usb acards
             //  first delete the current hdmi and usb acards
             $redis->del('hdmiacards');
             $redis->del('usbacards');
-            $usbDevices = '|'.implode('|', sysCmd("lsusb -v 2>/dev/null | grep -i 'iProduct' | sed 's/\s*iProduct\s*[0-9]\s*//'")).'|';
             foreach ($acards as $key => $acard) {
-                if (strpos(' '.strtolower($key), 'hdmi')) {
-                    // the card name contains hdmi, save it
+                $acardDetails = json_decode($acard, true);
+                if ((strpos(' '.strtolower($key), 'hdmi')) && (substr($acardDetails['description'], 0, 13) == 'Raspberry Pi:')) {
+                    // the card name contains hdmi and is it is an on-board device, save it
                     $redis->hSet('hdmiacards', $key, $acard);
-                } else if (strpos($usbDevices, $key)) {
-                    // the card name contains hdmi, save it
+                } else if (substr($acardDetails['description'], 0, 4) == 'USB:') {
+                    // the card is a usb device, save it
                     $redis->hSet('usbacards', $key, $acard);
                 }
+                unset($acardDetails);
             }
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
