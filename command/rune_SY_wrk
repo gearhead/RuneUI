@@ -68,7 +68,7 @@ $savecpuMpdLog = 240;
 $savecpuTimezone = 60;
 $savecpuOpCache = 7200;
 $savecpuFixLogs = 36;
-$savecpuVc4Hdmi = 1800;
+$savecpuAT = 1800;
 $allmounted = 0;
 $retriesmounting = 100;
 //
@@ -1754,11 +1754,10 @@ while (true) {
         // run the script async
         sysCmdAsync($redis, '/srv/http/command/check_opcache_async.php');
     }
-    // Check and correct vc4 hdmi allowed formats after 1800 cycles (+/-15 mins), then every +/-1800 cycles (= every +/-15 minutes)
-    // hopefully this can be removed in the near future
-    if ($savecpuVc4Hdmi-- <= 0) {
-        $savecpuVc4Hdmi = 1750 + rand(0, 100);
-        sysCmdAsync($redis, '/srv/http/command/set_vc4_hdmi_allowed_formats.php');
+    // Run audiocard tweaks after 1800 cycles (+/-15 mins), then every +/-1800 cycles (+/-15 minutes)
+    if ($savecpuAT-- <= 0) {
+        $savecpuAT = 1750 + rand(0, 100);
+        sysCmdAsync($redis, '/srv/http/command/audiocard_tweaks.php');
     }
 
     // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (+/-15 minutes)
