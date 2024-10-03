@@ -248,7 +248,7 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 $fp = fopen($file, 'w');
                 $return = fwrite($fp, implode('', $newArray));
                 fclose($fp);
-                sysCmd('systemctl start hostapd');
+                wrk_systemd_unit($redis, 'start', 'hostapd');
                 //
                 $file = '/etc/dnsmasq.conf';
                 // change dhcp-range
@@ -286,7 +286,7 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 $fp = fopen($file, 'w');
                 $return = fwrite($fp, implode('', $newArray));
                 fclose($fp);
-                sysCmd('systemctl start dnsmasq');
+                wrk_systemd_unit($redis, 'start', 'dnsmasq');
                 //
                 // enable the AP by switching broadcast on
                 sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$interface);
@@ -340,7 +340,7 @@ if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable')) {
                 $apFileContent .= "DNSList=".$redis->hGet('AccessPoint', 'dhcp-option-dns')."\n";
                 file_put_contents($file, $apFileContent);
                 // set to ap mode
-                sysCmd('systemctl restart iwd');
+                wrk_systemd_unit($redis, 'reload-or-restart', 'iwd');
                 sysCmd('iwctl device '.$interface.' set-property Mode ap');
                 // start ap: this sometimes fails on the Pi5
                 //  when it fails wait 3 second and repeat maximum 4 times

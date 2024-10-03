@@ -132,7 +132,7 @@ if (isset($_POST)) {
     }
 }
 
-if (!$redis->get('bluetooth_on') || (sysCmd('systemctl is-active bluetooth | grep -ic "inactive" | xargs')[0])) {
+if (!$redis->get('bluetooth_on') || !wrk_systemd_unit($redis, 'is-active', 'bluetooth')) {
     $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'enable'));
 }
 if (isset($jobID)) {

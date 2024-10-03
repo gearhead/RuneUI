@@ -65,14 +65,14 @@ while (true) {
         sleep(10);
         continue;
     }
-    if (!sysCmd('systemctl is-active bluetooth | grep -ic "^active" | xargs')[0]) {
+    if (!wrk_systemd_unit($redis, 'is-active', 'bluetooth')) {
         // can't do anything if the bluetooth service is not active
         sleep(10);
         continue;
     }
-    if (!sysCmd('systemctl is-active bluealsa | grep -ic "^active" | xargs')[0]) {
+    if (!wrk_systemd_unit($redis, 'is-active', 'bluealsa')) {
         // can't do anything if bluealsa service is not active
-        sysCmd('systemctl start bluealsa');
+        wrk_systemd_unit($redis, 'start', 'bluealsa');
         sleep(10);
         continue;
     }
@@ -193,21 +193,21 @@ while (true) {
             // continue;
         // }
     }
-    $bluealsaAplayInactive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic "inactive" | xargs')[0];
-    if ($bluealsaAplayInactive) {
+    $bluealsaAplayActive = wrk_systemd_unit($redis, 'is-active', 'bluealsa-aplay');
+    if (!$bluealsaAplayActive) {
         // start start bluealsa-aplay
         set_alsa_default_card($redis);
-        sysCmd('systemctl start bluealsa-aplay');
+        wrk_systemd_unit($redis, 'start', 'bluealsa-aplay');
         sleep(4);
         // check again if bluealsa-aplay is running
-        $bluealsaAplayInactive = sysCmd('systemctl is-active bluealsa-aplay | grep -ic "inactive" | xargs')[0];
-        if ($bluealsaAplayInactive) {
+        $bluealsaAplayActive = wrk_systemd_unit($redis, 'is-active', 'bluealsa-aplay');
+        if (!$bluealsaAplayActive) {
             // this will correct the situation when blualsa-aplay refuses to start with an active and running pcm
             //  the action will drop connected inputs
-            sysCmd('systemctl stop bluealsa');
-            sysCmd('systemctl start bluealsa');
+            wrk_systemd_unit($redis, 'stop', 'bluealsa');
+            wrk_systemd_unit($redis, 'start', 'bluealsa');
             sleep(4);
-            sysCmd('systemctl start bluealsa-aplay');
+            wrk_systemd_unit($redis, 'start', 'bluealsa-aplay');
         }
     }
     if ($delayCnt-- <= 0) {

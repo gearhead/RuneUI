@@ -68,7 +68,7 @@ runelog('WORKER rune_MPDEM_wrk STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 // reset the systemd reset counter for this job, this job is designed to restart when problems occur
-sysCmd('systemctl reset-failed rune_MPDEM_wrk');
+wrk_systemd_unit($redis, 'reset-failed', 'rune_MPDEM_wrk');
 // reset the process priorities
 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 // get the album art directory and url dir

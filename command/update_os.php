@@ -79,7 +79,7 @@ function updateOS($redis) {
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/amixer-webui.service /etc/systemd/system/amixer-webui.service');
             sysCmd('cp /srv/http/app/config/defaults/srv/http/.config/i2s_table.txt /srv/http/.config/i2s_table.txt');
             sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh');
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             $pythonPlugin = sysCmd('find /usr/lib -name python_plugin.so | wc -w | xargs')[0];
             $python3Plugin = sysCmd('find /usr/lib -name python3_plugin.so | wc -w | xargs')[0];
             if (($pythonPlugin == 1) && ($python3Plugin != 1)) {
@@ -87,7 +87,7 @@ function updateOS($redis) {
             } else if (($pythonPlugin != 1) && ($python3Plugin == 1)) {
                 sysCmd("sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini");
             }
-            sysCmd('systemctl restart amixer-webui');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'amixer-webui');
             $redis->set('patchlevel', 2);
             ui_notify($redis, 'Post update processing', 'Patchlevel 2');
         }
@@ -96,7 +96,7 @@ function updateOS($redis) {
             sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/amixer-webui.service /etc/systemd/system/amixer-webui.service');
             sysCmd('cp /srv/http/app/config/defaults/srv/http/.config/i2s_table.txt /srv/http/.config/i2s_table.txt');
             sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh');
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             $pythonPlugin = sysCmd('find /usr/lib -name python_plugin.so | wc -w | xargs')[0];
             $python3Plugin = sysCmd('find /usr/lib -name python3_plugin.so | wc -w | xargs')[0];
             if (($pythonPlugin == 1) && ($python3Plugin != 1)) {
@@ -104,7 +104,7 @@ function updateOS($redis) {
             } else if (($pythonPlugin != 1) && ($python3Plugin == 1)) {
                 sysCmd("sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini");
             }
-            sysCmd('systemctl restart amixer-webui');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'amixer-webui');
             $redis->hset('mpdconf', 'max_output_buffer_size', 32768);
             wrk_mpdconf($redis, 'refresh');
             $redis->set('patchlevel', 3);
@@ -168,18 +168,18 @@ function updateOS($redis) {
                     sysCmd('apt install -y cron >/dev/null 2>&1');
                 }
                 // stop and disable cron
-                sysCmd('systemctl disable cron ; systemctl stop cron');
+                wrk_systemd_unit($redis, 'disable_and_stop', 'cron');
                 // stop and disable rsyslog
-                sysCmd('systemctl disable rsyslog ; systemctl stop rsyslog');
+                wrk_systemd_unit($redis, 'disable_and_stop', 'rsyslog');
                 // start and enable mosquitto
-                sysCmd('systemctl enable mosquitto ; systemctl start mosquitto');
+                wrk_systemd_unit($redis, 'enable_and_start', 'mosquitto');
             } else if ($os == 'ARCH') {
                 // // install openresolv if missing
                 // sysCmd('pacman -Q openresolv || pacman -Sy openresolv --noconfirm');
                 // install cronie if missing
                 sysCmd('pacman -Q cronie || pacman -Sy cronie --noconfirm');
                 // stop and disable cronie
-                sysCmd('systemctl disable cronie ; systemctl stop cronie');
+                wrk_systemd_unit($redis, 'disable_and_stop', 'cronie');
                 // copy cronie daily file for logrotate
                 sysCmd('cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate');
             }
@@ -221,18 +221,19 @@ function updateOS($redis) {
                 sysCmd("sed -i '/^Hw-env:/s/RPiOS)/RPiOS-".$codename.")/' /etc/motd");
             }
             // enable mpd to start automatically on boot
-            sysCmd('systemctl enable mpd.service');
-            // disable the connman_wait_online and pcscd services to speed up startup
-            sysCmd('systemctl disable connman-wait-online.service');
-            sysCmd('systemctl disable pcscd.service');
+            wrk_systemd_unit($redis, 'enable', 'mpd.service');
+            // disable the connman-wait-online and pcscd services to speed up startup
+            wrk_systemd_unit($redis, 'disable', 'connman-wait-online.service');
+            wrk_systemd_unit($redis, 'disable', 'pcscd.service');
             // disable and stop smartmontools and udisks2 services, these are not required
-            sysCmd('systemctl disable smartmontools.service ; systemctl stop smartmontools.service');
-            sysCmd('systemctl disable udisks2.service ; systemctl stop udisks2.service ; systemctl mask udisks2.service');
+            wrk_systemd_unit($redis, 'disable_and_stop', 'smartmontools.service');
+            wrk_systemd_unit($redis, 'disable_and_stop', 'udisks2.service');
+            wrk_systemd_unit($redis, 'mask', 'udisks2.service');
             // when bluetooth is off disable and stop the hciuart service
             if (!$redis->get('bluetooth_on')) {
-                sysCmd('systemctl disable hciuart ; systemctl stop hciuart');
+                wrk_systemd_unit($redis, 'disable_and_stop', 'hciuart');
             }
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             $redis->set('patchlevel', 7);
             ui_notify($redis, 'Post update processing', 'Patchlevel 7');
         }

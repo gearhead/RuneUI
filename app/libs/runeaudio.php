@@ -1022,7 +1022,7 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
         } while ($iv != $redis->hGet('cmd_queue_encoding', 'cipher_iv'));
         // start the Asynchronous FIFO command queue service to process the data
         //  it loops forever, starting it while it is still running is not a problem
-        sysCmd('systemctl start cmd_async_queue');
+        wrk_systemd_unit($redis, 'start', 'cmd_async_queue');
     }
 }
 
@@ -1862,7 +1862,7 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             // modify the files in /usr/share/X11/xorg.conf.d to contain valid rotate and frame buffer options
             sysCmd('/srv/http/command/add-screen-rotate.sh');
             // start the service to switch off the rpi-display backlight on shutdown, it terminates when no rpi-display is present
-            sysCmdAsync($redis, 'pgrep -f rpi-display-backlight || systemctl start rpi-display-backlight');
+            wrk_systemd_unit($redis, 'start', 'rpi-display-backlight', 'async');
             $windows = $redis->hGet('local_browser', 'windows');
             if ($windows == 'xorg') {
                 sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
@@ -1895,9 +1895,6 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             // for attached lcd tft screens 'xset dpms force off' is requird to clear the screen
             sysCmd('pgrep -x xinit && systemctl stop local-browser ; export DISPLAY=:0 ; xset dpms force off');
             sysCmd('pgrep -x weston && systemctl stop local-browser-w');
-            // dont stop rpi-display-backlight
-            // sysCmd('pgrep -f rpi-display-backlight && systemctl stop rpi-display-backlight');
-            // turn off the rpi-display backlight if the display is present
             if (is_dir('/proc/device-tree/rpi_backlight')) {
                 sysCmdAsync($redis, "sh -c 'echo 1 > /sys/class/backlight/rpi_backlight/bl_power'");
             }
@@ -1915,13 +1912,13 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             if ($args) {
                 // splash on
                 // enable the systemd boot splash unit
-                sysCmd('systemctl enable bootsplash');
+                wrk_systemd_unit($redis, 'enable', 'bootsplash');
                 // set the redis variable enable-splash to true
                 $redis->hSet('local_browser', 'enable-splash', 1);
             } else {
                 // splash off
                 // disable the systemd boot splash unit
-                sysCmd('systemctl disable bootsplash');
+                wrk_systemd_unit($redis, 'disable', 'bootsplash');
                 // set the redis variable enable-splash to false
                 $redis->hSet('local_browser', 'enable-splash', 0);
             }
@@ -2166,7 +2163,7 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
                 sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
             }
             // reload avahi
-            sysCmd('systemctl reload avahi-daemon');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'avahi-daemon');
             break;
         case 'hostname':
             $hostname = $args;
@@ -2397,7 +2394,7 @@ function wrk_opcache($redis, $action)
             opcache_reset();
             break;
         case 'reload':
-            sysCmd('systemctl reload php-fpm');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'php-fpm');
             break;
         case 'enable':
             $fileNames = sysCmd('find /etc/php -name opcache.ini 2>/dev/null');
@@ -2607,7 +2604,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     $redis->hSet('AccessPoint', 'NAT-configured', 0);
                 }
                 // stop the hostapd AP jobs if they are running
-                sysCmd('pgrep hostapd && systemctl stop hostapd ; pgrep dnsmasq && systemctl stop dnsmasq');
+                wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
                 // stop the iwd access point
                 $interface = $redis->hGet('AccessPoint', 'interface');
                 sysCmd('iwctl ap '.$interface.' stop');
@@ -2643,7 +2640,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 sysCmd('mkdir -p /var/lib/iwd/ap/');
                 sysCmd('rm /var/lib/iwd/ap/*.ap');
                 // do we need to restart iwd? I don't think it is necessary - need to test
-                // sysCmd('systemctl restart iwd');
+                // wrk_systemd_unit($redis, 'reload-or-restart', 'iwd');
                 // unset the AP nic names
                 $redis->hSet('AccessPoint', 'ethNic', '');
                 $redis->hSet('AccessPoint', 'wlanNic', '');
@@ -2909,7 +2906,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // restart connman to pick up the new config files
-            sysCmd('systemctl restart connman');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
             // run refresh_nics to finish off
             wrk_netconfig($redis, 'refreshAsync');
             break;
@@ -3261,7 +3258,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             if ($restartConnman && ($arg != 'norestart')) {
-                sysCmd('systemctl restart connman');
+                wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
             }
             unset($network_ipv6, $network_info, $network, $configFile, $changeFile, $restartConnman);
             break;
@@ -3296,7 +3293,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // remove the connman profile
                 sysCmd('connmanctl config '.$args['connmanString'].' --remove');
                 // stop connman otherwise the cache files will be replaced after deletion
-                sysCmd('systemctl stop connman');
+                wrk_systemd_unit($redis, 'stop', 'connman');
                 if (isset($args['ssidHex'])) {
                     // remove the connman configuration files and cache
                     unset($storedProfiles[$ssidHexKey]);
@@ -3313,7 +3310,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     sysCmd("iwctl station '".$args['nic']."' disconnect");
                 }
                 // restart connman
-                sysCmd('systemctl start connman');
+                wrk_systemd_unit($redis, 'start', 'connman');
                 if (isset($args['nic'])) {
                     // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
                     //  make a connection if there is a valid network available
@@ -3323,13 +3320,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
                 // stop connman otherwise the cache files will be replaced after deletion
-                sysCmd('systemctl stop connman');
+                wrk_systemd_unit($redis, 'stop', 'connman');
                 // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
                 unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
                 sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
                 // restart connman
-                sysCmd('systemctl start connman');
+                wrk_systemd_unit($redis, 'start', 'connman');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
             break;
@@ -3344,7 +3341,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             // stop connman, otherwise it may recreate the configuration files after deletion
-            sysCmd('systemctl stop connman');
+            wrk_systemd_unit($redis, 'stop', 'connman');
             // clear the network array
             $redis->set('network_info', json_encode(array()));
             // clear the stored profiles
@@ -3372,7 +3369,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('mkdir /etc/connman/');
             sysCmd('cp /srv/http/app/config/defaults/etc/connman/* /etc/connman/');
             // start connman
-            sysCmd('systemctl daemon-reload ; systemctl start connman');
+            wrk_systemd_unit($redis, 'daemon-reload_and_start', 'connman');
             // set automatic Wi-Fi optimisation
             $redis->set('network_autoOptimiseWifi', 1);
             // run refresh_nics
@@ -4833,12 +4830,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'start':
             $activePlayer = $redis->get('activePlayer');
             if ($activePlayer === 'MPD') {
-                $retval = sysCmd('systemctl is-active mpd | grep -ic "^active" | xargs')[0];
-                if (!$retval) {
+                if (!wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                     // mpd not running
                     ui_notify($redis, 'MPD', 'starting MPD');
                     // reload systemd daemon to activate any changed unit files
-                    sysCmd('systemctl daemon-reload');
+                    wrk_systemd_unit($redis, 'daemon-reload');
                     // start mpd
                     start_mpd($redis);
                     // set mpdconfchange off
@@ -4853,30 +4849,29 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 // restart mpdscribble
                 if ($redis->hGet('lastfm', 'enable') === '1') {
-                    sysCmd('systemctl reload-or-restart mpdscribble || systemctl start mpdscribble');
+                    wrk_systemd_unit($redis, 'reload-or-restart', 'mpdscribble');
                 }
                 // restart upmpdcli
                 if ($redis->hGet('dlna', 'enable') === '1') {
-                    sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
+                    wrk_systemd_unit($redis, 'reload-or-restart', 'upmpdcli');
                 }
             }
             // set process priority
             sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
             sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
-            unset($activePlayer, $retval);
+            unset($activePlayer);
             break;
         case 'forcestop':
             ui_notify($redis, 'MPD', 'stopping MPD');
             $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
             sysCmd('mpc stop');
-            sysCmd('systemctl stop mpd');
+            wrk_systemd_unit($redis, 'stop', 'mpd');
             sleep(1);
-            sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
+            wrk_systemd_unit($redis, 'stop', 'mpd ashuffle mpdscribble upmpdcli');
             break;
         case 'stop':
             // don't stop mpd if it is not running
-            $retval = sysCmd('systemctl is-active mpd | grep -ic "^active" | xargs')[0];
-            if ($retval) {
+            if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                 // mpd is running
                 // don't stop mpd if its configuration or unit file has not been changed
                 if ($redis->get('mpdconfchange')) {
@@ -4884,9 +4879,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     ui_notify($redis, 'MPD', 'stopping MPD');
                     $redis->set('mpd_playback_status', wrk_mpdPlaybackStatus($redis));
                     sysCmd('mpc stop');
-                    sysCmd('systemctl stop mpd');
+                    wrk_systemd_unit($redis, 'stop', 'mpd');
                     sleep(1);
-                    sysCmd('systemctl stop mpd ashuffle mpdscribble upmpdcli');
+                    wrk_systemd_unit($redis, 'stop', 'mpd ashuffle mpdscribble upmpdcli');
                     // set mpdconfchange off
                     $redis->set('mpdconfchange', 0);
                 }
@@ -5280,7 +5275,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
                 }
             }
             // start spotifyd
-            sysCmd('pgrep -x spotifyd || systemctl start spotifyd');
+            wrk_systemd_unit($redis, 'start', 'spotifyd');
             // restart play, only when we have paused it
             if (isset($playState)) {
                 sysCmd('mpc '.$playState);
@@ -5288,8 +5283,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         } else {
             // stop spotifyd & rune_SDM_wrk, they should already have stopped
             runelog('stop spotifyd');
-            sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
-            sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+            wrk_systemd_unit($redis, 'stop', 'spotifyd rune_SDM_wrk');
             $redis->hSet('spotifyconnect', 'last_track_id', '');
         }
     } else {
@@ -5301,11 +5295,10 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         sysCmd('cp /tmp/spotifyd.conf /etc/spotifyd.conf');
         sysCmd('rm -f /tmp/spotifyd.conf');
         // stop spotifyd & rune_SDM_wrk, they should already have stopped using the function wrk_stopPlayer()
-        sysCmd('pgrep -x spotifyd && systemctl stop spotifyd');
-        sysCmd('pgrep -x rune_SDM_wrk && systemctl stop rune_SDM_wrk');
+        wrk_systemd_unit($redis, 'stop', 'spotifyd rune_SDM_wrk');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
         // update systemd
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
         if ($redis->hGet('spotifyconnect', 'enable')) {
             runelog('restart spotifyd');
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start'));
@@ -5364,7 +5357,7 @@ function wrk_shairport($redis, $ao = null, $name = null)
         $redis->hSet('airplay', 'alsa_mixer_device', '');
         $redis->hSet('airplay', 'alsa_output_device', '');
         // stop shairport-sync
-        sysCmd('pgrep shairport-sync && systemctl stop shairport-sync');
+        wrk_systemd_unit($redis, 'stop', 'shairport-sync');
         return 0;
     }
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
@@ -5528,29 +5521,24 @@ function wrk_shairport($redis, $ao = null, $name = null)
             runelog('Stop Airplay player');
             wrk_stopPlayer($redis);
         }
-        sysCmd('pgrep -x shairport-sync && systemctl stop shairport-sync');
-        sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
+        wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
         // update systemd
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
         if ($airplay['enable']) {
             runelog('restart shairport-sync');
-            sysCmd('pgrep -x mosquitto || systemctl start mosquitto');
-            sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
-            sysCmd('systemctl enable mosquitto');
+            wrk_systemd_unit($redis, 'enable_and_start', 'mosquitto');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
         }
     } else {
         // nothing has changed, check that shairport-sync is running or stopped as required
         if ($airplay['enable']) {
             runelog('start shairport-sync');
-            sysCmd('pgrep -x mosquitto || systemctl start mosquitto');
-            sysCmd('pgrep -x shairport-sync || systemctl start shairport-sync');
-            sysCmd('systemctl enable mosquitto');
+            wrk_systemd_unit($redis, 'enable_and_start', 'mosquitto');
+            wrk_systemd_unit($redis, 'start', 'shairport-sync');
         } else {
             runelog('stop shairport-sync');
-            sysCmd('pgrep -x shairport-sync && systemctl stop shairport-sync');
-            sysCmd('pgrep -x rune_SSM_wrk && systemctl stop rune_SSM_wrk');
-            sysCmd('pgrep -x mosquitto && systemctl stop mosquitto');
-            sysCmd('systemctl disable mosquitto');
+            wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
+            wrk_systemd_unit($redis, 'disable_and_stop', 'mosquitto');
         }
     }
     $redis->set('sssconfchange', 0);
@@ -5996,7 +5984,8 @@ function wrk_sourcecfg($redis, $action, $args = null)
             // save the unmounted device name
             $redis->hSet('usbunmounts', $args, 1);
             // stop play and stop ashuffle if running
-            sysCmd('mpc stop ; pgrep -x ashuffle && systemctl stop ashuffle');
+            sysCmd('mpc stop');
+            wrk_systemd_unit($redis, 'stop', 'ashuffle');
             if (wrk_checkMountUsb($args)) {
                 sysCmd('udevil umount '.$args);
                 // clean up any invalid mount points
@@ -6313,9 +6302,9 @@ function wrk_setHwPlatform($redis, $reset = 0)
     $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
     if ($reset || ($cores != $redis->get('cores'))) {
         if ($cores == 1) {
-            sysCmdAsync($redis, 'systemctl disable rp1-test ; systemctl disable glamor-test');
+            wrk_systemd_unit($redis, 'disable', 'rp1-test glamor-test');
         } else {
-            sysCmdAsync($redis, 'systemctl enable rp1-test ; systemctl enable glamor-test ; systemctl start rp1-test ; systemctl start glamor-test');
+            wrk_systemd_unit($redis, 'enable_and_start', 'rp1-test glamor-test');
         }
     }
     //
@@ -6433,7 +6422,7 @@ function wrk_startPlayer($redis, $newPlayer)
         // if ($newPlayer === 'SpotifyConnect') {
             // this will disconnect an exiting Airplay stream
             // do it only when connecting to another stream
-            sysCmd('systemctl restart shairport-sync');
+            wrk_systemd_unit($redis, 'restart', 'shairport-sync');
         // }
     } elseif (($activePlayer === 'SpotifyConnect') && ($newPlayer != 'SpotifyConnect')) {
         // stop SpotifyConnect worker for SpotifyConnect
@@ -6443,7 +6432,7 @@ function wrk_startPlayer($redis, $newPlayer)
         // if ($newPlayer === 'Airplay') {
             // this will disconnect an exiting SpotifyConnect stream
             // do it only when connecting to another stream
-            sysCmd('systemctl restart spotifyd');
+            wrk_systemd_unit($redis, 'restart', 'spotifyd');
         // }
         $redis->hSet('spotifyconnect', 'last_track_id', '');
         sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
@@ -6574,8 +6563,7 @@ function wrk_NTPsync($ntpserver)
 {
     //debug
     runelog('NTP SERVER', $ntpserver);
-    $retval = sysCmd('systemctl is-active systemd-timesyncd | grep -ic "^active" | xargs')[0];
-    if ($retval) {
+    if (wrk_systemd_unit($redis, 'is-active', 'systemd-timesyncd')) {
         // systemd-timesyncd is running
         // with systemd-timesyncd the new ntp server can not be validated
         // add the server name to /etc/systemd/timesyncd.conf.d/runeaudio.conf
@@ -6593,8 +6581,7 @@ function wrk_NTPsync($ntpserver)
         fwrite($fp, implode("", $newArray));
         fclose($fp);
         // restart systemd-timesyncd
-        sysCmd('systemctl daemon-reload');
-        sysCmd('systemctl restart systemd-timesyncd');
+        wrk_systemd_unit($redis, 'daemon-reload_and_start', 'systemd-timesyncd');
         sysCmd('timedatectl set-ntp true');
         // return the valid ntp server name
         return $ntpserver;
@@ -6759,7 +6746,7 @@ function wrk_restartSamba($redis, $args = 'restart')
             }
         }
     }
-    sysCmd('systemctl daemon-reload');
+    wrk_systemd_unit($redis, 'daemon-reload');
     if ($redis->get('dev') || $redis->hGet('samba', 'enable')) {
         sysCmd($sambaEnableCommand);
         if ($args != 'reload') {
@@ -6801,7 +6788,7 @@ function wrk_changeHostname($redis, $newhostname)
         wrk_shairport($redis, $redis->get('ao'), $newhostname);
         if ($redis->hGet('airplay','enable') === '1') {
             runelog("service: airplay restart",'');
-            sysCmd('systemctl reload-or-restart shairport-sync || systemctl start shairport-sync');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
         }
     }
     // update spotifyconnect name
@@ -6810,7 +6797,7 @@ function wrk_changeHostname($redis, $newhostname)
         wrk_spotifyd($redis, $redis->get('ao'), $newhostname);
         // if ($redis->hGet('spotifyconnect','enable') === '1') {
             // runelog("service: spotifyconnect restart",'');
-            // sysCmd('systemctl reload-or-restart spotifyd || systemctl start spotifyd');
+            // wrk_systemd_unit($redis, 'reload-or-restart', 'spotifyd');
             // $redis->hSet('spotifyconnect', 'last_track_id', '');
             // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
         // }
@@ -6821,7 +6808,7 @@ function wrk_changeHostname($redis, $newhostname)
         wrk_upmpdcli($redis, $newhostname);
         if ($redis->hGet('dlna', 'enable') === '1') {
             runelog("service: UPMPDCLI restart");
-            sysCmd('systemctl reload-or-restart upmpdcli || systemctl start upmpdcli');
+            wrk_systemd_unit($redis, 'reload-or-restart', 'upmpdcli');
         }
     }
     // update mpd if required
@@ -6844,11 +6831,10 @@ function wrk_changeHostname($redis, $newhostname)
     if ($redis->hGet('avahi', 'confchange')) {
         // reload or restart avahi-daemon if it is running (active), some users switch it off
         // it is also started automatically when shairport-sync starts
-        sysCmd('pgrep avahi-daemon && systemctl stop avahi-daemon');
-        sysCmd('systemctl daemon-reload');
-        sysCmd('pgrep avahi-daemon || systemctl start avahi-daemon');
+        wrk_systemd_unit($redis, 'stop', 'avahi-daemon');
+        wrk_systemd_unit($redis, 'daemon-reload_and_start', 'avahi-daemon');
         // connman also needs to be restarted, otherwise connected wifi will fail
-        sysCmd('systemctl restart connman');
+        wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
         // reconfigure MPD
         //wrk_mpdPlaybackStatus($redis);
         wrk_mpdRestorePlayerStatus($redis);
@@ -6901,23 +6887,23 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null
         $action = 'Updated';
         sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
         // update systemd
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
         // the modifications above should work, but the parameter file seems to override the parameters on the ExecStart unit file line line
         // modify them all
         sysCmd('sed -i '."'".'/^ownqueue/ s|.*|ownqueue = '.$queueowner.'|'."' '".$configFile."'");
         sysCmd('sed -i '."'".'/^logfilename/ s|.*|logfilename = '.$logFile.'|'."' '".$configFile."'");
         // update systemd
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
         if ($enable) {
             runelog('restart upmpdcli');
-            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+            wrk_systemd_unit($redis, 'stop', 'upmpdcli');
         }
     }
     if (($services != $servicesOld)) {
         $action = 'Updated';
         sysCmd('sed -i '."'".'/^ExecStart/ s|.*|ExecStart=/usr/bin/upmpdcli -m 1 -c /etc/upmpdcli.conf -q '.$queueowner.' -d "'.$logFile.'" -l '.$logLevel.' -f "'.$name.'"|'."' '".$serviceFile."'");
         // update systemd
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
         if ($services == 'UPnP AV') {
             sysCmd('sed -i '."'".'/^upnpav/ s|.*|upnpav = 1|'."' '".$configFile."'");
             sysCmd('sed -i '."'".'/^openhome/ s|.*|openhome = 0|'."' '".$configFile."'");
@@ -6930,7 +6916,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null
         }
         if ($enable) {
             runelog('restart upmpdcli');
-            sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+            wrk_systemd_unit($redis, 'stop', 'upmpdcli');
         }
     }
     if ($enable) {
@@ -6942,7 +6928,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null
                 $action = 'Enabled';
             }
         }
-        sysCmd('pgrep upmpdcli || systemctl start upmpdcli');
+        wrk_systemd_unit($redis, 'start', 'upmpdcli');
         // set process priority
         sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
     } else {
@@ -6954,7 +6940,7 @@ function wrk_upmpdcli($redis, $name = null, $queueowner = null, $services = null
                 $action = 'Disabled';
             }
         }
-        sysCmd('pgrep upmpdcli && systemctl stop upmpdcli');
+        wrk_systemd_unit($redis, 'stop', 'upmpdcli');
     }
     if (isset($action)) {
         ui_notify($redis, 'UPnP/DLNA', 'UPnP/DLNA '.$action);
@@ -8613,7 +8599,8 @@ function refresh_nics($redis)
         if (in_array(implode(':', str_split($macAddress, 2)), $networkSpoofArray)) {
             // remove nic with tho old MAC address from the connman cache and restart connman
             $connmanConfDir = '/var/lib/connman/*'.$macAddress.'*';
-            sysCmd('rm -fr '.$connmanConfDir.' ; systemctl restart connman');
+            sysCmd('rm -fr '.$connmanConfDir);
+            wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
             continue;
         }
         if (isset($translateMacNic[$macAddress.'_'])) {
@@ -8893,7 +8880,7 @@ function refresh_nics($redis)
         }
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
         // avahi needs to be reloaded to activate the new entry in the config file
-        sysCmd('systemctl daemon-reload; systemctl reload avahi-daemon');
+        wrk_systemd_unit($redis, 'daemon-reload_and_start', 'avahi-daemon');
         $redis->hSet('avahi', 'nic', $avahiNic);
     }
     //
@@ -8983,7 +8970,8 @@ function fix_mac($redis, $nic)
     sysCmd('ip link set dev '.$nic.' down ; ip link set dev '.$nic.' address '.$macNew.' ; ip link set dev '.$nic.' up');
     // remove nic with tho old MAC address from the connman cache and restart connman
     $connmanConfDir = '/var/lib/connman/*'.str_replace(':','',$macCurrent).'*';
-    sysCmd('rm -fr '.$connmanConfDir.' ; systemctl restart connman');
+    sysCmd('rm -fr '.$connmanConfDir);
+    wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
     // construct a systemd unit file to automatically change the MAC address on boot
     $file = '/etc/systemd/system/macfix_'.$nic.'.service';
     // clear the cache otherwise file_exists() returns incorrect values
@@ -9013,7 +9001,7 @@ function fix_mac($redis, $nic)
         fclose($fp);
     }
     // enable the service
-    sysCmd('systemctl enable macfix_'.$nic);
+    wrk_systemd_unit($redis, 'enable', 'macfix_'.$nic);
     return $macNew;
 }
 // work function to set, reset of check (including start and stop) ashuffle
@@ -9095,9 +9083,9 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     // find the line beginning with 'ExecStart' and in that line replace '-q x' with -q y'
                     sysCmd("sed -i '/^ExecStart/s/-q[ ]*.[^ ]*/-q ".$quelen."/' '".$ashuffleUnitFilename."'");
                     // reload the service file
-                    sysCmd('systemctl daemon-reload');
+                    wrk_systemd_unit($redis, 'daemon-reload');
                     // stop ashuffle if it is running
-                    sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+                    wrk_systemd_unit($redis, 'stop', 'ashuffle');
                 }
             }
             break;
@@ -9105,9 +9093,9 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             // $action = changewindow
             sysCmd("sed -i '/^ExecStart/s/-t window-size=.*.-t suspend/-t window-size=".$randomWindow." -t suspend/' '".$ashuffleUnitFilename."'");
             // reload the service file
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             // stop ashuffle if it is running
-            sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+            wrk_systemd_unit($redis, 'stop', 'ashuffle');
             break;
         case 'set':
             // $action = 'set'
@@ -9118,7 +9106,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             }
             // stop ashuffle and set redis globalrandom to false/off, otherwise it may be restarted automatically
             $redis->hSet('globalrandom', 'enable', '0');
-            sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+            wrk_systemd_unit($redis, 'stop', 'ashuffle');
             // delete all broken symbolic links in the playlist directory
             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
             $playlistFilename = $playlistDirectory.'/'.$playlistName.'.m3u';
@@ -9144,7 +9132,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             fclose($fp);
             unset($newArray);
             // reload the service file
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             // set global random true/on
             $redis->hSet('globalrandom', 'enable', 1);
             // ashuffle gets started automatically when redis globalrandom is set to true/on
@@ -9156,7 +9144,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             $saveGlobalrandom = $redis->hGet('globalrandom', 'enable');
             $redis->hSet('globalrandom', 'enable', '0');
             // Stop ashuffle
-            sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+            wrk_systemd_unit($redis, 'stop', 'ashuffle');
             // delete all broken symbolic links in the playlist directory
             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
             // clear the playlist and playlist filename
@@ -9190,7 +9178,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
             fclose($fp);
             unset($newArray);
             // reload the service file
-            sysCmd('systemctl daemon-reload');
+            wrk_systemd_unit($redis, 'daemon-reload');
             // set redis globalrandom to the saved value
             $redis->hSet('globalrandom', 'enable', $saveGlobalrandom);
             // ashuffle gets started automatically when redis globalrandom is set to true/on
@@ -9290,14 +9278,13 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                 }
                 $retval = sysCmd("journalctl -u ashuffle | tail -n 1 | grep -ic 'Picking random songs out of a pool of' | xargs")[0];
                 if (!$retval) {
-                    sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+                    wrk_systemd_unit($redis, 'stop', 'ashuffle');
                 }
-                $retval = sysCmd('systemctl is-active ashuffle | grep -ic "^active" | xargs')[0];
-                if ($retval) {
+                if (wrk_systemd_unit($redis, 'is-active', 'ashuffle')) {
                     // ashuffle already started
                     if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || $mpdSingleRepeatRandomStopped) {
                         // nothing to play or active player is not MPD or MPS stopped, MPD single, repeat or random is set, so stop ashuffle
-                        sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+                        wrk_systemd_unit($redis, 'stop', 'ashuffle');
                     }
                 } else {
                     // ashuffle not started
@@ -9326,15 +9313,14 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                             sysCmd('find '."'".$playlistDirectory."'".' -xtype l -delete');
                             // check that the queued songs based on crossfade is set correctly
                             wrk_ashuffle($redis, 'checkcrossfade');
-                            sysCmd('systemctl daemon-reload');
-                            sysCmd('pgrep -x ashuffle || systemctl start ashuffle');
+                            wrk_systemd_unit($redis, 'daemon-reload_and_start', 'ashuffle');
                             sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                         }
                     }
                 }
             } else {
                 // random play is switched off or it is waiting to play, stop it if it is running
-                sysCmd('pgrep -x ashuffle && systemctl stop ashuffle');
+                wrk_systemd_unit($redis, 'stop', 'ashuffle');
             }
     }
 }
@@ -12480,7 +12466,7 @@ function set_alsa_default_card($redis, $cardName = null)
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
-    sysCmd('pgrep bluealsa-aplay && systemctl restart bluealsa-aplay');
+    wrk_systemd_unit($redis, 'restart_if_running', 'bluealsa-aplay');
 }
 
 // sets log file privileges to RW and deletes any log files with a zero size
@@ -12501,29 +12487,29 @@ function wrk_llmnrd($redis)
     if ($ipv6Setting && !$ipv6Status) {
         // IPv6 is on and is not specified in the unit service file
         // stop llmnrd
-        sysCmd('systemctl stop llmnrd');
+        wrk_systemd_unit($redis, 'stop', 'llmnrd');
         // change the unit service file
         sysCmd("sed -i '/^ExecStart=/c\ExecStart=\/usr\/bin\/llmnrd -6' /etc/systemd/system/llmnrd.service");
         // reload the systend daemon
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
     } else if (!$ipv6Setting && $ipv6Status) {
         // IPv6 is off but is specified in the unit service file
         // stop llmnrd
-        sysCmd('systemctl stop llmnrd');
+        wrk_systemd_unit($redis, 'stop', 'llmnrd');
         // change the unit service file
         sysCmd("sed -i '/^ExecStart=/c\ExecStart=\/usr\/bin\/llmnrd' /etc/systemd/system/llmnrd.service");
         // reload the systend daemon
-        sysCmd('systemctl daemon-reload');
+        wrk_systemd_unit($redis, 'daemon-reload');
     }
     // depending on llmnrdonoff enable/disable start/stop llmnrd
     if ($redis->get('llmnrdonoff')) {
         // llmnrd is enabled
         // enable llmnrd to automatically start on boot and start it
-        sysCmd('systemctl enable llmnrd; systemctl start llmnrd');
+        wrk_systemd_unit($redis, 'enable_and_start', 'llmnrd');
     } else {
         // llmnrd is disabled
         // disable llmnrd to prevent starting on boot and stop it
-        sysCmd('systemctl disable llmnrd; systemctl stop llmnrd');
+        wrk_systemd_unit($redis, 'disable_and_stop', 'llmnrd');
     }
 }
 
@@ -12567,7 +12553,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             break;
         case 'restart_bluealsa_aplay':
             // restarts bluealsa-aplay (when running) after changing parameters
-            sysCmd('pgrep -x bluealsa-aplay && systemctl restart bluealsa-aplay');
+            wrk_systemd_unit($redis, 'restart_if_running', 'bluealsa-aplay');
             break;
         case 'clear':
             // remove all cached Bluetooth information
@@ -12580,12 +12566,14 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'input_connect':
             // allows RuneAudio to be detectable as a Bluetooth device and allow a pair and connect from an input (source) device
             //  it is detectable, pair-able and connect-able  for 120 seconds
-            sysCmd('systemctl stop bt_scan_output ; systemctl start bluetooth-agent');
+            wrk_systemd_unit($redis, 'stop', 'bt_scan_output');
+            wrk_systemd_unit($redis, 'start', 'bluetooth-agent');
             wrk_startPlayer($redis, "Bluetooth");
             break;
         case 'output_list':
             // scan for Bluetooth output devices
-            sysCmd('systemctl stop bluetooth-agent ; systemctl start bt_scan_output');
+            wrk_systemd_unit($redis, 'stop', 'bluetooth-agent');
+            wrk_systemd_unit($redis, 'start', 'bt_scan_output');
             if ($redis->get('activePlayer') == 'Bluetooth') {
                 wrk_stopPlayer($redis);
             }
@@ -12629,7 +12617,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             sysCmd('timeout 5 bluetoothctl connect '.$param);
             wrk_btcfg($redis, 'trust', $param);
             if (!$redis->sIsMember('bluetooth_connects', $param)) {
-                sysCmd('systemctl restart bluetooth ; systemctl restart bluealsa ; systemctl restart bluealsa-aplay');
+                wrk_systemd_unit($redis, 'reload-or-restart', 'bluetooth bluealsa bluealsa-aplay');
                 $redis->sAdd('bluetooth_connects', $param);
                 sysCmd('timeout 5 bluetoothctl connect '.$param);
             }
@@ -13064,7 +13052,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             // now retrieve the status of the devices, this will also fix audio output
             $devCnt = 0;
             $btDevCnt = 0;
-            sysCmd('systemctl start bluetoothctl_scan');
+            wrk_systemd_unit($redis, 'start', 'bluetoothctl_scan');
             $end_timestamp = microtime(true)+$param;
             while ($end_timestamp >= microtime(true)) {
                 // $btDevCntNew = count(sysCmd('timeout 5 bluetoothctl devices'));
@@ -13098,7 +13086,8 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                     }
                 }
             }
-            sysCmd('systemctl stop bluetoothctl_scan ; pkill bluetoothctl');
+            wrk_systemd_unit($redis, 'stop', 'bluetoothctl_scan');
+            sysCmd('pkill bluetoothctl');
             break;
         case 'config':
             // configuration details changed
@@ -14380,7 +14369,7 @@ function start_mpd($redis)
             }
         }
     }
-    sysCmd('pgrep -x mpd || systemctl start mpd.socket');
+    wrk_systemd_unit($redis, 'start', 'mpd.socket');
 }
 
 // function to strip synchronised encoding from lyrics
@@ -14760,7 +14749,7 @@ function set_vc4_hdmi_allowed_formats($redis)
         return;
     }
     // check that it has not already run for this card
-    if ($redis->hget('audiofix', $ao) == wrk_unit_info($redis, 'get_start_time', 'mpd')) {
+    if ($redis->hget('audiofix', $ao) == wrk_systemd_unit($redis, 'get_start_time', 'mpd')) {
         // routine has already run since mpd (re)started, do nothing
         return;
     }
@@ -14773,7 +14762,7 @@ function set_vc4_hdmi_allowed_formats($redis)
     if (strpos(' '.strtolower($playing), strtolower('format: IEC958_SUBFRAME_LE subformat: STD'))) {
         // the profile of the output matches the one which needs to be changed
         sysCmd('mpc outputset "'.$ao.'" allowed_formats="48000:24:* 44100:24:* 48000:16:* 44100:16:*"');
-        $redis->hset('audiofix', $ao, wrk_unit_info($redis, 'get_start_time', 'mpd'));
+        $redis->hset('audiofix', $ao, wrk_systemd_unit($redis, 'get_start_time', 'mpd'));
     }
 }
 
@@ -14801,7 +14790,7 @@ function set_realtek_allowed_formats($redis)
     }
     unset($acard);
     // check that it has not already run for this card
-    if ($redis->hget('audiofix', $ao) == wrk_unit_info($redis, 'get_start_time', 'mpd')) {
+    if ($redis->hget('audiofix', $ao) == wrk_systemd_unit($redis, 'get_start_time', 'mpd')) {
         // routine has already run since mpd (re)started, do nothing
         return;
     }
@@ -14902,7 +14891,7 @@ function set_realtek_allowed_formats($redis)
         // commit the allowed formats
         sysCmd('mpc outputset "'.$ao.'" allowed_formats="'.trim($allowedFormats).'"');
         // save the mpd start timestamp, this routine only needs to run after mpd restarts
-        $redis->hset('audiofix', $ao, wrk_unit_info($redis, 'get_start_time', 'mpd'));
+        $redis->hset('audiofix', $ao, wrk_systemd_unit($redis, 'get_start_time', 'mpd'));
     }
 }
 
@@ -15175,72 +15164,154 @@ function getHtmlSambaInfo($redis, $format = 'both')
     return $retval;
 }
 
-// function to interact with systemd to start, stop, enable disable units and retrieve unit information 
-function wrk_unit_info($redis, $action, $arg='', $async='')
-// action = start, arg = unit name
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = stop, arg = unit name
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = enable, arg = unit name
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = disable, arg = unit name
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = enable_and_start, arg = unit name
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = disable_and_stop, arg = unit name 
-//  returns true if successful, otherwise false
-//  can be run asynchronously, and then always returns true
-// action = get_start_time, arg = unit name
-//  returns the start date/time or an empty string when not running (false)
+// function to interact with systemd to start, stop, enable disable units and retrieve unit information
+//  also daemon-reload
+function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
+// when parameter async has a non-zero value the action will be carried out asynchronously
+//  all asynchronously run actions always return true
+//  the parameter delay can be specified for asynchronous actions, then the start time for the asynchronous is is delayed by 'delay' seconds
+//  action = get_start_time and is-active will always run synchronously, regardless of the async parameter
+// all synchronously run actions return false on failure and true of success except get_start_time
+//  which returns the start date/time or an empty string when not running (false)
 //  the return date/time format is 'Fri 2019-10-11 00:35:58 EEST' or similar
-//  this action always runs synchronously
-// action = is_active, arg = unit name
-//  returns true if active, otherwise false
-//  this action always runs synchronously
-// the parameter async can be set (to any value which translates to true) to run some commands asynchronously,
-//  when set and valid for the action the routine always returns true
+// arg is the unit name or a list of space delimited unit names
+//  action = get_start_time and is-active will return false and give an error message if more than one unit name is given
+//
+// actions:
+//  daemon-reload, arg is ignored
+//  daemon-reload_and_start, arg = unit name(s)
+//  disable, arg = unit name(s)
+//  disable_and_stop, arg = unit name(s)
+//  enable, arg = unit name(s)
+//  enable_and_start, arg = unit name(s)
+//  get_start_time, arg = unit name(s)
+//  is-active, arg = unit name(s)
+//  mask, arg = unit name(s)
+//  reload-or-restart, arg = unit name(s)
+//  reset-failed, arg = unit name(s)
+//  restart, arg = unit name(s)
+//  restart_if_running, arg = unit name(s)
+//  start, arg = unit name(s)
+//  stop, arg = unit name(s)
+//  unmask, arg = unit name(s)
+//
 {
+    $arg = trim(preg_replace('/\s+/', ' ', $arg));
     if (!$arg) {
-        return wrk_unit_info($redis, '');
+        switch ($action) {
+            case 'daemon-reload':
+                break;
+            default:
+                return wrk_systemd_unit($redis, 'error', 'no#op');
+                break;
+            }
     }
+    $allToNull = ' >/dev/null 2>&1 ';
+    $errorToNull = ' 2>/dev/null ';
+    if (strpos(' '.$arg, '.')) {
+        $grepArg = trim(get_between_data($arg, '', '.'));
+    } else {
+        $grepArg = $arg;
+    }
+    if (strlen($grepArg) > 15) {
+        $pgrep = 'pgrep -f '.$grepArg;
+    } else {
+        $pgrep = 'pgrep '.$grepArg;
+    }
+    $pgrep .= $allToNull;
     switch ($action) {
-        case 'start':
-            $cmd = 'pgrep "'.$arg.'" > /dev/null 2>&1 || systemctl start "'.$arg.'"  && echo 1 | xargs';
+        case 'daemon-reload':
+            $cmd = '( systemctl daemon-reload'.$allToNull.'&& echo 1 ) | xargs';
             break;
-        case 'stop':
-            $cmd = 'pgrep "'.$arg.'" > /dev/null 2>&1 && systemctl stop "'.$arg.'"  && echo 1 | xargs';
-            break;
-        case 'enable':
-            $cmd = 'systemctl enable "'.$arg.'"  && echo 1 | xargs';
+        case 'daemon-reload_and_start':
+            $cmd = '( systemctl daemon-reload ; systemctl reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'disable':
-            $cmd = 'systemctl disable "'.$arg.'"  && echo 1 | xargs';
-            break;
-        case 'enable_and_start':
-            $cmd = 'systemctl enable "'.$arg.'" ; pgrep "'.$arg.'" > /dev/null 2>&1 || systemctl start "'.$arg.'"  && echo 1 | xargs';
+            $cmd = '( systemctl disable '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'disable_and_stop':
-            $cmd = 'systemctl disable "'.$arg.'" ; pgrep "'.$arg.'" > /dev/null 2>&1 && systemctl stop "'.$arg.'"  && echo 1 | xargs';
+            if (strpos($arg, ' ')) {
+                $cmd = '( systemctl disable '.$arg.$allToNull.'; systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            } else {
+                $cmd = '( systemctl disable '.$arg.$allToNull.'; '.$pgrep.' && ( systemctl stop '.$arg.$allToNull.'&& echo 1 ) || echo 1 ) | xargs';
+            }
+            break;
+        case 'enable':
+            $cmd = '( systemctl enable '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'enable_and_start':
+            if (strpos($arg, ' ')) {
+                $cmd = '( systemctl enable '.$arg.$allToNull.'; systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            } else {
+                $cmd = '( systemctl enable '.$arg.$allToNull.'; '.$pgrep.'|| systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            }
             break;
         case 'get_start_time':
-            $retval = sysCmd('systemctl status "'.$arg.'" | grep "Active:" | xargs')[0];
+            if (strpos($arg, ' ')) {
+                return wrk_systemd_unit($redis, 'error', 'no#op');
+                break;
+            }
+            $async = '';
+            $retval = sysCmd('systemctl status '.$arg.$errorToNull.'| grep "Active:" | xargs')[0];
             return trim(get_between_data($retval, 'since ', '; '));
             break;
-        case 'is_active':
-            return boolval(sysCmd('systemctl is-active "'.$arg.'" | grep -ic "^active" | xargs')[0]);
+        case 'is-active':
+            if (strpos($arg, ' ')) {
+                return wrk_systemd_unit($redis, 'error', 'no#op');
+                break;
+            }
+            $async = '';
+            $cmd = 'systemctl is-active '.$arg.$errorToNull.'| grep -ic "^active" | xargs';
             break;
+        case 'mask':
+            $cmd = '( systemctl mask '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'reload-or-restart':
+            $cmd = '( systemctl reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'reset-failed':
+            $cmd = '( systemctl reset-failed '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'restart':
+            $cmd = '( systemctl restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'restart_if_running':
+            $cmd = '( systemctl try-reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'start':
+            if (strpos($arg, ' ')) {
+                $cmd = '( systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            } else {
+                $cmd = '( '.$pgrep.'|| systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            }
+            break;
+        case 'stop':
+            if (strpos($arg, ' ')) {
+                $cmd = '( systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            } else {
+                $cmd = '( '.$pgrep.' && ( systemctl stop '.$arg.$allToNull.'&& echo 1 ) || echo 1 ) | xargs';
+            }
+            break;
+        case 'unmask':
+            $cmd = '( systemctl unmask '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+        case 'error':
+            // no break
         default:
-            ui_notifyError('wrk_unit_info', 'Internal error: Invalid function call');
+            // debug
+            $errorText = 'Internal error: Invalid function call: '.$action.', '.$arg.', '.$async.', '.$delay;
+            ui_notifyError('wrk_unit_info', $errorText);
+            echo $errorText."\n";
+            runelog("[wrk_unit_info]", $errorText);
             return false;
             break;
     }
     if ($async) {
-        sysCmdAsync($redis, $cmd);
+        if (is_numeric($delay)) {
+            sysCmdAsync($redis, $cmd, $delay);
+        } else {
+            sysCmdAsync($redis, $cmd);
+        }
         return true;
     } else {
         return boolval(sysCmd($cmd)[0]);
@@ -15417,7 +15488,7 @@ function wrk_snapcast($redis, $action, $args = '', $jobID = '')
                 }
             }
             wrk_snapcast($redis, 'configureserver', '', $jobID);
-            sysCmd('systemctl enable snapserver ; pgrep -x snapserver || systemctl start snapserver');
+            wrk_systemd_unit($redis, 'enable_and_start', 'snapserver');
             break;
         case 'disableserver':
             // stop and disable the snapcast server service, if it is running
@@ -15426,7 +15497,7 @@ function wrk_snapcast($redis, $action, $args = '', $jobID = '')
                 $redis->sRem('w_lock', $jobID);
             }
             wrk_snd_aloop($redis, 'remove', 'snapcast');
-            sysCmd('systemctl disable snapserver ; pgrep -x snapserver && systemctl stop snapserver');
+            wrk_systemd_unit($redis, 'disable_and_stop', 'snapserver');
             break;
         case 'configureserver';
             // configure the server based on the arguments or when no arguments are given use the stored redis values
@@ -15441,7 +15512,7 @@ function wrk_snapcast($redis, $action, $args = '', $jobID = '')
                 $redis->sRem('w_lock', $jobID);
             }
             if (wrk_mpd_loopback($redis) == 'changed') {
-                sysCmd('pgrep -x snapserver || systemctl restart snapserver');
+                wrk_systemd_unit($redis, 'reload-or-restart', 'snapserver');
             }
             break;
         case 'activateserver';
@@ -15455,7 +15526,7 @@ function wrk_snapcast($redis, $action, $args = '', $jobID = '')
                 $redis->sRem('w_lock', $jobID);
             }
             wrk_snapcast($redis, 'configureclient', '', $jobID);
-            sysCmd('systemctl enable snapclient ; pgrep -x snapclient || systemctl start snapclient');
+            wrk_systemd_unit($redis, 'enable_and_start', 'snapclient');
             break;
         case 'disableclient';
             // stop the snapcast client, if it is running
@@ -15463,7 +15534,7 @@ function wrk_snapcast($redis, $action, $args = '', $jobID = '')
             if (isset($jobID)) {
                 $redis->sRem('w_lock', $jobID);
             }
-            sysCmd('systemctl disable snapclient ; pgrep -x snapclient && systemctl stop snapclient');
+            wrk_systemd_unit($redis, 'disable_and_stop', 'snapclient');
             break;
         case 'configureclient';
             // configure the client based on the arguments or when no arguments are given use the stored redis values

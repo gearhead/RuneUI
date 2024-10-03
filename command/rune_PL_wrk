@@ -168,9 +168,8 @@ while (true) {
             // start the job to retrieve extra metadata when coverart is enabled
             if ($coverartRequired) {
                 // it may already be running, check first
-                $retval = sysCmd('systemctl is-active rune_MPDEM_wrk | grep -ic "^active" | xargs')[0];
-                if (!$retval) {
-                    sysCmd('systemctl start rune_MPDEM_wrk');
+                if (!wrk_systemd_unit($redis, 'is-active', 'rune_MPDEM_wrk')) {
+                    wrk_systemd_unit($redis, 'start', 'rune_MPDEM_wrk');
                     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                 }
             }
@@ -678,9 +677,8 @@ while (true) {
                 // start the job to retrieve extra metadata when coverart is enabled
                 if ($coverartRequired) {
                     // it may already be running, check first
-                    $retval = sysCmd('systemctl is-active rune_MPDEM_wrk | grep -ic "^active" | xargs')[0];
-                    if (!$retval) {
-                        sysCmd('systemctl start rune_MPDEM_wrk');
+                    if (!wrk_systemd_unit($redis, 'is-active', 'rune_MPDEM_wrk')) {
+                        wrk_systemd_unit($redis, 'start', 'rune_MPDEM_wrk');
                         sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                     }
                 }

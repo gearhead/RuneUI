@@ -294,7 +294,7 @@ if (isset($_POST)) {
                 $redis->hSet('lyrics', 'match_percentage', $_POST['mode']['lyrics']['match_percentage']);
             }
             // restart the rune_MPDEM_wrk service if it is running
-            sysCmd('pgrep -x rune_MPDEM_wrk && systemctl restart rune_MPDEM_wrk');
+            wrk_systemd_unit($redis, 'restart_if_running', 'rune_MPDEM_wrk');
         }
     }
     // update the MPD configuration if required
