@@ -125,6 +125,18 @@ function enable_overlay_art_cache {
                     rm -r /home/cache
                     mkdir -p /home/cache
                     mount -o noatime,noexec /dev/mmcblk0p$partitions /home/cache
+                    # wait for the /home/cache mount to complete
+                    homecachemounted=0
+                    while (( homecachemounted == 0 )) ; do
+                        test_count1=$( grep -ic "mmcblk0p$partitions" '/proc/mounts' )
+                        test_count2=$( grep -ic '/home/cache' '/proc/mounts' )
+                        if [ "$test_count1" == "0" ] && [ "$test_count1" == "0" ]; then
+                            homecachemounted=0
+                            sleep 1
+                        else
+                            homecachemounted=1
+                        fi
+                    done
                     # make sure the file system is correct
                     partprobe /dev/mmcblk0
                     resize2fs /dev/mmcblk0p$partitions
@@ -139,6 +151,10 @@ function enable_overlay_art_cache {
                         mkdir -p "$artDirWork"
                         mkdir -p "$artDirUpper"
                         mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir" /merged
+                        if [ "$?" != "0" ] ; then
+                            # there has been a syntax change, the new syntax has not worked, try the old syntax
+                            mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                        fi
                         redis-cli set overlay_art_cache 1
                     fi
                 else
@@ -153,7 +169,11 @@ function enable_overlay_art_cache {
                         artDirUpper="$artDirRoot/upper"
                         mkdir -p "$artDirWork"
                         mkdir -p "$artDirUpper"
-                        mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                        mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir" /merged
+                        if [ "$?" != "0" ] ; then
+                            # there has been a syntax change, the new syntax has not worked, try the old syntax
+                            mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                        fi
                         redis-cli set overlay_art_cache 1
                     else
                         # the overlay art cache is already mounted
