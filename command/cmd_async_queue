@@ -49,12 +49,6 @@ require_once('/srv/http/app/libs/openredis.php');
 //  the cipher is the first one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
 //  the passphrase is the Rune playerID
-// if (is_firstTime($redis, 'cmd_queue_encoding')) {
-    // // delete any existing command queue entries
-    // $redis->del('cmd_queue');
-    // // reset the encryption data
-    // reset_cmd_queue_encoding($redis);
-// }
 // encode
 //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
 // decode
@@ -65,6 +59,8 @@ require_once('/srv/http/app/libs/openredis.php');
 //  the second inside loop processes the queue until it it is empty
 //  the encryption data is reset (changed) when the queue is empty
 //
+// set the priority low (nice 15)
+proc_nice(15);
 while (true) {
     // clear the array of commands which have been used in the last cycle
     $cycleCommands = array();
@@ -87,6 +83,9 @@ while (true) {
         if (!$lenCommand) {
             continue;
         }
+        // debug
+        // echo "Encoded command: ".$encoded."\n";
+        runelog('cmd_async_queue - encoded command', $encoded);
         // decode the encoded command
         $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
         // debug
@@ -109,6 +108,9 @@ while (true) {
     }
     // the queue is empty, try to reset the encryption data
     //  it wont be changed if the queue gets new entries while processing
+    // debug
+    runelog('cmd_async_queue - queue emptied', '');
+    // echo "Queue emptied\n";
     reset_cmd_queue_encoding($redis);
     // loop forever
 }

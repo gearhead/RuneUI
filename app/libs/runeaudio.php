@@ -998,6 +998,9 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
         if (is_firstTime($redis, 'cmd_queue_encoding')) {
             // delete any existing command queue entries
             $redis->del('cmd_queue');
+            $redis->hDel('cmd_queue_encoding', 'cipher_iv');
+            $redis->hDel('cmd_queue_encoding', 'cipher');
+            $redis->hDel('cmd_queue_encoding', 'passphrase');
             // generate the encryption data
             reset_cmd_queue_encoding($redis);
         }
@@ -1006,10 +1009,16 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
             //  if the encryption data has changed the previously written command will not be decodable
             //  so just write it again with the latest encryption data
             //  it should not happen very often
-            // get the encryption data
-            $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-            $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-            $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+            // get the encryption data, early in the processing it may not be set
+            while (!isset($iv) || ($iv == '')) {
+                $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+                $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+                $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+                if ($iv == '') {
+                    // sleep for 1 second
+                    sleep(1);
+                }
+            }
             // encode
             //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
             // decode
@@ -1174,9 +1183,11 @@ function reset_cmd_queue_encoding($redis)
     }
     // save the values if the queue is (still) empty
     if (!$redis->lLen('cmd_queue')) {
-        $redis->hSet('cmd_queue_encoding', 'cipher', $cipher);
-        $redis->hSet('cmd_queue_encoding', 'cipher_iv', $iv);
-        $redis->hSet('cmd_queue_encoding', 'passphrase', $passphrase);
+        $redis->multi()
+            ->hSet('cmd_queue_encoding', 'cipher', $cipher)
+            ->hSet('cmd_queue_encoding', 'cipher_iv', $iv)
+            ->hSet('cmd_queue_encoding', 'passphrase', $passphrase)
+            ->exec();
     }
 }
 
