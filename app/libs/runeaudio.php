@@ -6613,7 +6613,7 @@ function wrk_restartSamba($redis, $args = 'restart')
 //  reload : which stops and disables automatic restart of all Samba components when Samba is disabled or
 //             reloads all Samba components when Samba is enabled and the components are running or
 //             starts and enables automatic restart all Samba components when Samba is enabled and the components are not running
-// the redis variable
+//
 {
     if (is_firstTime($redis, 'wrk_restartSamba')) {
         // on RPiOS smbd, nmbd and winbindd services were used, while on ARCH they are smb, nmb and winbind
