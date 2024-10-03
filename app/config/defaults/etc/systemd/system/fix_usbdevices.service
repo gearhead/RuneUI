@@ -1,0 +1,15 @@
+[Unit]
+Description = Fix UBS devices which fail to initialise
+# on some Pi models USB sound cards fail to activate
+# this workaround will fix the problem
+# DefaultDependencies=no
+After=basic.target
+
+[Service]
+Type=oneshot
+#RemainAfterExit=yes
+ExecStart=/srv/http/command/fix_usbdevices.sh
+
+[Install]
+# WantedBy=getty.target # removed for vc4 implementation
+WantedBy=multi-user.target
