@@ -530,12 +530,14 @@ fi
 #   for the connman and iwd user files, connman needs to be stopped
 systemctl stop connman
 # get the networks known to iwd
-networks=$( iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
+#   iwd uses formatted output, this sed command removes it: "sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g'"
+networks=$( iwctl known-networks list | tail -n +5 | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g' | cut -b 2-36 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
 # forget each network known to iwd
-for i in "$networks" ; do
-    # echo "'$i'"
-    wctl known-networks "$i" forget
-done
+#   cant use a for loop because the network name (ssid) can contain spaces
+while IFS= read -r line; do
+    # echo "$line"
+    iwctl known-networks "$line" forget
+done <<< "$networks"
 # delete the connman configuration files
 rm -rf /var/lib/connman/*
 # delete the iwd configuration files (there should be none after forgetting the known networks)

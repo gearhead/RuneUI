@@ -8435,11 +8435,13 @@ function refresh_nics($redis)
     $wirelessNic = array();
     $deviceInfoList = sysCmd("iw dev | sed 's,[ ]\+, ,g' | grep -iE 'phy|interface|ssid|type'");
     foreach ($deviceInfoList as $deviceInfoLine) {
-        $deviceInfoLine = ' '.trim(preg_replace('!\s+!', ' ', $deviceInfoLine));
+        $deviceInfoLine = ' '.trim($deviceInfoLine);
         if (strpos($deviceInfoLine, 'phy')) {
+            $deviceInfoLine = preg_replace('!\s+!', ' ', $deviceInfoLine);
             $phyDev = trim(str_replace('#', '', $deviceInfoLine));
         } else if (strpos($deviceInfoLine, 'Interface')) {
-            $nic = trim(explode(' ', trim($deviceInfoLine))[1]);
+            $deviceInfoLine = preg_replace('!Interface\s+!', 'Interface ', $deviceInfoLine);
+            $nic = trim(explode(' ', trim($deviceInfoLine), 2)[1]);
             if (in_array($nic, $excluded_nics)) {
                 // skip nics in the excluded list
                 continue;
@@ -8474,9 +8476,11 @@ function refresh_nics($redis)
                 $networkInterfaces[$nic]['power_management'] = $retval[0];
             }
         } else if (strpos($deviceInfoLine, 'ssid ')) {
-            $networkInterfaces[$nic]['ssid'] = trim(explode(' ', trim($deviceInfoLine))[1]);
+            $deviceInfoLine = preg_replace('!ssid\s+!', 'ssid ', $deviceInfoLine);
+            $networkInterfaces[$nic]['ssid'] = trim(explode(' ', trim($deviceInfoLine), 2)[1]);
         } else if (strpos($deviceInfoLine, 'type ')) {
-            $networkInterfaces[$nic]['type'] = trim(explode(' ', trim($deviceInfoLine))[1]);
+            $deviceInfoLine = preg_replace('!type\s+!', 'type ', $deviceInfoLine);
+            $networkInterfaces[$nic]['type'] = trim(explode(' ', trim($deviceInfoLine), 2)[1]);
         }
         unset($retval);
     }
