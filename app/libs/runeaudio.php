@@ -3086,11 +3086,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 $apEnable = false;
             }
             // commit the config file, creating a new file triggers connman to use it
-            $fp = fopen($tmpFileName, 'w');
-            fwrite($fp, $profileFileContent);
-            fclose($fp);
+            file_put_contents($tmpFileName, $profileFileContent);
             // don't replace the existing connman configuration file if the new file is identical
-            if (md5_file($profileFileName) != md5_file($tmpFileName)) {
+            //  check that the existing file exists before comparing
+            clearstatcache(true, $profileFileName);
+            if ((!file_exists($profileFileName)) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
                 rename($tmpFileName, $profileFileName);
             } else {
                 unlink($tmpFileName);
@@ -15311,7 +15311,7 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
         default:
             // debug
             $errorText = 'Internal error: Invalid function call: '.$action.', '.$arg.', '.$async.', '.$delay;
-            ui_notifyError('wrk_unit_info', $errorText);
+            ui_notifyError($redis, 'wrk_unit_info', $errorText);
             echo $errorText."\n";
             runelog("[wrk_unit_info]", $errorText);
             return false;
