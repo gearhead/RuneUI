@@ -90,6 +90,9 @@ while (true) {
         $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
         // debug
         // echo "Decoded command: ".$command."\n";
+        // if (in_array($command, $cycleCommands)) {
+            // echo "Skipping command: ".$command."\n";
+        // }
         runelog('cmd_async_queue - decoded command', $command);
         if (strlen($command) && !in_array($command, $cycleCommands)) {
             // debug

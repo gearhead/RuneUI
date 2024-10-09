@@ -1001,22 +1001,32 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
             $redis->hDel('cmd_queue_encoding', 'cipher_iv');
             $redis->hDel('cmd_queue_encoding', 'cipher');
             $redis->hDel('cmd_queue_encoding', 'passphrase');
-            // generate the encryption data
+            // generate the encryption data, this takes some time
+            //  other queue request may start while processing
             reset_cmd_queue_encoding($redis);
         }
         do {
-            // this loop checks that the encryption data is the same before and after writing to the queue
-            //  if the encryption data has changed the previously written command will not be decodable
-            //  so just write it again with the latest encryption data
+            // this loop checks that the cypher data is the same before and after writing to the queue
+            //  if the cypher data has changed the previously written command will not be decodable
+            //  so just write it again with the latest cypher data
             //  it should not happen very often
-            // get the encryption data, early in the processing it may not be set
+            // get the cypher data, early in the processing it may not be set
+            $cnt = 20;
             while (!isset($iv) || ($iv == '')) {
+                // loop until we have some valid cypher data another request may be encoding it
                 $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-                $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-                $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
                 if ($iv == '') {
+                    if ($cnt-- <= 0) {
+                        // fail-safe, limit the number of loops
+                        echo "[sysCmdAsync] Failed to load cypher data while encoding command '".$command."'\n";
+                        // break 2 loops
+                        break 2;
+                    }
                     // sleep for 1 second
                     sleep(1);
+                } else {
+                    $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+                    $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
                 }
             }
             // encode
@@ -1041,7 +1051,7 @@ function reset_cmd_queue_encoding($redis)
 //  the commands are deflated, encrypted and then base64_encoded
 //  the reverse is used to decode commands
 //  its not really secure but should be enough to deter the casual burglar
-// variables, initially at boot time and after emptying the queue (see below)
+// variables, set initially at boot time and after emptying the queue (see below)
 //  the cipher is the first one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
 //  the passphrase is the Rune playerID
@@ -1181,8 +1191,8 @@ function reset_cmd_queue_encoding($redis)
             sleep(1);
         }
     }
-    // save the values if the queue is (still) empty
-    if (!$redis->lLen('cmd_queue')) {
+    // save the values if the cypher data is unset or the queue is (still) empty
+    if ((!$redis->hGet('cmd_queue_encoding', 'cipher_iv')) || !$redis->lLen('cmd_queue')) {
         $redis->multi()
             ->hSet('cmd_queue_encoding', 'cipher', $cipher)
             ->hSet('cmd_queue_encoding', 'cipher_iv', $iv)
@@ -8939,6 +8949,28 @@ function refresh_nics($redis)
                 }
             }
         }
+        // connman is buggy! autoconnect-on/off seems to have no effect, the following routine solves some of the problems
+        $connmanWifiServices = sysCmd('connmanctl services | grep "wifi_"');
+        $stopAndStart = false;
+        foreach ($connmanWifiServices as $connmanWifiService) {
+            if (strpos(' '.$connmanWifiService, '*AR') == 1) {
+                $stopAndStart = true;
+            }
+            if (strpos(' '.$connmanWifiService, '* R') == 1) {
+                $stopService = trim('wifi_'.get_between_data($connmanWifiService, 'wifi_'));
+            }
+            if (strpos(' '.$connmanWifiService, '*A ') == 1) {
+                $startService = trim('wifi_'.get_between_data($connmanWifiService, 'wifi_'));
+            }
+        }
+        if ($stopAndStart) {
+            if (isset($stopService) && $stopService) {
+                sysCmd('connmanctl disconnect '.$stopService);
+            }
+            if (isset($startService) && $startService) {
+                sysCmd('connmanctl connect '.$startService);
+            }
+        }
     }
     //
     $redis->set('network_info', json_encode($networkInfo));
@@ -15194,6 +15226,7 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
 //
 // actions:
 //  daemon-reload, arg is ignored
+//  daemon-reload_and_restart, arg = unit name(s)
 //  daemon-reload_and_start, arg = unit name(s)
 //  disable, arg = unit name(s)
 //  disable_and_stop, arg = unit name(s)
@@ -15223,43 +15256,27 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
     }
     $allToNull = ' >/dev/null 2>&1 ';
     $errorToNull = ' 2>/dev/null ';
-    if (strpos(' '.$arg, '.')) {
-        $grepArg = trim(get_between_data($arg, '', '.'));
-    } else {
-        $grepArg = $arg;
-    }
-    if (strlen($grepArg) > 15) {
-        $pgrep = 'pgrep -f '.$grepArg;
-    } else {
-        $pgrep = 'pgrep '.$grepArg;
-    }
-    $pgrep .= $allToNull;
     switch ($action) {
         case 'daemon-reload':
             $cmd = '( systemctl daemon-reload'.$allToNull.'&& echo 1 ) | xargs';
             break;
-        case 'daemon-reload_and_start':
+         case 'daemon-reload_and_restart':
+            $cmd = '( systemctl daemon-reload ; systemctl restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
+            break;
+         case 'daemon-reload_and_start':
             $cmd = '( systemctl daemon-reload ; systemctl reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
-        case 'disable':
+       case 'disable':
             $cmd = '( systemctl disable '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'disable_and_stop':
-            if (strpos($arg, ' ')) {
-                $cmd = '( systemctl disable '.$arg.$allToNull.'; systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            } else {
-                $cmd = '( systemctl disable '.$arg.$allToNull.'; '.$pgrep.' && ( systemctl stop '.$arg.$allToNull.'&& echo 1 ) || echo 1 ) | xargs';
-            }
+            $cmd = '( systemctl disable '.$arg.$allToNull.'; systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'enable':
             $cmd = '( systemctl enable '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'enable_and_start':
-            if (strpos($arg, ' ')) {
-                $cmd = '( systemctl enable '.$arg.$allToNull.'; systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            } else {
-                $cmd = '( systemctl enable '.$arg.$allToNull.'; '.$pgrep.'|| systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            }
+            $cmd = '( systemctl enable '.$arg.$allToNull.'; systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'get_start_time':
             if (strpos($arg, ' ')) {
@@ -15294,18 +15311,10 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
             $cmd = '( systemctl try-reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'start':
-            if (strpos($arg, ' ')) {
-                $cmd = '( systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            } else {
-                $cmd = '( '.$pgrep.'|| systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            }
+            $cmd = '( systemctl start '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'stop':
-            if (strpos($arg, ' ')) {
-                $cmd = '( systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
-            } else {
-                $cmd = '( '.$pgrep.' && ( systemctl stop '.$arg.$allToNull.'&& echo 1 ) || echo 1 ) | xargs';
-            }
+            $cmd = '( systemctl stop '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'unmask':
             $cmd = '( systemctl unmask '.$arg.$allToNull.'&& echo 1 ) | xargs';
@@ -15321,14 +15330,22 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
             return false;
             break;
     }
+    // debug
+    // echo "[wrk_systemd_unit] Command: '".$cmd."'\n";
     if ($async) {
         if (is_numeric($delay)) {
+            // debug
+            // echo "[wrk_systemd_unit] Command async delay: '".$cmd."'\n";
             sysCmdAsync($redis, $cmd, $delay);
         } else {
+            // debug
+            // echo "[wrk_systemd_unit] Command async: '".$cmd."'\n";
             sysCmdAsync($redis, $cmd);
         }
         return true;
     } else {
+        // debug
+        // echo "[wrk_systemd_unit] Command sync: '".$cmd."'\n";
         return boolval(sysCmd($cmd)[0]);
     }
 }
