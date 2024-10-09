@@ -69,9 +69,10 @@
                         <input id="wifi" name="wifienable" type="checkbox" value="1"<?php if((isset($this->wifienable)) && ($this->wifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">Enable/Disable Wi-Fi.<br>
+                    <span class="help-block">Enable/Disable on-board Wi-Fi.<br>
                         <i>Notes: The default setting is ON when on-board Wi-Fi is available.
                         If you do not intend to use Wi-Fi, you should <strong>switch it off.</strong>
+                        External Wi-Fi dongles are unaffected by this setting and will continue to work when present.
                         A <strong>reboot</strong> is required to activate a changed setting!</i></span>
                 </div>
             </div>
