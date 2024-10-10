@@ -307,24 +307,38 @@ if ($template->action === 'wifi_scan') {
             break;
         }
     }
-    $wired = false;
-    $wifi = false;
+    $wired = 0;
+    $wifi = 0;
+    $apSupp = 0;
     foreach ($template->nics as $nic) {
         if (($nic['technology'] === 'ethernet') && $nic['connected']) {
-            // a connected wired connection is available
-            $wired = true;
+            // a wired nic is connected
+            $wired++;
         }
         if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['connected']) {
-            // a connected wifi connection is available
-            $wifi = true;
+            // a Wi-Fi nic is connected
+            $wifi++;
+        }
+        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['apSupported']) {
+            // an access point supported Wi-Fi nic is available
+            $apSupp++;
         }
     }
-    if ($wired && !$wifi) {
-        // a wired connection is available and no Wi-Fi connection is available (maybe it is configured as an AP), so enable switching Wi-Fi on/off
+    if (!$redis->get('wifi-on') || ($wifi > 1) || ($wired && !$wifi)) {
+        // Wi-Fi is switched off or more than one Wi-Fi nic is connected or
+        //  a wired nic is connected and no Wi-Fi connection is connected
+        //  (it could be configured as an AP), enable switching Wi-Fi on/off
         $template->wifiswitch = 1;
     } else{
         // disable switching Wi-Fi on/off
         $template->wifiswitch = 0;
+    }
+    if ($redis->get('wifi-on') || ($apSupp)) {
+        // Wi-Fi is switched on or an access point supported Wi-Fi nic is available, enable switching AP on/off
+        $template->apswitch = 1;
+    } else{
+        // disable switching Wi-Fi on/off
+        $template->apswitch = 0;
     }
     unset($networks, $storedProfiles, $btDevices, $wired, $wifi, $interface, $wlanNic);
     // only the contents of $template->nics is used

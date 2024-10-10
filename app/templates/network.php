@@ -80,7 +80,7 @@
     </div>
     <br>
     <?php endif ?>
-    <?php if((isset($this->wifienable)) && ($this->wifienable)): ?>
+    <?php if((isset($this->apswitch)) && ($this->apswitch)): ?>
     <legend>Access Point</legend>
     <div class="boxed">
         <form id='aponoff' name='aponoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
