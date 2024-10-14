@@ -197,8 +197,9 @@ if (!isset($template->config['LDAC_codec'])) {
 $acards = $redis->hgetall('acards');
 $template->noOutput = '1';
 foreach ($acards as $acard) {
-    $card = json_decode($acard, true);
-    if (strpos(' '.strtolower($card['device']), 'hw')) {
+    if (strpos(' '.strtolower($acard), 'hw')) {
+        // no need to json decode the card, just test for the occurrence of 'hw'
+        //  this will ignore bluetooth output
         $template->noOutput = '0';
         break;
     }
