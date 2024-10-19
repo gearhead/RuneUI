@@ -120,7 +120,7 @@ while (true) {
             $defVolume = $redis->hGet('bluetooth', 'def_volume_in');
             if ($defVolume != -1) {
                 $defVolume = round(($defVolume * 127) / 100);
-                sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$defVolume);
+                sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
             }
             wrk_startPlayer($redis, "Bluetooth");
             sleep(5);
@@ -161,7 +161,7 @@ while (true) {
                         if ($redis->hGet('bluetooth', 'local_volume_control') != 'd') {
                             if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                 $defVolume = round(($defVolume * 127) / 100);
-                                sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$defVolume);
+                                sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
                             }
                         } else {
                             $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
@@ -172,7 +172,7 @@ while (true) {
                             } else {
                                 if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                     $defVolume = round(($defVolume * 127) / 100);
-                                    sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$defVolume);
+                                    sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
                                 }
                             }
                         }
@@ -188,7 +188,7 @@ while (true) {
             // $defVolume = $redis->hGet('bluetooth', 'def_volume_out');
             // if ($defVolume != -1) {
                 // $defVolume = round(($defVolume * 127) / 100);
-                // sysCmd('bluealsa-cli volume '.$pcms['output']['pcm'].' '.$defVolume);
+                // sysCmd('bluealsactl volume '.$pcms['output']['pcm'].' '.$defVolume);
             // }
             // continue;
         // }

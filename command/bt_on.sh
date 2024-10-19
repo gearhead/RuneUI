@@ -85,13 +85,13 @@ if [ "$sel_controler" != "" ] ; then
 fi
 systemctl start bluealsa
 count=3
-timeout 5 bluealsa-cli list-services
+timeout 5 bluealsactl list-services
 until [ $? -eq 0 ] || (( count-- <= 0 )); do
     # loop for 3 times to allow the bluealsa service to start and initialise
     # echo $count
     # echo $?
     sleep 2
-    timeout 5 bluealsa-cli list-services
+    timeout 5 bluealsactl list-services
 done
 systemctl start bluealsa-aplay
 systemctl start bt_mon_switch

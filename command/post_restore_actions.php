@@ -83,7 +83,7 @@ if ($redis->get('bluetooth_on')) {
 } else {
     wrk_btcfg($redis, 'disable');
 }
-$bluetoothCodecs = strtolower(trim(explode(':', sysCmd('bluealsa --help | grep -i a2dp-source:')[0], 2)[1]));
+$bluetoothCodecs = strtolower(trim(explode(':', sysCmd('bluealsad --help | grep -i a2dp-source:')[0], 2)[1]));
 if (!strpos(' '.$bluetoothCodecs, 'aptx-hd')) {
     $redis-hSet('bluetooth', 'aptX_HD_codec', 0);
 }

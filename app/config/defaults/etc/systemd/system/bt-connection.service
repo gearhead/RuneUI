@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 RuntimeDirectory=bluealsa-monitor
 PIDFile=/run/bluelasa-monitor/bt-connection.pid
-ExecStart=/usr/bin/bluealsa-cli -q monitor
+ExecStart=/usr/bin/bluealsactl -q monitor
 ExecReload=/bin/kill -USR2 $MAINPID
 
 [Install]

@@ -65,13 +65,13 @@ if (!$param || !strpos('|add|remove|', $param)) {
     exit (22);
 }
 // count the number of sources and sinks
-$sources = sysCmd('bluealsa-cli -q list-pcms | grep a2dp | grep -i "source"');
+$sources = sysCmd('bluealsactl -q list-pcms | grep a2dp | grep -i "source"');
 $sourceCnt = count($sources);
-// $sinks = sysCmd('bluealsa-cli -q list-pcms | grep a2dp | grep -i "sink"');
+// $sinks = sysCmd('bluealsactl -q list-pcms | grep a2dp | grep -i "sink"');
 // $sinkCnt = count($sinks);
 switch($param) {
     case 'add';
-        // $response = sysCmd('timeout 5 stdbuf -oL bluealsa-cli -q monitor | grep -q -m 1 "^PCMAdded" || echo "0"')[0];
+        // $response = sysCmd('timeout 5 stdbuf -oL bluealsactl -q monitor | grep -q -m 1 "^PCMAdded" || echo "0"')[0];
         // if (!$response) {
             // echo 'Error, timeout waiting for Bluetooth device to become available';
             // // exit with 62 (ETIME): 'Timer expired'

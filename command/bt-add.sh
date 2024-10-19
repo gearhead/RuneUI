@@ -5,10 +5,10 @@
 echo "lets add a device"
 file="/etc/mpd.conf"
 # wait for PCM(s) to be created, with absolute timeout of 5 seconds.
-#timeout 5 stdbuf -oL bluealsa-cli -q monitor | grep -q -m 1 ^PCMAdded || exit 0
-#timeout 5 bluealsa-cli -q monitor | grep -q -m 1 ^PCMAdded || exit 0
+#timeout 5 stdbuf -oL bluealsactl -q monitor | grep -q -m 1 ^PCMAdded || exit 0
+#timeout 5 bluealsactl -q monitor | grep -q -m 1 ^PCMAdded || exit 0
 echo "found one"
-case "$(/usr/bin/bluealsa-cli -q list-pcms | grep a2dp | grep -o -E '(sink|source)$')" in
+case "$(/usr/bin/bluealsactl -q list-pcms | grep a2dp | grep -o -E '(sink|source)$')" in
 *sink*) # attached speaker(s)
     echo "sink"
     mpc stop

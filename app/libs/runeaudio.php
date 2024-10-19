@@ -12861,10 +12861,10 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
         case 'set_volume':
             // sets the volume of a Bluetooth source device
             //  there should only be one active source device when this is called, but we will apply the volume change to all active source pcms
-            $pcmsSource = sysCmd('timeout 5 bluealsa-cli list-pcms | grep a2dp | grep -i "source"');
+            $pcmsSource = sysCmd('timeout 5 bluealsactl list-pcms | grep a2dp | grep -i "source"');
             $def_volume_in = $redis->hGet('bluetooth', 'def_volume_in');
             foreach ($pcmsSource as $pcmsPath) {
-                sysCmd('timeout 5 bluealsa-cli volume '.$pcmsPath.' '.$def_volume_in);
+                sysCmd('timeout 5 bluealsactl volume '.$pcmsPath.' '.$def_volume_in);
             }
             break;
         case 'status':
@@ -12994,7 +12994,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             $mpdConfigured = true;
             if (($redis->get('activePlayer') != 'Bluetooth') && count($deviceArray)) {
                 // only activate when there is no connected connected source device and the device array has values
-                $pcmsInfo = sysCmd('timeout 5 bluealsa-cli list-pcms');
+                $pcmsInfo = sysCmd('timeout 5 bluealsactl list-pcms');
                 if (isset($pcmsInfo[0])) {
                     foreach ($pcmsInfo as $pcms) {
                         $pcmsData = get_between_data($pcms, 'dev_');
@@ -13153,7 +13153,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                     continue;
                 }
                 switch ($configKey) {
-                    // setting default volume is done with bluealsa-cli, maybe the code below will be relevant in a future version
+                    // setting default volume is done with bluealsactl, maybe the code below will be relevant in a future version
                     // case 'def_volume_in':
                         // $volume_in = $configValue;
                         // if (!isset($volume_out)) {
@@ -13410,7 +13410,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 // only bluetooth output is on, no nothing
                 break;
             }
-            $bluealsaInfoLines = sysCmd('bluealsa-cli --verbose list-pcms');
+            $bluealsaInfoLines = sysCmd('bluealsactl --verbose list-pcms');
             if (!isset($bluealsaInfoLines) || !count($bluealsaInfoLines)) {
                 // bluealsa not active, do nothing
                 break;
@@ -13489,10 +13489,10 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 // process soft volume as if it is set to automatic
                 if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
                     // no mixer device available for the sound card and softvolume is off, set soft volume control on
-                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 1');
+                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
                 } else if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
                     // mixer device available for the sound card and softvolume is on, set soft volume control off
-                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 0');
+                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
                 }
                 break;
             }
@@ -13501,12 +13501,12 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 // native volume control is set to automatic or off
                 if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
                     // no mixer device available for the sound card and softvolume is off, set soft volume control on
-                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 1');
+                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
                 }
             } else if (($native_volume_control == 'a') || ($native_volume_control == '1')) {
                 if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
                     // mixer device available for the sound card and softvolume is on, set soft volume control off
-                    sysCmd('bluealsa-cli soft-volume '.$pcmInfo['input']['pcm'].' 0');
+                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
                 }
             }
             unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control, $native_volume_control);

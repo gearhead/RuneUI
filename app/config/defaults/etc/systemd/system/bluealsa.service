@@ -12,14 +12,14 @@ After=bluetooth.service
 # $ sudo systemctl edit bluealsa
 # [Service]
 # ExecStart=
-# ExecStart=@bindir@/bluealsa -S --keep-alive=5 -p a2dp-sink
+# ExecStart=@bindir@/bluealsad -S --keep-alive=5 -p a2dp-sink
 
 [Service]
 Type=dbus
 BusName=org.bluealsa
 User=bluealsa
 EnvironmentFile=-/etc/default/bluealsa
-ExecStart=/usr/bin/bluealsa $OPTIONS
+ExecStart=/usr/bin/bluealsad $OPTIONS
 Restart=on-failure
 
 # Sandboxing

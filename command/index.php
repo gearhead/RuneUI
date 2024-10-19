@@ -97,7 +97,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                             $pcms = wrk_btcfg($redis, 'auto_volume');
                             if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                 $volume = round(($value * 127) / 100);
-                                $x = sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$volume);
+                                $x = sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$volume);
                                 $response = implode('\n', $x);
                             }
                         } else {
@@ -111,7 +111,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                                 $pcms = wrk_btcfg($redis, 'auto_volume');
                                 if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
                                     $volume = round(($value * 127) / 100);
-                                    $x = sysCmd('bluealsa-cli volume '.$pcms['input']['pcm'].' '.$volume);
+                                    $x = sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$volume);
                                     $response = implode('\n', $x);
                                 }
                             }

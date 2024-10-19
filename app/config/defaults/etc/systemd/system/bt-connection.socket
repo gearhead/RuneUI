@@ -1,5 +1,5 @@
 [Unit]
-Description=Bluealsa-cli Socket
+Description=Bluealsactl Socket
 PartOf=bt-connection.service
 
 [Socket]
