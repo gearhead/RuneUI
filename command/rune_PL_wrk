@@ -869,7 +869,13 @@ while (true) {
                             $audio_channels_number = $pcmInfo['input']['channels'];
                         }
                         $audio_sample_depth = preg_replace('/[^0-9]/', '', $pcmInfo['input']['format']);
-                        $audio_sample_rate = $pcmInfo['input']['sampling'];
+                        if (isset($pcmInfo['input']['rate'])) {
+                            $audio_sample_rate = $pcmInfo['input']['rate'];
+                        } else if (isset($pcmInfo['input']['sampling'])) {
+                            $audio_sample_rate = $pcmInfo['input']['sampling'];
+                        } else {
+                            $audio_sample_rate = $redis->hGet('bluetooth', 'samplerate');
+                        }
                         $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                         $bitrate = '~190';
                         if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {

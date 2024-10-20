@@ -13417,12 +13417,12 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             }
             // we have information from bluealsa
             // make a list of the keys which have numeric information
-            $numericKeys = array('sequence', 'channels', 'delay', 'volume');
+            $numericKeys = array('sequence', 'channels', 'delay', 'volume', 'rate', 'clientdelay');
             // decode the lines into an array
             foreach ($bluealsaInfoLines as $bluealsaInfoLine) {
                 $bluealsaInfoLine = trim($bluealsaInfoLine);
                 if (substr($bluealsaInfoLine, 0, 1) == '/') {
-                    // theis is the pcm line
+                    // this is the pcm line
                     if (substr($bluealsaInfoLine, -6) == 'source') {
                         // its an input
                         $type = 'input';
@@ -13449,10 +13449,15 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 $key = str_replace(' ', '_', strtolower(trim($key)));
                 // trim the value
                 $value = trim($value);
-                if (strpos(' '.$value, 'L:') && strpos(' '.$value, 'R:')) {
-                    // make values with right and left entries into a single entry
-                    $value = trim(get_between_data($value, 'L:', 'R:'));
-                }
+                if (($key == 'volume') || ($key == 'mute'))
+                    if (strpos(' '.$value, 'L:') && strpos(' '.$value, 'R:')) {
+                        // make values with right and left entries into a single entry, explicitly L: and R:
+                        $value = trim(get_between_data($value, 'L:', 'R:'));
+                    }
+                    if (strpos('|'.$value, ' ')) {
+                        // make values with right and left entries into a single entry, space delimited
+                        $value = trim(explode(' ', $value, 2)[0]);
+                    }
                 if ($value == 'false') {
                     // use zero for false
                     $value = 0;
