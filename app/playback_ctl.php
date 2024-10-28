@@ -61,7 +61,10 @@ if ($redis->get('coverart') == 1) {
         $template->volume['hide'] = 1;
     }
 }
-if (($redis->get('volume') == 1) && ($template->activePlayer == 'MPD')) {
+if (
+        ($redis->get('volume') && ($template->activePlayer == 'MPD')) ||
+        ($redis->hGet('bluetooth', 'local_volume_control') && ($template->activePlayer == 'Bluetooth'))
+        ) {
     $template->volume['color'] = '#0095D8';
     $template->volume['readonly'] = 'false';
     $template->volume['disabled'] = 0;

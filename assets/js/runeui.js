@@ -1083,12 +1083,18 @@ function updateGUI() {
         GUI.stream = '';
     }
     if ((local_volume_control === '0') || (local_volume_control === 0)) {
-        GUI.local_volume_control = '0';
+        if (GUI.local_volume_control !== '0') {
+            GUI.local_volume_control = '0';
+            setPlaybackSource();
+        }
         if (activePlayer === 'MPD') {
             volume = 100;
         }
     } else if ((local_volume_control === '1') || (local_volume_control === 1)) {
-        GUI.local_volume_control = '1';
+        if (GUI.local_volume_control !== '1') {
+            GUI.local_volume_control = '1';
+            setPlaybackSource();
+        }
     }
     if (typeof GUI.json.consume !== 'undefined') {
         GUI.consume = GUI.json.consume;

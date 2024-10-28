@@ -556,6 +556,37 @@
                     </div>
                 </div>
             </div>
+            <legend>Bluetooth - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Fix for Bluetooth input volume control</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="fix_input_ba_volume_enabled" name="mode[fix_input_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($this->fix_input_ba_volume_enabled)) && ($this->fix_input_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">A Bluetooth input fails to set the volume to the correct level.
+                        The most common symptom is that volume cannot be set to 100% from the Bluetooth input device.
+                        In the UI it appears correct, the actual volume level is shown in the mixer and it never reaches 100%.
+                        Setting this fix ON resolves the problem. The default value is <strong>ON</strong>.<br>
+                        A reboot is required to activate a changed value</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Fix for Bluetooth output volume control</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="fix_output_ba_volume_enabled" name="mode[fix_output_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($this->fix_output_ba_volume_enabled)) && ($this->fix_output_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">Sometimes Bluetooth fails to set the output volume level.
+                        By default RuneAudio will attempt to use the hardware volume control of the Bluetooth output device.
+                        If this fails to work correctly this fix can be set ON. When ON, RuneAudio applies a software volume control.
+                        This is not ideal, a software volume control works independently of the Bluetooth output device volume control.
+                        Which means that both may need to be adjusted to achieve the desired volume level</span>
+                    </div>
+                </div>
+            </div>
             <legend>UI - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">

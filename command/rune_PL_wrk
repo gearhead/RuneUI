@@ -538,7 +538,7 @@ while (true) {
                 // Is the volume control active?
                 $player_volume_control_new = $redis->hGet('mpdconf', 'mixer_type');
                 if (!isset($status['local_volume_control']) || ($player_volume_control != $player_volume_control_new)) {
-                    // local volume control unset or player volcume control changed
+                    // local volume control unset or player volume control changed
                     $player_volume_control = $player_volume_control_new;
                     if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
                         // player volume control active
@@ -878,35 +878,50 @@ while (true) {
                         }
                         $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                         $bitrate = '~190';
-                        if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
-                            $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
-                        } else {
-                            $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+                        $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                        // debug
+                        echo "Volume: '".$volume."'\n";
+                        // automatic volume changing via bluealsa works incorrectly for hardware mixers
+                        //  the bluealsa volume control is disabled when the redis variable ('bluetooth', 'fix_input_ba_volume') is set
+                        //  if the output device has a hardware mixer change the volume as required when ('bluetooth', 'fix_input_ba_volume') is set
+                        //  MPD is still running in the background and it has the same output device as Bluetooth so mpc can
+                        //      be used to change the volume
+                        $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+                        if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
+                            // check that there is a hardware mixer
                             if (isset($acard['mixer_control']) && $acard['mixer_control']) {
-                                $card = get_between_data($acard['device'], ':', ',');
-                                $mixerControl = $acard['mixer_control'];
-                                $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
-                                $volume = get_between_data($volume, ' [', '%] ');
-                            } else {
-                                $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                                // get the actual volume level
+                                $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep -i "^volume: " | tail -n 1 | xargs')[0]));
+                                // debug
+                                echo "Actual volume: '".$actualVolume."'\n";
+                                // set the maximum number of iterations (worst case = 7 : 100, 50, 25, 13, 7, 4, 2, 1, 0)
+                                $cnt = 7;
+                                // set big change to false
+                                $bigChange = false;
+                                while ((abs($volume - $actualVolume) > 2) && ($cnt-- > 0)) {
+                                    // loop until the volume level difference is less then 3%
+                                    //  this is a soft volume change changing by 50% of the difference on each iteration
+                                    $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume '.round($actualVolume + (($volume - $actualVolume) / 2)).' | grep -i "^volume: " | tail -n 1 | xargs')[0]));
+                                    echo "Actual volume: '".$actualVolume."'\n";
+                                    // sleep for 1/10 of a second
+                                    usleep(100000);
+                                    // set big change to true
+                                    $bigChange = true;
+                                }
+                                if (abs($volume - $actualVolume) > 1) {
+                                    // sometimes the volume cannot be set to the exact value, the difference is mostly 1%
+                                    $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume '.$volume.' | grep -i "^volume: " | tail -n 1 | xargs')[0]));
+                                }
+                                if ($bigChange && (abs($volume - $actualVolume) > 0)) {
+                                    usleep(100000);
+                                    $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume '.$volume.' | grep -i "^volume: " | tail -n 1 | xargs')[0]));
+                                }
                             }
                         }
                     } else if ($checkAudioCnt-- <= 0) {
                         // a value of 5 for $checkAudioCnt means that this code is run every 10 seconds since the do loop has a 2 second cycle
                         $checkAudioCnt = 5;
-                        if (($redis->hGet('bluetooth', 'local_volume_control') != 'd')) {
-                            $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                        } else {
-                            $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
-                            if (isset($acard['mixer_control']) && $acard['mixer_control']) {
-                                $card = get_between_data($acard['device'], ':', ',');
-                                $mixerControl = $acard['mixer_control'];
-                                $volume = sysCmd('amixer -c '.$card.' sget '.$mixerControl.' | grep "%" | xargs')[0];
-                                $volume = get_between_data($volume, ' [', '%] ');
-                            } else {
-                                $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                            }
-                        }
+                        $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
                         $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
                         if ($playing) {
                             $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
@@ -987,10 +1002,13 @@ while (true) {
                 }
                 runelog('rune_PL_wrk: Bluetooth timeout count', $bluetooth_timeout_count);
                 // 2 second sleep
+                //  always sleep for a minimum of a quarter of a second
                 $sleepTime = $sleepUntilTime - microtime(true);
                 if ($sleepTime > 0) {
-                    $sleepTime = intval($sleepTime * 1000000);
+                    $sleepTime = max(intval($sleepTime * 1000000), 250000);
                     usleep($sleepTime);
+                } else {
+                    usleep(250000);
                 }
                 $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'Bluetooth');

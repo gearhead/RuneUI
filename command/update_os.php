@@ -193,7 +193,7 @@ function updateOS($redis) {
             $redis->hDel('bluetooth', 'def_volume');
             $redis->hDel('bluetooth', 'IO_toggle');
             $redis->hDel('bluetooth', 'local_volume_control');
-            $redis->hDel('bluetooth', 'native_volume_control');
+            // $redis->hDel('bluetooth', 'native_volume_control');
             $redis->hDel('bluetooth', 'remember_last_volume');
             sysCmd('/srv/http/db/redis_datastore_setup check');
             // refresh the redis acards details

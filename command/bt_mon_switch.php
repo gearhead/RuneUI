@@ -112,9 +112,9 @@ while (true) {
             }
         }
     }
+    // get the current pcms
+    $pcms = wrk_btcfg($redis, 'auto_volume');
     if ($redis->get('activePlayer') != 'Bluetooth') {
-        // get the current pcms
-        $pcms = wrk_btcfg($redis, 'auto_volume');
         if (isset($pcms['input']['running']) && $pcms['input']['running']) {
             // an input pcm is running, set the volume and switch the player
             $defVolume = $redis->hGet('bluetooth', 'def_volume_in');
@@ -184,7 +184,7 @@ while (true) {
             }
         }
         // if (isset($pcms['output']['running']) && !$pcms['output']['running']) {
-            // // an output pcm is available but nor running, set the default volume
+            // // an output pcm is available but not running, set the default volume
             // $defVolume = $redis->hGet('bluetooth', 'def_volume_out');
             // if ($defVolume != -1) {
                 // $defVolume = round(($defVolume * 127) / 100);
@@ -192,6 +192,18 @@ while (true) {
             // }
             // continue;
         // }
+    } else if (isset($pcms['output']['running']) && $pcms['output']['running']) {
+        if ($redis-hGet('bluetooth', 'fix_output_ba_volume')) {
+            // software volume control is set
+            if (!isset($pcms['output']['softvolume']) || !$pcms['output']['softvolume']) {
+                sysCmd('bluealsactl soft-volume '.['output']['running'].' true');
+            }
+        } else {
+            // native (hardware) volume control is set
+            if (!isset($pcms['output']['softvolume']) || $pcms['output']['softvolume']) {
+                sysCmd('bluealsactl soft-volume '.['output']['running'].' false');
+            }
+        }
     }
     $bluealsaAplayActive = wrk_systemd_unit($redis, 'is-active', 'bluealsa-aplay');
     if (!$bluealsaAplayActive) {

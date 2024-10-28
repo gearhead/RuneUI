@@ -235,10 +235,11 @@ function redisDatastore($redis, $action) {
             // Bluetooth
             $redis->hSet('bluetooth', 'def_volume_in', '-1');
             // $redis->hSet('bluetooth', 'def_volume_out', '-1');
+            $redis->hSet('bluetooth', 'fix_input_ba_volume', 1);
+            $redis->hSet('bluetooth', 'fix_output_ba_volume', 0);
             $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hSet('bluetooth', 'IO_toggle', 'both');
             $redis->hSet('bluetooth', 'local_volume_control', 0);
-            $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hSet('bluetooth', 'quality', 'default');
             $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
             $redis->hSet('bluetooth', 'remember_last_volume', 0);
@@ -602,10 +603,11 @@ function redisDatastore($redis, $action) {
             $redis->hExists('bluetooth', 'def_volume_in') || $redis->hSet('bluetooth', 'def_volume_in', -1);
             // Bluetooth
             // $redis->hExists('bluetooth', 'def_volume_out') || $redis->hSet('bluetooth', 'def_volume_out', -1);
+            $redis->hExists('bluetooth', 'fix_input_ba_volume') || $redis->hSet('bluetooth', 'fix_input_ba_volume', 1);
+            $redis->hExists('bluetooth', 'fix_output_ba_volume') || $redis->hSet('bluetooth', 'fix_output_ba_volume', 0);
             $redis->hExists('bluetooth', 'initialising') || $redis->hSet('bluetooth', 'initialising', 0);
             $redis->hExists('bluetooth', 'IO_toggle') || $redis->hSet('bluetooth', 'IO_toggle', 'both');
             $redis->hExists('bluetooth', 'local_volume_control') || $redis->hSet('bluetooth', 'local_volume_control', 0);
-            $redis->hExists('bluetooth', 'native_volume_control') || $redis->hSet('bluetooth', 'native_volume_control', 'a');
             $redis->hExists('bluetooth', 'quality') || $redis->hSet('bluetooth', 'quality', 'high_def');
             $redis->hExists('bluetooth', 'quality_options') || $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
             $redis->hExists('bluetooth', 'remember_last_volume') || $redis->hSet('bluetooth', 'remember_last_volume', 0);

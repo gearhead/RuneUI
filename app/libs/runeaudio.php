@@ -12477,9 +12477,12 @@ function set_alsa_default_card($redis, $cardName = null)
     $device = $acard['device'];
     $cardNumber = get_between_data($device, ':', ',');
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
-        $mixerInfo = ' --mixer-device='.$acard['swmixer_device'].' --mixer-name='.$acard['mixer_control'];
+        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+        if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
+            $mixerInfo .= ' --volume=none';
+        }
     } else {
-        $mixerInfo = '';
+        $mixerInfo = ' --volume=software';
     }
     //
     if (!isset($cardNumber) || !is_numeric($cardNumber)) {
@@ -12509,7 +12512,7 @@ function set_alsa_default_card($redis, $cardName = null)
         }
     }
     // also configure bluealsa to point at the default card
-    sysCmd('echo "OPTIONS=\"--pcm='.$acard['swdevice'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
+    sysCmd('echo "OPTIONS=\"--pcm='.$acard['device'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
@@ -12707,6 +12710,9 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                     }
                 }
             }
+            // restart bluetooth, otherwise a reconnect will not work correctly
+            wrk_btcfg($redis, 'disable');
+            wrk_btcfg($redis, 'enable');
             break;
         case 'disconnect_sinks':
             // disconnect all sinks
@@ -13237,7 +13243,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                         break;
                     case 'IO_toggle':
                         // all of the files '/etc/default/bluealsa.*' need to have the switch -p a2dp-sink and/or -p a2dp-source added or removed
-                        //  the switch --a2dp-volume is invalid unless -p a2dp-sink is specified
+                        //  the switch --a2dp-volume is depreciated
                         if ($configValue == 'both') {
                             $addval = '-p a2dp-source -p a2dp-sink';
                         } else if ($configValue == 'input') {
@@ -13245,14 +13251,15 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                         } else if ($configValue == 'output') {
                             $addval = '-p a2dp-source';
                         }
-                        if (($configValue != 'output') && $redis->hGet('bluetooth', 'native_volume_control')) {
-                            $addval .= ' --a2dp-volume';
-                        }
+                        // if (($configValue != 'output') && $redis->hGet('bluetooth', 'native_volume_control')) {
+                            // $addval .= ' --a2dp-volume';
+                        // }
                         // get the files
                         $bluealsaConfigFiles = sysCmd("grep -l -- '^OPTIONS=\"' /etc/default/bluealsa.*");
                         // process the files
                         foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
                             // remove the switches per file, only in the line beginning with 'OPTIONS='
+                            //  continue to remove the depreciated --a2dp-volume switch
                             sysCmd("sed -i '/^OPTIONS=/s/\s*-p a2dp-sink// ; /^OPTIONS=/s/\s*-p a2dp-source// ; /^OPTIONS=/s/\s*--a2dp-volume//' '".$bluealsaConfigFile."'");
                             // add the new switches per file, only in the line beginning with 'OPTIONS='
                             $command = 'sed -i '."'".'/^OPTIONS=\"/s/OPTIONS=\"\s*/OPTIONS=\"'.$addval." /' '".$bluealsaConfigFile."'";
@@ -13264,27 +13271,27 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                         unset($check, $command, $addval, $bluealsaConfigFiles);
                         $resetBluetooth = true;
                         break;
-                    case 'native_volume_control':
-                        // all of the files '/etc/default/bluealsa.*' need to have the switch --a2dp-volume added or removed
-                        if ($configValue) {
-                            // get the files without the switch
-                            $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-volume' /etc/default/bluealsa.*");
-                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
-                                // add the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-volume/' ".$bluealsaConfigFile);
-                                $resetBluetooth = true;
-                            }
-                        } else {
-                            // get the files with the switch
-                            $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-volume' /etc/default/bluealsa.*");
-                            foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
-                                // remove the switch per file, only in the line beginning with 'OPTIONS='
-                                sysCmd("sed -i '/^OPTIONS=/s/\s*--a2dp-volume//' ".$bluealsaConfigFile);
-                                $resetBluetooth = true;
-                            }
-                        }
-                        unset($bluealsaConfigFiles);
-                        break;
+                    // case 'native_volume_control':
+                        // // all of the files '/etc/default/bluealsa.*' need to have the switch --a2dp-volume removed, the switch is now depreciated
+                        // // if (!$configValue) {
+                            // // get the files with the switch
+                            // $bluealsaConfigFiles = sysCmd("grep -l -- ' --a2dp-volume' /etc/default/bluealsa.*");
+                            // foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // // remove the switch per file, only in the line beginning with 'OPTIONS='
+                                // sysCmd("sed -i '/^OPTIONS=/s/\s*--a2dp-volume//' ".$bluealsaConfigFile);
+                                // $resetBluetooth = true;
+                            // }
+                        // // } else {
+                            // // get the files without the switch
+                            // // $bluealsaConfigFiles = sysCmd("grep -L -- ' --a2dp-volume' /etc/default/bluealsa.*");
+                            // // foreach ($bluealsaConfigFiles as $bluealsaConfigFile) {
+                                // // // add the switch per file, only in the line beginning with 'OPTIONS='
+                                // // sysCmd("sed -i '/^OPTIONS=/s/-p a2dp-sink/-p a2dp-sink --a2dp-volume/' ".$bluealsaConfigFile);
+                                // // $resetBluetooth = true;
+                            // // }
+                        // // }
+                        // unset($bluealsaConfigFiles);
+                        // break;
                     case 'aptX_HD_codec':
                         // all of the files '/etc/default/bluealsa.*' need to have the switch -c aptX-HD will be added or removed
                         if ($configValue) {
@@ -13501,20 +13508,14 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 }
                 break;
             }
-            $native_volume_control = $redis->hget('bluetooth', 'native_volume_control');
-            if (($native_volume_control == 'a') || ($native_volume_control == '0')) {
-                // native volume control is set to automatic or off
-                if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
-                    // no mixer device available for the sound card and softvolume is off, set soft volume control on
-                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
-                }
-            } else if (($native_volume_control == 'a') || ($native_volume_control == '1')) {
-                if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
-                    // mixer device available for the sound card and softvolume is on, set soft volume control off
-                    sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
-                }
+            if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
+                // no mixer device available for the sound card and softvolume is off, set soft volume control on
+                sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
+            } else if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
+                // mixer device available for the sound card and softvolume is on, set soft volume control off
+                sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
             }
-            unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control, $native_volume_control);
+            unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control);
             break;
     }
     return $retval;

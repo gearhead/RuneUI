@@ -79,9 +79,9 @@ if (isset($_POST)) {
         if (isset($_POST['bluetooth_IO_toggle']) && ($_POST['bluetooth_IO_toggle'] != $redis->hGet('bluetooth', 'IO_toggle'))) {
             $bt_config['IO_toggle'] = $_POST['bluetooth_IO_toggle'];
         }
-        if (isset($_POST['bluetooth_native_volume_control']) && ($_POST['bluetooth_native_volume_control'] != $redis->hGet('bluetooth', 'native_volume_control'))) {
-            $bt_config['native_volume_control'] = $_POST['bluetooth_native_volume_control'];
-        }
+        // if (isset($_POST['bluetooth_native_volume_control']) && ($_POST['bluetooth_native_volume_control'] != $redis->hGet('bluetooth', 'native_volume_control'))) {
+            // $bt_config['native_volume_control'] = $_POST['bluetooth_native_volume_control'];
+        // }
         if (isset($_POST['bluetooth_local_volume_control']) && ($_POST['bluetooth_local_volume_control'] != $redis->hGet('bluetooth', 'local_volume_control'))) {
             $bt_config['local_volume_control'] = $_POST['bluetooth_local_volume_control'];
         }
@@ -128,7 +128,7 @@ if (isset($_POST)) {
         if (count($bt_config)) {
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'btcfg', 'action' => 'config', 'args' => json_encode($bt_config)));
         }
-        unset($bt_config, $native_volume_control, $aptX_HD_codec, $FastStream_codec, $LDAC_codec);
+        unset($bt_config, $aptX_HD_codec, $FastStream_codec, $LDAC_codec);
     }
 }
 
@@ -161,13 +161,22 @@ if (!isset($template->config['samplerate'])) {
     $redis->hSet('bluetooth', 'samplerate', '48000');
     $template->config['samplerate'] = '48000';
 }
-if (!isset($template->config['native_volume_control'])) {
-    $redis->hSet('bluetooth', 'native_volume_control', 'a');
-    $template->config['native_volume_control'] = 'a';
-}
+// if (!isset($template->config['native_volume_control'])) {
+    // $redis->hSet('bluetooth', 'native_volume_control', 'a');
+    // $template->config['native_volume_control'] = 'a';
+// }
 if (!isset($template->config['local_volume_control'])) {
     $redis->hSet('bluetooth', 'local_volume_control', 0);
     $template->config['local_volume_control'] = 0;
+// temporary code, remove after the next release
+} else if (!is_numeric($template->config['local_volume_control'])) {
+    if ($template->config['local_volume_control'] == '') {
+        $redis->hSet('bluetooth', 'local_volume_control', 0);
+        $template->config['local_volume_control'] = 0;
+    } else {
+        $redis->hSet('bluetooth', 'local_volume_control', 1);
+        $template->config['local_volume_control'] = 1;
+    }
 }
 if (!isset($template->config['remember_last_volume'])) {
     $redis->hSet('bluetooth', 'remember_last_volume', 0);

@@ -109,6 +109,22 @@ if (isset($_POST)) {
             // create worker job (set off and reset/restart MPD/Spotify Connect)
             $redis->hGet('spotifyconnect', 'metadata_enabled') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'artworkSC', 'action' => 0));
         }
+        // ----- Bluetooth input volume fix -----
+        if ((isset($_POST['mode']['fix_input_ba_volume']['enable'])) && ($_POST['mode']['fix_input_ba_volume']['enable'])) {
+            // just set the redis variable to true, no further action required
+            $redis->hGet('bluetooth', 'fix_input_ba_volume') || $redis->hSet('bluetooth', 'fix_input_ba_volume', 1);
+        } else {
+            // just set the redis variable to false, no further action required
+            $redis->hGet('bluetooth', 'fix_input_ba_volume') && $redis->hSet('bluetooth', 'fix_input_ba_volume', 0);
+        }
+        // ----- Bluetooth output volume fix -----
+        if ((isset($_POST['mode']['fix_output_ba_volume']['enable'])) && ($_POST['mode']['fix_output_ba_volume']['enable'])) {
+            // just set the redis variable to true, no further action required
+            $redis->hGet('bluetooth', 'fix_output_ba_volume') || $redis->hSet('bluetooth', 'fix_output_ba_volume', 1);
+        } else {
+            // just set the redis variable to false, no further action required
+            $redis->hGet('bluetooth', 'fix_output_ba_volume') && $redis->hSet('bluetooth', 'fix_output_ba_volume', 0);
+        }
         // ----- UI Player name Menu -----
         if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
             // create worker job (set on)
@@ -399,6 +415,8 @@ $template->artResizingOpts = trim($redis->hGet('magick', 'opts'));
 $magick_resize = trim($redis->hGet('magick', 'resize'));
 $template->artResizing = substr($magick_resize, 0, strpos($magick_resize, 'x'));
 unset($magick_resize);
+$template->fix_input_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_input_ba_volume');
+$template->fix_output_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_output_ba_volume');
 
 // debug
 // var_dump($template->dev);

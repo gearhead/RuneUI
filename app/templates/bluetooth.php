@@ -248,6 +248,7 @@
                 </div>
             </div>
             <?php endif ?>
+            <!--
             <?php if (($this->config['IO_toggle'] != 'output')): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_native_volume_control">Bluetooth Native Volume Control</label>
@@ -268,34 +269,30 @@
                 </div>
             </div>
             <?php endif ?>
+            -->
             <?php if (($this->config['IO_toggle'] != 'output') && ($this->player_volume_control)): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_local_volume_control">Local Volume Control</label>
                 <div class="col-sm-10">
-                    <select id="bluetooth_local_volume_control" class="selectpicker" name="bluetooth_local_volume_control" data-style="btn-default btn-lg">
-                        <option value="0" <?php if($this->config['local_volume_control'] == '0'): ?> selected <?php endif ?>>Off</option>
-                        <option value="b" <?php if($this->config['local_volume_control'] == 'b'): ?> selected <?php endif ?>>On, Via Bluealsa</option>
-                        <option value="d" <?php if($this->config['local_volume_control'] == 'd'): ?> selected <?php endif ?>>On, Direct</option>
-                    </select>
+                    <label class="switch-light well" onclick="">
+                        <input id="bluetooth_local_volume_control" name="bluetooth_local_volume_control" type="checkbox" value="1"<?php if((isset($this->config['local_volume_control'])) && ($this->config['local_volume_control'])): ?> checked="checked" <?php endif ?>>
+                        <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
+                    </label>
                     <span class="help-block">Toggle the Local Volume Control for Bluetooth Input.
-                        Normally, when Bluetooth Input is used, the volume control on the RuneAudio player is disabled and the volume is controlled by Bluetooth Input Device.
-                        By switching On the Local Volume Control the volume can be controlled by both the RuneAudio player and the input device.
-                        The default value is Off, this is the recommended setting.
-                        <strong>Native Volume Control</strong> should normally be automatic or enabled when Local Volume Control is used.<br>
-                        <strong>On, Via Bluealsa</strong> makes use of the bluealsa volume setting mechanism.<br>
-                        <strong>On, Direct</strong> changes the sound-card volume directly with alsa.<br>
-                        When switched On, the setting 'On, Via Bluealsa' is preferable.<br>
-                        <i>Note: The Bluetooth Input Device is unaware of volume changes made by the RuneAudio player.
-                        This may result in unpredictable large changes of volume when both source and player volume controls are used in succession</i></span>
+                        Normally, when Bluetooth Input is used, the volume control on the RuneAudio player is disabled and the volume is
+                        controlled by Bluetooth Input Device. By switching On the Local Volume Control the volume can be controlled by
+                        both the RuneAudio player and the input device. The default value is Off, this is the recommended setting.<br>
+                        <i>Note: The Bluetooth Input Device is unaware of volume changes made by the RuneAudio player. This may result
+                        in unpredictable large changes of volume when both source and player volume controls are used in succession</i></span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_def_volume_in">Default Volume Level For Bluetooth Input Device</label>
                 <div class="col-sm-10">
                     <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_def_volume_in" name="bluetooth_def_volume_in" value="<?php echo $this->config['def_volume_in']; ?>" min="-1" max="100" placeholder="-1" autocomplete="off">
-                    <span class="help-block">Enter a value between <strong>0</strong>% and <strong>100</strong>% to set the initial volume for a Bluetooth Input Device.
-                    Or set a value of <strong>-1</strong> to disable changing the start volume.
-                    When set Off, Bluetooth remembers and uses the last volume level for each Input device. The default value is -1 (Off)</span>
+                    <span class="help-block">Enter a value between <strong>0</strong>% and <strong>100</strong>% to set the initial volume
+                    for a Bluetooth Input Device. Or set a value of <strong>-1</strong> to disable changing the start volume. When set Off,
+                    Bluetooth remembers and uses the last volume level for each Input device. The default value is -1 (Off)</span>
                 </div>
             </div>
             <!--
