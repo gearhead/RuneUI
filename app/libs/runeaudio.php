@@ -12695,24 +12695,27 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             break;
          case 'disconnect_sources':
             // disconnect all sources
+            $disconnected = false;
             $devices = json_decode($redis->get('bluetooth_status'), true);
             foreach ($devices as $device) {
                 if ($device['source']) {
                     if ($device['connected']) {
                         // disconnect if connected
                         wrk_btcfg($redis, 'disconnect', $device['device']);
+                        $disconnected = true;
                     }
                 }
                 if ($device['sink']) {
                     if ($device['blocked']) {
-                        // disconnect if connected
+                        // unblock if if blocked
                         wrk_btcfg($redis, 'unblock', $device['device']);
                     }
                 }
             }
-            // restart bluetooth, otherwise a reconnect will not work correctly
-            wrk_btcfg($redis, 'disable');
-            wrk_btcfg($redis, 'enable');
+            if ($disconnected) {
+                // restart bluetooth and bluealsa, otherwise a reconnect will not work correctly
+                wrk_systemd_unit($redis, 'restart', 'bluetooth bluealsa');
+            }
             break;
         case 'disconnect_sinks':
             // disconnect all sinks

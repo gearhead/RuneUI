@@ -105,6 +105,22 @@ while (true) {
                 }
                 if ($source_connected) {
                     // Bluetooth source is connected, switch the player to Bluetooth
+                    $defVolume = $redis->hGet('bluetooth', 'def_volume_in');
+                    if ($source_connected && ($defVolume != -1)) {
+                        // Bluetooth source is connected, and the default volume is set
+                        //  set the volume and switch the player to Bluetooth
+                        if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
+                            $defVolume = round(($defVolume * 127) / 100);
+                            sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
+                        } else {
+                            $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+                            if (isset($acard['mixer_control']) && $acard['mixer_control']) {
+                                $card = get_between_data($acard['device'], ':', ',');
+                                $mixerControl = $acard['mixer_control'];
+                                sysCmd('amixer -E -c'.$card.' sset '.$mixerControl.' '.$defVolume.'%');
+                            }
+                        }
+                    }
                     wrk_startPlayer($redis, "Bluetooth");
                     sleep(5);
                     continue;
@@ -112,9 +128,9 @@ while (true) {
             }
         }
     }
-    // get the current pcms
-    $pcms = wrk_btcfg($redis, 'auto_volume');
     if ($redis->get('activePlayer') != 'Bluetooth') {
+        // get the current pcms
+        $pcms = wrk_btcfg($redis, 'auto_volume');
         if (isset($pcms['input']['running']) && $pcms['input']['running']) {
             // an input pcm is running, set the volume and switch the player
             $defVolume = $redis->hGet('bluetooth', 'def_volume_in');
@@ -158,28 +174,21 @@ while (true) {
                     if ($source_connected && ($defVolume != -1)) {
                         // Bluetooth source is connected, and the default volume is set
                         //  set the volume and switch the player to Bluetooth
-                        if ($redis->hGet('bluetooth', 'local_volume_control') != 'd') {
-                            if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
-                                $defVolume = round(($defVolume * 127) / 100);
-                                sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
-                            }
+                        if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
+                            $defVolume = round(($defVolume * 127) / 100);
+                            sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
                         } else {
                             $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
                             if (isset($acard['mixer_control']) && $acard['mixer_control']) {
                                 $card = get_between_data($acard['device'], ':', ',');
                                 $mixerControl = $acard['mixer_control'];
-                                sysCmd('amixer -c'.$card.' sset '.$mixerControl.' '.$defVolume.'%');
-                            } else {
-                                if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
-                                    $defVolume = round(($defVolume * 127) / 100);
-                                    sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$defVolume);
-                                }
+                                sysCmd('amixer -E -c'.$card.' sset '.$mixerControl.' '.$defVolume.'%');
                             }
                         }
-                        wrk_startPlayer($redis, "Bluetooth");
-                        sleep(5);
-                        continue;
                     }
+                    wrk_startPlayer($redis, "Bluetooth");
+                    sleep(5);
+                    continue;
                 }
             }
         }
@@ -192,18 +201,6 @@ while (true) {
             // }
             // continue;
         // }
-    } else if (isset($pcms['output']['running']) && $pcms['output']['running']) {
-        if ($redis-hGet('bluetooth', 'fix_output_ba_volume')) {
-            // software volume control is set
-            if (!isset($pcms['output']['softvolume']) || !$pcms['output']['softvolume']) {
-                sysCmd('bluealsactl soft-volume '.['output']['running'].' true');
-            }
-        } else {
-            // native (hardware) volume control is set
-            if (!isset($pcms['output']['softvolume']) || $pcms['output']['softvolume']) {
-                sysCmd('bluealsactl soft-volume '.['output']['running'].' false');
-            }
-        }
     }
     $bluealsaAplayActive = wrk_systemd_unit($redis, 'is-active', 'bluealsa-aplay');
     if (!$bluealsaAplayActive) {
@@ -223,51 +220,59 @@ while (true) {
         }
     }
     if ($delayCnt-- <= 0) {
-        // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
-        // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
-        // also check that connected Bluetooth outputs are listed in the UI
-        if (!isset($devices)) {
-            // this routine is expensive to run, so only run it when needed
-            $devices = wrk_btcfg($redis, 'status');
-        }
+        // don't run it on every loop
         if ($redis->get('activePlayer') != 'Bluetooth') {
-            $connectAttempt = false;
-            $refreshMpd = false;
-            $refreshAcards = false;
-            foreach ($devices as $device) {
-                // we are only interested in unblocked, unconnected, trusted sink devices
-                if ($device['sink'] && $device['device'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
-                    // sometime trusted auto-connect wont work, do it manually here
-                    //  attempt to connect
-                    wrk_btcfg($redis, 'connect', $device['device']);
-                    $connectAttempt = true;
+            // only run when not a Bluetooth source
+            if (!isset($acard)) {
+                $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
+            }
+            if (strpos(' '.$acard['swdevice'], 'bluealsa') != 1) {
+                // only run when a non-Bluetooth output device is selected
+                // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
+                // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
+                // also check that connected Bluetooth outputs are listed in the UI
+                if (!isset($devices)) {
+                    // this routine is expensive to run, so only run it when needed
+                    $devices = wrk_btcfg($redis, 'status');
                 }
-            }
-            if ($connectAttempt) {
-                // refresh the devices after a connect attempt
-                $devices = wrk_btcfg($redis, 'status');
-            }
-            foreach ($devices as $device) {
-                // we are only interested in connected sink devices
-                //  these should already be included in the MPD configuration file and the UI output selector
-                if ($device['sink'] && $device['device'] && $device['connected']) {
-                    // check that mpd.conf has been updated with the bluetooth outputs
-                    if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
-                        $refreshMpd = true;
-                    }
-                    // check that the card is included in acards
-                    if (!$redis->hExists('acards', $device['name'])) {
-                        $refreshAcards = true;
+                $connectAttempt = false;
+                $refreshMpd = false;
+                $refreshAcards = false;
+                foreach ($devices as $device) {
+                    // we are only interested in unblocked, unconnected, trusted sink devices
+                    if ($device['sink'] && $device['device'] && !$device['connected'] && $device['trusted'] && !$device['blocked']) {
+                        // trusted auto-connect wont work, do it manually here
+                        //  attempt to connect
+                        wrk_btcfg($redis, 'connect', $device['device']);
+                        $connectAttempt = true;
                     }
                 }
-            }
-            if ($refreshMpd) {
-                // update mpd.conf when required
-                wrk_mpdconf($redis, 'refresh');
-            }
-            if ($refreshAcards) {
-                // calling wrk_btcfg 'status' will add the card to acards
-                wrk_btcfg($redis, 'status');
+                if ($connectAttempt) {
+                    // refresh the devices after a connect attempt
+                    $devices = wrk_btcfg($redis, 'status');
+                }
+                foreach ($devices as $device) {
+                    // we are only interested in connected sink devices
+                    //  these should already be included in the MPD configuration file and the UI output selector
+                    if ($device['sink'] && $device['device'] && $device['connected']) {
+                        // check that mpd.conf has been updated with the bluetooth outputs
+                        if (!wrk_btcfg($redis, 'check_bt_mpd_output', $device['device'])) {
+                            $refreshMpd = true;
+                        }
+                        // check that the card is included in acards
+                        if (!$redis->hExists('acards', $device['name'])) {
+                            $refreshAcards = true;
+                        }
+                    }
+                }
+                if ($refreshMpd) {
+                    // update mpd.conf when required
+                    wrk_mpdconf($redis, 'refresh');
+                }
+                if ($refreshAcards) {
+                    // calling wrk_btcfg 'status' will add the card to acards
+                    wrk_btcfg($redis, 'status');
+                }
             }
         }
         // set delay count to 3: this routing runs every 9 seconds (3x3 = 9 seconds)
