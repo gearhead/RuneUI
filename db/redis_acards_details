@@ -59,7 +59,8 @@ $redis->hSet('acards_details', 'Geek Out HD Audio 1V0', '{"sysname":"Geek Out HD
 $redis->hSet('acards_details', 'Hugo', '{"sysname":"Hugo","extlabel":"Chord Hugo","mixer_numid":"4","mixer_control":"Hugo","type":"usb"}');
 $redis->hSet('acards_details', 'I-Sabre K2M DAC', '{"sysname":"I-Sabre K2M DAC","extlabel":"ESS ES9018 I-Sabre K2M DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'I-Sabre Q2M DAC', '{"sysname":"I-Sabre Q2M DAC","extlabel":"ESS ES9028/ES9038 I-Sabre Q2M DAC (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
-$redis->hSet('acards_details', 'IQaudIODAC', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'IQaudIODAC V1', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'IQaudIODAC V2', '{"sysname":"IQaudIODAC","extlabel":"IQaudIO Pi-DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'NuForce USB Audio', '{"sysname":"NuForce USB Audio","extlabel":"NuForce DDA-100","mixer_numid":"4","mixer_control":"PCM","type":"usb"}');
 $redis->hSet('acards_details', 'ODROID-DAC', '{"sysname":"ODROID-DAC","extlabel":"ODROID HifiShield (I&#178;S)","mixer_numid":"1","hwplatformid":"10","type":"i2s"}');
 $redis->hSet('acards_details', 'ODROID-HDMI', '{"sysname":"ODROID-HDMI","extlabel":"ODROID-C2 HDMI","mixer_numid":"1","hwplatformid":"10","type":"integrated"}');
