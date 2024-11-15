@@ -285,9 +285,9 @@ sysCmd('chmod 777 /mnt/MPD/USB ; chmod 777 /mnt/MPD/USB/*');
 sysCmd('udevil clean');
 // check if usb autorebuild is set
 if ($redis->get('usb_db_autorebuild')) {
-    // update MPD database
+    // update MPD database for USB mounts
     $retval = sysCmd('mpc update USB');
-    if (isset($retval) && is_array($retval) && strpos(' '.$retval[0], 'error')) {
+    if (isset($retval[0]) && strpos(' '.strtolower($retval[0]), 'error')) {
         // mpc has returned an error, mpd is probably starting up
         //  set redis variable 'usb_db_autorebuild_retry' which will be acted on by rune_SY_wrk
         $redis->set('usb_db_autorebuild_retry', 1);

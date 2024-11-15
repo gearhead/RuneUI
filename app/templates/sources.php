@@ -22,37 +22,42 @@
         <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="reset" value="1" id="reset"><i class="fa fa-refresh sx"></i> Remove all sources</button></p> -->
     </form>
     <legend>USB Mounts</legend>
-    <p>List of mounted USB drives. To safe unmount a drive, click on it and confirm at the dialog prompt. <i>Note: Drives which are in use will not be removed!</i><br>
-    If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled</p>
+    <p>List of mounted USB drives. To safe unmount a drive, click on it and confirm at the prompt.<br>
+    <i>Notes: MPD will be stopped before attempting to remove a mounted drive. Mounted drives which are still in use will not be removed.</i><br>
+    If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled
+    and/or select <strong>REFRESH USB MOUNTS</strong></p>
     <div id="usb-mount-list" class="button-list">
-    <?php if( $this->usbmounts !== null ): foreach($this->usbmounts as $usbmount): ?>
-        <p><a class="btn btn-lg btn-default btn-block" href="#umount-modal" data-toggle="modal" data-mount="<?=$usbmount->device ?>"><i class="fa fa-check green sx"></i><?=$usbmount->device ?>&nbsp;&nbsp;&nbsp;&nbsp;<?=$usbmount->name ?>&nbsp;&nbsp;&nbsp;&nbsp;<?php if (!empty($usbmount->size)): ?><span>(size:&nbsp;<?=$usbmount->size ?>B,&nbsp&nbsp;<?=$usbmount->use ?>&nbsp;in use)</span><?php endif; ?></a></p>
-    <?php endforeach; ?>
-        <form action="" method="post">
-            <div id="umount-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="umount-modal-label" aria-hidden="true">
-                <div class="modal-dialog modal-sm">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                            <h4 class="modal-title" id="umount-modal-label">Safe USB unmount</h4>
-                        </div>
-                        <div class="modal-body">
-                            <p>Mount point:</p>
-                            <pre><span id="usb-umount-name"></span></pre>
-                            <p>Do you really want to safe unmount it?</p>
-                            <input id="usb-umount" class="form-control" type="hidden" value="" name="usb-umount">
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-default btn-lg" type="button" data-dismiss="modal" aria-hidden="true">Cancel</button>
-                            <button class="btn btn-primary btn-lg" type="submit" value="umount"><i class="fa fa-times sx"></i>Unmount</button>
+        <?php if( $this->usbmounts !== null ): foreach($this->usbmounts as $usbmount): ?>
+            <p><a class="btn btn-lg btn-default btn-block" href="#umount-modal" data-toggle="modal" data-mount="<?=$usbmount->device ?>"><i class="fa fa-check green sx"></i><?=$usbmount->device ?>&nbsp;&nbsp;&nbsp;&nbsp;<?=$usbmount->name ?>&nbsp;&nbsp;&nbsp;&nbsp;<?php if (!empty($usbmount->size)): ?><span>(size:&nbsp;<?=$usbmount->size ?>B,&nbsp&nbsp;<?=$usbmount->use ?>&nbsp;in use)</span><?php endif; ?></a></p>
+        <?php endforeach; ?>
+            <form action="" method="post">
+                <div id="umount-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="umount-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-sm">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                <h4 class="modal-title" id="umount-modal-label">Safe USB unmount</h4>
+                            </div>
+                            <div class="modal-body">
+                                <p>Mount point:</p>
+                                <pre><span id="usb-umount-name"></span></pre>
+                                <p>Do you really want to safe unmount it?</p>
+                                <input id="usb-umount" class="form-control" type="hidden" value="" name="usb-umount">
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-default btn-lg" type="button" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                                <button class="btn btn-primary btn-lg" type="submit" value="umount"><i class="fa fa-times sx"></i>Unmount</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </form>
+        <?php else: ?>
+            <p><button class="btn btn-lg btn-disabled btn-block" disabled="disabled">No USB mounts present</button></p>
+        <?php endif; ?>
+        <form action="" method="post">
+            <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="usb-mount" value="1" id="usb-mount"><i class="fa fa-refresh sx"></i> Refresh USB mounts</button></p>
         </form>
-    <?php else: ?>
-        <p><button class="btn btn-lg btn-disabled btn-block" disabled="disabled">No USB mounts present</button></p>
-    <?php endif; ?>
     </div>
     <form class="form-horizontal" action="" method="post" data-parsley-validate>
         <legend>Library Auto Rebuild</legend>

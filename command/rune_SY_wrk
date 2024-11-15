@@ -1310,7 +1310,11 @@ while (true) {
                 break;
             case 'sourcecfg':
                 if (wrk_sourcecfg($redis, $job->action, $job->args)) {
-                    sysCmd('mpc update');
+                    if (strpos(' '.strtolower($job->action), 'usb')) {
+                        sysCmd('mpc update USB');
+                    } else {
+                        sysCmd('mpc update NAS');
+                    }
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;

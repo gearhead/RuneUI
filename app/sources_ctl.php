@@ -38,6 +38,7 @@ if (isset($_POST)) {
     if ((isset($_POST['mountall'])) && ($_POST['mountall'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'mountall' ));
     if ((isset($_POST['remountall'])) && ($_POST['remountall'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'remountall' ));
     // if ((isset($_POST['reset'])) && ($_POST['reset'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'reset' ));
+    if (isset($_POST['usb-mount'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'mountusb', 'args' => $_POST['usb-mount']));
     if (isset($_POST['usb-umount'])) $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'sourcecfg', 'action' => 'umountusb', 'args' => $_POST['usb-umount']));
     if ((isset($_POST['mount'])) && (!empty($_POST['mount']))) {
         if (isset($_POST['mount']['remotedir'])) {

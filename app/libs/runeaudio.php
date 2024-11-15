@@ -6033,6 +6033,9 @@ function wrk_sourcecfg($redis, $action, $args = null)
                 $redis->hSet('usbunmounts', $args, 1);
             }
             break;
+        case 'mountusb':
+            sysCmd('/srv/http/command/usbmount');
+            break;
     }
     return $return;
 }
