@@ -76,7 +76,8 @@ $redis->hSet('acards_details', 'berrynosmini', '{"sysname":"snd_rpi_hifiberry_da
 $redis->hSet('acards_details', 'imx-hdmi-soc', '{"sysname":"imx-hdmi-soc","extlabel":"Utilite HDMI Out","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'imx-spdif', '{"sysname":"imx-spdif","extlabel":"Utilite Coax SPDIF Out","hwplatformid":"05","type":"integrated"}');
 $redis->hSet('acards_details', 'raspyplay3', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"RaspyPlay3 (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
-$redis->hSet('acards_details', 'raspyplay4', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'raspyplay4 V1', '{"sysname":"snd_rpi_iqaudio_dac","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01|08","type":"i2s"}');
+$redis->hSet('acards_details', 'raspyplay4 V2', '{"sysname":"IQaudIODAC","extlabel":"RaspyPlay4 (I&#178;S)","mixer_numid":"1","mixer_control":"Playback Digital","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_amp', '{"sysname":"snd_rpi_hifiberry_amp","extlabel":"HifiBerry Amp (I&#178;S)","mixer_numid":"1","mixer_control":"Master","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dac', '{"sysname":"snd_rpi_hifiberry_dac","extlabel":"HiFiBerry DAC (I&#178;S)","hwplatformid":"01|08","type":"i2s"}');
 $redis->hSet('acards_details', 'snd_rpi_hifiberry_dacplus', '{"sysname":"snd_rpi_hifiberry_dacplus","extlabel":"HiFiBerry DAC+ (I&#178;S)","mixer_numid":"1","mixer_control":"Digital","hwplatformid":"01|08","type":"i2s"}');
