@@ -63,16 +63,13 @@ if (isset($argv[1]) && ($argv[1] === 'async')) {
 }
 
 //
-// check that internet is available, if not run the internet available routine and wait for 20 seconds to allow connman to reconnect
+// check that internet is available, if not run the internet available routine
 if (!$redis->hGet('service', 'internet')) {
     // double check that the current status correct is
     sysCmd('/srv/http/command/internet_available_async.sh');
-    // sleep(20);
-    // // run it twice, the first time will try to initiate a recovery, the second time will detect the status
-    // sysCmd('/srv/http/command/internet_available_async.sh');
 }
 //
-// refresh the network arrays and save them in redis
+// refresh the network arrays, this automatically saves them in redis
 $networkInterfaces = refresh_nics($redis);
 if (!$networkInterfaces) {
     // refresh_nics returned false so use the last stored value from redis
@@ -85,7 +82,6 @@ if (!$networkInterfaces) {
 //  AP will start on boot if no Wi-Fi network is connected
 //  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
 //  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
-// note: it appears that AP mode can be done with iwctl instead of hostapd, but we leave it as hostapd for now
 if ($redis->hGet('AccessPoint', 'enable')) {
     // access point enabled
     runelog('------------------ try to start AP if no IP is assigned ---------------------');
@@ -135,17 +131,21 @@ if ($redis->hGet('AccessPoint', 'enable')) {
                 //  this is not connected even though it reported that it is
                 // flush the nic to clear any ip addresses, then bring the nic down and up to trigger a connman connect
                 //  if there is a valid network available
-                sysCmd('ip address flush dev '.$nic['nic'].' ; ip link set dev '.$nic['nic'].' down ; ip link set dev '.$nic['nic'].' up');
-                // sleep for 20 seconds to ensure that connman has time to connect/reconnect
-                sleep(20);
-                // double-check that the nic is still not connected
-                $inetConnected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
-                $inet6Connected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet6 '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
-                if (!$inetConnected && !$inet6Connected) {
-                    // the nic is still not connected, use it
-                    runelog('########### got a nic for AP: '.$nic['nic']);
-                    $wlanNic = $nic['nic'];
-                    $apWifiNicFound = true;
+                // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
+                //  in /boot/firmware/config.txt to be ignored
+                if ($redis->get('wifi_on')) {
+                    sysCmd('ip address flush dev '.$nic['nic'].' ; ip link set dev '.$nic['nic'].' down ; ip link set dev '.$nic['nic'].' up');
+                    // sleep for 20 seconds to ensure that connman has time to connect/reconnect
+                    sleep(20);
+                    // double-check that the nic is still not connected
+                    $inetConnected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                    $inet6Connected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet6 '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                    if (!$inetConnected && !$inet6Connected) {
+                        // the nic is still not connected, use it
+                        runelog('########### got a nic for AP: '.$nic['nic']);
+                        $wlanNic = $nic['nic'];
+                        $apWifiNicFound = true;
+                    }
                 }
             }
         }

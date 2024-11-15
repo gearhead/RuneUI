@@ -4,6 +4,9 @@
     <span class="help-block">Click on an entry to Add, Edit or Delete a Wi-Fi profile</span>
     <fieldset>
         <div id="wifiNetworks" class="boxed">
+            <?php if (!$this->wifi_on):?>
+                <p>Wi-Fi is switched <strong>OFF</strong></p>
+            <?php endif; ?>
             <?php if ($this->networksFound):?>
                 <?php foreach ($this->networks as $network): ?>
                     <?php if (($network['technology'] === 'wifi') && ($network['nic'] === $this->arg)): ?>

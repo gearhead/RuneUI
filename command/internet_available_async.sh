@@ -44,30 +44,52 @@ set +e # continue on errors
 # if connman has lost a Wi-Fi connection it should reconnect automatically, but the current version does not do it
 # running 'iwctl station <nic> scan' for the Wi-Fi nics should initiate a reconnect, no real issue in running this every time this routine runs
 # get a list of the nics which are down
+# this routine also ensures that all wifi nics are forced down when wifi is switched off
+#   this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi' in /boot/firmware/config.txt to be ignored
 down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all Wi-Fi nics
 nics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
+# determine if wifi is on
+wifi_on=$( redis-cli get wifi_on )
+# determine if access point is on
+ap_on=$( redis-cli hget AccessPoint enable )
 for nic in $nics ; do
     # only for Wi-Fi nics
-    if [[ "$down" =~ "$nic" ]]; then
+    if [[ "$down" =~ "$nic" ]] ; then
         # only for nics which are down
-        if [ -f "/tmp/$nic.up" ]; then
+        if [ -f "/tmp/$nic.up" ] ; then
             # only for nics which were previously up
             ip addr flush $nic
             ip link set dev $nic down
-            ip link set dev $nic up
+            if [ "$wifi_on" == "1" ] ; then
+                # when wifi is on
+                ip link set dev $nic up
+            fi
         fi
     else
         # nic is up
-        # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
-        # the /tmp directory is a TMPFS file-system which will be recreated on reboot
-        touch /tmp/$nic.up
+        if [ "$wifi_on" == "1" ] ; then
+            # when wifi is on
+            # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
+            # the /tmp directory is a TMPFS file-system which will be recreated on reboot
+            touch /tmp/$nic.up
+        else
+            # when wifi is off
+            ip addr flush $nic
+            ip link set dev $nic down
+        fi
     fi
     # scan for wireless networks per wireless nic, but not access points
     ap=$( iw $nic info | grep -ic 'type\s*ap' | xargs )
     if [ "$ap" == "0" ] ; then
         # its not an access point
-        connmanctl scan wifi
+        if [ "$wifi_on" == "1" ] ; then
+            # when wifi is on
+            if [ "$ap_on" == "1" ] ; then
+                # when access point is on
+                connmanctl scan wifi
+            fi
+        fi
     fi
 done
 # determine if there is a non-AP nic which is up

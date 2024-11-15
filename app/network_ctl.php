@@ -141,6 +141,7 @@ if ($template->action === 'wifi_scan') {
     osort($template->networks, 'strength', 1, 0);
     // clean up
     $template->profile = array();
+    $template->wifi_on = $redis->get('wifi_on');
     unset($networks, $storedProfiles);
     //
 } else if ($template->action === 'wifi_edit') {

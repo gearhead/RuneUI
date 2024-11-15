@@ -2648,7 +2648,11 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     if (in_array($wlanNicInterface, $physNics)  && ($wlanNic == $wlanNicInterface)) {
                         // the nic is in the list of physical nics and its name is the same as the wlan nic
                         // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
-                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
+                        // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
+                        //  in /boot/firmware/config.txt to be ignored
+                        if ($redis->get('wifi_on')) {
+                            sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
+                        }
                     } else {
                         // the nic is not in the list of physical nics or its name is different to the wlan nic
                         // delete the virtual nic
@@ -3335,7 +3339,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 if (isset($args['nic'])) {
                     // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
                     //  make a connection if there is a valid network available
-                    sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
+                    // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
+                    //  in /boot/firmware/config.txt to be ignored
+                    if ($redis->get('wifi_on')) {
+                        sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
+                    }
                 }
             }
             // ethernet
@@ -8293,9 +8301,9 @@ function metadataStringClean($string, $type = '')
 function refresh_nics($redis)
 // This function returns an array of nics (and false on error)
 // three arrays are saved in redis:
-//   'network_interfaces' containing the nics (always saved)
-//   'translate_mac_nic' containing a translation table mac-address to nic-name (always saved)
-//   'network_info' containing the network information (not saved when $process and $return = 'nics')
+//   'network_interfaces' containing the nics
+//   'translate_mac_nic' containing a translation table mac-address to nic-name
+//   'network_info' containing the network information
 {
     // startup - lock the scan system
     runelog('--------------------------- lock the scan system ---------------------------');
@@ -8316,13 +8324,30 @@ function refresh_nics($redis)
     runelog('--------------------------- set up variables and initialise ---------------------------');
     // nics to exclude from processing
     $excluded_nics = array('ifb0', 'ifb1', 'p2p0', 'bridge', 'lo');
-    // this routine will switch on the following technologies (use lower case)
-    $enabled_technology = array('wifi', 'ethernet');
-    // this routine will only process the following technologies (use lower case)
-    $process_technology = array('wifi', 'ethernet');
-    // switch the technology on
+    // this routine will switch specific technologies on and off
+    // this routine will define the technologies to process
+    if ($redis->get('wifi_on')) {
+        // select the technologies to enable (use lower case)
+        $enabled_technology = array('wifi', 'ethernet');
+        // select the technologies to disable (use lower case)
+        $disabled_technology = array();
+        // select the technologies to process (use lower case)
+        $process_technology = array('wifi', 'ethernet');
+    } else {
+        // select the technologies to enable (use lower case)
+        $enabled_technology = array('ethernet');
+        // select the technologies to disable (use lower case)
+        $disabled_technology = array('wifi');
+        // select the technologies to process (use lower case)
+        $process_technology = array('ethernet');
+    }
+    // switch selected technology on
     foreach ($enabled_technology as $technology) {
         sysCmd('connmanctl enable '.$technology);
+    }
+    // switch selected technology off
+    foreach ($disabled_technology as $technology) {
+        sysCmd('connmanctl disable '.$technology);
     }
     // get the default gateway
     $defaultGateway = sysCmd("ip route | grep -i 'default via'");
