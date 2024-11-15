@@ -12502,15 +12502,19 @@ function set_alsa_default_card($redis, $cardName = null)
         return;
     }
     //
-    $device = $acard['device'];
+    $device = trim($acard['device']);
     $cardNumber = get_between_data($device, ':', ',');
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
         $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
             $mixerInfo .= ' --volume=none';
         }
+    } else if (isset($device) && strpos(' '.$device, 'bluealsa')) {
+        list($bluealsaMixerDevice, $bluealsaMixerControl) = explode(',', $device, 2);
+        $bluealsaMixerControl = strtoupper(get_between_data($bluealsaMixerControl, '='));
+        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-name='.$bluealsaMixerControl.' --volume=mixer';
     } else {
-        $mixerInfo = ' --volume=software';
+        $mixerInfo = ' --volume=auto';
     }
     //
     if (!isset($cardNumber) || !is_numeric($cardNumber)) {
@@ -12520,8 +12524,6 @@ function set_alsa_default_card($redis, $cardName = null)
             // file exists
             sysCmd("sed -i '/defaults.pcm.card/d' '".$alsaFileName."'");
             sysCmd("sed -i '/defaults.ctl.card/d' '".$alsaFileName."'");
-        } else {
-            return;
         }
     } else {
         // card number is set modify/add entries to /etc/asound.conf
