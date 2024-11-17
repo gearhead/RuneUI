@@ -428,6 +428,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('samba', 'enable', 0);
             $redis->hSet('samba', 'readwrite', 0);
             // network parameters
+            $redis->set('allwifi_on', 1);
             $redis->del('fix_mac');
             $redis->del('regdom');
             $redis->set('llmnrdipv6', 1);
@@ -788,6 +789,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('samba', 'enable') || $redis->hSet('samba', 'enable', 0);
             $redis->hExists('samba', 'readwrite') || $redis->hSet('samba', 'readwrite', 0);
             // network parameters
+            $redis->exists('allwifi_on') || $redis->set('allwifi_on', 1);
             $redis->exists('llmnrdipv6') || $redis->set('llmnrdipv6', 1);
             $redis->exists('llmnrdonoff') || $redis->set('llmnrdonoff', 0);
             $redis->exists('network_autoOptimiseWifi') || $redis->set('network_autoOptimiseWifi', 1);

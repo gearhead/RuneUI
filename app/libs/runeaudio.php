@@ -2648,9 +2648,8 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     if (in_array($wlanNicInterface, $physNics)  && ($wlanNic == $wlanNicInterface)) {
                         // the nic is in the list of physical nics and its name is the same as the wlan nic
                         // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
-                        // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
-                        //  in /boot/firmware/config.txt to be ignored
-                        if ($redis->get('wifi_on')) {
+                        // only run when All Wi-Fi is enabled
+                        if ($redis->get('allwifi_on')) {
                             sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
                         }
                     } else {
@@ -2738,9 +2737,10 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
 
 function wrk_netconfig($redis, $action, $arg = '', $args = array())
 {
-    // valid netcfg $action values:
-    //    boot-initialise, refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
-    //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
+    // valid wrk_netconfig $action values:
+    //  boot-initialise, refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
+    //  autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete, reset
+    //  enableWifi, disableWifi, enableAllWifi and disableAllWifi
     // $arg and $args are optional, $arg contains the connman string, $args contains an array to modify a profile
     // debug
     // $redis->set('wrk_netconfig_'.$action, json_encode($args));
@@ -2975,6 +2975,26 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'disableWifi':
             // run the command file to disable Wi-Fi, a reboot is required
             sysCmd('/srv/http/command/wifi_off.sh');
+            break;
+        case 'enableAllWifi':
+            // set all the wifi nics up
+            $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
+            foreach ($networkInterfaces as $networkInterface) {
+                if ($networkInterface['technology'] == 'wifi') {
+                    sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down ; ip link set dev '.$networkInterface['nic'].' up');
+                }
+            }
+            $redis->set('allwifi_on', 1);
+            break;
+        case 'disableAllWifi':
+            // set all the wifi nics down
+            $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
+            foreach ($networkInterfaces as $networkInterface) {
+                if ($networkInterface['technology'] == 'wifi') {
+                    sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down');
+                }
+            }
+            $redis->set('allwifi_on', 0);
             break;
         case 'saveWifi':
             // is used to create/modify a wifi config file and stored profile
@@ -3339,9 +3359,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 if (isset($args['nic'])) {
                     // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
                     //  make a connection if there is a valid network available
-                    // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
-                    //  in /boot/firmware/config.txt to be ignored
-                    if ($redis->get('wifi_on')) {
+                    // only run when All Wi-Fi is enabled
+                    if ($redis->get('allwifi_on')) {
                         sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
                     }
                 }
@@ -8326,7 +8345,7 @@ function refresh_nics($redis)
     $excluded_nics = array('ifb0', 'ifb1', 'p2p0', 'bridge', 'lo');
     // this routine will switch specific technologies on and off
     // this routine will define the technologies to process
-    if ($redis->get('wifi_on')) {
+    if ($redis->get('allwifi_on')) {
         // select the technologies to enable (use lower case)
         $enabled_technology = array('wifi', 'ethernet');
         // select the technologies to disable (use lower case)
@@ -8339,7 +8358,7 @@ function refresh_nics($redis)
         // select the technologies to disable (use lower case)
         $disabled_technology = array('wifi');
         // select the technologies to process (use lower case)
-        $process_technology = array('ethernet');
+        $process_technology = array('wifi', 'ethernet');
     }
     // switch selected technology on
     foreach ($enabled_technology as $technology) {

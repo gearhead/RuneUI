@@ -66,6 +66,13 @@ if (isset($_POST)) {
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableWifi'));
         }
     }
+    if (isset($_POST['allwifienable'])) {
+        if ($_POST['allwifienable'] && !$redis->get('allwifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'enableAllWifi'));
+        } else if (!$_POST['allwifienable'] && $redis->get('allwifi_on')) {
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'disableAllWifi'));
+        }
+    }
 }
 if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
@@ -142,6 +149,7 @@ if ($template->action === 'wifi_scan') {
     // clean up
     $template->profile = array();
     $template->wifi_on = $redis->get('wifi_on');
+    $template->allwifi_on = $redis->get('allwifi_on');
     unset($networks, $storedProfiles);
     //
 } else if ($template->action === 'wifi_edit') {
@@ -295,6 +303,7 @@ if ($template->action === 'wifi_scan') {
     $template->nat = $redis->hGet('AccessPoint', 'enable-NAT');
     $template->apenable = $redis->hGet('AccessPoint', 'enable');
     $template->wifienable = $redis->get('wifi_on');
+    $template->allwifienable = $redis->get('allwifi_on');
     $template->btenable = $redis->get('bluetooth_on');
     $template->btstring = '';
     $btDevices = wrk_btcfg($redis, 'status');
@@ -325,17 +334,24 @@ if ($template->action === 'wifi_scan') {
             $apSupp++;
         }
     }
-    if (!$redis->get('wifi-on') || ($wifi > 1) || ($wired && !$wifi)) {
+    if (!$template->wifienable || ($wifi > 1) || ($wired && $wifi)) {
         // Wi-Fi is switched off or more than one Wi-Fi nic is connected or
-        //  a wired nic is connected and no Wi-Fi connection is connected
+        //  a wired nic is connected and a Wi-Fi connection is connected
         //  (it could be configured as an AP), enable switching Wi-Fi on/off
         $template->wifiswitch = 1;
     } else{
         // disable switching Wi-Fi on/off
         $template->wifiswitch = 0;
     }
-    if ($redis->get('wifi-on') || ($apSupp)) {
-        // Wi-Fi is switched on or an access point supported Wi-Fi nic is available, enable switching AP on/off
+    if (!$template->allwifienable || ($wired && sysCmd('lsusb -v | grep -i iProduct | grep -ic "802.11" | xargs')[0])) {
+        // All Wi-Fi is switched off or a wifi dongle is connected and a wired connection is active
+        $template->allwifiswitch = 1;
+    } else{
+        // disable switching Wi-Fi on/off
+        $template->allwifiswitch = 0;
+    }
+    if ((!$template->apenable || $redis->get('allwifi-on') && ($apSupp))) {
+        // AP is switched off or Wi-Fi is switched on and an access point supported Wi-Fi nic is available, enable switching AP on/off
         $template->apswitch = 1;
     } else{
         // disable switching Wi-Fi on/off

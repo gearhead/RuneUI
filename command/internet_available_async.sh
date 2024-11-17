@@ -44,13 +44,12 @@ set +e # continue on errors
 # if connman has lost a Wi-Fi connection it should reconnect automatically, but the current version does not do it
 # running 'iwctl station <nic> scan' for the Wi-Fi nics should initiate a reconnect, no real issue in running this every time this routine runs
 # get a list of the nics which are down
-# this routine also ensures that all wifi nics are forced down when wifi is switched off
-#   this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi' in /boot/firmware/config.txt to be ignored
+# this routine also ensures that all wifi nics are forced down when All wifi is switched off
 down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all Wi-Fi nics
 nics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
 # determine if wifi is on
-wifi_on=$( redis-cli get wifi_on )
+allwifi_on=$( redis-cli get allwifi_on )
 # determine if access point is on
 ap_on=$( redis-cli hget AccessPoint enable )
 for nic in $nics ; do
@@ -61,14 +60,14 @@ for nic in $nics ; do
             # only for nics which were previously up
             ip addr flush $nic
             ip link set dev $nic down
-            if [ "$wifi_on" == "1" ] ; then
+            if [ "$allwifi_on" == "1" ] ; then
                 # when wifi is on
                 ip link set dev $nic up
             fi
         fi
     else
         # nic is up
-        if [ "$wifi_on" == "1" ] ; then
+        if [ "$allwifi_on" == "1" ] ; then
             # when wifi is on
             # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
             # the /tmp directory is a TMPFS file-system which will be recreated on reboot
@@ -83,7 +82,7 @@ for nic in $nics ; do
     ap=$( iw $nic info | grep -ic 'type\s*ap' | xargs )
     if [ "$ap" == "0" ] ; then
         # its not an access point
-        if [ "$wifi_on" == "1" ] ; then
+        if [ "$allwifi_on" == "1" ] ; then
             # when wifi is on
             if [ "$ap_on" == "1" ] ; then
                 # when access point is on

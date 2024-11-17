@@ -131,9 +131,8 @@ if ($redis->hGet('AccessPoint', 'enable')) {
                 //  this is not connected even though it reported that it is
                 // flush the nic to clear any ip addresses, then bring the nic down and up to trigger a connman connect
                 //  if there is a valid network available
-                // only run when Wi-Fi is enabled, this should not be necessary, but there are some linux bugs which cause 'dtoverlay=disable-wifi'
-                //  in /boot/firmware/config.txt to be ignored
-                if ($redis->get('wifi_on')) {
+                // only run when All Wi-Fi is enabled
+                if ($redis->get('allwifi_on')) {
                     sysCmd('ip address flush dev '.$nic['nic'].' ; ip link set dev '.$nic['nic'].' down ; ip link set dev '.$nic['nic'].' up');
                     // sleep for 20 seconds to ensure that connman has time to connect/reconnect
                     sleep(20);
@@ -366,7 +365,7 @@ if ($redis->hGet('AccessPoint', 'enable')) {
     }
     //
     // NAT configuration
-    if ($redis->get('wifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis->hGet('AccessPoint', 'enable-NAT')) {
+    if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis->hGet('AccessPoint', 'enable-NAT')) {
         // NAT is on
         if (!$redis->hGet('AccessPoint', 'NAT-configured')) {
             // NAT needs to be configured if conditions are correct

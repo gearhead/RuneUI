@@ -156,8 +156,8 @@
         <?php endif ?>
         <legend>Bluetooth Configuration</legend>
         <div class="col-sm-offset-2 col-sm-10">
-            <span class="help-block">Bluetooth and Wi-Fi share the same radio on a Raspberry Pi. The performance of Bluetooth audio is much improved when Wi-Fi is switched off
-                or a separate Bluetooth dongle is used<br><br></span>
+            <span class="help-block">Bluetooth and Wi-Fi share the same radio on a Raspberry Pi. The performance of Bluetooth audio is much improved when on-board Wi-Fi is switched off
+                or a separate Bluetooth dongle is used. An external Wi-Fi dongle can be used when on-board Wi-Fi is switched off<br><br></span>
         </div>
         <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">

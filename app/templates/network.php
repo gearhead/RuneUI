@@ -57,12 +57,13 @@
         </form>
     </div>
     <br>
-    <?php if((isset($this->wifiswitch)) && ($this->wifiswitch)): ?>
+    <?php if((isset($this->wifiswitch) && $this->wifiswitch) || (isset($this->allwifiswitch) && $this->allwifiswitch)): ?>
     <legend>Wi-Fi</legend>
     <div class="boxed">
+        <?php if(isset($this->wifiswitch) && $this->wifiswitch): ?>
         <form id='wifionoff' name='wifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">
-                <label for="bluetooth" class="control-label col-sm-2">Wi-Fi</label>
+                <label for="wifi" class="control-label col-sm-2">On-board Wi-Fi</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input type="hidden" name="wifienable" value="0">
@@ -77,6 +78,24 @@
                 </div>
             </div>
         </form>
+        <?php endif ?>
+        <?php if(isset($this->allwifiswitch) && $this->allwifiswitch): ?>
+        <form id='allwifionoff' name='allwifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
+            <div class="form-group">
+                <label for="allwifi" class="control-label col-sm-2">All Wi-Fi</label>
+                <div class="col-sm-10">
+                    <label class="switch-light well" onclick="">
+                        <input type="hidden" name="allwifienable" value="0">
+                        <input id="allwifi" name="allwifienable" type="checkbox" value="1"<?php if((isset($this->allwifienable)) && ($this->allwifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                    </label>
+                    <span class="help-block">Enable/Disable all Wi-Fi.<br>
+                        <i>Notes: The default setting is ON when a Wi-Fi dongle is present.
+                        If you do not intend to use Wi-Fi, you should <strong>remove the dongle</strong> or <strong>switch it off</strong></span>
+                </div>
+            </div>
+        </form>
+        <?php endif ?>
     </div>
     <br>
     <?php endif ?>
