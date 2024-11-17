@@ -106,7 +106,7 @@ rm -rf /var/lib/bluetooth/*
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
     bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile\
     ifupdown-pre ifupdown-wait-online haveged hciuart hostapd llmnrd local-browser local-browser-w mosquitto mpd mpdscribble\
-    nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\ 
+    nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
     shairport-sync smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2 upmpdcli upower winbind\
     winbindd)
