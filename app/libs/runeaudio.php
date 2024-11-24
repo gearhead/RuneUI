@@ -6799,7 +6799,9 @@ function wrk_restartSamba($redis, $args = 'restart')
     }
     wrk_systemd_unit($redis, 'daemon-reload');
     if ($redis->get('dev') || $redis->hGet('samba', 'enable')) {
-        sysCmd($sambaEnableCommand);
+        // when samba is enabled RuneAudio takes ages to boot
+        //  samba will be started by rune_SY_wrk when it runs command/usbmount
+        // sysCmd($sambaEnableCommand);
         if ($args != 'reload') {
             runelog('Samba Reloading...', '');
             sysCmd($sambaReloadCommand);
