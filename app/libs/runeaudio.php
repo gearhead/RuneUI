@@ -11146,7 +11146,7 @@ function get_albumInfo($redis, $info = array())
                     if ($retval) {
                         // check the validity of the album art
                         $match_percentage = $redis->get('albumart_match_percentage');
-                        
+
                         if (isset($retval['releases'][0]['artist-credit'][0]['artist']['name']) &&
                                 strlen(trim($retval['releases'][0]['artist-credit'][0]['artist']['name'])) &&
                                 isset($retval['releases'][0]['title']) &&
