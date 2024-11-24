@@ -6520,8 +6520,8 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     } elseif ($newPlayer == 'Airplay') {
-        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'start'));
     } elseif ($newPlayer == 'SpotifyConnect') {
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
@@ -6679,7 +6679,7 @@ function wrk_restartSamba($redis, $args = 'restart')
         //  when installed wsdd (Web Services Dynamic Discovery host daemon) will also be started/stopped
         // all detected variations are used to stop samba
         // start order: (smb or smdb), (nmb or nmbd), (winbind or winbindd) then wsdd - this is important!
-        // stop order: wsdd, winbindd, winbindd, nmbd then nmb, smbd, smd (each being stopped when applicable)
+        // stop order: wsdd, winbindd, winbind, nmbd then nmb, smbd, smd (each being stopped when applicable)
         if (is_file('/usr/lib/systemd/system/smb.service') && !is_link('/usr/lib/systemd/system/smb.service')) {
             $stopServiceNames[6] = 'smb';
             $startServiceNames[0] = 'smb';
@@ -8321,7 +8321,11 @@ function metadataStringClean($string, $type = '')
         $string
     );
     // remove any remaining backslashes, trim leading and trailing spaces
-    $string = trim(stripslashes($string));
+    if (isset($string) && $string) {
+        $string = trim(stripslashes($string));
+    } else {
+        $string = '';
+    }
     return $string;
 }
 
