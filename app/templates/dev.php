@@ -663,6 +663,19 @@
                         <i>Note: The values of changed resizing options are not validated, please ensure that the new settings are tested</i></span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="artMatchPercentage">Match Percentage for Internet Sourced Album Art</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="number" id="artMatchPercentage" name="mode[artMatchPercentage]" value="<?=$this->artMatchPercentage ?>" data-trigger="change" min="35" max="85" placeholder="55">
+                        <span class="help-block">Specifies the percentage match which is used to determine whether the Internet search
+                        for album art has been successful. A value of 55% is default, values between 45% and 75% are reasonable.
+                        <i>The Internet album art search retrieves many false positives based on the search criteria, by using this
+                        reliability percentage most incorrect matches are eliminated. It is also possible that the artist name
+                        the song title or album name used in the search is not 100% correct, for example words such as 'the', 'of',
+                        'a', 'and', '&amp;', commas and other punctuation may be incorrect. So a 100% match is generally not what is
+                        required</i></span>
+                    </div>
+                </div>
             </div>
             <!--
             <legend>Local Browser - Advanced settings</legend>

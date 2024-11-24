@@ -366,6 +366,7 @@ function redisDatastore($redis, $action) {
             $redis->set('albumart_image_dir', '/srv/http/tmp/art');
             $redis->set('albumart_image_url_dir', 'tmp/art');
             $redis->set('albumart_image_tmpfs', 1);
+            $redis->set('albumart_match_percentage', 55);
             $redis->set('mpd_playback_laststate', '');
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
@@ -722,6 +723,7 @@ function redisDatastore($redis, $action) {
             $redis->exists('albumart_image_dir') || $redis->set('albumart_image_dir', '/srv/http/tmp/art');
             $redis->exists('albumart_image_url_dir') || $redis->set('albumart_image_url_dir', 'tmp/art');
             $redis->exists('albumart_image_tmpfs') || $redis->set('albumart_image_tmpfs', 1);
+            $redis->exists('albumart_match_percentage') || $redis->set('albumart_match_percentage', 55);
             $redis->exists('mpd_playback_laststate') || $redis->set('mpd_playback_laststate', '');
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');

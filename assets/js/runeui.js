@@ -73,7 +73,8 @@ var GUI = {
     elapsed: 0,
     consume: 0,
     file: '',
-    local_volume_control: ''
+    local_volume_control: '',
+    song_percent: 0
 };
 
 
@@ -976,7 +977,7 @@ function refreshState() {
         // alert("refreshState 3");
         refreshTimer(0, 0, 'stop');
         window.clearInterval(GUI.currentKnob);
-        if ((typeof GUI.stream != 'undefined') && GUI.stream) {
+        if ((typeof GUI.stream != 'undefined') && GUI.stream && ((GUI.song_percent === '100') || (GUI.stream === 'radio'))) {
             $('#total').html('<span>&infin;</span>');
             $('#total-ss').html('<span>&infin;</span>');
             $('#total-sss').html('<span>&infin;</span>');
@@ -1014,7 +1015,7 @@ function refreshState() {
     }
     // alert("refreshState 6");
     if (GUI.json.playlistlength && GUI.json.playlistlength !== '0') {
-        if ((GUI.activePlayer !== undefined) && (GUI.activePlayer != 'MPD')) {
+        if ((GUI.activePlayer !== undefined) && (GUI.activePlayer !== 'MPD')) {
             $('#playlist-position span').html('Streaming');
             $('#playlist-position-ss span').html('Streaming');
             $('#playlist-position-sss span').html('Streaming');
@@ -1028,9 +1029,15 @@ function refreshState() {
             $('#playlist-position-sss span').html('Queue position 1/' + GUI.json.playlistlength);
         }
     } else {
-        $('#playlist-position span').html('Empty queue, add some music!');
-        $('#playlist-position-ss span').html('Empty queue, add some music!');
-        $('#playlist-position-sss span').html('Empty queue, add some music!');
+        if ((GUI.activePlayer !== undefined) && (GUI.activePlayer === 'MPD')) {
+            $('#playlist-position span').html('Empty queue, add some music!');
+            $('#playlist-position-ss span').html('Empty queue, add some music!');
+            $('#playlist-position-sss span').html('Empty queue, add some music!');
+        } else {
+            $('#playlist-position span').html('Streaming');
+            $('#playlist-position-ss span').html('Streaming');
+            $('#playlist-position-sss span').html('Streaming');
+        }
     }
     // alert("refreshState end");
 }
@@ -1081,6 +1088,9 @@ function updateGUI() {
         GUI.stream = 'bluetooth';
     } else {
         GUI.stream = '';
+    }
+    if (typeof GUI.json.song_percent !== 'undefined') {
+        GUI.song_percent = GUI.json.song_percent;
     }
     if ((local_volume_control === '0') || (local_volume_control === 0)) {
         if (GUI.local_volume_control !== '0') {

@@ -11131,16 +11131,28 @@ function get_albumInfo($redis, $info = array())
                     $url = 'https://musicbrainz.org/ws/2/release?query=release:'.urlClean($searchAlbum).'+artist:'.urlClean($searchArtist).'&incl=artist-credit&limit=1&fmt=json';
                     $retval = get_musicBrainz($redis, $url);
                     if ($retval) {
-                        // found the release (album) on musicbrainz, use the data if it is set
-                        if (isset($retval['releases'][0]['id']) && $retval['releases'][0]['id']) {
-                            // album music brainz id is set
-                            $info['album_mbid'] = $retval['releases'][0]['id'];
-                            // also save the artist mbid if needed
-                            if (!$info['artist_mbid'] && isset($retval['releases'][0]['artist-credit'][0]['artist']['id']) && $retval['releases'][0]['artist-credit'][0]['artist']['id']) {
-                                $info['artist_mbid'] = $retval['releases'][0]['artist-credit'][0]['artist']['id'];
+                        // check the validity of the album art
+                        $match_percentage = $redis->get('albumart_match_percentage');
+                        
+                        if (isset($retval['releases'][0]['artist-credit'][0]['artist']['name']) &&
+                                strlen(trim($retval['releases'][0]['artist-credit'][0]['artist']['name'])) &&
+                                isset($retval['releases'][0]['title']) &&
+                                strlen(trim($retval['releases'][0]['title'])) &&
+                                (count_word_occurancies(trim($retval['releases'][0]['artist-credit'][0]['artist']['name']), trim($searchArtist)) >= $match_percentage) &&
+                                (count_word_occurancies(trim($searchArtist), trim($retval['releases'][0]['artist-credit'][0]['artist']['name'])) >= $match_percentage) &&
+                                (count_word_occurancies(trim($retval['releases'][0]['title']), trim($searchAlbum)) >= $match_percentage) &&
+                                (count_word_occurancies(trim($searchAlbum), trim($retval['releases'][0]['title'])) >= $match_percentage)) {
+                            // found the release (album) on musicbrainz, use the data if it is set
+                            if (isset($retval['releases'][0]['id']) && $retval['releases'][0]['id']) {
+                                // album music brainz id is set
+                                $info['album_mbid'] = $retval['releases'][0]['id'];
+                                // also save the artist mbid if needed
+                                if (!$info['artist_mbid'] && isset($retval['releases'][0]['artist-credit'][0]['artist']['id']) && $retval['releases'][0]['artist-credit'][0]['artist']['id']) {
+                                    $info['artist_mbid'] = $retval['releases'][0]['artist-credit'][0]['artist']['id'];
+                                }
+                                // break both loops
+                                break 2;
                             }
-                            // break both loops
-                            break 2;
                         }
                     }
                     // sleep before trying again
@@ -11184,18 +11196,25 @@ function get_albumInfo($redis, $info = array())
             $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
             $retval = get_discogs($redis, $url);
             if ($retval) {
-                if (isset($retval['results'][0]['cover_image']) && $retval['results'][0]['cover_image']) {
-                    // album art is filled, use it and save the details
-                    $info['album_arturl_large'] = trim($retval['results'][0]['cover_image']);
-                    $info['album_arturl_medium'] = trim($retval['results'][0]['cover_image']);
-                    $info['album_arturl_small'] = trim($retval['results'][0]['cover_image']);
-                }
-                if (isset($retval['results'][0]['thumb']) && $retval['results'][0]['thumb']) {
-                    // album art is filled, use it and save the details
-                    $info['album_arturl_small'] = trim($retval['results'][0]['thumb']);
-                    if (!$info['album_arturl_large']) {
-                        $info['album_arturl_large'] = trim($retval['results'][0]['thumb']);
-                        $info['album_arturl_medium'] = trim($retval['results'][0]['thumb']);
+                // check the validity of the album art
+                $match_percentage = $redis->get('albumart_match_percentage');
+                if (isset($retval['results'][0]['title']) &&
+                        (strlen(trim($retval['results'][0]['title'])) >= 5) &&
+                        (count_word_occurancies(trim($info['albumartist']).' '.trim($info['album']), trim($retval['results'][0]['title'])) >= $match_percentage) &&
+                        (count_word_occurancies(trim($retval['results'][0]['title']), trim($info['albumartist']).' - '.trim($info['album'])) >= $match_percentage)) {
+                    if (isset($retval['results'][0]['cover_image']) && $retval['results'][0]['cover_image']) {
+                        // album art is filled, use it and save the details
+                        $info['album_arturl_large'] = trim($retval['results'][0]['cover_image']);
+                        $info['album_arturl_medium'] = trim($retval['results'][0]['cover_image']);
+                        $info['album_arturl_small'] = trim($retval['results'][0]['cover_image']);
+                    }
+                    if (isset($retval['results'][0]['thumb']) && $retval['results'][0]['thumb']) {
+                        // album art is filled, use it and save the details
+                        $info['album_arturl_small'] = trim($retval['results'][0]['thumb']);
+                        if (!$info['album_arturl_large']) {
+                            $info['album_arturl_large'] = trim($retval['results'][0]['thumb']);
+                            $info['album_arturl_medium'] = trim($retval['results'][0]['thumb']);
+                        }
                     }
                 }
             }

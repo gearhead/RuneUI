@@ -177,6 +177,15 @@ if (isset($_POST)) {
                 $redis->del('cleancache');
             }
         }
+        // ----- album art match percentage-----
+        if ((isset($_POST['mode']['artMatchPercentage'])) && ($_POST['mode']['artMatchPercentage'])) {
+            // value is set
+            if ($redis->get('albumart_match_percentage') != $_POST['mode']['artMatchPercentage']) {
+                // value has changed, save it
+                $redis->set('albumart_match_percentage', $_POST['mode']['artMatchPercentage']);
+                $redis->del('cleancache');
+            }
+        }
         // ----- Webstreaming encoder and bitrate -----
         if ((isset($_POST['mode']['WSencoder'])) && ($_POST['mode']['WSencoder'])) {
             // value is set
@@ -412,6 +421,7 @@ $template->conf = $redis->hGetAll('mpdconf');
 $template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 $template->lyrics = $redis->hGetAll('lyrics');
 $template->artResizingOpts = trim($redis->hGet('magick', 'opts'));
+$template->artMatchPercentage = $redis->get('albumart_match_percentage');
 $magick_resize = trim($redis->hGet('magick', 'resize'));
 $template->artResizing = substr($magick_resize, 0, strpos($magick_resize, 'x'));
 unset($magick_resize);
