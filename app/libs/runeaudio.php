@@ -6503,6 +6503,7 @@ function wrk_startPlayer($redis, $newPlayer)
         ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
         sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
+        wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
         sleep(2);
     }
@@ -12790,7 +12791,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             }
             if ($disconnected) {
                 // restart bluetooth and bluealsa, otherwise a reconnect will not work correctly
-                wrk_systemd_unit($redis, 'restart', 'bluetooth bluealsa');
+                wrk_btcfg($redis, 'reset');
             }
             break;
         case 'disconnect_sinks':
