@@ -2971,6 +2971,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'enableWifi':
             // run the command file to disable Wi-Fi, a reboot is required
             sysCmd('/srv/http/command/wifi_on.sh');
+            if (!$redis->get('allwifi_on')) {
+                wrk_netconfig($redis, 'enableAllWifi');
+            }
             break;
         case 'disableWifi':
             // run the command file to disable Wi-Fi, a reboot is required
@@ -2993,6 +2996,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 if ($networkInterface['technology'] == 'wifi') {
                     sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down');
                 }
+            }
+            if (!$redis->get('wifi_on')) {
+                wrk_netconfig($redis, 'disableWifi');
             }
             $redis->set('allwifi_on', 0);
             break;
