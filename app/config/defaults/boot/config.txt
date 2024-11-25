@@ -187,6 +187,10 @@ dtparam=krnbt=on
 dtparam=audio=on
 #   RuneAudio I2S-Settings
 #dtoverlay=none
+#   Hifiberry disable eeprom read for Pi 5
+[pi5]
+#force_eeprom_read=0
+[all]
 #
 ##  Display settings ##
 #   Many display settings are considered legacy settings and may become depreciated, check the documentation

@@ -4113,6 +4113,14 @@ function wrk_i2smodule($redis, $args)
         }
         $file = $redis->get('p1mountpoint').'/config.txt';
         $newArray = wrk_replaceTextLine($file, '', 'dtoverlay=', $newLine, 'RuneAudio I2S-Settings', 1);
+        if (strpos(' '.strtolower($args), 'hifiberry')) {
+            // some hifiberry dacs have an eeprom which identifies the dac, this must disabled for the Pi5
+            //  the changed lines are contained in conditional statements for specific models
+            $newArray = wrk_replaceTextLine('', $newArray, 'force_eeprom_read=', 'force_eeprom_read=0');
+        } else {
+            // otherwise comment out the line
+            $newArray = wrk_replaceTextLine('', $newArray, 'force_eeprom_read=', '#force_eeprom_read=0');
+        }
         // Commit changes to config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
@@ -15040,11 +15048,14 @@ function audioCardPi5($redis)
 // 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
 // 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5' valid only for Pi5
+// 'hifiberry-dacplus,slave|Argon BLSTR DAC for Pi 5' valid only for Pi5
+// 'hifiberry-dacplus|Argon BLSTR DAC' invalid for Pi5
 // 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
 // 'hifiberry-dac|Pine HatDrive! Piano' valid only for Pi5
 // 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
 // 'pisound-pi5|Blokas Labs pisound card' valid only for Pi5
-// 'pisound|Blokas Labs pisound card' invalid for Pi5//
+// 'pisound|Blokas Labs pisound card' invalid for Pi5
+//
 {
     if ($redis->get('aocardexceptions') == 'Pi5') {
         // corrections have already been applied
@@ -15052,26 +15063,31 @@ function audioCardPi5($redis)
     }
     // set up the i2s table
     copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
-    sysCmd("sed -i '/pisound|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dacplus|52Pi NVDAC/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dacplus|Argon BLSTR DAC/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/pisound|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
     // change the file privileges to read only and owner/group to http:http
     sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
     $i2smodule_select = trim($redis->get('i2smodule_select'));
     $reboot = false;
     if (substr($i2smodule_select, 0, 5) != 'none|') {
         // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
-        if ($i2smodule_select == 'pisound|Blokas Labs pisound card') {
-            wrk_i2smodule($redis, 'pisound-pi5');
-            $redis->set('i2smodule_select', 'pisound-pi5|Blokas Labs pisound card');
-            $reboot = true;
-        } else if ($i2smodule_select == 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
+        if ($i2smodule_select == 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
             wrk_i2smodule($redis, 'inno-dac-pro');
             $redis->set('i2smodule_select', 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
             $reboot = true;
         } else if ($i2smodule_select == 'hifiberry-dacplus|52Pi NVDAC') {
             wrk_i2smodule($redis, 'hifiberry-dacplus,slave');
             $redis->set('i2smodule_select', 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5');
+            $reboot = true;
+        } else if ($i2smodule_select == 'hifiberry-dacplus|Argon BLSTR DAC') {
+            wrk_i2smodule($redis, 'hifiberry-dacplus,slave');
+            $redis->set('i2smodule_select', 'hifiberry-dacplus,slave|Argon BLSTR DAC for Pi 5');
+            $reboot = true;
+        } else if ($i2smodule_select == 'pisound|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound-pi5');
+            $redis->set('i2smodule_select', 'pisound-pi5|Blokas Labs pisound card');
             $reboot = true;
         }
     }
@@ -15089,6 +15105,8 @@ function audioCardNonPi5($redis)
 // 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' invalid for Pi5
 // 'hifiberry-dac8x|HiFiBerry DAC8X' valid only for Pi5
 // 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5' valid only for Pi5
+// 'hifiberry-dacplus,slave|Argon BLSTR DAC for Pi 5' valid only for Pi5
+// 'hifiberry-dacplus,slave|Argon BLSTR DAC' invalid for Pi5
 // 'hifiberry-dacplus|52Pi NVDAC' invalid for Pi5
 // 'hifiberry-dac|Pine HatDrive! Piano' valid only for Pi5
 // 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M' valid only for Pi5
@@ -15101,36 +15119,41 @@ function audioCardNonPi5($redis)
     }
     // set up the i2s table
     copy('/srv/http/app/config/defaults/srv/http/.config/i2s_table.txt', '/srv/http/.config/i2s_table.txt');
-    sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dac8x|HiFiBerry DAC8X/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dacplus,slave|52Pi NVDAC for Pi 5/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/hifiberry-dacplus,slave|Argon BLSTR DAC for Pi 5/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dac|Pine HatDrive! Piano/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
-    sysCmd("sed -i '/hifiberry-dacplus,slave|52Pi NVDAC for Pi 5/d' '/srv/http/.config/i2s_table.txt'");
+    sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
     // change the file privileges to read only and owner/group to http:http
     sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
     $i2smodule_select = trim($redis->get('i2smodule_select'));
     $reboot = false;
     if (substr($i2smodule_select, 0, 5) != 'none|') {
         // i2s card is set, maybe we need to change config.txt and the i2smodule and i2smodule_select variables
-        if ($i2smodule_select == 'pisound-pi5|Blokas Labs pisound card') {
-            wrk_i2smodule($redis, 'pisound');
-            $redis->set('i2smodule_select', 'pisound|Blokas Labs pisound card');
-            $reboot = true;
-        } else if ($i2smodule_select == 'hifiberry-dac8x|HiFiBerry DAC8X') {
+        if ($i2smodule_select == 'hifiberry-dac8x|HiFiBerry DAC8X') {
             wrk_i2smodule($redis, 'none');
             $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
             $reboot = true;
-        } else if ($i2smodule_select == '/hifiberry-dac|Pine HatDrive! Piano/d') {
+        } else if ($i2smodule_select == 'hifiberry-dac|Pine HatDrive! Piano') {
             wrk_i2smodule($redis, 'none');
             $redis->set('i2smodule_select', 'none|I\xc2\xb2S disabled (default)');
+            $reboot = true;
+        } else if ($i2smodule_select == 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5') {
+            wrk_i2smodule($redis, 'hifiberry-dacplus');
+            $redis->set('i2smodule_select', 'hifiberry-dacplus|52Pi NVDAC');
+            $reboot = true;
+        } else if ($i2smodule_select == 'hifiberry-dacplus,slave|Argon BLSTR DAC for Pi 5') {
+            wrk_i2smodule($redis, 'hifiberry-dacplus');
+            $redis->set('i2smodule_select', 'hifiberry-dacplus|Argon BLSTR DAC');
             $reboot = true;
         } else if ($i2smodule_select == 'inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M') {
             wrk_i2smodule($redis, 'allo-katana-dac-audio');
             $redis->set('i2smodule_select', 'allo-katana-dac-audio|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M');
             $reboot = true;
-        } else if ($i2smodule_select == 'hifiberry-dacplus,slave|52Pi NVDAC for Pi 5') {
-            wrk_i2smodule($redis, 'hifiberry-dacplus');
-            $redis->set('i2smodule_select', 'hifiberry-dacplus|52Pi NVDAC');
+        } else if ($i2smodule_select == 'pisound-pi5|Blokas Labs pisound card') {
+            wrk_i2smodule($redis, 'pisound');
+            $redis->set('i2smodule_select', 'pisound|Blokas Labs pisound card');
             $reboot = true;
         }
     }

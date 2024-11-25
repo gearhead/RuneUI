@@ -19,6 +19,7 @@ hifiberry-dacplus|AOIDE ZPOD DAC
 applepi-dac|Apple PecanPi DAC
 applepi-dac|Apple Pi DAC
 hifiberry-dac|Argon BLSTR DAC
+hifiberry-dac,slave|Argon BLSTR DAC for Pi 5
 audioinjector-addons|Audioinjector Addons
 audioinjector-bare-i2s|Audioinjector Audio bare i2s soundcard
 audioinjector-isolated-soundcard|Audioinjector audioinjector.net isolated soundcard
