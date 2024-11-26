@@ -373,7 +373,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('magick', 'resize', '350x350\>');
             $redis->hSet('magick', 'opts', '-strip -interlace Plane -quality 90');
             // local browser
-            $redis->hSet('local_browser', 'browser', 'luakit');
+            $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'enable-splash', 0);
             $redis->hSet('local_browser', 'localSStime', -1);

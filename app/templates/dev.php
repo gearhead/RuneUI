@@ -677,23 +677,31 @@
                     </div>
                 </div>
             </div>
-            <!--
             <legend>Local Browser - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Windows/Browser Options</label>
+                    <label class="col-sm-2 control-label" for="local_browser_windows">Windows environment choice</label>
                     <div class="col-sm-10">
-                            <label class="switch-light well" onclick="">
-                                <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($this->optwifionof)) && ($this->optwifionof)): ?> checked="checked" <?php endif ?>>
-                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
-                            </label>
-                        <span class="help-block">The default is Windows environment is generally <strong>xorg</strong> with the Browser <strong>luakit</strong>.
-                        When the required software is installed other options become available.
-                        On start-up RuneAudio chooses the best combination for the hardware, your choices remain effective until the hardware changes</span>
+                        <select id="local_browser_windows" class="selectpicker" name="mode[local_browser_windows]" data-style="btn-default btn-lg">
+                            <option value="xorg" <?php if($this->local_browser_windows === 'xorg'): ?> selected <?php endif ?>> Xorg</option>
+                            <option value="weston" <?php if($this->local_browser_windows === 'weston'): ?> selected <?php endif ?>> Weston</option>
+                        </select>
+                        <span class="help-block">The default is <strong>Xorg Windows environment</strong>.
+                        The Weston Windows environment is preferable as it is a more modern product, unfortunately it is less reliable than Xorg.<br>
+                        <i>Note: When the Weston Windows environment is selected the Luakit Local browser will automatically be selected</i></span>
+                    </div>
+                    <label class="col-sm-2 control-label" for="local_browser_browser">Browser choice</label>
+                    <div class="col-sm-10">
+                        <select id="local_browser_browser" class="selectpicker" name="mode[local_browser_browser]" data-style="btn-default btn-lg">
+                            <option value="chromium" <?php if($this->local_browser_browser === 'chromium'): ?> selected <?php endif ?>> Chromium</option>
+                            <option value="luakit" <?php if($this->local_browser_browser === 'luakit'): ?> selected <?php endif ?>> Luakit</option>
+                        </select>
+                        <span class="help-block">The default is the <strong>Chromium Local Browser</strong>.
+                        The Luakit Local Browser is preferable as it is a more lightweight product, unfortunately it is less reliable than Chromium.<br>
+                        <i>Note: When the Weston Windows environment is selected only the Luakit Local browser is valid</i></span>
                     </div>
                 </div>
             </div>
-            -->
             <div class="form-group">
                 <div class="col-sm-offset-2 col-sm-10">
                     <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit">Save settings</button>

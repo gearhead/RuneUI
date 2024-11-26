@@ -271,6 +271,17 @@ if (isset($_POST)) {
         if ($llmnrd) {
             $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'llmnrd'));
         }
+        // ----- Local Browser - Windows choice -----
+        // windows choice before browser
+        if ((isset($_POST['mode']['local_browser_windows'])) && ($_POST['mode']['local_browser_windows'] != $redis->hget('local_browser', 'windows'))) {
+            // create worker job (set windows type and restart if running)
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'windows', 'args' => $_POST['mode']['local_browser_windows']));
+        }
+        // ----- Local Browser - Browser choice -----
+        if ((isset($_POST['mode']['local_browser_browser'])) && ($_POST['mode']['local_browser_browser'] != $redis->hget('local_browser', 'browser'))) {
+            // create worker job (set browser type and restart if running)
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'browser', 'args' => $_POST['mode']['local_browser_browser']));
+        }
         // ----- Underclocking -----
         if ((isset($_POST['mode']['underclocking']['enable'])) && ($_POST['mode']['underclocking']['enable'])) {
             // create worker job (set on)
@@ -427,6 +438,8 @@ $template->artResizing = substr($magick_resize, 0, strpos($magick_resize, 'x'));
 unset($magick_resize);
 $template->fix_input_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_input_ba_volume');
 $template->fix_output_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_output_ba_volume');
+$template->local_browser_browser = $redis->hGet('local_browser', 'browser');
+$template->local_browser_windows = $redis->hGet('local_browser', 'windows');
 
 // debug
 // var_dump($template->dev);

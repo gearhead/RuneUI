@@ -1887,6 +1887,11 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             $windows = $redis->hGet('local_browser', 'windows');
             if ($windows == 'xorg') {
                 sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
+                sleep(5);
+                if (!wrk_systemd_unit($redis, 'is-active', 'local-browser')) {
+                    // the chromium browser fails regularly on its first start-up, but works fine thereafter, try starting again
+                    sysCmd('pgrep -x xinit || systemctl start local-browser ; /srv/http/command/ui_update_async 5000000');
+                }
             } else if ($windows == 'weston') {
                 if (is_firstTime($redis, 'weston_start')) {
                     wrk_localBrowser($redis, 'configure_weston_ini');
@@ -2096,6 +2101,28 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             }
             // write the file contents
             file_put_contents($fileName, $fileContents);
+            break;
+        case 'windows':
+            $redis->hSet('local_browser', 'windows', $args);
+            // only the luakit browser is supported with weston
+            if ($args == 'weston') {
+                $redis->hSet('local_browser', 'browser', 'luakit');
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            wrk_localBrowser($redis, 'restart');
+            break;
+        case 'browser':
+            if ($redis->hGet('local_browser', 'windows') == 'weston') {
+                $redis->hSet('local_browser', 'browser', 'luakit');
+            } else {
+                $redis->hSet('local_browser', 'browser', $args);
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            wrk_localBrowser($redis, 'restart');
             break;
     }
 }
@@ -6096,8 +6123,8 @@ function wrk_getHwPlatform($redis, $reset = 0)
         $redis->hDel('spotifyconnect', 'metadata_enabled');
         $redis->hDel('AccessPoint', 'enable');
         // set the default local browser windows and browser type
-        $redis->hSet('local_browser', 'windows', 'xorg');
-        $redis->hSet('local_browser', 'browser', 'chromium');
+        // $redis->hSet('local_browser', 'windows', 'xorg');
+        // $redis->hSet('local_browser', 'browser', 'chromium');
         $redis->del('acards');
         $redis->del('hdmiacards');
     }
