@@ -8764,12 +8764,17 @@ function refresh_nics($redis)
             }
             $entry = ' '.strtolower(trim($connmanLineParts[0]));
             $value = strtolower(trim($connmanLineParts[1], " \t\n\r\0\x0B]["));
-            if (strpos(' '.$entry, '.configuration') && !strpos(' '.$entry, 'ipv6.')) {
+            if (strpos($entry, '.configuration') && !strpos($entry, 'ipv6.')) {
                 // don't use the .configuration lines unless its ipv6.configuration
                 continue;
             }
             if (strpos($entry, 'security')) {
-                $networkInfo[$macAddress.'_'.$ssidHex]['security'] = strtoupper($value);
+                $value = strtoupper($value);
+                if ($value == 'NONE') {
+                    // when $value is 'NONE' set it to 'OPEN'
+                    $value = 'OPEN';
+                }
+                $networkInfo[$macAddress.'_'.$ssidHex]['security'] = $value;
             } else if (strpos($entry, 'strength')) {
                 if ($value) {
                     $strength = $value;
