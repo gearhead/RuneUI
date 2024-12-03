@@ -164,11 +164,11 @@ gpu_mem=24
 #dtoverlay=vc4-kms-v3d
 # Pi 4
 [pi4]
-#dtoverlay=vc4-kms-v3d-pi4
+#dtoverlay=vc4-kms-v3d
 # Pi 5
-[pi5]
 # for the pi5 the vc4 overlay must be enabled for hdmi audio and local browser support, hopefully this will change in a later Linux release
-dtoverlay=vc4-kms-v3d-pi5
+[pi5]
+dtoverlay=vc4-kms-v3d
 [all]
 #
 ##  Bluetooth settings ##
