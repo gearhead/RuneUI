@@ -688,7 +688,9 @@
                         </select>
                         <span class="help-block">The default is <strong>Xorg Windows environment</strong>.
                         The Weston Windows environment is preferable as it is a more modern product, unfortunately it is less reliable than Xorg.<br>
-                        <i>Note: When the Weston Windows environment is selected the Luakit Local browser will automatically be selected</i></span>
+                        <i>Notes: When the Weston Windows environment is selected the Luakit Local browser will automatically be selected.<br>
+                        Weston requires that the vc4 hardware graphics driver is switched on, which requires a reboot to activate.
+                        The vc4 hardware graphics driver reduces the maximum HDMI audio sample-rate to 48khz, with xorg the maximum is 192khz</i></span>
                     </div>
                     <label class="col-sm-2 control-label" for="local_browser_browser">Browser choice</label>
                     <div class="col-sm-10">

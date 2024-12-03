@@ -2103,6 +2103,7 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             file_put_contents($fileName, $fileContents);
             break;
         case 'windows':
+            $windows = $redis->hGet('local_browser', 'windows');
             $redis->hSet('local_browser', 'windows', $args);
             // only the luakit browser is supported with weston
             if ($args == 'weston') {
@@ -2111,9 +2112,27 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
-            wrk_localBrowser($redis, 'restart');
+            $windowsNew = $redis->hGet('local_browser', 'windows');
+            if ($windowsNew != $windows) {
+                // windows has changed, modify config.txt and notify that a reboot is required
+                //  weston requires vc4, xorg can live without it (except for the pi5)
+                $filename = $redis->get('p1mountpoint').'/config.txt';
+                if ($windowsNew == 'weston') {
+                    // enable all vc4 overlays
+                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/#\s*//' '".$filename."'");
+                    ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'. A reboot is required to activate!', '', 1);
+                } else if ($windowsNew == 'xorg') {
+                    // disable all vc4 overlays
+                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/.*/#dtoverlay=vc4-kms-v3d/' '".$filename."'");
+                    // enable the vc4 overlay for the Pi5
+                    sysCmd("sed -i '/^\[pi5\]/{n;s/#\s*dtoverlay=vc4-kms-v3d.*/dtoverlay=vc4-kms-v3d/}' '".$filename."'");
+                    wrk_localBrowser($redis, 'restart');
+                    ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'.');
+                }
+            }
             break;
         case 'browser':
+            $browser = $redis->hGet('local_browser', 'browser');
             if ($redis->hGet('local_browser', 'windows') == 'weston') {
                 $redis->hSet('local_browser', 'browser', 'luakit');
             } else {
@@ -2122,7 +2141,11 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
-            wrk_localBrowser($redis, 'restart');
+            $browserNew = $redis->hGet('local_browser', 'browser');
+            if ($browserNew != $browser) {
+                wrk_localBrowser($redis, 'restart');
+                ui_notify($redis, 'Local Browser', 'Browser changed to '.$browserNew.'.');
+            }
             break;
     }
 }
