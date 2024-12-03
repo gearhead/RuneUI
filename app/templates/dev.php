@@ -676,6 +676,16 @@
                         required</i></span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="webradioRejectCount">Number of repeats to trigger reject Webradio metadata</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" type="number" id="webradioRejectCount" name="mode[webradioRejectCount]" value="<?=$this->webradioRejectCount ?>" data-trigger="change" min="-1" max="20" placeholder="8">
+                        <span class="help-block">Specifies the number of repeats within an hour which will trigger rejecting Webradio metadata.
+                        A value of 8 is default, values between 6 and 14 are reasonable, a value less then 5 will disable the feature.
+                        <i>Some Webradio stations repeat a metadata string many times each hour, this often contains text advertising the Radio Station and has no relationship to the song being played.
+                        By counting the number of occurrences of each Webradio metadata string per hour these irrelevant messages can be identified and suppressed</i></span>
+                    </div>
+                </div>
             </div>
             <legend>Local Browser - Advanced settings</legend>
             <div class="boxed-group">

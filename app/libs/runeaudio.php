@@ -15518,6 +15518,75 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
     }
 }
 
+// function which filters out non metadata Webradio information
+function check_webradio_string($redis, $webradioString)
+// this function identifies Webradio metdata strings which contain the information about the radio station
+//  as opposed to data concerning the song which is playing
+// it works by counting the number of times a metadata string has been seen within an hour
+//  after 8 occurrences within an hour have been encountered a hash of the string is stored as a reject
+//  the value of 8 is selected assuming that the Webradio station sends a non-song message per song and songs
+//      have an average play time of 5 mins (5x8= 40 mins)
+// the parameter is the Webradio metadata string, the return value is true (its a song) or false (radio information)
+{
+    $webradioString = trim($webradioString);
+    if (!strlen($webradioString)) {
+        return 0;
+    }
+    if ($redis->exists('webradio_rejects')) {
+        $rejectHashes = $redis->hGetall('webradio_rejects');
+    } else {
+        $rejectHashes = array();
+    }
+    $time = floatval(round(microtime(true)));
+    $hash = hash("crc32b", $webradioString);
+    if (array_key_exists($hash, $rejectHashes)) {
+        if ((floatval($rejectHashes[$hash]) + 7776000) < $time) {
+            // the reject webradio text hash is 3 months old, delete it
+            $redis->hDel('webradio_rejects', $hash);
+        }
+        return 0;
+    }
+    if ($redis->hExists('webradio_timers', $hash)) {
+        // timer exists
+        $timerEncoded = $redis->hGet('webradio_timers', $hash);
+        $timer = json_decode($timerEncoded, true);
+        if ((floatval($timer['time']) + 3600) < $time) {
+            // timer expired
+            $timer['time'] = $time;
+            $timer['count'] = 1;
+            $redis->hSet('webradio_timers', $hash, json_encode($timer));
+        } else {
+            // timer is active
+            if (intval($timer['count']) < 8) {
+                // timer reject count not reached
+                $timer['count']++;
+                $redis->hSet('webradio_timers', $hash, json_encode($timer));
+            } else {
+                // reject hash detected
+                $redis->hSet('webradio_rejects', $hash, $time);
+                $redis->hDel('webradio_timers', $hash);
+            }
+        }
+    } else {
+        // no timer, create a new one
+        $timer = array();
+        $timer['time'] = $time;
+        $timer['count'] = 1;
+        $redis->hSet('webradio_timers', $hash, json_encode($timer));
+    }
+    $hashes = $redis->hKeys('webradio_timers');
+    if (count($hashes) > 40) {
+        foreach ($hashes as $hash) {
+            $timer = json_decode($redis->hGet('webradio_timers', $hash), true);
+            if ((floatval($timer['time']) + 3600) < $time) {
+                // the timer is more than an hour old, delete it
+                $redis->hDel('webradio_timers', $hash);
+            }
+        }
+    }
+    return 1;
+}
+
 /*
 // function to control alsa equaliser
 function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)

@@ -168,7 +168,7 @@ if (isset($_POST)) {
             }
             unset($magick_opts);
         }
-        // ----- Local album art resizing options-----
+        // ----- Local album art resizing options -----
         if ((isset($_POST['mode']['artResizingOpts'])) && ($_POST['mode']['artResizingOpts'])) {
             // value is set
             if ($redis->hGet('magick', 'opts') != $_POST['mode']['artResizingOpts']) {
@@ -177,13 +177,24 @@ if (isset($_POST)) {
                 $redis->del('cleancache');
             }
         }
-        // ----- album art match percentage-----
+        // ----- album art match percentage -----
         if ((isset($_POST['mode']['artMatchPercentage'])) && ($_POST['mode']['artMatchPercentage'])) {
             // value is set
             if ($redis->get('albumart_match_percentage') != $_POST['mode']['artMatchPercentage']) {
                 // value has changed, save it
                 $redis->set('albumart_match_percentage', $_POST['mode']['artMatchPercentage']);
-                $redis->del('cleancache');
+            }
+        }
+        // ----- webradio metadata reject count -----
+        if ((isset($_POST['mode']['webradioRejectCount'])) && ($_POST['mode']['webradioRejectCount'])) {
+            // value is set
+            if ($redis->get('webradio_reject_count') != $_POST['mode']['webradioRejectCount']) {
+                // value has changed, save it
+                $redis->set('webradio_reject_count', $_POST['mode']['webradioRejectCount']);
+            }
+            if ($_POST['mode']['webradioRejectCount']  < 5) {
+                $redis->del('webradio_timers');
+                $refis->del('webradio_rejects');
             }
         }
         // ----- Webstreaming encoder and bitrate -----
@@ -433,6 +444,7 @@ $template->replaygain = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 $template->lyrics = $redis->hGetAll('lyrics');
 $template->artResizingOpts = trim($redis->hGet('magick', 'opts'));
 $template->artMatchPercentage = $redis->get('albumart_match_percentage');
+$template->webradioRejectCount = $redis->get('webradio_reject_count');
 $magick_resize = trim($redis->hGet('magick', 'resize'));
 $template->artResizing = substr($magick_resize, 0, strpos($magick_resize, 'x'));
 unset($magick_resize);

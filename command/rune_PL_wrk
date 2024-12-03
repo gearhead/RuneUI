@@ -357,10 +357,16 @@ while (true) {
                         $newStatus['song_percent'] = 0;
                         $status = $newStatus;
                         $mpdChangeSong = false;
-                    } else if ($newStatus['currentsong'] === '') {
+                    } else if (trim($newStatus['currentsong']) === '') {
                         // skip records when no metadata is passed
                         $newStatus['currentsong'] = $saveCurrentsong;
-                        $mpdChangeSong = false;
+                        //$mpdChangeSong = false;
+                        continue;
+                    } else if (($redis->get('webradio_reject_count') >= 5) && ($newStatus['currentsong'] != $saveCurrentsong) && !check_webradio_string($redis, $newStatus['currentsong'])) {
+                        // song changed and song identified as radio station information, skip it
+                        $newStatus['currentsong'] === $saveCurrentsong;
+                        // $mpdChangeSong = false;
+                        continue;
                     } else if (!strpos(' '.$newStatus['currentsong'], ' - ')) {
                         // it is a radio and there is no space-hyphen-space in the song name, this indicates an information message and not an artist/album string
                         // $saveFile = $newStatus['file'];
@@ -377,6 +383,7 @@ while (true) {
                         $newStatus['smallArtURL'] = $artUrl.'/none.png';
                         $status = $newStatus;
                         $mpdChangeSong = false;
+                        $webradioArtFound = false;
                     } else {
                         foreach ($radioSkipMetaStrings as $radioSkipMetaString) {
                             if ((strpos(strtolower(' '.$newStatus['currentsong']), strtolower(trim($radioSkipMetaString)))) ||
@@ -463,7 +470,6 @@ while (true) {
                     $status = $newStatus;
                     $mpdChangeSong = false;
                 } else {
-                // if (!$newStatus['radio']) {
                     // its not a radio, a alsa hw source nor a hardware CD source, try fixing the display data from cached values
                     if ($newStatus['file'] &&
                             (($newStatus['file'] != $mpdFixFile))
@@ -555,6 +561,8 @@ while (true) {
                 // $rts = 0;
                 if ($mpdChangeSong && $status['radio'] && (!isset($status['currentartist']) || !$status['currentartist'])) {
                     runelog('rune_PL_wrk: radioname = ', $status['radioname']);
+                    // it takes ages to determine the radio art, refresh the status to update the elapsed time
+                    // $status = ui_status($redis, $socket, $status);
                     if (isset($status['currentsong']) && $status['currentsong'] && $coverartRequired) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);
@@ -562,18 +570,16 @@ while (true) {
                         $activePlayer = $redis->get('activePlayer');
                         $status['actPlayer'] = $activePlayer;
                         $redis->set('act_player_info', json_encode($status));
-                        $retval = wrk_get_webradio_art($redis, $status['currentsong']);
                         if ($activePlayer != 'MPD') {
                             // no longer MPD, just break the loop
                             break;
                         }
+                        $retval = wrk_get_webradio_art($redis, $status['currentsong']);
                     } else {
                         // currentsong has no value or coverart is switched off
                         $retval = false;
                         $status['currentsong'] = '';
                     }
-                    // it takes ages to determine the radio art, refresh the status to update the elapsed time
-                    $status = ui_status($redis, $socket, $status);
                     $status['fileext'] = '';
                     $status['mainArtURL'] = $artUrl.'/radio.png';
                     $status['bigArtURL'] = $artUrl.'/none.png';
@@ -657,7 +663,6 @@ while (true) {
                 // Global Random
                 if ($redis->hGet('globalrandom', 'enable') && isset($status['state']) && ($status['state'] === 'stop') && ($redis->get('lock_globalrandom') === '1')) {
                     // MPD now stopped, the last track was the last in the queue, ashuffle will start a new track in this status
-                    // to avoid displaying the first track in the queue force a UI update and skip the UI render step
                     ui_update($redis, $socket, 0);
                     // skip only once
                     $redis->set('lock_globalrandom', 0);
