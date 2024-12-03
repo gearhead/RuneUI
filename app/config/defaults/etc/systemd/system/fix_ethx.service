@@ -12,4 +12,5 @@ ExecStart=/srv/http/command/fix_ethx.sh
 
 [Install]
 # WantedBy=getty.target # removed for vc4 implementation
-WantedBy=multi-user.target
+# WantedBy=multi-user.target # removed, Wi-Fi only configuration will wait for completion in boot sequence
+WantedBy=rune_SY_wrk.service

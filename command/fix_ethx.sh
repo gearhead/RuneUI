@@ -45,15 +45,16 @@ for i in {0..20..1} ; do
         # finished
         break
     fi
-    sleep 5
     pgrep iwd >/dev/null 2>&1
     if [ "$?" != "0" ] ; then
         # iwd is not running, loop
+        sleep 5
         continue
     fi
     pgrep connman >/dev/null 2>&1
     if [ "$?" != "0" ] ; then
         # connman is not running, loop
+        sleep 5
         continue
     fi
     # get a list of all nics
@@ -78,6 +79,7 @@ for i in {0..20..1} ; do
         ip link set dev $nic up
         done="0"
     done
+    sleep 5
 done
 #---
 #End script
