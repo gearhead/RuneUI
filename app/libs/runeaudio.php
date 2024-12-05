@@ -2147,6 +2147,15 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
                 ui_notify($redis, 'Local Browser', 'Browser changed to '.$browserNew.'.');
             }
             break;
+        default:
+            if ($redis->hGet('local_browser', $action) != $args) {
+                $redis->hSet('local_browser', $action, $args);
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+                wrk_localBrowser($redis, 'restart');
+            }
+            break;
     }
 }
 
