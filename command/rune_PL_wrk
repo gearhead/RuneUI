@@ -360,7 +360,7 @@ while (true) {
                     } else if (trim($newStatus['currentsong']) === '') {
                         // skip records when no metadata is passed
                         $newStatus['currentsong'] = $saveCurrentsong;
-                        //$mpdChangeSong = false;
+                        // $mpdChangeSong = false;
                         continue;
                     } else if (($redis->get('webradio_reject_count') >= 5) && ($newStatus['currentsong'] != $saveCurrentsong) && !check_webradio_string($redis, $newStatus['currentsong'])) {
                         // song changed and song identified as radio station information, skip it
@@ -562,7 +562,7 @@ while (true) {
                 if ($mpdChangeSong && $status['radio'] && (!isset($status['currentartist']) || !$status['currentartist'])) {
                     runelog('rune_PL_wrk: radioname = ', $status['radioname']);
                     // it takes ages to determine the radio art, refresh the status to update the elapsed time
-                    // $status = ui_status($redis, $socket, $status);
+                    $status = ui_status($redis, $socket, $status);
                     if (isset($status['currentsong']) && $status['currentsong'] && $coverartRequired) {
                         // $rts = time();
                         runelog('rune_PL_wrk: radio currentsong = ', $status['currentsong']);

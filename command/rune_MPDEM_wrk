@@ -160,16 +160,18 @@ while (true)  {
         //  many are set to a single space which will cause the UI to use the value, clearing unset information (an
         //  empty string is ignored in the UI)
         //
-        $status['mainArtURL'] = '';
-        $status['bigArtURL'] = '';
-        $status['smallArtURL'] = '';
-        // $status['bitrate'] = ' ';
-        // $status['audio_sample_rate'] = ' ';
-        // $status['audio_sample_depth'] = ' ';
-        $status['song_lyrics'] = ' ';
-        $status['coverArtPreload'] = '';
-        $status['artist_bio_summary'] = ' ';
-        $status['artist_similar'] = ' ';
+        if (!$curSongIsRadio) {
+            $status['mainArtURL'] = '';
+            $status['bigArtURL'] = '';
+            $status['smallArtURL'] = '';
+            // $status['bitrate'] = ' ';
+            // $status['audio_sample_rate'] = ' ';
+            // $status['audio_sample_depth'] = ' ';
+            $status['song_lyrics'] = ' ';
+            $status['coverArtPreload'] = '';
+            $status['artist_bio_summary'] = ' ';
+            $status['artist_similar'] = ' ';
+        }
         //
         // open the MPD socket, first close it if already open
         if ($socket) {
