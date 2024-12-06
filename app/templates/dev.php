@@ -700,7 +700,9 @@
                         The Weston Windows environment is preferable as it is a more modern product, unfortunately it is less reliable than Xorg.<br>
                         <i>Notes: When the Weston Windows environment is selected the Luakit Local browser will automatically be selected.<br>
                         Weston requires that the vc4 hardware graphics driver is switched on, which requires a reboot to activate.
-                        The vc4 hardware graphics driver reduces the maximum HDMI audio sample-rate to 48khz, with xorg the maximum is 192khz</i></span>
+                        The vc4 hardware graphics driver reduces the maximum HDMI audio sample-rate to 48khz on the 64bit image.
+                        With xorg the maximum HDMI audio sample-rateis 192khz.
+                        On the 32bit image the vc4 hardware graphics driver disables HDMI audio</i></span>
                     </div>
                     <label class="col-sm-2 control-label" for="local_browser_browser">Browser choice</label>
                     <div class="col-sm-10">

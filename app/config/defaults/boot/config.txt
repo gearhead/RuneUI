@@ -147,7 +147,8 @@ gpu_mem=24
 ##  vc4 settings ##
 #   These settings enable/disable Enable Eric Anholt's DRM VC4 HDMI/HVS/V3D driver
 #   When enabled HDMI audio appears to be connected and will be presented as a valid audio output, even though it is not available for use
-#   When enabled the HDMI audio is limited to 44100:16:*, 44100:24:*, 48000:16:* or 48000:24:*
+#   When enabled the HDMI audio is limited to 44100:16:*, 44100:24:*, 48000:16:* or 48000:24:* on the 64bit image
+#       And when enabled for the 32 bit image HDMI audio is disabled
 #   When disabled HDMI audio will run at 32000:16:*, 32000:24:*, 44100:16:*, 44100:24:*, 48000:16:*, 48000:24:*, 88200:16:*,
 #     88200:24:*, 96000:16:*, 96000:24:*, 176400:16:*, 176400:24:*, 192000:16:* or 192000:24:*
 #   For all single processor models, where a local browser in not used, vc4 should be disabled
