@@ -228,17 +228,21 @@ fi
     # redis-cli hset service wikipedia 0
 # fi
 # discogs
-# determine if we can see www.discogs.com/search, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.discogs.com/search > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    # discogs is available
-    redis-cli hset service discogs 1
-else
-    # discogs is not available
-    redis-cli hset service discogs 0
+# determine if we can see www.discogs.com, this command will give up after +/-20 seconds (= timeout x tries)
+up=$( redis-cli hget service discogs )
+if [ "$up" == "0" ] ; then
+    # discogs was down
+    wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --header="User-Agent: Mozilla/5.0 (Windows NT 5.1; rv:23.0) Gecko/20100101 Firefox/23.0" --header="Accept-Language: en-US,en;q=0.5" --header="Referer: www.discogs.com" www.discogs.com > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        # discogs is available
+        redis-cli hset service discogs 1
+    else
+        # discogs is not available
+        redis-cli hset service discogs 0
+    fi
 fi
 # fanart.tv
-# determine if we can see webservice.fanart.tv/v3/audio, this command will give up after +/-20 seconds (= timeout x tries)
+# determine if we can see webservice.fanart.tv, this command will give up after +/-20 seconds (= timeout x tries)
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://webservice.fanart.tv > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # fanart.tv is available
