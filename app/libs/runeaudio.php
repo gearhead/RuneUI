@@ -10692,6 +10692,9 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                 // this will be reset each 15 minutes, providing that the makeitpersonal site is up
                 $retval = '';
                 $found = false;
+            } else if (strpos(' '.strtolower($retval), "sorry, we don't have lyrics for this song yet")) {
+                $retval = '';
+                $found = false;
             } else {
                 $found = true;
             }
@@ -10751,7 +10754,6 @@ function get_lyrics($redis, $searchArtist, $searchSong)
             $found = true;
             if (!$retval) {
                 // nothing returned
-                $retval = '';
                 $found = false;
             } else {
                 // we get a lot of false positive matches from chartlyrics
@@ -10771,6 +10773,11 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                 }
             }
         }
+    }
+    if (!$found) {
+        $retval = 'Sorry, We don\'t have lyrics for this song yet. '.
+        'Add them to <a href="https://lyrics.wikia.com" target="_blank" rel="nofollow">www.lyrics.wikia.com</a> '.
+        'or <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a><br>';
     }
     //
     $return = array();
@@ -11005,21 +11012,21 @@ function get_songInfo($redis, $info = array())
         foreach ($searchArtists as $searchArtist) {
             foreach ($searchSongs as $searchSong) {
                 $retval = get_lyrics($redis, $searchArtist, $searchSong);
-                if (isset($retval['song_lyrics']) && $retval['song_lyrics']) {
-                    // we have a value for song lyrics, use it
-                    $info['song_lyrics'] = $retval['song_lyrics'];
+                $info['song_lyrics'] = $retval['song_lyrics'];
+                if (isset($retval['success']) && $retval['success']) {
+                    // we have a value for song lyrics, add credits
+                    if ($retval['service'] == 'makeitpersonal') {
+                         $service = 'makeitpersonal.co';
+                    } else if ($retval['service'] == 'chartlyrics') {
+                         $service = 'chartlyrics.com';
+                    }
+                    $info['song_lyrics'] .= '<br><br><i>Lyrics provided by <a href="http://'.$service.'" target="_blank" rel="nofollow">www.'.$service.'</a></i>';
                     // break both loops
                     break 2;
                 }
                 // sleep before trying again
                 sleep(2);
             }
-        }
-    }
-    if (!$info['song_lyrics']) {
-        $info['song_lyrics'] = 'No lyrics available<br>';
-        if (isset($retval['service']) && ($retval['service'] == 'chartlyrics')) {
-            $info['song_lyrics'] .= 'Add lyrics for this song at <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a>';
         }
     }
     if ($useAlbumArtist && $info['albumartist'] && $info['song']) {
