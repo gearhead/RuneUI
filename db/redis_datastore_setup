@@ -233,7 +233,7 @@ function redisDatastore($redis, $action) {
             $redis->set('usb_db_autorebuild_retry', 0);
             $redis->del('webradios');
             $redis->del('webradio_timers');
-            $refis->del('webradio_rejects');
+            $redis->del('webradio_rejects');
             $redis->set('webradio_reject_count', 8);
             // Bluetooth
             $redis->hSet('bluetooth', 'def_volume_in', '-1');
