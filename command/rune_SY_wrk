@@ -524,8 +524,8 @@ while (true) {
                         }
                     } while (isset($message) && $message);
                 } else {
-                    // requeue this job
-                    wrk_control($redis, 'noduplicates', $data = array('wrkcmd' => 'notify_async'));
+                    // requeue this job, don't use 'noduplicates' the current entry has not been deleted yet
+                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'notify_async'));
                 }
                 unset($cnt);
                 break;
