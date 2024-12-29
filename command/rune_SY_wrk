@@ -1067,10 +1067,10 @@ while (true) {
                 $airplay_name = $redis->hGet('airplay', 'name');
                 $airplay_enable = $redis->hGet('airplay', 'enable');
                 $redis->del('airplay');
+                wrk_getHwPlatform($redis);
                 sysCmd('/srv/http/db/redis_datastore_setup check');
                 $redis->hSet('airplay', 'name', $airplay_name);
                 $redis->hSet('airplay', 'enable', $airplay_enable);
-                wrk_getHwPlatform($redis);
                 wrk_shairport($redis, $redis->get('ao'), $airplay_name);
                 $redis->sRem('w_lock', $jobID);
                 unset($airplay_name, $airplay_enable);

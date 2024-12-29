@@ -359,12 +359,12 @@ while (true) {
                         $mpdChangeSong = false;
                     } else if (trim($newStatus['currentsong']) === '') {
                         // skip records when no metadata is passed
-                        $newStatus['currentsong'] = $saveCurrentsong;
+                        // $newStatus['currentsong'] = $saveCurrentsong;
                         // $mpdChangeSong = false;
                         continue;
                     } else if (($redis->get('webradio_reject_count') >= 5) && ($newStatus['currentsong'] != $saveCurrentsong) && !check_webradio_string($redis, $newStatus['currentsong'])) {
                         // song changed and song identified as radio station information, skip it
-                        $newStatus['currentsong'] === $saveCurrentsong;
+                        // $newStatus['currentsong'] === $saveCurrentsong;
                         // $mpdChangeSong = false;
                         continue;
                     } else if (!strpos(' '.$newStatus['currentsong'], ' - ')) {
