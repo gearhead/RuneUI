@@ -15554,9 +15554,11 @@ function check_webradio_string($redis, $webradioString)
         $rejectHashes = array();
     }
     $time = floatval(round(microtime(true)));
+    $string = substr(trim(preg_replace('/[^A-Za-z0-9]/', '', $webradioString)), 0, 30);
     $hash = hash("crc32b", $webradioString);
     if (array_key_exists($hash, $rejectHashes)) {
-        if ((floatval($rejectHashes[$hash]) + 7776000) < $time) {
+        $reject = json_decode($rejectHashes[$hash], true);
+        if ((floatval($reject['time']) + 7776000) < $time) {
             // the reject webradio text hash is 3 months old, delete it
             $redis->hDel('webradio_rejects', $hash);
         }
@@ -15570,6 +15572,7 @@ function check_webradio_string($redis, $webradioString)
             // timer expired
             $timer['time'] = $time;
             $timer['count'] = 1;
+            $timer['string'] = $string;
             $redis->hSet('webradio_timers', $hash, json_encode($timer));
         } else {
             // timer is active
@@ -15579,7 +15582,9 @@ function check_webradio_string($redis, $webradioString)
                 $redis->hSet('webradio_timers', $hash, json_encode($timer));
             } else {
                 // reject hash detected
-                $redis->hSet('webradio_rejects', $hash, $time);
+                $reject['time'] = $time;
+                $reject['string'] = $string;
+                $redis->hSet('webradio_rejects', $hash, json_encode($reject));
                 $redis->hDel('webradio_timers', $hash);
             }
         }
@@ -15588,6 +15593,7 @@ function check_webradio_string($redis, $webradioString)
         $timer = array();
         $timer['time'] = $time;
         $timer['count'] = 1;
+        $timer['string'] = $string;
         $redis->hSet('webradio_timers', $hash, json_encode($timer));
     }
     $hashes = $redis->hKeys('webradio_timers');
