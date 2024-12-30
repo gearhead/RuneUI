@@ -41,10 +41,7 @@ set +e # continue on errors
 done="0"
 # loop 20 times with a 5 second sleep, the job runs for a maximum of 100 seconds
 for i in {0..20..1} ; do
-    if [ "$done" == "1" ] ; then
-        # finished
-        break
-    fi
+    # echo $i
     pgrep iwd >/dev/null 2>&1
     if [ "$?" != "0" ] ; then
         # iwd is not running, loop
@@ -65,20 +62,40 @@ for i in {0..20..1} ; do
     ipnics=$( ip -o -br  address | grep -i '/' | cut -d ' ' -f1 | xargs )
     done="1"
     for nic in $nics ; do
-        if [[ "$ipnics" =~ "$nic" ]]; then
-            # this nic has an ip-address, ignore it
+        # echo $nic
+        if [ "lo" == "$nic" ]; then
+            # this nic is the loopback device, ignore it
+            continue
+        fi
+        if [[ $nic == ap* ]]; then
+            # this nic is a virtual access point device, ignore it
             continue
         fi
         if [[ "$wifinics" =~ "$nic" ]]; then
             # this nic is a wifi nic, ignore it
             continue
         fi
-        # this is an ethernet nic without an ip-address
+        # echo $nic
+        if [[ "$ipnics" =~ "$nic" ]]; then
+            # this nic has an ip-address
+            invalid=$( ip -s -h addr show $nic | xargs | grep -c 'inet 169.254.' | xargs )
+            # echo $nic
+            if [ "$invalid" == "0" ]; then
+                # the nic seems to have a valid ip address
+                continue
+            fi
+        fi
+        # this is an ethernet nic without an ip-address or an ethernet nic with an address which begins with 169.254
+        # echo "Fixing $nic"
         ip addr flush $nic
         ip link set dev $nic down
         ip link set dev $nic up
         done="0"
     done
+    if [ "$done" == "1" ] ; then
+        # finished
+        break
+    fi
     sleep 5
 done
 #---
