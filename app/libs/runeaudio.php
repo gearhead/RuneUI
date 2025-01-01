@@ -6159,6 +6159,7 @@ function wrk_getHwPlatform($redis, $reset = 0)
         // $redis->hSet('local_browser', 'browser', 'chromium');
         $redis->del('acards');
         $redis->del('hdmiacards');
+        sysCmd('/srv/http/db/redis_datastore_setup osreset');
     }
     $file = '/proc/cpuinfo';
     $fileData = file($file);

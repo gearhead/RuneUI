@@ -165,7 +165,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('AccessPoint', 'virtual_ap_dev') || $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);   // can be set to 0 when host = hostapd
             $redis->hExists('AccessPoint', 'wlanNic') || $redis->hSet('AccessPoint', 'wlanNic', '');
             break;
-        case 'reset':
+        case 'osreset':
             // os & kernel
             $wordlength = trim(sysCmd('getconf LONG_BIT | xargs')[0]);
             $bit = '('.$wordlength.'bit)';
@@ -173,21 +173,101 @@ function redisDatastore($redis, $action) {
             $machine = trim(sysCmd('uname -m')[0]);
             if (strpos(' '.strtolower($release), 'arch')) {
                 $os = 'ARCH';
-                $codename = '';
             } else {
                 $os = 'RPiOS';
-                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
             }
-            if ($codename == 'bookworm') {
-                $p1mountpoint = '/boot/firmware';
-            } else {
-                $p1mountpoint = '/boot';
-            }
+            $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
+            $p1mountpoint = trim(sysCmd('grep -i "/dev/mmcblk0p1" /proc/mounts | xargs | cut -d " " -f2 | xargs')[0]);
             $redis->set('wordlength', $wordlength);
             $redis->set('os', $os);
             $redis->set('codename', $codename);
             $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
             $redis->set('p1mountpoint', $p1mountpoint);
+            break;
+        case 'oscheck':
+            // os & kernel
+            $wordlength = trim(sysCmd('getconf LONG_BIT | xargs')[0]);
+            $bit = '('.$wordlength.'bit)';
+            $release = trim(sysCmd('uname -sr')[0]);
+            $machine = trim(sysCmd('uname -m')[0]);
+            if (strpos(' '.strtolower($release), 'arch')) {
+                $os = 'ARCH';
+            } else {
+                $os = 'RPiOS';
+            }
+            $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
+            $p1mountpoint = trim(sysCmd('grep -i "/dev/mmcblk0p1" /proc/mounts | xargs | cut -d " " -f2 | xargs')[0]);
+            $redis->exists('wordlength') || $redis->set('wordlength', $wordlength);
+            $redis->exists('os') || $redis->set('os', $os);
+            $redis->exists('codename') || $redis->set('codename', $codename);
+            $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
+            $redis->exists('p1mountpoint') || $redis->set('p1mountpoint', $p1mountpoint);
+            break;
+        case 'opcachereset':
+            // PHP precache (prime) scripts
+            $redis->del('php_opcache_prime');
+            $transaction = $redis->multi();
+            // Selected vendor libs
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/autoload.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/ClassLoader.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_classmap.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_files.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_namespaces.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_psr4.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_real.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_static.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/platform_check.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/audioinfo.class.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/getid3.lib.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/getid3.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.flac.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.mp3.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.ogg.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.apetag.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.id3v1.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.id3v2.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.lyrics3.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions_include.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions_include.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions_include.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Engine.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Asset.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Batch.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Escape.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/ExtensionInterface.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/URI.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
+            // Selected RuneAudio scripts
+            $transaction->sAdd('php_opcache_prime', '/srv/http/db/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/index.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/opcache.php');
+            $transaction->sAdd('php_opcache_prime', '/srv/http/command/cachectl.php');
+            // all RuneAudio UI php scripts
+            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
+            foreach ($scripts as $script) {
+                $transaction->sAdd('php_opcache_prime', $script);
+            }
+            unset($scripts, $script);
+            $transaction->exec();
+            // network mounts - 'mount_*'
+            // sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
+            break;
+        case 'opcachecheck':
+            // all RuneAudio UI php scripts
+            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
+            foreach ($scripts as $script) {
+                if (!$redis->exists('php_opcache_prime', $script)) {
+                    $redis->sAdd('php_opcache_prime', $script);
+                }
+            }
+            unset($scripts, $script);
+            break;
+        case 'reset':
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
@@ -478,92 +558,8 @@ function redisDatastore($redis, $action) {
             // pre-installed Rern's add-ons
             $redis->hSet('addons', 'update', 0);
             $redis->hSet('addons', 'font', '20220901');
-            // PHP precache (prime) scripts
-            $redis->del('php_opcache_prime');
-            $transaction = $redis->multi();
-            // Selected vendor libs
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/autoload.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/ClassLoader.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_classmap.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_files.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_namespaces.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_psr4.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_real.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/autoload_static.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/composer/platform_check.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/audioinfo.class.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/getid3.lib.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/getid3.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.flac.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.mp3.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.audio.ogg.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.apetag.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.id3v1.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.id3v2.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.lyrics3.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions_include.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions_include.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions_include.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Engine.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Asset.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Batch.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Escape.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/ExtensionInterface.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/URI.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
-            // Selected RuneAudio scripts
-            $transaction->sAdd('php_opcache_prime', '/srv/http/db/index.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/index.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/command/index.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/command/opcache.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/command/cachectl.php');
-            // all RuneAudio UI php scripts
-            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
-            foreach ($scripts as $script) {
-                $transaction->sAdd('php_opcache_prime', $script);
-            }
-            unset($scripts, $script);
-            $transaction->exec();
-            // network mounts - 'mount_*'
-            // sysCmd('redis-cli KEYS "mount_*" | xargs redis-cli DEL');
-            break;
-        case 'opcachecheck':
-            // all RuneAudio UI php scripts
-            $scripts = sysCmd('find /srv/http/app -maxdepth 2 -type f -name *.php');
-            foreach ($scripts as $script) {
-                if (!$redis->exists('php_opcache_prime', $script)) {
-                    $redis->sAdd('php_opcache_prime', $script);
-                }
-            }
-            unset($scripts, $script);
             break;
         case 'check':
-            // os & kernel
-            $wordlength = trim(sysCmd('getconf LONG_BIT | xargs')[0]);
-            $bit = '('.$wordlength.'bit)';
-            $release = trim(sysCmd('uname -sr')[0]);
-            $machine = trim(sysCmd('uname -m')[0]);
-            if (strpos(' '.strtolower($release), 'arch')) {
-                $os = 'ARCH';
-                $codename = '';
-            } else {
-                $os = 'RPiOS';
-                $codename = strtolower(trim(sysCmd('grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs')[0]));
-            }
-            if ($codename == 'bookworm') {
-                $p1mountpoint = '/boot/firmware';
-            } else {
-                $p1mountpoint = '/boot';
-            }
-            $redis->exists('wordlength') || $redis->set('wordlength', $wordlength);
-            $redis->exists('os') || $redis->set('os', $os);
-            $redis->exists('codename') || $redis->set('codename', $codename);
-            $redis->exists('kernel') || $redis->set('kernel', $release.' '.$os.' '.$machine.' '.$bit);
-            $redis->exists('p1mountpoint') || $redis->set('p1mountpoint', $p1mountpoint);
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');
@@ -832,6 +828,8 @@ if (isset($argv[1])) {
         case 'reset':
             redisDatastore($redis,'mpdreset');
             redisDatastore($redis,'apreset');
+            redisDatastore($redis,'opcachereset');
+            redisDatastore($redis,'osreset');
             redisDatastore($redis,'reset');
             sysCmd('/srv/http/db/redis_acards_details');
             wrk_mpdconf($redis, 'writecfg');
@@ -839,8 +837,9 @@ if (isset($argv[1])) {
         case 'check':
             redisDatastore($redis,'mpdcheck');
             redisDatastore($redis,'apcheck');
-            redisDatastore($redis,'check');
             redisDatastore($redis,'opcachecheck');
+            redisDatastore($redis,'oscheck');
+            redisDatastore($redis,'check');
             break;
         case 'mpdreset':
             redisDatastore($redis,'mpdreset');
@@ -854,6 +853,15 @@ if (isset($argv[1])) {
             break;
         case 'apcheck':
             redisDatastore($redis,'apcheck');
+            break;
+        case 'osreset':
+            redisDatastore($redis,'osreset');
+            break;
+        case 'oscheck':
+            redisDatastore($redis,'oscheck');
+            break;
+        case 'opcachereset':
+            redisDatastore($redis,'opcachereset');
             break;
         case 'opcachecheck':
             redisDatastore($redis,'opcachecheck');

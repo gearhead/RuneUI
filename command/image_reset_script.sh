@@ -36,12 +36,11 @@ set +e # continue on errors
 cd /home
 #
 # determine the OS
-pacman_cnt=$( find / -maxdepth 3 -name pacman | wc -l | xargs )
-apt_cnt=$( find / -maxdepth 3 -name apt | wc -l | xargs )
-if [ "$pacman_cnt" == "0" ] && [ "$apt_cnt" != "0" ] ; then
-    os="RPiOS"
-elif [ "$pacman_cnt" != "0" ] && [ "$apt_cnt" == "0" ] ; then
+release=$( uname -sr | tr '[:upper:]' '[:lower:]' | xargs )
+if [[ $release == *"arch"* ]]; then
     os="ARCH"
+else
+    os="RPiOS"
 fi
 redis-cli set os "$os"
 #
@@ -50,12 +49,16 @@ wordlength=$( getconf LONG_BIT | xargs )
 redis-cli set wordlength "$wordlength"
 #
 # determine the codename
-if [ "$os" == 'ARCH' ] ; then
-    codename=""
-elif [ "$os" == 'RPiOS' ] ; then
-    codename=$( grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | xargs )
+codename=$( grep -i VERSION_CODENAME /etc/os-release | cut -d "=" -f 2 | tr '[:upper:]' '[:lower:]' | xargs )
+if [ "$os" == 'RPiOS' ] && [ "$codename" == "" ] ; then
+    # this needs to be changed to trixie, when that is the default debian release
+    codename="bookworm"
 fi
 redis-cli set codename "$codename"
+#
+# determine the micro sd partition 1 mount point
+p1mountpoint=$( grep -i '/dev/mmcblk0p1' /proc/mounts | xargs | cut -d ' ' -f2 | xargs )
+redis-cli set p1mountpoint "$p1mountpoint"
 #
 # Image reset script
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
@@ -437,12 +440,16 @@ redis-cli set hwplatformid ""
 if [ -f "/bin/xinit" ] ; then
     /srv/http/command/raspi-rotate-install.sh
 fi
-# #
-# # install spotifyd
-# /srv/http/command/spotifyd-install.sh
 #
-# remove any samba passwords
-pdbedit -L | grep -o ^[^:]* | smbpasswd -x
+# remove any samba users and passwords
+smbusers=$( pdbedit --list | cut -d ':' -f 1 )
+while IFS="" read -r p || [ -n "$p" ] ; do
+    # echo "$p"
+    if [ "$p" == "" ] ; then
+        continue
+    fi
+    pdbedit --delete --user=$p
+done <<< $smbusers
 #
 # reset root password and save the date set
 echo -e "rune\nrune" | passwd root
@@ -606,6 +613,44 @@ elif [ $pythonPlugin -ne 1 ] && [ $python3Plugin -eq 1 ] ; then
     # echo 'python3'
     sed -i '/^plugins = python/c\plugins = python3' /srv/http/amixer/amixer-webui.ini
 fi
+# for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
+if [ "$p1mountpoint" != "/boot" ] ; then
+    cp -RTv /srv/http/app/config/defaults/boot/. $p1mountpoint
+    cp -f /boot/firmware/cmdline.txt.firstboot $p1mountpoint/cmdline.txt
+    if [ "$p1mountpoint" != "/boot/firmware/firmware" ] ; then
+        rm -r /boot/firmware/firmware
+    fi
+    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type d )
+    for f in $FILES ; do
+        # create symlinks to directories in /boot to point to /boot/firmware distribution directories
+        f=${f:35}
+        if [ "$f" != "" ] ; then
+            ln -sf $p1mountpoint/$f /boot/$f
+        fi
+    done
+    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type f )
+    for f in $FILES ; do
+        # create sysmlinks in /boot to point to /boot/firmware distribution files
+        f=${f:35}
+        if [ "$f" != "" ] ; then
+            ln -sf $p1mountpoint/$f /boot/$f
+        fi
+    done
+else
+    if [ "$p1mountpoint" != "/boot/firmware" ] ; then
+        rm -r /boot/firmware
+    fi
+fi
+fstabok=( grep '/dev/mmcblk0p1' /etc/fstab | xargs | grep -c "$p1mountpoint" | xargs )
+if [ "$fstabok" == "0" ] ; then
+    # our distribution fstab has an erroneous definition for the mount point of mmcblk0p1, correct it
+    oldp1mountpoint=$( printf %-19s $(grep '/dev/mmcblk0p1' /etc/fstab | xargs | cut -d ' ' -f 2 | xargs ) )
+    newp1mountpoint=$( printf %-19s $p1mountpoint )
+    sed -i "\|/dev/mmcblk0p1|s| $oldp1mountpoint| $newp1mountpoint|" /etc/fstab
+fi
+if [ "$os" == "ARCH" ] ; then
+    rm -f /usr/local/sbin/apt
+fi
 #   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
 if [ "$os" == "RPiOS" ] ; then
@@ -673,57 +718,6 @@ fi
 rm /etc/systemd/system/php-fpm.service.ARCH
 rm /etc/systemd/system/php-fpm.service.RPiOS7.4
 rm /etc/systemd/system/php-fpm.service.RPiOS8.2
-# for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
-if [ "$codename" == "bookworm" ] ; then
-    # set up a redis variable to point to the mount point of mmcblk0p1
-    redis-cli set p1mountpoint '/boot/firmware'
-    # check fstab
-    fstab_boot=$( grep -ic '/boot ' /etc/fstab )
-    fstab_boot_firmware=$( grep -ic '/boot/firmware ' /etc/fstab )
-    if [ "$fstab_boot" == "1" ] && [ "$fstab_boot_firmware" == "0" ] ; then
-        # change fstab and remount /dev/mmcblk0p1 at mount point /boot/firmware
-        sed -i '/mmcblk0p1/s/\/boot         /\/boot\/firmware/' /etc/fstab
-        umount /dev/mmcblk0p1
-        mkdir -p /boot/firmware
-        mount -t vfat /dev/mmcblk0p1 /boot/firmware
-    fi
-    cp -RTv /srv/http/app/config/defaults/boot/. /boot/firmware
-    cp -f /boot/firmware/cmdline.txt.firstboot /boot/firmware/cmdline.txt
-    rm -r /boot/firmware/firmware
-    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type d )
-    for f in $FILES ; do
-        # create symlinks to directories in /boot to point to /boot/firmware distribution files
-        f=${f:35}
-        if [ "$f" != "" ] ; then
-            ln -sf /boot/firmware/$f /boot/$f
-        fi
-    done
-    FILES=$( find /srv/http/app/config/defaults/boot/ -maxdepth 1 -type f -name *.* )
-    for f in $FILES ; do
-        # create sysmlinks in /boot to point to /boot/firmware distribution files
-        f=${f:35}
-        if [ "$f" != "" ] ; then
-            ln -sf /boot/firmware/$f /boot/$f
-        fi
-    done
-else
-    # set up a redis variable to point to the mount point of mmcblk0p1
-    redis-cli set p1mountpoint '/boot'
-    # check fstab
-    fstab_boot=$( grep -ic '/boot ' /etc/fstab )
-    fstab_boot_firmware=$( grep -ic '/boot/firmware ' /etc/fstab )
-    if [ "$fstab_boot" == "0" ] && [ "$fstab_boot_firmware" == "1" ] ; then
-        # change fstab and remount /dev/mmcblk0p1 at mount point /boot
-        sed -i '/mmcblk0p1/s/\/boot\/firmware/\/boot         /' /etc/fstab
-        umount /dev/mmcblk0p1
-        rm -r /boot/*
-        mount -t vfat /dev/mmcblk0p1 /boot
-        cp -RTv /srv/http/app/config/defaults/boot/. /boot
-        cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
-    fi
-    rm -r /boot/firmware
-    rm -f /usr/local/sbin/apt
-fi
 #
 # modify /etc/ssh/sshd_config
 #   some distributions support an 'Include' statement some don't,
@@ -923,16 +917,15 @@ fi
 if [ "$experimental" == "Beta" ] && [ "${gitbranch:3:1}" == "a" ]; then
     experimental="Alpha"
 fi
-if [ "$os" == "RPiOS" ] ; then
+if [ "$codename" != "" ] ; then
     cname="-$codename"
 else
     cname = ""
 fi
-wordlength=$( getconf LONG_BIT | xargs )
-wordlength="-$wordlength""bit"
+wl="-$wordlength""bit"
 line1="RuneOs: $experimental V$release-gearhead-$osdate"
 line2="RuneUI: $gitbranch V$release-$buildversion-$patchlevel"
-line3="Hw-env: Raspberry Pi ($linuxver $os$cname$wordlength)"
+line3="Hw-env: Raspberry Pi ($linuxver $os$cname$wl)"
 sed -i "s|^RuneOs:.*|$line1|g" /etc/motd
 sed -i "s|^RuneUI:.*|$line2|g" /etc/motd
 sed -i "s|^Hw-env:.*|$line3|g" /etc/motd
@@ -1033,15 +1026,11 @@ chmod 777 /srv/http/tmp
 mount http-tmp
 #
 # zero fill the file system if parameter 'full' is selected
-# this takes ages to run, but the compressed distribution image will then be very small
+# this takes ages to run, but the compressed distribution image will then be much smaller
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
-    # zero fill the file system : codename="bookworm"
-    if [ "$codename" == "bookworm" ] ; then
-        cd /boot/firmware
-    else
-        cd /boot
-    fi
+    # zero fill the file system : p1mountpoint="/boot/firmware"
+    cd $p1mountpoint
     sync
     cat /dev/zero > zero.file
     sync

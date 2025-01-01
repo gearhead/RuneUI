@@ -131,15 +131,18 @@ sed -i "s/opcache.enable=./opcache.enable=$( redis-cli get opcache )/" /etc/php/
 rm -f $1
 # delete the lastmpdvolume variable, it will be set back to its default of 40%, save your ears and speakers
 redis-cli del lastmpdvolume
-# delete the kernel, os, codename and p1mountpoint variables, we may be restoring to a different machine type or a different OS
+# delete the kernel, os, codename, wordlength and p1mountpoint variables, we may be restoring to a different machine type or a different OS
 #   these will be reset to their correct values
 redis-cli del kernel
 redis-cli del os
 redis-cli del codename
+redis-cli del wordlength
 redis-cli del p1mountpoint
 redis-cli del hdmivc4hw
 redis-cli del bluetooth_connects
 redis-cli del bluetooth_status
+redis-cli del webradio_timers
+redis-cli del webradio_rejects
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
 redis-cli hset spotifyconnect enable '0'
 redis-cli hset airplay enable '0'
