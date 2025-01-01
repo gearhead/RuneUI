@@ -443,12 +443,12 @@ fi
 #
 # remove any samba users and passwords
 smbusers=$( pdbedit --list | cut -d ':' -f 1 )
-while IFS="" read -r p || [ -n "$p" ] ; do
-    # echo "$p"
-    if [ "$p" == "" ] ; then
+while IFS="" read -r line || [ -n "$p" ] ; do
+    # echo "$line"
+    if [ "$line" == "" ] ; then
         continue
     fi
-    pdbedit --delete --user=$p
+    pdbedit --delete --user=$line
 done <<< $smbusers
 #
 # reset root password and save the date set
@@ -544,6 +544,9 @@ networks=$( iwctl known-networks list | tail -n +5 | sed -r 's/\x1B\[([0-9]{1,3}
 #   cant use a for loop because the network name (ssid) can contain spaces
 while IFS= read -r line; do
     # echo "$line"
+    if [ "$line" == "" ] ; then
+        continue
+    fi
     iwctl known-networks "$line" forget
 done <<< "$networks"
 # delete the connman configuration files
@@ -624,7 +627,9 @@ if [ "$p1mountpoint" != "/boot" ] ; then
     for f in $FILES ; do
         # create symlinks to directories in /boot to point to /boot/firmware distribution directories
         f=${f:35}
+        # echo $f
         if [ "$f" != "" ] ; then
+            rm -r /boot/$f
             ln -sf $p1mountpoint/$f /boot/$f
         fi
     done
@@ -632,7 +637,9 @@ if [ "$p1mountpoint" != "/boot" ] ; then
     for f in $FILES ; do
         # create sysmlinks in /boot to point to /boot/firmware distribution files
         f=${f:35}
+        # echo $f
         if [ "$f" != "" ] ; then
+            rm /boot/$f
             ln -sf $p1mountpoint/$f /boot/$f
         fi
     done
@@ -641,7 +648,7 @@ else
         rm -r /boot/firmware
     fi
 fi
-fstabok=( grep '/dev/mmcblk0p1' /etc/fstab | xargs | grep -c "$p1mountpoint" | xargs )
+fstabok=$( grep '/dev/mmcblk0p1' /etc/fstab | xargs | grep -c "$p1mountpoint" | xargs )
 if [ "$fstabok" == "0" ] ; then
     # our distribution fstab has an erroneous definition for the mount point of mmcblk0p1, correct it
     oldp1mountpoint=$( printf %-19s $(grep '/dev/mmcblk0p1' /etc/fstab | xargs | cut -d ' ' -f 2 | xargs ) )
@@ -937,13 +944,6 @@ timedatectl set-timezone Pacific/Pago_Pago
 # set the Wi-Fi regulatory domain to 00
 iw reg set 00
 #
-# shutdown redis and force a write all in-memory keys to disk (purges any cached values)
-sync
-redis-cli save
-redis-cli shutdown save
-systemctl stop redis
-sync
-#
 # unmount the overlay cache filesystem and remove the cache disk partition
 #   we need to be very careful with this action, it will only be removed when we are absolutely sure it the
 #   partition which needs removing
@@ -982,6 +982,13 @@ dirName=$( redis-cli get albumart_image_dir | tr -s / | xargs )
 # remove a trailing / if it exists
 dirName="${dirName%/}"
 rm -rf "$dirName"
+#
+# shutdown redis and force a write all in-memory keys to disk (purges any cached values)
+sync
+redis-cli save
+redis-cli shutdown save
+systemctl stop redis
+sync
 #
 # unmount rune tmpfs filesystems, empty their mount points and remount (to avoid errors in the startup sequence)
 # http-tmp > /srv/http/tmp
