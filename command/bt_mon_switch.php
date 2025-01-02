@@ -226,13 +226,14 @@ while (true) {
             if (!isset($acard)) {
                 $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
             }
-            if (strpos(' '.$acard['swdevice'], 'bluealsa') != 1) {
-                // only run when a non-Bluetooth output device is selected
+            if (!isset($acard['swdevice']) || !strlen($acard['swdevice']) || (strpos(' '.$acard['swdevice'], 'bluealsa') != 1)) {
+                // only run when a there is no device (Pi 5B and Zero W2 often have no devices)
+                // or a non-Bluetooth output device is selected
                 // try connecting any Bluetooth outputs which are trusted, not blocked and not connected
                 // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
                 // also check that connected Bluetooth outputs are listed in the UI
                 if (!isset($devices)) {
-                    // this routine is expensive to run, so only run it when needed
+                    // this routine is expensive to run, so only run it when needed$acard['swdevice']
                     $devices = wrk_btcfg($redis, 'status');
                 }
                 $connectAttempt = false;
