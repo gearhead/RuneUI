@@ -10533,7 +10533,11 @@ function get_musicBrainz($redis, $url)
     if (isset($retval['error'])) {
         // error response, some are ok, I cannot fine a full list, so it is trial and error
         if (strpos(strtolower(' '.$retval['error']),'do not match')) {
-            // no match error, it can happen, return false, don't disable musicbrainz
+            // no match error, return false, don't disable musicbrainz
+            return 0;
+        if (strpos(strtolower(' '.$retval['error']),'try again later')) {
+            // server busy error, return false, don't disable musicbrainz, sleep an extra 2 seconds
+            sleep(2);
             return 0;
         } else {
             // unknown error response, save the details and disable musicbrainz
@@ -10541,7 +10545,7 @@ function get_musicBrainz($redis, $url)
             $redis->hSet('musicbrainz', 'error', $retval['error']);
             $redis->hSet('musicbrainz', 'retval', json_encode($retval));
             $redis->hSet('service', 'musicbrainz', 0);
-            // this will be reset each 15 minutes, if the musicbrainz site is up
+            // this will be reset each 15 minutes (so after 7,5 minutes on average), if the musicbrainz site is up
             return 0;
         }
     } else if (!is_array($retval)) {
@@ -11226,7 +11230,6 @@ function get_albumInfo($redis, $info = array())
                     if ($retval) {
                         // check the validity of the album art
                         $match_percentage = $redis->get('albumart_match_percentage');
-
                         if (isset($retval['releases'][0]['artist-credit'][0]['artist']['name']) &&
                                 strlen(trim($retval['releases'][0]['artist-credit'][0]['artist']['name'])) &&
                                 isset($retval['releases'][0]['title']) &&
