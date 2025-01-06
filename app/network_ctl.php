@@ -319,24 +319,29 @@ if ($template->action === 'wifi_scan') {
     }
     $wired = 0;
     $wifi = 0;
+    $wifiConnected = 0;
     $apSupp = 0;
     foreach ($template->nics as $nic) {
         if (($nic['technology'] === 'ethernet') && $nic['connected']) {
             // a wired nic is connected
             $wired++;
         }
-        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['connected']) {
-            // a Wi-Fi nic is connected
+        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed')) {
+            // a wifi nic is available
             $wifi++;
+            if ($nic['connected']) {
+                // a Wi-Fi nic is connected
+                $wifiConnected++;
+            }
         }
         if (($nic['technology'] === 'wifi') && ($nic['type'] === 'managed') && $nic['apSupported']) {
             // an access point supported Wi-Fi nic is available
             $apSupp++;
         }
     }
-    if (!$template->wifienable || ($wifi > 1) || ($wired && $wifi)) {
-        // Wi-Fi is switched off or more than one Wi-Fi nic is connected or
-        //  a wired nic is connected and a Wi-Fi connection is connected
+    if (!$template->wifienable || ($wifiConnected > 1) || ($wired && $wifi)) {
+        // Wi-Fi is switched off or more than one Wi-Fi nics are connected or
+        //  a wired nic is connected and a Wi-Fi connection available
         //  (it could be configured as an AP), enable switching Wi-Fi on/off
         $template->wifiswitch = 1;
     } else{
@@ -350,8 +355,9 @@ if ($template->action === 'wifi_scan') {
         // disable switching Wi-Fi on/off
         $template->allwifiswitch = 0;
     }
-    if ((!$template->apenable || $redis->get('allwifi-on') && ($apSupp))) {
-        // AP is switched off or Wi-Fi is switched on and an access point supported Wi-Fi nic is available, enable switching AP on/off
+    if (!$template->apenable || (($template->allwifienable || $template->wifienable) && $apSupp && ($wifiConnected || $wired))) {
+        // AP is switched off or Wi-Fi is switched on and an access point supported Wi-Fi nic is available and a nic is connected,
+        //  enable switching AP on/off
         $template->apswitch = 1;
     } else{
         // disable switching Wi-Fi on/off
