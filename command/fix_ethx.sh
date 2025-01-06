@@ -31,13 +31,19 @@
 #  coder: janui
 #  date: September 2020
 #
-# on the Pi5 the Ethernet connection (normally eth0) sometimes hangs and does not acquire an ip-address
+# on the Pi5 the Ethernet connection (normally eth0) sometimes hangs and does not acquire a valid ip-address
 # this routine detects this condition and corrects it
 #
 # setup
 set +e # continue on errors
 # set -x # echo all commands to cli
 #
+# check that this is a PI5, or unknown hardware type
+hwmodel=$( redis-cli get hwmodel | xargs )
+if [ "$hwmodel" != "" ] && [ "$hwmodel" != "17" ] ; then
+    # hardware model is known ( != "") and not a Pi5 (!= "17")
+    exit
+fi
 done="0"
 # loop 20 times with a 5 second sleep, the job runs for a maximum of 100 seconds
 for i in {0..20..1} ; do
@@ -96,6 +102,7 @@ for i in {0..20..1} ; do
         # finished
         break
     fi
+    # sleep 5 is fine for a fast Pi5, slower models need much longer to activate the ethernet nic (delay before and longer delay between tries)!
     sleep 5
 done
 #---
