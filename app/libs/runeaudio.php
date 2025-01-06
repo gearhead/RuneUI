@@ -10535,7 +10535,7 @@ function get_musicBrainz($redis, $url)
         if (strpos(strtolower(' '.$retval['error']),'do not match')) {
             // no match error, return false, don't disable musicbrainz
             return 0;
-        if (strpos(strtolower(' '.$retval['error']),'try again later')) {
+        } else if (strpos(strtolower(' '.$retval['error']),'try again later')) {
             // server busy error, return false, don't disable musicbrainz, sleep an extra 2 seconds
             sleep(2);
             return 0;
