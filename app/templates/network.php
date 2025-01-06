@@ -116,7 +116,7 @@
                         The Access Point is designed for setting up (and recovering) the RuneAudio Wi-Fi network configuration when no wired connection is available.
                         The default setting is ON when on-board Wi-Fi is available.
                         If you do not intend to use the Access Point, you should <strong>switch it off</strong>.
-                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
+                        It can take over a minute to activate the Access Point after switching it on</i></span>
                 </div>
             </div>
             <div class="form-group form-actions">
