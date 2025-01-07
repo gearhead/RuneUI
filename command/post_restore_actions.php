@@ -66,7 +66,7 @@ $redisHostname = strtolower(trim($redis->get('hostname')));
 if (($actualHostname != $redisHostname) && $redisHostname) {
     wrk_changeHostname($redis, $redis->get('hostname'));
 }
-wrk_NTPsync($redis->get('ntpserver'));
+wrk_NTPsync($redis, $redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
 ui_notify($redis, 'Restore', 'Working, please wait...');

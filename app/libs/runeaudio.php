@@ -6685,7 +6685,7 @@ function wrk_sysAcl()
     sysCmd('/srv/http/command/convert_dos_files_to_unix_script.sh fast');
 }
 
-function wrk_NTPsync($ntpserver)
+function wrk_NTPsync($redis, $ntpserver)
 {
     //debug
     runelog('NTP SERVER', $ntpserver);

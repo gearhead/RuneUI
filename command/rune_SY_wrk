@@ -1177,7 +1177,7 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'ntpserver':
-                $redis->set('ntpserver', wrk_NTPsync($job->args));
+                $redis->set('ntpserver', wrk_NTPsync($redis, $job->args));
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'opcache':
