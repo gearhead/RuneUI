@@ -2119,13 +2119,13 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
                 $filename = $redis->get('p1mountpoint').'/config.txt';
                 if ($windowsNew == 'weston') {
                     // enable all vc4 overlays
-                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/#\s*//' '".$filename."'");
+                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/^\s*#\s*//' '".$filename."'");
                     ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'. A reboot is required to activate!', '', 1);
                 } else if ($windowsNew == 'xorg') {
                     // disable all vc4 overlays
-                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/.*/#dtoverlay=vc4-kms-v3d/' '".$filename."'");
+                    sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/^\s*dtoverlay=vc4-kms-v3d/#dtoverlay=vc4-kms-v3d/' '".$filename."'");
                     // enable the vc4 overlay for the Pi5
-                    sysCmd("sed -i '/^\[pi5\]/{n;s/#\s*dtoverlay=vc4-kms-v3d.*/dtoverlay=vc4-kms-v3d/}' '".$filename."'");
+                    sysCmd("sed -i '/^\[pi5\]/{n;s/^\s*#\s*dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d/}' '".$filename."'");
                     wrk_localBrowser($redis, 'restart');
                     ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'.');
                 }
