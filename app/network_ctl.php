@@ -356,7 +356,7 @@ if ($template->action === 'wifi_scan') {
         $template->allwifiswitch = 0;
     }
     if (!$template->apenable || (($template->allwifienable || $template->wifienable) && $apSupp && ($wifiConnected || $wired))) {
-        // AP is switched off or Wi-Fi is switched on and an access point supported Wi-Fi nic is available and a nic is connected,
+        // AP is switched off or Wi-Fi is switched on and an access point supported and a Wi-Fi nic or an Ethernet nic is connected,
         //  enable switching AP on/off
         $template->apswitch = 1;
     } else{
