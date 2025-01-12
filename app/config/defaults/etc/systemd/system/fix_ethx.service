@@ -3,7 +3,7 @@ Description = Fix Ethernet nics which fail to acquire an IP address
 # on some Pi models (Pi 5) running RPiOS bookworm Ethernet nics which fail to acquire an IP address
 # this workaround will fix the problem
 # DefaultDependencies=no
-After=network.target
+After=network.target redis.service
 
 [Service]
 Type=oneshot

@@ -12,4 +12,4 @@ ExecStart=/srv/http/command/fix_usbdevices.sh
 
 [Install]
 # WantedBy=getty.target # removed for vc4 implementation
-WantedBy=multi-user.target
+WantedBy=rune_SY_wrk

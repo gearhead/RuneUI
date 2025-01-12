@@ -38,12 +38,6 @@
 set +e # continue on errors
 # set -x # echo all commands to cli
 #
-# check that this is a PI5, or unknown hardware type
-hwmodel=$( redis-cli get hwmodel | xargs )
-if [ "$hwmodel" != "" ] && [ "$hwmodel" != "17" ] ; then
-    # hardware model is known ( != "") and not a Pi5 (!= "17")
-    exit
-fi
 done="0"
 # loop 20 times with a 5 second sleep, the job runs for a maximum of 100 seconds
 for i in {0..20..1} ; do
@@ -59,6 +53,18 @@ for i in {0..20..1} ; do
         # connman is not running, loop
         sleep 5
         continue
+    fi
+    pgrep redis >/dev/null 2>&1
+    if [ "$?" != "0" ] ; then
+        # redis is not running, loop
+        sleep 5
+        continue
+    fi
+    # check that this is a PI5, or unknown hardware type
+    hwmodel=$( redis-cli get hwmodel | xargs )
+    if [ "$hwmodel" != "" ] && [ "$hwmodel" != "17" ] ; then
+        # hardware model is known ( != "") and not a Pi5 (!= "17")
+        exit
     fi
     # get a list of all nics
     nics=$( ip -o -br  address | cut -d ' ' -f1 | xargs )
