@@ -930,7 +930,7 @@ while (true) {
             case 'spotifyconnectmetadata':
                 if ($job->action === 'start') {
                     if ($redis->hGet('spotifyconnect', 'metadata_enabled')) {
-                        wrk_systemd_unit($redis, 'start', 'rune_SSM_wrk');
+                        wrk_systemd_unit($redis, 'start', 'rune_SDM_wrk');
                     }
                     // stop the MPD extra metadata job
                     wrk_systemd_unit($redis, 'stop', 'rune_MPDEM_wrk');
