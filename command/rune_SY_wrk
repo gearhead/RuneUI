@@ -217,11 +217,9 @@ if ($playerid_db === '') {
     wrk_mpdconf($redis, 'start');
     // set the mpd volume to the default level
     set_last_mpd_volume($redis);
-    // load Wi-Fi configuration, refresh nics & set up avahi
+    // load Wi-Fi configuration & refresh nics
     wrk_netconfig($redis, 'boot-initialise');
     refresh_nics($redis);
-    wrk_avahiconfig($redis, 'hostname', strtolower(trim($redis->get('hostname'))));
-    wrk_avahiconfig($redis, 'check_ip');
     //
     // disable/enable Bluetooth, bluetooth_on is set depending on the Pi model on-board Bluetooth support
     if ($redis->get('bluetooth_on')) {
@@ -252,6 +250,10 @@ if ($playerid_db === '') {
     copy($p1mountpoint.'/cmdline.txt.runeaudio', $p1mountpoint.'/cmdline.txt');
     // set first time boot to true
     $redis->set('first_time_boot', 1);
+    // setup avahi
+    wrk_avahiconfig($redis, 'hostname', strtolower(trim($redis->get('hostname'))));
+    wrk_avahiconfig($redis, 'check_ip');
+    //
     runelog('--- RUNEAUDIO FIRST RUN PROCESS END');
     // reboot - for some reason (probably connman or nginx) a connection to the UI cannot be made without a reboot
     sysCmd('/srv/http/command/rune_shutdown reboot ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
@@ -1250,11 +1252,6 @@ while (true) {
                 if ($job->action === 'start') {
                     // clear the spotify connect last track ID
                     $redis->hSet('spotifyconnect', 'last_track_id', '');
-                    // make sure that avahi allows other stacks
-                    if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf | xargs")[0]) {
-                        sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
-                        wrk_systemd_unit($redis, 'reload-or-restart', 'avahi-daemon');
-                    }
                     unset($spotifyConnectCache);
                 }
                 // write Spotify Connect data to Redis datastore
@@ -1726,21 +1723,18 @@ while (true) {
             }
         }
     }
-    // Reload avahi-daemon initially after 4 seconds and thereafter reload every 30 minutes or restart every 1,5 hours
     // There is an unresolved problem with avahi which stops broadcasting the player name after a number of hours
     //  It looks like it is related to renewing the DHCP lease on the router
-    // Reload initially after (+/-4 seconds) then after a reload again every +/3600 cycles (+/-30 mins) or after a
-    //  restart every +/-10800 cycles (+/-1,5 hours)
-    // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, just reload
+    // Restart initially after (+/-4 seconds) then restart every +/-10800 cycles (+/-1,5 hours)
+    // Do not restart the avahi-daemon if Airplay or Spotify Connect is the active player, but then retry after +/-3600 cycles (+/-30 minutes)
     if ($savecpuAvd-- <= 0) {
         $activePlayer = $redis->get('activePlayer');
         if (($activePlayer == 'SpotifyConnect') || ($activePlayer == 'Airplay') || is_firstTime($redis, 'restart_avahi_daemon')) {
-            // reload avahi-daemon
-            wrk_systemd_unit($redis, 'reload-or-restart', 'avahi-daemon', 'async');
+            // do nothing, retry after 30 minutes
             $savecpuAvd = 3550 + rand(0, 100);
         } else {
             // restart avahi-daemon
-            wrk_systemd_unit($redis, 'reload-or-restart', 'avahi-daemon', 'async');
+            wrk_systemd_unit($redis, 'restart', 'avahi-daemon', 'async');
             $savecpuAvd = 10700 + rand(0, 200);
         }
     }

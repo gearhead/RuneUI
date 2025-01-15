@@ -2242,8 +2242,8 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
                 sysCmd("sed -i '/^\s*#\s*use-ipv4\s*=.*/c \use-ipv4=yes' ".$file);
                 sysCmd("sed -i '/^\s*#\s*use-ipv6\s*=.*/c \use-ipv6=yes' ".$file);
             }
-            // reload avahi
-            wrk_systemd_unit($redis, 'reload-or-restart', 'avahi-daemon');
+            // restart avahi
+            wrk_systemd_unit($redis, 'restart', 'avahi-daemon');
             break;
         case 'hostname':
             $hostname = $args;
@@ -5395,6 +5395,13 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
                     sysCmd('mpc pause');
                 }
             }
+            // make sure that avahi allows other stacks
+            if (sysCmd("grep -ic '^[[:space:]]*disallow-other-stacks[[:space:]]*=[[:space:]]*yes' /etc/avahi/avahi-daemon.conf | xargs")[0]) {
+                sysCmd("sed -i '/^[[:space:]]*disallow-other-stacks/c\disallow-other-stacks=no' /etc/avahi/avahi-daemon.conf");
+                wrk_systemd_unit($redis, 'restart', 'avahi-daemon');
+            }
+            // make sure avahi has the correct IP settings
+            wrk_avahiconfig($redis, 'check_ip');
             // start spotifyd
             wrk_systemd_unit($redis, 'start', 'spotifyd');
             // restart play, only when we have paused it
