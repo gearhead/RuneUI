@@ -12,4 +12,4 @@ ExecStart=/usr/bin/bash -c 'mpd --version | grep -v \'^$\' > /srv/http/.config/m
 
 [Install]
 # WantedBy=getty.target # removed for vc4 implementation
-WantedBy=rune_SY_wrk
+WantedBy=rune_SY_wrk.service
