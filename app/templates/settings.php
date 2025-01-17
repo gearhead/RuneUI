@@ -319,6 +319,7 @@
                     </div>
                 </div>
                 <div class="<?php if($this->spotifyconnect['enable'] != 1): ?>hide<?php endif ?>" id="spotifyconnectAuth">
+                    <!--
                     <div class="form-group">
                         <label class="control-label col-sm-2" for="spotifyconnect_username">Username</label>
                         <div class="col-sm-10">
@@ -339,6 +340,7 @@
                             different Spotify accounts to connect to RuneAudio.</i></span>
                         </div>
                     </div>
+                    -->
                     <div class="form-group">
                         <label class="control-label col-sm-2" for="spotifyconnect_device_name">Spotify Connect name</label>
                         <div class="col-sm-10">
@@ -403,7 +405,9 @@
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="number" id="spotifyconnect_timeout" name="features[spotifyconnect][timeout]" value="<?php echo $this->spotifyconnect['timeout']; ?>" min="15" max="120" placeholder="20" autocomplete="off">
                             <span class="help-block">Enter a value between <strong>15</strong> and <strong>120</strong>. This is the number of seconds of stopped or paused play after which Spotify Connect will assume that the play stream has finished. After the time-out the stream will be terminated<br><br>
-                            <i>Note: RuneAudio attempts to display relevant Spotify metadata and and album art, due to technical limitations this may not always be possible</i></span>
+                            <i>Notes:<br>
+                            RuneAudio attempts to display relevant Spotify metadata and and album art, due to technical limitations this may not always be possible.<br>
+                            Your Spotify username and login information are not stored by RuneAudio. This information is supplied to RuneAudio securely by your Spotify app when you start a Spotify Connect stream</i></span>
                         </div>
                     </div>
                     <div class="form-group form-actions">

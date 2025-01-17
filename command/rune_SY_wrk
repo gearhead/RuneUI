@@ -1249,11 +1249,6 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'spotifyconnect':
-                if ($job->action === 'start') {
-                    // clear the spotify connect last track ID
-                    $redis->hSet('spotifyconnect', 'last_track_id', '');
-                    unset($spotifyConnectCache);
-                }
                 // write Spotify Connect data to Redis datastore
                 $argsNames = array(
                     'autoplay',
@@ -1261,10 +1256,10 @@ while (true) {
                     'device_name',
                     'metadata_enabled',
                     'normalisation_pregain',
-                    'password',
                     'save_last_volume',
                     'timeout',
-                    'username',
+                    // 'password',
+                    // 'username',
                     'volume_normalisation');
                 $argsArray = json_decode(json_encode($job->args), true);
                 foreach ($argsNames as $argsName) {
@@ -1276,6 +1271,8 @@ while (true) {
                 // stop and/or start spotifyd
                 if ($job->action === 'start') {
                     runelog('service: SPOTIFYD start');
+                    // clear the spotify connect last track ID
+                    $redis->hSet('spotifyconnect', 'last_track_id', '');
                     if (!$redis->hGet('spotifyconnect', 'enable')) {
                         $action = 'enabled';
                     }

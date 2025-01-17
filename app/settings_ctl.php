@@ -256,22 +256,22 @@ if (isset($_POST)) {
             // create worker job (start Spotify Connect)
             // if (!isset($_POST['features']['spotifyconnect']['username']) || (trim($_POST['features']['spotifyconnect']['username']) == "")) $_POST['features']['spotifyconnect']['username'] = "user";
             // if (!isset($_POST['features']['spotifyconnect']['password']) || (trim($_POST['features']['spotifyconnect']['password']) == "")) $_POST['features']['spotifyconnect']['password'] = "pass";
-            if (!isset($_POST['features']['spotifyconnect']['username'])) $_POST['features']['spotifyconnect']['username'] = "";
-            if (!isset($_POST['features']['spotifyconnect']['password'])) $_POST['features']['spotifyconnect']['password'] = "";
-            if (!isset($_POST['features']['spotifyconnect']['device_name']) || (trim($_POST['features']['spotifyconnect']['device_name']) == "")) $_POST['features']['spotifyconnect']['device_name'] = "RuneAudio";
-            if (!isset($_POST['features']['spotifyconnect']['volume_normalisation']) || (trim($_POST['features']['spotifyconnect']['volume_normalisation']) == "")) $_POST['features']['spotifyconnect']['volume_normalisation'] = "false";
+            // if (!isset($_POST['features']['spotifyconnect']['username'])) $_POST['features']['spotifyconnect']['username'] = "";
+            // if (!isset($_POST['features']['spotifyconnect']['password'])) $_POST['features']['spotifyconnect']['password'] = "";
             if (!isset($_POST['features']['spotifyconnect']['autoplay']) || (trim($_POST['features']['spotifyconnect']['autoplay']) == "")) $_POST['features']['spotifyconnect']['autoplay'] = "false";
+            if (!isset($_POST['features']['spotifyconnect']['device_name']) || (trim($_POST['features']['spotifyconnect']['device_name']) == "")) $_POST['features']['spotifyconnect']['device_name'] = "RuneAudio";
             if (!isset($_POST['features']['spotifyconnect']['save_last_volume']) || (trim($_POST['features']['spotifyconnect']['save_last_volume']) == "")) $_POST['features']['spotifyconnect']['save_last_volume'] = "0";
+            if (!isset($_POST['features']['spotifyconnect']['volume_normalisation']) || (trim($_POST['features']['spotifyconnect']['volume_normalisation']) == "")) $_POST['features']['spotifyconnect']['volume_normalisation'] = "false";
             if ($_POST['features']['spotifyconnect']['autoplay'] != $redis->hGet('spotifyconnect', 'autoplay')
-                    OR $_POST['features']['spotifyconnect']['bitrate'] != $redis->hGet('spotifyconnect', 'bitrate')
-                    OR $_POST['features']['spotifyconnect']['device_name'] != $redis->hGet('spotifyconnect', 'device_name')
-                    OR $_POST['features']['spotifyconnect']['enable'] != $redis->hGet('spotifyconnect', 'enable')
-                    OR $_POST['features']['spotifyconnect']['normalisation_pregain'] != $redis->hGet('spotifyconnect', 'normalisation_pregain')
-                    OR $_POST['features']['spotifyconnect']['password'] != $redis->hGet('spotifyconnect', 'password')
-                    OR $_POST['features']['spotifyconnect']['save_last_volume'] != $redis->hGet('spotifyconnect', 'save_last_volume')
-                    OR $_POST['features']['spotifyconnect']['timeout'] != $redis->hGet('spotifyconnect', 'timeout')
-                    OR $_POST['features']['spotifyconnect']['username'] != $redis->hGet('spotifyconnect', 'username')
-                    OR $_POST['features']['spotifyconnect']['volume_normalisation'] != $redis->hGet('spotifyconnect', 'volume_normalisation')) {
+                    // || $_POST['features']['spotifyconnect']['password'] != $redis->hGet('spotifyconnect', 'password')
+                    // || $_POST['features']['spotifyconnect']['username'] != $redis->hGet('spotifyconnect', 'username')
+                    || $_POST['features']['spotifyconnect']['bitrate'] != $redis->hGet('spotifyconnect', 'bitrate')
+                    || $_POST['features']['spotifyconnect']['device_name'] != $redis->hGet('spotifyconnect', 'device_name')
+                    || $_POST['features']['spotifyconnect']['enable'] != $redis->hGet('spotifyconnect', 'enable')
+                    || $_POST['features']['spotifyconnect']['normalisation_pregain'] != $redis->hGet('spotifyconnect', 'normalisation_pregain')
+                    || $_POST['features']['spotifyconnect']['save_last_volume'] != $redis->hGet('spotifyconnect', 'save_last_volume')
+                    || $_POST['features']['spotifyconnect']['timeout'] != $redis->hGet('spotifyconnect', 'timeout')
+                    || $_POST['features']['spotifyconnect']['volume_normalisation'] != $redis->hGet('spotifyconnect', 'volume_normalisation')) {
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start', 'args' => $_POST['features']['spotifyconnect']));
             }
         } else {

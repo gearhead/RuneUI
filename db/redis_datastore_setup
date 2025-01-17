@@ -331,7 +331,6 @@ function redisDatastore($redis, $action) {
             $redis->set('bluetooth_status', json_encode(array()));
             $redis->del('bluetooth_on');
             // Spotify Connect
-            $redis->hDel('spotifyconnect', 'metadata_enabled');
             $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hSet('spotifyconnect', 'api_secret', '');
@@ -345,19 +344,20 @@ function redisDatastore($redis, $action) {
             $redis->hSet('spotifyconnect', 'device_type', 'speaker');
             $redis->hSet('spotifyconnect', 'enable', 0);
             $redis->hSet('spotifyconnect', 'initial_volume', '40');
-            $redis->hSet('spotifyconnect', 'lastvolume', 40);
+            $redis->hDel('spotifyconnect', 'metadata_enabled');
             $redis->hSet('spotifyconnect', 'last_track_id', '');
+            $redis->hSet('spotifyconnect', 'lastvolume', 40);
             $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
-            $redis->hSet('spotifyconnect', 'password', '');
             $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hSet('spotifyconnect', 'username', '');
             $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
+            // $redis->hSet('spotifyconnect', 'password', '');
+            // $redis->hSet('spotifyconnect', 'username', '');
             // Airplay
             $redis->hDel('airplay', 'artworkonoff');
             $redis->hDel('airplay', 'metadataonoff');
@@ -631,19 +631,19 @@ function redisDatastore($redis, $action) {
             $redis->hExists('spotifyconnect', 'device_type') || $redis->hSet('spotifyconnect', 'device_type', 'speaker');
             $redis->hExists('spotifyconnect', 'enable') || $redis->hSet('spotifyconnect', 'enable', 0);
             $redis->hExists('spotifyconnect', 'initial_volume') || $redis->hSet('spotifyconnect', 'initial_volume', '40');
-            $redis->hExists('spotifyconnect', 'lastvolume') || $redis->hSet('spotifyconnect', 'lastvolume', 40);
             $redis->hExists('spotifyconnect', 'last_track_id') || $redis->hSet('spotifyconnect', 'last_track_id', '');
+            $redis->hExists('spotifyconnect', 'lastvolume') || $redis->hSet('spotifyconnect', 'lastvolume', 40);
             $redis->hExists('spotifyconnect', 'mixer') || $redis->hSet('spotifyconnect', 'mixer', 'PCM');
             $redis->hExists('spotifyconnect', 'normalisation_pregain') || $redis->hSet('spotifyconnect', 'normalisation_pregain', -10);
             $redis->hExists('spotifyconnect', 'onevent') || $redis->hSet('spotifyconnect', 'onevent', '/srv/http/command/spotify_connect_command.sh');
-            $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', '');
             $redis->hExists('spotifyconnect', 'save_last_volume') || $redis->hSet('spotifyconnect', 'save_last_volume', 0);
             $redis->hExists('spotifyconnect', 'timeout') || $redis->hSet('spotifyconnect', 'timeout', 20);
             $redis->hExists('spotifyconnect', 'track_id') || $redis->hSet('spotifyconnect', 'track_id', '');
-            $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', '');
             $redis->hExists('spotifyconnect', 'use_mpris') || $redis->hSet('spotifyconnect', 'use_mpris', 'false');
             $redis->hExists('spotifyconnect', 'volume_control') || $redis->hSet('spotifyconnect', 'volume_control', 'alsa');
             $redis->hExists('spotifyconnect', 'volume_normalisation') || $redis->hSet('spotifyconnect', 'volume_normalisation', 'false');
+            // $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', '');
+            // $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', '');
             // airplay
             $redis->hExists('airplay', 'alac_decoder') || $redis->hSet('airplay', 'alac_decoder', 'apple');
             $redis->hExists('airplay', 'alsa_mixer_control') || $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
