@@ -49,11 +49,12 @@
 #
 set +e # continue on errors
 cdparanoia -A
-if [ "$?" != "" ] ; then
+if [ "$?" != "0" ] ; then
     # cdparanoia failed, probably no CD drive attached of no CD in the CD drive, exit with message
     echo "Failed: Failed to detect a CD in the CD drive"
     exit 1
 fi
+rm cdparanoia.log
 if [ "$1" != "" ] ; then
     # there is a parameter
     if [[ $1 != /* ]] ; then
@@ -80,7 +81,7 @@ if [ ! -z "$( ls -A )" ]; then
     exit 1
 fi
 cdparanoia -XB
-if [ "$?" != "" ] ; then
+if [ "$?" != "0" ] ; then
     # cdparanoia failed, could be any reason, exit with message
     echo "Failed: CD read failed"
     exit 1
