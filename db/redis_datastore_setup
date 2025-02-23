@@ -144,6 +144,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
             $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
             $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);   // can be set to 0 when host = hostapd
+            $redis->hSet('AccessPoint', 'virtual_ap_name', 'ap0');
             $redis->hSet('AccessPoint', 'wlanNic', '');
             break;
         case 'apcheck':
@@ -163,6 +164,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('AccessPoint', 'passphrase') || $redis->hSet('AccessPoint', 'passphrase', 'RuneAudio');
             $redis->hExists('AccessPoint', 'ssid') || $redis->hSet('AccessPoint', 'ssid', 'RuneAudioAP');
             $redis->hExists('AccessPoint', 'virtual_ap_dev') || $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);   // can be set to 0 when host = hostapd
+            $redis->hExists('AccessPoint', 'virtual_ap_name') || $redis->hSet('AccessPoint', 'virtual_ap_name', 'ap0');
             $redis->hExists('AccessPoint', 'wlanNic') || $redis->hSet('AccessPoint', 'wlanNic', '');
             break;
         case 'osreset':
