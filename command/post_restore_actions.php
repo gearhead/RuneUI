@@ -69,6 +69,24 @@ if (($actualHostname != $redisHostname) && $redisHostname) {
 wrk_NTPsync($redis, $redis->get('ntpserver'));
 wrk_setTimezone($redis, $redis->get('timezone'));
 wrk_llmnrd($redis);
+unset($actualHostname, $redisHostname);
+ui_notify($redis, 'Restore', 'Working, please wait...');
+// set up and validate acards
+$acard_stores = array('acards', 'hdmiacards', 'usbaacards');
+foreach ($acard_stores as $acard_store) {
+    $acards = json_decode($redis->hGetall($acard_store), true);
+    foreach ($acards as $acardKey => $acard) {
+        if (!isset($acard['swdevice']) || !$acard['swdevice']) {
+            // this card definition is incomplete, from an old version of RuneAudio, delete it
+            $redis->hDel($acard_store, $acardKey);
+        }
+    }
+}
+// refresh the audio card database, this will restart MPD
+sysCmd('/srv/http/command/refresh_ao');
+// make sure MPD is stopped
+wrk_mpdconf($redis, 'forcestop');
+unset($acard_stores, $acard_store, $acards, $acardKey, $acard);
 ui_notify($redis, 'Restore', 'Working, please wait...');
 // set up ashuffle configuration, it wont be started
 $playlistName = $redis->hGet('globalrandom', 'playlist');
@@ -77,6 +95,7 @@ if (isset($playlistName) && $playlistName) {
 } else {
     wrk_ashuffle($redis, 'reset');
 }
+unset($playlistName);
 // set up Bluetooth
 if ($redis->get('bluetooth_on')) {
     wrk_btcfg($redis, 'enable');
@@ -96,6 +115,7 @@ if (!strpos(' '.$bluetoothCodecs, 'ldac')) {
 wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 wrk_btcfg($redis, 'quality_options');
 wrk_btcfg($redis, 'status');
+unset($bluetoothCodecs);
 // set up Wi-Fi
 if ($redis->get('wifi_on')) {
     wrk_netconfig($redis, 'enableWiFi');

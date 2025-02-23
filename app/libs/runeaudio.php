@@ -5269,10 +5269,24 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         runelog('[wrk_spotifyd] acard sysname      : ', 'not set');
     }
     //
-    if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
-        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+    if (isset($acard['swdevice']) && $acard['swdevice']) {
+        // use the software defined device
+        if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
+            $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+        } else {
+            $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
+        }
     } else {
-        $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
+        // invalid card entry, no software defined device
+        runelog('[wrk_spotifyd] acard swdevice     : ', 'not set');
+        // use the hardware device if set
+        if (isset($acard['device']) && $acard['device']) {
+            $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
+        }
+        // delete this card
+        $redis->hDel('acards', $ao);
+        // refresh the cards, next time it will be ok
+        sysCmdAsync($redis, '/srv/http/command/refresh_ao');
     }
     //
     if (!empty($acard['mixer_control'])) {
