@@ -2367,7 +2367,7 @@ function wrk_backup($redis, $bktype = null)
     // build up the backup command string
     if ($bktype === 'dev') {
         $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; sync ; \\\n".
             " bsdtar -c -z -p -f '".$filepath."' \\\n".
             " /mnt/MPD/Webradio \\\n".
             " /var/lib/redis/rune.rdb \\\n".
@@ -2392,7 +2392,7 @@ function wrk_backup($redis, $bktype = null)
         }
     } else {
         $filepath = $fileDestDir.'backup-'.date("Y-m-d").'.tar.gz';
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; \\\n".
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; sync ; \\\n".
             " bsdtar -c -z -p -f '".$filepath."' \\\n".
             " /mnt/MPD/Webradio \\\n".
             " /var/lib/redis/rune.rdb \\\n".
@@ -2423,6 +2423,7 @@ function wrk_backup($redis, $bktype = null)
     unlink('/home/config.txt.diff');
     // change the file privileges
     sysCmd('chown http:http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
+    sysCmd('sync');
     return $filepath;
 }
 
