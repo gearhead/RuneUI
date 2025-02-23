@@ -1507,16 +1507,6 @@ while (true) {
         // parameters: wrk_sourcemount($redis, $action, $id = null, $quiet = false, $quick = false)
         $allmounted = wrk_sourcemount($redis, 'mountall', null, true, true);
         $redis->set('allmounted', $allmounted);
-        if ($allmounted) {
-            runelog('wrk_SY: all shares mounted successfully!');
-            // start play if enabled
-            if ($redis->get('mpd_autoplay')) {
-                $redis->set('mpd_playback_laststate', 'play');
-            } else {
-                $redis->set('mpd_playback_laststate', 'stop');
-            }
-            wrk_mpdRestorePlayerStatus($redis);
-        }
         // this routine will not detect disconnected/unmounted shares which had previously been mounted
         // $retriesmounting sets the number of times mounting is to be retried, 100 @ 4 times per hour = +/-25 hours
         // you can change the number of retries here
@@ -1541,6 +1531,57 @@ while (true) {
         $savecpuDC = 3550 + rand(0, 100);
     }
     // process autoplay, run it first after 0 seconds (0 cycles), then 1 second (+/-2 cycles), and then increase the repeat cycle time by 100%
+    //  after activation the repeat cycle is set to 8 hours (+/-57.600 cycles)
+    // autoplay is activated once after reboot when the current song (file) or webradio (url) is accessible
+    if ($savecpuAutostart-- <= 0) {
+        $autoplay = $redis->get('mpd_autoplay');
+        if ($autoplay) {
+            $file = json_decode($redis->get('act_player_info'), true)['file'];
+            $accessible = false;
+            if ($file) {
+                if (substr($file, 0, 4) == 'http') {
+                    // its a webradio or network file, just check that we have an active internet connection
+                    $responce = sysCmd('wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1 ; echo $? | xargs')[0];
+                    if ($responce == 0) {
+                        $accessible = true;
+                    }
+                } else {
+                    // its a normal file, check that it exists
+                    $file = '/mnt/MPD/'.$file;
+                    if (file_exists($file)) {
+                        $accessible = true;
+                    }
+                }
+                if ($accessible) {
+                    // start play if enabled
+                    if (is_firstTime($redis, 'autoplay')) {
+                        $redis->set('mpd_playback_laststate', 'play');
+                        wrk_mpdRestorePlayerStatus($redis);
+                    }
+                    // success, set to retry in +/-8 hours
+                    $savecpuTimezone = 57400 + rand(0, 400);
+                } else {
+                    // not accessible double the delay time
+                    // note: $savecpuAutostart is initialised to 0 (zero) and $savecpuAutostartPrev to 0,5
+                    $savecpuAutostart = min(57600, intval($savecpuAutostartPrev*2));
+                    if ($savecpuAutostart >= 20) {
+                        // calculate the randomiser range @5% of the repeat cycle, minimum value of 1, maximum value of 200
+                        $random = min(200, max(1, intval($savecpuAutostart/20)));
+                        $savecpuAutostart = $savecpuAutostart - $random + rand(0, $random*2);
+                    }
+                    $savecpuAutostartPrev = $savecpuAutostart;
+                }
+            }
+        } else {
+            if (is_firstTime($redis, 'autoplay')) {
+                $redis->set('mpd_playback_laststate', 'stop');
+                wrk_mpdRestorePlayerStatus($redis);
+            }
+            // success, set to retry in +/-8 hours
+            $savecpuTimezone = 57400 + rand(0, 400);
+        }
+        unset($autoplay, $file, $responce, $accessible, $random);
+    }
     // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
     //  it should run at least once per hour
     //  connman works (should work) in this exponential way of detecting WiFi networks and nics
