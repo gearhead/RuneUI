@@ -50,25 +50,28 @@ runelog('INITIALIZE ENVIRONMENT ---');
 //
 // initialise variables
 $start = microtime(true);
-$savecpuRp = 12;
-$savecpuMnt = 1;
-$savecpuSmt = 480;
-$redis->set('savecpuSmt', $savecpuSmt);
+$savecpuAT = 1800;
+$savecpuAutostart = 0;
+$savecpuAutostartPrev = 0.5;
+$savecpuAvd = 8;
+$savecpuDC = 3600;
+$savecpuFixdnssec = 20;
+$savecpuFixLogs = 36;
 $savecpuInc = 240;
 $savecpuIncPrev = $savecpuInc;
-$savecpuSps = 43200;
-$savecpuAvd = 8;
-$savecpuFixdnssec = 20;
+$savecpuMnt = 1;
+$savecpuMpdLog = 240;
+$savecpuOneTimeActions = 30;
+$savecpuOpCache = 7200;
 $savecpuRefreshNics = 24;
 $savecpuRefreshNicsPrev = $savecpuRefreshNics;
+$savecpuRp = 12;
+$savecpuSmt = 480;
+$redis->set('savecpuSmt', $savecpuSmt);
+$savecpuSps = 43200;
+$savecpuTimezone = 60;
 $savecpuUsbMount = 16;
 $savecpuUsbMountPrev = $savecpuUsbMount;
-$savecpuOneTimeActions = 30;
-$savecpuMpdLog = 240;
-$savecpuTimezone = 60;
-$savecpuOpCache = 7200;
-$savecpuFixLogs = 36;
-$savecpuAT = 1800;
 $allmounted = 0;
 $retriesmounting = 100;
 //
@@ -1531,6 +1534,13 @@ while (true) {
             $savecpuMnt = 1750 + rand(0, 100);
         }
     }
+    // Run the debug collector every 3600 cycles (= every +/-30 minutes)
+    if ($savecpuDC-- <= 0) {
+        // run asynchronous debug collector script
+        sysCmdAsync($redis, '/srv/http/command/debug_collector');
+        $savecpuDC = 3550 + rand(0, 100);
+    }
+    // process autoplay, run it first after 0 seconds (0 cycles), then 1 second (+/-2 cycles), and then increase the repeat cycle time by 100%
     // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
     //  it should run at least once per hour
     //  connman works (should work) in this exponential way of detecting WiFi networks and nics
