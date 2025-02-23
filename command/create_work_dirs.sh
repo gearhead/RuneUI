@@ -100,6 +100,8 @@ function enable_overlay_art_cache {
                     mkdir "$artDirUpper"
                     mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
                     redis-cli set overlay_art_cache 1
+                    # set the label of /dev/mmcblk0p3 to 'runecache'
+                    e2label /dev/mmcblk0p3 runecache
                 fi
             fi
         fi
@@ -140,6 +142,11 @@ function enable_overlay_art_cache {
                     # make sure the file system is correct
                     partprobe /dev/mmcblk0
                     resize2fs /dev/mmcblk0p$partitions
+                    # check the label of /dev/mmcblk0p3 is 'runecache'
+                    runecachelabel=$( e2label /dev/mmcblk0p3 | xargs )
+                    if [ "$runecachelabel" == "" ] ; then
+                        e2label /dev/mmcblk0p3 runecache
+                    fi
                     test_count1=$( grep -ic 'overlay_art_cache' '/proc/mounts' )
                     if [ "$test_count1" == "0" ]; then
                         # the overlay art cache is not mounted
