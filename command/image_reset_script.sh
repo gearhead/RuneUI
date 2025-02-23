@@ -429,9 +429,9 @@ for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
 # run the setup script with parameter reset
-php -f /srv/http/db/redis_datastore_setup reset
+/srv/http/db/redis_datastore_setup reset
 # refresh the audio card database
-php -f /srv/http/db/redis_acards_details
+/srv/http/db/redis_acards_details
 # always clear player ID and hardware platform ID
 redis-cli set playerid ""
 redis-cli set hwplatformid ""
