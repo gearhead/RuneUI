@@ -73,9 +73,16 @@ while (true) {
     // at least one entry to process
     while ($redis->lLen('cmd_queue')) {
         // get the encryption data
-        $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-        $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+        $cnt = 20;
+        while (($cnt-- >= 0) && (!isset($iv) || !isset($cipher) || !isset($passphrase) || !$iv || !$cipher || !$passphrase)) {
+            // sometimes the queue is populated before the encryption data is posted
+            $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+            $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+            $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+            if (!$iv || !$cipher || !$passphrase) {
+                sleep(3);
+            }
+        }
         // read the fifo queue
         $encoded = $redis->rPop('cmd_queue');
         // check the length of the output (0 = end), this should never happen
