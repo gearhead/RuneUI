@@ -4310,6 +4310,28 @@ function wrk_kernelswitch($redis, $args)
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
 {
     switch ($action) {
+        case 'checkacards':
+            if (is_firstTime($redis, 'checkacards')) {
+                // first time
+                $acards = $redis->hGetall('acards');
+                foreach ($acards as $acard) {
+                    // step through all the audio cards
+                    $acard = json_decode($acard, true);
+                    if (!isset($acard['swdevice']) || !$acard['swdevice']) {
+                        // invalid audio card entry, no software defined device, this is caused by a backup restore of old cards formats
+                        // delete all acards, hdmiacards and usbacards
+                        $redis->del('acards');
+                        $redis->del('hdmiacards');
+                        $redis->del('usbacards');
+                        // delete the selected and default audio output
+                        $redis->del('ao');
+                        $redis->del('ao_default');
+                        // break the foreach loop
+                        break;
+                    }
+                }
+            }
+            break;
         case 'reset':
             // default MPD config
             sysCmd('/srv/http/db/redis_datastore_setup mpdreset');
@@ -5269,24 +5291,11 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
         runelog('[wrk_spotifyd] acard sysname      : ', 'not set');
     }
     //
-    if (isset($acard['swdevice']) && $acard['swdevice']) {
-        // use the software defined device
-        if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
-            $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
-        } else {
-            $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
-        }
+    // use the software defined device
+    if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
+        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
     } else {
-        // invalid card entry, no software defined device
-        runelog('[wrk_spotifyd] acard swdevice     : ', 'not set');
-        // use the hardware device if set
-        if (isset($acard['device']) && $acard['device']) {
-            $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['device'])[0]);
-        }
-        // delete this card
-        $redis->hDel('acards', $ao);
-        // refresh the cards, next time it will be ok
-        sysCmdAsync($redis, '/srv/http/command/refresh_ao');
+        $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
     }
     //
     if (!empty($acard['mixer_control'])) {
