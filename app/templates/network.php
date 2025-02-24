@@ -91,7 +91,7 @@
                     </label>
                     <span class="help-block">Enable/Disable all Wi-Fi.<br>
                         <i>Notes: The default setting is ON when a Wi-Fi dongle is present.
-                        If you do not intend to use Wi-Fi, you should <strong>remove the dongle</strong> or <strong>switch it off</strong></span>
+                        If you do not intend to use Wi-Fi, you should <strong>remove the dongle</strong> or <strong>switch it off</strong></i></span>
                 </div>
             </div>
         </form>
