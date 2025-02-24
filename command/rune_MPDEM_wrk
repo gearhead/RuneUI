@@ -399,8 +399,11 @@ while (true)  {
             } else if (isset($song['album']) && isset($song['albumartist']) && isset($song['title'])
                     && $song['album'] && $song['albumartist'] && $song['title']) {
                 $datafile = md5($song['album'].$song['albumartist'].$song['title'].$song['uri']);
-            } else {
+            } else if (isset($song['uri']) && $song['uri']) {
                 $datafile = md5($song['uri']);
+            } else {
+                // no song info, just exit
+                exit;
             }
             //
             // determine the image file name
@@ -416,8 +419,11 @@ while (true)  {
             } else if (isset($song['album']) && isset($song['artist'])
                     && $song['album'] && $song['artist']) {
                 $imagename = md5($song['album'].$song['artist']);
+            } else if (isset($song['uri']) && $song['uri']) {
+                $datafile = md5($song['uri']);
             } else {
-                $imagename = md5($song['uri']);
+                // no song info, just exit
+                exit;
             }
             //
             $song['datafile'] = $artDir.'/'.$datafile.'.mpd';
@@ -837,7 +843,7 @@ while (true)  {
                 unset($au, $auinfo, $width, $height, $type, $attr, $valuekey, $value, $artist_mbid, $album_mbid, $song_mbid, $avg_bit_rate, $lyrics);
             }
             //
-            if (!$song['artFound']) {
+            if (!$song['artFound'] && isset($song['uri']) && $song['uri']) {
                 //
                 // 2. try to extract coverart via MPD using mpc
                 //
