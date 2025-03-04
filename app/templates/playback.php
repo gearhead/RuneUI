@@ -151,7 +151,7 @@
                 <!-- DB entries -->
             </ul>
             <div id="home-blocks" class="row">
-                <div class="col-sm-12"> 
+                <div class="col-sm-12">
                     <h1 class="txtmid">Browse your library</h1>
                 </div>
             </div>
