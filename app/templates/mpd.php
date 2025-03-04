@@ -1,4 +1,4 @@
-<div class="container">
+<div id='mpd-container' class="container">
     <h1>MPD Configuration</h1>
     <p>If you mess up with this configuration you can <a data-toggle="modal" href="#mpd-config-defaults">reset to default</a>.</p>
     <form class="form-horizontal" action="" method="post">

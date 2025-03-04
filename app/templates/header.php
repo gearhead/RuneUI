@@ -31,11 +31,7 @@
     <meta name="msapplication-config" content="/img/browserconfig.xml">
     <meta name="application-name" content="RuneAudio">
 </head>
-<?php if (empty($this->uri(1)) OR ($this->uri(1) == 'playback')): ?>
-    <body id="section-index" class="disable-scrollbar-1 disable-scrollbar-2">
-<?php else: ?>
-    <body id="section-<?=$this->section?>">
-<?php endif ?>
+<body id="section-index">
 <!--
  /*
  * Copyright (C) 2013-2014 RuneAudio Team
@@ -94,7 +90,7 @@
             <?php endif ?>
         </ul>
     </div>
-    <div class="playback-controls">
+    <div class="playback-controls scrollbar-disable-0 scrollbar-disable-1">
         <button id="previous" class="btn btn-default btn-cmd" title="Previous" data-cmd="previous"><i class="fa fa-step-backward"></i></button>
         <button id="stop" class="btn btn-default btn-cmd" title="Stop" data-cmd="stop"><i class="fa fa-stop"></i></button>
         <button id="play" class="btn btn-default btn-cmd" title="Play/Pause" data-cmd="play"><i class="fa fa-play"></i></button>
@@ -103,7 +99,7 @@
     </div>
     <a id="clock-display" class="home" href="/"><img src="<?=$this->asset('/img/logo.png')?>" class="logo" alt="RuneAudio"></a>
 </div>
-<div id="menu-bottom">
+<div id="menu-bottom" class="scrollbar-disable-0 scrollbar-disable-1">
     <ul>
         <li id="open-panel-sx"><a href="/#panel-sx"<?=$this->uri(1, '', ' class="open-panel-sx" data-toggle="tab"')?>><i class="fa fa-music"></i> Library</a></li>
         <li id="open-playback"<?=$this->uri(1, '', ' class="active"')?>><a href="/#playback"<?=$this->uri(1, '', ' data-toggle="tab"')?>><i class="fa fa-play"></i> Playback</a></li>

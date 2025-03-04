@@ -1,4 +1,4 @@
-<div class="container credits">
+<div id="credits-container" class="container credits">
     <h1>RuneAudio project</h1>
     <div class="row">
         <div class="col-md-8">

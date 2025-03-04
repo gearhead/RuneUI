@@ -1,9 +1,9 @@
 <script>
-    var localSStime = parseInt("<?php echo $this->localSStime; ?>");
-    var remoteSStime = parseInt("<?php echo $this->remoteSStime; ?>");
-    var smallScreenSaver = parseInt("<?php echo $this->smallScreenSaver; ?>");
+    var localSStime = parseInt("<?=$this->localSStime; ?>");
+    var remoteSStime = parseInt("<?=$this->remoteSStime; ?>");
+    var smallScreenSaver = parseInt("<?=$this->smallScreenSaver; ?>");
 </script>
-<div class="screen-saver-content" style="display:none;">
+<div class="screen-saver-content scrollbar-disable-0 scrollbar-disable-1" style="display:none">
     <!-- NORMAL SCREEN SAVER PANEL -->
     <div class="container-fluid">
         <div class="leftpanel-expandable-ss">
@@ -42,7 +42,7 @@
         </div>
     </div>
 </div>
-<div class="small-screen-saver-content" style="display:none;">
+<div class="small-screen-saver-content scrollbar-disable-0 scrollbar-disable-1" style="display:none;">
     <!-- SMALL SCREEN SCREEN SAVER PANEL -->
     <div class="container-fluid">
         <div class="leftpanel-sss">
@@ -77,8 +77,8 @@
 </div>
 <div class="tab-content">
     <!-- PLAYBACK PANEL -->
-    <div id="playback" class="tab-pane active disable-scrollbar-1 disable-scrollbar-2">
-        <div class="container-fluid">
+    <div id="playback" class="tab-pane active">
+        <div id="playback-scroll" class="container-fluid">
             <span id="currentartist"><i class="fa fa-spinner fa-spin"></i></span>
             <span id="currentsong"><i class="fa fa-spinner fa-spin"></i></span>
             <span id="currentalbum"><i class="fa fa-spinner fa-spin"></i></span>
@@ -134,7 +134,7 @@
     </div>
     <!-- LIBRARY PANEL -->
     <div id="panel-sx" class="tab-pane">
-        <div class="btnlist btnlist-top">
+        <div class="btnlist btnlist-top scrollbar-disable-0 scrollbar-disable-1">
             <form id="db-search" class="form-inline" action="javascript:getDB({cmd: 'search', path: GUI.currentpath, browsemode: GUI.browsemode});">
                 <div class="input-group">
                     <input id="db-search-keyword" class="form-control osk-trigger" type="text" value="" placeholder="search in DB...">
@@ -151,13 +151,14 @@
                 <!-- DB entries -->
             </ul>
             <div id="home-blocks" class="row">
-                <div class="col-sm-12">
+                <div class="col-sm-12"> 
                     <h1 class="txtmid">Browse your library</h1>
                 </div>
             </div>
         </div>
         <div class="btnlist btnlist-bottom">
             <div id="db-controls">
+                <button id="db-abcSearch" class="btn btn-default hide" type="button" title="Scroll to first letter"><i class="fa fa-search"> abc</i></button>
                 <button id="db-homeSetup" class="btn btn-default hide" type="button" title="Setup the Library home screen"><i class="fa fa-gear"></i></button>
                 <button id="db-firstPage" class="btn btn-default" type="button" title="Scroll to the top"><i class="fa fa-angle-double-up"></i></button>
                 <button id="db-prevPage" class="btn btn-default" type="button" title="Scroll one page up"><i class="fa fa-angle-up"></i></button>
@@ -172,7 +173,7 @@
     </div>
     <!-- QUEUE PANEL -->
     <div id="panel-dx" class="tab-pane">
-        <div class="btnlist btnlist-top">
+        <div class="btnlist btnlist-top scrollbar-disable-0 scrollbar-disable-1">
             <form id="pl-search" class="form-inline" method="post" onSubmit="return false;" role="form">
                 <div class="input-group">
                     <input id="pl-filter" class="form-control osk-trigger ttip" type="text" value="" placeholder="search in queue..." data-placement="bottom" data-toggle="tooltip" data-original-title="Type here to search on the fly">
@@ -208,7 +209,7 @@
                 </div>
             </div>
         </div>
-        <div class="btnlist btnlist-bottom">
+        <div class="btnlist btnlist-bottom scrollbar-disable-0 scrollbar-disable-1">
             <div id="pl-controls">
                 <button id="pl-firstPage" class="btn btn-default" type="button" title="Scroll to the top"><i class="fa fa-angle-double-up"></i></button>
                 <button id="pl-prevPage" class="btn btn-default" type="button" title="Scroll one page up"><i class="fa fa-angle-up"></i></button>
@@ -487,7 +488,7 @@
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <button id="songinfo-close-x" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <button id="songinfo-close-x" type="button" class="close" data-dismiss="modal" aria-hidden="false">&times;</button>
                 <!-- <h4 class="modal-title" id="songinfo-modal-label" >Song info</h4> -->
             </div>
             <div class="modal-body txtmid">
@@ -506,7 +507,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="songinfo-close-cancel" class="btn btn-default btn-lg" title="Close this layer" data-dismiss="modal" aria-hidden="true">Close</button>
+                <button id="songinfo-close-cancel" class="btn btn-default btn-lg" title="Close this layer" data-dismiss="modal" aria-hidden="false">Close</button>
             </div>
         </div>
     </div>

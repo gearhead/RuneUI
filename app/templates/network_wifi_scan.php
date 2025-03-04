@@ -1,4 +1,4 @@
-<div class="container">
+<div id="network-wifi-scan-container" class="container">
     <h1>Network interface</h1>
     <legend>Wi-Fi Networks In Range</legend>
     <span class="help-block">Click on an entry to Add, Edit or Delete a Wi-Fi profile</span>

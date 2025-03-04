@@ -1,4 +1,4 @@
-<div class="container">
+<div id="settings-container" class="container">
     <h1>Settings</h1>
     <form class="form-horizontal" method="post" role="form">
         <fieldset>

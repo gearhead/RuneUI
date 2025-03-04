@@ -5,19 +5,24 @@ html {
     -ms-text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
 }
-
-.disable-scrollbar-0 {
-    scrollbar-width: none; /*For Firefox*/
-    overflow: hidden scroll; /*For Firefox*/
+.scrollbar-enable-0 {
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
-.disable-scrollbar-1 {
-    -ms-overflow-style: none; /*For IE and Edge*/
+.scrollbar-disable-0 {
+    overflow-y: hidden;
+    overflow-x: clip;
 }
 
-.disable-scrollbar-2::-webkit-scrollbar {
-    width: 0 !important; /*For Chrome, Safari and Opera*/
-    display: none; /*For Chrome, Safari and Opera*/
+.scrollbar-enable-1::-webkit-scrollbar {
+    display: block;
+    overflow: auto;
+}
+
+.scrollbar-disable-1::-webkit-scrollbar {
+    display: none;
+    overflow: clip;
 }
 
 body {
@@ -3512,8 +3517,9 @@ button.close {
 .modal-footer .btn-block+.btn-block {
     margin-left: 0
 }
-.modal-footer>.btn{
-    /* wrapped lines of buttons in modial-footer have 8px between lines */
+.modal-footer>.btn {
+    /* intended for lines of buttons which could be wrapped 8px between lines */
+    /* wrapped lines of buttons in modial-footer all have 8px between lines */
     margin-bottom: 8px
 }
 .modal-scrollbar-measure {
@@ -3522,6 +3528,10 @@ button.close {
     width: 50px;
     height: 50px;
     overflow: scroll
+}
+.wrapable {
+    /* intended for lines of buttons which could be wrapped 8px between lines */
+    margin-bottom: 8px !important
 }
 @media (min-width: 768px) {
     .modal-dialog {
@@ -7273,7 +7283,7 @@ fieldset[disabled] #pl-filter-results {
 }
 #playlist,
 #database {
-    padding: 80px 0
+    padding: 80px 0;
 }
 .sortable-ghost {
     background: #222f3d

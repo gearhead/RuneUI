@@ -1,4 +1,4 @@
-<div class="container debug">
+<div id="debug-container" class="container debug">
     <h1>DEBUG DATA</h1>
     <div class="boxed">
         <p>The raw output of RuneUI's debug section is displayed below. It contains important information that could help to diagnose problems.<br>

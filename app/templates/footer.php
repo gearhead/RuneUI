@@ -88,7 +88,7 @@
     </div>
 </div>
 <!-- loader -->
-<div id="loader"<?php if ($this->section == 'dev'): ?> class="hide" <?php endif ?>>
+<div id="loader"<?php if (isset($this->section) && ($this->section == 'dev')): ?> class="hide" <?php endif ?>>
     <div id="loaderbg">
     </div>
     <div id="loadercontent"><i class="fa fa-refresh fa-spin"></i>connecting...
@@ -97,9 +97,7 @@
 <script src="<?=$this->asset('/js/vendor/jquery-2.2.4.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/pushstream.min.js')?>"></script>
 <script src="<?=$this->asset('/js/vendor/bootstrap.min.js')?>"></script>
-<?php if ($this->section == 'debug'): ?>
-<?php endif ?>
-<?php if ($this->section == 'index'): ?>
+<?php if (isset($this->section) && ($this->section == 'index')): ?>
     <script src="<?=$this->asset('/js/vendor/jquery.plugin.min.js')?>"></script>
     <script src="<?=$this->asset('/js/vendor/jquery.countdown.min.js')?>"></script>
     <script src="<?=$this->asset('/js/vendor/jquery.knob.min.js')?>"></script>
@@ -111,7 +109,7 @@
     <script src="<?=$this->asset('/js/vendor/bootstrap-select.min.js')?>"></script>
     <script src="<?=$this->asset('/js/vendor/parsley.min.js')?>"></script>
 <?php endif ?>
-<?php if ($this->dev === '0'):?>
+<?php if (isset($this->dev) && ($this->dev === '0')):?>
     <script src="<?=$this->asset('/js/runeui.min.js')?>"></script>
 <?php else: ?>
 <!-- DEV mode ACTIVE -->

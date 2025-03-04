@@ -165,13 +165,15 @@ $(document).ready(function () {
     // get an UUID for the client
     GUI.clientUUID = generateUUID();
 
-    if ($('#section-index').length) {
+    if ($('#playback').length) {
         if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === '::1') {
             isLocalHost = 1;
             SStime = localSStime;
         } else {
             isLocalHost = 0;
-            SStime = remoteSStime;
+            if (typeof remoteSStime !== "undefined") {
+                SStime = remoteSStime;
+            }
         }
         if (SStime >= 0) {
             //Increment the idle time counter every second.
@@ -197,7 +199,7 @@ $(document).ready(function () {
 });
 
 function timerIncrement() {
-    if ($('#section-index').length && GUI.state === 'play' && !$('#panel-sx').hasClass('active') && !$('#panel-dx').hasClass('active')) {
+    if ($('#playback').length && GUI.state === 'play' && !$('#panel-sx').hasClass('active') && !$('#panel-dx').hasClass('active')) {
         // only when in playback section and when playing
         idleTime = idleTime + 1;
     } else {
@@ -215,29 +217,6 @@ function timerIncrement() {
         $('#menu-top').hide("slow");
         viewScreenSaver = 1;
     }
-}
-
-// remove/add scrollbars depending on playback state
-function checkPlayerState() {
-    if ($('#playback').hasClass('active')) {
-        removePlayerScrollbars();
-    } else {
-        addPlayerScrollbars();
-    }
-}
-
-// remove scrollbars form player window
-function removePlayerScrollbars() {
-    $('html').addClass('disable-scrollbar-0');
-    $('#section-index').addClass('disable-scrollbar-1');
-    $('#section-index').addClass('disable-scrollbar-2');
-}
-
-// add scrollbars form player window
-function addPlayerScrollbars() {
-    $('html').removeClass('disable-scrollbar-0');
-    $('#section-index').removeClass('disable-scrollbar-1');
-    $('#section-index').removeClass('disable-scrollbar-2');
 }
 
 // update countdown
@@ -625,7 +604,7 @@ function setUIbuttons(activePlayer) {
             $('#eject').addClass('hide');
         }
     }
-    if ($('#section-index').length) {
+    if ($('#playback').length) {
         // this is the playback section all other buttons are valid here
         // update (volume knob and) control buttons
         // set volume to read-only, JQuery version of the command does not work properly for element 'volume'
@@ -729,7 +708,7 @@ function renderLibraryHome() {
     loadingSpinner('db');
     $('#database-entries').addClass('hide');
     $('#db-level-up').addClass('hide');
-    $('#db-homeSetup').removeClass('hide').removeClass('btn-primary').addClass('btn-default');
+    //$('#db-homeSetup').removeClass('hide').removeClass('btn-primary').addClass('btn-default');
     $('#home-blocks').removeClass('hide');
     var obj = GUI.libraryhome,
         i = 0,
@@ -969,7 +948,7 @@ function refreshState() {
         $('#play').removeClass('btn-primary');
         $('i', '#play').removeClass('fa fa-pause').addClass('fa fa-play');
         $('#stop').addClass('btn-primary');
-        if ($('#section-index').length) {
+        if ($('#playback').length) {
             $('#countdown-display').countdown('destroy');
             $('#countdown-display-ss').countdown('destroy');
             $('#countdown-display-sss').countdown('destroy');
@@ -1122,7 +1101,7 @@ function updateGUI() {
     }
     // refresh the state
     refreshState();
-    if ($('#section-index').length) {
+    if ($('#playback').length) {
         // console.log('mainArtURL = ', mainArtURL);
         // console.log('GUI.mainArtURL = ', GUI.mainArtURL);
         // console.log('UI = ', $('#cover-art').css('background-image'));
@@ -1395,7 +1374,7 @@ function getPlaylistPlain(data) {
     $('#pl-filter-results').addClass('hide').html('');
     $('#pl-filter').val('');
     $('#pl-manage').removeClass('hide');
-    $('#pl-count').removeClass('hide').html(pos + ((pos !== 1) ? ' entries' : ' entry') + ' ' + timeConvert3(playlisttime) + ' playtime');
+    $('#pl-count').removeClass('hide').html(pos + ((pos !== 1) ? ' entries' : ' entry') + ' ' + timeConvert3(playlisttime) + ' total playtime');
 }
 
 // refresh the queue (TODO: improve in PushStream mode)
@@ -1482,8 +1461,8 @@ function renderUI(text){
         // refreshTimer(parseInt(GUI.json.elapsed), 0, GUI.json.state);
     // }
     updateGUI();
-    // console.log('$(#section-index).length = ', $('#section-index').length);
-    if ($('#section-index').length) {
+    // console.log('$(#playback).length = ', $('#playback').length);
+    if ($('#playback').length) {
         if ((GUI.state !== 'stop') && (GUI.json.elapsed  !== 'undefined') && (typeof GUI.json.song_percent !== 'undefined')) {
             refreshKnob();
         }
@@ -1494,7 +1473,6 @@ function renderUI(text){
             // console.log('playlist = ', GUI.playlist);
         }
     }
-    checkPlayerState()
 }
 
 // render saved playlists
@@ -2219,7 +2197,7 @@ function commandButton(el) {
     if (dataCmd === 'stop') {
         el.addClass('btn-primary');
         $('#play').removeClass('btn-primary');
-        if ($('#section-index').length) {
+        if ($('#playback').length) {
             refreshTimer(0, 0, 'stop');
             window.clearInterval(GUI.currentKnob);
             $('.playlist').find('li').removeClass('active');
@@ -2233,21 +2211,21 @@ function commandButton(el) {
         var state = GUI.state;
         if (state === 'play') {
             cmd = 'pause';
-            if ($('#section-index').length) {
+            if ($('#playback').length) {
                 $('#countdown-display').countdown('pause');
                 $('#countdown-display-ss').countdown('pause');
                 $('#countdown-display-sss').countdown('pause');
             }
         } else if (state === 'pause') {
             cmd = 'play';
-            if ($('#section-index').length) {
+            if ($('#playback').length) {
                 $('#countdown-display').countdown('resume');
                 $('#countdown-display-ss').countdown('resume');
                 $('#countdown-display-sss').countdown('resume');
             }
         } else if (state === 'stop') {
             cmd = 'play';
-            if ($('#section-index').length) {
+            if ($('#playback').length) {
                 $('#countdown-display').countdown({since: 0, compact: true, format: 'MS'});
                 $('#countdown-display-ss').countdown({since: 0, compact: true, format: 'MS'});
                 $('#countdown-display-sss').countdown({since: 0, compact: true, format: 'MS'});
@@ -2260,7 +2238,7 @@ function commandButton(el) {
     }
     // previous/next
     else if (dataCmd === 'previous' || dataCmd === 'next') {
-        if ($('#section-index').length) {
+        if ($('#playback').length) {
             $('#countdown-display').countdown('pause');
             $('#countdown-display-ss').countdown('pause');
             $('#countdown-display-sss').countdown('pause');
@@ -2546,7 +2524,7 @@ function visChange() {
 
 
 
-if ($('#section-index').length) {
+if ($('#playback').length) {
 
 // ====================================================================================================
 // PLAYBACK SECTION
@@ -2693,31 +2671,20 @@ if ($('#section-index').length) {
             $('#random').attr('title', 'Random');
             $('#random').removeClass('btn-primary');
         });
-
-        // switch between scrollable an non-scrollable features of the playback screen
-        $('#panel-sx').click(function(){
-            addPlayerScrollbars();
-        });
-
-        $('#panel-dx').click(function(){
-            addPlayerScrollbars();
-        });
-
-        $('button#songinfo-open').click(function(){
-            addPlayerScrollbars();
-        });
-
-        $('#playback').click(function(){
-            removePlayerScrollbars();
-        });
-
-        $('button#songinfo-close-x').click(function(){
-            removePlayerScrollbars();
-        });
-
-        $('button#songinfo-close-cancel').click(function(){
-            removePlayerScrollbars();
-        });
+        // set up scrollbars, disable only for the local host
+        //  the scrollbars are always on except when using the local browser
+        //  scrollbars are only removed for the the main player UI tab
+        if ((typeof isLocalHost !== "undefined") && isLocalHost) {
+            // on ready Playback tab
+            $('a', '#open-playback').click(function(){
+                // set the scrollbars off on click of playback tab
+                $('#section-index').addClass('scrollbar-disable-0');
+                $('#section-index').addClass('scrollbar-disable-1');
+            })
+            // set the scrollbars off on load
+            $('#section-index').addClass('scrollbar-disable-0');
+            $('#section-index').addClass('scrollbar-disable-1');
+        }
 
 
         // KNOBS
@@ -2798,6 +2765,16 @@ if ($('#section-index').length) {
 
         // PLAYING QUEUE
         // ----------------------------------------------------------------------------------------------------
+
+        // switch on the scrollbars if required
+        if ((typeof isLocalHost !== "undefined") && isLocalHost) {
+            // on ready Queue tab
+            $('a', '#open-panel-dx').click(function(){
+                // enable the scrollbars on click of queue tab
+                $('#section-index').removeClass('scrollbar-disable-0');
+                $('#section-index').removeClass('scrollbar-disable-1');
+            })
+        }
 
         var playlist = $('#playlist-entries');
 
@@ -2975,6 +2952,12 @@ if ($('#section-index').length) {
         $('a', '#open-panel-sx').click(function(){
             if ($('#open-panel-sx').hasClass('active')) {
                 customScroll('pl', parseInt(GUI.json.song), 500);
+            }
+            // switch on the scrollbars if required
+            if ((typeof isLocalHost !== "undefined") && isLocalHost) {
+                // switch on the scrollbars on click of the library tab
+                $('#section-index').removeClass('scrollbar-disable-0');
+                $('#section-index').removeClass('scrollbar-disable-1');
             }
         })
         .on('shown.bs.tab', function (e) {
@@ -3347,7 +3330,6 @@ if ($('#section-index').length) {
             }, 'json');
         });
 
-
         // GENERAL
         // ----------------------------------------------------------------------------------------------------
 
@@ -3357,14 +3339,14 @@ if ($('#section-index').length) {
         });
         $('#db-prevPage').click(function(){
             // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 184;
-            var scrolloffset = '-=' + schrollheight.toString() + 'px';
+            var scrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '-=' + scrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#db-nextPage').click(function(){
             // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 184;
-            var scrolloffset = '+=' + schrollheight.toString() + 'px';
+            var scrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '+=' + scrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#db-lastPage').click(function(){
@@ -3376,14 +3358,14 @@ if ($('#section-index').length) {
         });
         $('#pl-prevPage').click(function(){
             // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 184;
-            var scrolloffset = '-=' + schrollheight.toString() + 'px';
+            var scrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '-=' + scrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#pl-nextPage').click(function(){
             // 184 pixels in header (2x40=80), footer (2x40=80) and half a line (49/2=24) subtract from window height to give the scroll height
-            var schrollheight = parseInt($(window).height()) - 184;
-            var scrolloffset = '+=' + schrollheight.toString() + 'px';
+            var scrollheight = parseInt($(window).height()) - 184;
+            var scrolloffset = '+=' + scrollheight.toString() + 'px';
             $.scrollTo(scrolloffset , 500);
         });
         $('#pl-lastPage').click(function(){
@@ -3582,11 +3564,25 @@ if ($('#section-index').length) {
         // Bootstrap-select
         $('.selectpicker').selectpicker();
 
-
         // SOURCES
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-sources').length) {
+        if ($('#sources-container').length) {
+
+            // populate the mount name
+            $('#usb-mount-list a').click(function(){
+                var mountName = $(this).data('mount');
+                $('#usb-umount-name').html(mountName);
+                $('#usb-umount').val(mountName);
+            });
+        } else
+
+
+
+        // SOURCES - EDIT (INCL. ADD)
+        // ----------------------------------------------------------------------------------------------------
+
+        if ($('#sources-edit-container').length) {
 
             // enable/disable CIFS auth section
             if ($('#mount-type').val() === 'nfs') {
@@ -3621,33 +3617,27 @@ if ($('#section-index').length) {
                 }
             });
 
-            $('#show-mount-advanced-config').click(function(e){
-                e.preventDefault();
-                if ($(this).hasClass('active')) {
-                    $('#mount-advanced-config').toggleClass('hide');
-                    $(this).removeClass('active');
-                    $(this).find('i').removeClass('fa fa-minus-circle').addClass('fa fa-plus-circle');
-                    $(this).find('span').html('show advanced options');
-                } else {
-                    $('#mount-advanced-config').toggleClass('hide');
-                    $(this).addClass('active');
-                    $(this).find('i').removeClass('fa fa-plus-circle').addClass('fa fa-minus-circle');
-                    $(this).find('span').html('hide advanced options');
-                }
-            });
-
-            $('#usb-mount-list a').click(function(){
-                var mountName = $(this).data('mount');
-                $('#usb-umount-name').html(mountName);
-                $('#usb-umount').val(mountName);
-            });
-        }
+            // $('#show-mount-advanced-config').click(function(e){
+                // e.preventDefault();
+                // if ($(this).hasClass('active')) {
+                    // $('#mount-advanced-config').toggleClass('hide');
+                    // $(this).removeClass('active');
+                    // $(this).find('i').removeClass('fa fa-minus-circle').addClass('fa fa-plus-circle');
+                    // $(this).find('span').html('show advanced options');
+                // } else {
+                    // $('#mount-advanced-config').toggleClass('hide');
+                    // $(this).addClass('active');
+                    // $(this).find('i').removeClass('fa fa-plus-circle').addClass('fa fa-minus-circle');
+                    // $(this).find('span').html('hide advanced options');
+                // }
+            // });
+        } else
 
 
         // SETTINGS
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-settings').length) {
+        if ($('#settings-container').length) {
 
             // show/hide AirPlay details
             $('#airplay').change(function(){
@@ -3809,13 +3799,13 @@ if ($('#section-index').length) {
                 }
             });
 
-        }
+        } else
 
 
-        // NETWORK
+        // NETWORK - WIFI EDIT
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-network').length) {
+        if ($('#network-wifi-edit-container').length) {
 
             // show/hide static network configuration based on select value
             var netManualConf = $('#network-manual-config');
@@ -3831,15 +3821,6 @@ if ($('#section-index').length) {
                 }
             });
 
-            // show/hide WiFi stored profile box
-            $('#wifiProfiles').change(function(){
-                if ($(this).prop('checked')) {
-                    $('#wifiProfilesBox').addClass('hide');
-                } else {
-                    $('#wifiProfilesBox').removeClass('hide');
-                }
-            });
-
             // show/hide WiFi Edit fields
             $('#wifiEdit').change(function(){
                 if ($(this).prop('checked')) {
@@ -3852,13 +3833,28 @@ if ($('#section-index').length) {
                     $('#wifiEditButton').addClass('btn-primary');
                 }
             });
+        } else
 
-        }
+
+        // NETWORK - WIFI SCAN
+        // ----------------------------------------------------------------------------------------------------
+
+        if ($('#network-wifi-scan-container').length) {
+
+            // show/hide WiFi stored profile box
+            $('#wifiProfiles').change(function(){
+                if ($(this).prop('checked')) {
+                    $('#wifiProfilesBox').addClass('hide');
+                } else {
+                    $('#wifiProfilesBox').removeClass('hide');
+                }
+            });
+        } else
 
         // ACCESSPOINT
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-accesspoint').length) {
+        if ($('#accesspoint-container').length) {
 
             // show/hide AP settings form
             $('#accesspoint').change(function(){
@@ -3880,12 +3876,12 @@ if ($('#section-index').length) {
                 $('#dhcp-option-dns').val($('#ip-address').val());
                 $('#dhcp-option-router').val($('#ip-address').val());
             });
-        }
+        } else
 
         // MPD
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-mpd').length) {
+        if ($('#mpd-container').length) {
 
             // output interface select
             $('#audio-output-interface').change(function(){
@@ -3917,13 +3913,13 @@ if ($('#section-index').length) {
                     $('#grBox').removeClass('boxed-group');
                 }
             });
-        }
+        } else
 
 
         // DEBUG
         // ----------------------------------------------------------------------------------------------------
 
-        if ($('#section-debug').length) {
+        if ($('#debug-container').length) {
 
             $('#copyText').click(function(){
                 $('#text2copy').html(document.getElementById("text2display").innerText);

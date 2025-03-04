@@ -321,6 +321,7 @@ if ($template->action === 'wifi_scan') {
     $wifi = 0;
     $wifiConnected = 0;
     $apSupp = 0;
+    $apUp = 0;
     foreach ($template->nics as $nic) {
         if (($nic['technology'] === 'ethernet') && $nic['connected']) {
             // a wired nic is connected
@@ -338,30 +339,45 @@ if ($template->action === 'wifi_scan') {
             // an access point supported Wi-Fi nic is available
             $apSupp++;
         }
-    }
-    if (!$template->wifienable || ($wifiConnected > 1) || ($wired && $wifi)) {
-        // Wi-Fi is switched off or more than one Wi-Fi nics are connected or
-        //  a wired nic is connected and a Wi-Fi connection available
-        //  (it could be configured as an AP), enable switching Wi-Fi on/off
-        $template->wifiswitch = 1;
-    } else{
-        // disable switching Wi-Fi on/off
-        $template->wifiswitch = 0;
+        if (($nic['technology'] === 'wifi') && ($nic['type'] === 'AP')) {
+            // an access point is up
+            $apUp++;
+        }
     }
     if (!$template->allwifienable || ($wired && sysCmd('lsusb -v | grep -i iProduct | grep -ic "802.11" | xargs')[0])) {
         // All Wi-Fi is switched off or a wifi dongle is connected and a wired connection is active
         $template->allwifiswitch = 1;
-    } else{
+    } else {
         // disable switching Wi-Fi on/off
         $template->allwifiswitch = 0;
     }
-    if (!$template->apenable || (($template->allwifienable || $template->wifienable) && $apSupp && ($wifiConnected || $wired))) {
-        // AP is switched off or Wi-Fi is switched on and an access point supported and a Wi-Fi nic or an Ethernet nic is connected,
+    if ($template->allwifienable && (!$template->wifienable || ($wifiConnected > 1) || ($wired && $wifi))) {
+        // All Wi-Fi is switched on and on board Wi-Fi is switched off or more than one Wi-Fi nics are connected or
+        //  a wired nic is connected and a Wi-Fi nic is connected
+        //  (it could be configured as an AP), enable switching Wi-Fi on/off
+        $template->wifiswitch = 1;
+    } else {
+        // disable switching Wi-Fi on/off
+        $template->wifiswitch = 0;
+    }
+    if ($template->allwifienable && (!$template->apenable || (($template->allwifienable || $template->wifienable) && $apSupp && ($wifiConnected || $wired)))) {
+        // All Wi-Fi is switched on and AP is switched off or Wi-Fi is switched on and an access point supported and a Wi-Fi nic or an Ethernet nic is connected,
         //  enable switching AP on/off
         $template->apswitch = 1;
-    } else{
+    } else {
         // disable switching Wi-Fi on/off
         $template->apswitch = 0;
+    }
+    // is processing? this enables/disables the visibility of the nics in the UI
+    if ($apUp || $redis->hGet('AccessPoint', 'interface')) {
+        // access point is up so always show the nics in the UI
+        $template->processing = 0;
+    } else if (!$wired && !$wifiConnected) {
+        // nothing is connected, but this routine cannot run unless a nic is connected, so it is processing
+        $template->processing = 1;
+    } else {
+        // when the lock_wifiscan is set it is processing
+        $template->processing = $redis->Get('lock_wifiscan');
     }
     unset($networks, $storedProfiles, $btDevices, $wired, $wifi, $interface, $wlanNic);
     // only the contents of $template->nics is used

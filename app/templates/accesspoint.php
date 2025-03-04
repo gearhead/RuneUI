@@ -1,4 +1,4 @@
-<div class="container">
+<div id="accesspoint-container" class="container">
     <h1>Access Point settings</h1>
     <?php if($this->wifiavailable === 0): ?>
         &nbsp;<br>

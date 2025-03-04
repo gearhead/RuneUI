@@ -1,4 +1,4 @@
-<div class="container credits">
+<div id="sources-edit-container" class="container">
     <h1>NAS mounts</h1>
     <form class="form-horizontal" action="/sources/" method="post" role="form" data-parsley-validate>
         <fieldset>
