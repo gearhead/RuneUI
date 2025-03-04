@@ -1,14 +1,14 @@
 [Unit]
-Description = Fix Ethernet nics which fail to acquire an IP address
-# on some Pi models (Pi 5) running RPiOS bookworm Ethernet nics which fail to acquire an IP address
+Description = Fix Wi-Fi nics which fail to acquire a queue
+# some Wi-Fi ddevices and dongles fail to acquire a queue so when busy all requests are dropped
 # this workaround will fix the problem
 # DefaultDependencies=no
-After=network.target redis.service
+After=network.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes # this is important, without it this routine will restart with rune_SY_wrk
-ExecStart=/srv/http/command/fix_ethx.sh
+ExecStart=/srv/http/command/fix_wlanx.sh
 
 [Install]
 # WantedBy=getty.target # removed for vc4 implementation

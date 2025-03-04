@@ -7,9 +7,9 @@ After=basic.target
 
 [Service]
 Type=oneshot
-#RemainAfterExit=yes
+RemainAfterExit=yes # this is important, without it this routine will restart with rune_SY_wrk
 ExecStart=/srv/http/command/fix_usbdevices.sh
 
 [Install]
-# WantedBy=getty.target # removed for vc4 implementation
+# WantedBy=getty.target # removed, Wi-Fi only configuration will wait for completion in boot sequence
 WantedBy=rune_SY_wrk.service

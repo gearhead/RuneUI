@@ -6,8 +6,8 @@ Description = generate mpd --version informtion during boot
 After=connman.service
 
 [Service]
-Type=oneshot
-#RemainAfterExit=yes
+Type=oneshot # this is important, without it this routine will restart with rune_SY_wrk
+RemainAfterExit=yes
 ExecStart=/usr/bin/bash -c 'mpd --version | grep -v \'^$\' > /srv/http/.config/mpdversion.txt 2>&1'
 
 [Install]

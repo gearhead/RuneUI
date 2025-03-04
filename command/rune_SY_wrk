@@ -109,7 +109,7 @@ if ($redis->hGet('addons', 'addo') != '') {
 //
 // determine the actual mpd player version
 //  the text file is created on boot by the systemd unit mpdversion service
-$mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
+$mpdversion = sysCmd("grep -i 'Music Player Daemon' '/srv/http/.config/mpdversion.txt' | cut -d ' ' -f 4 | xargs")[0];
 //
 // read registered HW architecture
 if ($redis->exists('hwplatformid')) {
@@ -264,7 +264,8 @@ if ($playerid_db === '') {
     // invoke rune_SY_wrk respawn
     wrk_systemd_unit($redis, 'restart', 'rune_SY_wrk');
     // --- RUNEAUDIO FIRST RUN PROCESS END --- //
-} else if ($redis->hGet('mpdconf', 'version') != $mpdversion) {
+} else if (isset($mpdversion) && $mpdversion && ($redis->hGet('mpdconf', 'version') != $mpdversion)) {
+    echo "MPD changed\n";
     // MPD VERSION HAS CHANGED PROCES--- //
     runelog('>>>>>>MPD VERSION HAS CHANGED PROCESS ---');
     // set up file protections and ownership
