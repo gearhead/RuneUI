@@ -74,12 +74,21 @@ ui_notify($redis, 'Restore', 'Working, please wait...');
 // set up and validate acards
 $acard_stores = array('acards', 'hdmiacards', 'usbaacards');
 foreach ($acard_stores as $acard_store) {
-    $acards = json_decode($redis->hGetall($acard_store), true);
-    foreach ($acards as $acardKey => $acard) {
-        if (!isset($acard['swdevice']) || !$acard['swdevice']) {
-            // this card definition is incomplete, from an old version of RuneAudio, delete it
-            $redis->hDel($acard_store, $acardKey);
+    $acards = $redis->hGetall($acard_store);
+    if (is_array($acards)) {
+        foreach ($acards as $acardKey => $acard) {
+            if (strlen(trim($acard))) {
+                $acard = json_decode($acard, true);
+                if (!isset($acard['swdevice']) || !$acard['swdevice']) {
+                    // this card definition is incomplete, from an old version of RuneAudio, delete it
+                    $redis->hDel($acard_store, $acardKey);
+                }
+            } else {
+                $redis->hDel($acard_store, $acardKey);
+            }
         }
+    } else {
+        $redis->del($acard_store);
     }
 }
 // refresh the audio card database, this will restart MPD

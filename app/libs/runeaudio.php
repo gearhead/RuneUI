@@ -4312,25 +4312,29 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
     switch ($action) {
         case 'checkacards':
             if (is_firstTime($redis, 'checkacards')) {
-                // first time
-                $acards = $redis->hGetall('acards');
-                foreach ($acards as $acard) {
-                    // step through all the audio cards
-                    $acard = json_decode($acard, true);
-                    if (!isset($acard['swdevice']) || !$acard['swdevice']) {
-                        // invalid audio card entry, no software defined device, this is caused by a backup restore of old cards formats
-                        // delete all acards, hdmiacards and usbacards
-                        $redis->del('acards');
-                        $redis->del('hdmiacards');
-                        $redis->del('usbacards');
-                        // delete the selected and default audio output
-                        $redis->del('ao');
-                        $redis->del('ao_default');
-                        // break the foreach loop
-                        break;
+                // first time, run once after each boot
+                // validate acards
+                $acard_stores = array('acards', 'hdmiacards', 'usbaacards');
+                foreach ($acard_stores as $acard_store) {
+                    $acards = $redis->hGetall($acard_store);
+                    if (is_array($acards)) {
+                        foreach ($acards as $acardKey => $acard) {
+                            if (strlen(trim($acard))) {
+                                $acard = json_decode($acard, true);
+                                if (!isset($acard['swdevice']) || !$acard['swdevice']) {
+                                    // this card definition is incomplete, from an old version of RuneAudio, delete it
+                                    $redis->hDel($acard_store, $acardKey);
+                                }
+                            } else {
+                                $redis->hDel($acard_store, $acardKey);
+                            }
+                        }
+                    } else {
+                        $redis->del($acard_store);
                     }
                 }
             }
+            unset($acard_stores, $acard_store, $acards, $acard);
             break;
         case 'reset':
             // default MPD config
