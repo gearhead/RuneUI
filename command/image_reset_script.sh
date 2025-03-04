@@ -407,6 +407,20 @@ else
     done
 fi
 #
+# disable specified services, these may have been updated from git hub
+for i in "${disable_arr[@]}" ; do
+    systemctl disable "$i"
+    userservice="/usr/lib/systemd/user/$i.service"
+    if [ -f "$userservice" ] ; then
+        systemctl --global disable "$i"
+    fi
+done
+#
+# enable specified services, these may have been updated from git hub
+for i in "${enable_arr[@]}" ; do
+    systemctl enable "$i"
+done
+#
 # redis reset
 # remove the redis variables used for:
 #   Access Point info (accesspoint), audio cards & hdmi acards (acard), access point (access), airplay (airplay), audio output (ao),
