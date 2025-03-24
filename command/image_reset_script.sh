@@ -109,7 +109,7 @@ rm -rf /var/lib/bluetooth/*
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
     bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dphys-swapfile\
     haveged hciuart hostapd llmnrd local-browser local-browser-w mosquitto mpd mpdscribble\
-    nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
+    nmb nmbd ntpd pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
     shairport-sync smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2 upmpdcli upower winbind\
     winbindd)
@@ -118,16 +118,16 @@ declare -a enable_arr=(amixer-webui avahi-daemon connman dbus fix_ethx fix_usbde
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
     bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd\
     dphys-swapfile fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb\
-    nmbd pcscd php7.4-fpm php8.2-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
+    nmbd pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk rune_SY_wrk\
     samba-ad-dc shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd triggerhappy udevil\
     udisks2 upmpdcli upower winbind winbindd wsdd)
 if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
     declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd\
-        php7.4-fpm php8.2-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
+        php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
 else
     declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1\
-        haveged llmnrd php7.4-fpm php8.2-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
+        haveged llmnrd php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
 fi
 declare -a unmask_arr=(systemd-journald)
 #
@@ -678,11 +678,12 @@ if [ "$os" == "RPiOS" ] ; then
     php_path=$( find /usr/*bin -name php-fpm* )
     php_exe=$(basename -- "$php_path")
     php_ver=${php_exe:7:10}
-    if [ "$php_ver" != "7.4" ] && [ "$php_ver" != "8.2" ] ; then
+    if [ "$php_ver" != "7.4" ] && [ "$php_ver" != "8.2" ] && [ "$php_ver" != "8.4" ] ; then
         set +x
         echo "########################################################################"
         echo "##              Error: PHP version has changed for RPiOS              ##"
-        echo "## Exiting! - Supported versions 7.4, 8.2, new version is $php_ver         ##"
+        echo "## Exiting! - Supported versions 7.4, 8.2, 8.4, new version is:       ##"
+        echo "##                                 $php_ver                                ##"
         echo "##      This script (image_reset_script.sh) needs to be modified      ##"
         echo "##                   ---------------------              --------      ##"
         echo "########################################################################"
@@ -699,10 +700,16 @@ for f in /etc/php/*.* ;  do
     elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.2"* ] ; then
         # echo $f
         rm -r "$f"
+    elif [ "$os" == "ARCH" ] && [ "$f" == "/etc/php/8.4"* ] ; then
+        # echo $f
+        rm -r "$f"
     elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "7.4" ] && [ ! "$f" == "/etc/php/7.4"* ] ; then
         # echo $f
         rm -r "$f"
     elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.2" ] && [ ! "$f" == "/etc/php/8.2"* ] ; then
+        # echo $f
+        rm -r "$f"
+    elif [ "$os" == "RPiOS" ] &&  [ "$php_ver" == "8.4" ] && [ ! "$f" == "/etc/php/8.4"* ] ; then
         # echo $f
         rm -r "$f"
     fi
@@ -712,11 +719,32 @@ done
 if [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
     rm /etc/php/8.2/fpm/pool.d/www.conf
 fi
-#   php-fpm.service & php.int
+#   we also need to delete /etc/php/x.x/fpm/pool.d/www.conf for RPiOS PHP 8.4
+#       to-do: make this consistent for all RPiOS PHP versions
+if [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.4" ] ; then
+    rm /etc/php/8.4/fpm/pool.d/www.conf
+fi
+#   php-fpm.service & php.ini
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed and a new version of
 #       /srv/http/app/config/defaults/etc/systemd/system/php-fpm.service.RPiOS<v.v> should be created
 if [ "$os" == "ARCH" ] ; then
     cp /etc/systemd/system/php-fpm.service.ARCH /etc/systemd/system/php-fpm.service
+elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.4" ] ; then
+    cp /etc/systemd/system/php-fpm.service.RPiOS8.4 /etc/systemd/system/php-fpm.service
+    # php.ini was created in the wrong directory (/etc/php/8.4/php.ini), while /etc/php/8.4/fpm/php.ini is the correct location
+    #   distribution files have been corrected, this code will tidy things up
+    if [ ! -f "/etc/php/8.4/fpm/php.ini" ]; then
+        if [ -f "/etc/php/8.4/php.ini" ]; then
+            cp "/etc/php/8.4/php.ini" "/etc/php/8.4/fpm/php.ini"
+            rm "/etc/php/8.4/php.ini"
+        else
+            rm "/etc/php/8.4/php.ini"
+        fi
+    else
+        if [ -f "/etc/php/8.4/php.ini" ]; then
+            rm "/etc/php/8.4/php.ini"
+        fi
+    fi
 elif [ "$os" == "RPiOS" ] && [ "$php_ver" == "8.2" ] ; then
     cp /etc/systemd/system/php-fpm.service.RPiOS8.2 /etc/systemd/system/php-fpm.service
     # php.ini was created in the wrong directory (/etc/php/8.2/php.ini), while /etc/php/8.2/fpm/php.ini is the correct location
@@ -739,6 +767,7 @@ fi
 rm /etc/systemd/system/php-fpm.service.ARCH
 rm /etc/systemd/system/php-fpm.service.RPiOS7.4
 rm /etc/systemd/system/php-fpm.service.RPiOS8.2
+rm /etc/systemd/system/php-fpm.service.RPiOS8.4
 #
 # modify /etc/ssh/sshd_config
 #   some distributions support an 'Include' statement some don't,
