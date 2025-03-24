@@ -7,7 +7,8 @@ After=network.target redis.service
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes # this is important, without it this routine will restart with rune_SY_wrk
+# this is important, without it this routine will restart with rune_SY_wrk
+RemainAfterExit=yes
 ExecStart=/srv/http/command/fix_ethx.sh
 
 [Install]
