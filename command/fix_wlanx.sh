@@ -38,7 +38,8 @@
 set +e # continue on errors
 # set -x # echo all commands to cli
 #
-nics=$( ip -o link | grep -i ' qdisc noqueue ' | grep -iv ' lo:' | grep -iv ' ap0:' | cut -d ':' -f 2 | xargs )
+# get a list of nics excluding the loopback (lo:) and virtual ap (ap?:) nics
+nics=$( ip -o link | grep -i ' qdisc noqueue ' | grep -iv ' lo: <' | grep -iv ' ap.: <' | cut -d ':' -f 2 | xargs )
 for i in $nics ; do
     echo $i
     echo $( tc qdisc add dev $i root pfifo_fast )
