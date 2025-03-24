@@ -365,7 +365,7 @@ if ($playerid_db === '') {
     $hwplatformid = $redis->get('hwplatformid');
     runelog('env: SET KERNEL PROFILE',$orionprofile.' '.$hwplatformid);
     sysCmdAsync($redis, '/srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
-    // collect USB storage information for the UI (also starts samba)
+    // mount and collect USB storage information for the UI (also starts samba)
     sysCmdAsync($redis, '/srv/http/command/usbmount nowait');
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
@@ -1159,7 +1159,7 @@ while (true) {
                 } else {
                     $param = array();
                 }
-                // perform the updat and actions
+                // perform the update and actions
                 $retval = wrk_apconfig($redis, $job->action, $param, $jobID);
                 // unlock the UI
                 $redis->sRem('w_lock', $jobID);
@@ -1588,7 +1588,7 @@ while (true) {
     //  connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuRefreshNics-- <= 0) {
         wrk_netconfig($redis, 'refreshAsync');
-        // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)
+        // increase the repeat cycle time by 100% with a maximum of 7200 cycles (= 1 hour, 60 x 60 x 2)
         $savecpuRefreshNics = min(7200, intval($savecpuRefreshNicsPrev*2));
         // calculate the randomiser @5% of the repeat cycle, minimum value of 2, maximum value of 100
         $random = min(100,max(2, intval($savecpuRefreshNics/20)));
@@ -1598,7 +1598,6 @@ while (true) {
     }
     // Run usbmount periodically, run it first after 16 cycles (+/-8 seconds), and increase the repeat cycle time by 100%
     //  it should run at least once per hour
-    //  connman works (should work) in this exponential way of detecting WiFi networks and nics
     if ($savecpuUsbMount-- <= 0) {
         sysCmdAsync($redis, '/srv/http/command/usbmount nowait');
         // increase the repeat cycle time by 100% with a maximum of 7200 (= 1 hour, 60 x 60 x 2)

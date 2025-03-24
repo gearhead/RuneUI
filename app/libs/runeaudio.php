@@ -2686,7 +2686,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 }
                 // stop the hostapd AP jobs if they are running
                 wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
-                // stop the iwd access point
+                // stop and remove the iwd access point
                 $interface = $redis->hGet('AccessPoint', 'interface');
                 sysCmd('iwctl ap '.$interface.' stop');
                 // get the wlan nic used for accesspoint
@@ -3398,7 +3398,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('connmanctl disconnect '.$args['connmanString']);
             // no break;
         case 'delete':
-            // delete a connection, also removes the stored profile and configuration files and clears the IP address(es) from the nic
+            // delete relevant connections, also removes the stored profile and configuration files and clears the IP
+            //  address(es) from the nic
             // wifi
             if (isset($storedProfiles[$ssidHexKey])) {
                 // remove the connman profile
@@ -12223,7 +12224,7 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     if (($redis->hExists('spotifyconnect', 'api_id') && $redis->hGet('spotifyconnect', 'api_id')
             && $redis->hExists('spotifyconnect', 'api_secret') && $redis->hGet('spotifyconnect', 'api_secret'))
             || ($redis->hExists('spotifyconnect', 'api_token') && $redis->hGet('spotifyconnect', 'api_token'))) {
-        // API client-id and secret are set or the apt token is set
+        // API client-id and secret are set or the api token is set
         $retval = wrk_getSpotifyMetadataAdvanced($redis, $track_id);
         if ($retval) {
             // on success return the value
