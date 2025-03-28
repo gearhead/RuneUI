@@ -224,6 +224,26 @@ class getid3_quicktime extends getid3_handler
 				$info['mime_type']  = 'video/mp4';
 			}
 		}
+		if (!empty($info['quicktime']['ftyp']['signature']) && in_array($info['quicktime']['ftyp']['signature'], array('heic','heix','hevc','hevx','heim','heis','hevm','hevs'))) {
+			if ($info['mime_type'] == 'video/quicktime') { // default value, as we
+				// https://en.wikipedia.org/wiki/High_Efficiency_Image_File_Format
+$this->error('HEIF files not currently supported');
+				switch ($info['quicktime']['ftyp']['signature']) {
+					// https://github.com/strukturag/libheif/issues/83 (comment by Dirk Farin 2018-09-14)
+					case 'heic': // the usual HEIF images
+					case 'heix': // 10bit images, or anything that uses h265 with range extension
+					case 'hevc': // brands for image sequences
+					case 'hevx': // brands for image sequences
+					case 'heim': // multiview
+					case 'heis': // scalable
+					case 'hevm': // multiview sequence
+					case 'hevs': // scalable sequence
+						$info['fileformat'] = 'heif';
+						$info['mime_type'] = 'image/heif';
+						break;
+				}
+			}
+		}
 
 		if (!$this->ReturnAtomData) {
 			unset($info['quicktime']['moov']);
@@ -838,17 +858,20 @@ $this->warning('incomplete/incorrect handling of "stsd" with Parrot metadata in 
 
 								// video tracks
 								// http://developer.apple.com/library/mac/#documentation/QuickTime/QTFF/QTFFChap3/qtff3.html
-								$atom_structure['sample_description_table'][$i]['temporal_quality'] =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'],  8,  4));
-								$atom_structure['sample_description_table'][$i]['spatial_quality']  =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 12,  4));
-								$atom_structure['sample_description_table'][$i]['width']            =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 16,  2));
-								$atom_structure['sample_description_table'][$i]['height']           =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 18,  2));
-								$atom_structure['sample_description_table'][$i]['resolution_x']     = getid3_lib::FixedPoint16_16(substr($atom_structure['sample_description_table'][$i]['data'], 24,  4));
-								$atom_structure['sample_description_table'][$i]['resolution_y']     = getid3_lib::FixedPoint16_16(substr($atom_structure['sample_description_table'][$i]['data'], 28,  4));
-								$atom_structure['sample_description_table'][$i]['data_size']        =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 32,  4));
-								$atom_structure['sample_description_table'][$i]['frame_count']      =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 36,  2));
-								$atom_structure['sample_description_table'][$i]['compressor_name']  =                             substr($atom_structure['sample_description_table'][$i]['data'], 38,  4);
-								$atom_structure['sample_description_table'][$i]['pixel_depth']      =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 42,  2));
-								$atom_structure['sample_description_table'][$i]['color_table_id']   =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], 44,  2));
+								// https://developer.apple.com/documentation/quicktime-file-format
+								$STSDvOffset = 8;
+								$atom_structure['sample_description_table'][$i]['temporal_quality'] =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  4)); $STSDvOffset +=  4;
+								$atom_structure['sample_description_table'][$i]['spatial_quality']  =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  4)); $STSDvOffset +=  4;
+								$atom_structure['sample_description_table'][$i]['width']            =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  2)); $STSDvOffset +=  2;
+								$atom_structure['sample_description_table'][$i]['height']           =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  2)); $STSDvOffset +=  2;
+								$atom_structure['sample_description_table'][$i]['resolution_x']     = getid3_lib::FixedPoint16_16(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  4)); $STSDvOffset +=  4;
+								$atom_structure['sample_description_table'][$i]['resolution_y']     = getid3_lib::FixedPoint16_16(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  4)); $STSDvOffset +=  4;
+								$atom_structure['sample_description_table'][$i]['data_size']        =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  4)); $STSDvOffset +=  4;
+								$atom_structure['sample_description_table'][$i]['frame_count']      =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  2)); $STSDvOffset +=  2;
+								$atom_structure['sample_description_table'][$i]['compressor_name']  =                             substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset, 32) ; $STSDvOffset += 32;
+								$atom_structure['sample_description_table'][$i]['compressor_name'] = $this->MaybePascal2String(rtrim($atom_structure['sample_description_table'][$i]['compressor_name'], "\x00")); // https://github.com/JamesHeinrich/getID3/issues/452
+								$atom_structure['sample_description_table'][$i]['pixel_depth']      =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  2)); $STSDvOffset +=  2;
+								$atom_structure['sample_description_table'][$i]['color_table_id']   =   getid3_lib::BigEndian2Int(substr($atom_structure['sample_description_table'][$i]['data'], $STSDvOffset,  2)); $STSDvOffset +=  2;
 
 								switch ($atom_structure['sample_description_table'][$i]['data_format']) {
 									case '2vuY':
@@ -1650,7 +1673,7 @@ $this->warning('incomplete/incorrect handling of "stsd" with Parrot metadata in 
 						@list($all, $latitude, $longitude, $altitude) = $matches;
 						$info['quicktime']['comments']['gps_latitude'][]  = floatval($latitude);
 						$info['quicktime']['comments']['gps_longitude'][] = floatval($longitude);
-						if (!empty($altitude)) {
+						if (!empty($altitude)) { // @phpstan-ignore-line
 							$info['quicktime']['comments']['gps_altitude'][] = floatval($altitude);
 						}
 					} else {
