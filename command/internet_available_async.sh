@@ -74,7 +74,7 @@ for nic in $nics ; do
      fi
      if [ "$nic" == "$vitual_ap_name" ] ; then
         # this is the virtual nic used for the access point
-        
+
         # now determine if the AP is actually up
         if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
             # Wi-Fi is switched on, AP is on and AP is configured, it should be up
