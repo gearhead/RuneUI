@@ -33,64 +33,163 @@
 #
 # Test to determine if an internet connection is available and check all the other services.
 # This will allow graceful disabling of Rune service functionality in the UI.
+# Also in this routine are all sorts of corrective actions to reset or correct nics and AP states
+# This routine also ensures that all Wi-Fi nics are forced down when 'All wifi' is switched off
 #
 # setup
 set +e # continue on errors
 # set -x # echo all commands to cli
-#
-# just in case something has gone wrong with the local router link, try to reconnect
-# if a Wi-Fi nic is down, use IP to take the nic down manually and bring it up, connman will then reconnect automatically
-#
-# if connman has lost a Wi-Fi connection it should reconnect automatically, but the current version does not do it
-# running 'iwctl station <nic> scan' for the Wi-Fi nics should initiate a reconnect, no real issue in running this every time this routine runs
-# get a list of the nics which are down
-# this routine also ensures that all wifi nics are forced down when All wifi is switched off
+# get a list of all nics which are down
 down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
+# get a list of all nics which have an IP address
+ip_address=$( ip -o address | cut -d ' ' -f 2 | sort -u | xargs )
 # get a list of all Wi-Fi nics
 nics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
-# determine if wifi is on
+# determine if Wi-Fi is on
 allwifi_on=$( redis-cli get allwifi_on )
 # determine if access point is on
 ap_on=$( redis-cli hget AccessPoint enable )
+# get the virtual AP name
+vitual_ap_name=$( redis-cli hget AccessPoint virtual_ap_name )
+# determine if ipv6 is on
+ipv6_on=$( redis-cli get network_ipv6 )
+# determine if the AP is up, the redis AccessPoint interface variable is empty when the AP is inactive
+#  its important not to stop and start wlan nics when the AP is active
+ap_interface=$( redis-cli hget AccessPoint interface )
+# determine if refresh nics is running
+refresh_nics_pid=$( pgrep refresh_nics | xargs )
+wifinicdown="0"
 for nic in $nics ; do
-    # only for Wi-Fi nics
+    # Wi-Fi nics
+    # when ipv6 is off ensure the nic has no ipv6 address
+    if [ "$ipv6_on" == "0" ] ; then
+        # ipv6 is off, the nic should not have a ipv6 address
+        # presence of ' inet6 ' shows that an ipv6 address is present
+        invalid=$( ip -o address show dev $nic | grep -ic ' inet6 ' | xargs )
+        if [ "$invalid" != "0" ] ; then
+            sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
+            # refresh the list of nics which have an IP address
+            ip_address=$( ip -o address | cut -d ' ' -f 2 | sort -u | xargs )
+        fi
+     fi
+     if [ "$nic" == "$vitual_ap_name" ] ; then
+        # this is the virtual nic used for the access point
+        
+        # now determine if the AP is actually up
+        if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
+            # Wi-Fi is switched on, AP is on and AP is configured, it should be up
+            ap_down=$( ip -o link show dev $nic | xargs | grep -ic ' DOWN ' | xargs )
+        else
+            # Wi-Fi is switched off or AP is off or AP is not configured, it should be down
+            ap_down="0"
+        fi
+        if [ "$ap_down" != "0" ] && [ "$ap_interface" != "" ] ; then
+            # AP is down, when it should be up
+            #   this should not happen, it looks like a bug, but I cannot find it!
+            echo "ap0 down condition"
+            ssid=$( redis-cli hget AccessPoint ssid )
+            iwctl device $nic set-property Mode ap
+            if [ "$?" == "0" ] ; then
+                iwctl ap $nic start-profile $ssid
+                if [ "$?" == "0" ] ; then
+                    iwctl ap $nic start-profile $ssid
+                    if [ "$?" != "0" ] ; then
+                        systemctl restart iwd
+                        sleep 5
+                        iwctl device $nic set-property Mode ap
+                        iwctl ap $nic start-profile $ssid
+                    fi
+                else
+                    systemctl restart iwd
+                    sleep 5
+                    iwctl device $nic set-property Mode ap
+                    iwctl ap $nic start-profile $ssid
+                fi
+            else
+                systemctl restart iwd
+                sleep 5
+                iwctl device $nic set-property Mode ap
+                iwctl ap $nic start-profile $ssid
+            fi
+        elif [ "$ap_down" == "0" ] && [ "$ap_interface" == "" ] ; then
+            # AP is up, when it should be down
+            iwctl device $nic set-property Mode ap
+            iwctl ap $nic stop
+        fi
+        continue
+    fi
     if [[ "$down" =~ "$nic" ]] ; then
-        # only for nics which are down
+        # Wi-Fi nic is down
+        wifinicdown="1"
         if [ -f "/tmp/$nic.up" ] ; then
-            # only for nics which were previously up
+            # nic was previously up, take the nic down
             ip addr flush $nic
             ip link set dev $nic down
             if [ "$allwifi_on" == "1" ] ; then
-                # when wifi is on
+                # wifi is enabled, bring the nic up to force a connman reconnect
                 ip link set dev $nic up
+                if [ "$ipv6_on" == "0" ] ; then
+                    sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
+                fi
+            fi
+        fi
+    elif [[ ! "$ip_address" =~ "$nic" ]] ; then
+        # Wi-Fi nic looks like it is up, but has no IP address, so it is actually down
+        wifinicdown="1"
+        if [ -f "/tmp/$nic.up" ] ; then
+            # nic was previously up, take the nic down
+            ip addr flush $nic
+            ip link set dev $nic down
+            if [ "$allwifi_on" == "1" ] ; then
+                # wifi is enabled, bring the nic up to force a connman reconnect
+                ip link set dev $nic up
+                if [ "$ipv6_on" == "0" ] ; then
+                    sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
+                fi
             fi
         fi
     else
-        # nic is up
-        if [ "$allwifi_on" == "1" ] ; then
-            # when wifi is on
-            # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
-            # the /tmp directory is a TMPFS file-system which will be recreated on reboot
-            touch /tmp/$nic.up
-        else
-            # when wifi is off
+        # Wi-Fi nic is up
+        if [ "$refresh_nics_pid" == "" ] ; then
+            # determine if refresh nics is running
+            refresh_nics_pid=$( pgrep refresh_nics | xargs )
+        fi
+        invalid="0"
+        if [ "$allwifi_on" == "1" ] && [ "$refresh_nics_pid" == "" ] && [ "$ap_interface" == "" ]; then
+            # only test for invalid nics when wifi is enabled, refresh_nics is not running and AP is not active
+            # 169.254. is the first part of ip addresses generated by the client when an address has not been provided by the router
+            #   this is valid when a connection is made via the AP, but invalid when the AP is active
+            invalid=$( ip -o add show dev $nic | xargs | grep -c ' inet 169.254.' | xargs )
+            if [ "$invalid" != "0" ] ; then
+                # nic has an invalid ip address
+                ip addr flush $nic
+                ip link set dev $nic down
+                ip link set dev $nic up
+                if [ "$ipv6_on" == "0" ] ; then
+                    sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
+                fi
+            else
+                # nic is up and ip address is valid
+                # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
+                # the /tmp directory is a TMPFS file-system which will be recreated on reboot
+                touch /tmp/$nic.up
+            fi
+        elif [ "$allwifi_on" != "1" ] ; then
+            # when wifi is off take the nic down
             ip addr flush $nic
             ip link set dev $nic down
         fi
     fi
-    # scan for wireless networks per wireless nic, but not access points
-    ap=$( iw $nic info | grep -ic 'type\s*ap' | xargs )
-    if [ "$ap" == "0" ] ; then
-        # its not an access point
-        if [ "$allwifi_on" == "1" ] ; then
-            # when wifi is on
-            if [ "$ap_on" == "1" ] ; then
-                # when access point is on
-                connmanctl scan wifi
-            fi
-        fi
-    fi
 done
+# scan for wireless networks
+if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
+    # wifi is on and the access point is on
+    if [ "$wifinicdown" == "1" ] ; then
+        # at least one wifi nic is down
+        connmanctl scan wifi
+    fi
+fi
+#
 # determine if there is a non-AP nic which is up
 up_cnt="0"
 up=$( ip -o -br  address | grep -i 'up' | cut -d ' ' -f1 | xargs )

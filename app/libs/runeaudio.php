@@ -2691,6 +2691,8 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 sysCmd('iwctl ap '.$interface.' stop');
                 // get the wlan nic used for accesspoint
                 $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+                // get the virtual AP nic name used for accesspoint
+                $virtual_ap_name = $redis->hGet('AccessPoint', 'virtual_ap_name');
                 //
                 // determine the AP wlan nic(s) by searching the ip addresses for the current and previous AP ip-address (these may have the same value)
                 $wlanNics = explode(' ', sysCmd("ip -o add | grep -iE '".$ipAddressOld."|".$redis->hGet('AccessPoint', 'ip-address')."' | xargs | cut -d ' ' -f 2 | xargs")[0]);
@@ -2699,30 +2701,33 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     // not found in array, add it
                     $wlanNics[] = $interface;
                 }
-                // get the names of the physical nics
-                $physNics = sysCmd('dir -1 /sys/class/net/');
                 // process all the relevant wlan nics (normally one or none)
                 foreach ($wlanNics as $wlanNicInterface) {
                     // just in case the use of virtual nics may have been switched, we don't use the redis hash 'AccessPoint'  'virtual_ap_dev'
                     //  to determine a physical or virtual nic
-                    if (in_array($wlanNicInterface, $physNics)  && ($wlanNic == $wlanNicInterface)) {
+                    if ($wlanNicInterface != $virtual_ap_name) {
                         // the nic is in the list of physical nics and its name is the same as the wlan nic
                         // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
-                        // only run when All Wi-Fi is enabled
+                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down');
                         if ($redis->get('allwifi_on')) {
-                            sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down ; ip link set dev '.$wlanNicInterface.' up');
+                            // only run when All Wi-Fi is enabled
+                            sysCmd('ip link set dev '.$wlanNicInterface.' up');
+                            if (!$redis->get('network_ipv6')) {
+                                // ipv6 is off, set the nic accordingly
+                                sysCmd('sysctl -w net.ipv6.conf.'.$wlanNicInterface.'.disable_ipv6=1 > /dev/null');
+                            }
                         }
                     } else {
                         // the nic is not in the list of physical nics or its name is different to the wlan nic
                         // delete the virtual nic
-                        sysCmd('iw dev '.$wlanNicInterface.' del');
+                        // sysCmd('iw dev '.$wlanNicInterface.' del');
                     }
                 }
                 // comment out any lines in the iwd configuration file /etc/iwd/main.conf containing 'APRanges='
-                sysCmd("sed -i /APRanges=/s/^/# / '/etc/iwd/main.conf'");
+                // sysCmd("sed -i /APRanges=/s/^/# / '/etc/iwd/main.conf'");
                 // remove any iwd AP definition files
-                sysCmd('mkdir -p /var/lib/iwd/ap/');
-                sysCmd('rm /var/lib/iwd/ap/*.ap');
+                // sysCmd('mkdir -p /var/lib/iwd/ap/');
+                // sysCmd('rm /var/lib/iwd/ap/*.ap');
                 // do we need to restart iwd? I don't think it is necessary - need to test
                 // wrk_systemd_unit($redis, 'reload-or-restart', 'iwd');
                 // unset the AP nic names
@@ -2856,6 +2861,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         // create an empty array when the redis variable is not set
         $storedProfiles = array();
     }
+    $disconnect = false;
     switch ($action) {
         case 'boot-initialise':
             // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
@@ -3045,6 +3051,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             foreach ($networkInterfaces as $networkInterface) {
                 if ($networkInterface['technology'] == 'wifi') {
                     sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down ; ip link set dev '.$networkInterface['nic'].' up');
+                    if (!$redis->get('network_ipv6')) {
+                        // ipv6 is off, set the nic accordingly
+                        sysCmd('sysctl -w net.ipv6.conf.'.$networkInterface['nic'].'.disable_ipv6=1 > /dev/null');
+                    }
                 }
             }
             $redis->set('allwifi_on', 1);
@@ -3224,6 +3234,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                 // take the nic down and bring it up to reset its ip-address
                 sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+                if (!$redis->get('network_ipv6')) {
+                    // ipv6 is off, set the nic accordingly
+                    sysCmd('sysctl -w net.ipv6.conf.'.$args['nic'].'.disable_ipv6=1 > /dev/null');
+                }
                 wrk_netconfig($redis, 'refreshAsync');
             } else {
                 // add a config file and stored profile
@@ -3268,6 +3282,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     rename($tmpFileName, $profileFileName);
                     // take the nic down and bring it up to reset its ip-address
                     sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+                    if (!$redis->get('network_ipv6')) {
+                        // ipv6 is off, set the nic accordingly
+                        sysCmd('sysctl -w net.ipv6.conf.'.$args['nic'].'.disable_ipv6=1 > /dev/null');
+                    }
                     wrk_netconfig($redis, 'refreshAsync');
                 } else {
                     unlink($tmpFileName);
@@ -3391,47 +3409,97 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // manual disconnect, to avoid automatic reconnection autoconnect is set off
             sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
             sysCmd('connmanctl disconnect '.$args['connmanString']);
+            if (isset($args['nic'])) {
+                // also disconnect via iwd
+                sysCmd("iwctl station '".$args['nic']."' disconnect");
+            }
             break;
         case 'disconnect-delete':
-            // manual disconnect, to avoid automatic reconnection autoconnect is set off, then continues to delete
-            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
-            sysCmd('connmanctl disconnect '.$args['connmanString']);
+            // manual disconnect-delete
+            $disconnect = true;
             // no break;
         case 'delete':
             // delete relevant connections, also removes the stored profile and configuration files and clears the IP
             //  address(es) from the nic
             // wifi
             if (isset($storedProfiles[$ssidHexKey])) {
+                if ($disconnect) {
+                    // disconnect is set
+                    wrk_netconfig($redis, 'disconnect', '', $args);
+                }
                 // remove the connman profile
                 sysCmd('connmanctl config '.$args['connmanString'].' --remove');
-                // stop connman otherwise the cache files will be replaced after deletion
-                wrk_systemd_unit($redis, 'stop', 'connman');
-                if (isset($args['ssidHex'])) {
-                    // remove the connman configuration files and cache
-                    unset($storedProfiles[$ssidHexKey]);
-                    unlink('/var/lib/connman/wifi_'.$args['ssidHex'].'.config');
-                    sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$args['ssidHex'].'\'');
-                }
-                if (isset($args['ssid'])) {
-                    // remove the iwd network cache
-                    sysCmd("iwctl known-networks '".$args['ssid']."' forget");
-                    sysCmd('rm -f \'/var/lib/iwd/'.$args['ssid'].'.*\'');
-                }
-                if (isset($args['nic'])) {
-                    // disconnect the nic
-                    sysCmd("iwctl station '".$args['nic']."' disconnect");
-                }
-                // restart connman
-                wrk_systemd_unit($redis, 'start', 'connman');
-                if (isset($args['nic'])) {
-                    // clear the ip address from the nic with flush, then take the nic down and up this will trigger connman to
-                    //  make a connection if there is a valid network available
-                    // only run when All Wi-Fi is enabled
-                    if ($redis->get('allwifi_on')) {
-                        sysCmdAsync($redis, 'ip addr flush '.$args['nic'].' ; ip link set dev '.$args['nic'].' down ; ip link set dev '.$args['nic'].' up');
+                $networks = array();
+                // save the args as a network
+                $networks[] = $args;
+                $network_info = json_decode($redis->get('network_info'), true);
+                foreach ($network_info as $network) {
+                    if ($network['ssidHex'] != $ssidHex) {
+                        // loop when this connection is not the relevant network
+                        continue;
                     }
+                    if ($disconnect) {
+                        // disconnect is set
+                        wrk_netconfig($redis, 'disconnect', '', $network);
+                    }
+                    // clear the restart indicator file
+                    if (isset($network['nic']) && $network['nic']) {
+                        $file = '/tmp/'.$network['nic'].'.up';
+                        clearstatcache(true, $file);
+                        if (is_file($file)) {
+                            unlink($file);
+                        }
+                    }
+                    // remove the connman profile
+                    sysCmd('connmanctl config '.$network['connmanString'].' --remove');
+                    // save the network
+                    $networks[] = $network;
                 }
-            }
+                unset($network_info);
+                if (count($networks)) {
+                    // stop connman otherwise the cache files will be replaced after deletion
+                    wrk_systemd_unit($redis, 'stop', 'connman');
+                    foreach ($networks as $network) {
+                        // stop connman otherwise the cache files will be replaced after deletion
+                        wrk_systemd_unit($redis, 'stop', 'connman');
+                        if (isset($network['ssidHex'])) {
+                            // remove the connman configuration files and cache
+                            unset($storedProfiles[$ssidHexKey]);
+                            $file = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            clearstatcache(true, $file);
+                            if (is_file($file)) {
+                                unlink($file);
+                            }
+                            sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$network['ssidHex'].'\'');
+                        }
+                        if (isset($network['ssid'])) {
+                            // remove the iwd network cache
+                            sysCmd("iwctl known-networks '".$network['ssid']."' forget");
+                            sysCmd('rm -f \'/var/lib/iwd/'.$network['ssid'].'.*\'');
+                        }
+                        if (isset($network['nic']) && $disconnect) {
+                            // disconnect the nic
+                            sysCmd("iwctl station '".$network['nic']."' disconnect");
+                            // clear the ip address from the nic with flush, then take the nic down and up this will
+                            //  trigger connman to make a connection if there is a valid network available
+                            //  otherwise this will disconnect any active connection
+                            sysCmdAsync($redis, 'ip addr flush '.$network['nic'].' ; ip link set dev '.$network['nic'].' down');
+                            if ($redis->get('allwifi_on')) {
+                                // All Wi-Fi is enabled
+                                sysCmdAsync($redis, 'ip link set dev '.$args['nic'].' up');
+                                if (!$redis->get('network_ipv6')) {
+                                    // ipv6 is off, set the nic accordingly
+                                    sysCmd('sysctl -w net.ipv6.conf.'.$network['nic'].'.disable_ipv6=1 > /dev/null');
+                                }
+                            }
+                        }
+                    }
+                    // restart connman
+                    wrk_systemd_unit($redis, 'start', 'connman');
+                }
+                sysCmdAsync($redis, '/srv/http/command/refresh_nics');
+                sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+            } else
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
                 // stop connman otherwise the cache files will be replaced after deletion
@@ -8559,6 +8627,10 @@ function refresh_nics($redis)
         $networkInterfaces[$nic]['type'] = '';
         // enable the nic
         sysCmd('ip link set '.$nic.' up');
+        if (!$redis->get('network_ipv6')) {
+            // ipv6 is off, set the nic accordingly
+            sysCmd('sysctl -w net.ipv6.conf.'.$nic.'.disable_ipv6=1 > /dev/null');
+        }
     }
     // add ip addresses to array $networkInterfaces with ip address
     $addrs = sysCmd("ip -o  address | sed 's,[ ]\+, ,g'");
@@ -8632,7 +8704,11 @@ function refresh_nics($redis)
             // save the default type
             $networkInterfaces[$nic]['type'] = '';
             // refresh network list for wifi
-            sysCmd('iwctl station '.$nic.' scan');
+            if (is_firstTime($redis, 'connman_scan_wifi')) {
+                sysCmd('connmanctl scan wifi');
+            } else {
+                sysCmdAsync($redis, 'connmanctl scan wifi');
+            }
             // sleep (1);
             if ($networkInterfaces[$nic]['speed'] === 'Unknown') {
                 $speed = sysCmd('iw dev '.$nic." station dump | grep -i 'rx bitrate' | sed 's,[ ]\+, ,g'");
@@ -8694,8 +8770,19 @@ function refresh_nics($redis)
             $intMode = false;
         }
     }
-    // determine AP full function is supported
+    // walk through the nics a final time
     foreach ($networkInterfaces as $key => $nic) {
+        // determine if the nic really is connected
+        if ($nic['connected']) {
+            if ($nic['ipStatus'] == 'DOWN') {
+                $networkInterfaces[$key]['connected'] = false;
+            } else if ($nic['ipv4Address'] == '') {
+                $networkInterfaces[$key]['connected'] = false;
+            } else if (($nic['ipv6Address'] == '') && $redis->get('network_ipv6')) {
+                $networkInterfaces[$key]['connected'] = false;
+            }
+        }
+        // determine AP full function is supported
         if ($nic['technology'] === 'wifi') {
             $retval = sysCmd("iw phy ".$nic['physical']." info | grep -ci 'interface combinations are not supported'")[0];
             if (!$retval && $nic['apSupported']) {
@@ -9184,6 +9271,10 @@ function fix_mac($redis, $nic)
     }
     // change the MAC address, the nic needs to be brought down and up to activate the change
     sysCmd('ip link set dev '.$nic.' down ; ip link set dev '.$nic.' address '.$macNew.' ; ip link set dev '.$nic.' up');
+    if (!$redis->get('network_ipv6')) {
+        // ipv6 is off, set the nic accordingly
+        sysCmd('sysctl -w net.ipv6.conf.'.$nic.'.disable_ipv6=1 > /dev/null');
+    }
     // remove nic with tho old MAC address from the connman cache and restart connman
     $connmanConfDir = '/var/lib/connman/*'.str_replace(':','',$macCurrent).'*';
     sysCmd('rm -fr '.$connmanConfDir);

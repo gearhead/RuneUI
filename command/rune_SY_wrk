@@ -1584,8 +1584,15 @@ while (true) {
         unset($autoplay, $file, $responce, $accessible, $random);
     }
     // Run refresh_nics periodically, run it first after 24 cycles (+/-12 seconds), and increase the repeat cycle time by 100%
-    //  it should run at least once per hour
+    //  it should run at least once per hour (7200 cycles)
     //  connman works (should work) in this exponential way of detecting WiFi networks and nics
+    //  when there is no internet available run this routine after maximum 5 minutes (600 cycles), its important not to run
+    //      this too frequently
+    if (!$redis->hGet('service', 'internet') && ($savecpuRefreshNics > 600)) {
+        // no internet, reduce the repeat cycle time to 5 minutes (600 cycles, 5 x 60 x 2)
+        $savecpuRefreshNics = 600;
+        $savecpuRefreshNicsPrev = $savecpuRefreshNics;
+    }
     if ($savecpuRefreshNics-- <= 0) {
         wrk_netconfig($redis, 'refreshAsync');
         // increase the repeat cycle time by 100% with a maximum of 7200 cycles (= 1 hour, 60 x 60 x 2)

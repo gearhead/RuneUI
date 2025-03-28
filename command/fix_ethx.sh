@@ -102,6 +102,13 @@ for i in {0..20..1} ; do
         ip addr flush $nic
         ip link set dev $nic down
         ip link set dev $nic up
+        # the redis variable 'network_ipv6' has not yet been determined when this routine runs
+        #   the lines below are included as documentation, the nic setting will be corrected later if required
+        # ipv6_on=$( redis-cli get network_ipv6 )
+        # if [ "$ipv6_on" == "0" ] ; then
+            # # ipv6 is off, set the nic accordingly
+            # sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
+        # fi
         done="0"
     done
     if [ "$done" == "1" ] ; then
