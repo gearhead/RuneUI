@@ -54,19 +54,21 @@ Hidden=false
 
 def get_wlan0_state():
     try:
-        result = subprocess.check_output(["iwctl", "station", "wlan0", "show"]).decode()
-        for line in result.splitlines():
+        output = subprocess.check_output(["iwctl", "station", "wlan0", "show"]).decode()
+        for line in output.splitlines():
             if "State" in line:
-                state = line.split(":")[-1].strip().lower()
-                if state in ("connected", "online"):
+                state = line.split(":", 1)[-1].strip().lower()
+                if state == "connected":
                     return "online"
-                elif state == "connected":
-                    return "ready"
-                else:
+                elif state == "disconnected":
                     return "offline"
+                else:
+                    return state  # Could be 'idle', etc.
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to get wlan0 state: {e}")
     except Exception as e:
-        print(f"Error checking wlan0 state: {e}")
-        return "offline"
+        print(f"Unexpected error in get_wlan0_state: {e}")
+    return "offline"
 
 def is_known_network_visible():
     try:
