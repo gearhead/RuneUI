@@ -11,6 +11,7 @@ REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
 
 SCAN_INTERVAL = 30  # seconds
+CHECK_AP_INTERVAL = 60  # seconds
 
 def get_ap_mode():
     r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
@@ -83,9 +84,6 @@ def setup_ap0():
     config = get_ap_config()
     print(f"Setting up synthetic AP interface {config['virtual_ap']}...")
 
-#    subprocess.run(f"systemctl stop iwd", shell=True)
-    time.sleep(1)
-
     subprocess.run(f"iw dev {config['virtual_ap']} del", shell=True, stderr=subprocess.DEVNULL)
     subprocess.run(f"iw dev wlan0 interface add {config['virtual_ap']} type __ap", shell=True, check=True)
     subprocess.run(f"ip link set dev {config['virtual_ap']} address {config['virtual_mac']}", shell=True, check=True)
@@ -134,14 +132,43 @@ def stop_ap():
 def is_hostapd_running():
     return os.system("systemctl is-active --quiet hostapd") == 0
 
+def is_ap0_functional():
+    config = get_ap_config()
+    try:
+        output = subprocess.check_output(f"ip link show {config['virtual_ap']}", shell=True).decode()
+        if 'state UP' not in output:
+            return False
+        output = subprocess.check_output(f"ip addr show {config['virtual_ap']}", shell=True).decode()
+        if config['ip_address'] not in output:
+            return False
+        # Additional check: no RX/TX packets = potentially non-functional AP
+        rx_tx_match = re.search(r'RX packets (\d+).*TX packets (\d+)', output)
+        if rx_tx_match:
+            rx = int(rx_tx_match.group(1))
+            tx = int(rx_tx_match.group(2))
+            if rx == 0 and tx == 0:
+                return False
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
 def main():
     ap_running = False
     last_scan_time = 0
+    last_ap_check_time = 0
     wait_for_connect = False
 
     while True:
         state = get_wlan0_state()
         print(f"ConnMan wlan0 state: {state}")
+        current_time = time.time()
+
+        if current_time - last_ap_check_time > CHECK_AP_INTERVAL:
+            if ap_running and not is_ap0_functional():
+                print("AP0 detected as down or misconfigured. Restarting...")
+                stop_ap()
+                start_ap()
+            last_ap_check_time = current_time
 
         if wait_for_connect:
             if state in ('online', 'ready'):
@@ -156,12 +183,10 @@ def main():
                 ap_running = False
 
         else:
-            current_time = time.time()
             if not ap_running:
                 start_ap()
                 ap_running = True
                 last_scan_time = current_time
-
             elif current_time - last_scan_time >= SCAN_INTERVAL:
                 if is_known_network_visible():
                     stop_ap()
