@@ -57,18 +57,21 @@ def get_wlan0_state():
         output = subprocess.check_output(["iwctl", "station", "wlan0", "show"]).decode()
         for line in output.splitlines():
             if "State" in line:
-                state = line.split(":", 1)[-1].strip().lower()
+                # Normalize by removing extra spaces and splitting
+                key, value = map(str.strip, line.split(":", 1))
+                state = value.lower()
                 if state == "connected":
                     return "online"
                 elif state == "disconnected":
                     return "offline"
                 else:
-                    return state  # Could be 'idle', etc.
+                    return state
     except subprocess.CalledProcessError as e:
         print(f"Failed to get wlan0 state: {e}")
     except Exception as e:
         print(f"Unexpected error in get_wlan0_state: {e}")
     return "offline"
+
 
 def is_known_network_visible():
     try:
