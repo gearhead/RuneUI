@@ -1,4 +1,3 @@
-import dbus
 import time
 import os
 import redis
@@ -56,22 +55,17 @@ def get_wlan0_state():
     try:
         output = subprocess.check_output(["iwctl", "station", "wlan0", "show"]).decode()
         for line in output.splitlines():
-            if "State" in line:
-                # Normalize by removing extra spaces and splitting
-                key, value = map(str.strip, line.split(":", 1))
-                state = value.lower()
-                if state == "connected":
-                    return "online"
-                elif state == "disconnected":
-                    return "offline"
-                else:
+            line = line.strip()
+            if line.lower().startswith("state"):
+                parts = re.split(r"\s{2,}|:\s*", line)
+                if len(parts) >= 2:
+                    state = parts[1].strip().lower()
                     return state
     except subprocess.CalledProcessError as e:
         print(f"Failed to get wlan0 state: {e}")
     except Exception as e:
         print(f"Unexpected error in get_wlan0_state: {e}")
     return "offline"
-
 
 def is_known_network_visible():
     try:
@@ -180,13 +174,13 @@ def main():
             last_ap_check_time = current_time
 
         if wait_for_connect:
-            if state in ('online', 'ready'):
+            if state in ('online', 'ready', 'connected'):
                 print("WiFi connected after scan, skipping AP restart")
                 wait_for_connect = False
             else:
                 print("Still waiting for WiFi to connect...")
 
-        elif state in ('online', 'ready'):
+        elif state in ('online', 'ready', 'connected'):
             if ap_running:
                 stop_ap()
                 ap_running = False
