@@ -103,6 +103,7 @@ def start_ap_iwd():
     setup_ap0()
     subprocess.run(f"iwctl device {config['virtual_ap']} set-property Mode ap", shell=True)
     subprocess.run(f"iwctl ap {config['virtual_ap']} start-profile {config['ssid']}", shell=True)
+    enable_nat_if_configured()
     print(f"AP started on {config['virtual_ap']} with profile {config['ssid']}")
 
 def start_ap_hostapd():
@@ -126,6 +127,7 @@ def start_ap():
 def stop_ap():
     print("Stopping AP...")
     config = get_ap_config()
+    disable_nat_if_configured()
     if is_hostapd_running():
         print("Stopping hostapd and dnsmasq...")
         os.system("systemctl stop hostapd")
@@ -154,6 +156,58 @@ def is_ap0_functional():
         return True
     except subprocess.CalledProcessError:
         return False
+
+def enable_nat_if_configured():
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+
+    # Only configure NAT in IWD mode and if explicitly enabled
+    ap_mode = r.hget('AccessPoint', 'host')
+    nat_enabled = r.hget('AccessPoint', 'enable-NAT')
+
+    if (ap_mode is None or ap_mode.decode() != 'iwd') or (nat_enabled is None or nat_enabled.decode() != '1'):
+        return
+
+    # Try to detect a usable wired NIC (e.g., eth0 or similar)
+    try:
+        output = subprocess.check_output("ip link show", shell=True).decode()
+        eth_interfaces = [line.split(":")[1].strip() for line in output.splitlines() if ": eth" in line or ": en" in line]
+        eth_nic = eth_interfaces[0] if eth_interfaces else None
+    except Exception as e:
+        print(f"Error detecting Ethernet interface: {e}")
+        return
+
+    if not eth_nic:
+        print("No wired NIC detected. Skipping NAT config.")
+        return
+
+    try:
+        config = get_ap_config()
+        base_ip = config['ip_address'].rsplit('.', 1)[0]
+
+        subprocess.run(f"iptables -t nat -A POSTROUTING -s {base_ip}/24 -o {eth_nic} -j MASQUERADE", shell=True, check=True)
+        subprocess.run("sysctl -w net.ipv4.ip_forward=1", shell=True, check=True)
+
+        r.hset('AccessPoint', 'ethNic', eth_nic)
+        r.hset('AccessPoint', 'NAT-configured', 1)
+        print(f"NAT enabled via {eth_nic} for subnet {base_ip}/24")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to configure NAT: {e}")
+
+def disable_nat_if_configured():
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    nat_configured = r.hget('AccessPoint', 'NAT-configured')
+
+    if nat_configured and nat_configured.decode() == '1':
+        print("Disabling NAT...")
+        try:
+            subprocess.run("iptables -F", shell=True, check=True)
+            subprocess.run("iptables -t nat -F", shell=True, check=True)
+            subprocess.run("sysctl -w net.ipv4.ip_forward=0", shell=True, check=True)
+            r.hset('AccessPoint', 'NAT-configured', 0)
+            print("NAT disabled and ip_forward turned off.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to disable NAT: {e}")
 
 def main():
     ap_running = False
