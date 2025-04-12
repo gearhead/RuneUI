@@ -4,7 +4,7 @@ import subprocess
 import re
 import sys
 import os
-from pydbus import SystemBus
+import dbus
 
 def run_scan_command():
     if os.geteuid() != 0:
@@ -19,20 +19,33 @@ def ssid_to_hex(ssid):
     return ''.join(f"{ord(c):02x}" for c in ssid)
 
 def extract_known_ssids_from_iwd():
-    bus = SystemBus()
     known_ssids = set()
     known_map = {}  # Map SSID -> security
+
     try:
-        mngr = bus.get('net.connman.iwd', '/net/connman/iwd')
-        top_level = mngr.Introspect()
+        # Connect to the system bus
+        bus = dbus.SystemBus()
+
+        # Get the IWD manager object
+        mngr_obj = bus.get_object('net.connman.iwd', '/net/connman/iwd')
+
+        # Get the introspection interface
+        dbus_introspect = dbus.Interface(mngr_obj, 'org.freedesktop.DBus.Introspectable')
+        top_level = dbus_introspect.Introspect()
+
         for line in top_level.splitlines():
             match = re.search(r'<node name=\"([^\"]+)\">', line)
             if match:
                 subnode = match.group(1)
                 subpath = f"/net/connman/iwd/{subnode}"
                 try:
-                    obj = bus.get('net.connman.iwd', subpath)
-                    node_xml = obj.Introspect()
+                    # Get the subnode object
+                    subnode_obj = bus.get_object('net.connman.iwd', subpath)
+
+                    # Get the introspection interface for the subnode
+                    subnode_introspect = dbus.Interface(subnode_obj, 'org.freedesktop.DBus.Introspectable')
+                    node_xml = subnode_introspect.Introspect()
+
                     for ln in node_xml.splitlines():
                         submatch = re.search(r'<node name=\"([^\"]+)\">', ln)
                         if submatch:
@@ -54,6 +67,7 @@ def extract_known_ssids_from_iwd():
                     continue
     except Exception as e:
         print(f"Error accessing IWD via D-Bus: {e}")
+
     return known_ssids, known_map
 
 def get_local_wlan_mac():
