@@ -3122,7 +3122,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $profileFileContent =
                 '[global]'."\n".
                 'Description=';
-            $profileFileContent .= ' Wi-Fi network configuration for network (SSID) "'.$args['ssid'].'", with SSID hex value "'.$args['ssidHex']."\"\n".    
+            $profileFileContent .= ' Wi-Fi network configuration for network (SSID) "'.$args['ssid'].'", with SSID hex value "'.$args['ssidHex']."\"\n";
             if ($args['ipAssignment'] === 'DHCP') {
                   // don't really have to do anything -kg    
 //                $profileFileContent .= 'DHCP ';
