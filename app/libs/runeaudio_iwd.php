@@ -2957,12 +2957,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // suffix is either psk, open or 8021x
                 $profileFileName = '/var/lib/iwd/'.$profile['name'].'.psk';
                 $profileFileContent =
-                    '[global]'."\n".
+                    '[Global]'."\n".
                     'Description=Boot generated DHCP Wi-Fi network configuration for network (SSID) "'.$profile['name'].'", with SSID hex value "'.$ssidHex."\"\n".
                     'SSID='.$ssidHex."\n".
-                    '[Security]'."\n".
-//                    'Type=wifi'."\n".
-                    'Passphrase='.$profile['passphrase']."\n";
                     '[Settings]'."\n";
                 if (isset($profile['hidden'])) {
                     if ($profile['hidden']) {
@@ -2977,6 +2974,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 } else {
                     $profileFileContent .= 'IPv6=Disabled'."\n";
                 }
+                    $profileFileContent .= '[Security]'."\n";
+//                    'Type=wifi'."\n".
+                    $profileFileContent .= 'Passphrase='.$profile['passphrase']."\n";
+
                 // sort the profile array on ssid (case insensitive)
                 $ssidCol = array_column($storedProfiles, 'ssid');
                 $ssidCol = array_map('strtolower', $ssidCol);
@@ -3122,9 +3123,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $profileFileName = '/var/lib/iwd/'.$args['ssid'].'.psk';
             $tmpFileName = '/tmp/'.$args['ssid'].'.psk';
             $profileFileContent =
-                '[global]'."\n".
+                '[Global]'."\n".
                 'Description=';
             $profileFileContent .= ' Wi-Fi network configuration for network (SSID) "'.$args['ssid'].'", with SSID hex value "'.$args['ssidHex']."\"\n";
+//            $profileFileContent .= 'SSID='.$ssidHex."\n";
             if ($args['ipAssignment'] === 'DHCP') {
                 // don't really have to do anything -kg
         //        $profileFileContent .= 'DHCP ';
@@ -3147,35 +3149,38 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         //    '[service_'.$args['ssidHex'].']'."\n".
         //    'Type=wifi'."\n".
         //    'SSID='.$args['ssidHex']."\n";
+        // this works for iwd and connman but belongs in the [Security] section
+            $profileFileContent .= '[Security]'."\n";
+            $profileFileContent .= 'Passphrase='.$args['passphrase']."\n";
             $profileFileContent .= '[Settings]'."\n";
-            if (isset($args['autoconnect'])) {
+//            if (isset($args['autoconnect'])) {
                 // need to put this in the file name config. open or psk... -kg
         //        $profileFileContent .= 'Security=open'."\n";
-                if ($args['autoconnect']) {
+//                if ($args['autoconnect']) {
                     $profileFileContent .= 'AutoConnect=true'."\n";
-                } else {
-                    $profileFileContent .= 'AutoConnect=false'."\n";
-                }
-            } // else {
+//                } else {
+//                    $profileFileContent .= 'AutoConnect=false'."\n";
+//                }
+//            } // else {
             // this works for iwd and connman but belongs in the [Security] section
         //        $profileFileContent .= 'Security='.strtolower($args['security'])."\n".
         //            'Passphrase='.$args['passphrase']."\n";
         //    }
             if (isset($args['hidden']) && $args['hidden']) {
                 $profileFileContent .= 'Hidden=true'."\n";
-            } else {
-                $profileFileContent .= 'Hidden=false'."\n";
-            }
-            $profileFileContent .= '[IPv6]'."\n";
+            } //else {
+//                $profileFileContent .= 'Hidden=false'."\n";
+//            }
             if ($redis->get('network_ipv6')) {
+                $profileFileContent .= '[IPv6]'."\n";
                 $profileFileContent .= 'Enabled'."\n";
-            } else {
-                $profileFileContent .= 'Disabled'."\n";
-            }
+            } //else {
+//                $profileFileContent .= 'Disabled'."\n";
+//            }
             if ($args['ipAssignment'] === 'DHCP') {
                 if (isset($args['connmanString'])) {
                     $args['connmanString'] = trim($args['connmanString']);
-                    if ($args['connmanString']) {
+//                    if ($args['connmanString']) {
                         // make sure that connman has the correct values
         //                if ($redis->get('network_ipv6')) {
                             // ipv6 is enabled
@@ -3186,7 +3191,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         //                }
                         // iwd default is ipv4 dhcp
         //                sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
-                    }
+        //            }
                 }
             } else {
                 // ipv4 static requires a section in the <ssid>.psk with this
@@ -3203,9 +3208,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     $profileFileContent .= 'DNS='.$args['primaryDns'].','.$args['secondaryDns']."\n";
                 }
             }
-            // this works for iwd and connman but belongs in the [Security] section
-            $profileFileContent .= '[Security]'."\n";
-            $profileFileContent .= 'Passphrase='.$args['passphrase']."\n";
+
 
             // sort the profile array on ssid (case insensitive)
             $ssidCol = array_column($storedProfiles, 'ssid');
@@ -3452,7 +3455,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             break;
         case 'disconnect':
             // manual disconnect, to avoid automatic reconnection autoconnect is set off
-// maybe an iw command to bring down the interface? I think you'd have to delete the config
+// for wifi: need to change AutoConnect=true to false then iwctl station wlan0 disconnect <ssid>  -kg
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
 //            sysCmd('connmanctl disconnect '.$args['connmanString']);
             if (isset($args['nic'])) {
