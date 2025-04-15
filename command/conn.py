@@ -6,30 +6,50 @@ import sys
 import os
 import dbus
 
-def run_scan_command():
+def get_wireless_interfaces():
+    """Return a list of actual wireless interface names using IWD D-Bus."""
+    interfaces = []
+    try:
+        bus = dbus.SystemBus()
+        manager = bus.get_object('net.connman.iwd', '/')
+        obj_mgr = dbus.Interface(manager, 'org.freedesktop.DBus.ObjectManager')
+        objects = obj_mgr.GetManagedObjects()
+
+        for path, ifaces in objects.items():
+            if 'net.connman.iwd.Station' in ifaces:
+                device_iface = dbus.Interface(bus.get_object('net.connman.iwd', path),
+                                              dbus_interface='org.freedesktop.DBus.Properties')
+                name = device_iface.Get('net.connman.iwd.Device', 'Name')
+                interfaces.append(str(name))
+    except Exception as e:
+        print(f"Error detecting wireless interfaces: {e}")
+    return interfaces
+
+def run_scan_command_all():
     if os.geteuid() != 0:
         print("This script needs to be run as root for iw scan to work")
         sys.exit(1)
 
-    result = subprocess.run(['iw', 'dev', 'wlan0', 'scan'], 
-                            capture_output=True, text=True)
-    return result.stdout
+    output = ""
+    for iface in get_wireless_interfaces():
+        result = subprocess.run(['iw', 'dev', iface, 'scan'],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            output += result.stdout
+        else:
+            print(f"Scan failed on {iface}: {result.stderr.strip()}")
+    return output
 
 def ssid_to_hex(ssid):
     return ''.join(f"{ord(c):02x}" for c in ssid)
 
 def extract_known_ssids_from_iwd():
     known_ssids = set()
-    known_map = {}  # Map SSID -> security
+    known_map = {}
 
     try:
-        # Connect to the system bus
         bus = dbus.SystemBus()
-
-        # Get the IWD manager object
         mngr_obj = bus.get_object('net.connman.iwd', '/net/connman/iwd')
-
-        # Get the introspection interface
         dbus_introspect = dbus.Interface(mngr_obj, 'org.freedesktop.DBus.Introspectable')
         top_level = dbus_introspect.Introspect()
 
@@ -39,10 +59,7 @@ def extract_known_ssids_from_iwd():
                 subnode = match.group(1)
                 subpath = f"/net/connman/iwd/{subnode}"
                 try:
-                    # Get the subnode object
                     subnode_obj = bus.get_object('net.connman.iwd', subpath)
-
-                    # Get the introspection interface for the subnode
                     subnode_introspect = dbus.Interface(subnode_obj, 'org.freedesktop.DBus.Introspectable')
                     node_xml = subnode_introspect.Introspect()
 
@@ -55,10 +72,9 @@ def extract_known_ssids_from_iwd():
                                 try:
                                     ssid = bytes.fromhex(ssid_hex).decode('utf-8')
                                     known_ssids.add(ssid)
-                                    # Prefer secure version if both present
                                     if ssid in known_map:
                                         if known_map[ssid] == "none" and security == "psk":
-                                            known_map[ssid] = "psk"
+                                            known_map[ssid] = security
                                     else:
                                         known_map[ssid] = security
                                 except Exception:
@@ -67,24 +83,28 @@ def extract_known_ssids_from_iwd():
                     continue
     except Exception as e:
         print(f"Error accessing IWD via D-Bus: {e}")
-
     return known_ssids, known_map
 
 def get_local_wlan_mac():
-    try:
-        with open('/sys/class/net/wlan0/address', 'r') as f:
-            return f.read().strip().replace(':', '').lower()
-    except Exception:
-        return ""
+    # Use first available wireless interface for MAC
+    interfaces = get_wireless_interfaces()
+    for iface in interfaces:
+        try:
+            with open(f'/sys/class/net/{iface}/address', 'r') as f:
+                return f.read().strip().replace(':', '').lower()
+        except Exception:
+            continue
+    return ""
 
 def get_connected_ssid():
-    try:
-        result = subprocess.run(['iw', 'dev', 'wlan0', 'link'], capture_output=True, text=True)
-        match = re.search(r'SSID: (.+)', result.stdout)
-        if match:
-            return match.group(1).strip()
-    except Exception:
-        pass
+    for iface in get_wireless_interfaces():
+        try:
+            result = subprocess.run(['iw', 'dev', iface, 'link'], capture_output=True, text=True)
+            match = re.search(r'SSID: (.+)', result.stdout)
+            if match:
+                return match.group(1).strip()
+        except Exception:
+            continue
     return None
 
 def get_eth_status():
@@ -121,7 +141,6 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
             connman_format = f"wifi_{local_mac}_{ssid_hex}_managed_{security}"
 
             if ssid in seen_connman_ids:
-                # Prefer PSK if already seen as NONE
                 if seen_connman_ids[ssid][1] == "none" and security == "psk":
                     networks.remove(seen_connman_ids[ssid][2])
                 else:
@@ -135,7 +154,6 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
             networks.append(entry)
             seen_connman_ids[ssid] = (state, security, entry)
 
-    # Add missing known SSIDs from IWD that didn't show up in scan
     for ssid, sec in known_map.items():
         if ssid not in seen_connman_ids:
             ssid_hex = ssid_to_hex(ssid)
@@ -153,7 +171,7 @@ def format_connman_style(networks):
     return formatted_output
 
 def main():
-    scan_output = run_scan_command()
+    scan_output = run_scan_command_all()
     known_ssids, known_map = extract_known_ssids_from_iwd()
     local_mac = get_local_wlan_mac()
     connected_ssid = get_connected_ssid()
