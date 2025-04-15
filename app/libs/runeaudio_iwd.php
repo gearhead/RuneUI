@@ -3444,7 +3444,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 //            sysCmd('connmanctl connect '.$args['connmanString']);
             break;
         case 'autoconnect-on':
-// this needs to be changed in the config for eth0 then restart networkd
+// this needs to be changed in the config then restart networkd
             // manually set autoconnet on
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect on');
             break;
@@ -3458,6 +3458,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 // for wifi: need to change AutoConnect=true to false then iwctl station wlan0 disconnect <ssid>  -kg
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
 //            sysCmd('connmanctl disconnect '.$args['connmanString']);
+            sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect no');
             if (isset($args['nic'])) {
                 // also disconnect via iwd
                 sysCmd("iwctl station '".$args['nic']."' disconnect");
@@ -3503,20 +3504,22 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     }
                     // remove the connman profile
 //                    sysCmd('connmanctl config '.$network['connmanString'].' --remove');
+                    sysCmd('iwctl known-networks '.$args['ssid'].' --forget');
                     // save the network
                     $networks[] = $network;
                 }
                 unset($network_info);
                 if (count($networks)) {
                     // stop connman otherwise the cache files will be replaced after deletion
-                    wrk_systemd_unit($redis, 'stop', 'connman');
+                    // iwd will disconnect if the *.psk is deleted, so not needed
+//                    wrk_systemd_unit($redis, 'stop', 'connman');
                     foreach ($networks as $network) {
                         // stop connman otherwise the cache files will be replaced after deletion
-                        wrk_systemd_unit($redis, 'stop', 'connman');
+//                        wrk_systemd_unit($redis, 'stop', 'connman');
                         if (isset($network['ssidHex'])) {
                             // remove the connman configuration files and cache
                             unset($storedProfiles[$ssidHexKey]);
-                            $file = '/var/lib/iwd/'.$network['ssid'].'.psk';  // -kg this could be open as well...
+                            $file = '/var/lib/iwd/'.$network['ssid'].'.psk';  // -kg this could be open or 8021x as well...
                             clearstatcache(true, $file);
                             if (is_file($file)) {
                                 unlink($file);
@@ -3547,8 +3550,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         }
                     }
                     // restart connman
+                    // we did not take down iwd or networkd, so I do not think this is needed. 
 //                    wrk_systemd_unit($redis, 'start', 'connman');
-                    wrk_systemd_unit($redis, 'start', 'systemd-networkd');
+//                    wrk_systemd_unit($redis, 'start', 'systemd-networkd');
                 }
                 sysCmdAsync($redis, '/srv/http/command/refresh_nics');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
@@ -3560,8 +3564,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 // maybe networkd?
                 // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
-                unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
-                sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+//                unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
+//                sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+                // if anything we may need to delete the /etc/systemd/network/80-ethernet.network
+                // which is a link to the default one in /usr/lib/systemd/network
+                // file but it needs to be reset if we want it to connect to ethernet... -kg 
                 // restart connman
 //                wrk_systemd_unit($redis, 'start', 'connman');
             }
