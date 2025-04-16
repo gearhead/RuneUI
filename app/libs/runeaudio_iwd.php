@@ -3255,7 +3255,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'saveEthernet':
             // is only used to set/remove a static IP-address
             if ($args['ipAssignment'] === 'DHCP') {
-                // just delete the config file and remove the stored profile
+                // delete the config file and remove the stored profile
                 wrk_netconfig($redis, 'delete', '', $args);
                 // make sure that connman has the correct values
         //        if ($redis->get('network_ipv6')) {
@@ -3287,12 +3287,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // create the config file in '/var/lib/connman/', the name is 'ethernet_<macAddress>.config'
                 // need to totally rework this for systemd-networkd -kg
         //        $profileFileName = '/var/lib/connman/ethernet_'.$args['macAddress'].'.config';
-                $profileFileName = '/etc/systemd/networkd/20-wired.network';
+        //https://wiki.archlinux.org/title/Systemd-networkd#Basic_usage
+                $profileFileName = '/etc/systemd/networkd/30-wired.network';
                 $tmpFileName = '/tmp/ethernet_'.$args['macAddress'].'.network';
                 $macAddress = join(":", str_split($args['macAddress'], 2));
                 $nic = join(":", str_split($args['nic'], 2));
                 $profileFileContent =
-                    '[global]'."\n".
+                    '[Global]'."\n".
                     'Description=Static IP configuration for nic "'.$args['nic'].'", with MAC address "'.$macAddress."\"\n".
                     '[service_'.$args['macAddress'].']'."\n".
                     // add colons to the MAC address
@@ -3311,16 +3312,18 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
                 // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
-                // commit the config file, creating a new file triggers connman to use it
+                // commit the config file
                 $fp = fopen($tmpFileName, 'w');
                 fwrite($fp, $profileFileContent);
                 fclose($fp);
-                // don't replace the existing connman configuration file if the new file is identical
+                // don't replace the existing network configuration file if the new file is identical
                 clearstatcache(true, $profileFileName);
                 if (!file_exists($profileFileName) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
                     rename($tmpFileName, $profileFileName);
                     // take the nic down and bring it up to reset its ip-address
-                    sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+//                    sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+// I think it is best to restart networkd for this. -kg
+                    sysCmd('systemd restart systemd-networkd');
                     if (!$redis->get('network_ipv6')) {
                         // ipv6 is off, set the nic accordingly
                         sysCmd('sysctl -w net.ipv6.conf.'.$args['nic'].'.disable_ipv6=1 > /dev/null');
@@ -3359,8 +3362,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                             // change the configuration with connmanctl
                             sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 off');
                         } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
-                            // ssidHex is set and it is a wifi connection
-                            // for wifi the config file needs to be changed
+                            // ssidHex is set and it is a wifi connection --kg dunnno here
+                            // for wifi the iwd config file needs to be changed needs to be: psk, open or 8021x
                             $configFile = '/var/lib/iwd/'.$network['ssid'].'.psk';
                             // check that the config file exists
                             clearstatcache(true, $configFile);
@@ -3442,6 +3445,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'connect':
             // manual connect
 //            sysCmd('connmanctl connect '.$args['connmanString']);
+            sysCmd('iwctl station '.$args['nic'].' connect '.$args['ssid']);
             break;
         case 'autoconnect-on':
 // this needs to be changed in the config then restart networkd
@@ -3461,7 +3465,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect no');
             if (isset($args['nic'])) {
                 // also disconnect via iwd
-                sysCmd("iwctl station '".$args['nic']."' disconnect");
+                sysCmd('iwctl station '.$args['nic'].' disconnect .$args['ssid']');
             }
             break;
         case 'disconnect-delete':
