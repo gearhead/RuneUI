@@ -6,39 +6,17 @@ import sys
 import os
 import dbus
 
-def get_wireless_interfaces():
-    """Return a list of actual wireless interface names using IWD D-Bus."""
-    interfaces = []
-    try:
-        bus = dbus.SystemBus()
-        manager = bus.get_object('net.connman.iwd', '/')
-        obj_mgr = dbus.Interface(manager, 'org.freedesktop.DBus.ObjectManager')
-        objects = obj_mgr.GetManagedObjects()
-
-        for path, ifaces in objects.items():
-            if 'net.connman.iwd.Station' in ifaces:
-                device_iface = dbus.Interface(bus.get_object('net.connman.iwd', path),
-                                              dbus_interface='org.freedesktop.DBus.Properties')
-                name = device_iface.Get('net.connman.iwd.Device', 'Name')
-                interfaces.append(str(name))
-    except Exception as e:
-        print(f"Error detecting wireless interfaces: {e}")
-    return interfaces
-
-def run_scan_command_all():
+def run_scan_command(iface):
     if os.geteuid() != 0:
         print("This script needs to be run as root for iw scan to work")
         sys.exit(1)
 
-    output = ""
-    for iface in get_wireless_interfaces():
-        result = subprocess.run(['iw', 'dev', iface, 'scan'],
-                                capture_output=True, text=True)
-        if result.returncode == 0:
-            output += result.stdout
-        else:
-            print(f"Scan failed on {iface}: {result.stderr.strip()}")
-    return output
+    result = subprocess.run(['iw', 'dev', iface, 'scan'], 
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Scan failed on {iface}: {result.stderr.strip()}")
+        return ""
+    return result.stdout
 
 def ssid_to_hex(ssid):
     return ''.join(f"{ord(c):02x}" for c in ssid)
@@ -83,28 +61,42 @@ def extract_known_ssids_from_iwd():
                     continue
     except Exception as e:
         print(f"Error accessing IWD via D-Bus: {e}")
+
     return known_ssids, known_map
 
-def get_local_wlan_mac():
-    # Use first available wireless interface for MAC
-    interfaces = get_wireless_interfaces()
-    for iface in interfaces:
-        try:
-            with open(f'/sys/class/net/{iface}/address', 'r') as f:
-                return f.read().strip().replace(':', '').lower()
-        except Exception:
-            continue
-    return ""
+def get_wireless_interfaces():
+    interfaces = []
+    try:
+        bus = dbus.SystemBus()
+        manager = bus.get_object('net.connman.iwd', '/')
+        obj_mgr = dbus.Interface(manager, 'org.freedesktop.DBus.ObjectManager')
+        objects = obj_mgr.GetManagedObjects()
 
-def get_connected_ssid():
-    for iface in get_wireless_interfaces():
-        try:
-            result = subprocess.run(['iw', 'dev', iface, 'link'], capture_output=True, text=True)
-            match = re.search(r'SSID: (.+)', result.stdout)
-            if match:
-                return match.group(1).strip()
-        except Exception:
-            continue
+        for path, ifaces in objects.items():
+            if 'net.connman.iwd.Station' in ifaces:
+                device_iface = dbus.Interface(bus.get_object('net.connman.iwd', path),
+                                              dbus_interface='org.freedesktop.DBus.Properties')
+                name = device_iface.Get('net.connman.iwd.Device', 'Name')
+                interfaces.append(str(name))
+    except Exception as e:
+        print(f"Error detecting wireless interfaces: {e}")
+    return interfaces
+
+def get_local_wlan_mac(iface):
+    try:
+        with open(f'/sys/class/net/{iface}/address', 'r') as f:
+            return f.read().strip().replace(':', '').lower()
+    except Exception:
+        return ""
+
+def get_connected_ssid(iface):
+    try:
+        result = subprocess.run(['iw', 'dev', iface, 'link'], capture_output=True, text=True)
+        match = re.search(r'SSID: (.+)', result.stdout)
+        if match:
+            return match.group(1).strip()
+    except Exception:
+        pass
     return None
 
 def get_eth_status():
@@ -171,24 +163,54 @@ def format_connman_style(networks):
     return formatted_output
 
 def main():
-    scan_output = run_scan_command_all()
     known_ssids, known_map = extract_known_ssids_from_iwd()
-    local_mac = get_local_wlan_mac()
-    connected_ssid = get_connected_ssid()
+    interfaces = get_wireless_interfaces()
 
-    ethernet_state = get_eth_status()
+    all_wifi_networks = []
+    connected_wifi = []
+    other_wifi = []
+
+    local_mac = None
+    connected_ssid = None
+
+    for iface in interfaces:
+        scan_output = run_scan_command(iface)
+        if not scan_output:
+            continue
+        if not local_mac:
+            local_mac = get_local_wlan_mac(iface)
+        if not connected_ssid:
+            connected_ssid = get_connected_ssid(iface)
+
+        networks = parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected_ssid)
+        all_wifi_networks.extend(networks)
+
+    # Deduplicate by ConnMan ID
+    unique_networks = {}
+    for entry in all_wifi_networks:
+        unique_networks[entry[2]] = entry
+
+    for entry in unique_networks.values():
+        if entry[0] == '*AO':
+            connected_wifi.append(entry)
+        else:
+            other_wifi.append(entry)
+
     result = ""
-    if ethernet_state.strip():
+    eth_status = get_eth_status()
+    if eth_status.strip():
         eth_mac = subprocess.run(['cat', '/sys/class/net/eth0/address'], capture_output=True, text=True).stdout.strip().replace(':', '')
-        result += f"{ethernet_state} Wired                ethernet_{eth_mac}_cable\n"
+        result += f"{eth_status} Wired                ethernet_{eth_mac}_cable\n"
 
-    networks = parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected_ssid)
-    if networks:
-        result += format_connman_style(networks)
-    else:
+    if connected_wifi:
+        result += format_connman_style(connected_wifi)
+    if other_wifi:
+        result += format_connman_style(other_wifi)
+    if not (connected_wifi or other_wifi):
         result += "No wireless networks found\n"
 
     print(result)
 
 if __name__ == "__main__":
     main()
+
