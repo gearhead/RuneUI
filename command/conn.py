@@ -6,15 +6,18 @@ import sys
 import os
 import dbus
 
-def run_scan_command(iface):
-    if os.geteuid() != 0:
-        print("This script needs to be run as root for iw scan to work")
-        sys.exit(1)
+def get_wireless_interfaces():
+    try:
+        result = subprocess.run(['iw', 'dev'], capture_output=True, text=True)
+        interfaces = re.findall(r'Interface (\w+)', result.stdout)
+        return interfaces
+    except Exception:
+        return []
 
-    result = subprocess.run(['iw', 'dev', iface, 'scan'], 
-                            capture_output=True, text=True)
+def run_scan_command(interface):
+    result = subprocess.run(['iw', 'dev', interface, 'scan'], capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"Scan failed on {iface}: {result.stderr.strip()}")
+        print(f"Scan failed on {interface}: {result.stderr.strip()}")
         return ""
     return result.stdout
 
@@ -23,7 +26,7 @@ def ssid_to_hex(ssid):
 
 def extract_known_ssids_from_iwd():
     known_ssids = set()
-    known_map = {}
+    known_map = {}  # Map SSID -> security
 
     try:
         bus = dbus.SystemBus()
@@ -64,34 +67,16 @@ def extract_known_ssids_from_iwd():
 
     return known_ssids, known_map
 
-def get_wireless_interfaces():
-    interfaces = []
+def get_local_mac(interface):
     try:
-        bus = dbus.SystemBus()
-        manager = bus.get_object('net.connman.iwd', '/')
-        obj_mgr = dbus.Interface(manager, 'org.freedesktop.DBus.ObjectManager')
-        objects = obj_mgr.GetManagedObjects()
-
-        for path, ifaces in objects.items():
-            if 'net.connman.iwd.Station' in ifaces:
-                device_iface = dbus.Interface(bus.get_object('net.connman.iwd', path),
-                                              dbus_interface='org.freedesktop.DBus.Properties')
-                name = device_iface.Get('net.connman.iwd.Device', 'Name')
-                interfaces.append(str(name))
-    except Exception as e:
-        print(f"Error detecting wireless interfaces: {e}")
-    return interfaces
-
-def get_local_wlan_mac(iface):
-    try:
-        with open(f'/sys/class/net/{iface}/address', 'r') as f:
+        with open(f'/sys/class/net/{interface}/address', 'r') as f:
             return f.read().strip().replace(':', '').lower()
     except Exception:
         return ""
 
-def get_connected_ssid(iface):
+def get_connected_ssid(interface):
     try:
-        result = subprocess.run(['iw', 'dev', iface, 'link'], capture_output=True, text=True)
+        result = subprocess.run(['iw', 'dev', interface, 'link'], capture_output=True, text=True)
         match = re.search(r'SSID: (.+)', result.stdout)
         if match:
             return match.group(1).strip()
@@ -119,6 +104,7 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
         lines = section.strip().split('\n')
         ssid = None
         is_secured = False
+        signal_dbm = None
 
         for line in lines:
             ssid_match = re.search(r'SSID: (.*)', line)
@@ -126,6 +112,9 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
                 ssid = ssid_match.group(1).strip()
             if 'WPA' in line or 'RSN' in line:
                 is_secured = True
+            signal_match = re.search(r'signal:\s*(-?\d+\.\d+)', line)
+            if signal_match:
+                signal_dbm = float(signal_match.group(1))
 
         if ssid:
             security = "psk" if is_secured else "none"
@@ -142,7 +131,7 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
             is_connected = (ssid == connected_ssid)
 
             state = '*AO' if is_connected else ('*  ' if is_known else '   ')
-            entry = (state, ssid, connman_format)
+            entry = (state, ssid, connman_format, signal_dbm)
             networks.append(entry)
             seen_connman_ids[ssid] = (state, security, entry)
 
@@ -151,61 +140,55 @@ def parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected
             ssid_hex = ssid_to_hex(ssid)
             connman_format = f"wifi_{local_mac}_{ssid_hex}_managed_{sec}"
             state = '*  ' if ssid != connected_ssid else '*AO'
-            entry = (state, ssid, connman_format)
+            entry = (state, ssid, connman_format, None)
             networks.append(entry)
 
     return networks
 
 def format_connman_style(networks):
-    formatted_output = ""
-    for state, ssid, connman_id in sorted(networks):
-        formatted_output += f"{state} {ssid:<20} {connman_id}\n"
-    return formatted_output
+    output = ""
+    for state, ssid, connman_id, signal in networks:
+        output += f"{state} {ssid:<20} {connman_id}\n"
+    return output
 
 def main():
-    known_ssids, known_map = extract_known_ssids_from_iwd()
-    interfaces = get_wireless_interfaces()
+    if os.geteuid() != 0:
+        print("This script needs to be run as root for iw scan to work")
+        sys.exit(1)
 
-    all_wifi_networks = []
+    interfaces = get_wireless_interfaces()
+    if not interfaces:
+        print("No wireless interfaces found")
+        return
+
+    known_ssids, known_map = extract_known_ssids_from_iwd()
+    ethernet_state = get_eth_status()
+
+    result = ""
+
+    if ethernet_state.strip():
+        eth_mac = subprocess.run(['cat', '/sys/class/net/eth0/address'], capture_output=True, text=True).stdout.strip().replace(':', '')
+        result += f"{ethernet_state} Wired                ethernet_{eth_mac}_cable\n"
+
     connected_wifi = []
     other_wifi = []
 
-    local_mac = None
-    connected_ssid = None
-
     for iface in interfaces:
         scan_output = run_scan_command(iface)
-        if not scan_output:
-            continue
-        if not local_mac:
-            local_mac = get_local_wlan_mac(iface)
-        if not connected_ssid:
-            connected_ssid = get_connected_ssid(iface)
-
+        local_mac = get_local_mac(iface)
+        connected_ssid = get_connected_ssid(iface)
         networks = parse_scan_results(scan_output, known_ssids, known_map, local_mac, connected_ssid)
-        all_wifi_networks.extend(networks)
 
-    # Deduplicate by ConnMan ID
-    unique_networks = {}
-    for entry in all_wifi_networks:
-        unique_networks[entry[2]] = entry
+        for entry in networks:
+            if entry[0] == '*AO':
+                connected_wifi.append(entry)
+            else:
+                other_wifi.append(entry)
 
-    for entry in unique_networks.values():
-        if entry[0] == '*AO':
-            connected_wifi.append(entry)
-        else:
-            other_wifi.append(entry)
+    connected_wifi.sort(key=lambda x: x[3] if x[3] is not None else -100, reverse=True)
+    other_wifi.sort(key=lambda x: x[3] if x[3] is not None else -100, reverse=True)
 
-    result = ""
-    eth_status = get_eth_status()
-    if eth_status.strip():
-        eth_mac = subprocess.run(['cat', '/sys/class/net/eth0/address'], capture_output=True, text=True).stdout.strip().replace(':', '')
-        result += f"{eth_status} Wired                ethernet_{eth_mac}_cable\n"
-
-    if connected_wifi:
-        result += format_connman_style(connected_wifi)
-    if other_wifi:
-        result += format_connman_style(other_wifi)
+    result += format_connman_style(connected_wifi + other_wifi)
     if not (connected_wifi or other_wifi):
         result += "No wireless networks found\n"
 
@@ -213,4 +196,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
