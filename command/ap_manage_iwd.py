@@ -1,19 +1,49 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2013-2014 RuneAudio Team
+# http://www.runeaudio.com
+#
+# RuneUI
+# copyright (C) 2013-2014 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+#
+# RuneOS
+# copyright (C) 2013-2014 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+#
+# RuneAudio website and logo
+# copyright (C) 2013-2014 - ACX webdesign (Andrea Coiutti)
+#
+# This Program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# This Program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with RuneAudio; see the file COPYING. If not, see
+# <http://www.gnu.org/licenses/gpl-3.0.txt>.
+#
+#  file: command/ap_manage_iwd.py
+#  version: 0.1
+#  coder: Gearhead
+#/
+
 import time
 import os
 import redis
 import subprocess
 import re
 
-#REDIS_HOST = 'localhost'
-#REDIS_HOST = '127.0.0.1'
 REDIS_SOCKET = '/run/redis/socket'
-REDIS_PORT = 6379
 
 SCAN_INTERVAL = 30  # seconds
 CHECK_AP_INTERVAL = 60  # seconds
+LOCK_FILE = "/run/ap0.lock"
 
 def get_ap_mode():
-#    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
     r = redis.Redis(unix_socket_path=REDIS_SOCKET)
     ap_mode = r.hget('AccessPoint', 'host')
     if ap_mode is None:
@@ -21,7 +51,7 @@ def get_ap_mode():
     return ap_mode.decode('utf-8')
 
 def get_ap_config():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    r = redis.Redis(unix_socket_path=REDIS_SOCKET)
     return {
         'ip_address': r.hget('AccessPoint', 'ip-address').decode('utf-8'),
         'broadcast': r.hget('AccessPoint', 'broadcast').decode('utf-8'),
@@ -99,6 +129,10 @@ def setup_ap0():
     subprocess.run("systemctl reload-or-restart iwd", shell=True)
     time.sleep(2)
 
+    # Create lock file
+    with open(LOCK_FILE, 'w') as f:
+        f.write(str(time.time()))
+
 def start_ap_iwd():
     print("Starting AP using iwd...")
     config = get_ap_config()
@@ -137,6 +171,8 @@ def stop_ap():
         os.system("systemctl stop dnsmasq")
     print(f"Deleting synthetic interface {config['virtual_ap']}...")
     os.system(f"iw dev {config['virtual_ap']} del")
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
 
 def is_hostapd_running():
     return os.system("systemctl is-active --quiet hostapd") == 0
@@ -161,16 +197,12 @@ def is_ap0_functional():
         return False
 
 def enable_nat_if_configured():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
-
-    # Only configure NAT in IWD mode and if explicitly enabled
+    r = redis.Redis(unix_socket_path=REDIS_SOCKET)
     ap_mode = r.hget('AccessPoint', 'host')
     nat_enabled = r.hget('AccessPoint', 'enable-NAT')
-
     if (ap_mode is None or ap_mode.decode() != 'iwd') or (nat_enabled is None or nat_enabled.decode() != '1'):
         return
 
-    # Try to detect a usable wired NIC (e.g., eth0 or similar)
     try:
         output = subprocess.check_output("ip link show", shell=True).decode()
         eth_interfaces = [line.split(":")[1].strip() for line in output.splitlines() if ": eth" in line or ": en" in line]
@@ -198,7 +230,7 @@ def enable_nat_if_configured():
         print(f"Failed to configure NAT: {e}")
 
 def disable_nat_if_configured():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    r = redis.Redis(unix_socket_path=REDIS_SOCKET)
     nat_configured = r.hget('AccessPoint', 'NAT-configured')
 
     if nat_configured and nat_configured.decode() == '1':
@@ -212,7 +244,21 @@ def disable_nat_if_configured():
         except subprocess.CalledProcessError as e:
             print(f"Failed to disable NAT: {e}")
 
+def teardown_unmanaged_ap0():
+    config = get_ap_config()
+    ap_iface = config['virtual_ap']
+    try:
+        output = subprocess.check_output("iw dev", shell=True).decode()
+        if ap_iface in output and not os.path.exists(LOCK_FILE):
+            print(f"Unmanaged {ap_iface} detected; tearing it down...")
+            subprocess.run(f"ip link set {ap_iface} down", shell=True)
+            subprocess.run(f"iw dev {ap_iface} del", shell=True)
+    except Exception as e:
+        print(f"Error checking/tearing down unmanaged {ap_iface}: {e}")
+
 def main():
+    teardown_unmanaged_ap0()
+
     ap_running = False
     last_scan_time = 0
     last_ap_check_time = 0
@@ -220,7 +266,6 @@ def main():
 
     while True:
         state = get_wlan0_state()
-#        print(f"IWD wlan0 state: {state}")
         current_time = time.time()
 
         if current_time - last_ap_check_time > CHECK_AP_INTERVAL:
@@ -260,3 +305,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
