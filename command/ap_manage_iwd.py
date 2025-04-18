@@ -4,14 +4,17 @@ import redis
 import subprocess
 import re
 
-REDIS_HOST = 'localhost'
+#REDIS_HOST = 'localhost'
+#REDIS_HOST = '127.0.0.1'
+REDIS_SOCKET = '/run/redis/socket'
 REDIS_PORT = 6379
 
 SCAN_INTERVAL = 30  # seconds
 CHECK_AP_INTERVAL = 60  # seconds
 
 def get_ap_mode():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+#    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    r = redis.Redis(unix_socket_path=REDIS_SOCKET)
     ap_mode = r.hget('AccessPoint', 'host')
     if ap_mode is None:
         return 'host'
@@ -217,7 +220,7 @@ def main():
 
     while True:
         state = get_wlan0_state()
-        print(f"IWD wlan0 state: {state}")
+#        print(f"IWD wlan0 state: {state}")
         current_time = time.time()
 
         if current_time - last_ap_check_time > CHECK_AP_INTERVAL:
