@@ -3465,7 +3465,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect no');
             if (isset($args['nic'])) {
                 // also disconnect via iwd
-                sysCmd('iwctl station '.$args['nic'].' disconnect .$args['ssid']');
+                sysCmd('iwctl station ' .$args['nic']. ' disconnect '.$args['ssid']);
             }
             break;
         case 'disconnect-delete':
