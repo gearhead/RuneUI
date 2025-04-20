@@ -36,6 +36,7 @@ import os
 import redis
 import subprocess
 import re
+import dbus
 
 REDIS_SOCKET = '/run/redis/socket'
 
@@ -102,21 +103,99 @@ def get_wlan0_state():
     return "offline"
 
 def is_known_network_visible():
-    try:
-        subprocess.run(["iwctl", "station", "wlan0", "scan"], check=True)
-        time.sleep(2)
-        output = subprocess.check_output(["iwctl", "station", "wlan0", "get-networks"]).decode()
-        for line in output.splitlines():
-            if "*" in line:
-                print(f"Known network visible: {line}")
-                return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error checking known networks: {e}")
+    bus = dbus.SystemBus()
+    
+    # Get known SSIDs
+    manager = dbus.Interface(bus.get_object('net.connman.iwd', '/'),
+                             'org.freedesktop.DBus.ObjectManager')
+    objects = manager.GetManagedObjects()
+    known_ssids = set()
+    visible_networks = {}
+    
+    for path, interfaces in objects.items():
+        # Collect known networks
+        if 'net.connman.iwd.KnownNetwork' in interfaces:
+            props = interfaces['net.connman.iwd.KnownNetwork']
+            ssid_bytes = props.get('Name')
+            if ssid_bytes:
+                # Handle the case where ssid_bytes is already a string
+                if isinstance(ssid_bytes, str):
+                    ssid = ssid_bytes
+                else:
+                    # Handle case where it's bytes or array of integers
+                    ssid = ''.join(chr(b) for b in ssid_bytes)
+                known_ssids.add(ssid)
+    
+        # Collect visible networks from Station.GetOrderedNetworks
+        if 'net.connman.iwd.Station' in interfaces:
+            station_obj = bus.get_object('net.connman.iwd', path)
+            station_iface = dbus.Interface(station_obj, 'net.connman.iwd.Station')
+            try:
+                ordered_networks = station_iface.GetOrderedNetworks()
+                for network in ordered_networks:
+                    # GetOrderedNetworks() returns a list of tuples, where the first element is the object path
+                    net_path = network[0]  # Extract the object path
+                    net_obj = bus.get_object('net.connman.iwd', net_path)
+                    props_iface = dbus.Interface(net_obj, 'org.freedesktop.DBus.Properties')
+                    net_props = props_iface.GetAll('net.connman.iwd.Network')
+                    ssid_bytes = net_props.get('Name')
+                    if ssid_bytes:
+                        # Handle the case where ssid_bytes is already a string
+                        if isinstance(ssid_bytes, str):
+                            ssid = ssid_bytes
+                        else:
+                            # Handle case where it's bytes or array of integers
+                            ssid = ''.join(chr(b) for b in ssid_bytes)
+                        visible_networks[ssid] = net_path
+            except dbus.exceptions.DBusException as e:
+                print(f"DBus exception: {e}")
+                continue
+    
+    # Check if any known SSID is currently visible
+    for ssid in known_ssids:
+        if ssid in visible_networks:
+            print(f"Known network visible: {ssid}")
+            return True
     return False
 
 def trigger_wifi_scan():
-    print("Triggering wifi scan via iwctl...")
-    os.system("iwctl station wlan0 scan")
+    print("Triggering wifi scan via D-Bus...")
+    try:
+        bus = dbus.SystemBus()
+        
+        # Get all managed objects to find the station interface
+        manager = dbus.Interface(bus.get_object('net.connman.iwd', '/'),
+                                'org.freedesktop.DBus.ObjectManager')
+        objects = manager.GetManagedObjects()
+        
+        # Find the station object for wlan0
+        station_path = None
+        for path, interfaces in objects.items():
+            if 'net.connman.iwd.Station' in interfaces:
+                station_obj = bus.get_object('net.connman.iwd', path)
+                props_iface = dbus.Interface(station_obj, 'org.freedesktop.DBus.Properties')
+                try:
+                    device = props_iface.Get('net.connman.iwd.Station', 'Name')
+                    if device == "wlan0":
+                        station_path = path
+                        break
+                except dbus.exceptions.DBusException:
+                    continue
+        
+        if station_path:
+            # Trigger scan
+            station_obj = bus.get_object('net.connman.iwd', station_path)
+            station_iface = dbus.Interface(station_obj, 'net.connman.iwd.Station')
+            station_iface.Scan()
+            print("Scan triggered successfully")
+            return True
+        else:
+            print("Could not find wlan0 station interface")
+            return False
+            
+    except dbus.exceptions.DBusException as e:
+        print(f"D-Bus error triggering scan: {e}")
+        return False
 
 def setup_ap0():
     config = get_ap_config()
@@ -138,7 +217,7 @@ def start_ap_iwd():
     subprocess.run(f"iwctl device {config['virtual_ap']} set-property Mode ap", shell=True)
     subprocess.run(f"iwctl ap {config['virtual_ap']} start-profile {config['ssid']}", shell=True)
     enable_nat_if_configured()
-    print(f"AP started on {config['virtual_ap']} with profile {config['ssid']}")
+    print(f"[iwd] AP started on {config['virtual_ap']} with profile {config['ssid']}")
 
 def start_ap_hostapd():
     print("Starting AP using hostapd...")
@@ -252,10 +331,14 @@ def main():
     last_scan_time = 0
     last_ap_check_time = 0
     wait_for_connect = False
+    last_wait_state = False
+
 
     while True:
         state = get_wlan0_state()
-        print(f"IWD wlan0 state: {state}")
+        if state != locals().get("last_state", None):
+            print(f"IWD wlan0 state: {state}")
+            last_state = state
         current_time = time.time()
 
         if current_time - last_ap_check_time > CHECK_AP_INTERVAL:
@@ -274,8 +357,11 @@ def main():
             if state in ('online', 'ready', 'connected'):
                 print("WiFi connected after scan, skipping AP restart")
                 wait_for_connect = False
+                last_wait_state = False
             else:
-                print("Still waiting for WiFi to connect...")
+                if not last_wait_state:
+                    print("Still waiting for WiFi to connect...")
+                    last_wait_state = True
 
         elif state in ('online', 'ready', 'connected'):
             if ap_running:
