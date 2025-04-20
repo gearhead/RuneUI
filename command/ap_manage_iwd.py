@@ -67,6 +67,7 @@ def generate_iwd_ap_config():
     config_path = f"{config_dir}/{config['ssid']}.ap"
     config_content = f"""[General]
 DisableHT=true
+DisableVHT=true
 [Security]
 Passphrase={config['psk']}
 [IPv4]
@@ -76,6 +77,7 @@ Netmask=255.255.255.0
 DNSList={config['ip_address']}
 
 [Settings]
+Channel=6
 SSID={config['ssid']}
 Hidden=false
 """
@@ -160,12 +162,16 @@ def stop_ap():
     print("Stopping AP...")
     config = get_ap_config()
     disable_nat_if_configured()
+
     if is_hostapd_running():
         print("Stopping hostapd and dnsmasq...")
         os.system("systemctl stop hostapd")
         os.system("systemctl stop dnsmasq")
+
     print(f"Deleting synthetic interface {config['virtual_ap']}...")
-    os.system(f"iw dev {config['virtual_ap']} del")
+    subprocess.run(f"iw dev {config['virtual_ap']} del", shell=True, stderr=subprocess.DEVNULL)
+    time.sleep(1)
+
 
 def is_hostapd_running():
     return os.system("systemctl is-active --quiet hostapd") == 0
@@ -254,10 +260,15 @@ def main():
 
         if current_time - last_ap_check_time > CHECK_AP_INTERVAL:
             if ap_running and not is_ap0_functional():
-                print("AP0 detected as down or misconfigured. Restarting...")
+                print("AP0 detected as down or misconfigured. Tearing down and restarting from scratch...")
                 stop_ap()
+                time.sleep(2)
+                try:
+                    subprocess.run("iw dev ap0 del", shell=True, check=False, stderr=subprocess.DEVNULL)
+                except Exception as e:
+                    print(f"Failed to delete ap0: {e}")
+                time.sleep(1)
                 start_ap()
-            last_ap_check_time = current_time
 
         if wait_for_connect:
             if state in ('online', 'ready', 'connected'):

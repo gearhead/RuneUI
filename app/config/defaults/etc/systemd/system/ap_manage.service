@@ -1,11 +1,15 @@
 [Unit]
-Description=ap0 management Service
-After=multi-user.target
+Description=ap0 management service
+After=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /srv/http/command/ap_manage_iwd.py
 Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
