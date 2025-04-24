@@ -187,7 +187,8 @@ if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
     if [ "$wifinicdown" == "1" ] ; then
         # at least one wifi nic is down
 #        connmanctl scan wifi
-        iwctl station wlan0 scan
+#        iwctl station wlan0 scan
+        iw $nic scan
     fi
 fi
 #

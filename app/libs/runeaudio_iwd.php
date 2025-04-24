@@ -8776,9 +8776,11 @@ function refresh_nics($redis)
             if (is_firstTime($redis, 'connman_scan_wifi')) {
 //                sysCmd('connmanctl scan wifi');
                 sysCmd('iwctl station wlan0 scan');
+                sysCmd('iw '.$nic.' scan');
             } else {
 //                sysCmdAsync($redis, 'connmanctl scan wifi');
                 sysCmdAsync($redis, 'iwctl station wlan0 scan');
+                sysCmdAsync($redis, 'iw '.$nic.' scan');
             }
             // sleep (1);
             if ($networkInterfaces[$nic]['speed'] === 'Unknown') {
