@@ -6,6 +6,22 @@ import sys
 import os
 import dbus
 
+#host = 'wpa'  # or 'iwd'
+def get_host_backend():
+    try:
+        # Check if the iwd service is active
+        result = subprocess.run(
+            ['systemctl', 'is-active', '--quiet', 'iwd'],
+            check=False
+        )
+        if result.returncode == 0:
+            return 'iwd'
+        else:
+            return 'wpa'
+    except Exception as e:
+        print("Error checking iwd status:", e)
+        return 'wpa'
+        
 def get_wireless_interfaces():
     try:
         result = subprocess.run(['iw', 'dev'], capture_output=True, text=True)
@@ -66,6 +82,48 @@ def extract_known_ssids_from_iwd():
         print(f"Error accessing IWD via D-Bus: {e}")
 
     return known_ssids, known_map
+
+def extract_known_ssids_from_systemd_networkd(directory='/etc/systemd/network'):
+    known_ssids = set()
+    known_map = {}
+
+    for filename in os.listdir(directory):
+        if not filename.endswith('.network'):
+            continue
+        path = os.path.join(directory, filename)
+
+        try:
+            with open(path, 'r') as f:
+                content = f.read()
+
+            ssid_match = re.search(r'^SSID=(.+)', content, re.MULTILINE)
+            key_match = re.search(r'^KeyManagement=(.+)', content, re.MULTILINE)
+
+            if ssid_match:
+                ssid = ssid_match.group(1).strip().strip('"')
+                known_ssids.add(ssid)
+
+                key_mgmt = key_match.group(1).strip() if key_match else "none"
+                if key_mgmt.lower() in ("wpa-psk", "sae"):
+                    sec_type = "psk"
+                elif key_mgmt.lower() == "wep":
+                    sec_type = "wep"
+                elif key_mgmt.lower() == "none":
+                    sec_type = "none"
+                else:
+                    sec_type = key_mgmt.lower()
+
+                if ssid in known_map:
+                    if known_map[ssid] == "none" and sec_type == "psk":
+                        known_map[ssid] = sec_type
+                else:
+                    known_map[ssid] = sec_type
+
+        except Exception as e:
+            print(f"Error parsing {filename}: {e}")
+
+    return known_ssids, known_map
+
 
 def get_local_mac(interface):
     try:
@@ -160,8 +218,15 @@ def main():
     if not interfaces:
         print("No wireless interfaces found")
         return
+        
+    host = get_host_backend()    
+    if host == 'iwd':
+        known_ssids, known_map = extract_known_ssids_from_iwd()
+    elif host == 'wpa':
+        known_ssids, known_map = extract_known_ssids_from_systemd_networkd(directory='/etc/systemd/network')
+    else:
+        print("Unknown host type:", host)
 
-    known_ssids, known_map = extract_known_ssids_from_iwd()
     ethernet_state = get_eth_status()
 
     result = ""
