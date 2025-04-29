@@ -1,383 +1,299 @@
 #!/usr/bin/env python3
-import sys
-import dbus
-import collections
-import subprocess
-import re
-import socket
-import netifaces
 
-def parse_connman_identifier(identifier):
-    parts = identifier.split('_')
-    if len(parts) < 4:
-        raise ValueError("Invalid identifier format")
-    mac = parts[1]
-    ssid_hex = parts[2]
-    security = parts[3]
+import sys
+import re
+import os
+import argparse
+import binascii
+import socket
+import subprocess
+import ipaddress
+from collections import defaultdict
+
+def parse_connman_service_id(service_id):
+    """Parse a connman service ID into its components."""
+    pattern = r'wifi_([0-9a-f]+)_([0-9a-f]+)_managed_(\w+)'
+    match = re.match(pattern, service_id)
+    
+    if not match:
+        return None
+    
+    mac_hex, ssid_hex, security = match.groups()
+    
+    # Convert the hex SSID to human-readable form
+    try:
+        ssid_ascii = bytes.fromhex(ssid_hex).decode('utf-8')
+    except (binascii.Error, UnicodeDecodeError):
+        ssid_ascii = f"<Unable to decode: {ssid_hex}>"
+    
+    # Format MAC address with colons
+    mac = ':'.join(mac_hex[i:i+2] for i in range(0, len(mac_hex), 2))
+    
     return {
-        'mac': ':'.join(mac[i:i+2] for i in range(0, len(mac), 2)),
+        'service_id': service_id,
+        'mac': mac,
+        'mac_hex': mac_hex,
+        'ssid_ascii': ssid_ascii,
         'ssid_hex': ssid_hex,
-        'ssid_ascii': bytes.fromhex(ssid_hex).decode(errors='replace'),
         'security': security
     }
 
-def get_managed_objects():
-    bus = dbus.SystemBus()
-    manager = dbus.Interface(bus.get_object("net.connman.iwd", "/"),
-                             "org.freedesktop.DBus.ObjectManager")
-    return manager.GetManagedObjects()
+def format_list_to_connman_style(items):
+    """Format a list of items in connman style."""
+    if not items:
+        return "[  ]"
+    return "[ " + " ".join(items) + " ]"
 
-def find_matching_network(objects, target_ssid_ascii, target_security):
-    for path, interfaces in objects.items():
-        if 'net.connman.iwd.Network' in interfaces:
-            network = interfaces['net.connman.iwd.Network']
-            
-            # Get the SSID from the network properties
-            if 'Name' in network:
-                ssid = str(network['Name'])
-                # Get security type
-                security = str(network.get('Type', ''))
-                
-                # Compare with target values
-                if ssid == target_ssid_ascii and security.lower() == target_security.lower():
-                    return path, network
-    
-    # Fallback to more lenient search if exact match not found
-    for path, interfaces in objects.items():
-        if 'net.connman.iwd.Network' in interfaces:
-            if target_ssid_ascii in str(path):
-                return path, interfaces['net.connman.iwd.Network']
-    
-    return None, None
+def format_dict_to_connman_style(data):
+    """Format a dictionary in connman style."""
+    if not data:
+        return "[  ]"
+    items = [f"{key}={value}" for key, value in data.items()]
+    return "[ " + " ".join(items) + " ]"
 
-def get_signal_strength(objects, path):
-    # Try to get signal strength directly from the network object
-    for obj_path, interfaces in objects.items():
-        if obj_path == path and 'net.connman.iwd.Network' in interfaces:
-            if 'Signal' in interfaces['net.connman.iwd.Network']:
-                # Signal is in dBm, convert to percentage (approx)
-                signal_dbm = int(interfaces['net.connman.iwd.Network']['Signal'])
-                # Convert dBm to percentage (rough formula)
-                # -30 dBm or higher = 100%, -90 dBm or lower = 0%
-                signal_percent = max(0, min(100, int(2 * (signal_dbm + 100))))
-                return signal_percent
-    
-    # Try through station interface as fallback
-    parent_path = '/'.join(path.split('/')[:-1])
-    bus = dbus.SystemBus()
+def get_interface_from_mac(mac_hex):
+    """Find the interface name that corresponds to the given MAC address."""
     try:
-        station = dbus.Interface(bus.get_object("net.connman.iwd", parent_path),
-                                 "net.connman.iwd.Station")
-        for net_path, rssi in station.GetOrderedNetworks():
-            if net_path == path:
-                # Convert to percentage (same formula as above)
-                signal_percent = max(0, min(100, int(2 * (int(rssi) + 100))))
-                return signal_percent
+        interfaces = os.listdir('/sys/class/net/')
+        for iface in interfaces:
+            if os.path.exists(f'/sys/class/net/{iface}/address'):
+                with open(f'/sys/class/net/{iface}/address', 'r') as f:
+                    current_mac = f.read().strip().replace(':', '')
+                    if current_mac.lower() == mac_hex.lower():
+                        return iface
     except Exception as e:
-        pass
+        print(f"Error finding interface for MAC {mac_hex}: {e}", file=sys.stderr)
+    return "wlan0"  # Default fallback
+
+def get_signal_strength(iface, ssid):
+    """Get signal strength for the given SSID on the given interface."""
+    try:
+        # Run iwlist scan to get signal strength
+        result = subprocess.run(['iw', 'dev', iface, 'scan'], capture_output=True, text=True)
+        if result.returncode != 0:
+            return None
+        
+        # Parse the output to find signal strength for the SSID
+        scan_output = result.stdout
+        bss_sections = scan_output.split("BSS ")
+        
+        for section in bss_sections[1:]:
+            lines = section.strip().split('\n')
+            current_ssid = None
+            signal_dbm = None
+            
+            for line in lines:
+                ssid_match = re.search(r'SSID: (.*)', line)
+                if ssid_match:
+                    current_ssid = ssid_match.group(1).strip()
+                signal_match = re.search(r'signal:\s*(-?\d+\.\d+)', line)
+                if signal_match:
+                    signal_dbm = float(signal_match.group(1))
+            
+            if current_ssid == ssid and signal_dbm is not None:
+                # Convert dBm to percentage (approximation)
+                # -50 dBm or higher is considered 100%, -100 dBm or lower is 0%
+                if signal_dbm >= -50:
+                    return 100
+                elif signal_dbm <= -100:
+                    return 0
+                else:
+                    return int((signal_dbm + 100) * 2)
+    except Exception as e:
+        print(f"Error getting signal strength: {e}", file=sys.stderr)
     
     return None
 
-def get_interface_details(objects, mac_address=None):
-    # First try to get interface from DBus
-    for path, interfaces in objects.items():
-        if 'net.connman.iwd.Adapter' in interfaces:
-            adapter = interfaces['net.connman.iwd.Adapter']
-            if 'Address' in adapter:
-                addr = str(adapter['Address']).lower()
-                if mac_address is None or addr == mac_address.lower():
-                    # Get interface name from path
-                    iface = path.split('/')[-1]
-                    # Try to get MTU for this interface
-                    try:
-                        mtu = netifaces.ifaddrs()[iface][netifaces.AF_LINK][0]['mtu']
-                    except (KeyError, IndexError):
-                        mtu = 1500  # Default MTU
-                    return iface, mtu, addr
-    
-    # Fallback to iw command
+def get_connection_state(iface, target_ssid):
+    """Check if the specified interface is connected to the target SSID."""
     try:
-        iw_output = subprocess.check_output(['iw', 'dev'], text=True)
-        blocks = iw_output.strip().split('\n\n')
-        for block in blocks:
-            lines = block.strip().split('\n')
-            iface_match = re.search(r'Interface (\w+)', lines[0])
-            if iface_match:
-                iface = iface_match.group(1)
-                # Look for address in remaining lines
-                for line in lines[1:]:
-                    addr_match = re.search(r'addr\s+([0-9a-fA-F:]{17})', line)
-                    if addr_match:
-                        addr = addr_match.group(1).lower()
-                        if mac_address is None or addr == mac_address.lower():
-                            # Try to get MTU
-                            try:
-                                mtu = netifaces.ifaddrs()[iface][netifaces.AF_LINK][0]['mtu']
-                            except (KeyError, IndexError):
-                                mtu = 1500
-                            return iface, mtu, addr
+        result = subprocess.run(['iw', 'dev', iface, 'link'], capture_output=True, text=True)
+        if result.returncode == 0 and 'Not connected' not in result.stdout:
+            ssid_match = re.search(r'SSID: (.*)', result.stdout)
+            if ssid_match and ssid_match.group(1).strip() == target_ssid:
+                return "online"
+            return "ready"
+        return "idle"
     except Exception as e:
-        pass
-    
-    # Last resort - return wlan0 with provided MAC or default
-    return "wlan0", 1500, mac_address or "00:00:00:00:00:00"
+        print(f"Error getting connection state: {e}", file=sys.stderr)
+    return "idle"
 
-def get_network_security(network_props):
-    security_types = []
-    if 'Type' in network_props:
-        security = str(network_props['Type']).lower()
-        if security == 'psk':
-            security_types.append('psk')
-        elif security == 'open':
-            security_types.append('none')
-        elif security == 'wep':
-            security_types.append('wep')
-        elif security in ['wpa', 'wpa2', 'wpa3']:
-            security_types.append('wpa')
-            security_types.append('ieee8021x')
+def get_network_interfaces_info():
+    """Get information about network interfaces."""
+    interfaces = {}
+    try:
+        for iface in os.listdir('/sys/class/net/'):
+            if os.path.exists(f'/sys/class/net/{iface}/address'):
+                with open(f'/sys/class/net/{iface}/address', 'r') as f:
+                    mac = f.read().strip()
+                    interfaces[iface] = {'mac': mac}
+                    
+                # Get MTU
+                if os.path.exists(f'/sys/class/net/{iface}/mtu'):
+                    with open(f'/sys/class/net/{iface}/mtu', 'r') as f:
+                        interfaces[iface]['mtu'] = f.read().strip()
+    except Exception as e:
+        print(f"Error getting network interfaces: {e}", file=sys.stderr)
     
-    # Default if we couldn't determine
-    if not security_types:
-        security_types = ['psk']
-    
-    return security_types
+    return interfaces
 
-def get_connection_state(objects, iface):
-    # Check if interface is connected to this network
-    for path, interfaces in objects.items():
-        if 'net.connman.iwd.Station' in interfaces:
-            station = interfaces['net.connman.iwd.Station']
-            if 'State' in station and path.split('/')[-1] == iface:
-                state = str(station['State']).lower()
-                if state == 'connected':
-                    return 'ready'
-                elif state == 'connecting':
-                    return 'association'
-                else:
-                    return 'idle'
-    
-    # Default state
-    return 'idle'
-
-def get_ip_config(iface):
-    # Get IPv4 and IPv6 information for the interface
+def get_ip_info(iface):
+    """Get IP information for the specified interface."""
     ipv4_info = {}
     ipv6_info = {}
+    ipv4_method = "dhcp"
     
     try:
-        # Check if interface has addresses
-        addrs = netifaces.ifaddresses(iface)
-        
-        # Get IPv4 info
-        if netifaces.AF_INET in addrs:
-            for addr_info in addrs[netifaces.AF_INET]:
-                if 'addr' in addr_info:
-                    ipv4_info['Address'] = addr_info['addr']
-                if 'netmask' in addr_info:
-                    ipv4_info['Netmask'] = addr_info['netmask']
-        
-        # Get IPv6 info
-        if netifaces.AF_INET6 in addrs:
-            for addr_info in addrs[netifaces.AF_INET6]:
-                if 'addr' in addr_info and not addr_info['addr'].startswith('fe80:'):
-                    ipv6_info['Address'] = addr_info['addr']
-                    if 'netmask' in addr_info:
-                        ipv6_info['PrefixLength'] = calculate_ipv6_prefix(addr_info['netmask'])
-        
-        # Try to get gateway
-        gws = netifaces.gateways()
-        if 'default' in gws:
-            if netifaces.AF_INET in gws['default']:
-                gateway, interface = gws['default'][netifaces.AF_INET]
-                if interface == iface:
-                    ipv4_info['Gateway'] = gateway
+        # Get IP addresses using ip addr show
+        result = subprocess.run(['ip', 'addr', 'show', 'dev', iface], capture_output=True, text=True)
+        if result.returncode == 0:
+            output = result.stdout
             
-            if netifaces.AF_INET6 in gws['default']:
-                gateway, interface = gws['default'][netifaces.AF_INET6]
-                if interface == iface:
-                    ipv6_info['Gateway'] = gateway
-    
-    except Exception as e:
-        pass
-    
-    return ipv4_info, ipv6_info
-
-def check_dhcp_status(iface):
-    """Check if the interface is configured with DHCP"""
-    try:
-        # Method 1: Check if dhclient is running for this interface
-        ps_output = subprocess.check_output(['ps', 'aux'], text=True)
-        if re.search(rf'dhclient.*{iface}', ps_output):
-            return True
-            
-        # Method 2: Check if NetworkManager is managing this interface
-        if os.path.exists('/run/NetworkManager/'):
-            try:
-                nm_output = subprocess.check_output(['nmcli', 'device', 'show', iface], text=True)
-                if 'DHCP4' in nm_output and 'yes' in nm_output.lower():
-                    return True
-            except:
-                pass
+            # IPv4 info
+            ipv4_matches = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)/(\d+)', output)
+            if ipv4_matches:
+                addr, prefix = ipv4_matches[0]
+                ipv4_info['Address'] = addr
+                ipv4_info['Netmask'] = str(ipaddress.IPv4Network(f'0.0.0.0/{prefix}', False).netmask)
                 
-        # Method 3: Check if systemd-networkd is managing this with DHCP
-        try:
-            networkctl_output = subprocess.check_output(['networkctl', 'status', iface], text=True)
-            if 'DHCP' in networkctl_output and ('yes' in networkctl_output.lower() or 'running' in networkctl_output.lower()):
-                return True
-        except:
-            pass
+                # Get gateway using ip route
+                route_result = subprocess.run(['ip', 'route', 'show', 'dev', iface], capture_output=True, text=True)
+                if route_result.returncode == 0:
+                    gateway_match = re.search(r'default via (\d+\.\d+\.\d+\.\d+)', route_result.stdout)
+                    if gateway_match:
+                        ipv4_info['Gateway'] = gateway_match.group(1)
             
-        # Method 4: Check if IWD is configured to use DHCP
-        try:
-            iwd_config = "/etc/iwd/main.conf"
-            if os.path.exists(iwd_config):
-                with open(iwd_config, 'r') as f:
-                    content = f.read()
-                    if re.search(r'UseDefaultInterface\s*=\s*true', content) and not re.search(r'EnableNetworkConfiguration\s*=\s*false', content):
-                        return True
-        except:
-            pass
-            
-        # Default for wifi networks is usually DHCP
-        return True
-            
+            # IPv6 info
+            ipv6_matches = re.findall(r'inet6 ([0-9a-f:]+)/(\d+)', output)
+            for addr, prefix in ipv6_matches:
+                # Skip link-local addresses
+                if not addr.startswith('fe80:'):
+                    ipv6_info['Address'] = addr
+                    ipv6_info['PrefixLength'] = prefix
+                    break
     except Exception as e:
-        # When in doubt, assume DHCP for WiFi
-        return True
+        print(f"Error getting IP info: {e}", file=sys.stderr)
+    
+    return ipv4_info, ipv6_info, ipv4_method
 
-def get_dns_and_mdns_info(iface):
+def get_dns_and_domain_info(iface, state):
+    """Get DNS server, timeserver, and domain information using resolvectl."""
     nameservers = []
+    timeservers = []
     domains = []
     mdns_enabled = False
     
-    try:
-        # Use resolvectl to get DNS information
-        resolvectl_output = subprocess.check_output(['resolvectl', 'status', iface], text=True)
-        
-        # Parse the output
-        for line in resolvectl_output.split('\n'):
-            line = line.strip()
-            
-            # Get DNS servers
-            if line.startswith('DNS Servers:'):
-                servers = line.replace('DNS Servers:', '').strip()
-                if servers:
-                    nameservers.extend([s.strip() for s in servers.split()])
-            
-            # Get domains
-            elif line.startswith('DNS Domain:'):
-                domain = line.replace('DNS Domain:', '').strip()
-                if domain:
-                    domains.append(domain)
-            
-            # Check for mDNS
-            elif 'mDNS' in line:
-                if 'yes' in line.lower() or 'enabled' in line.lower() or 'true' in line.lower():
-                    mdns_enabled = True
-    
-    except Exception as e:
-        # If resolvectl fails, try using systemd-resolve as a fallback
+    # Only try to get this information if the network is connected
+    if state == "online":
         try:
-            resolve_output = subprocess.check_output(['systemd-resolve', '--status', iface], text=True)
+            # Use resolvectl to get DNS information for the interface
+            result = subprocess.run(['resolvectl', 'status', iface], capture_output=True, text=True)
+            if result.returncode == 0:
+                output = result.stdout
+                
+                # Extract DNS servers
+                dns_match = re.search(r'DNS Servers: (.*?)(?:\n|$)', output)
+                if dns_match:
+                    # Get all DNS servers (both IPv4 and IPv6)
+                    dns_servers = dns_match.group(1).strip().split()
+                    # Only use IPv4 addresses for nameservers
+                    nameservers = [ip for ip in dns_servers if ':' not in ip]
+                
+                # Check for mDNS status
+                mdns_match = re.search(r'Protocols:.*?([+-])mDNS', output)
+                if mdns_match:
+                    mdns_enabled = mdns_match.group(1) == '+'
+                
+                # Extract domain information
+                domains_match = re.search(r'DNS Domain: (.*?)(?:\n|$)', output)
+                if domains_match:
+                    domains = [domains_match.group(1).strip()]
+                else:
+                    # If no explicit domain, use 'lan' as default
+                    domains = ["lan"]
             
-            for line in resolve_output.split('\n'):
-                line = line.strip()
-                
-                # Get DNS servers
-                if line.startswith('DNS Servers:'):
-                    servers = line.replace('DNS Servers:', '').strip()
-                    if servers:
-                        nameservers.extend([s.strip() for s in servers.split()])
-                
-                # Get domains
-                elif line.startswith('DNS Domain:'):
-                    domain = line.replace('DNS Domain:', '').strip()
-                    if domain:
-                        domains.append(domain)
-                
-                # Check for mDNS
-                elif 'mDNS' in line:
-                    if 'yes' in line.lower() or 'enabled' in line.lower() or 'true' in line.lower():
-                        mdns_enabled = True
-        except:
-            pass
+            # If no nameservers found, try to get router IP as fallback
+            if not nameservers:
+                route_result = subprocess.run(['ip', 'route', 'show', 'dev', iface], capture_output=True, text=True)
+                if route_result.returncode == 0:
+                    gateway_match = re.search(r'default via (\d+\.\d+\.\d+\.\d+)', route_result.stdout)
+                    if gateway_match:
+                        nameservers = [gateway_match.group(1)]
+            
+            # Use nameservers as timeservers too
+            timeservers = nameservers.copy()
+            
+        except Exception as e:
+            print(f"Error getting DNS info: {e}", file=sys.stderr)
     
-    return nameservers, domains, mdns_enabled
+    return nameservers, timeservers, domains, mdns_enabled
 
-def calculate_ipv6_prefix(netmask):
-    # Simple calculation of IPv6 prefix length from netmask
-    try:
-        # Count the number of 1s in the binary representation
-        binary = ''.join([bin(int(x, 16))[2:].zfill(16) for x in netmask.replace(':', '')])
-        return binary.count('1')
-    except:
-        return 64  # Default prefix length
+def get_security_types(security):
+    """Map connman security type to security modes list."""
+    security_mapping = {
+        'psk': ['psk'],  # Changed to only include 'psk', not 'ieee8021x'
+        'wep': ['wep'],
+        'none': ['none'],
+        '8021x': ['ieee8021x']
+    }
+    return security_mapping.get(security, ['none'])
 
-def check_favorite_status(objects, ssid, security):
-    # Check if network is in the known networks list
-    for path, interfaces in objects.items():
-        if 'net.connman.iwd.KnownNetwork' in interfaces:
-            network = interfaces['net.connman.iwd.KnownNetwork']
-            if 'Name' in network and 'Type' in network:
-                if str(network['Name']) == ssid and str(network['Type']).lower() == security.lower():
-                    return True
-    return False
-
-def format_dict_to_connman_style(data_dict):
-    if not data_dict:
-        return "[  ]"
+def main():
+    parser = argparse.ArgumentParser(description='Parse connman service ID and show detailed information')
+    parser.add_argument('service_id', help='The connman service ID to parse')
     
-    result = "[ "
-    for key, value in data_dict.items():
-        result += f"{key}={value}, "
-    result = result.rstrip(", ") + " ]"
-    return result
-
-def format_list_to_connman_style(data_list):
-    if not data_list:
-        return "[  ]"
+    args = parser.parse_args()
     
-    result = "[ " + " ".join(data_list) + " ]"
-    return result
-
-def get_service_type(identifier):
-    """Determine if this is a managed_psk service"""
-    if 'managed_psk' in identifier:
-        return "managed_psk"
-    return identifier.split('_')[-1]
-
-def format_connman_style_output(identifier_info, network_props, signal_strength, iface, mtu, mac, objects, state):
-    # Get security from network props
-    security_types = get_network_security(network_props) if network_props else ['psk']
+    # Parse the service ID
+    identifier_info = parse_connman_service_id(args.service_id)
+    if not identifier_info:
+        print(f"Error: '{args.service_id}' is not a valid connman service ID", file=sys.stderr)
+        print("Expected format: wifi_<mac>_<ssid-hex>_managed_<security>", file=sys.stderr)
+        sys.exit(1)
     
-    # Check if network is a favorite
-    is_favorite = check_favorite_status(objects, identifier_info['ssid_ascii'], 
-                                       identifier_info['security'].replace('managed_', ''))
+    # Get the interface name from the MAC address
+    iface = get_interface_from_mac(identifier_info['mac_hex'])
     
-    # Get IP configuration
-    ipv4_info, ipv6_info = get_ip_config(iface)
+    # Get signal strength
+    signal_strength = get_signal_strength(iface, identifier_info['ssid_ascii'])
     
-    # Determine if DHCP is being used (simplify by always using dhcp for the specific service)
-    service_type = get_service_type(identifier_info['security'])
+    # Get connection state
+    state = get_connection_state(iface, identifier_info['ssid_ascii'])
     
-    # Force DHCP for this specific service as requested
-    ipv4_method = "dhcp"
+    # Get network interfaces info
+    interfaces_info = get_network_interfaces_info()
+    if iface in interfaces_info:
+        mac = interfaces_info[iface]['mac']
+        mtu = interfaces_info[iface].get('mtu', '1500')
+    else:
+        mac = identifier_info['mac']
+        mtu = '1500'
     
-    # Get DNS and mDNS information using resolvectl
-    nameservers, domains, mdns_enabled = get_dns_and_mdns_info(iface)
+    # Get IP information
+    ipv4_info, ipv6_info, ipv4_method = get_ip_info(iface)
     
-    print(f"/net/connman/service/wifi_{identifier_info['mac'].replace(':', '')}_{identifier_info['ssid_hex']}_{identifier_info['security']}")
+    # Get DNS, timeserver, and domain information
+    nameservers, timeservers, domains, mdns_enabled = get_dns_and_domain_info(iface, state)
+    
+    # Determine security types
+    security_types = get_security_types(identifier_info['security'])
+    
+    # Set favorite status based on state (assume favorite if connected)
+    is_favorite = state != "idle"
+    
+    # Print the complete service information in connman format
+    print(f"/net/connman/service/{args.service_id}")
     print(f"  Type = wifi")
     print(f"  Security = [ {' '.join(security_types)} ]")
     print(f"  State = {state}")
     print(f"  Strength = {signal_strength if signal_strength is not None else '*'}")
-    print(f"  Favorite = {str(is_favorite)}")
+    print(f"  Favorite = {str(is_favorite).lower()}")
     print(f"  Immutable = False")
-    print(f"  AutoConnect = {str(is_favorite)}")
+    print(f"  AutoConnect = {str(is_favorite).lower()}")
     print(f"  Name = {identifier_info['ssid_ascii']}")
     print(f"  Ethernet = [ Method=auto, Interface={iface}, Address={mac.upper()}, MTU={mtu} ]")
     
-    # IPv4 information - always use "Method=dhcp" for IPv4.Configuration
+    # IPv4 information
     print(f"  IPv4 = {format_dict_to_connman_style(ipv4_info)}")
     print(f"  IPv4.Configuration = [ Method={ipv4_method} ]")
     
@@ -385,15 +301,15 @@ def format_connman_style_output(identifier_info, network_props, signal_strength,
     print(f"  IPv6 = {format_dict_to_connman_style(ipv6_info)}")
     print(f"  IPv6.Configuration = [ Method=auto, Privacy=disabled ]")
     
-    # Nameservers from resolvectl
+    # Nameservers
     print(f"  Nameservers = {format_list_to_connman_style(nameservers)}")
     print(f"  Nameservers.Configuration = [  ]")
     
     # Timeservers
-    print(f"  Timeservers = [  ]")
+    print(f"  Timeservers = {format_list_to_connman_style(timeservers)}")
     print(f"  Timeservers.Configuration = [  ]")
     
-    # Domains from resolvectl
+    # Domains
     print(f"  Domains = {format_list_to_connman_style(domains)}")
     print(f"  Domains.Configuration = [  ]")
     
@@ -401,40 +317,11 @@ def format_connman_style_output(identifier_info, network_props, signal_strength,
     print(f"  Proxy = [  ]")
     print(f"  Proxy.Configuration = [  ]")
     
-    # mDNS from resolvectl
-    print(f"  mDNS = {str(mdns_enabled)}")
-    print(f"  mDNS.Configuration = {str(mdns_enabled)}")
+    # mDNS - capitalized Boolean values
+    print(f"  mDNS = {str(mdns_enabled).capitalize()}")
+    print(f"  mDNS.Configuration = {str(mdns_enabled).capitalize()}")
     
     print(f"  Provider = [  ]")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 services.py wifi_<mac>_<ssidhex>_<security>")
-        sys.exit(1)
-    
-    # Import os here for file checks
-    import os
-    
-    identifier = sys.argv[1]
-    try:
-        identifier_info = parse_connman_identifier(identifier)
-        objects = get_managed_objects()
-        
-        # Find the network based on SSID and security type
-        path, props = find_matching_network(objects, identifier_info['ssid_ascii'], 
-                                           identifier_info['security'].replace('managed_', ''))
-        
-        # Get signal strength
-        signal = get_signal_strength(objects, path) if path else 69  # Default to 69 if not found
-        
-        # Get interface details
-        iface, mtu, mac = get_interface_details(objects, identifier_info['mac'])
-        
-        # Get connection state
-        state = get_connection_state(objects, iface)
-        
-        # Format and print output
-        format_connman_style_output(identifier_info, props, signal, iface, mtu, mac, objects, state)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        print("Matching network not found in IWD.")
+    main()
