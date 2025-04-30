@@ -104,14 +104,14 @@ def get_wlan0_state():
 
 def is_known_network_visible():
     bus = dbus.SystemBus()
-    
+
     # Get known SSIDs
     manager = dbus.Interface(bus.get_object('net.connman.iwd', '/'),
                              'org.freedesktop.DBus.ObjectManager')
     objects = manager.GetManagedObjects()
     known_ssids = set()
     visible_networks = {}
-    
+
     for path, interfaces in objects.items():
         # Collect known networks
         if 'net.connman.iwd.KnownNetwork' in interfaces:
@@ -125,7 +125,7 @@ def is_known_network_visible():
                     # Handle case where it's bytes or array of integers
                     ssid = ''.join(chr(b) for b in ssid_bytes)
                 known_ssids.add(ssid)
-    
+
         # Collect visible networks from Station.GetOrderedNetworks
         if 'net.connman.iwd.Station' in interfaces:
             station_obj = bus.get_object('net.connman.iwd', path)
@@ -150,7 +150,7 @@ def is_known_network_visible():
             except dbus.exceptions.DBusException as e:
                 print(f"DBus exception: {e}")
                 continue
-    
+
     # Check if any known SSID is currently visible
     for ssid in known_ssids:
         if ssid in visible_networks:
@@ -162,12 +162,12 @@ def trigger_wifi_scan():
     print("Triggering wifi scan via D-Bus...")
     try:
         bus = dbus.SystemBus()
-        
+
         # Get all managed objects to find the station interface
         manager = dbus.Interface(bus.get_object('net.connman.iwd', '/'),
                                 'org.freedesktop.DBus.ObjectManager')
         objects = manager.GetManagedObjects()
-        
+
         # Find the station object for wlan0
         station_path = None
         for path, interfaces in objects.items():
@@ -181,7 +181,7 @@ def trigger_wifi_scan():
                         break
                 except dbus.exceptions.DBusException:
                     continue
-        
+
         if station_path:
             # Trigger scan
             station_obj = bus.get_object('net.connman.iwd', station_path)
@@ -192,7 +192,7 @@ def trigger_wifi_scan():
         else:
             print("Could not find wlan0 station interface")
             return False
-            
+
     except dbus.exceptions.DBusException as e:
         print(f"D-Bus error triggering scan: {e}")
         return False
@@ -213,6 +213,10 @@ def start_ap_iwd():
     print("Starting AP using iwd...")
     config = get_ap_config()
     generate_iwd_ap_config()
+    if is_hostapd_running():
+        print("Stopping hostapd and dnsmasq...")
+        os.system("systemctl stop hostapd")
+        os.system("systemctl stop dnsmasq")
     setup_ap0()
     subprocess.run(f"iwctl device {config['virtual_ap']} set-property Mode ap", shell=True)
     subprocess.run(f"iwctl ap {config['virtual_ap']} start-profile {config['ssid']}", shell=True)
