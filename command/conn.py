@@ -214,7 +214,7 @@ def main():
         print("This script needs to be run as root for iw scan to work")
         sys.exit(1)
 
-    interfaces = get_wireless_interfaces()
+    interfaces = [iface for iface in get_wireless_interfaces() if iface != 'ap0']
     if not interfaces:
         print("No wireless interfaces found")
         return

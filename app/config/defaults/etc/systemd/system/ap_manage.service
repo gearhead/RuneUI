@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /srv/http/command/ap_manage_iwd.py
+ExecStart=/usr/bin/python3 /srv/http/command/ap_manage.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
