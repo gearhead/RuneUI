@@ -3,4 +3,6 @@ Name=wlan0
 
 [Network]
 DHCP=ipv4
-UseDNS=yes
+
+[DHCP]
+UseDNS=true
