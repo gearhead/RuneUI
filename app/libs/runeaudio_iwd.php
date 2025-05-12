@@ -3082,13 +3082,14 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $redis->set('allwifi_on', 0);
             break;
         case 'saveWifi':
-            // Clean up and normalize input
+            // Clean up and normalize input -- also need to pass the nic value, i.e. wlan0
             $args['passphrase'] = isset($args['passphrase']) ? trim($args['passphrase']) : '';
             $args['ssid'] = isset($args['ssid']) ? trim($args['ssid']) : '';
             $args['ssidHex'] = isset($args['ssidHex']) ? trim($args['ssidHex']) : '';
             $args['security'] = isset($args['security']) ? trim($args['security']) : 'PSK';
             $args['macAddress'] = isset($args['macAddress']) ? trim($args['macAddress']) : '';
-
+            $args['nic'] = 'wlan0';
+            
             if ($args['ssid'] && !$args['ssidHex']) {
                 $args['ssidHex'] = trim(implode(unpack('H*', $args['ssid'])));
             }
@@ -3130,9 +3131,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
 
             // Run credential and network setup
-            configureWifi($args);               // sets SSID/passphrase via iwctl or wpa_cli
-            writeNetworkdConfig($args);         // writes DHCP/static IP config for systemd-networkd
-
+            // sets SSID/passphrase via iwctl or wpa_cli
+            configureWifi(
+            $args['nic'],
+            $args['ssid'],
+            $args['passphrase']
+            );
+            writeNetworkdConfig($args);       // writes DHCP/static IP config for systemd-networkd
             // Re-enable Access Point if it was previously on
             if ($apEnable) {
                 wrk_apconfig($redis, 'writecfg', [
@@ -3177,7 +3182,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 
             // Apply interface IP config (DHCP or static)
             writeNetworkdConfig($args);
-
             break;
 
         case 'check_connman':
@@ -3377,13 +3381,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // manual disconnect-delete
             $disconnect = true;
             // no break;
+            // this function does not work - kg
+            //wrk_netconfig($redis, 'delete', '',$network);
         case 'delete':
-
             if (isset($storedProfiles[$ssidHexKey])) {
                 if ($disconnect) {
                     wrk_netconfig($redis, 'disconnect', '', $args);
                 }
-
                 $ssidEscaped = escapeshellarg($args['ssid']);
                 $networks = [$args];
                 $network_info = json_decode($redis->get('network_info'), true) ?: [];
@@ -3403,7 +3407,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 
                     $networks[] = $network;
                 }
-
                 foreach ($networks as $network) {
                     if (!empty($network['ssidHex'])) {
                         unset($storedProfiles[$ssidHexKey]);
@@ -3439,7 +3442,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         $nic = escapeshellarg($network['nic']);
                         $nicRaw = $network['nic'];
 
-                        $networkFile = "/etc/systemd/network/$nicRaw.network";
+                        $networkFile = "/etc/systemd/network/20-$nicRaw.network";
                         $fallbackFile = "/etc/systemd/network/10-$nicRaw.network";
 
                         // Remove static config and create fallback DHCP config
@@ -3561,7 +3564,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     }
 }
 
-function writeNetworkdConfig($iface, $args) {
+function writeNetworkdConfig($args) {
+    $iface = $args['interface'] ?? 'wlan0';
     $config = "[Match]\nName=$iface\n\n";
     
     if ($args['ipAssignment'] === 'DHCP') {
@@ -3586,20 +3590,32 @@ function writeNetworkdConfig($iface, $args) {
 }
 
 function configureWifi($iface, $ssid, $passphrase) {
+    // Clean interface name for safety, but don't use escapeshellarg on ssid/psk
+    $iface = escapeshellcmd($iface); // safer than escapeshellarg for plain values
+
+    // Detect if IWD is running
     $useIwd = (bool) exec('pidof iwd');
 
     if ($useIwd) {
-        // Use iwctl
+        // IWD setup
+        $ssidEsc = escapeshellarg($ssid);
+        $passEsc = escapeshellarg($passphrase);
+
         exec("iwctl station $iface disconnect");
-        exec("iwctl station $iface set-hidden true"); // optional, if needed
-        exec("iwctl station $iface connect-hidden $ssid <<< '$passphrase'");
+        exec("iwctl station $iface set-hidden true"); // optional
+        exec("iwctl --passphrase $passEsc station $iface connect-hidden $ssidEsc");
     } else {
-        // Use wpa_cli
+        // WPA_SUPPLICANT setup using wpa_cli — requires double-quoted strings
         exec("wpa_cli -i $iface remove_network all");
         exec("wpa_cli -i $iface add_network", $out);
         $netId = trim(end($out));
-        exec("wpa_cli -i $iface set_network $netId ssid \"\"" . escapeshellarg($ssid));
-        exec("wpa_cli -i $iface set_network $netId psk \"\"" . escapeshellarg($passphrase));
+
+        // Properly double-quote values for wpa_cli
+        $ssidArg = escapeshellarg("\"$ssid\"");
+        $pskArg  = escapeshellarg("\"$passphrase\"");
+
+        exec("wpa_cli -i $iface set_network $netId ssid $ssidArg");
+        exec("wpa_cli -i $iface set_network $netId psk $pskArg");
         exec("wpa_cli -i $iface enable_network $netId");
         exec("wpa_cli -i $iface save_config");
     }
@@ -8882,7 +8898,7 @@ function refresh_nics($redis)
             if ($networkInfo[$key]['strength'] <= 0) {
                 unset($networkInfo[$key]);
             } else {
-                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($networkInfo[$key]['strength']/10)));
+                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, min(5, round($networkInfo[$key]['strength']/20))));
             }
         }
     }
@@ -8976,12 +8992,13 @@ function refresh_nics($redis)
                     $value = 'OPEN';
                 }
                 $networkInfo[$macAddress.'_'.$ssidHex]['security'] = $value;
-            } else if (strpos($entry, 'strength')) {
-                if ($value) {
-                    $strength = $value;
+            } else if (strpos($entry, 'strength') !== false) {
+                if (is_numeric($value)) {
+                    $strength = (int)$value;
                     $networkInfo[$macAddress.'_'.$ssidHex]['strength'] = $strength;
-                    // strength is a value from 1 to 100, genereate 1 to 10 stars
-                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/10)));
+                    // strength is a value from 1 to 100, generate 1 to 5 stars
+                    $stars = max(1, min(5, round($strength / 20)));
+                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', $stars);
                 }
             } else if (strpos($entry, 'nameservers')) {
                 if ($value) {
