@@ -3377,12 +3377,43 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             break;
 
-        case 'disconnect-delete':
-            // manual disconnect-delete
-            $disconnect = true;
-            // no break;
-            // this function does not work - kg
-            //wrk_netconfig($redis, 'delete', '',$network);
+case 'disconnect-delete':
+    // Manual disconnect and delete for eth0 or wlan0 using systemd-networkd
+    // kg - does not work, yet. no errors in log no function...
+    $nic = isset($args['nic']) ? escapeshellcmd($args['nic']) : null;
+    $network = isset($args['ssid']) ? $args['ssid'] : ''; // or however you identify the network
+
+    if ($nic) {
+        // Call your netconfig cleanup logic (if necessary)
+        wrk_netconfig($redis, 'delete', '', $network);
+
+        // Remove matching .network file
+        $networkFiles = glob("/etc/systemd/network/*.network");
+        $matched = false;
+
+        foreach ($networkFiles as $file) {
+            $contents = file_get_contents($file);
+            if (preg_match('/^Name=' . preg_quote($nic, '/') . '$/m', $contents)) {
+                unlink($file);
+                $matched = true;
+                error_log("disconnect-delete: Deleted network config: $file");
+                break;
+            }
+        }
+
+        if (!$matched) {
+            error_log("disconnect-delete: No matching .network file for $nic");
+        }
+
+        // Restart systemd-networkd
+        exec('systemctl restart systemd-networkd', $out, $code);
+        error_log("disconnect-delete: systemd-networkd restarted with exit code $code");
+    } else {
+        error_log("disconnect-delete: No NIC specified in args");
+    }
+
+    break;
+
         case 'delete':
             if (isset($storedProfiles[$ssidHexKey])) {
                 if ($disconnect) {
