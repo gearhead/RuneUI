@@ -2864,6 +2864,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         $storedProfiles = array();
     }
     $disconnect = false;
+    runelog("wrk_netconfig: ACTION = [" . $action . "]");
     switch ($action) {
         case 'boot-initialise':
             // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
@@ -3377,42 +3378,43 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             break;
 
-case 'disconnect-delete':
-    // Manual disconnect and delete for eth0 or wlan0 using systemd-networkd
-    // kg - does not work, yet. no errors in log no function...
-    $nic = isset($args['nic']) ? escapeshellcmd($args['nic']) : null;
-    $network = isset($args['ssid']) ? $args['ssid'] : ''; // or however you identify the network
+        case 'disconnect-delete':
+            // Manual disconnect and delete for eth0 or wlan0 using systemd-networkd
+            // kg - does not work, yet. no errors in log no function...
+            runelog("wrk_netconfig: disconnect-delete called with args = " . json_encode($args));
+            $nic = isset($args['nic']) ? escapeshellcmd($args['nic']) : null;
+            $network = isset($args['ssid']) ? $args['ssid'] : ''; // or however you identify the network
 
-    if ($nic) {
-        // Call your netconfig cleanup logic (if necessary)
-        wrk_netconfig($redis, 'delete', '', $network);
+            if ($nic) {
+                // Call your netconfig cleanup logic (if necessary)
+                wrk_netconfig($redis, 'delete', '', $network);
 
-        // Remove matching .network file
-        $networkFiles = glob("/etc/systemd/network/*.network");
-        $matched = false;
+                // Remove matching .network file
+                $networkFiles = glob("/etc/systemd/network/*.network");
+                $matched = false;
 
-        foreach ($networkFiles as $file) {
-            $contents = file_get_contents($file);
-            if (preg_match('/^Name=' . preg_quote($nic, '/') . '$/m', $contents)) {
-                unlink($file);
-                $matched = true;
-                error_log("disconnect-delete: Deleted network config: $file");
-                break;
+                foreach ($networkFiles as $file) {
+                    $contents = file_get_contents($file);
+                    if (preg_match('/^Name=' . preg_quote($nic, '/') . '$/m', $contents)) {
+                        unlink($file);
+                        $matched = true;
+                        runelog("disconnect-delete: Deleted network config: $file");
+                        break;
+                    }
+                }
+
+                if (!$matched) {
+                    runelog("disconnect-delete: No matching .network file for $nic");
+                }
+
+                // Restart systemd-networkd
+                exec('systemctl restart systemd-networkd', $out, $code);
+                runelog("disconnect-delete: systemd-networkd restarted with exit code $code");
+            } else {
+                runelog("disconnect-delete: No NIC specified in args");
             }
-        }
 
-        if (!$matched) {
-            error_log("disconnect-delete: No matching .network file for $nic");
-        }
-
-        // Restart systemd-networkd
-        exec('systemctl restart systemd-networkd', $out, $code);
-        error_log("disconnect-delete: systemd-networkd restarted with exit code $code");
-    } else {
-        error_log("disconnect-delete: No NIC specified in args");
-    }
-
-    break;
+            break;
 
         case 'delete':
             if (isset($storedProfiles[$ssidHexKey])) {
