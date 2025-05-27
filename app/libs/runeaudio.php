@@ -10410,17 +10410,24 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
     //
     if ($cleaned || $redis->get('cleaned_last_time')) {
         // this runs when the upper file system has been changed within this function, when files are deleted
-        //  from the lower file system within this funcuion and on the first following run when nothing has been changed
+        //  from the lower file system within this function and on the first following run when nothing has been changed
         //  there is no need to run this after synchronising the upper file system to the lower
         // this is the trick:
-        //  command 1: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
+        //  command 1: forces caches to be flushed, clearing many dirty caches
+        //  command 2: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
         //      this causes the overlay file system to forget its previous contents, it will then
         //      rebuild its information based on what is actually there
         //          Note: since we don't use a pagefile its probably enough to use 'echo 2 > /proc/sys/vm/drop_caches'
-        //  command 2: remounts the overlay file system
+        //  command 3: remounts the overlay file system
         //      this causes new content of the lower directory to be included in the overlay file system and deleted
         //      content of the lower directory to be omitted
-        sysCmd('echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        //  echoing 4 to drop_caches switches logging off, run it once - it is sticky,
+        //      otherwise dmesg floods with drop_caches: 3 messages
+        if (is_firstTime($redis, 'drop_caches')) {
+            sysCmd('sync ; echo 4 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        } else {
+            sysCmd('sync ; echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        }
     }
     if ($cleaned) {
         // do it again on the following run when nothing has been changed
