@@ -63,7 +63,7 @@ if [ "$aptcommand" != "" ] ; then
     if [ $mem -lt 600000 ] ; then
         redis-cli set mpd_playback_status stop
         mpc stop
-        curl -s 'http://localhost/command/?switchplayer=MPD'
+        curl -X PUT -s 'http://localhost/command/?switchplayer=MPD'
         systemctl stop rune_SY_wrk
         systemctl stop cmd_async_queue
         systemctl stop rune_PL_wrk

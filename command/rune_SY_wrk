@@ -422,7 +422,7 @@ if ($playerid_db === '') {
     if (!$redis->get('dev')) {
         // prime PHP OPCache
         runelog('prime PHP OPCache');
-        sysCmdAsync($redis, "curl -s -X GET 'http://127.0.0.1/command/cachectl.php?action=prime'");
+        sysCmdAsync($redis, "curl -X PUT -s 'http://localhost/command/cachectl.php?action=prime'");
     }
     // set process priority (to nice)
     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');

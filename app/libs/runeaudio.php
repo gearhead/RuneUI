@@ -2474,15 +2474,15 @@ function wrk_opcache($redis, $action)
         case 'prime':
             opcache_reset();
             if ($redis->get('opcache')) {
-                sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+                sysCmd('curl -X PUT -s http://localhost/command/cachectl.php?action=prime');
             }
             break;
         case 'forceprime':
             opcache_reset();
-            sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+            sysCmd('curl -X PUT -s http://localhost/command/cachectl.php?action=prime');
             break;
         case 'reset':
-            // sysCmd('curl http://127.0.0.1/clear');
+            // sysCmd('curl -X PUT -s http://localhost/clear');
             // reset cache
             OpCacheCtl('reset', '/srv/http/');
             opcache_reset();
@@ -6740,7 +6740,7 @@ function wrk_startPlayer($redis, $newPlayer)
             $redis->set('mpd_playback_laststate', 'play');
         }
         ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
-        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
@@ -6769,7 +6769,7 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     }
     usleep(500000);
-    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     // set process priority
     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 }
@@ -8036,7 +8036,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
 // push UI update to NGiNX channel
 function ui_render($channel, $data)
 {
-    curlPost('http://127.0.0.1/pub?id='.$channel, $data);
+    curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
 }
 
@@ -8100,7 +8100,7 @@ function autoset_timezone($redis) {
         // $result = file_get_contents('https://timezoneapi.io/api/ip/?token='.$timezoneapiToken, false, $context);
         //
         // https://ipapi.co/
-        $result = implode("\n", sysCmd('curl -s "https://ipapi.co/json/"'));
+        $result = implode("\n", sysCmd('curl -X GET -s "https://ipapi.co/json/"'));
         // debug
         // $redis->set('wrk_autoset_timezone', $result);
         if ($result) {
@@ -10666,7 +10666,7 @@ function is_radioUrl($redis, $url)
     // $redis->del('webradios_redirected');
     // $radios = $redis->hGetall('webradios');
     // foreach ($radios as $radioName => $radioUrl) {
-        // $radioUrlRedirected = sysCmd('curl -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
+        // $radioUrlRedirected = sysCmd('curl -X GET -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
         // if (isset($radioUrlRedirected) && $radioUrlRedirected && $radioUrlRedirected != $radioUrl) {
             // $redis->hSet('webradios_redirected', $radioName, $radioUrlRedirected);
         // }
@@ -10689,7 +10689,7 @@ function get_lastFm($redis, $url)
 //    $retval = json_decode(curlGet($url, $proxy), true);
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    $retval = sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
     if (isset($retval[0])) {
         $retval = json_decode($retval[0], true);
     } else {
@@ -10831,7 +10831,7 @@ function get_discogs($redis, $url)
     }
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
+    $retval = json_decode(sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
     if (!isset($retval['pagination']['items'])) {
         // unexpected response, disable discogs, items should always be set
         $redis->hSet('service', 'discogs', 0);
@@ -10863,7 +10863,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -10944,7 +10944,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist='.urlClean($searchArtist).'&song='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -11506,7 +11506,7 @@ function get_albumInfo($redis, $info = array())
         }
         if (!$info['album_arturl_large'] && $info['album'] && $info['albumartist']) {
             // still nothing found try discogs
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
             $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
             $retval = get_discogs($redis, $url);
             if ($retval) {
@@ -11713,8 +11713,8 @@ function get_artistInfo($redis, $info = array())
         // one or more required data fields is empty
         if ($info['artist_mbid']) {
             // mbid is set so use it to retreve last.fm data
-            // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-            // e.g.: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
             $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid='.$info['artist_mbid'].'&api_key='.$lastfmApikey.'&format=json&limit=1';
             $retval = get_lastFm($redis, $url);
         } else {
@@ -11723,8 +11723,8 @@ function get_artistInfo($redis, $info = array())
         if (!$retval) {
             // error returned, retrieve the info using artist name
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-                // e.g.: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
                 $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist='.urlClean($searchArtist).'&api_key='.$lastfmApikey.'&format=json&limit=1';
                 $retval = get_lastFm($redis, $url);
                 if ($retval) {
@@ -11774,7 +11774,7 @@ function get_artistInfo($redis, $info = array())
         if (!$info['artist_mbid']) {
             // try to get the musicbrainz id from musicbrainz
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
+                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
                 $url = 'https://musicbrainz.org/ws/2/artist/?query='.urlClean($searchArtist).'&limit=1&fmt=json';
                 $retval = get_musicBrainz($redis, $url);
                 if ($retval) {
@@ -11791,7 +11791,7 @@ function get_artistInfo($redis, $info = array())
         }
         if ($info['artist_mbid']) {
             // mbid is set so we can try to get the art url from fanart.tv
-            // call: curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
+            // call: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
             // e.g.: http://webservice.fanart.tv/v3/music/<mbid>?api_key=<token>
             $url = 'http://webservice.fanart.tv/v3/music/'.$info['artist_mbid'].'?api_key='.$fanarttvToken;
             $retval = get_fanartTv($redis, $url);
@@ -11881,7 +11881,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     $discogsToken = $redis->hGet('discogs', 'token');
     if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song']) {
         // this is the command to split the $radiostringClean into artist and song from last.fm
-        // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1
+        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1"
         $url = 'https://ws.audioscrobbler.com/2.0/?method=track.search&track='.urlClean($radiostringClean).'&api_key='.$lastfmApikey.'&format=json&limit=1';
         $retval = get_lastFm($redis, $url);
         if ($retval) {
@@ -11904,7 +11904,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song'] || $info['album']) {
         // try to pick the artist album and song up from discogs
         // the album art is will also be returned if there is a match
-        // curl -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD
+        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
         $url = 'https://api.discogs.com/database/search?q='.urlClean($radiostringClean).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
         $retval = get_discogs($redis, $url);
         if ($retval) {
@@ -11947,7 +11947,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     if ($noRadioCache && !$info['album']) {
         if ($info['song_mbid']) {
             // use musicbrainz to pick up the album ablum using
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://musicbrainz.org/ws/2/recording/28734584-3a00-4072-8e09-dc5c40c0d50a?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/28734584-3a00-4072-8e09-dc5c40c0d50a?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json"
             $url = 'https://musicbrainz.org/ws/2/recording/'.$info['song_mbid'].'?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json';
             $retval = get_musicBrainz($redis, $url);
             if ($retval) {
@@ -11988,7 +11988,7 @@ function wrk_get_webradio_art($redis, $radiostring)
             }
         } else {
             // use musicbrainz to pick up the album name and art using
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://musicbrainz.org/ws/2/recording/?query=annie+lennox+-+why&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/?query=annie+lennox+-+why&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json"
             $url = 'https://musicbrainz.org/ws/2/recording/?query='.urlClean($radiostringClean).'&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json';
             $retval = get_musicBrainz($redis, $url);
             if ($retval) {
@@ -12233,7 +12233,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     // save JSON response for extensions
     $redis->set('act_player_info', json_encode($status));
     ui_render('playback', json_encode($status));
-    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     sysCmdAsync($redis, '/srv/http/command/ui_update_async', 0);
     return $status;
 }
@@ -12416,11 +12416,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        // curl -X GET -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
         //
-        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
+        $command = 'curl -X GET -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -12540,10 +12540,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     } else {
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
-        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // curl -X GET -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
+        // $command = 'curl -X GET -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
@@ -12659,7 +12659,7 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
     $apiSecret = $redis->hGet('spotifyconnect', 'api_secret');
     if (!$redis->hExists('spotifyconnect', 'api_token') || !$redis->hGet('spotifyconnect', 'api_token')) {
         // no API token, get one
-        $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+        $retval = implode(' ', sysCmd("curl -X POST -s -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
         $retval = json_decode($retval, true);
         if (isset($retval['access_token']) && $retval['access_token']) {
             // got an API token, save it
@@ -12675,13 +12675,13 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
     }
     if ($apiToken) {
         // there is a an API token
-        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+        $command = "curl -X GET -s https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
         $retval = implode(' ', sysCmd($command));
         $metadata = json_decode($retval, true);
         if (isset($metadata['error']['message']) && strpos($metadata['error']['message'], 'expired') ) {
             // token has expired, get a new one
             // other failures are not handled
-            $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+            $retval = implode(' ', sysCmd("curl -X POST -s -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
             $retval = json_decode($retval, true);
             if (isset($retval['access_token']) && $retval['access_token']) {
                 // we have a new token, save it
@@ -12697,7 +12697,7 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
         }
         // try again
         if ($apiToken) {
-        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+        $command = "curl -X GET -s https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
             $retval = implode(' ', sysCmd($command));
             $metadata = json_decode($retval, true);
         }

@@ -128,7 +128,7 @@ $status['local_volume_control'] = 0;
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
 ui_render('playback', json_encode($status));
-sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+sysCmd('curl -X GET -s http://localhost/command/?cmd=renderui');
 // --- WORKER MAIN LOOP --- //
 while (true) {
     if ($activePlayer !== "Airplay") {
@@ -599,7 +599,7 @@ while (true) {
                         // save JSON response for extensions
                         $redis->set('act_player_info', json_encode($status));
                         ui_render('playback', json_encode($status));
-                        //sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                        //sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
                         break;
                     case 'ssnc pcst':
@@ -756,7 +756,7 @@ while (true) {
                             unset($render['elapsed'], $render['song_percent']);
                             $redis->set('act_player_info', json_encode($status));
                             ui_render('playback', json_encode($render));
-                            // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                             //
                             // now get the artist art and song information (also done after metadata end - see above)
                             $info = array();
@@ -789,7 +789,7 @@ while (true) {
                             unset($render['elapsed'], $render['song_percent']);
                             $redis->set('act_player_info', json_encode($status));
                             ui_render('playback', json_encode($render));
-                            // sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                             // clean up the metadata, async and at low priority
                             sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
@@ -799,7 +799,7 @@ while (true) {
                             //$redis->set('act_player_info', json_encode($status));
                             //sleep(2);
                             //sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
-                            //sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                            //sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                         }
                         break;
                     default:

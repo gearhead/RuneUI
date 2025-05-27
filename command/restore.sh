@@ -43,7 +43,7 @@ udevadm control --reload-rules && udevadm trigger
 # set player to MPD, set its state to stop and stop the player
 redis-cli set mpd_playback_status stop
 mpc stop
-curl -s 'http://localhost/command/?switchplayer=MPD'
+curl -X PUT -s 'http://localhost/command/?switchplayer=MPD'
 # regenerate webradios
 /srv/http/command/webradiodb.sh
 /srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'

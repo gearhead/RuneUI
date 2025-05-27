@@ -270,7 +270,7 @@ do {
         $redis->set('act_player_info', json_encode($status));
         ui_render('playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
-        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         if ($job['event'] == 'stop') {
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'stopplayer'));
@@ -364,7 +364,7 @@ do {
                     // save JSON response for extensions
                     $redis->set('act_player_info', json_encode($status));
                     ui_render('playback', json_encode($status));
-                    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+                    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                 }
                 // now get the artist art and song information, this can take a while to retrieve
                 $info = array();
@@ -515,7 +515,7 @@ do {
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
         ui_render('playback', json_encode($status));
-        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         if (isset($job['track_id']) && $job['track_id'] && ($last_track_id != $job['track_id'])) {
             // clean up the metadata cache when track ID changes
