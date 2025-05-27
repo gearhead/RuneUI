@@ -61,6 +61,9 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $response = ui_update($redis, $socket);
         }
     } else {
+        // if ($redis->hGet('owntone', 'active')) {
+            // // owntone local device volume setting
+        // } else
         if ($activePlayer === 'MPD') {
             $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);
             // debug

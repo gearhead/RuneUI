@@ -182,9 +182,11 @@
                         <option value="48000" <?php if($this->config['samplerate'] == '48000'): ?> selected <?php endif ?>>48,000Hz</option>
                     </select>
                     <span class="help-block">Choose the Bluetooth audio sample rate.<br>
-                        Most Bluetooth devices support 48,000Hz and 44,100Hz sample rates, but some can only process 41,100Hz sampling. 44,100Hz sampling should give
-                        better results for Apple devices, however, Airplay is always a better choice than Bluetooth for streamed audio input. The default is 48,000Hz, change it if required.<br>
-                        <i>Note: Changing this value will disconnect all your output Bluetooth devices</i></span>
+                        Most Bluetooth devices support 44,100Hz and 48,000Hz sample rates, but some can only process 41,100Hz sampling. A 44,100Hz sampling should give
+                        better results for Apple devices (and when Multi-room is enabled), however, Airplay is always a better choice than Bluetooth for streamed audio
+                        input. The default is 44,100Hz, change it if required.<br>
+                        <i>Notes: Changing this value will disconnect all your output Bluetooth devices.
+                        Due to Bluetooth bandwidth limitations using a 48,000Hz sample gives little sound improvement</i></span>
                 </div>
             </div>
             <div class="form-group">

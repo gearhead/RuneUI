@@ -158,8 +158,8 @@ if (!isset($template->config['IO_toggle'])) {
     $template->config['IO_toggle'] = 'both';
 }
 if (!isset($template->config['samplerate'])) {
-    $redis->hSet('bluetooth', 'samplerate', '48000');
-    $template->config['samplerate'] = '48000';
+    $redis->hSet('bluetooth', 'samplerate', '44100');
+    $template->config['samplerate'] = '44100';
 }
 // if (!isset($template->config['native_volume_control'])) {
     // $redis->hSet('bluetooth', 'native_volume_control', 'a');

@@ -367,22 +367,30 @@ if ($playerid_db === '') {
     sysCmdAsync($redis, '/srv/http/command/orion_optimize.sh "'.$orionprofile.'" "'.$hwplatformid.'"');
     // mount and collect USB storage information for the UI (also starts samba)
     sysCmdAsync($redis, '/srv/http/command/usbmount nowait');
+    //
     // start spotifyd (Spotify Connect)
     if ($redis->hGet('spotifyconnect', 'enable')) {
         runelog('service: SPOTIFYD start','');
         // start spotifyd if it is not already started
         sysCmdAsync($redis, '/srv/http/command/wrk_spotifyd_async.php');
     }
+    //
     // start shairport-sync (Airplay)
     if ($redis->hGet('airplay', 'enable')) {
         runelog('service: SHAIRPORT-SYNC start','');
         // start shairport-sync if it is not already started
         sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php');
     }
+    //
+    // initialise and start owntone
+    sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
+    //
     // check the availability of internet and services
     sysCmdAsync($redis, '/srv/http/command/internet_available_async.sh');
+    //
     // refresh nics, this will start the AP if required
     sysCmdAsync($redis, '/srv/http/command/refresh_nics');
+    //
     // refresh the bluetooth status
     sysCmdAsync($redis, '/srv/http/command/bt_status_async.php');
     //

@@ -65,7 +65,7 @@ for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
 # step 2 - the audio jobs, the order is important
-declare -a stop_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor mpdscribble upmpdcli mpd shairport-sync spotifyd mosquitto)
+declare -a stop_arr=(owntone_monitor owntone ashuffle bluealsa bluealsa-aplay bluealsa-monitor mpdscribble upmpdcli mpd shairport-sync spotifyd mosquitto)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done

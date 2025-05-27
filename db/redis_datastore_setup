@@ -269,6 +269,50 @@ function redisDatastore($redis, $action) {
             }
             unset($scripts, $script);
             break;
+        case 'owntonereset':
+            // Owntone - Multi-room
+            $redis->hSet('owntone', 'active', '0');
+            $redis->hSet('owntone', 'device_ap', '');
+            $redis->hSet('owntone', 'device_bt', '');
+            $redis->hSet('owntone', 'device_mpd', '');
+            $redis->hSet('owntone', 'device_sc', '');
+            $redis->hSet('owntone', 'enable', '0');
+            $redis->hSet('owntone', 'library_directory', '');
+            $redis->hSet('owntone', 'local_output_name', ''); // only set for role = server
+            $redis->hSet('owntone', 'output_presets', ''); // only set for role = server
+            $redis->hSet('owntone', 'outputs', '');
+            $redis->hSet('owntone', 'pipe_ap', '');
+            $redis->hSet('owntone', 'pipe_bt', '');
+            $redis->hSet('owntone', 'pipe_mpd', '');
+            $redis->hSet('owntone', 'pipe_sc', '');
+            $redis->hSet('owntone', 'rate', '44100');
+            $redis->hSet('owntone', 'role', '');
+            $redis->hSet('owntone', 'server', '');
+            $redis->hSet('owntone', 'server_config', '');
+            $redis->hSet('owntone', 'server_ip_address', ''); // only set for role = slave
+            break;
+        case 'owntonecheck':
+            // owntone - Multi-room
+            $redis->hExists('owntone', 'active') || $redis->hSet('owntone', 'active', '0');
+            $redis->hExists('owntone', 'device_ap') || $redis->hSet('owntone', 'device_ap', '');
+            $redis->hExists('owntone', 'device_bt') || $redis->hSet('owntone', 'device_bt', '');
+            $redis->hExists('owntone', 'device_mpd') || $redis->hSet('owntone', 'device_mpd', '');
+            $redis->hExists('owntone', 'device_sc') || $redis->hSet('owntone', 'device_sc', '');
+            $redis->hExists('owntone', 'enable') || $redis->hSet('owntone', 'enable', '0');
+            $redis->hExists('owntone', 'library_directory') || $redis->hSet('owntone', 'library_directory', '');
+            $redis->hExists('owntone', 'local_output_name') || $redis->hSet('owntone', 'local_output_name', ''); // only set for role = server
+            $redis->hExists('owntone', 'output_presets') || $redis->hSet('owntone', 'output_presets', ''); // only set for role = server
+            $redis->hExists('owntone', 'outputs') || $redis->hSet('owntone', 'outputs', '');
+            $redis->hExists('owntone', 'pipe_ap') || $redis->hSet('owntone', 'pipe_ap', '');
+            $redis->hExists('owntone', 'pipe_bt') || $redis->hSet('owntone', 'pipe_bt', '');
+            $redis->hExists('owntone', 'pipe_mpd') || $redis->hSet('owntone', 'pipe_mpd', '');
+            $redis->hExists('owntone', 'pipe_sc') || $redis->hSet('owntone', 'pipe_sc', '');
+            $redis->hExists('owntone', 'rate') || $redis->hSet('owntone', 'rate', '44100');
+            $redis->hExists('owntone', 'role') || $redis->hSet('owntone', 'role', '');
+            $redis->hExists('owntone', 'server') || $redis->hSet('owntone', 'server', '');
+            $redis->hExists('owntone', 'server_config') || $redis->hSet('owntone', 'server_config', '');
+            $redis->hExists('owntone', 'server_ip_address') || $redis->hSet('owntone', 'server_ip_address', ''); // only set for role = slave
+            break;
         case 'reset':
             $redis->set('i2smodule', 'none');
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
@@ -328,7 +372,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('bluetooth', 'quality', 'default');
             $redis->hSet('bluetooth', 'quality_options', json_encode(array('default')));
             $redis->hSet('bluetooth', 'remember_last_volume', 0);
-            $redis->hSet('bluetooth', 'samplerate', '48000');
+            $redis->hSet('bluetooth', 'samplerate', '44100');
             $redis->hSet('bluetooth', 'timeout', 20);
             $redis->set('bluetooth_status', json_encode(array()));
             $redis->del('bluetooth_on');
@@ -831,6 +875,7 @@ if (isset($argv[1])) {
             redisDatastore($redis,'mpdreset');
             redisDatastore($redis,'apreset');
             redisDatastore($redis,'opcachereset');
+            redisDatastore($redis,'owntonereset');
             redisDatastore($redis,'osreset');
             redisDatastore($redis,'reset');
             sysCmd('/srv/http/db/redis_acards_details');
@@ -840,6 +885,7 @@ if (isset($argv[1])) {
             redisDatastore($redis,'mpdcheck');
             redisDatastore($redis,'apcheck');
             redisDatastore($redis,'opcachecheck');
+            redisDatastore($redis,'owntonecheck');
             redisDatastore($redis,'oscheck');
             redisDatastore($redis,'check');
             break;
@@ -868,10 +914,16 @@ if (isset($argv[1])) {
         case 'opcachecheck':
             redisDatastore($redis,'opcachecheck');
             break;
+        case 'owntonereset':
+            redisDatastore($redis,'owntonereset');
+            break;
+        case 'owntonecheck':
+            redisDatastore($redis,'owntonecheck');
+            break;
         default:
-            trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachecheck}\n", E_USER_ERROR);
+            trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachereset|opcachecheck|osreset|oscheck|owntonereset|owntonecheck}\n", E_USER_ERROR);
             break;
     }
 } else {
-    trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachecheck}\n", E_USER_ERROR);
+    trigger_error("RuneAudio Datastore reset\nredis_datastore_setup {reset|check|mpdreset|mpdcheck|apreset|apcheck|opcachereset|opcachecheck|osreset|oscheck|owntonereset|owntonecheck}\n", E_USER_ERROR);
 }

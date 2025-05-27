@@ -105,7 +105,7 @@ fi
 #   stopping these process will terminate this routine
 redis-cli del cmd_queue
 # stop most of the systemd units which can be stopped, the order is important
-declare -a stop_arr=(udevil systemd-udevd amixer-webui avahi-daemon\
+declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor owntone avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
     llmnrd mosquitto wsdd winbindd winbindd nmbd nmb smbd smd rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk shairport-sync\
     spotifyd)
