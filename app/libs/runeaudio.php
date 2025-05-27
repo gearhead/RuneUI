@@ -12827,7 +12827,7 @@ function search_array_keys($myArray, $search, $caseInsensative = 0, $skipEmpty =
     return false;
 }
 
-// sets the default alsa card and the bluealsa ouput card, based on the card name
+// sets the default alsa card and the bluealsa output card, based on the card name
 function set_alsa_default_card($redis, $cardName = null)
 {
     $alsaFileName = '/etc/asound.conf';

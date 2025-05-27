@@ -233,7 +233,7 @@ while (true) {
                 // examine the bluetooth connection status to determine if a Bluetooth source or sink is connected
                 // also check that connected Bluetooth outputs are listed in the UI
                 if (!isset($devices)) {
-                    // this routine is expensive to run, so only run it when needed$acard['swdevice']
+                    // this routine is expensive to run, so only run it when needed
                     $devices = wrk_btcfg($redis, 'status');
                 }
                 $connectAttempt = false;
