@@ -104,6 +104,7 @@ fi
 #   but don't stop the cmd_async_queue or rune_SY_wrk processes - this routine is called by by these processes
 #   stopping these process will terminate this routine
 redis-cli del cmd_queue
+redis-cli del cmd_queue_encoding
 # stop most of the systemd units which can be stopped, the order is important
 declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor owntone avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\

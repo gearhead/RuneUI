@@ -44,21 +44,38 @@ require_once('/srv/http/app/libs/openredis.php');
 // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
 //  the commands are deflated, encrypted and then base64_encoded
 //  the reverse is used to decode commands
-//  its not really secure but should be enough to deter the casual burglar
-// variables, initially set at boot time and after emptying the queue (see below)
-//  the cipher is the first one returned by openssl_get_cipher_methods()
+//  its not really secure but should be enough to deter the casual snooper
+// the cipher data will only change when no queuing actions are taking place and the queue is empty,
+//  so initially the cyper data is null and function works without encryption
+// cypher data:
+//  the cipher is a valid one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
-//  the passphrase is the Rune playerID
-// encode
+//  the passphrase is md5 of the Rune playerID plus the time
+// encode encrypted
 //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
-// decode
+// decode encrypted
 //  $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+// encode without encryption
+//  $encoded = base64_encode(gzdeflate($command, 9));
+// decode without encryption
+//  $command = trim(gzinflate(base64_decode($encoded)));
+// but the ciphers are unreliable at startup, a timesync is required and sufficient time is required to attain empathy
+//  before it all works correctly
+//  the solution is to queue the commands without encryption initially, this also speeds up the boot sequence
+// cmd_queue_queueing is a switch incremented when beginning a queuing action,
+//  on completion of the queuing action it is decremented,
+//  the variable is also set with an expiry of 10 seconds so that it will reset it when something goes wrong
+//      a queuing action will always complete within 10 seconds
 //
 // double loop, the outside loop loops forever, there are two sequential loops inside it
 //  the first inside loop loops until there is something to process
 //  the second inside loop processes the queue until it it is empty
 //  the encryption data is reset (changed) when the queue is empty
 //
+// on the first time when no queuing actions are taking place and the queue is empty clear the encrypting data
+if (is_firstTime($redis, 'cmd_queue') && !$redis->get('cmd_queue_queueing') && !$redis->lLen('cmd_queue')) {
+    $redis->del('cmd_queue_encoding');
+}
 // set the priority low (nice 15)
 proc_nice(15);
 while (true) {
@@ -72,17 +89,6 @@ while (true) {
     }
     // at least one entry to process
     while ($redis->lLen('cmd_queue')) {
-        // get the encryption data
-        $cnt = 20;
-        while (($cnt-- >= 0) && (!isset($iv) || !isset($cipher) || !isset($passphrase) || !$iv || !$cipher || !$passphrase)) {
-            // sometimes the queue is populated before the encryption data is posted
-            $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-            $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-            $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
-            if (!$iv || !$cipher || !$passphrase) {
-                sleep(3);
-            }
-        }
         // read the fifo queue
         $encoded = $redis->rPop('cmd_queue');
         // check the length of the output (0 = end), this should never happen
@@ -93,8 +99,34 @@ while (true) {
         // debug
         // echo "Encoded command: ".$encoded."\n";
         runelog('cmd_async_queue - encoded command', $encoded);
+        // get the encryption data
+        $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+        $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
         // decode the encoded command
-        $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+        if ($iv && $cipher && $passphrase) {
+            // cipher information is available, process with encryption
+            // encode
+            //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
+            // decode
+            //  $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+            //
+            $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+        } else {
+            // cipher information incomplete, process without encryption
+            // set the cipher data to null
+            $redis->multi()
+                ->hDel('cmd_queue_encoding', 'cipher')
+                ->hDel('cmd_queue_encoding', 'cipher_iv')
+                ->hDel('cmd_queue_encoding', 'passphrase')
+                ->exec();
+            // encode
+            //  $encoded = base64_encode(gzdeflate($command, 9));
+            // decode
+            //  $command = trim(gzinflate(base64_decode($encoded)));
+            //
+            $command = trim(gzinflate(base64_decode($encoded)));
+        }
         // debug
         // echo "Decoded command: ".$command."\n";
         // if (in_array($command, $cycleCommands)) {
@@ -122,5 +154,6 @@ while (true) {
     runelog('cmd_async_queue - queue emptied', '');
     // echo "Queue emptied\n";
     reset_cmd_queue_encoding($redis);
-    // loop forever
+    // loop forever, sleep first
+    sleep(5);
 }

@@ -990,45 +990,36 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
         // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
         //  the commands are deflated, encrypted and then base64_encoded
         //  the reverse is used to decode commands
-        //  its not really secure but should be enough to deter the casual burglar
-        // variables, initially set at boot time and after emptying the queue
-        //  the cipher is the first one returned by openssl_get_cipher_methods()
+        //  its not really secure but should be enough to deter the casual snooper
+        // the cipher data will only change when no queuing actions are taking place and the queue is empty,
+        //  so initially the cyper data is null and function works without encryption
+        // cypher data:
+        //  the cipher is a valid one returned by openssl_get_cipher_methods()
         //  the initialization vector is calculated in the standard way
-        //  the passphrase is the Rune playerID
-        if (is_firstTime($redis, 'cmd_queue_encoding')) {
-            // delete any existing command queue entries
-            $redis->del('cmd_queue');
-            $redis->hDel('cmd_queue_encoding', 'cipher_iv');
-            $redis->hDel('cmd_queue_encoding', 'cipher');
-            $redis->hDel('cmd_queue_encoding', 'passphrase');
-            // generate the encryption data, this takes some time
-            //  other queue request may start while processing
-            reset_cmd_queue_encoding($redis);
-        }
-        do {
-            // this loop checks that the cypher data is the same before and after writing to the queue
-            //  if the cypher data has changed the previously written command will not be decodable
-            //  so just write it again with the latest cypher data
-            //  it should not happen very often
-            // get the cypher data, early in the processing it may not be set
-            $cnt = 20;
-            while (!isset($iv) || ($iv == '')) {
-                // loop until we have some valid cypher data another request may be encoding it
-                $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-                if ($iv == '') {
-                    if ($cnt-- <= 0) {
-                        // fail-safe, limit the number of loops
-                        echo "[sysCmdAsync] Failed to load cypher data while encoding command '".$command."'\n";
-                        // break 2 loops
-                        break 2;
-                    }
-                    // sleep for 1 second
-                    sleep(1);
-                } else {
-                    $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-                    $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
-                }
-            }
+        //  the passphrase is md5 of the Rune playerID plus the time
+        // encode encrypted
+        //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
+        // decode encrypted
+        //  $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+        // encode without encryption
+        //  $encoded = base64_encode(gzdeflate($command, 9));
+        // decode without encryption
+        //  $command = trim(gzinflate(base64_decode($encoded)));
+        // but the ciphers are unreliable at startup, a timesync is required and sufficient time is required to attain empathy
+        //  before it all works correctly
+        //  the solution is to queue the commands without encryption initially, this also speeds up the boot sequence
+        // cmd_queue_queueing is a switch incremented when beginning a queuing action,
+        //  on completion of the queuing action it is decremented,
+        //  the variable is also set with an expiry of 10 seconds so that it will reset it when something goes wrong
+        //      a queuing action will always complete within 10 seconds
+        //
+        $redis->incr('cmd_queue_queueing');
+        $redis->expire('cmd_queue_queueing', 10);
+        $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+        $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+        if (($iv != '') || ($cipher != '') || ($passphrase != '')) {
+            // cipher information is available, process with encryption
             // encode
             //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
             // decode
@@ -1038,10 +1029,29 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
             //  this takes time, the encryption data could change while encoding and writing to the queue
             $encoded = base64_encode(openssl_encrypt(gzdeflate($syscmd, 9), $cipher, $passphrase, 0, $iv));
             $redis->lPush('cmd_queue', $encoded);
-        } while ($iv != $redis->hGet('cmd_queue_encoding', 'cipher_iv'));
-        // start the Asynchronous FIFO command queue service to process the data
-        //  it loops forever, starting it while it is still running is not a problem
-        wrk_systemd_unit($redis, 'start', 'cmd_async_queue');
+        } else {
+            // cipher information incomplete, process without encryption
+            // set the cipher data to null
+            $redis->multi()
+                ->hDel('cmd_queue_encoding', 'cipher')
+                ->hDel('cmd_queue_encoding', 'cipher_iv')
+                ->hDel('cmd_queue_encoding', 'passphrase')
+                ->exec();
+            // encode
+            //  $encoded = base64_encode(gzdeflate($command, 9));
+            // decode
+            //  $command = trim(gzinflate(base64_decode($encoded)));
+            //
+            $encoded = base64_encode(gzdeflate($syscmd, 9));
+            $redis->lPush('cmd_queue', $encoded);
+        }
+        // decrement cmd_queue_queueing and expire it after 10 seconds
+        $redis->decr('cmd_queue_queueing');
+        $redis->expire('cmd_queue_queueing', 10);
+        // if required enable and start the Asynchronous FIFO command queue service to process the data
+        if (!wrk_systemd_unit($redis, 'is-active', 'cmd_async_queue')) {
+            wrk_systemd_unit($redis, 'enable_and_start', 'cmd_async_queue');
+        }
     }
 }
 
@@ -1050,37 +1060,43 @@ function reset_cmd_queue_encoding($redis)
 // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
 //  the commands are deflated, encrypted and then base64_encoded
 //  the reverse is used to decode commands
-//  its not really secure but should be enough to deter the casual burglar
-// variables, set initially at boot time and after emptying the queue (see below)
-//  the cipher is the first one returned by openssl_get_cipher_methods()
+//  its not really secure but should be enough to deter the casual snooper
+// the cipher data will only change when no queuing actions are taking place and the queue is empty,
+//  so initially the cyper data is null and function works without encryption
+// cypher data:
+//  the cipher is a valid one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
-//  the passphrase is the Rune playerID
+//  the passphrase is md5 of the Rune playerID plus the time
+// but the ciphers are unreliable at startup, a timesync is required and sufficient time is required to attain empathy
+//  before it all works correctly
+//  the solution is to queue the commands without encryption initially, this also speeds up the boot sequence
+// cmd_queue_queueing is a switch incremented when beginning a queuing action,
+//  on completion of the queuing action it is decremented,
+//  the variable is also set with an expiry of 10 seconds so that it will reset it when something goes wrong
+//      a queuing action will always complete within 10 seconds
 {
+    // don't do anything when queuing actions are active or the queue is not empty
+    if ($redis->get('cmd_queue_queueing') || $redis->lLen('cmd_queue')) {
+        return;
+    }
     // the passphrase is the md5 of player id plus the current time
     $passphrase = md5($redis->get('playerid').microtime(true));
     // get the ciphers which we do not use
-    $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
     if ($redis->exists('cipher_exclude_list')) {
         $cipher_exclude_list = $redis->get('cipher_exclude_list');
         $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
+    } else {
+        $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
     }
     $cipher_exclude_array = explode(' ', $cipher_exclude_list);
     //
     $first_time = is_firstTime($redis, 'cmd_queue_cipher_array');
     if ($first_time) {
         // create the cipher array, run only once after a boot
-        //  retry 20 times, wait 1 second in the loop
-        $cnt = 20;
-        while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
-            $cipher_array = openssl_get_cipher_methods();
-            if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-                sleep(1);
-                unset($cipher_array);
-            }
-        }
+        $cipher_array = openssl_get_cipher_methods();
     }
     if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-        // still not set
+        // $cipher_array not set
         // unset the is_first_time state of 'cmd_queue_cipher_array'
         unset_is_firstTime($redis, 'cmd_queue_cipher_array');
         // try to use the last stored array or cipher
@@ -1090,11 +1106,8 @@ function reset_cmd_queue_encoding($redis)
         } else if ($redis->hExists('cmd_queue_encoding', 'cipher')) {
             $cipher_array[] = $redis->hGet('cmd_queue_encoding', 'cipher');
         } else {
-            // cant do anything, abort with an error
-            // Use '126	ENOKEY	Required key not available' as exit code
-            // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cipher array, aborting\n";
-            exit(126);
+            // cant determine a cipher, just return
+            return;
         }
     }
     if ($first_time) {
@@ -1191,8 +1204,8 @@ function reset_cmd_queue_encoding($redis)
             sleep(1);
         }
     }
-    // save the values if the cypher data is unset or the queue is (still) empty
-    if ((!$redis->hGet('cmd_queue_encoding', 'cipher_iv')) || !$redis->lLen('cmd_queue')) {
+    // save the values if no queuing actions are active and the queue is empty
+    if (!$redis->get('cmd_queue_queueing') && !$redis->lLen('cmd_queue')) {
         $redis->multi()
             ->hSet('cmd_queue_encoding', 'cipher', $cipher)
             ->hSet('cmd_queue_encoding', 'cipher_iv', $iv)
