@@ -4695,44 +4695,40 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $acards = array_merge($redis->hgetall('usbacards'), $acards);
             }
             // save hdmi and usb acards
-            //  first delete the current hdmi and usb acards
+            //  first delete the current hdmi and usb acards caches
             $redis->del('hdmiacards');
             $redis->del('usbacards');
-            foreach ($acards as $key => $acard) {
-                $acardDetails = json_decode($acard, true);
-                if ((strpos(' '.strtolower($key), 'hdmi')) && (substr($acardDetails['description'], 0, 13) == 'Raspberry Pi:')) {
-                    // the card name contains hdmi and is it is an on-board device, save it
-                    $redis->hSet('hdmiacards', $key, $acard);
-                } else if (substr($acardDetails['description'], 0, 4) == 'USB:') {
-                    // the card is a usb device, save it
-                    $redis->hSet('usbacards', $key, $acard);
-                }
-                unset($acardDetails);
-            }
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
             //  the MPD config file will not be replaced and MPD not restarted
             //  sort order is case insensitive
             ksort($acards, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($acards as $main_acard_name => $main_acard_details) {
-                // $card_decoded = new stdClass();
-                unset($card_decoded);
-                $card_decoded = array();
-                $card_decoded = json_decode($main_acard_details, true);
+                // $acard_decoded = new stdClass();
+                $acard_decoded = array();
+                $acard_decoded = json_decode($main_acard_details, true);
                 // debug
-                runelog('decoded ACARD '.$card_decoded['sysname'], $main_acard_details, __FUNCTION__);
+                runelog('decoded ACARD '.$acard_decoded['sysname'], $main_acard_details, __FUNCTION__);
+                // rebuild the hdmi and usb acards caches
+                if ((strpos(' '.strtolower($main_acard_name), 'hdmi')) && (substr($acard_decoded['description'], 0, 13) == 'Raspberry Pi:')) {
+                    // the card name contains hdmi and is it is an on-board device, save it
+                    $redis->hSet('hdmiacards', $main_acard_name, $main_acard_details);
+                } else if (substr($acard_decoded['description'], 0, 4) == 'USB:') {
+                    // the card is a usb device, save it
+                    $redis->hSet('usbacards', $main_acard_name, $main_acard_details);
+                }
                 // handle sub-interfaces
-                if (isset($card_decoded['integrated_sub']) && ($card_decoded['integrated_sub'] === 1)) {
+                if (isset($acard_decoded['integrated_sub']) && ($acard_decoded['integrated_sub'] === 1)) {
                     // record UI audio output name
-                    $current_card = $card_decoded['sysname'];
+                    $current_card = $acard_decoded['sysname'];
                     // if ($sub_count >= 1) continue;
-                    // $card_decoded = json_decode($card_decoded->real_interface);
+                    // $acard_decoded = json_decode($acard_decoded->real_interface);
                     runelog('current AO ---->  ', $ao, __FUNCTION__);
                     // var_dump($ao);
-                    runelog('current card_name ---->  ', $card_decoded['sysname'], __FUNCTION__);
-                    // var_dump($card_decoded->name);
-                    // var_dump(strpos($ao, $card_decoded->name));
-                    if (strpos($ao, $card_decoded['sysname']) === true OR strpos($ao, $card_decoded['sysname']) === 0) $sub_interface_selected = 1;
+                    runelog('current card_name ---->  ', $acard_decoded['sysname'], __FUNCTION__);
+                    // var_dump($acard_decoded->name);
+                    // var_dump(strpos($ao, $acard_decoded->name));
+                    if (strpos($ao, $acard_decoded['sysname']) === true OR strpos($ao, $acard_decoded['sysname']) === 0) $sub_interface_selected = 1;
                     // debug
                     if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
                     // debug
@@ -4743,36 +4739,36 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     runelog('sub_count', $sub_count, __FUNCTION__);
                 }
                 $output .="audio_output {\n";
-                // $output .="name \t\t\"".$card_decoded->name."\"\n";
+                // $output .="name \t\t\"".$acard_decoded->name."\"\n";
                 if (isset($sub_interface)) {
-                    $output .="\tname \t\t\"".$card_decoded['sysname']."\"\n";
+                    $output .="\tname \t\t\"".$acard_decoded['sysname']."\"\n";
                 } else {
                     $output .="\tname \t\t\"".$main_acard_name."\"\n";
                 }
-                $output .="\ttype \t\t\"".$card_decoded['type']."\"\n";
-                // $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
-                $output .="\tdevice \t\t\"".$card_decoded['swdevice']."\"\n";
+                $output .="\ttype \t\t\"".$acard_decoded['type']."\"\n";
+                // $output .="\tdevice \t\t\"".$acard_decoded['device']."\"\n";
+                $output .="\tdevice \t\t\"".$acard_decoded['swdevice']."\"\n";
                 if ($hwmixer) {
-                    if (isset($card_decoded['mixer_control'])) {
+                    if (isset($acard_decoded['mixer_control'])) {
                         // mixer control is set
-                        if ($card_decoded['mixer_control']) {
+                        if ($acard_decoded['mixer_control']) {
                             // mixer control has a value
-                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                            $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                         }
                         // hardware mixer type is set when mixer control is set, even if mixer control has no value
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        if (isset($card_decoded['mixer_device']) && $card_decoded['mixer_device']) {
+                        if (isset($acard_decoded['mixer_device']) && $acard_decoded['mixer_device']) {
                             // mixer device is set and has a value
-                            // $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
-                            $output .="\tmixer_device \t\"".$card_decoded['swmixer_device']."\"\n";
+                            // $output .="\tmixer_device \t\"".$acard_decoded['mixer_device']."\"\n";
+                            $output .="\tmixer_device \t\"".$acard_decoded['swmixer_device']."\"\n";
                         }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
                             $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                         }
                     } else {
-                        if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                        if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                            $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                         } else {
                             $output .="\tmixer_type \t\"software\"\n";
                         }
@@ -4785,13 +4781,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 // test if there is an option for mpd.conf is set
                 // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-                if (isset($card_decoded['card_option'])) {
-                    $output .= "\t".$card_decoded['card_option']."\n";
+                if (isset($acard_decoded['card_option'])) {
+                    $output .= "\t".$acard_decoded['card_option']."\n";
                 }
                 // test if there is an allowed_formats for mpd.conf is set
                 // for example the ES9023 audio card expects 24 bit input
-                if (isset($card_decoded['allowed_formats'])) {
-                    $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
+                if (isset($acard_decoded['allowed_formats'])) {
+                    $output .= "\tallowed_formats\t\"".$acard_decoded['allowed_formats']."\"\n";
                 }
                 if ($mpdcfg['dsd_usb'] != 'no') {
                     if ($mpdcfg['dsd_usb'] === 'DSDDOP') {
@@ -4802,7 +4798,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tdsd_usb \t\"yes\"\n";
                     }
                 }
-                if ($card_decoded['type'] == 'alsa') {
+                if ($acard_decoded['type'] == 'alsa') {
                     $output .="\tbuffer_time \t\"200000\"\n";
                     $output .="\tperiod_time \t\"5084\"\n";
                 }
@@ -4821,7 +4817,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // add Bluetooth output devices for all known connections
             $btDevices = wrk_btcfg($redis, 'status');
             $btconfig = $redis->hgetall('bluetooth');
-            ksort($btconfig, SORT_NATURAL|SORT_FLAG_CASE);
+            ksort($btDevices, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($btDevices as $btDevice) {
                 if ($btDevice['sink'] && $btDevice['device']) {
                     $output .= "audio_output {\n";
@@ -5015,7 +5011,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
                 // save the previous card if it is a 'hw:' type
                 $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
-                if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
+                if (isset($acard['device']) && ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:'))) {
                     $redis->set('ao_default', $oldMpdout);
                 }
                 sysCmd('mpc enable "'.$oldMpdout.'"');
