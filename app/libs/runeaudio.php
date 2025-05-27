@@ -16653,7 +16653,7 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# ALSA Equaliser output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"ALSA_equaliser\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,0\"\n";
@@ -16667,8 +16667,8 @@ function wrk_mpd_loopback($redis, $action = null)
                     $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                 }
             } else {
-                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                 } else {
                     $output .="\tmixer_type \t\"software\"\n";
                 }
@@ -16681,13 +16681,13 @@ function wrk_mpd_loopback($redis, $action = null)
         }
         // test if there is an option to set in mpd.conf
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         // test if there is an allowed_formats to set in mpd.conf
         // for example the ES9023 audio card expects 24 bit input
         if (isset($acard['allowed_formats'])) {
-            $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
+            $output .= "\tallowed_formats\t\"".$acard_decoded['allowed_formats']."\"\n";
         }
         $output .="\tauto_resample \t\"no\"\n";
         $output .="\tauto_format \t\"no\"\n";
@@ -16696,15 +16696,15 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# Snapcast Server output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"Snapcast_Server\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,1\"\n";
         $output .="\tmixer_type \t\"none\"\n";
         // test if there is an option for mpd.conf is set
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         $snapserverFormat = $redis->hget('snapcast', 'format');
         if (isset($snapserverFormat) && $snapserverFormat) {
@@ -16721,7 +16721,7 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# Brutefir output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"Brutefir\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,2\"\n";
@@ -16735,8 +16735,8 @@ function wrk_mpd_loopback($redis, $action = null)
                     $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                 }
             } else {
-                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                 } else {
                     $output .="\tmixer_type \t\"software\"\n";
                 }
@@ -16749,8 +16749,8 @@ function wrk_mpd_loopback($redis, $action = null)
         }
         // test if there is an option for mpd.conf is set
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         // test if there is an allowed_formats for mpd.conf is set
         // for example the ES9023 audio card expects 24 bit input

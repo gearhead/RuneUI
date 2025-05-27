@@ -101,8 +101,8 @@ if (count($usbMountedList)) {
         // the current device is not valid dismount it (it has possibly been unplugged without dismounting)
         sysCmd('udevil umount '.$usbMountedDeviceInfo[0]);
         // remove entries for this device from the unmounted list and the mounted list (don't bother to check for the existence of these hashes)
-        $redis-hDel('usbunmounts', $usbMountedDeviceInfo[0]);
-        $redis-hDel('usbmounts', $usbMountedDeviceInfo[0]);
+        $redis->hDel('usbunmounts', $usbMountedDeviceInfo[0]);
+        $redis->hDel('usbmounts', $usbMountedDeviceInfo[0]);
         $sleep = true;
     }
     if ($sleep) {

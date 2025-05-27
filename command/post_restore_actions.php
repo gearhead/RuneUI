@@ -113,13 +113,13 @@ if ($redis->get('bluetooth_on')) {
 }
 $bluetoothCodecs = strtolower(trim(explode(':', sysCmd('bluealsad --help | grep -i a2dp-source:')[0], 2)[1]));
 if (!strpos(' '.$bluetoothCodecs, 'aptx-hd')) {
-    $redis-hSet('bluetooth', 'aptX_HD_codec', 0);
+    $redis->hSet('bluetooth', 'aptX_HD_codec', 0);
 }
 if (!strpos(' '.$bluetoothCodecs, 'faststream')) {
-    $redis-hSet('bluetooth', 'FastStream_codec', 0);
+    $redis->hSet('bluetooth', 'FastStream_codec', 0);
 }
 if (!strpos(' '.$bluetoothCodecs, 'ldac')) {
-    $redis-hSet('bluetooth', 'LDAC_codec', 0);
+    $redis->hSet('bluetooth', 'LDAC_codec', 0);
 }
 wrk_btcfg($redis, 'config', json_encode($redis->hgetall('bluetooth')));
 wrk_btcfg($redis, 'quality_options');

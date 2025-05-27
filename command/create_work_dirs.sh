@@ -287,7 +287,7 @@ if [ "$spotifyConnectCache" != "" ]; then
     # remove a trailing / if it exists
     spotifyConnectCache="${spotifyConnectCache%/}"
     mkdir -p "$spotifyConnectCache"
-    chown -R spotifyd.spotifyd "$spotifyConnectCache"
+    chown -R spotifyd:spotifyd "$spotifyConnectCache"
     chmod 755 "$spotifyConnectCache"
     chmod -R 644 $spotifyConnectCache/*
 fi
