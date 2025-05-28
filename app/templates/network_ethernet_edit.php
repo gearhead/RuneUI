@@ -1,4 +1,4 @@
-<div class="container">
+<div id="network-wifi-edit-container" class="container">
     <h1>Network interface</h1>
     <form class="form-horizontal" action="/network" method="post" data-parsley-validate>
         <legend>Wired Internet Interface</legend>
