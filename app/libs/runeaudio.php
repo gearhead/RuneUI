@@ -8900,7 +8900,7 @@ function refresh_nics($redis)
             if ($networkInfo[$key]['strength'] <= 0) {
                 unset($networkInfo[$key]);
             } else {
-                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($networkInfo[$key]['strength']/10)));
+                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($networkInfo[$key]['strength']/20)));
             }
         }
     }
@@ -8998,8 +8998,8 @@ function refresh_nics($redis)
                 if ($value) {
                     $strength = $value;
                     $networkInfo[$macAddress.'_'.$ssidHex]['strength'] = $strength;
-                    // strength is a value from 1 to 100, genereate 1 to 10 stars
-                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/10)));
+                    // strength is a value from 1 to 100, genereate 1 to 5 stars
+                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/20)));
                 }
             } else if (strpos($entry, 'nameservers')) {
                 if ($value) {
