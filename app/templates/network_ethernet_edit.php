@@ -1,6 +1,8 @@
 <div id="network-wifi-edit-container" class="container">
     <h1>Network interface</h1>
     <form class="form-horizontal" action="/network" method="post" data-parsley-validate>
+     <input type="hidden" name="profile[nic]" value="<?= htmlspecialchars($this->profile['nic']) ?>">
+     <input type="hidden" name="profile[macAddress]" value="<?= htmlspecialchars($this->profile['macAddress']) ?>">
         <legend>Wired Internet Interface</legend>
         <fieldset>
             <table id="nic-details" class="info-table boxed" data-name="<? =$this->profile['macAddress']?>">

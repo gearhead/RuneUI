@@ -990,45 +990,36 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
         // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
         //  the commands are deflated, encrypted and then base64_encoded
         //  the reverse is used to decode commands
-        //  its not really secure but should be enough to deter the casual burglar
-        // variables, initially set at boot time and after emptying the queue
-        //  the cipher is the first one returned by openssl_get_cipher_methods()
+        //  its not really secure but should be enough to deter the casual snooper
+        // the cipher data will only change when no queuing actions are taking place and the queue is empty,
+        //  so initially the cyper data is null and function works without encryption
+        // cypher data:
+        //  the cipher is a valid one returned by openssl_get_cipher_methods()
         //  the initialization vector is calculated in the standard way
-        //  the passphrase is the Rune playerID
-        if (is_firstTime($redis, 'cmd_queue_encoding')) {
-            // delete any existing command queue entries
-            $redis->del('cmd_queue');
-            $redis->hDel('cmd_queue_encoding', 'cipher_iv');
-            $redis->hDel('cmd_queue_encoding', 'cipher');
-            $redis->hDel('cmd_queue_encoding', 'passphrase');
-            // generate the encryption data, this takes some time
-            //  other queue request may start while processing
-            reset_cmd_queue_encoding($redis);
-        }
-        do {
-            // this loop checks that the cypher data is the same before and after writing to the queue
-            //  if the cypher data has changed the previously written command will not be decodable
-            //  so just write it again with the latest cypher data
-            //  it should not happen very often
-            // get the cypher data, early in the processing it may not be set
-            $cnt = 20;
-            while (!isset($iv) || ($iv == '')) {
-                // loop until we have some valid cypher data another request may be encoding it
-                $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
-                if ($iv == '') {
-                    if ($cnt-- <= 0) {
-                        // fail-safe, limit the number of loops
-                        echo "[sysCmdAsync] Failed to load cypher data while encoding command '".$command."'\n";
-                        // break 2 loops
-                        break 2;
-                    }
-                    // sleep for 1 second
-                    sleep(1);
-                } else {
-                    $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
-                    $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
-                }
-            }
+        //  the passphrase is md5 of the Rune playerID plus the time
+        // encode encrypted
+        //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
+        // decode encrypted
+        //  $command = trim(gzinflate(openssl_decrypt(base64_decode($encoded), $cipher, $passphrase, 0, $iv)));
+        // encode without encryption
+        //  $encoded = base64_encode(gzdeflate($command, 9));
+        // decode without encryption
+        //  $command = trim(gzinflate(base64_decode($encoded)));
+        // but the ciphers are unreliable at startup, a timesync is required and sufficient time is required to attain empathy
+        //  before it all works correctly
+        //  the solution is to queue the commands without encryption initially, this also speeds up the boot sequence
+        // cmd_queue_queueing is a switch incremented when beginning a queuing action,
+        //  on completion of the queuing action it is decremented,
+        //  the variable is also set with an expiry of 10 seconds so that it will reset it when something goes wrong
+        //      a queuing action will always complete within 10 seconds
+        //
+        $redis->incr('cmd_queue_queueing');
+        $redis->expire('cmd_queue_queueing', 10);
+        $iv = $redis->hGet('cmd_queue_encoding', 'cipher_iv');
+        $cipher = $redis->hGet('cmd_queue_encoding', 'cipher');
+        $passphrase = $redis->hGet('cmd_queue_encoding', 'passphrase');
+        if (($iv != '') || ($cipher != '') || ($passphrase != '')) {
+            // cipher information is available, process with encryption
             // encode
             //  $encoded = base64_encode(openssl_encrypt(gzdeflate($command, 9), $cipher, $passphrase, 0, $iv));
             // decode
@@ -1038,10 +1029,29 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
             //  this takes time, the encryption data could change while encoding and writing to the queue
             $encoded = base64_encode(openssl_encrypt(gzdeflate($syscmd, 9), $cipher, $passphrase, 0, $iv));
             $redis->lPush('cmd_queue', $encoded);
-        } while ($iv != $redis->hGet('cmd_queue_encoding', 'cipher_iv'));
-        // start the Asynchronous FIFO command queue service to process the data
-        //  it loops forever, starting it while it is still running is not a problem
-        wrk_systemd_unit($redis, 'start', 'cmd_async_queue');
+        } else {
+            // cipher information incomplete, process without encryption
+            // set the cipher data to null
+            $redis->multi()
+                ->hDel('cmd_queue_encoding', 'cipher')
+                ->hDel('cmd_queue_encoding', 'cipher_iv')
+                ->hDel('cmd_queue_encoding', 'passphrase')
+                ->exec();
+            // encode
+            //  $encoded = base64_encode(gzdeflate($command, 9));
+            // decode
+            //  $command = trim(gzinflate(base64_decode($encoded)));
+            //
+            $encoded = base64_encode(gzdeflate($syscmd, 9));
+            $redis->lPush('cmd_queue', $encoded);
+        }
+        // decrement cmd_queue_queueing and expire it after 10 seconds
+        $redis->decr('cmd_queue_queueing');
+        $redis->expire('cmd_queue_queueing', 10);
+        // if required enable and start the Asynchronous FIFO command queue service to process the data
+        if (!wrk_systemd_unit($redis, 'is-active', 'cmd_async_queue')) {
+            wrk_systemd_unit($redis, 'enable_and_start', 'cmd_async_queue');
+        }
     }
 }
 
@@ -1050,37 +1060,43 @@ function reset_cmd_queue_encoding($redis)
 // maybe a little paranoid, but to prevent anyone just dropping commands into the cmd_queue
 //  the commands are deflated, encrypted and then base64_encoded
 //  the reverse is used to decode commands
-//  its not really secure but should be enough to deter the casual burglar
-// variables, set initially at boot time and after emptying the queue (see below)
-//  the cipher is the first one returned by openssl_get_cipher_methods()
+//  its not really secure but should be enough to deter the casual snooper
+// the cipher data will only change when no queuing actions are taking place and the queue is empty,
+//  so initially the cyper data is null and function works without encryption
+// cypher data:
+//  the cipher is a valid one returned by openssl_get_cipher_methods()
 //  the initialization vector is calculated in the standard way
-//  the passphrase is the Rune playerID
+//  the passphrase is md5 of the Rune playerID plus the time
+// but the ciphers are unreliable at startup, a timesync is required and sufficient time is required to attain empathy
+//  before it all works correctly
+//  the solution is to queue the commands without encryption initially, this also speeds up the boot sequence
+// cmd_queue_queueing is a switch incremented when beginning a queuing action,
+//  on completion of the queuing action it is decremented,
+//  the variable is also set with an expiry of 10 seconds so that it will reset it when something goes wrong
+//      a queuing action will always complete within 10 seconds
 {
+    // don't do anything when queuing actions are active or the queue is not empty
+    if ($redis->get('cmd_queue_queueing') || $redis->lLen('cmd_queue')) {
+        return;
+    }
     // the passphrase is the md5 of player id plus the current time
     $passphrase = md5($redis->get('playerid').microtime(true));
     // get the ciphers which we do not use
-    $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
     if ($redis->exists('cipher_exclude_list')) {
         $cipher_exclude_list = $redis->get('cipher_exclude_list');
         $cipher_exclude_list = trim(preg_replace('/\s\s+/', ' ', $cipher_exclude_list));
+    } else {
+        $cipher_exclude_list = 'ecb des rc2 rc4 md5 gcm ccm ocb xts wrap';
     }
     $cipher_exclude_array = explode(' ', $cipher_exclude_list);
     //
     $first_time = is_firstTime($redis, 'cmd_queue_cipher_array');
     if ($first_time) {
         // create the cipher array, run only once after a boot
-        //  retry 20 times, wait 1 second in the loop
-        $cnt = 20;
-        while ((!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) && ($cnt-- > 0)) {
-            $cipher_array = openssl_get_cipher_methods();
-            if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-                sleep(1);
-                unset($cipher_array);
-            }
-        }
+        $cipher_array = openssl_get_cipher_methods();
     }
     if (!isset($cipher_array) || (isset($cipher_array) && !is_array($cipher_array))) {
-        // still not set
+        // $cipher_array not set
         // unset the is_first_time state of 'cmd_queue_cipher_array'
         unset_is_firstTime($redis, 'cmd_queue_cipher_array');
         // try to use the last stored array or cipher
@@ -1090,11 +1106,8 @@ function reset_cmd_queue_encoding($redis)
         } else if ($redis->hExists('cmd_queue_encoding', 'cipher')) {
             $cipher_array[] = $redis->hGet('cmd_queue_encoding', 'cipher');
         } else {
-            // cant do anything, abort with an error
-            // Use '126	ENOKEY	Required key not available' as exit code
-            // exit(126) will be interpreted as a failure (error) completion in bash
-            echo "Error: [app/libs/runeaudio.php][reset_cmd_queue_encoding] Failed to determine cipher array, aborting\n";
-            exit(126);
+            // cant determine a cipher, just return
+            return;
         }
     }
     if ($first_time) {
@@ -1191,8 +1204,8 @@ function reset_cmd_queue_encoding($redis)
             sleep(1);
         }
     }
-    // save the values if the cypher data is unset or the queue is (still) empty
-    if ((!$redis->hGet('cmd_queue_encoding', 'cipher_iv')) || !$redis->lLen('cmd_queue')) {
+    // save the values if no queuing actions are active and the queue is empty
+    if (!$redis->get('cmd_queue_queueing') && !$redis->lLen('cmd_queue')) {
         $redis->multi()
             ->hSet('cmd_queue_encoding', 'cipher', $cipher)
             ->hSet('cmd_queue_encoding', 'cipher_iv', $iv)
@@ -2461,15 +2474,15 @@ function wrk_opcache($redis, $action)
         case 'prime':
             opcache_reset();
             if ($redis->get('opcache')) {
-                sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+                sysCmd('curl -X PUT -s http://localhost/command/cachectl.php?action=prime');
             }
             break;
         case 'forceprime':
             opcache_reset();
-            sysCmd('curl http://127.0.0.1/command/cachectl.php?action=prime');
+            sysCmd('curl -X PUT -s http://localhost/command/cachectl.php?action=prime');
             break;
         case 'reset':
-            // sysCmd('curl http://127.0.0.1/clear');
+            // sysCmd('curl -X PUT -s http://localhost/clear');
             // reset cache
             OpCacheCtl('reset', '/srv/http/');
             opcache_reset();
@@ -2583,14 +2596,12 @@ function wrk_opcache($redis, $action)
 // in: net_NetmaskToCidr("255.255.255.0");
 // out: 24
 function net_NetmaskToCidr($netmask) {
-//    $bits = 0;
-//    $chunks = explode(".", $netmask);
-//    foreach($chunks as $octect) {
-//        $bits += strlen(str_replace("0", "", decbin($octect)));
-//    }
-//    return $bits;
-    // Convert netmask to CIDR format (e.g. 255.255.255.0 -> 24)
-        return substr_count(decbin(ip2long($netmask)), '1');
+    $bits = 0;
+    $chunks = explode(".", $netmask);
+    foreach($chunks as $octect) {
+        $bits += strlen(str_replace("0", "", decbin($octect)));
+    }
+    return $bits;
 }
 
 // KEW
@@ -2609,7 +2620,196 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
 {
     runelog('wrk_apconfig args = ', $args);
     $return = '';
-
+    switch ($action) {
+        case 'enable':
+            // no break
+        case 'disable':
+            // action is enable or disable
+            if ($action == 'enable') {
+                $args['enable'] = 1;
+            } else if ($action == 'disable') {
+                $args['enable'] = 0;
+            }
+            // no break
+        case 'writecfg':
+            if (isset($args['ssid']) && $args['ssid'] && ($args['ssid'] != $redis->hGet('AccessPoint', 'ssid'))) {
+                $redis->hSet('AccessPoint', 'ssid', $args['ssid']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['passphrase']) && $args['passphrase'] && ($args['passphrase'] != $redis->hGet('AccessPoint', 'passphrase'))) {
+                $redis->hSet('AccessPoint', 'passphrase', $args['passphrase']);
+                $args['restart'] = 1;
+            }
+            $ipAddressOld = $redis->hGet('AccessPoint', 'ip-address');
+            if (isset($args['ip-address']) && $args['ip-address'] && ($args['ip-address'] != $ipAddressOld)) {
+                $redis->hSet('AccessPoint', 'ip-address', $args['ip-address']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['broadcast']) && $args['broadcast'] && ($args['broadcast'] != $redis->hGet('AccessPoint', 'broadcast'))) {
+                $redis->hSet('AccessPoint', 'broadcast', $args['broadcast']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-range']) && $args['dhcp-range'] && ($args['dhcp-range'] != $redis->hGet('AccessPoint', 'dhcp-range'))) {
+                $redis->hSet('AccessPoint', 'dhcp-range', $args['dhcp-range']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-dns']) && $args['dhcp-option-dns'] && ($args['dhcp-option-dns'] != $redis->hGet('AccessPoint', 'dhcp-option-dns'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-dns', $args['dhcp-option-dns']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['dhcp-option-router']) && $args['dhcp-option-router'] && ($args['dhcp-option-router'] != $redis->hGet('AccessPoint', 'dhcp-option-router'))) {
+                $redis->hSet('AccessPoint', 'dhcp-option-router', $args['dhcp-option-router']);
+                $args['restart'] = 1;
+            }
+            if (isset($args['restart']) && ($args['restart'] == 1)) {
+                $message = "Configuration changed";
+            }
+            if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is true and current state is false
+                $redis->hSet('AccessPoint', 'enable-NAT', 1);
+                $args['rescan'] = 1;
+            } else if ((!isset($args['enable-NAT']) || !$args['enable-NAT']) && $redis->hGet('AccessPoint', 'enable-NAT')) {
+                // there is a value passed with $args and it is false and current state is true
+                $redis->hSet('AccessPoint', 'enable-NAT', 0);
+                $args['rescan'] = 1;
+            }
+            if (isset($args['rescan']) && ($args['rescan'] == 1)) {
+                $message = "Configuration changed";
+            }
+            if (isset($args['enable']) && $args['enable'] && !$redis->hGet('AccessPoint', 'enable')) {
+                // enable requested, was disabled
+                $redis->hSet('AccessPoint', 'enable', $args['enable']);
+                unset_is_firstTime($redis, 'AP-start');
+                $args['restart'] = 0;
+                $args['rescan'] = 1;
+                if (isset($message)) {
+                    $message .= ' and enabled';
+                } else {
+                    $message = 'Enabled';
+                }
+            } else if ((!isset($args['enable']) || !$args['enable']) && $redis->hGet('AccessPoint', 'enable')) {
+                // disable requested, was enabled
+                $redis->hSet('AccessPoint', 'enable', 0);
+                if ($redis->hGet('AccessPoint', 'NAT-configured')) {
+                    // NAT is configured, remove the configuration
+                    sysCmd('iptables -F');
+                    sysCmd('iptables -t nat -F');
+                    sysCmd('sysctl net.ipv4.ip_forward=0');
+                    $redis->hSet('AccessPoint', 'NAT-configured', 0);
+                }
+                // stop the hostapd AP jobs if they are running
+                wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
+                // stop and remove the iwd access point
+                $interface = $redis->hGet('AccessPoint', 'interface');
+                sysCmd('iwctl ap '.$interface.' stop');
+                // get the wlan nic used for accesspoint
+                $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+                // get the virtual AP nic name used for accesspoint
+                $virtual_ap_name = $redis->hGet('AccessPoint', 'virtual_ap_name');
+                //
+                // determine the AP wlan nic(s) by searching the ip addresses for the current and previous AP ip-address (these may have the same value)
+                $wlanNics = explode(' ', sysCmd("ip -o add | grep -iE '".$ipAddressOld."|".$redis->hGet('AccessPoint', 'ip-address')."' | xargs | cut -d ' ' -f 2 | xargs")[0]);
+                // check that the stored wlan nic is included in the wlan nics array
+                if (isset($interface) && $interface && !in_array($interface, $wlanNics)) {
+                    // not found in array, add it
+                    $wlanNics[] = $interface;
+                }
+                // process all the relevant wlan nics (normally one or none)
+                foreach ($wlanNics as $wlanNicInterface) {
+                    // just in case the use of virtual nics may have been switched, we don't use the redis hash 'AccessPoint'  'virtual_ap_dev'
+                    //  to determine a physical or virtual nic
+                    if ($wlanNicInterface != $virtual_ap_name) {
+                        // the nic is in the list of physical nics and its name is the same as the wlan nic
+                        // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
+                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down');
+                        if ($redis->get('allwifi_on')) {
+                            // only run when All Wi-Fi is enabled
+                            sysCmd('ip link set dev '.$wlanNicInterface.' up');
+                            if (!$redis->get('network_ipv6')) {
+                                // ipv6 is off, set the nic accordingly
+                                sysCmd('sysctl -w net.ipv6.conf.'.$wlanNicInterface.'.disable_ipv6=1 > /dev/null');
+                            }
+                        }
+                    } else {
+                        // the nic is not in the list of physical nics or its name is different to the wlan nic
+                        // delete the virtual nic
+                        // sysCmd('iw dev '.$wlanNicInterface.' del');
+                    }
+                }
+                // comment out any lines in the iwd configuration file /etc/iwd/main.conf containing 'APRanges='
+                // sysCmd("sed -i /APRanges=/s/^/# / '/etc/iwd/main.conf'");
+                // remove any iwd AP definition files
+                // sysCmd('mkdir -p /var/lib/iwd/ap/');
+                // sysCmd('rm /var/lib/iwd/ap/*.ap');
+                // do we need to restart iwd? I don't think it is necessary - need to test
+                // wrk_systemd_unit($redis, 'reload-or-restart', 'iwd');
+                // unset the AP nic names
+                $redis->hSet('AccessPoint', 'ethNic', '');
+                $redis->hSet('AccessPoint', 'wlanNic', '');
+                $redis->hSet('AccessPoint', 'interface', '');
+                $args['restart'] = 0;
+                if (isset($args['norescan']) && $args['norescan']) {
+                    $args['rescan'] = 0;
+                } else {
+                    $args['rescan'] = 1;
+                }
+                if (isset($message)) {
+                    $message .= ', and disabled';
+                } else {
+                    $message = 'Disabled';
+                }
+            }
+            break;
+        case 'reset':
+            sysCmd('/srv/http/db/redis_datastore_setup apreset');
+            wrk_getHwPlatform($redis);
+            $args['restart'] = 1;
+            $message = "Resetting Access Point to default values";
+            break;
+    }
+    if (isset($jobID) && $jobID) {
+        $redis->sRem('w_lock', $jobID);
+    }
+    if ((!isset($args['silent']) || !$args['silent']) && isset($message) && $message) {
+        ui_notify($redis, 'AccessPoint', $message);
+    }
+    // reboot and restart can be selected in the UI
+    // restart will be automatically deselected when not required
+    // restart and rescan are automatically selected in this function when required
+    if (isset($args['reboot']) && $args['reboot']) {
+        // reboot requested from the UI
+        runelog('**** AP reboot requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'Reboot requested');
+        $return = 'reboot';
+    } else if (isset($args['restart']) && $args['restart']) {
+        // a restart has been requested from the UI or automatically determined
+        runelog('**** AP restart requested ****', $args);
+        ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
+        ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
+        // nat will automatically be disabled when the AP is stopped, save its current value
+        $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+        // stop the access point, by disabling it
+        $apArgs = array();
+        $apArgs['enable'] = 0;
+        $apArgs['norescan'] = 1;
+        $apArgs['silent'] = 1;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
+        // start the access point by enabling it
+        $apArgs = array();
+        $apArgs['enable'] = 1;
+        $apArgs['silent'] = 1;
+        // restore nat to its previous value
+        $apArgs['enable-NAT'] = $apNatSave;
+        wrk_apconfig($redis, 'writecfg', $apArgs);
+    } else if (isset($args['rescan']) && $args['rescan']) {
+        ui_notify($redis, 'AccessPoint', 'Applying changes');
+        sysCmdAsync($redis, '/srv/http/command/refresh_nics');
+    }
+    // the following lines use qrencode to generate a QR-code for the AP connect and browser URL (ip address)
+    //  it looks neat, but is pretty useless because you need to connect to be able to see the codes!
+    //  currently disabled, the UI will only display QR-codes for the default settings
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioAP.png "WIFI:S:'.$args['ssid'].';T:WPA2;P:'.$args['passphrase'].';;"');
+    // sysCmd('qrencode -l H -t PNG -o /srv/http/assets/img/RuneAudioURL.png http://'.$args['ip-address']);
     return $return;
 }
 
@@ -2622,6 +2822,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     // $arg and $args are optional, $arg contains the connman string, $args contains an array to modify a profile
     // debug
     // $redis->set('wrk_netconfig_'.$action, json_encode($args));
+    file_put_contents('/srv/http/netdebug.log', "wrk_netconfig\n", FILE_APPEND);
+    file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
+    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     $args['action'] = $action;
     if (isset($arg)) {
         $argN = trim($arg);
@@ -2763,40 +2966,17 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         $storedProfiles[$ssidHexKey]['hidden'] = false;
                     }
                 }
-                // create the config file in '/var/lib/connman/', the name is 'wifi_<ssidHex>.config'
-                // this was originally for connman. converted to iwd
-                $profileFileName = '/var/lib/iwd/'.$profile['name'].'.psk';
-                $profileFileContent =
-                    '[global]'."\n".
-                    'Description=Boot generated DHCP Wi-Fi network configuration for network (SSID) "'.$profile['name'].'", with SSID hex value "'.$ssidHex."\"\n".
-                    '[Security]'."\n".
-                    'Passphrase='.$profile['passphrase']."\n".
-                    '[Settings]'."\n".
-                    'AutoConnect=true'."\n";
-                if (isset($profile['hidden'])) {
-                    if ($profile['hidden']) {
-                        $profileFileContent .= 'Hidden=true'."\n";
-                    } else {
-                    //    $profileFileContent .= 'Hidden=false'."\n";
-                    }
 
-                }
-// this must be set with the networkd config... -kg
-//                if ($redis->get('network_ipv6')) {
-//                    $profileFileContent .= 'IPv6=auto'."\n";
-//                } else {
-//                    $profileFileContent .= 'IPv6=off'."\n";
-//                }
                 // sort the profile array on ssid (case insensitive)
                 $ssidCol = array_column($storedProfiles, 'ssid');
                 $ssidCol = array_map('strtolower', $ssidCol);
                 array_multisort($ssidCol, SORT_ASC, $storedProfiles);
                 // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
-                // commit the config file, creating a new file triggers connman to use it
-                $fp = fopen($profileFileName, 'w');
-                fwrite($fp, $profileFileContent);
-                fclose($fp);
+                // create the networkd config
+                netd_config($redis, $storedProfiles);
+                // connect to the wifi
+                connectWifi($redis, $storedProfiles);
             }
             // restore the default boot-initialise Wi-Fi files
             sysCmd('mkdir -p '.$directory.'/examples');
@@ -2812,8 +2992,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 }
             }
-            // restart iwd to pick up the new config files
-            wrk_systemd_unit($redis, 'reload-or-restart', 'iwd');
             // run refresh_nics to finish off
             wrk_netconfig($redis, 'refreshAsync');
             break;
@@ -2875,7 +3053,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             $redis->set('allwifi_on', 1);
             break;
-
         case 'disableAllWifi':
             // set all the wifi nics down
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
@@ -2889,305 +3066,429 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             $redis->set('allwifi_on', 0);
             break;
-
         case 'saveWifi':
-            // currently does not have MAC address for networkd config uses wlan0
-            // Clean up and normalize input -- also need to pass the nic value, i.e. wlan0
-            $args['passphrase'] = isset($args['passphrase']) ? trim($args['passphrase']) : '';
-            $args['ssid'] = isset($args['ssid']) ? trim($args['ssid']) : '';
-            $args['ssidHex'] = isset($args['ssidHex']) ? trim($args['ssidHex']) : '';
-            $args['security'] = isset($args['security']) ? trim($args['security']) : 'PSK';
-            $args['macAddress'] = isset($args['macAddress']) ? trim($args['macAddress']) : '';
-            $args['nic'] = 'wlan0';
-            $nic = $args['nic'];
-
-            if ($args['ssid'] && !$args['ssidHex']) {
-                $args['ssidHex'] = trim(implode('', array_values(unpack('H*', $args['ssid']))));
+            // is used to create/modify a wifi config file and stored profile
+            // add a config file and stored profile
+            // if the passphrase is not set, try to retrieve the passphrase from the profile
+            if (isset($args['passphrase'])) {
+                $args['passphrase'] = trim($args['passphrase']);
+            } else {
+                $args['passphrase'] = '';
             }
-            // the name of the redis key
-            $ssidHexKey = 'ssidHex:' . $args['ssidHex'];
-
-            // Load existing stored profiles
-            $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?? [];
-
-            // Fallback to stored passphrase if not supplied
-            if (!$args['passphrase'] && isset($storedProfiles[$ssidHexKey]['passphrase'])) {
-                $args['passphrase'] = trim($storedProfiles[$ssidHexKey]['passphrase']);
+            if (!strlen($args['passphrase'])) {
+                // passphase not set in the UI
+                if (isset($storedProfiles[$ssidHexKey]['passphrase'])) {
+                    // there is a passphrase in the stored profile, save it
+                    $args['passphrase'] = trim($storedProfiles[$ssidHexKey]['passphrase']);
+                }
             }
-
-            // Remove existing profile
-            unset($storedProfiles[$ssidHexKey]);
-
-            // Store profile info (excluding some runtime/volatile keys)
-            foreach ($args as $key => $val) {
-                $val = trim($val);
-                if (!$val) continue;
-                if (in_array($key, ['manual', 'connmanString', 'action', 'reboot'])) continue;
-                if ($args['ipAssignment'] === 'DHCP' &&
-                    in_array($key, ['ipv4Address', 'ipv4Mask', 'defaultGateway', 'primaryDns', 'secondaryDns', 'ipv4Broadcast'])) {
+            // delete the current profile
+            if (isset($storedProfiles[$ssidHexKey])) {
+                unset($storedProfiles[$ssidHexKey]);
+            }
+            // set up the net profile array
+            foreach ($args as $key => $value) {
+                $val = trim($value);
+                if (strpos('|manual|connmanString|action|reboot|', $key)) {
+                    // omit some of the values
                     continue;
                 }
+                if (($args['ipAssignment'] === 'DHCP') && strpos('|ipv4Address|ipv4Mask|defaultGateway|primaryDns|secondaryDns|', $key)) {
+                    // omit extra values if IP Assignment is DHCP
+                    continue;
+                }
+                if (!$val) {
+                    // there is no value
+                    continue;
+                }
+                // otherwise save the UI values
                 $storedProfiles[$ssidHexKey][$key] = $val;
             }
             $storedProfiles[$ssidHexKey]['technology'] = 'wifi';
-
-            // Save sorted profile list
-            $ssidCol = array_map('strtolower', array_column($storedProfiles, 'ssid'));
+            // create the config file in '/var/lib/connman/', the name is 'wifi_<ssidHex>.config'
+            $profileFileName = '/var/lib/connman/wifi_'.$args['ssidHex'].'.config';
+            $tmpFileName = '/tmp/wifi_'.$args['ssidHex'].'.config';
+            $profileFileContent =
+                '[global]'."\n".
+                'Description=';
+            if ($args['ipAssignment'] === 'DHCP') {
+                $profileFileContent .= 'DHCP ';
+            } else {
+                $profileFileContent .= 'Static ';
+            }
+            $profileFileContent .= $args['security'].' Wi-Fi network configuration for network (SSID) "'.$args['ssid'].'", with SSID hex value "'.$args['ssidHex']."\"\n".
+                '[service_'.$args['ssidHex'].']'."\n".
+                'Type=wifi'."\n".
+                'SSID='.$args['ssidHex']."\n";
+            if (isset($args['autoconnect'])) {
+                $profileFileContent .= 'Security=open'."\n";
+                if ($args['autoconnect']) {
+                    $profileFileContent .= 'AutoConnect=true'."\n";
+                } else {
+                    $profileFileContent .= 'AutoConnect=false'."\n";
+                }
+            } else {
+                $profileFileContent .= 'Security='.strtolower($args['security'])."\n".
+                    'Passphrase='.$args['passphrase']."\n";
+            }
+            if (isset($args['hidden']) && $args['hidden']) {
+                $profileFileContent .= 'Hidden=true'."\n";
+            } else {
+                $profileFileContent .= 'Hidden=false'."\n";
+            }
+            if ($redis->get('network_ipv6')) {
+                $profileFileContent .= 'IPv6=auto'."\n";
+            } else {
+                $profileFileContent .= 'IPv6=off'."\n";
+            }
+            if ($args['ipAssignment'] === 'DHCP') {
+                if (isset($args['connmanString'])) {
+                    $args['connmanString'] = trim($args['connmanString']);
+                    if ($args['connmanString']) {
+                        // make sure that connman has the correct values
+                        if ($redis->get('network_ipv6')) {
+                            // ipv6 is enabled
+//                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
+                        } else {
+                            // ipv6 is disabled
+//                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
+                        }
+//                        sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
+                    }
+                }
+            } else {
+                $profileFileContent .= 'IPv4='.$args['ipv4Address'].'/'.$args['ipv4Mask'].'/'.$args['defaultGateway']."\n".
+                    'IPv6=off'."\n";
+                if ($args['primaryDns'] && !$args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['primaryDns']."\n";
+                } else if (!$args['primaryDns'] && $args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['secondaryDns']."\n";
+                } else if ($args['primaryDns'] && $args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
+                }
+            }
+            // sort the profile array on ssid (case insensitive)
+            $ssidCol = array_column($storedProfiles, 'ssid');
+            $ssidCol = array_map('strtolower', $ssidCol);
             array_multisort($ssidCol, SORT_ASC, $storedProfiles);
+            // save the profile array
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
-
-            // Disable Access Point temporarily if enabled
-//            $apEnable = false;
-//            if ($redis->hGet('AccessPoint', 'enable')) {
-//                $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
-//                $apEnable = true;
-//                wrk_apconfig($redis, 'writecfg', ['enable' => 0, 'norescan' => 1, 'silent' => 1]);
-//            }
-
-
-//            writeNetworkdConfig($args);       // writes DHCP/static IP config for systemd-networkd
-             //create the networkd config
-            $mac = preg_replace('/[^a-fA-F0-9]/', '', $args['macAddress']);
-
-            // Validate MAC address - but don't exit if invalid, just log and continue
-            if (strlen($mac) !== 12) {
-                error_log("Invalid MAC address format: " . $args['macAddress']);
-                // Use interface name matching instead of MAC matching
-                $netconf = [
-                    '[Match]',
-                    'Name=' . $nic,  // Use interface name instead of MAC
-                    '',
-                    '[Network]'
-                ];
+            // if required, stop the Access Point by disabling it
+            if ($redis->hGet('AccessPoint', 'enable')) {
+                // nat will automatically be disabled when the AP is stopped, save its current value
+                $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
+                // save the old Access Point status
+                $apEnable = true;
+                // set up the arguments to disable the Access Point
+                $apArgs = array();
+                $apArgs['enable'] = 0;
+                $apArgs['norescan'] = 1;
+                $apArgs['silent'] = 1;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
             } else {
-                // Add colons every 2 characters for valid MAC
-                $mac = implode(':', str_split(strtolower($mac), 2));
-                $netconf = [
-                    '[Match]',
-                    'MACAddress=' . $mac,
-                    '',
-                    '[Network]'
-                ];
+                // save the old Access Point status
+                $apEnable = false;
             }
-
-            if ($args['ipAssignment'] === 'DHCP') {
-                $netconf[] = 'DHCP=ipv4';
+            // create the networkd config
+            netd_config($redis, $args);
+            // connect to wifi
+            connectWifi($redis, $args);
+            // commit the config file, creating a new file triggers connman to use it
+            file_put_contents($tmpFileName, $profileFileContent);
+            // don't replace the existing connman configuration file if the new file is identical
+            //  check that the existing file exists before comparing
+            clearstatcache(true, $profileFileName);
+            if ((!file_exists($profileFileName)) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
+                rename($tmpFileName, $profileFileName);
             } else {
-                // Static assignment
-                $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?? [];
-                // Store profile data
-                foreach ($args as $key => $value) {
-                    if ($key !== 'connmanString') {
-                        $storedProfiles[$ssidHexKey][$key] = $value;
-                    }
-                }
-                $cidr = net_NetmaskToCidr($args['ipv4Mask']);
-                $redis->set('network_storedProfiles', json_encode($storedProfiles));
-                // Write systemd-networkd config for static IP
-                $netconf[] = 'Address=' . $args['ipv4Address'] . '/' . $cidr;
-                if (!empty($args['defaultGateway'])) {
-                    $netconf[] = 'Gateway=' . $args['defaultGateway'];
-                }
-                if (!empty($args['primaryDns'])) {
-                    $netconf[] = 'DNS=' . $args['primaryDns'];
-                }
-                if (!empty($args['secondaryDns'])) {
-                    $netconf[] = 'DNS=' . $args['secondaryDns'];
-                }
-                $netconf[] = 'DHCP=no';
+                unlink($tmpFileName);
             }
-                // WiFi-specific networkd settings
-                $netconf[] = 'ConfigureWithoutCarrier=true';
-
-            if ($redis->get('network_ipv6')) {
-                // Enable IPv6 if desired
-                $netconf[] = 'IPv6AcceptRA=true';
-                $netconf[] = 'IPv6PrivacyExtensions=true';
-            } else {
-                $netconf[] = 'LinkLocalAddressing=no';
-                $netconf[] = 'IPv6AcceptRA=no';
-                sysCmd("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
+            // try restarting the Access Point if it was enabled
+            //  the Access Point will not start if the new saved network profile successfully connects
+            if ($apEnable) {
+                // start the access point by enabling it
+                $apArgs = array();
+                // set up the arguments to enable the Access Point
+                $apArgs['enable'] = 1;
+                $apArgs['silent'] = 1;
+                // restore nat to its previous value
+                $apArgs['enable-NAT'] = $apNatSave;
+                wrk_apconfig($redis, 'writecfg', $apArgs);
             }
-            // Write config file
-            $configPath = "/etc/systemd/network/20-wifi.network";
-            if (file_put_contents($configPath, implode("\n", $netconf) . "\n") === false) {
-                error_log("Failed to write networkd config to: " . $configPath);
-                break;
-            }
-            // Restart systemd-networkd to apply changes
-            sysCmd("networkctl reload");
-
-            // Run credential and network setup
-            // sets SSID/passphrase via iwctl or wpa_cli
-            configureWifi(
-            $args['nic'],
-            $args['ssid'],
-            $args['passphrase']
-            );
-            // Re-enable Access Point if it was previously on
-//            if ($apEnable) {
-//                wrk_apconfig($redis, 'writecfg', [
-//                    'enable' => 1,
-//                    'enable-NAT' => $apNatSave,
-//                    'silent' => 1,
-//                ]);
-//            }
             break;
-
         case 'saveEthernet':
-            // this currently stores its info in network_storedProfiles and should not
-            // don't know where we should store it or if at all.
-            $nic = $args['nic'];
-            // Remove any stored profile or config
-            wrk_netconfig($redis, 'delete', '', $args);
-            $mac = preg_replace('/[^a-fA-F0-9]/', '', $args['macAddress']);
-            // Ensure it's 12 characters
-            if (strlen($mac) !== 12) {
-                return false;
-            }
-            // Add colons every 2 characters
-            $mac = implode(':', str_split(strtolower($mac), 2));
-            $netconf = [
-                '[Match]',
-                'MACAddress=' . $mac,
-                '',
-                '[Network]'
-            ];
-
+            // is only used to set/remove a static IP-address
             if ($args['ipAssignment'] === 'DHCP') {
-                $netconf[] = 'DHCP=ipv4'; // Fixed: use [] instead of +=
+                // just delete the config file and remove the stored profile
+                wrk_netconfig($redis, 'delete', '', $args);
+
+                wrk_netconfig($redis, 'refreshAsync');
             } else {
-                // Static assignment
-                $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?? [];
-                $mac = $args['macAddress'];
-                // Store profile data
+                // add a config file and stored profile
+                // set up the profile array
                 foreach ($args as $key => $value) {
-                    if ($key !== 'connmanString') {
-                        $storedProfiles[$mac][$key] = $value;
+                    if (strpos('|connmanString|', $key)) {
+                        // omit some of the values
+                        continue;
                     }
+                    $storedProfiles[$macAddressKey][$key] = $value;
                 }
-                $cidr = net_NetmaskToCidr($args['ipv4Mask']);
-                $storedProfiles[$mac]['technology'] = 'ethernet';
+                $storedProfiles[$macAddressKey]['technology'] = 'ethernet';
+                // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
+                // create the networkd config
+                netd_config($redis, $args);
+                // create the config file in '/var/lib/connman/', the name is 'ethernet_<macAddress>.config'
+                $profileFileName = '/var/lib/connman/ethernet_'.$args['macAddress'].'.config';
+                $tmpFileName = '/tmp/ethernet_'.$args['macAddress'].'.config';
+                $macAddress = join(":", str_split($args['macAddress'], 2));
+                $profileFileContent =
+                    '[global]'."\n".
+                    'Description=Static IP configuration for nic "'.$args['nic'].'", with MAC address "'.$macAddress."\"\n".
+                    '[service_'.$args['macAddress'].']'."\n".
+                    // add colons to the MAC address
+                    'MAC='.$macAddress."\n".
+                    'Type=ethernet'."\n".
+                    'IPv4='.$args['ipv4Address'].'/'.$args['ipv4Mask'].'/'.$args['defaultGateway']."\n".
+                    'IPv6=off'."\n";
+                if ($args['primaryDns'] && !$args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['primaryDns']."\n";
+                } else if (!$args['primaryDns'] && $args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['secondaryDns']."\n";
+                } else if ($args['primaryDns'] && $args['secondaryDns']) {
+                    $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
+                }
 
-                // Write systemd-networkd config for static IP
-                $netconf[] = 'Address=' . $args['ipv4Address'] . '/' . $cidr;
-                if (!empty($args['defaultGateway'])) {
-                    $netconf[] = 'Gateway=' . $args['defaultGateway'];
+                // commit the config file, creating a new file triggers connman to use it
+                $fp = fopen($tmpFileName, 'w');
+                fwrite($fp, $profileFileContent);
+                fclose($fp);
+                // don't replace the existing connman configuration file if the new file is identical
+                clearstatcache(true, $profileFileName);
+                if (!file_exists($profileFileName) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
+                    rename($tmpFileName, $profileFileName);
+                    // take the nic down and bring it up to reset its ip-address
+                    sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
+                    if (!$redis->get('network_ipv6')) {
+                        // ipv6 is off, set the nic accordingly
+                        sysCmd('sysctl -w net.ipv6.conf.'.$args['nic'].'.disable_ipv6=1 > /dev/null');
+                    }
+                    wrk_netconfig($redis, 'refreshAsync');
+                } else {
+                    unlink($tmpFileName);
                 }
-                if (!empty($args['primaryDns'])) {
-                    $netconf[] = 'DNS=' . $args['primaryDns'];
-                }
-                if (!empty($args['secondaryDns'])) {
-                    $netconf[] = 'DNS=' . $args['secondaryDns'];
-                }
-                $netconf[] = 'DHCP=no';
             }
-
-            if ($redis->get('network_ipv6')) {
-                // Enable IPv6 if desired
-                $netconf[] = 'IPv6AcceptRA=true';
-                $netconf[] = 'IPv6PrivacyExtensions=true';
-            } else {
-                $netconf[] = 'LinkLocalAddressing=no';
-                $netconf[] = 'IPv6AcceptRA=no';
-                sysCmd("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
-            }
-
-            // Write config file
-            $configPath = "/etc/systemd/network/20-ethernet.network";
-            file_put_contents($configPath, implode("\n", $netconf) . "\n");
-
-            // Restart systemd-networkd to apply changes
-            sysCmd("networkctl reload");
-//            wrk_netconfig($redis, 'refreshAsync');
             break;
-
         case 'check_connman':
             // enables and disables ipv6 and corrects the all configuration files
             //  IPv6.privacy=disabled to IPv6.privacy=preferred
-            // needs to be reworked for networkd -kg
-            $network_ipv6 = $redis->get('network_ipv6'); // 1 = enable, 0 = disable
-
-            // sync llmnrd
+            // get the ipv6 setting
+            $network_ipv6 = $redis->get('network_ipv6');
+            // check the llmnrd ipv6 setting
             if ($redis->get('llmnrdipv6') != $network_ipv6) {
+                // correct the llmnrd ipv6 setting
                 $redis->set('llmnrdipv6', $network_ipv6);
             }
-
-            // Get all 20-*.network files
-            $networkFiles = glob('/etc/systemd/network/20-*.network');
-            foreach ($networkFiles as $file) {
-                $changed = false;
-                $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                $newLines = [];
-
-                foreach ($lines as $line) {
-                    if (preg_match('/^\s*DHCP\s*=\s*/i', $line)) {
-                        if ($network_ipv6) {
-                            $newLine = 'DHCP=yes';
-                        } else {
-                            $newLine = 'DHCP=ipv4';
+            // refresh the nics to refresh the 'network_info'
+            refresh_nics($redis);
+            // get the networks
+            $network_info = json_decode($redis->get('network_info'), true);
+            // set connman restart switch to false
+            $restartConnman = 0;
+            // walk through the networks
+            foreach ($network_info as $network) {
+                if (isset($network['configured']) && $network['configured']) {
+                    // this is a configured network, check its ipv6 status
+                    if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'auto') && !$network_ipv6) {
+                        // network is configured for ipv6 and the setting is disabled, disable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl
+//                            sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 off');
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*auto/s/.*/IPv6\=off/' '".$configFile."'");
+                            }
                         }
-                        if (trim($line) !== $newLine) {
-                            $newLines[] = $newLine;
-                            $changed = true;
-                        } else {
-                            $newLines[] = $line;
+                    } else if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'off') && $network_ipv6) {
+                        // network is not configured for ipv6 and the setting is enabled, enable ipv6
+                        if (isset($network['connmanString']) && isset($network['technology']) && ($network['technology'] == 'ethernet')) {
+                            // the connman string is set and it is an ethernet connection
+                            // change the configuration with connmanctl, but only for dhcp assigned networks (ipv6 is always disabled for static networks)
+                            if (isset($network['ipAssignment']) && ($network['ipAssignment'] == 'DHCP')) {
+//                                sysCmd('connmanctl config '.$network['connmanString'].' --ipv6 auto');
+                                // when ipv6 is switched off the IPv6.privacy=preferred is automatically set to IPv6.privacy=disabled
+                                // test here if it needs to be set to IPv6.privacy=preferred
+                                if (isset($network['macAddress'])) {
+                                    // the mac address is set, its required for the config file name
+                                    $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                                    // check that the config file exists
+                                    clearstatcache(true, $configFile);
+                                    if (file_exists($configFile)) {
+                                        // determine whether the config file needs changing and if connman needs to be restarted
+                                        $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                        if (!$restartConnman) {
+                                            $restartConnman = $changeFile;
+                                        }
+                                        if ($changeFile) {
+                                            sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
+                            // ssidHex is set and it is a wifi connection
+                            // for wifi the config file needs to be changed
+                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                sysCmd("sed -i '/IPv6\s*\=\s*off/s/.*/IPv6\=auto/' '".$configFile."'");
+                            }
                         }
-                    } elseif (preg_match('/^\s*IPv6PrivacyExtensions\s*=\s*/i', $line)) {
-                        $newLine = $network_ipv6 ? 'IPv6PrivacyExtensions=yes' : 'IPv6PrivacyExtensions=no';
-                        if (trim($line) !== $newLine) {
-                            $newLines[] = $newLine;
-                            $changed = true;
-                        } else {
-                            $newLines[] = $line;
+                    }
+                    if (isset($network['technology']) && isset($network['ipv6.privacy']) && ($network['technology'] == 'ethernet') && ($network['ipv6.privacy'] == 'disabled')) {
+                        // its an ethernet nic and ipv6 privacy is disabled, set IPv6.privacy=preferred
+                        if (isset($network['macAddress'])) {
+                            // the mac address is set, its required for the config file name
+                            $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
+                            // check that the config file exists
+                            clearstatcache(true, $configFile);
+                            if (file_exists($configFile)) {
+                                // determine whether the config file needs changing and if connman needs to be restarted
+                                $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
+                                if (!$restartConnman) {
+                                    $restartConnman = $changeFile;
+                                }
+                                if ($changeFile) {
+                                    sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
+                                }
+                            }
                         }
-                    } else {
-                        $newLines[] = $line;
                     }
                 }
-
-                // Add missing fields
-                $dhcpPresent = preg_grep('/^\s*DHCP\s*=/i', $newLines);
-                $privacyPresent = preg_grep('/^\s*IPv6PrivacyExtensions\s*=/i', $newLines);
-                if (!$dhcpPresent) {
-                    $newLines[] = $network_ipv6 ? 'DHCP=yes' : 'DHCP=ipv4';
-                    $changed = true;
-                }
-                if (!$privacyPresent) {
-                    $newLines[] = $network_ipv6 ? 'IPv6PrivacyExtensions=yes' : 'IPv6PrivacyExtensions=no';
-                    $changed = true;
-                }
-
-                if ($changed) {
-                    file_put_contents($file, implode("\n", $newLines) . "\n");
-                }
             }
-            // Reload networkd
-            sysCmd('networkctl reload');
-//            wrk_systemd_unit($redis, 'reload-or-restart', 'systemd-networkd');
+            if ($restartConnman && ($arg != 'norestart')) {
+//                wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
+            }
+            unset($network_ipv6, $network_info, $network, $configFile, $changeFile, $restartConnman);
             break;
         case 'reconnect':
             // no break;
         case 'connect':
             // manual connect
-            sysCmd('iwctl station '.$args['nic'].'connect '.$args['ssid']);
+            if ($wifiBackend == 'iwd') {
+                sysCmd('iwctl station ' . $args['nic'] . ' connect ' . escapeshellarg($args['ssid']));
+            } else {
+                $iface = escapeshellarg($args['nic']);
+                $ssid = escapeshellarg($args['ssid']);
+
+                // Check if network already exists
+                $known = sysCmd("wpa_cli -i $iface list_networks");
+                $lines = explode("\n", $known);
+                $netid = null;
+
+                foreach ($lines as $line) {
+                    if (preg_match('/^(\d+)\t' . preg_quote($args['ssid'], '/') . '\t/', $line, $m)) {
+                        $netid = $m[1];
+                        break;
+                    }
+                }
+
+                if ($netid === null) {
+                    // Add new network
+                    $add = trim(sysCmd("wpa_cli -i $iface add_network"));
+                    if (is_numeric($add)) {
+                        $netid = $add;
+                        sysCmd("wpa_cli -i $iface set_network $netid ssid '\"{$args['ssid']}\"'");
+                        if (!empty($args['psk'])) {
+                            sysCmd("wpa_cli -i $iface set_network $netid psk '\"{$args['psk']}\"'");
+                        } else {
+                            sysCmd("wpa_cli -i $iface set_network $netid key_mgmt NONE");
+                        }
+                    }
+                }
+
+                if ($netid !== null) {
+                    sysCmd("wpa_cli -i $iface select_network $netid");
+                    sysCmd("wpa_cli -i $iface save_config");
+                }
+            }
             break;
         case 'autoconnect-on':
             // manually set autoconnet on
-            sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect yes');
+            if ($wifiBackend == 'iwd') {
+                sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect yes');
+            } else {
+                if (empty($args['nic']) || empty($args['ssid'])) {
+                    error_log('Missing "nic" or "ssid" in arguments at line 3224');
+                return;
+                }
+                $iface = escapeshellarg($args['nic']);
+                $ssid = escapeshellarg($args['ssid']);
+
+                // Get the network ID from wpa_cli list_networks
+                $known = sysCmd("wpa_cli -i $iface list_networks");
+                // Ensure $known is a string before explode
+                if (is_array($known)) {
+                    $known = implode("\n", $known);
+                }
+                $lines = explode("\n", $known);
+                $netid = null;
+
+                foreach ($lines as $line) {
+                    if (preg_match('/^(\d+)\t' . preg_quote($args['ssid'], '/') . '\t/', $line, $m)) {
+                        $netid = $m[1];
+                        break;
+                    }
+                }
+
+                if ($netid !== null) {
+                    // Enable the network to ensure it's considered for autoconnect
+                    sysCmd("wpa_cli -i $iface enable_network $netid");
+                    sysCmd("wpa_cli -i $iface save_config");
+                }
+            }
             break;
         case 'autoconnect-off':
             // manually set autoconnet off
-            sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect no');
+            if ($wifiBackend == 'iwd') {
+                sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
+            } else {
+                $iface = escapeshellarg($args['nic']);
+                $ssid = escapeshellarg($args['ssid']);
+
+                // Get network ID
+                $known = sysCmd("wpa_cli -i $iface list_networks");
+                $lines = explode("\n", $known);
+                $netid = null;
+
+                foreach ($lines as $line) {
+                    if (preg_match('/^(\d+)\t' . preg_quote($args['ssid'], '/') . '\t/', $line, $m)) {
+                        $netid = $m[1];
+                        break;
+                    }
+                }
+
+                if ($netid !== null) {
+                    // Disable the network to prevent auto-connect
+                    sysCmd("wpa_cli -i $iface disable_network $netid");
+                    sysCmd("wpa_cli -i $iface save_config");
+                }
+            }
             break;
-        case 'disconnect':
+       case 'disconnect':
             // manual disconnect, to avoid automatic reconnection, set autoconnect off
-            // disconnect via iwd
-            sysCmd('iwctl station '.$args['nic'].' disconnect');
-            sysCmd('iwctl known-networks '.$args['ssid'].' set-property AutoConnect no');
+            disconnectWifi($redis, $args);
             break;
         case 'disconnect-delete':
+        file_put_contents('/srv/http/netdebug.log', "disconnect-delete\n");
+        file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT), FILE_APPEND);
             // manual disconnect-delete
             $disconnect = true;
             // no break;
@@ -3200,11 +3501,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     // disconnect is set
                     wrk_netconfig($redis, 'disconnect', '', $args);
                 }
-                // remove the iwd profile
-                sysCmd('iwctl known-networks '.$args['ssid'].' forget');
-                // remove custom networkd profile
-                sysCmd('rm /etc/systemd/network/20-wifi.network');
-                sysCmd('networkctl reload');
+                // remove the connman profile
+                disconnectWifi($redis, $args);
                 $networks = array();
                 // save the args as a network
                 $networks[] = $args;
@@ -3217,7 +3515,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     if ($disconnect) {
                         // disconnect is set
                         wrk_netconfig($redis, 'disconnect', '', $network);
-
                     }
                     // clear the restart indicator file
                     if (isset($network['nic']) && $network['nic']) {
@@ -3227,26 +3524,39 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                             unlink($file);
                         }
                     }
-//                    sysCmd('iwctl known-networks '.$args['ssid'].' forget');
+                    // remove the connman profile
+                    disconnectWifi($redis, $args);
                     // save the network
                     $networks[] = $network;
                 }
                 unset($network_info);
                 if (count($networks)) {
+                    // stop connman otherwise the cache files will be replaced after deletion
+//                    wrk_systemd_unit($redis, 'stop', 'connman');
                     foreach ($networks as $network) {
+                        // stop connman otherwise the cache files will be replaced after deletion
+//
                         if (isset($network['ssidHex'])) {
                             // remove the connman configuration files and cache
                             unset($storedProfiles[$ssidHexKey]);
+                            $file = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
+                            clearstatcache(true, $file);
+                            if (is_file($file)) {
+                                unlink($file);
+                            }
+//                            sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$network['ssidHex'].'\'');
+                            disconnectWifi($redis, $args);
                         }
                         if (isset($network['ssid'])) {
                             // remove the iwd network cache
-                            sysCmd('iwctl known-networks '.$network['ssid'].' forget');
-                            sysCmd('rm -f \'/var/lib/iwd/'.$network['ssid'].'.*\'');
+//                            sysCmd("iwctl known-networks '".$network['ssid']."' forget");
+//                            sysCmd('rm -f \'/var/lib/iwd/'.$network['ssid'].'.*\'');
+                            disconnectWifi($redis, $args);
                         }
                         if (isset($network['nic']) && $disconnect) {
                             // disconnect the nic
 //                            sysCmd("iwctl station '".$network['nic']."' disconnect");
-                            sysCmd('iw dev '.$network['nic'].' disconnect');
+                            disconnectWifi($redis, $args);
                             // clear the ip address from the nic with flush, then take the nic down and up this will
                             //  trigger connman to make a connection if there is a valid network available
                             //  otherwise this will disconnect any active connection
@@ -3261,13 +3571,22 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                             }
                         }
                     }
+                    // restart connman
+//                    wrk_systemd_unit($redis, 'start', 'connman');
                 }
                 sysCmdAsync($redis, '/srv/http/command/refresh_nics');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
             } else
             // ethernet
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
+                // stop connman otherwise the cache files will be replaced after deletion
+//                wrk_systemd_unit($redis, 'stop', 'connman');
+                // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
+//                unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
+//                sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
+                // restart connman
+//                wrk_systemd_unit($redis, 'start', 'connman');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
             break;
@@ -3281,6 +3600,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     wrk_netconfig($redis, 'disconnect', $network['connmanString']);
                 }
             }
+            // stop connman, otherwise it may recreate the configuration files after deletion
+//            wrk_systemd_unit($redis, 'stop', 'connman');
             // clear the network array
             $redis->set('network_info', json_encode(array()));
             // clear the stored profiles
@@ -3293,12 +3614,12 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // delete all connman & iwd config files
             sysCmd('rm -rf /var/lib/iwd/*');
             sysCmd('mkdir -p /var/lib/iwd');
-            sysCmd('rm -rf /etc/systemd/network/20-*');
             // restore the default boot-initialise Wi-Fi files
             $directory = $redis->get('p1mountpoint').'/wifi';
             sysCmd('mkdir -p '.$directory.'/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
+            // restore the standard service and config files
 
             // set automatic Wi-Fi optimisation
             $redis->set('network_autoOptimiseWifi', 1);
@@ -3319,202 +3640,220 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     }
 }
 
-function configureWifi($iface, $ssid, $passphrase = null, $options = []) {
-    // Clean interface name for safety
-    $iface = escapeshellcmd($iface);
+function netd_config($redis, $args) {
+//file_put_contents('/srv/http/netdebug.log', "netd_config\n");
+//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT), FILE_APPEND);
+    // creates a systemd-networkd config for the specific interface and is linked to the mac address
+    // call by netd_config($redis, $args);
+    // needs nic, macAddress, ipAssignment, ipv4 stuff
+    $nic = $args['nic'];
+//    wrk_netconfig($redis, 'delete', '', $args);
 
-    // Parse options
-    $isHidden = isset($options['hidden']) ? $options['hidden'] : false;
+    $rawMac = $args['macAddress'];
+    $macClean = preg_replace('/[^a-fA-F0-9]/', '', $rawMac);
+    if (strlen($macClean) !== 12) return false;
+    $mac = implode(':', str_split(strtolower($macClean), 2));
+
+    $netconf = [
+        '[Match]',
+        'MACAddress=' . $mac,
+        '',
+        '[Network]'
+    ];
+
+    if ($args['ipAssignment'] === 'DHCP') {
+        $netconf[] = 'DHCP=ipv4';
+    } else {
+        $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?? [];
+        foreach ($args as $key => $value) {
+            if ($key !== 'connmanString') {
+                $storedProfiles[$rawMac][$key] = $value;
+            }
+        }
+        $cidr = net_NetmaskToCidr($args['ipv4Mask']);
+        $storedProfiles[$rawMac]['technology'] = $args['technology'];
+        $redis->set('network_storedProfiles', json_encode($storedProfiles));
+
+        $netconf[] = 'Address=' . $args['ipv4Address'] . '/' . $cidr;
+        if (!empty($args['defaultGateway'])) {
+            $netconf[] = 'Gateway=' . $args['defaultGateway'];
+        }
+        if (!empty($args['primaryDns'])) {
+            $netconf[] = 'DNS=' . $args['primaryDns'];
+        }
+        if (!empty($args['secondaryDns'])) {
+            $netconf[] = 'DNS=' . $args['secondaryDns'];
+        }
+        $netconf[] = 'DHCP=no'; // consider replacing with 'DHCP=ipv6' if RA is expected
+    }
+
+    if ($redis->get('network_ipv6')) {
+        $netconf[] = 'IPv6AcceptRA=true';
+        $netconf[] = 'IPv6PrivacyExtensions=true';
+    } else {
+        $netconf[] = 'LinkLocalAddressing=no';
+        $netconf[] = 'IPv6AcceptRA=no';
+        sysCmd("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
+    }
+
+    $configPath = '/etc/systemd/network/20-' . $nic . '.network';
+    if (!file_exists($configPath)) {
+    sysCmd('rm '.$configPath);
+    }
+    // write config
+    file_put_contents($configPath, implode("\n", $netconf) . "\n");
+    sysCmd("networkctl reload");
+}
+
+function connectWifi($redis, $args, $options = []) {
+    // Extract and sanitize required values
+    $iface      = escapeshellarg($args['nic']);
+    $ssid       = $args['ssid'];
+    $ssidArg    = escapeshellarg($ssid);
+    $passphrase = isset($args['passphrase']) ? $args['passphrase'] : null;
+
+    // Parse optional parameters
+    $isHidden     = isset($options['hidden']) ? $options['hidden'] : false;
     $isEnterprise = isset($options['enterprise']) ? $options['enterprise'] : false;
-    $username = isset($options['username']) ? $options['username'] : null;
-    $identity = isset($options['identity']) ? $options['identity'] : $username;
-    $keyMgmt = isset($options['key_mgmt']) ? $options['key_mgmt'] : 'WPA-PSK';
-    $eapMethod = isset($options['eap']) ? $options['eap'] : 'PEAP';
-    $phase2 = isset($options['phase2']) ? $options['phase2'] : 'MSCHAPV2';
+    $username     = isset($options['username']) ? $options['username'] : null;
+    $identity     = isset($options['identity']) ? $options['identity'] : $username;
+    $keyMgmt      = isset($options['key_mgmt']) ? $options['key_mgmt'] : 'WPA-PSK';
+    $eapMethod    = isset($options['eap']) ? $options['eap'] : 'PEAP';
+    $phase2       = isset($options['phase2']) ? $options['phase2'] : 'MSCHAPV2';
 
-    // Detect if IWD is running
+    // Detect backend: IWD or WPA Supplicant
     $useIwd = (bool) exec('pidof iwd');
 
     if ($useIwd) {
-        // IWD setup
-        $ssidEsc = escapeshellarg($ssid);
-
+        // === IWD Mode ===
         if ($isEnterprise) {
-            // For 802.1X networks, IWD typically uses provisioning files
-            // Create a temporary provisioning file
-            $provisioningConfig = "[Security]\n";
-            $provisioningConfig .= "EAP-Method=$eapMethod\n";
-            $provisioningConfig .= "EAP-Identity=$identity\n";
+            // 802.1X provisioning file
+            $config  = "[Security]\n";
+            $config .= "EAP-Method=$eapMethod\n";
+            $config .= "EAP-Identity=$identity\n";
             if ($passphrase) {
-                $provisioningConfig .= "EAP-Password=$passphrase\n";
+                $config .= "EAP-Password=$passphrase\n";
             }
             if ($phase2) {
-                $provisioningConfig .= "EAP-Phase2-Method=$phase2\n";
+                $config .= "EAP-Phase2-Method=$phase2\n";
             }
-            $provisioningConfig .= "\n[Settings]\n";
-            $provisioningConfig .= "SSID=$ssid\n";
+            $config .= "\n[Settings]\n";
+            $config .= "SSID=$ssid\n";
             if ($isHidden) {
-                $provisioningConfig .= "Hidden=true\n";
+                $config .= "Hidden=true\n";
             }
 
-            // Write to IWD's main configuration directory
-            $configPath = "/var/lib/iwd/" . preg_replace('/[^a-zA-Z0-9]/', '', $ssid) . ".8021x";
-            file_put_contents($configPath, $provisioningConfig);
+            $configFile = "/var/lib/iwd/" . bin2hex($ssid) . ".8021x";
+            file_put_contents($configFile, $config);
 
-            // Restart IWD to pick up new configuration
             exec("systemctl restart iwd");
-            sleep(2); // Give IWD time to restart
-
-            // Connect to the network
-            exec("iwctl station $iface connect $ssidEsc");
+            sleep(2);
+            exec("iwctl station $iface connect $ssidArg");
         } else {
             // Standard PSK or open network
             if ($isHidden) {
-                // For hidden networks, we need to scan first or use known-network approach
                 if ($passphrase) {
-                    $passEsc = escapeshellarg($passphrase);
-                    exec("iwctl --passphrase $passEsc station $iface connect-hidden $ssidEsc");
+                    $passArg = escapeshellarg($passphrase);
+                    exec("iwctl --passphrase $passArg station $iface connect-hidden $ssidArg");
                 } else {
-                    exec("iwctl station $iface connect-hidden $ssidEsc");
+                    exec("iwctl station $iface connect-hidden $ssidArg");
                 }
             } else {
-                // Regular connection
                 if ($passphrase) {
-                    $passEsc = escapeshellarg($passphrase);
-                    exec("iwctl --passphrase $passEsc station $iface connect $ssidEsc");
+                    $passArg = escapeshellarg($passphrase);
+                    exec("iwctl --passphrase $passArg station $iface connect $ssidArg");
                 } else {
-                    // Open network
-                    exec("iwctl station $iface connect $ssidEsc");
+                    exec("iwctl station $iface connect $ssidArg");
                 }
             }
         }
     } else {
-        // WPA_SUPPLICANT setup using wpa_cli
+        // === WPA_SUPPLICANT Mode ===
         exec("wpa_cli -i $iface add_network", $out);
         $netId = trim(end($out));
 
-        // Properly double-quote values for wpa_cli
-        $ssidArg = escapeshellarg("\"$ssid\"");
-        exec("wpa_cli -i $iface set_network $netId ssid $ssidArg");
+        $ssidWrapped = escapeshellarg("\"$ssid\"");
+        exec("wpa_cli -i $iface set_network $netId ssid $ssidWrapped");
 
         if ($isHidden) {
             exec("wpa_cli -i $iface set_network $netId scan_ssid 1");
         }
 
         if ($isEnterprise) {
-            // 802.1X configuration
-            $keyMgmtArg = escapeshellarg("\"$keyMgmt\"");
-            $eapArg = escapeshellarg("\"$eapMethod\"");
-            $identityArg = escapeshellarg("\"$identity\"");
-
-            exec("wpa_cli -i $iface set_network $netId key_mgmt $keyMgmtArg");
-            exec("wpa_cli -i $iface set_network $netId eap $eapArg");
-            exec("wpa_cli -i $iface set_network $netId identity $identityArg");
+            exec("wpa_cli -i $iface set_network $netId key_mgmt " . escapeshellarg("\"$keyMgmt\""));
+            exec("wpa_cli -i $iface set_network $netId eap " . escapeshellarg("\"$eapMethod\""));
+            exec("wpa_cli -i $iface set_network $netId identity " . escapeshellarg("\"$identity\""));
 
             if ($passphrase) {
-                $passArg = escapeshellarg("\"$passphrase\"");
-                exec("wpa_cli -i $iface set_network $netId password $passArg");
+                exec("wpa_cli -i $iface set_network $netId password " . escapeshellarg("\"$passphrase\""));
             }
-
             if ($phase2) {
-                $phase2Arg = escapeshellarg("\"auth=$phase2\"");
-                exec("wpa_cli -i $iface set_network $netId phase2 $phase2Arg");
+                exec("wpa_cli -i $iface set_network $netId phase2 " . escapeshellarg("\"auth=$phase2\""));
             }
-        } else if ($passphrase) {
-            // PSK network
-            $pskArg = escapeshellarg("\"$passphrase\"");
-            exec("wpa_cli -i $iface set_network $netId psk $pskArg");
+        } elseif ($passphrase) {
+            exec("wpa_cli -i $iface set_network $netId psk " . escapeshellarg("\"$passphrase\""));
         } else {
-            // Open network
-            $keyMgmtArg = escapeshellarg("\"NONE\"");
-            exec("wpa_cli -i $iface set_network $netId key_mgmt $keyMgmtArg");
+            exec("wpa_cli -i $iface set_network $netId key_mgmt \"NONE\"");
         }
 
         exec("wpa_cli -i $iface enable_network $netId");
         exec("wpa_cli -i $iface save_config");
     }
+
+    // Optional: Debug log
+    /*
+    error_log("Configured Wi-Fi:");
+    error_log("Interface: " . $args['nic']);
+    error_log("SSID: " . $ssid);
+    error_log("Enterprise: " . ($isEnterprise ? 'yes' : 'no'));
+    */
 }
 
-// Usage examples:
-// PSK network: configureWifi('wlan0', 'MyNetwork', 'mypassword');
-// Hidden PSK: configureWifi('wlan0', 'HiddenNet', 'password', ['hidden' => true]);
-// Open network: configureWifi('wlan0', 'OpenWifi');
-// Hidden open: configureWifi('wlan0', 'HiddenOpen', null, ['hidden' => true]);
-// 802.1X: configureWifi('wlan0', 'Enterprise', 'userpass', [
-//     'enterprise' => true,
-//     'username' => 'user@domain.com',
-//     'eap' => 'PEAP',
-//     'phase2' => 'MSCHAPV2'
-// ]);
-
-function setIPv6InNetworkFiles(bool $enable): void {
-    $dir = '/etc/systemd/network';
-    $files = glob("$dir/20-*.network");
-
-    foreach ($files as $file) {
-        $lines = file($file, FILE_IGNORE_NEW_LINES);
-        if ($lines === false) {
-            echo "Failed to read $file\n";
-            continue;
+function disconnectWifi($redis, $args)
+{
+    // Detect backend: IWD or WPA Supplicant
+    $useIwd = (bool) exec('pidof iwd');
+    // disconnect via iwd
+    if ($useIwd) {
+        sysCmd('iwctl station ' . escapeshellarg($args['nic']) . ' disconnect');
+        sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
+        // if delete remove network otherwise just disconnect
+        if ($args['action'] == "delete") {
+            sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' forget');
+            // Clean systemd-networkd config
+            sysCmd('rm -f /etc/systemd/network/20-'.$args['nic'].'.network');
+            sysCmd('networkctl reload');
         }
+    } else {
+        $iface = escapeshellarg($args['nic']);
+        $ssid = escapeshellarg($args['ssid']);
 
-        $newLines = [];
-        $inNetworkSection = false;
-        $ipv6Set = false;
-        $dhcpSet = false;
+        // Disconnect current connection
+        sysCmd("wpa_cli -i $iface disconnect");
+
+        // Find the network ID for the SSID
+        $known = sysCmd("wpa_cli -i $iface list_networks");
+        $lines = explode("\n", $known);
+        $netid = null;
 
         foreach ($lines as $line) {
-            $trim = trim($line);
-
-            if (preg_match('/^\s*\[Network\]\s*$/', $trim)) {
-                $inNetworkSection = true;
-                $newLines[] = $line;
-                continue;
-            }
-
-            if ($inNetworkSection) {
-                if (preg_match('/^\s*\[.*\]\s*$/', $trim)) {
-                    // Leaving [Network] section
-                    if (!$ipv6Set) {
-                        $newLines[] = 'IPv6AcceptRA=' . ($enable ? 'yes' : 'no');
-                    }
-                    if (!$dhcpSet) {
-                        $newLines[] = 'DHCP=' . ($enable ? 'yes' : 'ipv4');
-                    }
-                    $inNetworkSection = false;
-                }
-
-                // Replace or skip relevant lines
-                if (stripos($trim, 'IPv6AcceptRA=') === 0) {
-                    $newLines[] = 'IPv6AcceptRA=' . ($enable ? 'yes' : 'no');
-                    $ipv6Set = true;
-                    continue;
-                }
-
-                if (stripos($trim, 'DHCP=') === 0) {
-                    $newLines[] = 'DHCP=' . ($enable ? 'yes' : 'ipv4');
-                    $dhcpSet = true;
-                    continue;
-                }
-            }
-
-            $newLines[] = $line;
-        }
-
-        // In case file ends within [Network] section
-        if ($inNetworkSection) {
-            if (!$ipv6Set) {
-                $newLines[] = 'IPv6AcceptRA=' . ($enable ? 'yes' : 'no');
-            }
-            if (!$dhcpSet) {
-                $newLines[] = 'DHCP=' . ($enable ? 'yes' : 'ipv4');
+            if (preg_match('/^(\d+)\t' . preg_quote($args['ssid'], '/') . '\t/', $line, $m)) {
+                $netid = $m[1];
+                break;
             }
         }
 
-        if (file_put_contents($file, implode("\n", $newLines)) !== false) {
-            echo "Updated $file\n";
-        } else {
-            echo "Failed to write $file\n";
+        // Disable the network to prevent auto-reconnect
+        if ($netid !== null) {
+            sysCmd("wpa_cli -i $iface disable_network $netid");
+            sysCmd("wpa_cli -i $iface save_config");
+        // if delete remove network otherwise just disconnect
+            if ($args['action'] == "delete") {
+                sysCmd("wpa_cli -i $iface remove_network $netid");
+                // Clean systemd-networkd config
+                sysCmd('rm -f /etc/systemd/network/20-'.$args['nic'].'.network');
+                sysCmd('networkctl reload');
+            }            
         }
     }
 }
@@ -4325,6 +4664,7 @@ function wrk_kernelswitch($redis, $args)
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
 {
+    $owntoneActive = $redis->hGet('owntone', 'active');
     switch ($action) {
         case 'checkacards':
             if (is_firstTime($redis, 'checkacards')) {
@@ -4628,44 +4968,40 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $acards = array_merge($redis->hgetall('usbacards'), $acards);
             }
             // save hdmi and usb acards
-            //  first delete the current hdmi and usb acards
+            //  first delete the current hdmi and usb acards caches
             $redis->del('hdmiacards');
             $redis->del('usbacards');
-            foreach ($acards as $key => $acard) {
-                $acardDetails = json_decode($acard, true);
-                if ((strpos(' '.strtolower($key), 'hdmi')) && (substr($acardDetails['description'], 0, 13) == 'Raspberry Pi:')) {
-                    // the card name contains hdmi and is it is an on-board device, save it
-                    $redis->hSet('hdmiacards', $key, $acard);
-                } else if (substr($acardDetails['description'], 0, 4) == 'USB:') {
-                    // the card is a usb device, save it
-                    $redis->hSet('usbacards', $key, $acard);
-                }
-                unset($acardDetails);
-            }
             $sub_count = 0;
             // sort the cards so that when acards has a different sequence but the same contents
             //  the MPD config file will not be replaced and MPD not restarted
             //  sort order is case insensitive
             ksort($acards, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($acards as $main_acard_name => $main_acard_details) {
-                // $card_decoded = new stdClass();
-                unset($card_decoded);
-                $card_decoded = array();
-                $card_decoded = json_decode($main_acard_details, true);
+                // $acard_decoded = new stdClass();
+                $acard_decoded = array();
+                $acard_decoded = json_decode($main_acard_details, true);
                 // debug
-                runelog('decoded ACARD '.$card_decoded['sysname'], $main_acard_details, __FUNCTION__);
+                runelog('decoded ACARD '.$acard_decoded['sysname'], $main_acard_details, __FUNCTION__);
+                // rebuild the hdmi and usb acards caches
+                if ((strpos(' '.strtolower($main_acard_name), 'hdmi')) && (substr($acard_decoded['description'], 0, 13) == 'Raspberry Pi:')) {
+                    // the card name contains hdmi and is it is an on-board device, save it
+                    $redis->hSet('hdmiacards', $main_acard_name, $main_acard_details);
+                } else if (substr($acard_decoded['description'], 0, 4) == 'USB:') {
+                    // the card is a usb device, save it
+                    $redis->hSet('usbacards', $main_acard_name, $main_acard_details);
+                }
                 // handle sub-interfaces
-                if (isset($card_decoded['integrated_sub']) && ($card_decoded['integrated_sub'] === 1)) {
+                if (isset($acard_decoded['integrated_sub']) && ($acard_decoded['integrated_sub'] === 1)) {
                     // record UI audio output name
-                    $current_card = $card_decoded['sysname'];
+                    $current_card = $acard_decoded['sysname'];
                     // if ($sub_count >= 1) continue;
-                    // $card_decoded = json_decode($card_decoded->real_interface);
+                    // $acard_decoded = json_decode($acard_decoded->real_interface);
                     runelog('current AO ---->  ', $ao, __FUNCTION__);
                     // var_dump($ao);
-                    runelog('current card_name ---->  ', $card_decoded['sysname'], __FUNCTION__);
-                    // var_dump($card_decoded->name);
-                    // var_dump(strpos($ao, $card_decoded->name));
-                    if (strpos($ao, $card_decoded['sysname']) === true OR strpos($ao, $card_decoded['sysname']) === 0) $sub_interface_selected = 1;
+                    runelog('current card_name ---->  ', $acard_decoded['sysname'], __FUNCTION__);
+                    // var_dump($acard_decoded->name);
+                    // var_dump(strpos($ao, $acard_decoded->name));
+                    if (strpos($ao, $acard_decoded['sysname']) === true OR strpos($ao, $acard_decoded['sysname']) === 0) $sub_interface_selected = 1;
                     // debug
                     if (isset($sub_interface_selected)) runelog('sub_card_selected ? >>>> '.$sub_interface_selected);
                     // debug
@@ -4676,36 +5012,36 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     runelog('sub_count', $sub_count, __FUNCTION__);
                 }
                 $output .="audio_output {\n";
-                // $output .="name \t\t\"".$card_decoded->name."\"\n";
+                // $output .="name \t\t\"".$acard_decoded->name."\"\n";
                 if (isset($sub_interface)) {
-                    $output .="\tname \t\t\"".$card_decoded['sysname']."\"\n";
+                    $output .="\tname \t\t\"".$acard_decoded['sysname']."\"\n";
                 } else {
                     $output .="\tname \t\t\"".$main_acard_name."\"\n";
                 }
-                $output .="\ttype \t\t\"".$card_decoded['type']."\"\n";
-                // $output .="\tdevice \t\t\"".$card_decoded['device']."\"\n";
-                $output .="\tdevice \t\t\"".$card_decoded['swdevice']."\"\n";
+                $output .="\ttype \t\t\"".$acard_decoded['type']."\"\n";
+                // $output .="\tdevice \t\t\"".$acard_decoded['device']."\"\n";
+                $output .="\tdevice \t\t\"".$acard_decoded['swdevice']."\"\n";
                 if ($hwmixer) {
-                    if (isset($card_decoded['mixer_control'])) {
+                    if (isset($acard_decoded['mixer_control'])) {
                         // mixer control is set
-                        if ($card_decoded['mixer_control']) {
+                        if ($acard_decoded['mixer_control']) {
                             // mixer control has a value
-                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                            $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                         }
                         // hardware mixer type is set when mixer control is set, even if mixer control has no value
                         $output .="\tmixer_type \t\"hardware\"\n";
-                        if (isset($card_decoded['mixer_device']) && $card_decoded['mixer_device']) {
+                        if (isset($acard_decoded['mixer_device']) && $acard_decoded['mixer_device']) {
                             // mixer device is set and has a value
-                            // $output .="\tmixer_device \t\"".$card_decoded['mixer_device']."\"\n";
-                            $output .="\tmixer_device \t\"".$card_decoded['swmixer_device']."\"\n";
+                            // $output .="\tmixer_device \t\"".$acard_decoded['mixer_device']."\"\n";
+                            $output .="\tmixer_device \t\"".$acard_decoded['swmixer_device']."\"\n";
                         }
                         if (isset($mpdcfg['replaygain']) && ($mpdcfg['replaygain'] != 'off') && isset($mpdcfg['replaygainhandler'])) {
                             // when replay gain is enabled and there is a hardware mixer, then use the mixer as reply gain handler
                             $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                         }
                     } else {
-                        if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                            $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                        if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                            $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                         } else {
                             $output .="\tmixer_type \t\"software\"\n";
                         }
@@ -4718,13 +5054,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 // test if there is an option for mpd.conf is set
                 // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-                if (isset($card_decoded['card_option'])) {
-                    $output .= "\t".$card_decoded['card_option']."\n";
+                if (isset($acard_decoded['card_option'])) {
+                    $output .= "\t".$acard_decoded['card_option']."\n";
                 }
                 // test if there is an allowed_formats for mpd.conf is set
                 // for example the ES9023 audio card expects 24 bit input
-                if (isset($card_decoded['allowed_formats'])) {
-                    $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
+                if (isset($acard_decoded['allowed_formats'])) {
+                    $output .= "\tallowed_formats\t\"".$acard_decoded['allowed_formats']."\"\n";
                 }
                 if ($mpdcfg['dsd_usb'] != 'no') {
                     if ($mpdcfg['dsd_usb'] === 'DSDDOP') {
@@ -4735,7 +5071,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $output .="\tdsd_usb \t\"yes\"\n";
                     }
                 }
-                if ($card_decoded['type'] == 'alsa') {
+                if ($acard_decoded['type'] == 'alsa') {
                     $output .="\tbuffer_time \t\"200000\"\n";
                     $output .="\tperiod_time \t\"5084\"\n";
                 }
@@ -4754,7 +5090,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // add Bluetooth output devices for all known connections
             $btDevices = wrk_btcfg($redis, 'status');
             $btconfig = $redis->hgetall('bluetooth');
-            ksort($btconfig, SORT_NATURAL|SORT_FLAG_CASE);
+            ksort($btDevices, SORT_NATURAL|SORT_FLAG_CASE);
             foreach ($btDevices as $btDevice) {
                 if ($btDevice['sink'] && $btDevice['device']) {
                     $output .= "audio_output {\n";
@@ -4806,6 +5142,20 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 $output .="\talways_on \t\"yes\"\n";
                 $output .="\ttags \t\t\"yes\"\n";
+                $output .="}\n";
+            }
+            // add owntone output if required
+            if ($redis->hGet('owntone', 'enable')) {
+                $output .="audio_output {\n";
+                $output .="\tname \t\t\"owntone\"\n";
+                $output .="\ttype \t\t\"alsa\"\n";
+                $output .="\tformat \t\t\"".$redis->hGet('owntone', 'rate').":16:2\"\n";
+                $output .= "\tdevice \t\t\"".$redis->hGet('owntone', 'device_mpd')."\"\n";
+                // null mixer
+                $output .= "\tmixer_type \t\"null\"\n";
+                $output .="\tauto_resample \t\"no\"\n";
+                $output .="\tauto_format \t\"no\"\n";
+                $output .="\tenabled \t\"no\"\n";
                 $output .="}\n";
             }
             // some users need to add an extra parameters to the MPD configuration file
@@ -4876,7 +5226,26 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 set_alsa_default_card($redis, $args);
                 wrk_hwinput($redis, 'refresh');
                 // get interface details
-                $acard = json_decode($redis->hGet('acards', $args), true);
+                $acard = array();
+                if ($owntoneActive) {
+                    $activePlayer = $redis->get('activePlayer');
+                    if ($activePlayer == 'MPD') {
+                        $device = $redis->hGet('owntone', 'device_mpd');
+                    } else if ($activePlayer == 'Airplay') {
+                        $device = $redis->hGet('owntone', 'device_ap');
+                    } else if ($activePlayer == 'SpotifyConnect') {
+                        $device = $redis->hGet('owntone', 'device_sc');
+                    } else if ($activePlayer == 'Bluetooth') {
+                        $device = $redis->hGet('owntone', 'device_bt');
+                    }
+                    $acard['device'] = $device;
+                    $acard['swdevice'] = $device;
+                    $acard['extlabel'] =  'Owntone';
+                    $acard['sysname'] = 'owntone';
+                    $acard['type'] = 'alsa';
+                    $acard['description'] = 'Owntone';
+                }
+                $acard = array_merge($acard, json_decode($redis->hGet('acards', $args), true));
                 // save the card if it is a 'hw:' type
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $args);
@@ -4901,8 +5270,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     sysCmd('mpc enable null');
                 }
                 // switch interface
-                sysCmd('mpc enable "'.$args.'"');
-                sysCmd('mpc disable "'.$oldMpdout.'"');
+                if ($owntoneActive) {
+                    sysCmd('mpc enable only null owntone');
+                    wrk_owntone($redis, 'switchao');
+                } else {
+                    sysCmd('mpc enable "'.$args.'"');
+                    sysCmd('mpc disable "'.$oldMpdout.'"');
+                }
                 // change the output for Airplay and Spotify Connect
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
@@ -4910,7 +5284,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
                 // save the previous card if it is a 'hw:' type
                 $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
-                if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
+                if (isset($acard['device']) && ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:'))) {
                     $redis->set('ao_default', $oldMpdout);
                 }
                 sysCmd('mpc enable "'.$oldMpdout.'"');
@@ -5186,62 +5560,78 @@ function wrk_mpdRestorePlayerStatus($redis)
         }
     }
     // make sure the audio output is set to the selected card
-    // get the selected audio output
-    $audioOutput = $redis->get('ao');
-    // enable the selected audio output (then selected and possibly null activated)
-    if (isset($audioOutput) && $audioOutput) {
-        // check that the card is still valid
-        if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
-            // the card is defined in mpd.conf, enable it
-            //
-            // socket version is complex, the number of the audio output must be determined, mpc does it easily
-            // $sock = openMpdSocket($bindToAddress, 0);
-            // if ($sock) {
-                // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
-                // closeMpdSocket($sock);
-            // }
-            sysCmd('mpc output enable "'.$audioOutput.'"');
-        } else {
-            // the card is invalid, its not defined in mpd.conf
-            // try the default card name, this should be a hardware card and almost always valid
-            $audioOutput = $redis->get('ao_default');
-            if (isset($audioOutput) && $audioOutput) {
-                // check that the card is still valid
-                if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
-                    // the card is defined in mpd.conf, enable it
-                    //
-                    // socket version is complex, the number of the audio output must be determined, mpc does it easily
-                    // $sock = openMpdSocket($bindToAddress, 0);
-                    // if ($sock) {
-                        // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
-                        // closeMpdSocket($sock);
-                    // }
-                    sysCmd('mpc output enable "'.$audioOutput.'"');
-                } else {
-                    // the default card is also invalid
-                    $audioOutput = '';
+    if ($redis->hGet('owntone', 'active')) {
+        sysCmd('mpc enable only null owntone');
+    } else {
+        // get the selected audio output
+        $audioOutput = $redis->get('ao');
+        // enable the selected audio output (then selected and possibly null activated)
+        if (isset($audioOutput) && $audioOutput) {
+            // check that the card is still valid
+            if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
+                // the card is defined in mpd.conf, enable it
+                //
+                // socket version is complex, the number of the audio output must be determined, mpc does it easily
+                // $sock = openMpdSocket($bindToAddress, 0);
+                // if ($sock) {
+                    // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                    // closeMpdSocket($sock);
+                // }
+                sysCmd('mpc output enable "'.$audioOutput.'"');
+            } else {
+                // the card is invalid, its not defined in mpd.conf
+                // try the default card name, this should be a hardware card and almost always valid
+                $audioOutput = $redis->get('ao_default');
+                if (isset($audioOutput) && $audioOutput) {
+                    // check that the card is still valid
+                    if (sysCmd("grep -ic '".$audioOutput."' /etc/mpd.conf | xargs")[0]) {
+                        // the card is defined in mpd.conf, enable it
+                        //
+                        // socket version is complex, the number of the audio output must be determined, mpc does it easily
+                        // $sock = openMpdSocket($bindToAddress, 0);
+                        // if ($sock) {
+                            // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                            // closeMpdSocket($sock);
+                        // }
+                        sysCmd('mpc output enable "'.$audioOutput.'"');
+                    } else {
+                        // the default card is also invalid
+                        $audioOutput = '';
+                    }
                 }
             }
         }
-    }
-    // disable the null audio output when the audio card is a valid hardware card, otherwise enable it
-    if (isset($audioOutput) && $audioOutput) {
-        // the audio output is valid
-        if (sysCmd("aplay -l | grep -ic '".$audioOutput."' | xargs")[0]) {
-            // its a hardware card, disable null
-            //
-            // socket version is complex, the number of the audio output must be determined, mpc does it easily
-            // $sock = openMpdSocket($bindToAddress, 0);
-            // if ($sock) {
-                // sendMpdCommand($sock, 'disableoutput '.$audioOutputNumber);
-                // closeMpdSocket($sock);
-            // }
-            sysCmd('mpc output disable "null"');
-            // set the redis variables ao and ao_default to this value
-            $redis->set('ao_default', $audioOutput);
-            $redis->set('ao', $audioOutput);
+        // disable the null audio output when the audio card is a valid hardware card, otherwise enable it
+        if (isset($audioOutput) && $audioOutput) {
+            // the audio output is valid
+            if (sysCmd("aplay -l | grep -ic '".$audioOutput."' | xargs")[0]) {
+                // its a hardware card, disable null
+                //
+                // socket version is complex, the number of the audio output must be determined, mpc does it easily
+                // $sock = openMpdSocket($bindToAddress, 0);
+                // if ($sock) {
+                    // sendMpdCommand($sock, 'disableoutput '.$audioOutputNumber);
+                    // closeMpdSocket($sock);
+                // }
+                sysCmd('mpc output disable "null"');
+                // set the redis variables ao and ao_default to this value
+                $redis->set('ao_default', $audioOutput);
+                $redis->set('ao', $audioOutput);
+            } else {
+                // its not a hardware card, enable null
+                //
+                // socket version is complex, the number of the audio output must be determined, mpc does it easily
+                // $sock = openMpdSocket($bindToAddress, 0);
+                // if ($sock) {
+                    // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
+                    // closeMpdSocket($sock);
+                // }
+                sysCmd('mpc output enable "null"');
+                // set the redis variable ao to this value
+                $redis->set('ao', $audioOutput);
+            }
         } else {
-            // its not a hardware card, enable null
+            // the audio output is invalid, enable null
             //
             // socket version is complex, the number of the audio output must be determined, mpc does it easily
             // $sock = openMpdSocket($bindToAddress, 0);
@@ -5250,22 +5640,10 @@ function wrk_mpdRestorePlayerStatus($redis)
                 // closeMpdSocket($sock);
             // }
             sysCmd('mpc output enable "null"');
-            // set the redis variable ao to this value
-            $redis->set('ao', $audioOutput);
         }
-    } else {
-        // the audio output is invalid, enable null
-        //
-        // socket version is complex, the number of the audio output must be determined, mpc does it easily
-        // $sock = openMpdSocket($bindToAddress, 0);
-        // if ($sock) {
-            // sendMpdCommand($sock, 'enableoutput '.$audioOutputNumber);
-            // closeMpdSocket($sock);
-        // }
-        sysCmd('mpc output enable "null"');
+        // set this card to the default alsa card
+        set_alsa_default_card($redis);
     }
-    // set this card to the default alsa card
-    set_alsa_default_card($redis);
     // allow global random to start
     $redis->hSet('globalrandom', 'wait_for_play', 0);
 }
@@ -5302,6 +5680,10 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
+    // when owntone is active the outpt device is different, the mixer continues to point to the real device
+    if ($redis->hGet('owntone', 'active')) {
+        $acard['swdevice'] = $redis->hGet('owntone', 'device_sc');
+    }
     if (isset($acard['sysname'])) {
         runelog('[wrk_spotifyd] acard sysname      : ', $acard['sysname']);
         runelog('[wrk_spotifyd] acard type         : ', $acard['type']);
@@ -5531,6 +5913,10 @@ function wrk_shairport($redis, $ao = null, $name = null)
         // stop shairport-sync
         wrk_systemd_unit($redis, 'stop', 'shairport-sync');
         return 0;
+    }
+    // for owntone the output device is different, we leave the mixer pointing to the real output device
+    if ($redis->hGet('owntone', 'active')) {
+        $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
     }
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
@@ -6583,6 +6969,9 @@ function wrk_startPlayer($redis, $newPlayer)
             if (isset($audioOutput) && $audioOutput) {
                 sendMpdCommand($sock, 'outputset '.$audioOutput.' 0');
             }
+            if ($redis->hGet('owntone', 'active')) {
+                sendMpdCommand($sock, 'outputset owntone 0');
+            }
             if ($status['state'] === 'play') {
                 // it's playing, so pause playback
                 if (sendMpdCommand($sock, 'pause')) {
@@ -6620,7 +7009,7 @@ function wrk_startPlayer($redis, $newPlayer)
             $redis->set('mpd_playback_laststate', 'play');
         }
         ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
-        sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
@@ -6649,7 +7038,7 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     }
     usleep(500000);
-    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     // set process priority
     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 }
@@ -7916,7 +8305,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
 // push UI update to NGiNX channel
 function ui_render($channel, $data)
 {
-    curlPost('http://127.0.0.1/pub?id='.$channel, $data);
+    curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
 }
 
@@ -7980,7 +8369,7 @@ function autoset_timezone($redis) {
         // $result = file_get_contents('https://timezoneapi.io/api/ip/?token='.$timezoneapiToken, false, $context);
         //
         // https://ipapi.co/
-        $result = implode("\n", sysCmd('curl -s "https://ipapi.co/json/"'));
+        $result = implode("\n", sysCmd('curl -X GET -s "https://ipapi.co/json/"'));
         // debug
         // $redis->set('wrk_autoset_timezone', $result);
         if ($result) {
@@ -8653,7 +9042,7 @@ function refresh_nics($redis)
             // refresh network list for wifi
             if (is_firstTime($redis, 'connman_scan_wifi')) {
 //                sysCmd('connmanctl scan wifi');
-                sysCmd('iw '.$nic.' scan');
+                sysCmd('iw '.$nic.' scan');                
             } else {
 //                sysCmdAsync($redis, 'connmanctl scan wifi');
                 sysCmdAsync($redis, 'iw '.$nic.' scan');
@@ -8786,7 +9175,7 @@ function refresh_nics($redis)
             if ($networkInfo[$key]['strength'] <= 0) {
                 unset($networkInfo[$key]);
             } else {
-                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, min(5, round((float)$networkInfo[$key]['strength']/20))));
+                $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($networkInfo[$key]['strength']/20)));
             }
         }
     }
@@ -8800,7 +9189,7 @@ function refresh_nics($redis)
     $avahiNic = '';
     // get the services
 //    $services = sysCmd('connmanctl services');
-    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py');
+    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py'); 
     foreach ($services as $service) {
         unset($security, $strength, $strengthStars);
         $status = strtoupper(trim(substr($service, 0, 4)));
@@ -8887,7 +9276,7 @@ function refresh_nics($redis)
                     $strength = $value;
                     $networkInfo[$macAddress.'_'.$ssidHex]['strength'] = $strength;
                     // strength is a value from 1 to 100, genereate 1 to 5 stars
-                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, min(5, round((float)$strength/20))));
+                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/20)));
                 }
             } else if (strpos($entry, 'nameservers')) {
                 if ($value) {
@@ -9145,10 +9534,10 @@ function refresh_nics($redis)
                         // then disable autoconnect on other networks using the same mac address or ssid
                         // most of the time connman retains the existing connections, but in some circumstances
                         // (when 2 Wi-Fi nics are present) it will disconnect and reconnect on-the-fly
-                        wrk_netconfig($redis, 'autoconnect-off', $network['connmanString']);
+//                        wrk_netconfig($redis, 'autoconnect-off', $network['connmanString']);
                         // order the networks in the connman list, there are circumstances (when 2 Wi-Fi nics are present)
                         // where connman will act on this on-the-fly optimisation, however the information is lost on reboot
-//-kg                        sysCmd('connmanctl move-after '.$network['connmanString'].' '. $connmanString);
+//                        sysCmd('connmanctl move-after '.$network['connmanString'].' '. $connmanString);
                         $connmanString = $network['connmanString'];
                         // delete this element from the array
                         unset($optimiseWifi[$key]);
@@ -9156,9 +9545,10 @@ function refresh_nics($redis)
                 }
             }
         }
+/*
         // connman is buggy! autoconnect-on/off seems to have no effect, the following routine solves some of the problems
-//        $connmanWifiServices = sysCmd('connmanctl services | grep "wifi_"');
-        $connmanWifiServices = sysCmd('/srv/http/command/conn.py services | grep "wifi_"');
+        $connmanWifiServices = sysCmd('connmanctl services | grep "wifi_"');
+        
         $stopAndStart = false;
         foreach ($connmanWifiServices as $connmanWifiService) {
             if (strpos(' '.$connmanWifiService, '*AR') == 1) {
@@ -9173,14 +9563,13 @@ function refresh_nics($redis)
         }
         if ($stopAndStart) {
             if (isset($stopService) && $stopService) {
-//                sysCmd('connmanctl disconnect '.$stopService);
-                sysCmd('iw dev '.$nic.' disconnect ');
+                sysCmd('connmanctl disconnect '.$stopService);
             }
             if (isset($startService) && $startService) {
-//--kg                sysCmd('connmanctl connect '.$startService);
-                sysCmd('iw dev '.$nic.' connect '.$startService); // wrong
+                sysCmd('connmanctl connect '.$startService);
             }
         }
+*/
     }
     //
     $redis->set('network_info', json_encode($networkInfo));
@@ -9692,133 +10081,157 @@ function wrk_check_MPD_outputs($redis)
 // it is possible that stream output has been defined which is always active, so be careful
 // exclude the stream output when counting the enabled output's, there should then only be one enabled output
 {
-    // get the number of enabled outputs, exclude any with a name ending with '_stream' or the name 'null'
-    $countMpdEnabled = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -ci "enabled"')[0];
-    if ($countMpdEnabled != 1) {
-        // none or more than one outputs enabled
-        $outputs = sysCmd('mpc outputs | grep -i output');
-        $countMpdOutput = count($outputs);
-        if ($countMpdOutput == 1) {
-            // only one output device so enable it
-            sysCmd("mpc enable only 1");
-        } else {
-            // more than one output device available
-            // set the enabled counter to zero
-            $countMpdEnabled = 0;
-            // walk through the outputs
-            foreach ($outputs as $output) {
-                $outputParts = explode(' ', $output, 3);
-                // $outputParts[0] = 'Output' (can be disregarded), $outputParts[1] = <the output number> & $outputParts[2] = <the rest of the information>
-                $aoName = get_between_data($outputParts[2], '(', ')');
-                $outputParts[2] = strtolower($outputParts[2]);
-                if (strpos(' '.$outputParts[2], 'bcm2835') || strpos($outputParts[2], 'hdmi')) {
-                    // its a 3,5mm jack or hdmi output, so disable it, don't count it
-                    sysCmd('mpc disable '.$outputParts[1]);
-                    // save the number of the last one
-                    $lastOutput = $outputParts[1];
-                } else if (strpos(' '.$outputParts[2], '_stream)')) {
-                    // its a streamed output, so enable it, don't count it
-                    sysCmd('mpc enable '.$outputParts[1]);
-                } else if (strpos(' '.$outputParts[2], '(null)')) {
-                    // its the null output, don't change it, don't count it
-                } else if (!$redis->exists('acards', $aoName)) {
-                    // its not listed in acards, so it is inactive, probably a bluetooth output
-                    //  disable it, don't count it
-                    sysCmd('mpc disable '.$outputParts[1]);
+    // enable the null output
+    sysCmd('mpc enable null');
+    // get the card information
+    $acards = $redis->hGetall('acards');
+    $ao = $redis->get('ao');
+    $aoDefault = $redis->get('ao_default');
+    $owntoneActive = $redis->hGet('owntone', 'active');
+    $cardOK = false;
+    $cards = array($ao, $aoDefault);
+    foreach ($cards as $card) {
+        if (isset($ao) && isset($acards[$card])) {
+            // audio output is set
+            $acard = json_decode($acards[$card], true);
+            if (isset($acard['sysname']) && isset($acard['swdevice']) && $acard['sysname'] && $acard['swdevice']) {
+                // the card specified by audio output is valid
+                if ((substr($acard['swdevice'], 0, 2) == 'hw') || (substr($acard['swdevice'], 0, 7) == 'plughw')) {
+                    // its a hardware card, set both ao and ao_default to the card name
+                    $ao = $card;
+                    $redis->set('ao', $ao);
+                    $aoDefault = $card;
+                    $redis->set('ao_default', $aoDefault);
                 } else {
-                    // its an audio card, USB DAC, active Bluetooth connection, fifo or pipe output
-                    if ($countMpdEnabled == 0) {
-                        // its the first one, enable it and count it
-                        sysCmd('mpc enable '.$outputParts[1]);
-                        $countMpdEnabled++;
-                    } else {
-                        // its not the first one, disable it, don't count it
-                        sysCmd('mpc disable '.$outputParts[1]);
-                    }
-                }
-            }
-            // the first audio card, USB DAC, active Bluetooth connection, fifo or pipe output should now have been enabled
-            // if applicable the streaming output is also enabled
-            // the rest are disabled
-            if ($countMpdEnabled == 0) {
-                // no output enabled, there are no outputs available, no audio cards, USB DACs, fifo or pipe output detected
-                if (isset($lastOutput)) {
-                    sysCmd('mpc enable '.$lastOutput);
-                }
-                $countMpdEnabled = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -ci "enabled"')[0];
-                if ($countMpdEnabled == 0) {
-                    $countMpdStreamEnabled = sysCmd('mpc outputs | grep i "_stream)" | grep -ci "enabled"')[0];
-                    if ($countMpdStreamEnabled == 0) {
-                        sysCmd('mpc enable null');
-                    }
-                }
-            }
-            // get the name of the enabled audio output for the UI, also set the default audio output for the UI
-            $retval = sysCmd('mpc outputs | grep -vi "_stream)" | grep -vi "(null)" | grep -i enabled');
-            if (isset($retval[0]) && trim($retval[0])) {
-                // a card is enabled
-                $aoName = get_between_data($retval[0], '(', ')');
-                if (isset($aoName) && $aoName) {
-                    // the card has an audio output name
-                    wrk_hwinput($redis, 'refresh');
-                    if ($redis->hExists('acards', $aoName)) {
-                        // the card is listed in acards, so set it as the active audio output
-                        $redis->set('ao', $aoName);
-                        // set the default audio output to the same value as the audio output when it is a hw type
-                        $acard = json_decode($redis->hGet('acards', $aoName), true);
-                        if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
-                            // its a hardware card, so set it to the audio output default
-                            $redis->set('ao_default', $aoName);
-                            sysCmd('mpc disable null');
-                        } else {
-                            $redis->set('ao_default', '');
+                    // its a software, bluetooth or usb card, set only ao to the card name
+                    $ao = $card;
+                    $redis->set('ao', $ao);
+                    // check and correct ao_default
+                    if (!isset($aoDefault) || !isset($cards[$aoDefault])) {
+                        // ao_default is not defined or invalid
+                        $aoDefault = '';
+                        // search for a valid hardware card for ao_default, use the first found
+                        foreach ($acards as $acard) {
+                            $acardDecoded = json_decode($card, true);
+                            if (isset($acard['sysname']) && isset($acard['swdevice']) && $acard['sysname'] && $acard['swdevice']) {
+                                // card is usable
+                                if ((substr($acard['swdevice'], 0, 2) == 'hw') || (substr($acard['swdevice'], 0, 7) == 'plughw')) {
+                                    // hardware cord foud use it
+                                    $aoDefault = $acard['sysname'];
+                                    break;
+                                }
+                            }
                         }
-                    } else {
-                        $redis->set('ao', '');
-                        $redis->set('ao_default', '');
+                        $redis->set('ao_default', $aoDefault);
                     }
-                } else {
-                    $redis->set('ao', '');
-                    $redis->set('ao_default', '');
                 }
-            } else {
-                $redis->set('ao', '');
-                $redis->set('ao_default', '');
+                if ($owntoneActive) {
+                    // owntone is active, enable owntone and null
+                    sysCmd('mpc enable only null owntone');
+                    $cardOK = true;
+                    break;
+                } else {
+                    // owntone is inactive
+                    if ((substr($acard['swdevice'], 0, 2) == 'hw') || (substr($acard['swdevice'], 0, 7) == 'plughw')) {
+                        // its a hardware card
+                        sysCmd('mpc enable only '.$acard['sysname']);
+                        $cardOK = true;
+                        break;
+                    } else {
+                        // its a software, bluetooth or usb card; its pluggable so enable null as well
+                        sysCmd('mpc enable only null '.$acard['sysname']);
+                        $cardOK = true;
+                        break;
+                    }
+                }
             }
         }
     }
+    if (!$cardOK) {
+        // the cards specified by 'ao' and 'ao_default' are invalid
+        // examine acards and select the first hardware non-on-board card,
+        //  it this fails select the first non-hardware non-on-board card,
+        //  if this fails select on-board card
+        if (!count($acards)) {
+            // there are no valid cards
+            $redis->set('ao', '');
+            $redis->set('ao_default', '');
+            if ($owntoneActive) {
+                // owntone is active, enable owntone and null
+                sysCmd('mpc enable only null owntone');
+                $cardOK = true;
+            }
+        } else {
+            foreach ($acards as $acard) {
+                $acardDecoded = json_decode($card, true);
+                if (!isset($hardware_non_on_board_card) && (substr($acardDecoded['description'], 0, 10) == 'Soundcard:')) {
+                    // soundcard - hardware non-on-board card
+                    $hardware_non_on_board_card = $acardDecoded['sysname'];
+                } else if (!isset($on_board_card) && (substr($acardDecoded['description'], 0, 13) == 'Raspberry Pi:')) {
+                    // on-board card
+                    $on_board_card = $acardDecoded['sysname'];
+                } else if (!isset($non_hardware_non_on_board_card)) {
+                    // bluetooth, usb or software - non-hardware non-on-board card
+                    $non_hardware_non_on_board_card = $acardDecoded['sysname'];
+                }
+            }
+            if (isset($hardware_non_on_board_card)) {
+                // soundcard - hardware non-on-board card
+                $ao = $hardware_non_on_board_card;
+                $ao_default = $hardware_non_on_board_card;
+            } else if (isset($non_hardware_non_on_board_card)) {
+                // bluetooth, usb or software - non-hardware non-on-board card
+                $ao = $non_hardware_non_on_board_card;
+                if (isset($on_board_card)) {
+                    $ao_default = $on_board_card;
+                } else {
+                    $ao_default = '';
+                }
+            } else if (isset($on_board_card)) {
+                // on-board card
+                $ao = $on_board_card;
+                $ao_default = $on_board_card;
+            }
+            $redis->set('ao', $ao);
+            $redis->set('ao_default', $ao_default);
+            if ($owntoneActive) {
+                // owntone is active, enable owntone and null
+                sysCmd('mpc enable only null owntone');
+                $cardOK = true;
+            } else {
+                // owntone is inactive
+                if ((substr($acard['swdevice'], 0, 2) == 'hw') || (substr($acard['swdevice'], 0, 7) == 'plughw')) {
+                    // its a hardware card
+                    sysCmd('mpc enable only '.$acard['sysname']);
+                    $redis->set('ao_default', $ao);
+                    $cardOK = true;
+                } else {
+                    // its a software, bluetooth or usb card; its pluggable so enable null as well
+                    sysCmd('mpc enable only null '.$acard['sysname']);
+                    $cardOK = true;
+                }
+            }
+        }
+    }
+    // set up the default alsa card and the default output device for bluetooth input
+    set_alsa_default_card($redis);
+    // check and correct spotifyconnect and airplay output
     $ao = $redis->get('ao');
     $spotifyconnectAo = $redis->hGet('spotifyconnect', 'ao');
     $airplayAo = $redis->hGet('airplay', 'ao');
-    if ($ao && ($ao != $spotifyconnectAo)) {
-        wrk_spotifyd($redis, $ao);
-    }
-    if ($ao && ($ao != $airplayAo)) {
-        wrk_shairport($redis, $ao);
-    }
-    // switch null output on or off
-    if ($ao) {
-        $acard = json_decode($redis->hGet('acards', $ao), true);
-        // correct the null output device
-        if (isset($acard['swdevice']) && $acard['swdevice']) {
-            if ((substr($acard['swdevice'], 0, 9) == 'bluealsa:') ||
-                    (strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
-                    (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
-                // its a Bluetooth, vc4 hdmi or USB output, enable the null output device
-                sysCmd('mpc enable null');
-            } else {
-                // otherwise disable the null output device
-                sysCmd('mpc disable null');
-            }
-        } else {
-            // invalid device (could happen), enable the null output device
-            sysCmd('mpc enable null');
-        }
-        // set this card to the default alsa card
-        set_alsa_default_card($redis);
+    if ($owntoneActive) {
+        // when owntone is active the ao for spotifyconnect and airplay is different
+        $spotifyconnectAoCheck = $redis->hGet('owntone', 'device_sc');
+        $airplayAoCheck = $redis->hGet('owntone', 'device_ap');
     } else {
-        // invalid device (could happen), enable the null output device
-        sysCmd('mpc enable null');
+        $spotifyconnectAoCheck = $ao;
+        $airplayAoCheck = $ao;
+    }
+    if ($spotifyconnectAoCheck && ($spotifyconnectAoCheck != $spotifyconnectAo)) {
+        wrk_spotifyd($redis, $spotifyconnectAoCheck);
+    }
+    if ($airplayAoCheck && ($airplayAoCheck != $airplayAo)) {
+        wrk_shairport($redis, $airplayAoCheck);
     }
 }
 
@@ -10273,17 +10686,24 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
     //
     if ($cleaned || $redis->get('cleaned_last_time')) {
         // this runs when the upper file system has been changed within this function, when files are deleted
-        //  from the lower file system within this funcuion and on the first following run when nothing has been changed
+        //  from the lower file system within this function and on the first following run when nothing has been changed
         //  there is no need to run this after synchronising the upper file system to the lower
         // this is the trick:
-        //  command 1: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
+        //  command 1: forces caches to be flushed, clearing many dirty caches
+        //  command 2: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
         //      this causes the overlay file system to forget its previous contents, it will then
         //      rebuild its information based on what is actually there
         //          Note: since we don't use a pagefile its probably enough to use 'echo 2 > /proc/sys/vm/drop_caches'
-        //  command 2: remounts the overlay file system
+        //  command 3: remounts the overlay file system
         //      this causes new content of the lower directory to be included in the overlay file system and deleted
         //      content of the lower directory to be omitted
-        sysCmd('echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        //  echoing 4 to drop_caches switches logging off, run it once - it is sticky,
+        //      otherwise dmesg floods with drop_caches: 3 messages
+        if (is_firstTime($redis, 'drop_caches')) {
+            sysCmd('sync ; echo 4 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        } else {
+            sysCmd('sync ; echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
+        }
     }
     if ($cleaned) {
         // do it again on the following run when nothing has been changed
@@ -10529,7 +10949,7 @@ function is_radioUrl($redis, $url)
     // $redis->del('webradios_redirected');
     // $radios = $redis->hGetall('webradios');
     // foreach ($radios as $radioName => $radioUrl) {
-        // $radioUrlRedirected = sysCmd('curl -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
+        // $radioUrlRedirected = sysCmd('curl -X GET -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
         // if (isset($radioUrlRedirected) && $radioUrlRedirected && $radioUrlRedirected != $radioUrl) {
             // $redis->hSet('webradios_redirected', $radioName, $radioUrlRedirected);
         // }
@@ -10552,7 +10972,7 @@ function get_lastFm($redis, $url)
 //    $retval = json_decode(curlGet($url, $proxy), true);
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    $retval = sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
     if (isset($retval[0])) {
         $retval = json_decode($retval[0], true);
     } else {
@@ -10694,7 +11114,7 @@ function get_discogs($redis, $url)
     }
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
+    $retval = json_decode(sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
     if (!isset($retval['pagination']['items'])) {
         // unexpected response, disable discogs, items should always be set
         $redis->hSet('service', 'discogs', 0);
@@ -10726,7 +11146,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -10807,7 +11227,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist='.urlClean($searchArtist).'&song='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -11369,7 +11789,7 @@ function get_albumInfo($redis, $info = array())
         }
         if (!$info['album_arturl_large'] && $info['album'] && $info['albumartist']) {
             // still nothing found try discogs
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
             $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
             $retval = get_discogs($redis, $url);
             if ($retval) {
@@ -11576,8 +11996,8 @@ function get_artistInfo($redis, $info = array())
         // one or more required data fields is empty
         if ($info['artist_mbid']) {
             // mbid is set so use it to retreve last.fm data
-            // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-            // e.g.: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
             $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid='.$info['artist_mbid'].'&api_key='.$lastfmApikey.'&format=json&limit=1';
             $retval = get_lastFm($redis, $url);
         } else {
@@ -11586,8 +12006,8 @@ function get_artistInfo($redis, $info = array())
         if (!$retval) {
             // error returned, retrieve the info using artist name
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-                // e.g.: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
                 $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist='.urlClean($searchArtist).'&api_key='.$lastfmApikey.'&format=json&limit=1';
                 $retval = get_lastFm($redis, $url);
                 if ($retval) {
@@ -11637,7 +12057,7 @@ function get_artistInfo($redis, $info = array())
         if (!$info['artist_mbid']) {
             // try to get the musicbrainz id from musicbrainz
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -s -f --connect-timeout 1 -m 10 --retry 2 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
+                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
                 $url = 'https://musicbrainz.org/ws/2/artist/?query='.urlClean($searchArtist).'&limit=1&fmt=json';
                 $retval = get_musicBrainz($redis, $url);
                 if ($retval) {
@@ -11654,7 +12074,7 @@ function get_artistInfo($redis, $info = array())
         }
         if ($info['artist_mbid']) {
             // mbid is set so we can try to get the art url from fanart.tv
-            // call: curl -s -f --connect-timeout 1 -m 10 --retry 2 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
+            // call: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
             // e.g.: http://webservice.fanart.tv/v3/music/<mbid>?api_key=<token>
             $url = 'http://webservice.fanart.tv/v3/music/'.$info['artist_mbid'].'?api_key='.$fanarttvToken;
             $retval = get_fanartTv($redis, $url);
@@ -11744,7 +12164,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     $discogsToken = $redis->hGet('discogs', 'token');
     if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song']) {
         // this is the command to split the $radiostringClean into artist and song from last.fm
-        // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1
+        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1"
         $url = 'https://ws.audioscrobbler.com/2.0/?method=track.search&track='.urlClean($radiostringClean).'&api_key='.$lastfmApikey.'&format=json&limit=1';
         $retval = get_lastFm($redis, $url);
         if ($retval) {
@@ -11767,7 +12187,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song'] || $info['album']) {
         // try to pick the artist album and song up from discogs
         // the album art is will also be returned if there is a match
-        // curl -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD
+        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
         $url = 'https://api.discogs.com/database/search?q='.urlClean($radiostringClean).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
         $retval = get_discogs($redis, $url);
         if ($retval) {
@@ -11810,7 +12230,7 @@ function wrk_get_webradio_art($redis, $radiostring)
     if ($noRadioCache && !$info['album']) {
         if ($info['song_mbid']) {
             // use musicbrainz to pick up the album ablum using
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://musicbrainz.org/ws/2/recording/28734584-3a00-4072-8e09-dc5c40c0d50a?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/28734584-3a00-4072-8e09-dc5c40c0d50a?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json"
             $url = 'https://musicbrainz.org/ws/2/recording/'.$info['song_mbid'].'?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json';
             $retval = get_musicBrainz($redis, $url);
             if ($retval) {
@@ -11851,7 +12271,7 @@ function wrk_get_webradio_art($redis, $radiostring)
             }
         } else {
             // use musicbrainz to pick up the album name and art using
-            // curl -s -f --connect-timeout 5 -m 10 --retry 2 https://musicbrainz.org/ws/2/recording/?query=annie+lennox+-+why&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/?query=annie+lennox+-+why&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json"
             $url = 'https://musicbrainz.org/ws/2/recording/?query='.urlClean($radiostringClean).'&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json';
             $retval = get_musicBrainz($redis, $url);
             if ($retval) {
@@ -12096,7 +12516,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     // save JSON response for extensions
     $redis->set('act_player_info', json_encode($status));
     ui_render('playback', json_encode($status));
-    sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     sysCmdAsync($redis, '/srv/http/command/ui_update_async', 0);
     return $status;
 }
@@ -12279,11 +12699,11 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     // otherwise use screen scraping
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
-        // curl -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        // curl -X GET -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
         //
-        $command = 'curl -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
+        $command = 'curl -X GET -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
         $trackInfoLines = sysCmd($command);
         $timeout = true;
@@ -12403,10 +12823,10 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     } else {
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
-        // curl -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
-        $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
-        // debug line // $command = 'curl -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
-        // $command = 'curl -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // curl -X GET -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
+        // $command = 'curl -X GET -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
         $timeout = true;
@@ -12522,7 +12942,7 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
     $apiSecret = $redis->hGet('spotifyconnect', 'api_secret');
     if (!$redis->hExists('spotifyconnect', 'api_token') || !$redis->hGet('spotifyconnect', 'api_token')) {
         // no API token, get one
-        $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+        $retval = implode(' ', sysCmd("curl -X POST -s -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
         $retval = json_decode($retval, true);
         if (isset($retval['access_token']) && $retval['access_token']) {
             // got an API token, save it
@@ -12538,13 +12958,13 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
     }
     if ($apiToken) {
         // there is a an API token
-        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+        $command = "curl -X GET -s https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
         $retval = implode(' ', sysCmd($command));
         $metadata = json_decode($retval, true);
         if (isset($metadata['error']['message']) && strpos($metadata['error']['message'], 'expired') ) {
             // token has expired, get a new one
             // other failures are not handled
-            $retval = implode(' ', sysCmd("curl -s -X 'POST' -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
+            $retval = implode(' ', sysCmd("curl -X POST -s -u ".$apiUserID.':'.$apiSecret.' -d grant_type=client_credentials https://accounts.spotify.com/api/token'));
             $retval = json_decode($retval, true);
             if (isset($retval['access_token']) && $retval['access_token']) {
                 // we have a new token, save it
@@ -12560,7 +12980,7 @@ function wrk_getSpotifyMetadataAdvanced($redis, $track_id)
         }
         // try again
         if ($apiToken) {
-        $command = "curl -s -X 'GET' https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
+        $command = "curl -X GET -s https://api.spotify.com/v1/tracks/".$track_id." -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization:Bearer ".$apiToken."'";
             $retval = implode(' ', sysCmd($command));
             $metadata = json_decode($retval, true);
         }
@@ -12683,7 +13103,7 @@ function search_array_keys($myArray, $search, $caseInsensative = 0, $skipEmpty =
     return false;
 }
 
-// sets the default alsa card and the bluealsa ouput card, based on the card name
+// sets the default alsa card and the bluealsa output card, based on the card name
 function set_alsa_default_card($redis, $cardName = null)
 {
     $alsaFileName = '/etc/asound.conf';
@@ -12695,26 +13115,47 @@ function set_alsa_default_card($redis, $cardName = null)
     if (!isset($cardName) || !$cardName) {
         $cardName = $ao;
     }
-    if (!isset($cardName) || !$cardName) {
+    $owntoneActive = $redis->hGet('owntone', 'active');
+    $acard = array();
+    if ($owntoneActive) {
+        $activePlayer = $redis->get('activePlayer');
+        if ($activePlayer == 'MPD') {
+            $device = $redis->hGet('owntone', 'device_mpd');
+        } else if ($activePlayer == 'Airplay') {
+            $device = $redis->hGet('owntone', 'device_ap');
+        } else if ($activePlayer == 'SpotifyConnect') {
+            $device = $redis->hGet('owntone', 'device_sc');
+        } else if ($activePlayer == 'Bluetooth') {
+            $device = $redis->hGet('owntone', 'device_bt');
+        }
+        $acard['device'] = $device;
+        $acard['swdevice'] = $device;
+        $acard['extlabel'] =  'Owntone';
+        $acard['sysname'] = 'owntone';
+        $acard['type'] = 'alsa';
+        $acard['description'] = 'Owntone';
+    } else if (!isset($cardName) || !$cardName) {
         // no card defined
         return;
     }
-    $acard = json_decode($redis->hGet('acards', $cardName), true);
-    if (!isset($acard['device']) || !$acard['device']) {
-        $acard = json_decode($redis->hGet('acards', $ao), true);
-    }
-    if (!isset($acard['device']) || !$acard['device']) {
-        // invalid card
-        echo "Invalid ao card: '$cardName', '$ao'\n";
-        $aoTest = $redis->get('ao');
-        $ao_default = $redis->get('ao_default');
-        if (($aoTest == $cardName) || ($aoTest == $ao)) {
-            $redis->set('ao', '');
+    if (isset($ao) && $ao) {
+        $acard = json_decode($redis->hGet('acards', $cardName), true);
+        if (!isset($acard['device']) || !$acard['device']) {
+            $acard = array_merge($acard, json_decode($redis->hGet('acards', $ao), true));
         }
-        if (($ao_default == $cardName) || ($ao_default == $ao)) {
-            $redis->set('ao_default', '');
+        if (!isset($acard['device']) || !$acard['device']) {
+            // invalid card
+            echo "Invalid ao card: '$cardName', '$ao'\n";
+            $aoTest = $redis->get('ao');
+            $ao_default = $redis->get('ao_default');
+            if (($aoTest == $cardName) || ($aoTest == $ao)) {
+                $redis->set('ao', '');
+            }
+            if (($ao_default == $cardName) || ($ao_default == $ao)) {
+                $redis->set('ao_default', '');
+            }
+            return;
         }
-        return;
     }
     //
     $device = trim($acard['device']);
@@ -12755,6 +13196,10 @@ function set_alsa_default_card($redis, $cardName = null)
             sysCmd('echo defaults.pcm.card '.$cardNumber." >> '".$alsaFileName."'");
             sysCmd('echo defaults.ctl.card '.$cardNumber." >> '".$alsaFileName."'");
         }
+    }
+    // when owntone is enabled the output card is different, the mixer continues to point at the real card
+    if ($redis->hGet('owntone', 'active')) {
+        $acard['device'] = $redis->hGet('owntone', 'device_bt');
     }
     // also configure bluealsa to point at the default card
     sysCmd('echo "OPTIONS=\"--pcm='.$acard['device'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
@@ -15694,6 +16139,470 @@ function check_webradio_string($redis, $webradioString)
     return 1;
 }
 
+// function to manage owntone
+function wrk_owntone($redis, $action, $args = null, $jobID = null)
+// actions:
+//  activate
+//  deactivate
+//  disable
+//  enable
+//  conf_add_alsa_card, $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device')
+//  conf_add_alsa_cards, no $args
+//  initialise, no $args
+//  reset
+//  status
+//  switchao
+//  switchplayer
+{
+    switch ($action) {
+        case 'activate':
+            // no $args
+            if ($redis->hget('owntone', 'enable')) {
+                $redis->hSet('owntone', 'active', 1);
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+                wrk_owntone($redis, 'initialise');
+                $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
+                if ($retval == 'changed') {
+                    wrk_systemd_unit($redis, 'restart', 'owntone');
+                }
+                wrk_owntone($redis, 'status');
+                wrk_owntone($redis, 'switch');
+                wrk_systemd_unit($redis, 'start', 'owntone_monitor');
+            }
+            break;
+        case 'deactivate':
+            // no $args
+            $redis->hSet('owntone', 'active', 0);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+            break;
+        case 'disable':
+            // no $args
+            $redis->hSet('owntone', 'enable', 0);
+            $redis->hSet('owntone', 'active', 0);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            wrk_owntone($redis, 'deactivate');
+            wrk_systemd_unit($redis, 'stop', 'owntone');
+            break;
+        case 'enable':
+            // no $args
+            $redis->hSet('owntone', 'enable', 1);
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            unset_is_firstTime($redis, 'owntone_master_volume');
+            wrk_owntone($redis, 'initialise');
+            $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
+            if ($retval == 'changed') {
+                wrk_systemd_unit($redis, 'restart', 'owntone');
+            }
+            break;
+        case 'conf_add_alsa_card':
+            // $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device', 'file')
+            //  'card_name', 'nickname' & 'file' are required
+            if ($redis->hget('owntone', 'enable')) {
+                if (isset($args) && is_array($args)) {
+                    if (!isset($args['card_name']) || !$args['card_name']) {
+                        break;
+                    } else if (!isset($args['nickname']) || !$args['nickname']) {
+                        break;
+                    } else if (!isset($args['file'])) {
+                        break;
+                    } else {
+                        if (!isset($args['mixer'])) {
+                            $args['mixer'] = '';
+                        }
+                        if (!isset($args['mixer_device'])) {
+                            $args['mixer_device'] = '';
+                        }
+                    }
+                } else {
+                    break;
+                }
+                $output =
+                    "#\n".
+                    "# alsa output card: ".$args['card_name']." : ".$args['nickname']."\n".
+                    "alsa \"".$args['card_name']."\" {\n".
+                    " # Name used in the speaker list. If not set, the card name will be used.\n".
+                    " nickname = \"".$args['nickname']."\"\n".
+                    " # Mixer channel to use for volume control\n".
+                    " # If not set, PCM will be used if available, otherwise Master\n";
+                if ($args['mixer']) {
+                    $output .= " mixer = \"".$args['mixer']."\"\n";
+                } else {
+                    $output .= " # mixer = \"".$args['mixer']."\"\n";
+                }
+                $output .=
+                    " # Mixer device to use for volume control\n".
+                    " # If not set, the card name will be used\n";
+                if ($args['mixer_device']) {
+                    $output .= " mixer_device = \"".$args['mixer_device']."\"\n";
+                } else {
+                    $output .= " # mixer_device = \"".$args['mixer_device']."\"\n";
+                }
+                $output .= "}\n";
+                file_put_contents($args['file'], $output, FILE_APPEND);
+                unset($output);
+            }
+            break;
+        case 'conf_add_alsa_cards':
+            // no $args
+            if ($redis->hget('owntone', 'enable')) {
+                $acards = $redis->hGetall('acards');
+                if ($redis->exists('hdmiacards')) {
+                    $acards = array_merge($redis->hgetall('hdmiacards'), $acards);
+                }
+                if ($redis->exists('usbacards')) {
+                    $acards = array_merge($redis->hgetall('usbacards'), $acards);
+                }
+                $btDevices = wrk_btcfg($redis, 'status');
+                $confFile = '/etc/owntone.conf';
+                $tmpFile = '/tmp/owntone.conf';
+                copy($confFile, $tmpFile);
+                sysCmd("sed -n -i '/^# RuneAudio automatically generated section/q;p' '".$tmpFile."'");
+                $output =
+                    "# RuneAudio automatically generated section\n".
+                    "#\n".
+                    "# RuneAudio will edit some of the lines above in the standard sections, these can be manually modified.\n".
+                    "# But all the lines below are generated by RuneAudio and should not be changed manually.\n".
+                    "#\n";
+                file_put_contents($tmpFile, $output, FILE_APPEND);
+                unset($output);
+                if (count($acards)) {
+                    ksort($acards, SORT_NATURAL|SORT_FLAG_CASE);
+                    foreach ($acards as $acard) {
+                        $acard_decoded = array();
+                        $acard_decoded = json_decode($acard, true);
+
+                        $owntoneCard = array();
+                        $owntoneCard['card_name'] = $acard_decoded['swdevice'];
+                        $owntoneCard['nickname'] = $acard_decoded['description'];
+                        if (isset($acard_decoded['mixer_control']) && $acard_decoded['mixer_control']) {
+                            $owntoneCard['mixer'] = $acard_decoded['mixer_control'];
+                        }
+                        if (isset($acard_decoded['swmixer_device']) && $acard_decoded['swmixer_device']) {
+                            $owntoneCard['mixer_device'] = $acard_decoded['swmixer_device'];
+                        }
+                        $owntoneCard['file'] = $tmpFile;
+                        wrk_owntone($redis, 'conf_add_alsa_card', $owntoneCard);
+                    }
+                    unset($acards, $acard, $acard_decoded, $owntoneCard);
+                }
+                if (count($btDevices)) {
+                    ksort($btDevices, SORT_NATURAL|SORT_FLAG_CASE);
+                    foreach ($btDevices as $btDevice) {
+                        $owntoneCard = array();
+                        $owntoneCard['card_name'] = "bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp";
+                        $owntoneCard['nickname'] = $btDevice['name'];
+                        $owntoneCard['mixer'] = '';
+                        $owntoneCard['mixer_device'] = '';
+                        $owntoneCard['file'] = $tmpFile;
+                        wrk_owntone($redis, 'conf_add_alsa_card', $owntoneCard,);
+                    }
+                    unset($btDevices, $btDevice, $owntoneCard);
+                }
+                if (md5_file($confFile) != md5_file($tmpFile)) {
+                    copy($tmpFile, $confFile);
+                    unlink($tmpFile);
+                    return 'changed';
+                } else {
+                    unlink($tmpFile);
+                }
+            }
+            break;
+        case 'initialise':
+            // no $args
+            sysCmd('/srv/http/command/owntone_init.sh');
+            break;
+        case 'reset':
+            // no $args
+            wrk_systemd_unit($redis, 'stop', 'owntone');
+            sysCmd('rm -r '.$resdis->hGet('owntone', 'library_dir'));
+            sysCmd('/srv/http/command/redis_datastore_setup owntonereset');
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            copy('/srv/http/app/config/defaults/etc/owntone.conf', '/etc/owntone.conf');
+            unlink('/etc/alsa/conf.d/99_runeaudio_owntone.conf');
+            break;
+        case 'status':
+            // no $args
+            if ($redis->hGet('owntone', 'active')) {
+                $role = 'server';
+                $redis->hSet('owntone', 'role', $role);
+                $server = 'localhost';
+                $redis->hSet('owntone', 'server', $server);
+            } else {
+                $role = 'slave';
+                $redis->hSet('owntone', 'role', $role);
+                // use avahi-browse to determine the server name
+                //  if there are multiple owntone servers the first owntone server will be used
+                $retval = sysCmd("avahi-browse -atrlkp | grep -i 'owntone' | grep -w '^='");
+                if (isset($retval) && $retval && is_array($retval)) {
+                    $retval = $retval[0];
+                } else {
+                    $retval = '';
+                }
+                if ($retval) {
+                    $server = get_between_data($retval, ';local;', '.local');
+                    if ($server) {
+                        $server = $server.'.local';
+                        $redis->hSet('owntone', 'server', $server);
+                    }
+                    $ipAddress = get_between_data($retval, '.local;', ';');
+                    if ($ipAddress) {
+                        $redis->hSet('owntone', 'server_ip_address', $ipAddress);
+                    }
+                } else {
+                    $server = '';
+                    $ipAddress = '';
+                }
+            }
+            if ($role && $server) {
+                // role and the server name are known
+                //
+                // get the server configuration
+                if (($role == 'slave') && $ipAddress) {
+                    // it is quicker to use the IP address for the slave
+                    $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/config"')[0];
+                } else {
+                    // it is quicker to use 'localhost' for the server
+                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"')[0];
+                }
+                // save the server config, it is already in json format
+                $redis->hSet('owntone', 'server_config', $retval);
+                $writeOutputs = false;
+                $writePresets = false;
+                if ($role == 'slave') {
+                    // role is slave, we are only interested in the seleccted 'active' outputs
+                    if (isset($ipAddress) && $ipAddress) {
+                        // it is quicker to use the IP address for the slave
+                        $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/outputs"')[0];
+                    } else {
+                        $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
+                    }
+                    // reformat the json output so that it can be indexed by 'name'
+                    $retval = json_decode($retval, true);
+                    foreach ($retval['outputs'] as $output) {
+                        if ($output['selected']) {
+                            $outputs[$output['name']] = $output;
+                        }
+                    }
+                    // save the outputs
+                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
+                } else if ($role == 'server') {
+                    // role is server
+                    //  any slave which is up for which autoconnect is set will be connected
+                    //  the default alsa output will be activated
+                    //  the volume for local alsa will be set when activating
+                    //  when a preset volume for non-alsa outputs is available it will be used when activating
+                    //  preset entries will be generated with defaults for non-alsa outputs
+                    $outputPresets = json_decode($redis->hGet('owntone', 'output_presets'), true);
+                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
+                    $retval = json_decode($retval, true);
+                    foreach ($retval['outputs'] as $output) {
+                        // reformat the json output so that it can be indexed by 'name' and also eliminate the local airplay output
+                        if ($output['name'] == $redis->hGet('airplay', 'name')) {
+                            if (isset($outputs[$output['name']])) {
+                                unset($outputs[$output['name']]);
+                            }
+                            if (isset($outputPresets[$output['name']])) {
+                                unset($outputPresets[$output['name']]);
+                                $writePresets = true;
+                            }
+                        } else {
+                            $outputs[$output['name']] = $output;
+                        }
+                    }
+                    // save the current outputs
+                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
+                    // get the preset master volume level and use it if different to the current master volume,
+                    //  otherwise save the current master volume as the preset master volume
+                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/player"')[0];
+                    $redis->hSet('owntone', 'server_player', $retval);
+                    $serverPlayer = json_decode($retval, true);
+                    if (!isset($outputPresets['master']['volume'])) {
+                        $outputPresets['master']['volume'] = $serverPlayer['volume'];
+                        $writePresets = true;
+                    } else if (is_firstTime($redis, 'owntone_master_volume') && ($outputPresets['master']['volume'] != $serverPlayer['volume'])) {
+                        sysCmd('curl -X PUT -s "http://'.$server.':3689/api/player/volume?volume='.$outputPresets['master']['volume'].'"');
+                    }
+                    // get and save the local audio output name
+                    $localOutputName = json_decode($redis->hGet('acards', $redis->get('ao')) ,true)['description'];
+                    $redis->hSet('owntone', 'local_output_name', $localOutputName);
+                    // get the local volume level
+                    $localVolume = json_decode($redis->get('act_player_info'), true)['volume'];
+                    // loop through the detected outputs
+                    foreach ($outputs as $name => $output) {
+                        $setvolume = false;
+                        $disconnect = false;
+                        $autoconnect = false;
+                        if ($output['type'] == 'ALSA') {
+                            // ALSA outputs are local outputs, only one should be enabled, disable others
+                            if ($output['selected'] && ($name != $localOutputName)) {
+                                // this one is connected should not be be
+                                $disconnect = true;
+                            } else if (!$output['selected'] && ($name == $localOutputName)) {
+                                // this one is not connected and should be
+                                if (isset($outputPresets[$name]['volume']) && $outputPresets[$name]['volume']) {
+                                    $volume = $outputPresets[$name]['volume'];
+                                } else {
+                                    $volume = $localVolume;
+                                }
+                                $setvolume = true;
+                                $autoconnect = true;
+                            }
+                        } else {
+                            // non-alsa outputs are airplay or chromecast
+                            //  there should be a preset entry for each output, create a default if required
+                            if (!isset($outputPresets[$name]['autoconnect'])) {
+                                $outputPresets[$name]['autoconnect'] = false;
+                                $writePresets = true;
+                            }
+                            if (!isset($outputPresets[$name]['volume']) && isset($output['volume']) && $output['volume']) {
+                                $outputPresets[$name]['volume'] = $output['volume'];
+                                $writePresets = true;
+                            }
+                            // do not automatically disconnect this type
+                            if (!$output['selected'] && $outputPresets[$name]['autoconnect']) {
+                                // this one is not connected and should be
+                                if (isset($outputPresets[$name]['volume']) && $outputPresets[$name]['volume']) {
+                                    $volume = $outputPresets[$name]['volume'];
+                                    $setvolume = true;
+                                }
+                                $autoconnect = true;
+                            }
+                        }
+                        // check for an autoconnect or disconnect
+                        //  note: the preset volume is only set once when connecting
+                        if ($autoconnect) {
+                            // set up the command
+                            $command =
+                                'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                ' --data '.
+                                '"{';
+                            if ($setvolume) {
+                                $command .= '\"volume\": '.$volume;
+                                $outputs[$name]['volume'] = $volume;
+                            }
+                            if ($autoconnect) {
+                                $command .= ' ,\"selected\": true';
+                                $outputs[$name]['selected'] = true;
+                            }
+                            $command .= '}"';
+                            // run the command
+                            sysCmd($command);
+                            $writeOutputs = true;
+                        } else if ($disconnect) {
+                            // set up the command
+                            $command =
+                                'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                ' --data '.
+                                '"{\"selected\": false'.
+                                '}"';
+                            $outputs[$name]['selected'] = false;
+                            // run the command
+                            sysCmd($command);
+                            $writeOutputs = true;
+                        }
+                    }
+                    if ($writeOutputs) {
+                        // outputs have changed, save them
+                        $redis->hSet('owntone', 'outputs', json_encode($outputs));
+                    }
+                    if ($writePresets) {
+                        // presets have changed, save them
+                        $redis->hSet('owntone', 'output_presets', json_encode($outputPresets));
+                    }
+                }
+            } else {
+                // role cannot be established or no server can be determined, clear outputs
+                $redis->hSet('owntone', 'outputs', json_encode(array()));
+            }
+            break;
+        case 'switchao':
+            // no $args
+            // only relevant for the server when local output is enabled
+            $role = $redis->hGet('owntone', 'role');
+            if ($role == 'server') {
+                // server, get its name
+                $server = $redis->hGet('owntone', 'server');
+                // determine the local audio output
+                $ao = $redis->get('ao');
+                if ($ao) {
+                    $acard = json_decode($redis->hGet('acards', $ao), true);
+                    if (isset($acard['description']) && $acard['description']) {
+                        $localOutput = $acard['description'];
+                    } else {
+                        $localOutput = '';
+                    }
+                } else {
+                    $localOutput = '';
+                }
+                if ($localOutput) {
+                    // local output is set
+                    // get the owntone presets
+                    $outputPresets = json_decode($redis->hget('owntone', 'output_presets'), true);
+                    // get the local volume level
+                    $localVolume = json_decode($redis->get('act_player_info'), true)['volume'];
+                    // get the outputs
+                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
+                    $retval = json_decode($retval, true);
+                    // loop through the outputs, only ALSA outputs are relevant
+                    foreach ($retval as $output) {
+                        if ($output['type'] == 'ALSA') {
+                            // ALSA output
+                            if ($output['selected'] && ($output['name'] != $localOutput)) {
+                                // output is selected when it should not be
+                                $output['selected'] = false;
+                                // set up the command
+                                $command =
+                                    'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                    ' --data '.
+                                    '"{\"selected\": false'.
+                                    '}"';
+                                // run the command
+                                sysCmd($command);
+                            } else if (!$output['selected'] && ($output['name'] == $localOutput)) {
+                                // output is not selected when it should be
+                                $output['selected'] = true;
+                                // determine the volume
+                                if (isset($outputPresets[$output['name']]['volume']) && $outputPresets[$output['name']]['volume']) {
+                                    $volume = ', \"volume\": '.$outputPresets[$output['name']]['volume'];
+                                } else {
+                                    $volume = ', \"volume\": '.$localVolume;
+                                }
+                                // set up the command
+                                $command =
+                                    'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                    ' --data '.
+                                    '"{\"selected\": true'.
+                                    $volume.
+                                    '}"';
+                                // run the command
+                                sysCmd($command);
+                            }
+                            // reformat the outputs so that it is indexed
+                            $outputs[$output['name']] = $output;
+                        }
+                    }
+                    // save the outputs
+                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
+                }
+            }
+            break;
+        case 'switch_player':
+            // no $args
+            break;
+   }
+}
+
 /*
 // function to control alsa equaliser
 function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
@@ -16040,7 +16949,7 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# ALSA Equaliser output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"ALSA_equaliser\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,0\"\n";
@@ -16054,8 +16963,8 @@ function wrk_mpd_loopback($redis, $action = null)
                     $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                 }
             } else {
-                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                 } else {
                     $output .="\tmixer_type \t\"software\"\n";
                 }
@@ -16068,13 +16977,13 @@ function wrk_mpd_loopback($redis, $action = null)
         }
         // test if there is an option to set in mpd.conf
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         // test if there is an allowed_formats to set in mpd.conf
         // for example the ES9023 audio card expects 24 bit input
         if (isset($acard['allowed_formats'])) {
-            $output .= "\tallowed_formats\t\"".$card_decoded['allowed_formats']."\"\n";
+            $output .= "\tallowed_formats\t\"".$acard_decoded['allowed_formats']."\"\n";
         }
         $output .="\tauto_resample \t\"no\"\n";
         $output .="\tauto_format \t\"no\"\n";
@@ -16083,15 +16992,15 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# Snapcast Server output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"Snapcast_Server\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,1\"\n";
         $output .="\tmixer_type \t\"none\"\n";
         // test if there is an option for mpd.conf is set
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         $snapserverFormat = $redis->hget('snapcast', 'format');
         if (isset($snapserverFormat) && $snapserverFormat) {
@@ -16108,7 +17017,7 @@ function wrk_mpd_loopback($redis, $action = null)
         //
         $output .= "# Brutefir output\n";
         $output .="audio_output {\n";
-        // $output .="name \t\t\"".$card_decoded->name."\"\n";
+        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
         $output .="\tname \t\t\"Brutefir\"\n";
         $output .="\ttype \t\t\"alsa\"\n";
         $output .="\tdevice \t\t\"plughw:Loopback,0,2\"\n";
@@ -16122,8 +17031,8 @@ function wrk_mpd_loopback($redis, $action = null)
                     $output .="\treplay_gain_handler \"".$mpdcfg['replaygainhandler']."\"\n";
                 }
             } else {
-                if (!isset($sub_interface) && isset($card_decoded['mixer_control'])) {
-                    $output .="\tmixer_control \t\"".$card_decoded['mixer_control']."\"\n";
+                if (!isset($sub_interface) && isset($acard_decoded['mixer_control'])) {
+                    $output .="\tmixer_control \t\"".$acard_decoded['mixer_control']."\"\n";
                 } else {
                     $output .="\tmixer_type \t\"software\"\n";
                 }
@@ -16136,8 +17045,8 @@ function wrk_mpd_loopback($redis, $action = null)
         }
         // test if there is an option for mpd.conf is set
         // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($card_decoded['card_option'])) {
-            $output .= "\t".$card_decoded['card_option']."\n";
+        if (isset($acard_decoded['card_option'])) {
+            $output .= "\t".$acard_decoded['card_option']."\n";
         }
         // test if there is an allowed_formats for mpd.conf is set
         // for example the ES9023 audio card expects 24 bit input
