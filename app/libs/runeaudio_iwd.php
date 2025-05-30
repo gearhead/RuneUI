@@ -3853,7 +3853,7 @@ function disconnectWifi($redis, $args)
                 // Clean systemd-networkd config
                 sysCmd('rm -f /etc/systemd/network/20-'.$args['nic'].'.network');
                 sysCmd('networkctl reload');
-            }            
+            }
         }
     }
 }
@@ -9042,7 +9042,7 @@ function refresh_nics($redis)
             // refresh network list for wifi
             if (is_firstTime($redis, 'connman_scan_wifi')) {
 //                sysCmd('connmanctl scan wifi');
-                sysCmd('iw '.$nic.' scan');                
+                sysCmd('iw '.$nic.' scan');
             } else {
 //                sysCmdAsync($redis, 'connmanctl scan wifi');
                 sysCmdAsync($redis, 'iw '.$nic.' scan');
@@ -9189,7 +9189,7 @@ function refresh_nics($redis)
     $avahiNic = '';
     // get the services
 //    $services = sysCmd('connmanctl services');
-    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py'); 
+    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py');
     foreach ($services as $service) {
         unset($security, $strength, $strengthStars);
         $status = strtoupper(trim(substr($service, 0, 4)));
@@ -9548,7 +9548,7 @@ function refresh_nics($redis)
 /*
         // connman is buggy! autoconnect-on/off seems to have no effect, the following routine solves some of the problems
         $connmanWifiServices = sysCmd('connmanctl services | grep "wifi_"');
-        
+
         $stopAndStart = false;
         foreach ($connmanWifiServices as $connmanWifiService) {
             if (strpos(' '.$connmanWifiService, '*AR') == 1) {
