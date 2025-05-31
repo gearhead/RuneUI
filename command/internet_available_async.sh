@@ -186,7 +186,8 @@ if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
     # wifi is on and the access point is on
     if [ "$wifinicdown" == "1" ] ; then
         # at least one wifi nic is down
-        connmanctl scan wifi
+#        connmanctl scan wifi
+        iw dev wlan0 scan
     fi
 fi
 #
