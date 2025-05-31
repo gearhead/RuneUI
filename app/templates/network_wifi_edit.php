@@ -1,10 +1,8 @@
 <div id="network-wifi-edit-container" class="container">
     <h1>Network interface</h1>
     <form class="form-horizontal" action="/network/wifi_scan/<?php echo $this->profile['nic'] ?>" method="post" data-parsley-validate>
-    
      <input type="hidden" name="profile[nic]" value="<?= htmlspecialchars($this->profile['nic']) ?>">
      <input type="hidden" name="profile[macAddress]" value="<?= htmlspecialchars($this->profile['macAddress']) ?>">
-
         <?php if ($this->profile['ssid'] != ''):?>
             <legend>Wi-Fi Interface & Network</legend>
             <fieldset class="boxed">
