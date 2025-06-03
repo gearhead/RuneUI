@@ -2698,10 +2698,16 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     $redis->hSet('AccessPoint', 'NAT-configured', 0);
                 }
                 // stop the hostapd AP jobs if they are running
-                wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
+//                wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
                 // stop and remove the iwd access point
                 $interface = $redis->hGet('AccessPoint', 'interface');
-                sysCmd('iwctl ap '.$interface.' stop');
+// this may be with hostapd instead of iwd...
+                $useIwd = (bool) exec('pidof iwd');
+                if ($useIwd == 'iwd') {
+                    sysCmd('iwctl ap '.$interface.' stop');
+                } else {
+                    wrk_systemd_unit($redis, 'stop', 'hostapd');
+                }
                 // get the wlan nic used for accesspoint
                 $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
                 // get the virtual AP nic name used for accesspoint
@@ -2721,7 +2727,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     if ($wlanNicInterface != $virtual_ap_name) {
                         // the nic is in the list of physical nics and its name is the same as the wlan nic
                         // flush the nic then take the Wi-Fi nic down and up, this will clear the AP from the nic
-                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down');
+//                        sysCmd('ip addr flush '.$wlanNicInterface.' ; ip link set dev '.$wlanNicInterface.' down');
                         if ($redis->get('allwifi_on')) {
                             // only run when All Wi-Fi is enabled
                             sysCmd('ip link set dev '.$wlanNicInterface.' up');
@@ -3521,6 +3527,8 @@ file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT
 //            }
             // really only need to disconnect wifi
             disconnectWifi($redis, $args);
+//            sysCmd('rm /etc/systemd/network/20-'.$network['nic'].'.network');
+//            sysCmd('networkctl reload');
             // If we need to disconnect eth0, we can by using "networkctl down $args['nic']"
             break;
         case 'disconnect-delete':
@@ -3557,10 +3565,10 @@ file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT
                         // loop when this connection is not the relevant network
                         continue;
                     }
-                    if ($disconnect) {
-                        // disconnect is set
-                        wrk_netconfig($redis, 'disconnect', '', $network);
-                    }
+//                    if ($disconnect) {
+//                        // disconnect is set
+//                        wrk_netconfig($redis, 'disconnect', '', $network);
+//                    }
                     // clear the restart indicator file
                     if (isset($network['nic']) && $network['nic']) {
                         $file = '/tmp/'.$network['nic'].'.up';
@@ -3597,11 +3605,15 @@ file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT
 //                            sysCmd('rm -f \'/var/lib/iwd/'.$network['ssid'].'.*\'');
                             $network['action'] = "delete";
                             disconnectWifi($redis, $network);
+//                            sysCmd('rm /etc/systemd/network/20-'.$network['nic'].'.network');
+//                            sysCmd('networkctl reload');
                         }
                         if (isset($network['nic']) && $disconnect) {
                             // disconnect the nic
 //                            sysCmd("iwctl station '".$network['nic']."' disconnect");
                             disconnectWifi($redis, $network);
+//                            sysCmd('rm /etc/systemd/network/20-'.$network['nic'].'.network');
+//                            sysCmd('networkctl reload');
                             // clear the ip address from the nic with flush, then take the nic down and up this will
                             //  trigger connman to make a connection if there is a valid network available
                             //  otherwise this will disconnect any active connection
@@ -3715,13 +3727,11 @@ file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT
 }
 
 function netd_config($redis, $args) {
-//file_put_contents('/srv/http/netdebug.log', "netd_config\n", FILE_APPEND);
-//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+    //file_put_contents('/srv/http/netdebug.log', "netd_config\n", FILE_APPEND);
+    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // creates a systemd-networkd config for the specific interface and is linked to the mac address
     // call by netd_config($redis, $args);
     // needs nic, macAddress, ipAssignment, ipv4 stuff
-//    $nic = $args['nic'];
-//    wrk_netconfig($redis, 'delete', '', $args);
 
     $rawMac = $args['macAddress'];
     $macClean = preg_replace('/[^a-fA-F0-9]/', '', $rawMac);
@@ -3783,8 +3793,8 @@ function netd_config($redis, $args) {
 }
 
 function connectWifi($redis, $args, $options = []) {
-//file_put_contents('/srv/http/netdebug.log', "connect_wifi\n", FILE_APPEND);
-//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+    //file_put_contents('/srv/http/netdebug.log', "connect_wifi\n", FILE_APPEND);
+    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // Extract and sanitize required values
     $iface      = escapeshellarg($args['nic']);
     $ssid       = $args['ssid'];
@@ -3804,7 +3814,7 @@ function connectWifi($redis, $args, $options = []) {
     $useIwd = (bool) exec('pidof iwd');
 
     if ($useIwd) {
-//    file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
+        //file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
         // === IWD Mode ===
         if ($isEnterprise) {
             // 802.1X provisioning file
@@ -3849,7 +3859,7 @@ function connectWifi($redis, $args, $options = []) {
             }
         }
     } else {
-//        file_put_contents('/srv/http/netdebug.log', "using wpa_supplicant\n", FILE_APPEND);
+        //file_put_contents('/srv/http/netdebug.log', "using wpa_supplicant\n", FILE_APPEND);
         // === WPA_SUPPLICANT Mode ===
         exec("wpa_cli -i $iface add_network", $out);
         $netId = trim(end($out));
@@ -3881,20 +3891,12 @@ function connectWifi($redis, $args, $options = []) {
         exec("wpa_cli -i $iface enable_network $netId");
         exec("wpa_cli -i $iface save_config");
     }
-
-    // Optional: Debug log
-    /*
-    error_log("Configured Wi-Fi:");
-    error_log("Interface: " . $args['nic']);
-    error_log("SSID: " . $ssid);
-    error_log("Enterprise: " . ($isEnterprise ? 'yes' : 'no'));
-    */
 }
 
 function disconnectWifi($redis, $args)
 {
-    file_put_contents('/srv/http/netdebug.log', "disconnect_wifi\n", FILE_APPEND);
-    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+//    file_put_contents('/srv/http/netdebug.log', "disconnect_wifi\n", FILE_APPEND);
+//    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // needs $nic and $ssid
     // Detect backend: IWD or WPA Supplicant
     $useIwd = (bool) exec('pidof iwd');
@@ -3916,7 +3918,7 @@ function disconnectWifi($redis, $args)
         
         // Disconnect current connection
         sysCmd("wpa_cli -i $iface disconnect");
-        
+        //file_put_contents('/srv/http/netdebug.log', "Find network ID: {$args['ssid']}\n", FILE_APPEND);
         // Find the network ID for the SSID
         $known_networks = sysCmd("wpa_cli -i $iface list_networks");
         $netid = null;
@@ -3939,8 +3941,7 @@ function disconnectWifi($redis, $args)
             }
         }
         if ($netid !== null) {
-            file_put_contents('/srv/http/netdebug.log', "Found network ID: $netid\n", FILE_APPEND);
-            
+            //file_put_contents('/srv/http/netdebug.log', "Found network ID = $netid for SSID {$args['ssid']}\n", FILE_APPEND);         
             // Disable the network to prevent auto-reconnect
             sysCmd("wpa_cli -i $iface disable_network $netid");
             
@@ -3956,7 +3957,7 @@ function disconnectWifi($redis, $args)
                 sysCmd("wpa_cli -i $iface save_config");
             }
         } else {
-            file_put_contents('/srv/http/netdebug.log', "Network not found for SSID: {$args['ssid']}\n", FILE_APPEND);
+            //file_put_contents('/srv/http/netdebug.log', "Network ID not found for SSID: {$args['ssid']}\n", FILE_APPEND);
         }
     }
 }

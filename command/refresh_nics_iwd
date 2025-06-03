@@ -1,0 +1,569 @@
+#!/usr/bin/php
+<?php
+/*
+ * Copyright (C) 2013-2014 RuneAudio Team
+ * http://www.runeaudio.com
+ *
+ * RuneUI
+ * copyright (C) 2013-2014 - Andrea Coiutti (aka ACX) & Simone De Gregori (aka Orion)
+ *
+ * RuneOS
+ * copyright (C) 2013-2014 - Simone De Gregori (aka Orion) & Carmelo San Giovanni (aka Um3ggh1U)
+ *
+ * RuneAudio website and logo
+ * copyright (C) 2013-2014 - ACX webdesign (Andrea Coiutti)
+ *
+ * This Program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This Program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RuneAudio; see the file COPYING. If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.txt>.
+ *
+ *  file: command/refresh_nics
+ *  version: 1.3
+ *  coder: Simone De Gregori
+ *  revised to use connman in May 2020
+ *  janui, Gearhead
+ *
+ */
+// initialisation
+// report errors: set display_errors to true (=1)
+ini_set('display_errors', '1');
+// report all PHP errors: set error_reporting to -1
+ini_set('error_reporting', -1);
+// set the name of the error log file
+ini_set('error_log', '/var/log/runeaudio/refresh_nics.log');
+// common include
+require_once('/srv/http/app/libs/runeaudio.php');
+require_once('/srv/http/app/libs/openredis.php');
+// reset logfile
+sysCmd('echo "--------------- start: refresh_nics ---------------" > /var/log/runeaudio/refresh_nics.log');
+// logging starting message
+runelog('WORKER refresh_nics STARTING...');
+// define APP global
+define('APP', '/srv/http/app/');
+
+// this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
+//  the first parameter has a value of 'async' when asynchronous is requested
+if (isset($argv[1]) && ($argv[1] === 'async')) {
+    runelog('running asynchronously');
+    sysCmdAsync($redis, '/srv/http/command/refresh_nics');
+    // close Redis connection
+    $redis->close();
+    runelog('WORKER refresh_nics END...');
+    exit;
+}
+
+//
+// Check that this routine is not already running, this should not happen
+if (sysCmd('pgrep refresh_nics | wc -l | xargs')[0] > 1) {
+    // there is more than one refresh_nics running, this one and another, let the other one run, exit
+    exit;
+}
+
+//
+// check that internet is available, if not run the internet available routine
+if (!$redis->hGet('service', 'internet')) {
+    // double check that the current status correct is
+    sysCmd('/srv/http/command/internet_available_async.sh');
+}
+//
+// refresh the network arrays, this automatically saves them in redis
+$networkInterfaces = refresh_nics($redis);
+if (!$networkInterfaces) {
+    // refresh_nics returned false so use the last stored value from redis
+    $networkInterfaces = json_decode($redis->Get('network_interfaces'), true);
+}
+//
+// start AP if configured and there is a AP capable Wi-Fi nic with no IP-address assigned
+//  only start AP if it is the first time that a suitable nic is (or becomes) available or later when
+//  no internet connection is available
+//  AP will start on boot if no Wi-Fi network is connected
+//  AP will not start when a Wi-Fi connection is lost and the wired ethernet is still connected
+//  only after a full loss of internet (and after some delays) will the AP start as an emergency connection
+runelog('------------------ try to start AP if no IP is assigned ---------------------');
+$apWifiNicFound = false;
+$ethNicConnected = false;
+$NormalWifiNicConnected = false;
+$apUp = false;
+$apAddress = $redis->hGet('AccessPoint', 'ip-address');
+$apAddressOctet1to3 = substr($apAddress, 0, strrpos($apAddress, '.'));
+$virtual_ap_name = $redis->hGet('AccessPoint', 'virtual_ap_name');
+// walk through the array $networkInterfaces, this contains all wireless nics plus the connected wired nics
+foreach($networkInterfaces as $nic) {
+    // check if AP is enabled and the Wi-Fi nic is not connected, technology is 'wifi' and it supports AP
+    //  also look for a connected Ethernet nic which is a prerequisite for NAT
+    //  then wait for 20 seconds to allow connman to complete any reconnection activities
+    //  finally double check to see if the nic is still not connected!
+    //  (connman may not have initiated a reconnection process when the nics array was created)
+    //  use this to check the actual connection status: 'ip -o  address | sed 's,[ ]\+, ,g' | grep -i 'inet ' | grep -ic wlan0'
+    if (
+            ($nic['type'] != 'AP') &&
+            // it is not an AP
+            ($nic['technology'] === 'wifi') &&
+            // its a Wi-Fi nic
+            ($nic['ipStatus'] === 'UP') &&
+            // the nic is UP
+            (isset($nic['ipv4Address']) && $nic['ipv4Address'] && $apAddressOctet1to3) &&
+            (substr($nic['ipv4Address'], 0, strrpos($nic['ipv4Address'], '.')) != $apAddressOctet1to3) &&
+            // the connection is a normal connection, not connected via the AP
+            //  the first 3 octets of the address do not match those of the AP
+            $redis->hGet('service', 'internet')
+            // a connection to internet is available
+            )
+    {
+        // with this condition a wifi nic is connected to a normal ip address, AP should not be active
+        $NormalWifiNicConnected = true;
+        $apWifiNicFound = false;
+    }
+    if (
+            $redis->hGet('AccesPoint', 'interface') ||
+            // the AP interface is set
+            // or
+            (!$apUp &&
+            // No configured and running AP detected
+            ($nic['type'] === 'AP') &&
+            // it is a configured AP
+            ($nic['technology'] === 'wifi') &&
+            // its a Wi-Fi nic
+            ($nic['ipStatus'] === 'UP'))
+            // the nic is UP
+            )
+    {
+        // with this condition the AP is already up, don't try to restart the AP
+        $apUp = true;
+        $apWifiNicFound = false;
+        $interface = $nic['nic'];
+    }
+    if (
+            $redis->hGet('AccessPoint', 'enable') &&
+            // AP is enabled
+            !$apWifiNicFound &&
+            // we have not yet found a valid AP nic
+            !$apUp &&
+            // No configured and running AP detected
+            ($nic['technology'] === 'wifi') &&
+            // its a Wi-Fi nic
+            $nic['apSupported'] &&
+            // the nic supports AP
+            ($nic['nic'] != $redis->hGet('AccessPoint', 'wlanNic')) &&
+            // its not a nic assigned to an access point (directly or via a virtual nic)
+            ($nic['nic'] != $redis->hGet('AccessPoint', 'interface')) &&
+            // its not a nic directly assigned to an access point
+            ($nic['nic'] != $redis->hGet('AccessPoint', 'virtual_ap_name'))
+            // its not a nic with the name which is (or could be) assigned to a virtual access point
+            )
+    {
+        // with this condition AP is on and we have found the first Wi-Fi nic which is AP capable and the AP is not up
+        if (
+                !$nic['connected'] ||
+                (($nic['ipv4Address'] == '') && ($nic['ipv6Address'] != '') && !strpos(' '.$nic['ipv6Rest'], $nic['nic'])))
+        {
+            // nic is not connected
+            // or
+            // there no ipv4 address, but there is an ipv6 address and the nic is not listed in the ipv6 description,
+            //  this is not connected even though it reported that it is
+            // flush the nic to clear any ip addresses, then bring the nic down and up to trigger a connman connect
+            //  if there is a valid network available
+            // only run when All Wi-Fi is enabled
+            if ($redis->get('allwifi_on')) {
+                // double-check directly that the nic is not connected using ip
+                $inetConnected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                $inet6Connected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet6 '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                if (!$inetConnected && !$inet6Connected) {
+                    if (is_firstTime($redis, 'restart_nic'.$nic['nic'])) {
+                        // restart the nic only once
+                        sysCmd('ip address flush dev '.$nic['nic'].' ; ip link set dev '.$nic['nic'].' down ; ip link set dev '.$nic['nic'].' up');
+                        if (!$redis->get('network_ipv6')) {
+                            // ipv6 is off, set the nic accordingly
+                            sysCmd('sysctl -w net.ipv6.conf.'.$nic['nic'].'.disable_ipv6=1 > /dev/null');
+                        }
+                    }
+                    if (!$NormalWifiNicConnected) {
+                        // when a normal (non AP) connected wifi nic has been detected the code below is not required
+                        // sleep for 20 seconds to ensure that connman has time to connect/reconnect
+                        sleep(20);
+                        // double-check directly that the nic is still not connected using ip
+                        $inetConnected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                        $inet6Connected = sysCmd('ip -o address show dev '.$nic['nic'].' | grep -i '."'".'inet6 '."'".' | grep -ic '.$nic['nic'].' | xargs')[0];
+                        if (!$inetConnected && !$inet6Connected) {
+                            // the nic is still not connected, use it
+                            runelog('########### got a nic for AP: '.$nic['nic']);
+                            $wlanNic = $nic['nic'];
+                            $apWifiNicFound = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // check if the nic technology is 'ethernet' and it has an allocated IP address
+    if (!$ethNicConnected && ($nic['technology'] === 'ethernet') && $nic['connected']) {
+        // always use the first one found for NAT, skip the rest
+        runelog('########### got a nic for AP NAT: '.$nic['nic']);
+        $ethNic = $nic['nic'];
+        $ethNicConnected = true;
+    }
+    // create a list of all the nics
+    $nicList[] = $nic['nic'];
+}
+//
+if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
+    // we found a suitable Wi-Fi nic and the AP is not UP and no wifi nics are connected
+    //if (is_firstTime($redis, 'AP-start') || !$redis->hGet('service', 'internet')) {
+        // it is the first time we have detected a suitable Wi-Fi nic or there is no internet available
+        runelog('########### no IP => start AP on '.$wlanNic);
+        // remove any/all nic connected indicators before trying to start the AP (see: /command/internet_available)
+        sysCmd('rm -f /tmp/*.up');
+        // restart iwd otherwise the AP will not reconnect after losing a Wi-Fi connection
+        // wrk_systemd_unit($redis, 'restart', 'iwd');
+        if (($redis->hGet('AccessPoint', 'host') == 'iwd')) {
+            // when host is iwd a virtual nic must be created on wlan0 for the access point
+            $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);
+        }
+        // if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
+        if ($redis->hGet('AccessPoint', 'virtual_ap_dev') && is_firstTime($redis, 'create_virtual_nic')) {
+            // Create a virtual nic on wlan nic as defined by redis hash AccessPoint vitual_ap_name
+            $interface = $virtual_ap_name;
+            sysCmd('iw dev '.$wlanNic.' interface add '.$interface.' type __ap');
+            // a mac address needs to be assigned to the virtual device
+            // we determine the virtual mac address once after each boot and reuse it
+            if (is_firstTime($redis, 'ap_virtual_mac')) {
+                $redis->hSet('AccessPoint', 'ap_virtual_mac', '');
+            }
+            $apNicMacNew = trim($redis->hGet('AccessPoint', 'ap_virtual_mac'));
+            if (!isset($apNicMacNew) || !$apNicMacNew) {
+                // determine network MAC addresses which cannot be used
+                $excludeMACs = sysCmd("{ arp -na | cut -d ' ' -f 4 ; avahi-browse -atv 2>/dev/null | grep '\[' | cut -d '[' -f 3 | cut -d ']' -f 1 ; echo '".implode("\n",json_decode($redis->get('network_mac_spoof'), true))."' ;}");
+                // determine the known Bluetooth MAC's which also cannot be used
+                if ($redis->exists('bluetooth_status')) {
+                    $bluetooth_devices = json_decode($redis->get('bluetooth_status'), true);
+                    foreach ($bluetooth_devices as $key => $bluetooth_device) {
+                        $excludeMACs[] = $key;
+                    }
+                }
+                if ($redis->get('bluetooth_on')) {
+                    $bluetooth_devices = sysCmd("bluetoothctl list | cut -d ' ' -f 2");
+                    foreach ($bluetooth_devices as $bluetooth_device) {
+                        $excludeMACs[] = $bluetooth_device;
+                    }
+                }
+                // make all excluded MAC addresses lower case and delete empty array entries
+                foreach ($excludeMACs as $key => $excludeMAC) {
+                    if (!strlen(trim($excludeMAC))) {
+                        unset($excludeMACs[$key]);
+                        continue;
+                    }
+                    $excludeMACs[$key] = strtolower($excludeMAC);
+                }
+                // determine the current MAC address of $apNic
+                $apNicMac = sysCmd("ip -o -br link show ".$wlanNic." | xargs | cut -d ' ' -f 3")[0];
+                // exclude the mac address of the wlan nic
+                $apNicMacNew = strtolower($apNicMac);
+                $excludeMACs[] = $apNicMacNew;
+                // generate a new mac address eliminating the know MAC addresses
+                $cnt = 20;
+                while (in_array($apNicMacNew, $excludeMACs) && ($cnt-- >= 0)) {
+                    // leave the first part of the mac address unchanged, this is the vendor ID
+                    $apNicMacNew = substr($apNicMacNew, 0, 9).strtolower(implode(':', str_split(substr(md5(mt_rand()), 0, 6), 2)));
+                    // sleep 1/20 a second
+                    usleep(50000);
+                }
+                if (($cnt < 0) || !isset($apNicMacNew)) {
+                    // we could not determine a random MAC address, use 00:00:00 in the last 6 positions
+                    $apNicMacNew = substr($apNicMacNew, 0, 9).'00:00:00';
+                }
+                $redis->hSet('AccessPoint', 'ap_virtual_mac', $apNicMacNew);
+            }
+            // use the generated MAC for the virtual nic
+            sysCmd('ip link set dev '.$interface.' address '.$apNicMacNew);
+        } else if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
+            $interface = $virtual_ap_name;
+        } else {
+            $interface = $wlanNic;
+        }
+        //
+        if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
+            // use hostapd and dnsmasq to set up AP
+            runelog('########### hostapd AP mode '.$wlanNic.' starting '.$interface);
+            $file = '/etc/hostapd/hostapd.conf';
+            // change AP name
+            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
+            // change passphrase
+            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
+            // change interface nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface);
+            // change channel
+            $channel = trim($redis->hGet('AccessPoint', 'channel'));
+            if (!isset($channel) || !strlen($channel)) {
+                // channel zero instructs hostapd to search for the most suitable channel
+                $channel = '0';
+            }
+            $newArray = wrk_replaceTextLine('' , $newArray, 'channel=', 'channel='.$channel);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            wrk_systemd_unit($redis, 'start', 'hostapd');
+            //
+/*            $file = '/etc/dnsmasq.conf';
+            // change dhcp-range
+            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
+            // change dhcp-option dns-server
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:dns-server,', 'dhcp-option=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            // change dhcp-option router
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:router,', 'dhcp-option=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            // change Wi-Fi nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface, 'WIFI-Interface', 1);
+            // change no-dhcp-interface nics
+            // it contains a comma delimted list of all the detected nics except the AP interface nic
+            $noDhcpInterfaceNics = '';
+            // if (!in_array('lo', $nicList)) {
+                // // add the loopback interface
+                // $nicList[] = 'lo';
+            // }
+            if (!in_array($virtual_ap_name, $nicList)) {
+                // add the virtual access point ($virtual_ap_name, normally 'ap0')
+                $nicList[] = $virtual_ap_name;
+            }
+            foreach ($nicList as $nic) {
+                $nic = trim($nic);
+                if ($nic == trim($interface)) {
+                    continue;
+                }
+                // build a string with all nics except the AP interface (the string will have an extra trailing comma)
+                $noDhcpInterfaceNics .= $nic.',';
+            }
+            // remove trailing commas
+            $noDhcpInterfaceNics = rtrim($noDhcpInterfaceNics, ',');
+            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$noDhcpInterfaceNics);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            wrk_systemd_unit($redis, 'start', 'dnsmasq');
+            //
+            // enable the AP by switching broadcast on
+            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$interface);
+*/
+            //
+            $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
+            $redis->hSet('AccessPoint', 'interface', $interface);
+            if (isset($ethNic) && $ethNic) {
+                $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+            }
+            $networkInterfaces = refresh_nics($redis);
+        } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
+            // use iwd to set up AP
+            runelog('########### iwctl AP mode '.$wlanNic.' starting '.$interface);
+            // iwd cannot scan while in AP mode, but we can set up a virtual interface and use it...
+            // both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
+            $IP_components = preg_split('/[.\s:]/', $redis->hGet('AccessPoint', 'ip-address'));
+            $IP_components[3]='0';
+            $base_address = implode('.',$IP_components);
+            // if (is_firstTime($redis, 'iwd_AP_config')) {
+                $file = '/etc/iwd/main.conf';
+                $AppendAPRanges = sysCmd("grep -ic 'APRanges=' '".$file."'")[0];
+                if ($AppendAPRanges) {
+                    // append the extra line
+                    file_put_contents($file, "\nAPRanges=".$base_address.'/24', FILE_APPEND | LOCK_EX);
+                } else {
+                    // edit the file to replace the existing line
+                    $newArray = wrk_replaceTextLine($file, '' , 'APRanges=', 'APRanges='.$base_address.'/24');
+                    $fp = fopen($file, 'w');
+                    $return = fwrite($fp, implode('', $newArray));
+                    fclose($fp);
+                }
+                $fp = fopen($file, 'w');
+                $return = fwrite($fp, implode('', $newArray));
+                fclose($fp);
+                // ssid is set by the file name ssid.ap
+                // remove all *.ap files
+                sysCmd('mkdir -p /var/lib/iwd/ap/');
+                sysCmd('rm /var/lib/iwd/ap/*.ap');
+                $file = '/var/lib/iwd/ap/'.$redis->hGet('AccessPoint', 'ssid').'.ap';
+                $apFileContent = "[General]\n";
+                $channel = trim($redis->hGet('AccessPoint', 'channel'));
+                if (isset($channel) && strlen($channel)) {
+                    $apFileContent .= "Channel=".$channel."\n";
+                }
+                $apFileContent .= "DisableHT=true\n";
+                $apFileContent .= "[Security]\n";
+                $apFileContent .= "Passphrase=".$redis->hGet('AccessPoint', 'passphrase')."\n";
+                $apFileContent .= "[IPv4]\n";
+                $apFileContent .= "Address=".$redis->hGet('AccessPoint', 'ip-address')."\n";
+                $apFileContent .= "Gateway=".$redis->hGet('AccessPoint', 'dhcp-option-router')."\n";
+                $apFileContent .= "Netmask=255.255.255.0\n";
+                $apFileContent .= "DNSList=".$redis->hGet('AccessPoint', 'dhcp-option-dns')."\n";
+                file_put_contents($file, $apFileContent);
+            // }
+            // set to ap mode
+            wrk_systemd_unit($redis, 'restart', 'iwd');
+            sleep(5);
+            sysCmd('iwctl device '.$interface.' set-property Mode ap');
+            // start ap: this sometimes fails on the Pi5
+            //  when it fails wait loop to retry
+            $repeat = -4;
+            $apOK = 0;
+            while (($repeat++ < 0) && !$apOK) {
+                sysCmd('iwctl ap '.$interface.' start-profile '.$redis->hGet('AccessPoint', 'ssid').' 2>&1 > /dev/null');
+                sleep(5);
+                $apOK = sysCmd('ip -o link show dev '.$interface.' | grep -ic " up "')[0];
+                if (($repeat < 0) && !$apOK) {
+                    // wrk_systemd_unit($redis, 'restart', 'iwd');
+                    sleep(5);
+                    sysCmd('iwctl device '.$interface.' set-property Mode ap');
+                }
+            }
+            //
+            $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
+            $redis->hSet('AccessPoint', 'interface', $interface);
+            if (isset($ethNic) && $ethNic) {
+                $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+            }
+            $networkInterfaces = refresh_nics($redis);
+        }
+        $apUp = sysCmd('ip -o link | grep -i "state up" | grep -ic "'.$interface.'" | xargs')[0];
+        // switching from dnsmasq to networkd requires that we create a new config for networkd and 
+        // initialize it.
+        $file = '/etc/systemd/network/20-'.$redis->hGet('AccessPoint', 'interface').'.network';
+            $apConf = [
+            '[Match]',
+            'MACAddress=' . $redis->hGet('AccessPoint', 'ap_virtual_mac'),
+            '',
+            '[Network]',
+            'Address='.$redis->hGet('AccessPoint', 'ip-address').'/24',
+            'DHCPServer=yes',
+            'IPMasquerade=both',
+            '[DHCPServer]',
+            'EmitRouter=yes',
+            'EmitDNS=yes',
+            'DNS='.$redis->hGet('AccessPoint','dhcp-option-router'),
+            'PoolOffset=2',
+            'PoolSize=253',
+            'DefaultLeaseTimeSec=86400',
+            'MaxLeaseTimeSec=86400'
+            ];
+        sysCmd('rm '.$file);
+        file_put_contents($file, implode("\n", $apConf) . "\n");
+        sysCmd('networkctl reload');
+        // $apUp = false;
+        // foreach ($networkInterfaces as $nic) {
+            // if (
+                    // !$apUp &&
+                    // // No configured and running AP detected
+                    // ($nic['type'] === 'AP') &&
+                    // // it is a configured AP
+                    // ($nic['technology'] === 'wifi') &&
+                    // // its a Wi-Fi nic
+                    // ($nic['ipStatus'] === 'UP')
+                    // // the nic is UP
+                    // )
+            // {
+                // // with this condition the AP is already up
+                // $apUp = true;
+                // break;
+            // }
+        // }
+    //}
+} else if ($apUp && $NormalWifiNicConnected) {
+    // AP is up but it should not be
+    // send a message to the UI
+    ui_notify($redis, 'Access Point', 'Disabled. You may lose your connection, reconnect using: <strong>http://'.$redis->get('hostname').'.local</strong>', '', 1);
+    // stop the AP
+    wrk_systemd_unit($redis, 'stop', 'hostapd');
+//    wrk_systemd_unit($redis, 'stop', 'dnsmasq');
+    $interface = $redis->hGet('AccessPoint', 'interface');
+    if ($interface) {
+        sysCmd('iwctl ap '.$interface.' stop');
+        // delete the virtual AP nic if required
+        if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
+            // sysCmd('iw '.$interface.' del');
+        }
+    }
+    // restart the access point nic if not connected
+    $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
+    if ($wlanNic) {
+        $inetConnected = sysCmd('ip -o address show dev '.$wlanNic.' | grep -i '."'".'inet '."'".' | grep -ic '.$wlanNic.' | xargs')[0];
+        $inet6Connected = sysCmd('ip -o address show dev '.$wlanNic.' | grep -i '."'".'inet6 '."'".' | grep -ic '.$wlanNic.' | xargs')[0];
+        if (!$inetConnected && !$inet6Connected) {
+            sysCmd('ip address flush dev '.$wlanNic.' ; ip link set dev '.$wlanNic.' down ; ip link set dev '.$wlanNic.' up');
+            if (!$redis->get('network_ipv6')) {
+                // ipv6 is off, set the nic accordingly
+                sysCmd('sysctl -w net.ipv6.conf.'.$wlanNic.'.disable_ipv6=1 > /dev/null');
+            }
+        }
+    }
+    // clear access point information from the database
+    $wlanNic = '';
+    $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
+    $interface = '';
+    $redis->hSet('AccessPoint', 'interface', $interface);
+    $ethNic = '';
+    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+    // rebuild the connections database
+    refresh_nics($redis);
+    // unset the 'AP up' indicator, this will force NAT to be removed if required
+    $apUp = false;
+}
+//
+// NAT configuration
+if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis->hGet('AccessPoint', 'enable-NAT') && $apUp) {
+    // NAT is on and AP is up
+    if (!$redis->hGet('AccessPoint', 'NAT-configured')) {
+        // NAT needs to be configured if conditions are correct
+        $interface = $redis->hGet('AccessPoint', 'interface');
+        if ($ethNicConnected && $ethNic && $interface) {
+            // there is a valid Ethernet connection for NAT and the interface is set
+            $networkInterfaces = refresh_nics($redis);
+            if (isset($networkInterfaces[$interface]['technology']) &&
+                    isset($networkInterfaces[$interface]['type']) &&
+                    isset($networkInterfaces[$interface]['ipStatus']) &&
+                    ($networkInterfaces[$interface]['technology'] == 'wifi') &&
+                    ($networkInterfaces[$interface]['type'] == 'AP') &&
+                    ($networkInterfaces[$interface]['ipStatus'] == 'UP')
+                    )
+            {
+                if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
+                    // NAT configuration for hostapd AP mode
+                    // enable NAT if enabled and there is a wired nic available
+                    sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
+                    sysCmd('iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT');
+                    sysCmd('iptables -A FORWARD -i '.$interface.' -o '.$ethNic.' -j ACCEPT');
+                    sysCmd('sysctl net.ipv4.ip_forward=1');
+                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
+                } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
+                    // NAT configuration for iwd AP mode
+                    // enable NAT if enabled and there is a wired nic available
+                    sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+                    sysCmd('sysctl net.ipv4.ip_forward=1');
+                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
+                }
+            }
+        }
+    }
+} else {
+    // NAT is off or the AP has been stopped
+    if ($redis->hGet('AccessPoint', 'NAT-configured')) {
+        // NAT is configured
+        // NAT configuration need to be removed/disabled
+        sysCmd('iptables -F');
+        sysCmd('iptables -t nat -F');
+        sysCmd('sysctl net.ipv4.ip_forward=0');
+        $redis->hSet('AccessPoint', 'NAT-configured', 0);
+    }
+}
+// close Redis connection
+$redis->close();
+
+runelog('WORKER refresh_nics END...');
