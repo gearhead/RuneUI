@@ -8948,6 +8948,33 @@ function refresh_nics($redis)
 //   'network_interfaces' containing the nics
 //   'translate_mac_nic' containing a translation table mac-address to nic-name
 //   'network_info' containing the network information
+
+/*
+    //  kg - make sure the MAC address matches for each network we have set up: /etc/systemd/network/20-$nic.network
+    // don't know where thos goes, yet. 
+    
+    $nic = $networkInterfaces['nic'];
+    $mac = strtolower(chunk_split($nic['macAddress'], 2, ':'));
+    $mac = rtrim($mac, ':');
+
+    $file = "/etc/systemd/network/20-$nic['nic'].network";
+    if (!file_exists($file)) {
+        echo "File not found: $file\n";
+        continue;
+    }
+
+    $content = file_get_contents($file);
+
+    // Check for correct MACAddress line
+    if (!preg_match('/^MACAddress=(.*)$/m', $content, $match)) {
+        echo "Missing MACAddress in $file\n";
+    } elseif (strtolower($match[1]) !== $mac) {
+        echo "Incorrect MACAddress in $file: found {$match[1]}, expected $mac\n";
+    } else {
+        echo "$file has correct MACAddress\n";
+    }
+*/
+
 {
     // startup - lock the scan system
     runelog('--------------------------- lock the scan system ---------------------------');
