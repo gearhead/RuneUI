@@ -8949,32 +8949,6 @@ function refresh_nics($redis)
 //   'translate_mac_nic' containing a translation table mac-address to nic-name
 //   'network_info' containing the network information
 
-/*
-    //  kg - make sure the MAC address matches for each network we have set up: /etc/systemd/network/20-$nic.network
-    // don't know where thos goes, yet. 
-    
-    $nic = $networkInterfaces['nic'];
-    $mac = strtolower(chunk_split($nic['macAddress'], 2, ':'));
-    $mac = rtrim($mac, ':');
-
-    $file = "/etc/systemd/network/20-$nic['nic'].network";
-    if (!file_exists($file)) {
-        echo "File not found: $file\n";
-        continue;
-    }
-
-    $content = file_get_contents($file);
-
-    // Check for correct MACAddress line
-    if (!preg_match('/^MACAddress=(.*)$/m', $content, $match)) {
-        echo "Missing MACAddress in $file\n";
-    } elseif (strtolower($match[1]) !== $mac) {
-        echo "Incorrect MACAddress in $file: found {$match[1]}, expected $mac\n";
-    } else {
-        echo "$file has correct MACAddress\n";
-    }
-*/
-
 {
     // startup - lock the scan system
     runelog('--------------------------- lock the scan system ---------------------------');
@@ -9061,6 +9035,7 @@ function refresh_nics($redis)
             // cheap network card, they all have the same MAC address (e.g. '00:e0:4c:53:44:58'), make it unique by spoofing
             $macAddress = fix_mac($redis, $nic);
         }
+        $macAddressColons = $macAddress;
         $macAddress = str_replace(':', '', $macAddress);
         $translateMacNic[$macAddress.'_'] = $nic;
         $networkInterfaces[$nic]['macAddress'] = $macAddress;
@@ -9098,6 +9073,36 @@ function refresh_nics($redis)
             // ipv6 is off, set the nic accordingly
             sysCmd('sysctl -w net.ipv6.conf.'.$nic.'.disable_ipv6=1 > /dev/null');
         }
+        
+        //  kg - make sure the MAC address in networkd matches for each network we 
+        // have set up: /etc/systemd/network/20-$nic.network
+
+        $file = "/etc/systemd/network/20-$nic.network";
+        if (!file_exists($file)) {
+//            echo "File not found: $file\n";
+            continue;
+        }
+
+        $content = file_get_contents($file);
+        $originalContent = $content;
+        
+        // Check for correct MACAddress line
+        if (preg_match('/^MACAddress=.*$/m', $content)) {
+            // Replace existing line if mismatched
+            $content = preg_replace('/^MACAddress=.*$/m', "MACAddress=$macAddressColons", $content);
+        } else {
+            // Add MACAddress under [Match] section
+            $content = preg_replace('/^\[Match\]/m', "[Match]\nMACAddress=$macAddressColons", $content);
+        }
+
+        // Only write back if changed
+        if ($content !== $originalContent) {
+            file_put_contents($file, $content);
+//            echo " Fixed MACAddress in $file to $macAddressColons\n";
+        } else {
+//            echo " $file already has correct MACAddress\n";
+        }  
+
     }
     // add ip addresses to array $networkInterfaces with ip address
     $addrs = sysCmd("ip -o  address | sed 's,[ ]\+, ,g'");
