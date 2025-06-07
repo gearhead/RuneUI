@@ -1,0 +1,8 @@
+[Unit]
+Description=Deferred AO refresh
+After=redis.service
+Requires=redis.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/http/command/refresh_ao async udev

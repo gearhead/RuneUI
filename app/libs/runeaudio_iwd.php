@@ -3727,8 +3727,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 }
 
 function netd_config($redis, $args) {
-    //file_put_contents('/srv/http/netdebug.log', "netd_config\n", FILE_APPEND);
-    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // creates a systemd-networkd config for the specific interface and is linked to the mac address
     // call by netd_config($redis, $args);
     // needs nic, macAddress, ipAssignment, ipv4 stuff
@@ -3793,8 +3791,6 @@ function netd_config($redis, $args) {
 }
 
 function connectWifi($redis, $args, $options = []) {
-    //file_put_contents('/srv/http/netdebug.log', "connect_wifi\n", FILE_APPEND);
-    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // Extract and sanitize required values
     $iface      = escapeshellarg($args['nic']);
     $ssid       = $args['ssid'];
@@ -3812,7 +3808,6 @@ function connectWifi($redis, $args, $options = []) {
 
     // Detect backend: IWD or WPA Supplicant
     $useIwd = (bool) exec('systemctl is-active --quiet iwd');
-
     if ($useIwd) {
         //file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
         // === IWD Mode ===
@@ -3841,7 +3836,6 @@ function connectWifi($redis, $args, $options = []) {
             exec("iwctl station $iface connect $ssidArg");
         } else {
             // Standard PSK or open network
-
             if ($isHidden) {
                 if ($passphrase) {
                     $passArg = escapeshellarg($passphrase);
@@ -3858,7 +3852,8 @@ function connectWifi($redis, $args, $options = []) {
                 }
             }
         }
-    }else {
+    } else {
+        // use wpa_supplicant
         // Check if SSID already exists in wpa_supplicant config
         $existingNetId = null;
         $ssidEscaped = addslashes($ssid); // escape " for regex
@@ -3911,7 +3906,6 @@ function connectWifi($redis, $args, $options = []) {
         } else {
             exec("wpa_cli -i $iface set_network $netId key_mgmt \"NONE\"");
         }
-
         exec("wpa_cli -i $iface enable_network $netId");
         exec("wpa_cli -i $iface save_config");
     }
