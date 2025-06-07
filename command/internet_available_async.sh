@@ -38,7 +38,7 @@
 #
 # setup
 set +e # continue on errors
-# set -x # echo all commands to cli
+set -x # echo all commands to cli
 # get a list of all nics which are down
 down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all nics which have an IP address
@@ -187,7 +187,7 @@ if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
     if [ "$wifinicdown" == "1" ] ; then
         # at least one wifi nic is down
 #        connmanctl scan wifi
-        iw dev wlan0 scan
+        iw dev wlan0 scan &>/dev/null
     fi
 fi
 #

@@ -51,6 +51,8 @@ runelog('WORKER refresh_nics STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 
+// Detect backend: IWD or WPA Supplicant. This determines the AP backend as well hostapd/iwd
+$useIwd = (bool) exec('pidof iwd');
 // this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
 //  the first parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[1]) && ($argv[1] === 'async')) {
@@ -61,14 +63,12 @@ if (isset($argv[1]) && ($argv[1] === 'async')) {
     runelog('WORKER refresh_nics END...');
     exit;
 }
-
 //
 // Check that this routine is not already running, this should not happen
 if (sysCmd('pgrep refresh_nics | wc -l | xargs')[0] > 1) {
     // there is more than one refresh_nics running, this one and another, let the other one run, exit
     exit;
 }
-
 //
 // check that internet is available, if not run the internet available routine
 if (!$redis->hGet('service', 'internet')) {
@@ -291,77 +291,8 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
             $interface = $wlanNic;
         }
         //
-        if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
-            // use hostapd and dnsmasq to set up AP
-            runelog('########### hostapd AP mode '.$wlanNic.' starting '.$interface);
-            $file = '/etc/hostapd/hostapd.conf';
-            // change AP name
-            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
-            // change passphrase
-            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
-            // change interface nic
-            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface);
-            // change channel
-            $channel = trim($redis->hGet('AccessPoint', 'channel'));
-            if (!isset($channel) || !strlen($channel)) {
-                // channel zero instructs hostapd to search for the most suitable channel
-                $channel = '0';
-            }
-            $newArray = wrk_replaceTextLine('' , $newArray, 'channel=', 'channel='.$channel);
-            $fp = fopen($file, 'w');
-            $return = fwrite($fp, implode('', $newArray));
-            fclose($fp);
-            wrk_systemd_unit($redis, 'start', 'hostapd');
-            //
-/*            $file = '/etc/dnsmasq.conf';
-            // change dhcp-range
-            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
-            // change dhcp-option dns-server
-            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
-            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:dns-server,', 'dhcp-option=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
-            // change dhcp-option router
-            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
-            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:router,', 'dhcp-option=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
-            // change Wi-Fi nic
-            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface, 'WIFI-Interface', 1);
-            // change no-dhcp-interface nics
-            // it contains a comma delimted list of all the detected nics except the AP interface nic
-            $noDhcpInterfaceNics = '';
-            // if (!in_array('lo', $nicList)) {
-                // // add the loopback interface
-                // $nicList[] = 'lo';
-            // }
-            if (!in_array($virtual_ap_name, $nicList)) {
-                // add the virtual access point ($virtual_ap_name, normally 'ap0')
-                $nicList[] = $virtual_ap_name;
-            }
-            foreach ($nicList as $nic) {
-                $nic = trim($nic);
-                if ($nic == trim($interface)) {
-                    continue;
-                }
-                // build a string with all nics except the AP interface (the string will have an extra trailing comma)
-                $noDhcpInterfaceNics .= $nic.',';
-            }
-            // remove trailing commas
-            $noDhcpInterfaceNics = rtrim($noDhcpInterfaceNics, ',');
-            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$noDhcpInterfaceNics);
-            $fp = fopen($file, 'w');
-            $return = fwrite($fp, implode('', $newArray));
-            fclose($fp);
-            wrk_systemd_unit($redis, 'start', 'dnsmasq');
-            //
-            // enable the AP by switching broadcast on
-            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$interface);
-*/
-            //
-            $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
-            $redis->hSet('AccessPoint', 'interface', $interface);
-            if (isset($ethNic) && $ethNic) {
-                $redis->hSet('AccessPoint', 'ethNic', $ethNic);
-            }
-            $networkInterfaces = refresh_nics($redis);
-        } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
+//        if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
+	    if ($useIwd) {
             // use iwd to set up AP
             runelog('########### iwctl AP mode '.$wlanNic.' starting '.$interface);
             // iwd cannot scan while in AP mode, but we can set up a virtual interface and use it...
@@ -430,7 +361,79 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
                 $redis->hSet('AccessPoint', 'ethNic', $ethNic);
             }
             $networkInterfaces = refresh_nics($redis);
-        }
+        } else { 
+		// use wpa_supplicant/hostapd
+//        } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
+            // use hostapd and dnsmasq to set up AP
+            runelog('########### hostapd AP mode '.$wlanNic.' starting '.$interface);
+            $file = '/etc/hostapd/hostapd.conf';
+            // change AP name
+            $newArray = wrk_replaceTextLine($file, '', 'ssid=', 'ssid='.$redis->hGet('AccessPoint', 'ssid'));
+            // change passphrase
+            $newArray = wrk_replaceTextLine('' , $newArray, 'wpa_passphrase=', 'wpa_passphrase='.$redis->hGet('AccessPoint', 'passphrase'));
+            // change interface nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface);
+            // change channel
+            $channel = trim($redis->hGet('AccessPoint', 'channel'));
+            if (!isset($channel) || !strlen($channel)) {
+                // channel zero instructs hostapd to search for the most suitable channel
+                $channel = '0';
+            }
+            $newArray = wrk_replaceTextLine('' , $newArray, 'channel=', 'channel='.$channel);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            wrk_systemd_unit($redis, 'start', 'hostapd');
+            // dnsmasq no longer used. Use networkd instead
+/*            $file = '/etc/dnsmasq.conf';
+            // change dhcp-range
+            $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
+            // change dhcp-option dns-server
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:dns-server,', 'dhcp-option-force=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:dns-server,', 'dhcp-option=option:dns-server,'.$redis->hGet('AccessPoint', 'dhcp-option-dns'));
+            // change dhcp-option router
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option-force=option:router,', 'dhcp-option-force=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            $newArray = wrk_replaceTextLine('' , $newArray, 'dhcp-option=option:router,', 'dhcp-option=option:router,'.$redis->hGet('AccessPoint', 'dhcp-option-router'));
+            // change Wi-Fi nic
+            $newArray = wrk_replaceTextLine('' , $newArray, 'interface=', 'interface='.$interface, 'WIFI-Interface', 1);
+            // change no-dhcp-interface nics
+            // it contains a comma delimted list of all the detected nics except the AP interface nic
+            $noDhcpInterfaceNics = '';
+            // if (!in_array('lo', $nicList)) {
+                // // add the loopback interface
+                // $nicList[] = 'lo';
+            // }
+            if (!in_array($virtual_ap_name, $nicList)) {
+                // add the virtual access point ($virtual_ap_name, normally 'ap0')
+                $nicList[] = $virtual_ap_name;
+            }
+            foreach ($nicList as $nic) {
+                $nic = trim($nic);
+                if ($nic == trim($interface)) {
+                    continue;
+                }
+                // build a string with all nics except the AP interface (the string will have an extra trailing comma)
+                $noDhcpInterfaceNics .= $nic.',';
+            }
+            // remove trailing commas
+            $noDhcpInterfaceNics = rtrim($noDhcpInterfaceNics, ',');
+            $newArray = wrk_replaceTextLine('' , $newArray, 'no-dhcp-interface=', 'no-dhcp-interface='.$noDhcpInterfaceNics);
+            $fp = fopen($file, 'w');
+            $return = fwrite($fp, implode('', $newArray));
+            fclose($fp);
+            wrk_systemd_unit($redis, 'start', 'dnsmasq');
+            //
+            // enable the AP by switching broadcast on
+            sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$interface);
+*/
+            //
+            $redis->hSet('AccessPoint', 'wlanNic', $wlanNic);
+            $redis->hSet('AccessPoint', 'interface', $interface);
+            if (isset($ethNic) && $ethNic) {
+                $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+            }
+            $networkInterfaces = refresh_nics($redis);
+		}
         $apUp = sysCmd('ip -o link | grep -i "state up" | grep -ic "'.$interface.'" | xargs')[0];
         // switching from dnsmasq to networkd requires that we create a new config for networkd and 
         // initialize it.
@@ -479,11 +482,14 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
     // send a message to the UI
     ui_notify($redis, 'Access Point', 'Disabled. You may lose your connection, reconnect using: <strong>http://'.$redis->get('hostname').'.local</strong>', '', 1);
     // stop the AP
+	if ($useIwd) {
+		sysCmd('iwctl ap '.$interface.' stop');
+	} else {
     wrk_systemd_unit($redis, 'stop', 'hostapd');
 //    wrk_systemd_unit($redis, 'stop', 'dnsmasq');
+	}
     $interface = $redis->hGet('AccessPoint', 'interface');
     if ($interface) {
-        sysCmd('iwctl ap '.$interface.' stop');
         // delete the virtual AP nic if required
         if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
             // sysCmd('iw '.$interface.' del');
@@ -532,7 +538,16 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
                     ($networkInterfaces[$interface]['ipStatus'] == 'UP')
                     )
             {
-                if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
+				if ($useIwd) {
+//                } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
+                    // NAT configuration for iwd AP mode
+                    // enable NAT if enabled and there is a wired nic available
+                    sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+                    sysCmd('sysctl net.ipv4.ip_forward=1');
+                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
+				} else {	
+//                }                if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
                     // NAT configuration for hostapd AP mode
                     // enable NAT if enabled and there is a wired nic available
                     sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
@@ -541,14 +556,7 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
                     sysCmd('sysctl net.ipv4.ip_forward=1');
                     $redis->hSet('AccessPoint', 'ethNic', $ethNic);
                     $redis->hSet('AccessPoint', 'NAT-configured', 1);
-                } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
-                    // NAT configuration for iwd AP mode
-                    // enable NAT if enabled and there is a wired nic available
-                    sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
-                    sysCmd('sysctl net.ipv4.ip_forward=1');
-                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
-                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
-                }
+				}
             }
         }
     }

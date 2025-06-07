@@ -2829,9 +2829,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     // debug
     // $redis->set('wrk_netconfig_'.$action, json_encode($args));
     // debug log for gearhead
-file_put_contents('/srv/http/netdebug.log', "wrk_netconfig\n", FILE_APPEND);
-file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
-file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', "wrk_netconfig\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     $args['action'] = $action;
     if (isset($arg)) {
         $argN = trim($arg);
@@ -3947,7 +3947,6 @@ function disconnectWifi($redis, $args)
             
             // if delete remove network otherwise just disconnect
             if ($args['action'] == "delete") {
-                file_put_contents('/srv/http/netdebug.log', "Deleting network $netid\n", FILE_APPEND);
                 sysCmd("wpa_cli -i $iface remove_network $netid");
                 sysCmd("wpa_cli -i $iface save_config");
                 // Clean systemd-networkd config
@@ -8948,8 +8947,10 @@ function refresh_nics($redis)
 //   'network_interfaces' containing the nics
 //   'translate_mac_nic' containing a translation table mac-address to nic-name
 //   'network_info' containing the network information
-
 {
+file_put_contents('/srv/http/netdebug.log', "refresh_nics\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // startup - lock the scan system
     runelog('--------------------------- lock the scan system ---------------------------');
     $lockWifiscan = $redis->Get('lock_wifiscan');
@@ -8988,6 +8989,7 @@ function refresh_nics($redis)
     }
     // switch selected technology on
     foreach ($enabled_technology as $technology) {
+// maybe use rfkill here to ensure the wifi is up?		
 //        sysCmd('connmanctl enable '.$technology);
     }
     // switch selected technology off
@@ -9073,19 +9075,15 @@ function refresh_nics($redis)
             // ipv6 is off, set the nic accordingly
             sysCmd('sysctl -w net.ipv6.conf.'.$nic.'.disable_ipv6=1 > /dev/null');
         }
-        
         //  kg - make sure the MAC address in networkd matches for each network we 
         // have set up: /etc/systemd/network/20-$nic.network
-
         $file = "/etc/systemd/network/20-$nic.network";
         if (!file_exists($file)) {
-//            echo "File not found: $file\n";
+			  runelog('[refresh_nics]: networkd config file not found'.$file);
             continue;
         }
-
         $content = file_get_contents($file);
         $originalContent = $content;
-        
         // Check for correct MACAddress line
         if (preg_match('/^MACAddress=.*$/m', $content)) {
             // Replace existing line if mismatched
@@ -9094,15 +9092,13 @@ function refresh_nics($redis)
             // Add MACAddress under [Match] section
             $content = preg_replace('/^\[Match\]/m', "[Match]\nMACAddress=$macAddressColons", $content);
         }
-
         // Only write back if changed
         if ($content !== $originalContent) {
             file_put_contents($file, $content);
-//            echo " Fixed MACAddress in $file to $macAddressColons\n";
+			runelog('[refresh_nics]: Fixed MACAddress in '.$file.' to '.$macAddressColons);
         } else {
-//            echo " $file already has correct MACAddress\n";
+			runelog('[refresh_nics]: '.$file.' already has correct'.$macAddressColons);
         }  
-
     }
     // add ip addresses to array $networkInterfaces with ip address
     $addrs = sysCmd("ip -o  address | sed 's,[ ]\+, ,g'");
@@ -9347,13 +9343,13 @@ function refresh_nics($redis)
         }
         $macAddress = trim($connmanStringParts[1]);
         // clean up any invalid connman config files
-        if (in_array(implode(':', str_split($macAddress, 2)), $networkSpoofArray)) {
+//        if (in_array(implode(':', str_split($macAddress, 2)), $networkSpoofArray)) {
             // remove nic with tho old MAC address from the connman cache and restart connman
 //            $connmanConfDir = '/var/lib/connman/*'.$macAddress.'*';
 //            sysCmd('rm -fr '.$connmanConfDir);
 //            wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
-            continue;
-        }
+//            continue;
+//        }
         if (isset($translateMacNic[$macAddress.'_'])) {
             $nic = $translateMacNic[$macAddress.'_'];
             if (($accessPointEnabled) && ($accessPoint === $ssid)) {
@@ -9715,6 +9711,8 @@ function refresh_nics($redis)
     // unlock the scan system
     $redis->Set('lock_wifiscan', 0);
     runelog('--------------------------- returning network interface array ---------------------------');
+	file_put_contents('/srv/http/netdebug.log', "refresh_nics END\n", FILE_APPEND);
+	file_put_contents('/srv/http/netdebug.log', json_encode($networkInterfaces, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     return $networkInterfaces;
 }
 
