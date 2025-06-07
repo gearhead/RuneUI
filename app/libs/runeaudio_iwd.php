@@ -2702,8 +2702,8 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 // stop and remove the iwd access point
                 $interface = $redis->hGet('AccessPoint', 'interface');
 // this may be with hostapd instead of iwd...
-                $useIwd = (bool) exec('pidof iwd');
-                if ($useIwd == 'iwd') {
+                $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+                if ($useIwd) {
                     sysCmd('iwctl ap '.$interface.' stop');
                 } else {
                     wrk_systemd_unit($redis, 'stop', 'hostapd');
@@ -3459,8 +3459,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // manually set autoconnet on
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect on');
             // Detect backend: IWD or WPA Supplicant
-            $useIwd = (bool) exec('pidof iwd');
-            if ($useIwd == 'iwd') {
+            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+            if ($useIwd) {
                 sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect yes');
             } else {
                 if (empty($args['nic']) || empty($args['ssid'])) {
@@ -3491,8 +3491,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'autoconnect-off':
             // manually set autoconnet off
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
-            $useIwd = (bool) exec('pidof iwd');
-            if ($useIwd == 'iwd') {
+            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+            if ($useIwd) {
                 sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
             } else {
                 $iface = escapeshellarg($args['nic']);
@@ -3677,7 +3677,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // clear the stored profiles
             $redis->set('network_storedProfiles', json_encode(array()));
             // instruct iwd to forget all its known networks
-            $useIwd = (bool) exec('pidof iwd');
+            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
 
             if ($useIwd) {
                 $iwdNetworks = sysCmd("iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'");
@@ -3811,7 +3811,7 @@ function connectWifi($redis, $args, $options = []) {
     $phase2       = isset($options['phase2']) ? $options['phase2'] : 'MSCHAPV2';
 
     // Detect backend: IWD or WPA Supplicant
-    $useIwd = (bool) exec('pidof iwd');
+    $useIwd = (bool) exec('systemctl is-active --quiet iwd');
 
     if ($useIwd) {
         //file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
@@ -3858,11 +3858,35 @@ function connectWifi($redis, $args, $options = []) {
                 }
             }
         }
-    } else {
-        //file_put_contents('/srv/http/netdebug.log', "using wpa_supplicant\n", FILE_APPEND);
-        // === WPA_SUPPLICANT Mode ===
-        exec("wpa_cli -i $iface add_network", $out);
-        $netId = trim(end($out));
+    }else {
+        // Check if SSID already exists in wpa_supplicant config
+        $existingNetId = null;
+        $ssidEscaped = addslashes($ssid); // escape " for regex
+
+        exec("wpa_cli -i $iface list_networks", $networks);
+
+        foreach ($networks as $line) {
+            // Skip header line (network id / ssid / ...)
+            if (strpos($line, 'network id') !== false) continue;
+
+            $fields = preg_split('/\t+/', $line);
+            if (count($fields) >= 2) {
+                list($id, $ssidExisting) = $fields;
+                if ($ssidExisting === $ssid) {
+                    $existingNetId = $id;
+                    break;
+                }
+            }
+        }
+
+        if ($existingNetId !== null) {
+            $netId = $existingNetId;
+            // Optionally, reconfigure the existing network
+            // or skip further configuration
+        } else {
+            exec("wpa_cli -i $iface add_network", $out);
+            $netId = trim(end($out));
+        }
 
         $ssidWrapped = escapeshellarg("\"$ssid\"");
         exec("wpa_cli -i $iface set_network $netId ssid $ssidWrapped");
@@ -3899,7 +3923,7 @@ function disconnectWifi($redis, $args)
 //    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // needs $nic and $ssid
     // Detect backend: IWD or WPA Supplicant
-    $useIwd = (bool) exec('pidof iwd');
+    $useIwd = (bool) exec('systemctl is-active --quiet iwd');
     
     // disconnect via iwd
     if ($useIwd) {
@@ -8948,7 +8972,7 @@ function refresh_nics($redis)
 //   'translate_mac_nic' containing a translation table mac-address to nic-name
 //   'network_info' containing the network information
 {
-file_put_contents('/srv/http/netdebug.log', "refresh_nics\n", FILE_APPEND);
+//file_put_contents('/srv/http/netdebug.log', "refresh_nics\n", FILE_APPEND);
 //file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
 //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // startup - lock the scan system
@@ -9711,8 +9735,8 @@ file_put_contents('/srv/http/netdebug.log', "refresh_nics\n", FILE_APPEND);
     // unlock the scan system
     $redis->Set('lock_wifiscan', 0);
     runelog('--------------------------- returning network interface array ---------------------------');
-	file_put_contents('/srv/http/netdebug.log', "refresh_nics END\n", FILE_APPEND);
-	file_put_contents('/srv/http/netdebug.log', json_encode($networkInterfaces, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+//	file_put_contents('/srv/http/netdebug.log', "refresh_nics END\n", FILE_APPEND);
+//	file_put_contents('/srv/http/netdebug.log', json_encode($networkInterfaces, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     return $networkInterfaces;
 }
 

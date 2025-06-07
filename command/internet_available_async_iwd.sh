@@ -61,72 +61,71 @@ refresh_nics_pid=$( pgrep refresh_nics | xargs )
 wifinicdown="0"
 for nic in $nics ; do
     # Wi-Fi nics
-    # when ipv6 is off ensure the nic has no ipv6 address
     if [ "$ipv6_on" == "0" ] ; then
-        # ipv6 is off, the nic should not have a ipv6 address
-        # presence of ' inet6 ' shows that an ipv6 address is present
         invalid=$( ip -o address show dev $nic | grep -ic ' inet6 ' | xargs )
         if [ "$invalid" != "0" ] ; then
             sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
-            # refresh the list of nics which have an IP address
             ip_address=$( ip -o address | cut -d ' ' -f 2 | sort -u | xargs )
         fi
-     fi
-     if [ "$nic" == "$vitual_ap_name" ] ; then
-        # this is the virtual nic used for the access point
+    fi
 
-        # now determine if the AP is actually up
+    if [ "$nic" == "$vitual_ap_name" ] ; then
+        # this is the virtual nic used for the access point
         if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
-            # Wi-Fi is switched on, AP is on and AP is configured, it should be up
             ap_down=$( ip -o link show dev $nic | xargs | grep -ic ' DOWN ' | xargs )
         else
-            # Wi-Fi is switched off or AP is off or AP is not configured, it should be down
             ap_down="0"
         fi
-        if [ "$ap_down" != "0" ] && [ "$ap_interface" != "" ] ; then
-            # AP is down, when it should be up
-            #   this should not happen, it looks like a bug, but I cannot find it!
+
+        if [ "$ap_down" != "0" ] && [ -n "$ap_interface" ]; then
             echo "ap0 down condition"
-            ssid=$( redis-cli hget AccessPoint ssid )
-            iwctl device $nic set-property Mode ap
-            if [ "$?" == "0" ] ; then
-                iwctl ap $nic start-profile $ssid
-                if [ "$?" == "0" ] ; then
-                    iwctl ap $nic start-profile $ssid
-                    if [ "$?" != "0" ] ; then
+
+            if systemctl is-active --quiet iwd; then
+                ssid=$(redis-cli hget AccessPoint ssid)
+
+                if iwctl device "$nic" set-property Mode ap; then
+                    if ! iwctl ap "$nic" start-profile "$ssid"; then
+                        echo "Retrying: Restarting IWD and retrying AP start"
                         systemctl restart iwd
                         sleep 5
-                        iwctl device $nic set-property Mode ap
-                        iwctl ap $nic start-profile $ssid
+                        iwctl device "$nic" set-property Mode ap
+                        iwctl ap "$nic" start-profile "$ssid"
                     fi
                 else
+                    echo "Failed to set IWD device to AP mode, restarting"
                     systemctl restart iwd
                     sleep 5
-                    iwctl device $nic set-property Mode ap
-                    iwctl ap $nic start-profile $ssid
+                    iwctl device "$nic" set-property Mode ap
+                    iwctl ap "$nic" start-profile "$ssid"
                 fi
             else
-                systemctl restart iwd
-                sleep 5
-                iwctl device $nic set-property Mode ap
-                iwctl ap $nic start-profile $ssid
+                echo "Assuming hostapd is managing AP"
+                systemctl restart hostapd
+                systemctl restart dnsmasq
+                ip link set "$nic" up
             fi
-        elif [ "$ap_down" == "0" ] && [ "$ap_interface" == "" ] ; then
-            # AP is up, when it should be down
-            iwctl device $nic set-property Mode ap
-            iwctl ap $nic stop
+
+        elif [ "$ap_down" == "0" ] && [ -z "$ap_interface" ]; then
+            echo "AP is up, but should be down"
+
+            if systemctl is-active --quiet iwd; then
+                iwctl device "$nic" set-property Mode ap
+                iwctl ap "$nic" stop
+            else
+                echo "Assuming hostapd, shutting down manually"
+                systemctl stop hostapd
+                systemctl stop dnsmasq
+                ip link set "$nic" down
+            fi
         fi
-        continue
-    fi
+    fi  # <--- MISSING fi added here for "$nic" == "$vitual_ap_name"
+
     if [[ "$down" =~ "$nic" ]] ; then
-        # Wi-Fi nic is down
         wifinicdown="1"
         if [ -f "/tmp/$nic.up" ] ; then
-            # nic was previously up, take the nic down
             ip addr flush $nic
             ip link set dev $nic down
             if [ "$allwifi_on" == "1" ] ; then
-                # wifi is enabled, bring the nic up to force a connman reconnect
                 ip link set dev $nic up
                 if [ "$ipv6_on" == "0" ] ; then
                     sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
@@ -134,14 +133,11 @@ for nic in $nics ; do
             fi
         fi
     elif [[ ! "$ip_address" =~ "$nic" ]] ; then
-        # Wi-Fi nic looks like it is up, but has no IP address, so it is actually down
         wifinicdown="1"
         if [ -f "/tmp/$nic.up" ] ; then
-            # nic was previously up, take the nic down
             ip addr flush $nic
             ip link set dev $nic down
             if [ "$allwifi_on" == "1" ] ; then
-                # wifi is enabled, bring the nic up to force a connman reconnect
                 ip link set dev $nic up
                 if [ "$ipv6_on" == "0" ] ; then
                     sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
@@ -149,19 +145,13 @@ for nic in $nics ; do
             fi
         fi
     else
-        # Wi-Fi nic is up
         if [ "$refresh_nics_pid" == "" ] ; then
-            # determine if refresh nics is running
             refresh_nics_pid=$( pgrep refresh_nics | xargs )
         fi
         invalid="0"
         if [ "$allwifi_on" == "1" ] && [ "$refresh_nics_pid" == "" ] && [ "$ap_interface" == "" ]; then
-            # only test for invalid nics when wifi is enabled, refresh_nics is not running and AP is not active
-            # 169.254. is the first part of ip addresses generated by the client when an address has not been provided by the router
-            #   this is valid when a connection is made via the AP, but invalid when the AP is active
             invalid=$( ip -o add show dev $nic | xargs | grep -c ' inet 169.254.' | xargs )
             if [ "$invalid" != "0" ] ; then
-                # nic has an invalid ip address
                 ip addr flush $nic
                 ip link set dev $nic down
                 ip link set dev $nic up
@@ -169,13 +159,9 @@ for nic in $nics ; do
                     sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null
                 fi
             else
-                # nic is up and ip address is valid
-                # create a file '/tmp/<nic name>.up' for each Wi-Fi interface which is up
-                # the /tmp directory is a TMPFS file-system which will be recreated on reboot
                 touch /tmp/$nic.up
             fi
         elif [ "$allwifi_on" != "1" ] ; then
-            # when wifi is off take the nic down
             ip addr flush $nic
             ip link set dev $nic down
         fi
@@ -188,7 +174,7 @@ if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
         # at least one wifi nic is down
 #        connmanctl scan wifi
 #        iwctl station wlan0 scan
-        iw $nic scan
+        iw $nic scan &>/dev/null
     fi
 fi
 #
