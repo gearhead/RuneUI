@@ -2702,7 +2702,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 // stop and remove the iwd access point
                 $interface = $redis->hGet('AccessPoint', 'interface');
 // this may be with hostapd instead of iwd...
-                $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+                exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
                 if ($useIwd) {
                     sysCmd('iwctl ap '.$interface.' stop');
                 } else {
@@ -3149,7 +3149,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             netd_config($redis, $args);
             // connect wifi
             connectWifi($redis, $args);
-/*            
+/*
             // create the config file in '/var/lib/connman/', the name is 'wifi_<ssidHex>.config'
             $profileFileName = '/var/lib/connman/wifi_'.$args['ssidHex'].'.config';
             $tmpFileName = '/tmp/wifi_'.$args['ssidHex'].'.config';
@@ -3212,7 +3212,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
                 }
             }
-*/            
+*/
             // sort the profile array on ssid (case insensitive)
             $ssidCol = array_column($storedProfiles, 'ssid');
             $ssidCol = array_map('strtolower', $ssidCol);
@@ -3246,7 +3246,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             } else {
                 unlink($tmpFileName);
             }
-*/            
+*/
             // try restarting the Access Point if it was enabled
             //  the Access Point will not start if the new saved network profile successfully connects
             if ($apEnable) {
@@ -3314,7 +3314,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 } else if ($args['primaryDns'] && $args['secondaryDns']) {
                     $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
                 }
-*/                
+*/
                 // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
                 // commit the config file, creating a new file triggers connman to use it
@@ -3459,7 +3459,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // manually set autoconnet on
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect on');
             // Detect backend: IWD or WPA Supplicant
-            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+            exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
             if ($useIwd) {
                 sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect yes');
             } else {
@@ -3487,11 +3487,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 }
             }
             break;
-            break;
         case 'autoconnect-off':
             // manually set autoconnet off
 //            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
-            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+            exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
             if ($useIwd) {
                 sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
             } else {
@@ -3515,7 +3514,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     sysCmd("wpa_cli -i $iface save_config");
                 }
             }
-            break;
             break;
         case 'disconnect':
             // manual disconnect, to avoid automatic reconnection autoconnect is set off
@@ -3550,13 +3548,13 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     sysCmd('rm '.$configPath);
                     sysCmd('networkctl reload');
                 }
-                
+
                 // remove the connman profile
 //                sysCmd('connmanctl config '.$args['connmanString'].' --remove');
                 $networks = array();
                 // save the args as a network
                 $networks[] = $args;
-                
+
                 // why do I have to look for *all* all the networks at this time. --kg
                 // Can we just delete the called network and that's all?
                 $network_info = json_decode($redis->get('network_info'), true);
@@ -3634,7 +3632,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 
                 sysCmdAsync($redis, '/srv/http/command/refresh_nics');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
-                
+
             } else
             // ethernet
             // ethernet uses a 'devault' networkd config unless we edit it at some time
@@ -3658,7 +3656,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
 //            }
-               
+
             break;
         case 'reset':
             // delete all stored profiles and configuration files and restore the system defaults
@@ -3677,11 +3675,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // clear the stored profiles
             $redis->set('network_storedProfiles', json_encode(array()));
             // instruct iwd to forget all its known networks
-            $useIwd = (bool) exec('systemctl is-active --quiet iwd');
-
+            exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
             if ($useIwd) {
                 $iwdNetworks = sysCmd("iwctl known-networks list | tail -n +5 | cut -b 6-40 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'");
-            } else { 
+            } else {
                 $iwdNetworks = sysCmd("wpa_cli list_networks | tail -n +2 | cut -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'");
             }
             foreach ($iwdNetworks as $iwdNetwork) {
@@ -3791,6 +3788,8 @@ function netd_config($redis, $args) {
 }
 
 function connectWifi($redis, $args, $options = []) {
+    //file_put_contents('/srv/http/netdebug.log', "Connect Wifi\n", FILE_APPEND);
+    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // Extract and sanitize required values
     $iface      = escapeshellarg($args['nic']);
     $ssid       = $args['ssid'];
@@ -3807,9 +3806,10 @@ function connectWifi($redis, $args, $options = []) {
     $phase2       = isset($options['phase2']) ? $options['phase2'] : 'MSCHAPV2';
 
     // Detect backend: IWD or WPA Supplicant
-    $useIwd = (bool) exec('systemctl is-active --quiet iwd');
+    exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
+    file_put_contents('/srv/http/netdebug.log', "Results of query:$useIwd\n", FILE_APPEND);
     if ($useIwd) {
-        //file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
+//        file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
         // === IWD Mode ===
         if ($isEnterprise) {
             // 802.1X provisioning file
@@ -3853,7 +3853,8 @@ function connectWifi($redis, $args, $options = []) {
             }
         }
     } else {
-        // use wpa_supplicant
+//     file_put_contents('/srv/http/netdebug.log', "using wpa_cli\n", FILE_APPEND);
+        // === WPA_SUPPLICANT Mode ===
         // Check if SSID already exists in wpa_supplicant config
         $existingNetId = null;
         $ssidEscaped = addslashes($ssid); // escape " for regex
@@ -3917,8 +3918,7 @@ function disconnectWifi($redis, $args)
 //    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     // needs $nic and $ssid
     // Detect backend: IWD or WPA Supplicant
-    $useIwd = (bool) exec('systemctl is-active --quiet iwd');
-    
+    exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
     // disconnect via iwd
     if ($useIwd) {
         sysCmd('iwctl station ' . escapeshellarg($args['nic']) . ' disconnect');
@@ -3933,24 +3933,24 @@ function disconnectWifi($redis, $args)
     } else {
         $iface = escapeshellarg($args['nic']);
         $ssid = escapeshellarg($args['ssid']);
-        
+
         // Disconnect current connection
         sysCmd("wpa_cli -i $iface disconnect");
         //file_put_contents('/srv/http/netdebug.log', "Find network ID: {$args['ssid']}\n", FILE_APPEND);
         // Find the network ID for the SSID
         $known_networks = sysCmd("wpa_cli -i $iface list_networks");
         $netid = null;
-        
+
         foreach ($known_networks as $line) {
             // Skip header line
             if (strpos($line, 'network id') !== false) continue;
-            
+
             // Split by tabs and check if we have enough parts
             $parts = explode("\t", $line);
             if (count($parts) >= 2) {
                 $line_ssid = trim($parts[1]);
                 $target_ssid = trim($args['ssid']);
-                
+
                 // Case-insensitive comparison
                 if (strcasecmp($line_ssid, $target_ssid) === 0) {
                     $netid = trim($parts[0]);
@@ -3962,7 +3962,7 @@ function disconnectWifi($redis, $args)
             //file_put_contents('/srv/http/netdebug.log', "Found network ID = $netid for SSID {$args['ssid']}\n", FILE_APPEND);         
             // Disable the network to prevent auto-reconnect
             sysCmd("wpa_cli -i $iface disable_network $netid");
-            
+
             // if delete remove network otherwise just disconnect
             if ($args['action'] == "delete") {
                 sysCmd("wpa_cli -i $iface remove_network $netid");

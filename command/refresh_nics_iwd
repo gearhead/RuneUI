@@ -52,7 +52,7 @@ runelog('WORKER refresh_nics STARTING...');
 define('APP', '/srv/http/app/');
 
 // Detect backend: IWD or WPA Supplicant. This determines the AP backend as well hostapd/iwd
-$useIwd = (bool) exec('systemctl is-active --quiet iwd');
+exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
 // this routine can be called to run asynchronously (e.g. for udev, to prevent a timeout)
 //  the first parameter has a value of 'async' when asynchronous is requested
 if (isset($argv[1]) && ($argv[1] === 'async')) {
