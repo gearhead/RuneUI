@@ -2666,7 +2666,6 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
             }
             if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
                 // there is a value passed with $args and it is true and current state is false
-                $redis->hSet('AccessPoint', 'enable-NAT', 1);
                 $args['rescan'] = 1;
             } else if ((!isset($args['enable-NAT']) || !$args['enable-NAT']) && $redis->hGet('AccessPoint', 'enable-NAT')) {
                 // there is a value passed with $args and it is false and current state is true
@@ -2764,7 +2763,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 } else {
                     $message = 'Disabled';
                 }
-            }
+            }       
             break;
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
@@ -2976,28 +2975,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         $storedProfiles[$ssidHexKey]['hidden'] = false;
                     }
                 }
-/*                // create the config file in '/var/lib/connman/', the name is 'wifi_<ssidHex>.config'
-                $profileFileName = '/var/lib/connman/wifi_'.$ssidHex.'.config';
-                $profileFileContent =
-                    '[global]'."\n".
-                    'Description=Boot generated DHCP Wi-Fi network configuration for network (SSID) "'.$profile['name'].'", with SSID hex value "'.$ssidHex."\"\n".
-                    '[service_'.$ssidHex.']'."\n".
-                    'Type=wifi'."\n".
-                    'SSID='.$ssidHex."\n".
-                    'Passphrase='.$profile['passphrase']."\n";
-                if (isset($profile['hidden'])) {
-                    if ($profile['hidden']) {
-                        $profileFileContent .= 'Hidden=true'."\n";
-                    } else {
-                        $profileFileContent .= 'Hidden=false'."\n";
-                    }
-                }
-                if ($redis->get('network_ipv6')) {
-                    $profileFileContent .= 'IPv6=auto'."\n";
-                } else {
-                    $profileFileContent .= 'IPv6=off'."\n";
-                }
-*/
                 // sort the profile array on ssid (case insensitive)
                 $ssidCol = array_column($storedProfiles, 'ssid');
                 $ssidCol = array_map('strtolower', $ssidCol);
@@ -3011,10 +2988,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 connectWifi($redis, $storedProfiles[$ssidHexKey]);
                 // create the networkd config
                 netd_config($redis, $storedProfiles[$ssidHexKey]);
-                // commit the config file, creating a new file triggers connman to use it
-//                $fp = fopen($profileFileName, 'w');
-//                fwrite($fp, $profileFileContent);
-//                fclose($fp);
             }
             // restore the default boot-initialise Wi-Fi files
             sysCmd('mkdir -p '.$directory.'/examples');
@@ -3030,8 +3003,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 }
             }
-            // restart connman to pick up the new config files
-//            wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
             // run refresh_nics to finish off
             wrk_netconfig($redis, 'refreshAsync');
             break;
@@ -3149,70 +3120,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             netd_config($redis, $args);
             // connect wifi
             connectWifi($redis, $args);
-/*
-            // create the config file in '/var/lib/connman/', the name is 'wifi_<ssidHex>.config'
-            $profileFileName = '/var/lib/connman/wifi_'.$args['ssidHex'].'.config';
-            $tmpFileName = '/tmp/wifi_'.$args['ssidHex'].'.config';
-            $profileFileContent =
-                '[global]'."\n".
-                'Description=';
-            if ($args['ipAssignment'] === 'DHCP') {
-                $profileFileContent .= 'DHCP ';
-            } else {
-                $profileFileContent .= 'Static ';
-            }
-            $profileFileContent .= $args['security'].' Wi-Fi network configuration for network (SSID) "'.$args['ssid'].'", with SSID hex value "'.$args['ssidHex']."\"\n".
-                '[service_'.$args['ssidHex'].']'."\n".
-                'Type=wifi'."\n".
-                'SSID='.$args['ssidHex']."\n";
-            if (isset($args['autoconnect'])) {
-                $profileFileContent .= 'Security=open'."\n";
-                if ($args['autoconnect']) {
-                    $profileFileContent .= 'AutoConnect=true'."\n";
-                } else {
-                    $profileFileContent .= 'AutoConnect=false'."\n";
-                }
-            } else {
-                $profileFileContent .= 'Security='.strtolower($args['security'])."\n".
-                    'Passphrase='.$args['passphrase']."\n";
-            }
-            if (isset($args['hidden']) && $args['hidden']) {
-                $profileFileContent .= 'Hidden=true'."\n";
-            } else {
-                $profileFileContent .= 'Hidden=false'."\n";
-            }
-            if ($redis->get('network_ipv6')) {
-                $profileFileContent .= 'IPv6=auto'."\n";
-            } else {
-                $profileFileContent .= 'IPv6=off'."\n";
-            }
-            if ($args['ipAssignment'] === 'DHCP') {
-                if (isset($args['connmanString'])) {
-                    $args['connmanString'] = trim($args['connmanString']);
-                    if ($args['connmanString']) {
-                        // make sure that connman has the correct values
-                        if ($redis->get('network_ipv6')) {
-                            // ipv6 is enabled
-                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
-                        } else {
-                            // ipv6 is disabled
-                            sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
-                        }
-                        sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
-                    }
-                }
-            } else {
-                $profileFileContent .= 'IPv4='.$args['ipv4Address'].'/'.$args['ipv4Mask'].'/'.$args['defaultGateway']."\n".
-                    'IPv6=off'."\n";
-                if ($args['primaryDns'] && !$args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['primaryDns']."\n";
-                } else if (!$args['primaryDns'] && $args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['secondaryDns']."\n";
-                } else if ($args['primaryDns'] && $args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
-                }
-            }
-*/
             // sort the profile array on ssid (case insensitive)
             $ssidCol = array_column($storedProfiles, 'ssid');
             $ssidCol = array_map('strtolower', $ssidCol);
@@ -3235,18 +3142,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // save the old Access Point status
                 $apEnable = false;
             }
-/*
-            // commit the config file, creating a new file triggers connman to use it
-            file_put_contents($tmpFileName, $profileFileContent);
-            // don't replace the existing connman configuration file if the new file is identical
-            //  check that the existing file exists before comparing
-            clearstatcache(true, $profileFileName);
-            if ((!file_exists($profileFileName)) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
-                rename($tmpFileName, $profileFileName);
-            } else {
-                unlink($tmpFileName);
-            }
-*/
             // try restarting the Access Point if it was enabled
             //  the Access Point will not start if the new saved network profile successfully connects
             if ($apEnable) {
@@ -3266,15 +3161,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // just delete the config file and remove the stored profile
                 wrk_netconfig($redis, 'delete', '', $args);
                 netd_config($redis, $args);
-                // make sure that connman has the correct values
-//                if ($redis->get('network_ipv6')) {
-                    // ipv6 is enabled
-//                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 auto');
-//                } else {
-                    // ipv6 is disabled
-//                    sysCmd('connmanctl config '.$args['connmanString'].' --ipv6 off');
-//                }
-//                sysCmd('connmanctl config '.$args['connmanString'].' --ipv4 dhcp');
                 // take the nic down and bring it up to reset its ip-address
 //                sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
                 if (!$redis->get('network_ipv6')) {
@@ -3293,38 +3179,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     $storedProfiles[$macAddressKey][$key] = $value;
                 }
                 $storedProfiles[$macAddressKey]['technology'] = 'ethernet';
-/*
-                // create the config file in '/var/lib/connman/', the name is 'ethernet_<macAddress>.config'
-                $profileFileName = '/var/lib/connman/ethernet_'.$args['macAddress'].'.config';
-                $tmpFileName = '/tmp/ethernet_'.$args['macAddress'].'.config';
-                $macAddress = join(":", str_split($args['macAddress'], 2));
-                $profileFileContent =
-                    '[global]'."\n".
-                    'Description=Static IP configuration for nic "'.$args['nic'].'", with MAC address "'.$macAddress."\"\n".
-                    '[service_'.$args['macAddress'].']'."\n".
-                    // add colons to the MAC address
-                    'MAC='.$macAddress."\n".
-                    'Type=ethernet'."\n".
-                    'IPv4='.$args['ipv4Address'].'/'.$args['ipv4Mask'].'/'.$args['defaultGateway']."\n".
-                    'IPv6=off'."\n";
-                if ($args['primaryDns'] && !$args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['primaryDns']."\n";
-                } else if (!$args['primaryDns'] && $args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['secondaryDns']."\n";
-                } else if ($args['primaryDns'] && $args['secondaryDns']) {
-                    $profileFileContent .= 'Nameservers='.$args['secondaryDns'].','.$args['secondaryDns']."\n";
-                }
-*/
                 // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
-                // commit the config file, creating a new file triggers connman to use it
-//                $fp = fopen($tmpFileName, 'w');
-//                fwrite($fp, $profileFileContent);
-//                fclose($fp);
-                // don't replace the existing connman configuration file if the new file is identical
-//                clearstatcache(true, $profileFileName);
-//                if (!file_exists($profileFileName) || (md5_file($profileFileName) != md5_file($tmpFileName))) {
-//                    rename($tmpFileName, $profileFileName);
                     // take the nic down and bring it up to reset its ip-address
 //                    sysCmd('ip link set dev '.$args['nic'].' down; ip link set dev '.$args['nic'].' up');
                     if (!$redis->get('network_ipv6')) {
@@ -3370,12 +3226,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                             // ssidHex is set and it is a wifi connection
                             // for wifi the config file needs to be changed
                             netd_config($redis, $args);
-//                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
-                            // check that the config file exists
-//                            clearstatcache(true, $configFile);
-//                            if (file_exists($configFile)) {
-//                                sysCmd("sed -i '/IPv6\s*\=\s*auto/s/.*/IPv6\=off/' '".$configFile."'");
-//                            }
                         }
                     } else if (isset($network['ipv6.method']) && ($network['ipv6.method'] == 'off') && $network_ipv6) {
                         // network is not configured for ipv6 and the setting is enabled, enable ipv6
@@ -3389,17 +3239,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                                 // test here if it needs to be set to IPv6.privacy=preferred
                                 if (isset($network['macAddress'])) {
                                     // the mac address is set, its required for the config file name
-//                                    $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
-                                    // check that the config file exists
-//                                    clearstatcache(true, $configFile);
-//                                    if (file_exists($configFile)) {
-                                        // determine whether the config file needs changing and if connman needs to be restarted
-//                                        $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
-//                                        if (!$restartConnman) {
-//                                            $restartConnman = $changeFile;
-//                                        }
                                         if ($changeFile) {
-//                                            sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
                                             netd_config($redis, $args);
                                         }
                                     }
@@ -3408,12 +3248,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         } else if (isset($network['ssidHex']) && isset($network['technology']) && ($network['technology'] == 'wifi')) {
                             // ssidHex is set and it is a wifi connection
                             // for wifi the config file needs to be changed
-//                            $configFile = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
-                            // check that the config file exists
-//                            clearstatcache(true, $configFile);
-//                            if (file_exists($configFile)) {
-//                                sysCmd("sed -i '/IPv6\s*\=\s*off/s/.*/IPv6\=auto/' '".$configFile."'");
-//                            }
                             netd_config($redis, $args);
                         }
                     }
@@ -3421,27 +3255,10 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         // its an ethernet nic and ipv6 privacy is disabled, set IPv6.privacy=preferred
                         if (isset($network['macAddress'])) {
                             // the mac address is set, its required for the config file name
-//                            $configFile = '/var/lib/connman/ethernet_'.$network['macAddress'].'_cable/settings';
-                            // check that the config file exists
-//                            clearstatcache(true, $configFile);
-//                            if (file_exists($configFile)) {
-                                // determine whether the config file needs changing and if connman needs to be restarted
-//                                $changeFile = sysCmd("grep -ic 'IPv6\.privacy\s*\=\s*disabled' '".$configFile."' | xargs")[0];
-//                                if (!$restartConnman) {
-//                                    $restartConnman = $changeFile;
-//                                }
-//                                if ($changeFile) {
-//                                    sysCmd("sed -i '/IPv6\.privacy\s*\=\s*disabled/s/.*/IPv6\.privacy\=preferred/' '".$configFile."'");
-//                                }
                             netd_config($redis, $args);
-//                            }
                         }
                     }
                 }
-//            }
-//            if ($restartConnman && ($arg != 'norestart')) {
-//                wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
-//            }
             unset($network_ipv6, $network_info, $network, $configFile, $changeFile, $restartConnman);
             break;
         case 'reconnect':
@@ -3449,7 +3266,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'connect':
             // manual connect
 //            sysCmd('connmanctl connect '.$args['connmanString']);
-// May need to chgeck to see if an iwd config is here but not autoconnect
+// May need to check to see if an iwd config is here but not autoconnect
             netd_config($redis, $args);
             if (strpos($args['nic'], 'wlan') === 0) {
                 connectWifi($redis, $args);
@@ -3457,7 +3274,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             break;
         case 'autoconnect-on':
             // manually set autoconnet on
-//            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect on');
             // Detect backend: IWD or WPA Supplicant
             exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
             if ($useIwd) {
@@ -3489,7 +3305,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             break;
         case 'autoconnect-off':
             // manually set autoconnet off
-//            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
             exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
             if ($useIwd) {
                 sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
@@ -3517,16 +3332,12 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             break;
         case 'disconnect':
             // manual disconnect, to avoid automatic reconnection autoconnect is set off
-//            sysCmd('connmanctl config '.$args['connmanString'].' --autoconnect off');
-//            sysCmd('connmanctl disconnect '.$args['connmanString']);
 //            if (isset($args['nic'])) {
 //                // also disconnect via iwd
 //                sysCmd("iwctl station '".$args['nic']."' disconnect");
 //            }
             // really only need to disconnect wifi
             disconnectWifi($redis, $args);
-//            sysCmd('rm /etc/systemd/network/20-'.$network['nic'].'.network');
-//            sysCmd('networkctl reload');
             // If we need to disconnect eth0, we can by using "networkctl down $args['nic']"
             break;
         case 'disconnect-delete':
@@ -3590,21 +3401,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         if (isset($network['ssidHex'])) {
                             // remove the connman configuration files and cache
                             unset($storedProfiles[$ssidHexKey]);
-//                            $file = '/var/lib/connman/wifi_'.$network['ssidHex'].'.config';
-//                           clearstatcache(true, $file);
-//                            if (is_file($file)) {
-//                                unlink($file);
-//                            }
-//                            sysCmd('rm -rf \'/var/lib/connman/wifi_*'.$network['ssidHex'].'\'');
                         }
                         if (isset($network['ssid'])) {
                             // remove the iwd network cache
-//                            sysCmd("iwctl known-networks '".$network['ssid']."' forget");
-//                            sysCmd('rm -f \'/var/lib/iwd/'.$network['ssid'].'.*\'');
                             $network['action'] = "delete";
                             disconnectWifi($redis, $network);
-//                            sysCmd('rm /etc/systemd/network/20-'.$network['nic'].'.network');
-//                            sysCmd('networkctl reload');
                         }
                         if (isset($network['nic']) && $disconnect) {
                             // disconnect the nic
@@ -3638,14 +3439,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             // ethernet uses a 'devault' networkd config unless we edit it at some time
             // then it gets a 20-$args['nic'],network value and uses the specific mac to the interface
             if (isset($args['macAddress']) && isset($storedProfiles[$macAddressKey])) {
-                // stop connman otherwise the cache files will be replaced after deletion
-//                wrk_systemd_unit($redis, 'stop', 'connman');
-                // remove the connman configuration files and cache
                 unset($storedProfiles[$macAddressKey]);
-//                unlink('/var/lib/connman/ethernet_'.$args['macAddress'].'.config');
-//                sysCmd('rm -rf \'/var/lib/connman/ethernet_'.$args['macAddress'].'\'');
-//                // restart connman
-//                wrk_systemd_unit($redis, 'start', 'connman');
                  // for networkd, we create 20-$nic.network files if one exists, remove it
                 $configPath = '/etc/systemd/network/20-' . $args['nic'] . '.network';
                 if (file_exists($configPath)) {
@@ -3655,7 +3449,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 sysCmd('networkctl reload');
             }
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
-//            }
 
             break;
         case 'reset':
@@ -3668,8 +3461,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     wrk_netconfig($redis, 'disconnect', $network['connmanString']);
                 }
             }
-            // stop connman, otherwise it may recreate the configuration files after deletion
-//            wrk_systemd_unit($redis, 'stop', 'connman');
             // clear the network array
             $redis->set('network_info', json_encode(array()));
             // clear the stored profiles
@@ -3686,24 +3477,12 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
 //                sysCmd("iwctl known-networks '".$iwdNetwork."' forget");
             }
             // delete all connman & iwd config files
-//            sysCmd('rm -rf /var/lib/iwd/*');
-//            sysCmd('rm -rf /var/lib/connman/*');
-            // restore the default connman configuration file
-//            sysCmd('mkdir -p /var/lib/connman');
-//            sysCmd('mkdir -p /var/lib/iwd');
-//            sysCmd('cp /srv/http/app/config/defaults/var/lib/connman/settings /var/lib/connman/settings');
-//            sysCmd('chmod 600 /var/lib/connman/settings');
             // restore the default boot-initialise Wi-Fi files
             $directory = $redis->get('p1mountpoint').'/wifi';
             sysCmd('mkdir -p '.$directory.'/examples');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
             sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
             // restore the standard service and config files
-//            sysCmd('cp /srv/http/app/config/defaults/etc/systemd/system/connman.service /etc/systemd/system/connman.service');
-//            sysCmd('mkdir /etc/connman/');
-//            sysCmd('cp /srv/http/app/config/defaults/etc/connman/* /etc/connman/');
-            // start connman
-//            wrk_systemd_unit($redis, 'daemon-reload_and_start', 'connman');
             // set automatic Wi-Fi optimisation
             $redis->set('network_autoOptimiseWifi', 1);
             // run refresh_nics
@@ -9165,7 +8944,7 @@ function refresh_nics($redis)
     // add the wifi technology to array $networkInterfaces with iw
     // also add the nic's per physical id to array $wirelessNic
     $wirelessNic = array();
-    $deviceInfoList = sysCmd("iw dev | sed 's,[ ]\+, ,g' | grep -iE 'phy|interface|ssid|type'");
+    $deviceInfoList = sysCmd("iw dev | sed 's,[ ]\+, ,g' | grep -iE 'phy|interface|ssid|type' | grep -v 'Unnamed\|P2P-device'");
     foreach ($deviceInfoList as $deviceInfoLine) {
         $deviceInfoLine = ' '.trim($deviceInfoLine);
         if (strpos($deviceInfoLine, 'phy')) {

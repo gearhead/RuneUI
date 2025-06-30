@@ -517,7 +517,7 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
 } else {
     // NAT is off or the AP has been stopped
     if ($redis->hGet('AccessPoint', 'NAT-configured')) {
-        // NAT is configured
+        // NAT is configured but should not be
         // NAT configuration need to be removed/disabled
         sysCmd('iptables -F');
         sysCmd('iptables -t nat -F');
