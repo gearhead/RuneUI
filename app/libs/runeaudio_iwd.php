@@ -3586,7 +3586,7 @@ function connectWifi($redis, $args, $options = []) {
 
     // Detect backend: IWD or WPA Supplicant
     exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
-    file_put_contents('/srv/http/netdebug.log', "Results of query:$useIwd\n", FILE_APPEND);
+//    file_put_contents('/srv/http/netdebug.log', "Results of query:$useIwd\n", FILE_APPEND);
     if ($useIwd) {
 //        file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
         // === IWD Mode ===
@@ -3688,6 +3688,7 @@ function connectWifi($redis, $args, $options = []) {
         }
         exec("wpa_cli -i $iface enable_network $netId");
         exec("wpa_cli -i $iface save_config");
+        exec("wpa_cli -i $iface reconnect $netId");
     }
 }
 
@@ -8876,7 +8877,7 @@ function refresh_nics($redis)
         // have set up: /etc/systemd/network/20-$nic.network
         $file = "/etc/systemd/network/20-$nic.network";
         if (!file_exists($file)) {
-			  runelog('[refresh_nics]: networkd config file not found'.$file);
+              runelog('[refresh_nics]: networkd config file not found'.$file);
             continue;
         }
         $content = file_get_contents($file);
@@ -8892,9 +8893,9 @@ function refresh_nics($redis)
         // Only write back if changed
         if ($content !== $originalContent) {
             file_put_contents($file, $content);
-			runelog('[refresh_nics]: Fixed MACAddress in '.$file.' to '.$macAddressColons);
+            runelog('[refresh_nics]: Fixed MACAddress in '.$file.' to '.$macAddressColons);
         } else {
-			runelog('[refresh_nics]: '.$file.' already has correct'.$macAddressColons);
+            runelog('[refresh_nics]: '.$file.' already has correct'.$macAddressColons);
         }  
     }
     // add ip addresses to array $networkInterfaces with ip address
