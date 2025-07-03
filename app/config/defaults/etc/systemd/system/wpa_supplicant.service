@@ -9,7 +9,7 @@ IgnoreOnIsolate=true
 Type=dbus
 BusName=fi.w1.wpa_supplicant1
 #ExecStart=/sbin/wpa_supplicant -u -s -O "DIR=/run/wpa_supplicant GROUP=netdev"
-ExecStart=/sbin/wpa_supplicant  -u -s -O "DIR=/run/wpa_supplicant GROUP=netdev" -c /etc/wpa_supplicant/wpa_supplicant.conf -i wlan0
+ExecStart=/sbin/wpa_supplicant  -u -s -O "DIR=/run/wpa_supplicant GROUP=netdev" -q -c /etc/wpa_supplicant/wpa_supplicant.conf -i wlan0
 ExecReload=/bin/kill -HUP $MAINPID
 Group=netdev
 RuntimeDirectory=wpa_supplicant
