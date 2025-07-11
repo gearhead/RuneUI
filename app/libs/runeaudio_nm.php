@@ -2986,8 +2986,6 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 $storedProfiles[$ssidHexKey]['macAddress'] = $networkInterface['macAddress'];
                 // connect to the wifi
                 connectWifi($redis, $storedProfiles[$ssidHexKey]);
-                // create the networkd config
-                netd_config($redis, $storedProfiles[$ssidHexKey]);
             }
             // restore the default boot-initialise Wi-Fi files
             sysCmd('mkdir -p '.$directory.'/examples');
@@ -3112,50 +3110,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $storedProfiles[$ssidHexKey]['ssidHex'] = $ssidHex;
             $storedProfiles[$ssidHexKey]['security'] = $args['passphrase'] ? 'PSK' : 'none';
 
-            // === NMCLI Wi-Fi Connection Setup ===
-            $ssidEsc = escapeshellarg($ssid);
-            $passEsc = escapeshellarg($args['passphrase']);
-            $nicEsc = escapeshellarg($args['nic']);
-            $connName = "wifi-{$args['nic']}-$ssid";
-            $connNameEsc = escapeshellarg($connName);
-
-            shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-            shell_exec("nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc");
-
-            if (!empty($args['passphrase'])) {
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt wpa-psk");
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.psk $passEsc");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt none");
-            }
-
-            shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
-
-            if (strtolower($args['ipAssignment']) === 'STATIC') {
-                $ipCIDR = escapeshellarg($args['ipv4Address'] . '/' . $args['ipv4Mask']);
-                $gw = escapeshellarg($args['defaultGateway']);
-                $dns = [];
-                if (!empty($args['primaryDns'])) $dns[] = $args['primaryDns'];
-                if (!empty($args['secondaryDns'])) $dns[] = $args['secondaryDns'];
-                $dnsStr = escapeshellarg(implode(',', $dns));
-
-                shell_exec("nmcli connection modify $connNameEsc ipv4.addresses $ipCIDR");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.gateway $gw");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.dns $dnsStr");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method manual");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method auto");
-            }
-
-            // Apply global IPv6 setting
-            if ($redis->get('network_ipv6')) {
-                shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc ipv6.method ignore");
-            }
-
-            // Bring up connection
-            shell_exec("nmcli connection up $connNameEsc");
+            connectWifi($redis, $storedProfiles[$ssidHexKey]);
 
             // Sort profiles
             $ssidCol = array_column($storedProfiles, 'ssid');
@@ -3445,28 +3400,17 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             $redis->set('network_info', json_encode(array()));
             $redis->set('network_storedProfiles', json_encode(array()));
 
-            // Forget known networks from IWD or WPA (if needed)
-            exec('systemctl is-active --quiet iwd', $_, $code);
-            $useIwd = !$code;
-            if ($useIwd) {
-                // Optional: you may skip this if IWD isn't in use anymore
-                $iwdNetworks = sysCmd("iwctl known-networks list | tail -n +5 | awk '{print $1}'");
-                foreach ($iwdNetworks as $iwdNetwork) {
-                    $ssid = trim($iwdNetwork);
-                    if ($ssid !== '') {
-                        sysCmd("iwctl known-networks " . escapeshellarg($ssid) . " forget");
+            // Forget all known Wi-Fi networks using NetworkManager
+            $nmcliConns = shell_exec("nmcli -t -f NAME,TYPE connection show");
+            $lines = explode("\n", trim($nmcliConns));
+            foreach ($lines as $line) {
+                if (strpos($line, ':wifi') !== false) {
+                    [$name, $type] = explode(':', $line, 2);
+                    $name = trim($name);
+                    if ($name !== '') {
+                        sysCmd("nmcli connection delete " . escapeshellarg($name));
                     }
                 }
-            } else {
-                // Optional: WPA supplicant forget
-                $wpaNetworks = sysCmd("wpa_cli list_networks | tail -n +2 | cut -f1");
-                foreach ($wpaNetworks as $netid) {
-                    $id = trim($netid);
-                    if ($id !== '') {
-                        sysCmd("wpa_cli remove_network $id");
-                    }
-                }
-                sysCmd("wpa_cli save_config");
             }
 
             // Restore default boot-time Wi-Fi config files
@@ -3496,261 +3440,74 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
     }
 }
 
-function netd_config($redis, $args) {
-    // creates a systemd-networkd config for the specific interface and is linked to the mac address
-    // call by netd_config($redis, $args);
-    // needs nic, macAddress, ipAssignment, ipv4 stuff
-
-    $rawMac = $args['macAddress'];
-    $macClean = preg_replace('/[^a-fA-F0-9]/', '', $rawMac);
-    if (strlen($macClean) !== 12) return false;
-    $mac = implode(':', str_split(strtolower($macClean), 2));
-
-    $netconf = [
-        '[Match]',
-        'MACAddress=' . $mac,
-        '',
-        '[Network]'
-    ];
-
-    if ($args['ipAssignment'] === 'DHCP') {
-        $netconf[] = 'DHCP=ipv4';
-    } else {
-        $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?? [];
-        foreach ($args as $key => $value) {
-            if ($key !== 'connmanString') {
-                $storedProfiles[$rawMac][$key] = $value;
-            }
-        }
-        $cidr = net_NetmaskToCidr($args['ipv4Mask']);
-        $storedProfiles[$rawMac]['technology'] = $args['technology'];
-        $redis->set('network_storedProfiles', json_encode($storedProfiles));
-
-        $netconf[] = 'Address=' . $args['ipv4Address'] . '/' . $cidr;
-        if (!empty($args['defaultGateway'])) {
-            $netconf[] = 'Gateway=' . $args['defaultGateway'];
-        }
-        if (!empty($args['primaryDns'])) {
-            $netconf[] = 'DNS=' . $args['primaryDns'];
-        }
-        if (!empty($args['secondaryDns'])) {
-            $netconf[] = 'DNS=' . $args['secondaryDns'];
-        }
-        $netconf[] = 'DHCP=no'; // consider replacing with 'DHCP=ipv6' if RA is expected
-    }
-
-    if ($redis->get('network_ipv6')) {
-        $netconf[] = 'IPv6AcceptRA=true';
-        $netconf[] = 'IPv6PrivacyExtensions=true';
-    } else {
-        $netconf[] = 'LinkLocalAddressing=no';
-        $netconf[] = 'IPv6AcceptRA=no';
-        $netconf[] = 'IPv6PrivacyExtensions=no';
-        $netconf[] = '[IPv6AcceptRA]';
-        $netconf[] = 'UseDNS=no';
-        sysCmd("sysctl -w net.ipv6.conf.{$args['nic']}.disable_ipv6=1 > /dev/null");
-    }
-
-    $configPath = '/etc/systemd/network/20-' . $args['nic'] . '.network';
-    if (!file_exists($configPath)) {
-    sysCmd('rm '.$configPath);
-    }
-    // write config
-    file_put_contents($configPath, implode("\n", $netconf) . "\n");
-    sysCmd("networkctl reload");
-}
-
 function connectWifi($redis, $args, $options = []) {
-    //file_put_contents('/srv/http/netdebug.log', "Connect Wifi\n", FILE_APPEND);
-    //file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
-    // Extract and sanitize required values
-    $iface      = escapeshellarg($args['nic']);
-    $ssid       = $args['ssid'];
-    $ssidArg    = escapeshellarg($ssid);
-    $passphrase = isset($args['passphrase']) ? $args['passphrase'] : null;
+//    file_put_contents('/srv/http/netdebug.log', "Connect Wifi\n", FILE_APPEND);
+//    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+            // === NMCLI Wi-Fi Connection Setup ===
+            $ssidEsc = escapeshellarg($args['ssid']);
+            $passEsc = escapeshellarg($args['passphrase']);
+            $nicEsc = escapeshellarg($args['nic']);
+            $connName = "wifi-{$args['nic']}-{$args['ssid']}";
+            $connNameEsc = escapeshellarg($connName);
 
-    // Parse optional parameters
-    $isHidden     = isset($options['hidden']) ? $options['hidden'] : false;
-    $isEnterprise = isset($options['enterprise']) ? $options['enterprise'] : false;
-    $username     = isset($options['username']) ? $options['username'] : null;
-    $identity     = isset($options['identity']) ? $options['identity'] : $username;
-    $keyMgmt      = isset($options['key_mgmt']) ? $options['key_mgmt'] : 'WPA-PSK';
-    $eapMethod    = isset($options['eap']) ? $options['eap'] : 'PEAP';
-    $phase2       = isset($options['phase2']) ? $options['phase2'] : 'MSCHAPV2';
+            shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
+            shell_exec("nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc");
 
-    // Detect backend: IWD or WPA Supplicant
-    exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
-    file_put_contents('/srv/http/netdebug.log', "Results of query:$useIwd\n", FILE_APPEND);
-    if ($useIwd) {
-//        file_put_contents('/srv/http/netdebug.log', "using iwd\n", FILE_APPEND);
-        // === IWD Mode ===
-        if ($isEnterprise) {
-            // 802.1X provisioning file
-            $config  = "[Security]\n";
-            $config .= "EAP-Method=$eapMethod\n";
-            $config .= "EAP-Identity=$identity\n";
-            if ($passphrase) {
-                $config .= "EAP-Password=$passphrase\n";
-            }
-            if ($phase2) {
-                $config .= "EAP-Phase2-Method=$phase2\n";
-            }
-            $config .= "\n[Settings]\n";
-            $config .= "SSID=$ssid\n";
-            if ($isHidden) {
-                $config .= "Hidden=true\n";
-            }
-
-            $configFile = "/var/lib/iwd/" . bin2hex($ssid) . ".8021x";
-            file_put_contents($configFile, $config, FILE_APPEND);
-
-            exec("systemctl restart iwd");
-            sleep(2);
-            exec("iwctl station $iface connect $ssidArg");
-        } else {
-            // Standard PSK or open network
-            if ($isHidden) {
-                if ($passphrase) {
-                    $passArg = escapeshellarg($passphrase);
-                    exec("iwctl --passphrase $passArg station $iface connect-hidden $ssidArg");
-                } else {
-                    exec("iwctl station $iface connect-hidden $ssidArg");
-                }
+            if (!empty($args['passphrase'])) {
+                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt wpa-psk");
+                shell_exec("nmcli connection modify $connNameEsc wifi-sec.psk $passEsc");
             } else {
-                if ($passphrase) {
-                    $passArg = escapeshellarg($passphrase);
-                    exec("iwctl --passphrase $passArg station $iface connect $ssidArg");
-                } else {
-                    exec("iwctl station $iface connect $ssidArg");
-                }
+                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt none");
             }
-        }
-    } else {
-//     file_put_contents('/srv/http/netdebug.log', "using wpa_cli\n", FILE_APPEND);
-        // === WPA_SUPPLICANT Mode ===
-        // Check if SSID already exists in wpa_supplicant config
-        $existingNetId = null;
-        $ssidEscaped = addslashes($ssid); // escape " for regex
 
-        exec("wpa_cli -i $iface list_networks", $networks);
+            shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
 
-        foreach ($networks as $line) {
-            // Skip header line (network id / ssid / ...)
-            if (strpos($line, 'network id') !== false) continue;
+            if (strtolower($args['ipAssignment']) === 'STATIC') {
+                $ipCIDR = escapeshellarg($args['ipv4Address'] . '/' . $args['ipv4Mask']);
+                $gw = escapeshellarg($args['defaultGateway']);
+                $dns = [];
+                if (!empty($args['primaryDns'])) $dns[] = $args['primaryDns'];
+                if (!empty($args['secondaryDns'])) $dns[] = $args['secondaryDns'];
+                $dnsStr = escapeshellarg(implode(',', $dns));
 
-            $fields = preg_split('/\t+/', $line);
-            if (count($fields) >= 2) {
-                list($id, $ssidExisting) = $fields;
-                if ($ssidExisting === $ssid) {
-                    $existingNetId = $id;
-                    break;
-                }
+                shell_exec("nmcli connection modify $connNameEsc ipv4.addresses $ipCIDR");
+                shell_exec("nmcli connection modify $connNameEsc ipv4.gateway $gw");
+                shell_exec("nmcli connection modify $connNameEsc ipv4.dns $dnsStr");
+                shell_exec("nmcli connection modify $connNameEsc ipv4.method manual");
+            } else {
+                shell_exec("nmcli connection modify $connNameEsc ipv4.method auto");
             }
-        }
 
-        if ($existingNetId !== null) {
-            $netId = $existingNetId;
-            // Optionally, reconfigure the existing network
-            // or skip further configuration
-        } else {
-            exec("wpa_cli -i $iface add_network", $out);
-            $netId = trim(end($out));
-        }
-
-        $ssidWrapped = escapeshellarg("\"$ssid\"");
-        exec("wpa_cli -i $iface set_network $netId ssid $ssidWrapped");
-
-        if ($isHidden) {
-            exec("wpa_cli -i $iface set_network $netId scan_ssid 1");
-        }
-
-        if ($isEnterprise) {
-            exec("wpa_cli -i $iface set_network $netId key_mgmt " . escapeshellarg("\"$keyMgmt\""));
-            exec("wpa_cli -i $iface set_network $netId eap " . escapeshellarg("\"$eapMethod\""));
-            exec("wpa_cli -i $iface set_network $netId identity " . escapeshellarg("\"$identity\""));
-
-            if ($passphrase) {
-                exec("wpa_cli -i $iface set_network $netId password " . escapeshellarg("\"$passphrase\""));
+            // Apply global IPv6 setting
+            if ($redis->get('network_ipv6')) {
+                shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
+            } else {
+                shell_exec("nmcli connection modify $connNameEsc ipv6.method ignore");
             }
-            if ($phase2) {
-                exec("wpa_cli -i $iface set_network $netId phase2 " . escapeshellarg("\"auth=$phase2\""));
-            }
-        } elseif ($passphrase) {
-            exec("wpa_cli -i $iface set_network $netId psk " . escapeshellarg("\"$passphrase\""));
-        } else {
-            exec("wpa_cli -i $iface set_network $netId key_mgmt \"NONE\"");
-        }
-        exec("wpa_cli -i $iface enable_network $netId");
-        exec("wpa_cli -i $iface save_config");
-        exec("wpa_cli -i $iface reconnect $netId");
-    }
+
+            // Bring up connection
+            shell_exec("nmcli connection up $connNameEsc");
 }
 
-function disconnectWifi($redis, $args)
-{
+function disconnectWifi($redis, $args, $options = []) {
 //    file_put_contents('/srv/http/netdebug.log', "disconnect_wifi\n", FILE_APPEND);
 //    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
-    // needs $nic and $ssid
-    // Detect backend: IWD or WPA Supplicant
-    exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
-    // disconnect via iwd
-    if ($useIwd) {
-        sysCmd('iwctl station ' . escapeshellarg($args['nic']) . ' disconnect');
-        sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' set-property AutoConnect no');
-        // if delete remove network otherwise just disconnect
-        if ($args['action'] == "delete") {
-            sysCmd('iwctl known-networks ' . escapeshellarg($args['ssid']) . ' forget');
-            // Clean systemd-networkd config
-            sysCmd('rm -f /etc/systemd/network/20-'.$args['nic'].'.network');
-            sysCmd('networkctl reload');
-        }
-    } else {
-        $iface = escapeshellarg($args['nic']);
-        $ssid = escapeshellarg($args['ssid']);
+    // Determine the connection name based on your convention
+    $connName = "wifi-{$args['nic']}-{$args['ssid']}";
+    $connNameEsc = escapeshellarg($connName);
+    $nicEsc = escapeshellarg($args['nic']);
 
-        // Disconnect current connection
-        sysCmd("wpa_cli -i $iface disconnect");
-        //file_put_contents('/srv/http/netdebug.log', "Find network ID: {$args['ssid']}\n", FILE_APPEND);
-        // Find the network ID for the SSID
-        $known_networks = sysCmd("wpa_cli -i $iface list_networks");
-        $netid = null;
+    // Bring the connection down if it's active
+    shell_exec("nmcli connection down $connNameEsc 2>/dev/null");
 
-        foreach ($known_networks as $line) {
-            // Skip header line
-            if (strpos($line, 'network id') !== false) continue;
+    // Optionally, also disconnect the NIC (force release from AP)
+    shell_exec("nmcli device disconnect $nicEsc 2>/dev/null");
 
-            // Split by tabs and check if we have enough parts
-            $parts = explode("\t", $line);
-            if (count($parts) >= 2) {
-                $line_ssid = trim($parts[1]);
-                $target_ssid = trim($args['ssid']);
+    // Delete the named profile so it doesn't auto-reconnect
+    shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
 
-                // Case-insensitive comparison
-                if (strcasecmp($line_ssid, $target_ssid) === 0) {
-                    $netid = trim($parts[0]);
-                    break;
-                }
-            }
-        }
-        if ($netid !== null) {
-            //file_put_contents('/srv/http/netdebug.log', "Found network ID = $netid for SSID {$args['ssid']}\n", FILE_APPEND);         
-            // Disable the network to prevent auto-reconnect
-            sysCmd("wpa_cli -i $iface disable_network $netid");
-
-            // if delete remove network otherwise just disconnect
-            if ($args['action'] == "delete") {
-                sysCmd("wpa_cli -i $iface remove_network $netid");
-                sysCmd("wpa_cli -i $iface save_config");
-                // Clean systemd-networkd config
-                sysCmd('rm -f /etc/systemd/network/20-'.$args['nic'].'.network');
-                sysCmd('networkctl reload');
-            } else {
-                sysCmd("wpa_cli -i $iface save_config");
-            }
-        } else {
-            //file_put_contents('/srv/http/netdebug.log', "Network ID not found for SSID: {$args['ssid']}\n", FILE_APPEND);
-        }
-    }
+    // Optionally log
+    runelog("[disconnectWifi]: Disconnected and removed profile $connName from interface {$args['nic']}");
 }
 
 function wrk_jobID()
