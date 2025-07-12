@@ -520,7 +520,14 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
                     ($networkInterfaces[$interface]['ipStatus'] == 'UP')
                     )
             {
-                if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
+                if ($useIwd) {
+                    // NAT configuration for iwd AP mode
+                    // enable NAT if enabled and there is a wired nic available
+                    sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
+                    sysCmd('sysctl net.ipv4.ip_forward=1');
+                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
+                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
+                } else {
                     // NAT configuration for hostapd AP mode
                     // enable NAT if enabled and there is a wired nic available
                     sysCmd('iptables -t nat -A POSTROUTING -o '.$ethNic.' -j MASQUERADE');
@@ -529,14 +536,7 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
                     sysCmd('sysctl net.ipv4.ip_forward=1');
                     $redis->hSet('AccessPoint', 'ethNic', $ethNic);
                     $redis->hSet('AccessPoint', 'NAT-configured', 1);
-                } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
-                    // NAT configuration for iwd AP mode
-                    // enable NAT if enabled and there is a wired nic available
-                    sysCmd('iptables -t nat -A POSTROUTING -s '.$base_address.'/24 -j MASQUERADE');
-                    sysCmd('sysctl net.ipv4.ip_forward=1');
-                    $redis->hSet('AccessPoint', 'ethNic', $ethNic);
-                    $redis->hSet('AccessPoint', 'NAT-configured', 1);
-                }
+               }
             }
         }
     }
