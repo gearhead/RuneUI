@@ -2666,6 +2666,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
             }
             if (isset($args['enable-NAT']) && $args['enable-NAT'] && !$redis->hGet('AccessPoint', 'enable-NAT')) {
                 // there is a value passed with $args and it is true and current state is false
+                $redis->hSet('AccessPoint', 'enable-NAT', 1);
                 $args['rescan'] = 1;
             } else if ((!isset($args['enable-NAT']) || !$args['enable-NAT']) && $redis->hGet('AccessPoint', 'enable-NAT')) {
                 // there is a value passed with $args and it is false and current state is true
@@ -2706,6 +2707,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     sysCmd('iwctl ap '.$interface.' stop');
                 } else {
                     wrk_systemd_unit($redis, 'stop', 'hostapd');
+                    wrk_systemd_unit($redis, 'stop', 'dnsmasq');
                 }
                 // get the wlan nic used for accesspoint
                 $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
