@@ -6,8 +6,7 @@
 #
 # adding or removing audio card ('card0' to 'card9') will trigger running /srv/http/command/refresh_ao
 # provides plug & play audio card functionality (e.g. usb, bluetooth)
-TAG+="systemd", ENV{SYSTEMD_WANTS}="refresh-ao.service"
-#KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao async udev"
+KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="add", RUN+="/srv/http/command/refresh_ao async udev"
 KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/command/refresh_ao async udev"
 #
 #
@@ -15,8 +14,7 @@ KERNEL=="card[0-9]", SUBSYSTEM=="sound", ACTION=="remove", RUN+="/srv/http/comma
 #
 # adding or removing network interface will trigger running /srv/http/command/refresh_nics
 # provides plug & play network dongle functionality
-TAG+="systemd", ENV{SYSTEMD_WANTS}="refresh-nics.service"
-#SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics async"
+SUBSYSTEM=="net", ACTION=="add", RUN+="/srv/http/command/refresh_nics async"
 SUBSYSTEM=="net", ACTION=="remove", RUN+="/srv/http/command/refresh_nics async"
 #
 #
