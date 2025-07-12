@@ -335,7 +335,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
 /*                $apFileContent .= "[IPv4]\n";
                 $apFileContent .= "Address=".$redis->hGet('AccessPoint', 'ip-address')."\n";
                 $apFileContent .= "Gateway=".$redis->hGet('AccessPoint', 'dhcp-option-router')."\n";
-                $apFileContent .= "Netmask=255.255.255.0\n"; 
+                $apFileContent .= "Netmask=255.255.255.0\n";
                 $apFileContent .= "DNSList=".$redis->hGet('AccessPoint', 'dhcp-option-dns')."\n"; */
                 file_put_contents($file, $apFileContent);
             // }
@@ -393,7 +393,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
                 $redis->hSet('AccessPoint', 'ethNic', $ethNic);
             }
         }
-        
+
         // now both iwd and hostapd use dnsmasq...
         $file = '/etc/dnsmasq.conf';
         // change dhcp-range
@@ -436,7 +436,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
         // enable the AP by switching broadcast on
         sysCmd('ip addr add '.$redis->hGet('AccessPoint', 'ip-address').'/24 broadcast '.$redis->hGet('AccessPoint', 'broadcast').' dev '.$interface);
         $networkInterfaces = refresh_nics($redis);
-         
+
         $apUp = sysCmd('ip -o link | grep -i "state up" | grep -ic "'.$interface.'" | xargs')[0];
         // $apUp = false;
         // foreach ($networkInterfaces as $nic) {

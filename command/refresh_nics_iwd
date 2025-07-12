@@ -292,7 +292,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
         }
         //
 //        if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
-	    if ($useIwd) {
+        if ($useIwd) {
             // use iwd to set up AP
             runelog('########### iwctl AP mode '.$wlanNic.' starting '.$interface);
             // iwd cannot scan while in AP mode, but we can set up a virtual interface and use it...
@@ -361,8 +361,8 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
                 $redis->hSet('AccessPoint', 'ethNic', $ethNic);
             }
             $networkInterfaces = refresh_nics($redis);
-        } else { 
-		// use wpa_supplicant/hostapd
+        } else {
+        // use wpa_supplicant/hostapd
 //        } else if ($redis->hGet('AccessPoint', 'host') == 'iwd') {
             // use hostapd and dnsmasq to set up AP
             runelog('########### hostapd AP mode '.$wlanNic.' starting '.$interface);
@@ -391,9 +391,9 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
                 $redis->hSet('AccessPoint', 'ethNic', $ethNic);
             }
             $networkInterfaces = refresh_nics($redis);
-		}
+        }
         $apUp = sysCmd('ip -o link | grep -i "state up" | grep -ic "'.$interface.'" | xargs')[0];
-        // switching from dnsmasq to networkd requires that we create a new config for networkd and 
+        // switching from dnsmasq to networkd requires that we create a new config for networkd and
         // initialize it.
         $file = '/etc/systemd/network/20-'.$redis->hGet('AccessPoint', 'interface').'.network';
             $apConf = [
@@ -440,12 +440,12 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
     // send a message to the UI
     ui_notify($redis, 'Access Point', 'Disabled. You may lose your connection, reconnect using: <strong>http://'.$redis->get('hostname').'.local</strong>', '', 1);
     // stop the AP
-	if ($useIwd) {
-		sysCmd('iwctl ap '.$interface.' stop');
-	} else {
+    if ($useIwd) {
+        sysCmd('iwctl ap '.$interface.' stop');
+    } else {
     wrk_systemd_unit($redis, 'stop', 'hostapd');
 //    wrk_systemd_unit($redis, 'stop', 'dnsmasq');
-	}
+    }
     $interface = $redis->hGet('AccessPoint', 'interface');
     if ($interface) {
         // delete the virtual AP nic if required
@@ -498,7 +498,7 @@ if ($redis->get('allwifi_on') && $redis->hGet('AccessPoint', 'enable') && $redis
             {
 // Using systemd-resolved and systemd-networkd and no longer using dnsmasq
 // NAT works the same for either wifi backend
-// resolved has a line added to allow dns lookups without dnsmasq. We may want to 
+// resolved has a line added to allow dns lookups without dnsmasq. We may want to
 // dynamically add and remove if it is a security risk...
                     // NAT configuration for hostapd AP mode
                     // enable NAT if enabled and there is a wired nic available

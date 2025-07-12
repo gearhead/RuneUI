@@ -2763,7 +2763,7 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                 } else {
                     $message = 'Disabled';
                 }
-            }       
+            }
             break;
         case 'reset':
             sysCmd('/srv/http/db/redis_datastore_setup apreset');
@@ -3197,8 +3197,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
         case 'check_connman':
             // enables and disables ipv6 and corrects the all configuration files
             //  IPv6.privacy=disabled to IPv6.privacy=preferred
-            // get the ipv6 setting from redis and each can be run through the 
-            // netd_config($redis, $args); function and the ipv6 should be updated acordingly. 
+            // get the ipv6 setting from redis and each can be run through the
+            // netd_config($redis, $args); function and the ipv6 should be updated acordingly.
             $network_ipv6 = $redis->get('network_ipv6');
             // check the llmnrd ipv6 setting
             if ($redis->get('llmnrdipv6') != $network_ipv6) {
@@ -3739,7 +3739,7 @@ function disconnectWifi($redis, $args)
             }
         }
         if ($netid !== null) {
-            //file_put_contents('/srv/http/netdebug.log', "Found network ID = $netid for SSID {$args['ssid']}\n", FILE_APPEND);         
+            //file_put_contents('/srv/http/netdebug.log', "Found network ID = $netid for SSID {$args['ssid']}\n", FILE_APPEND);
             // Disable the network to prevent auto-reconnect
             sysCmd("wpa_cli -i $iface disable_network $netid");
 
@@ -8787,7 +8787,7 @@ function refresh_nics($redis)
     }
     // switch selected technology on
     foreach ($enabled_technology as $technology) {
-// maybe use rfkill here to ensure the wifi is up?		
+// maybe use rfkill here to ensure the wifi is up?
 //        sysCmd('connmanctl enable '.$technology);
     }
     // switch selected technology off
@@ -8873,7 +8873,7 @@ function refresh_nics($redis)
             // ipv6 is off, set the nic accordingly
             sysCmd('sysctl -w net.ipv6.conf.'.$nic.'.disable_ipv6=1 > /dev/null');
         }
-        //  kg - make sure the MAC address in networkd matches for each network we 
+        //  kg - make sure the MAC address in networkd matches for each network we
         // have set up: /etc/systemd/network/20-$nic.network
         $file = "/etc/systemd/network/20-$nic.network";
         if (!file_exists($file)) {
@@ -8896,7 +8896,7 @@ function refresh_nics($redis)
             runelog('[refresh_nics]: Fixed MACAddress in '.$file.' to '.$macAddressColons);
         } else {
             runelog('[refresh_nics]: '.$file.' already has correct'.$macAddressColons);
-        }  
+        }
     }
     // add ip addresses to array $networkInterfaces with ip address
     $addrs = sysCmd("ip -o  address | sed 's,[ ]\+, ,g'");
@@ -8972,7 +8972,7 @@ function refresh_nics($redis)
             // refresh network list for wifi
             if (is_firstTime($redis, 'connman_scan_wifi')) {
 //                sysCmd('connmanctl scan wifi');
-                sysCmd('iw '.$nic.' scan');                
+                sysCmd('iw '.$nic.' scan');
             } else {
 //                sysCmdAsync($redis, 'connmanctl scan wifi');
                 sysCmdAsync($redis, 'iw '.$nic.' scan');
@@ -9119,7 +9119,7 @@ function refresh_nics($redis)
     $avahiNic = '';
     // get the services
 //    $services = sysCmd('connmanctl services');
-    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py'); 
+    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py');
     foreach ($services as $service) {
         unset($security, $strength, $strengthStars);
         $status = strtoupper(trim(substr($service, 0, 4)));
@@ -9475,7 +9475,7 @@ function refresh_nics($redis)
                 }
             }
         }
-/*        
+/*
         // connman is buggy! autoconnect-on/off seems to have no effect, the following routine solves some of the problems
         $connmanWifiServices = sysCmd('connmanctl services | grep "wifi_"');
         $stopAndStart = false;
@@ -9498,7 +9498,7 @@ function refresh_nics($redis)
                 sysCmd('connmanctl connect '.$startService);
             }
         }
-*/        
+*/
     }
     //
     $redis->set('network_info', json_encode($networkInfo));
