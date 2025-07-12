@@ -31,6 +31,8 @@ Restart=on-failure
 RestartSec=5
 StartLimitBurst=10
 StartLimitInterval=600
+# give owntone 5 seconds to stop, then timeout and kill
+TimeoutStopSec=5s
 
 [Install]
 WantedBy=multi-user.target
