@@ -395,7 +395,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
         }
 
         // now both iwd and hostapd use dnsmasq...
-        $file = '/etc/dnsmasq.conf';
+        $file = '/etc/dnsmasq.d/runeap.conf';
         // change dhcp-range
         $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
         // change dhcp-option dns-server
