@@ -8756,37 +8756,90 @@ function refresh_nics($redis)
     // determine AP capability with iw
     // add the wifi technology to array $networkInterfaces with iw
     // uses the array $wirelessNic for device id to nic name translation
-    $deviceInfoList = sysCmd("iw list | sed 's,[ ]\+, ,g' | grep -iE '^Wiphy|Supported interface modes:|* AP$|:$'");
-    // the nic names are not listed, only the physical device id's
+    $deviceInfoList = sysCmd("iw list | sed 's,[ ]\\+, ,g'");
     $phyDev = '';
     $intMode = false;
+    $validCombMode = false;
+    $comboBlock = '';
     $nic = '';
-    foreach ($deviceInfoList as $deviceInfoLine) {
-        $deviceInfoLine = ' '.trim($deviceInfoLine);
-        if (strpos($deviceInfoLine, 'Wiphy')) {
-            $phyDev = trim(explode(' ', trim($deviceInfoLine))[1]);
-        } else if (strpos($deviceInfoLine, 'Supported interface modes:')) {
-            // the 'Supported interface modes:' section of the file is terminated with a line containing a colon (:)
+
+    $sawApSupported = false;
+    $sawManagedInMultiChannelCombo = false;
+
+    foreach ($deviceInfoList as $lineRaw) {
+        $line = ' ' . trim($lineRaw);
+
+        // Track Wiphy start
+        if (preg_match('/^ Wiphy (\S+)/', $line, $m)) {
+            $phyDev = $m[1];
+            $comboBlock = '';
+            $validCombMode = false;
+            $sawApSupported = false;
+            $sawManagedInMultiChannelCombo = false;
+            continue;
+        }
+
+        // Detect Supported interface modes
+        if (strpos($line, 'Supported interface modes:') !== false) {
             $intMode = true;
-        } else if (strpos($deviceInfoLine, '* AP')) {
-            if ($intMode) {
-                // access point (AP) is listed as a 'Supported interface mode'
-                if (isset($wirelessNic[$phyDev]['nics']) && is_array($wirelessNic[$phyDev]['nics'])) {
-                    $wirelessNic[$phyDev]['apSupported'] = true;
+            continue;
+        }
+
+        if ($intMode) {
+            if (preg_match('/\* AP$/', $line)) {
+                $sawApSupported = true;
+                if (isset($wirelessNic[$phyDev]['nics'])) {
                     foreach ($wirelessNic[$phyDev]['nics'] as $nic) {
                         $networkInterfaces[$nic]['apSupported'] = true;
                     }
                 }
-                $phyDev = '';
+            } else if (strpos($line, ':') !== false) {
+                // End of interface modes block
                 $intMode = false;
-                $nic = '';
+                if (isset($wirelessNic[$phyDev]['nics'])) {
+                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {
+                        if (!isset($networkInterfaces[$nic]['apSupported'])) {
+                            $networkInterfaces[$nic]['apSupported'] = false;
+                        }
+                    }
+                }
             }
-        } else if (strpos($deviceInfoLine, ':')) {
-            if (($nic != '') && ($intMode)) {
-                // reached the end of the 'Supported interface modes:' section and no access point (AP) listed
-                $networkInterfaces[$nic]['apSupported'] = false;
+            continue;
+        }
+
+        // Valid interface combinations
+        // look to see if multiple interfaces are supported and it >1
+        // assume that it "can" scan in AP mode. This is usually explicitly spelled out
+        // with "* #{ managed } <= 2, #{ AP } <= 1, #{ P2P-client } <= 1, #{ P2P-device } <= 1. total <= 4, #channels <= 1"
+        // but if this is shown like on the brcmfmac card:
+        // 		 "* #{ managed } <= 2, #{ P2P-device } <= 1, #{ P2P-client, P2P-GO } <= 1, total <= 3, #channels <= 2"
+        // it will allow a scan of ssids and still maintain the AP... If 2 interfaces are not shown, we cannot actually create a 
+        // virtual interface 'ap0' as it gets all confused.  
+        if (strpos($line, 'valid interface combinations:') !== false) {
+            $validCombMode = true;
+            $comboBlock = '';
+            continue;
+        }
+        if ($validCombMode) {
+            if (preg_match('/^\s*\*/', $line) || preg_match('/^\s+.*#channels/', $line)) {
+                $comboBlock .= $line . "\n";
+            } else if (strpos($line, ':') !== false && !preg_match('/^\s*\*/', $line)) {
+                // End of block → process comboBlock
+                if (preg_match('/#channels\s*<=\s*(\d+)/', $comboBlock, $m)) {
+                    $channels = (int)$m[1];
+                    if ($channels <= 2 && preg_match('/#\{[^}]*managed[^}]*\}/', $comboBlock)){
+                        $sawManagedInMultiChannelCombo = true;
+                    }
+                }
+                // Once processed, assign final value
+                if (isset($wirelessNic[$phyDev]['nics'])) {
+                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {                 
+                        $networkInterfaces[$nic]['scanAp'] = $sawApSupported && $sawManagedInMultiChannelCombo;
+                    }
+                }
+                $comboBlock = '';
+                $validCombMode = false;
             }
-            $intMode = false;
         }
     }
     // walk through the nics a final time
@@ -12843,14 +12896,14 @@ function set_alsa_default_card($redis, $cardName = null)
     $device = trim($acard['device']);
     $cardNumber = get_between_data($device, ':', ',');
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
-        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-control='.$acard['mixer_control'];
         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
             $mixerInfo .= ' --volume=none';
         }
     } else if (isset($device) && strpos(' '.$device, 'bluealsa')) {
         list($bluealsaMixerDevice, $bluealsaMixerControl) = explode(',', $device, 2);
         $bluealsaMixerControl = strtoupper(get_between_data($bluealsaMixerControl, '='));
-        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-name='.$bluealsaMixerControl.' --volume=mixer';
+        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-control='.$bluealsaMixerControl.' --volume=mixer';
     } else {
         $mixerInfo = ' --volume=auto';
     }

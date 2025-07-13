@@ -226,11 +226,13 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
         // remove any/all nic connected indicators before trying to start the AP (see: /command/internet_available)
         sysCmd('rm -f /tmp/*.up');
         // restart iwd otherwise the AP will not reconnect after losing a Wi-Fi connection
-        // wrk_systemd_unit($redis, 'restart', 'iwd');
-        if (($redis->hGet('AccessPoint', 'host') == 'iwd')) {
-            // when host is iwd a virtual nic must be created on wlan0 for the access point
+        // if the nic can support 2 interfaces, most of the time, it will scan when in AP mode
+         if ($nic['scanAp']) {
+            // we can create a virtual nic on wlan0 for the access point
             $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);
         }
+        // but only if the interface supports it
+        // if ($wlanNic['apFull']=='true'), it supports a virtual interface otherwise we need to use wlanX
         // if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
         if ($redis->hGet('AccessPoint', 'virtual_ap_dev') && is_firstTime($redis, 'create_virtual_nic')) {
             // Create a virtual nic on wlan nic as defined by redis hash AccessPoint vitual_ap_name
@@ -293,10 +295,8 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
             $interface = $wlanNic;
         }
         //
-//        if ($redis->hGet('AccessPoint', 'host') == 'hostapd') {
         if ($useIwd) {
             // use iwd to set up AP
-            // originally to use iwd internal dhcp server...
             runelog('########### iwctl AP mode '.$wlanNic.' starting '.$interface);
             // iwd cannot scan while in AP mode, but we can set up a virtual interface and use it...
             // both iptables and iwd need the x.x.x.0 address. We extract it from the ip-address
@@ -304,21 +304,6 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
             $IP_components[3]='0';
             $base_address = implode('.',$IP_components);
             // if (is_firstTime($redis, 'iwd_AP_config')) {
-                $file = '/etc/iwd/main.conf';
-                $AppendAPRanges = sysCmd("grep -ic 'APRanges=' '".$file."'")[0];
-                if ($AppendAPRanges) {
-                    // append the extra line
-                    file_put_contents($file, "\nAPRanges=".$base_address.'/24', FILE_APPEND | LOCK_EX);
-                } else {
-                    // edit the file to replace the existing line
-                    $newArray = wrk_replaceTextLine($file, '' , 'APRanges=', 'APRanges='.$base_address.'/24');
-                    $fp = fopen($file, 'w');
-                    $return = fwrite($fp, implode('', $newArray));
-                    fclose($fp);
-                }
-                $fp = fopen($file, 'w');
-                $return = fwrite($fp, implode('', $newArray));
-                fclose($fp);
                 // ssid is set by the file name ssid.ap
                 // remove all *.ap files
                 sysCmd('mkdir -p /var/lib/iwd/ap/');
@@ -332,11 +317,6 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
                 $apFileContent .= "DisableHT=true\n";
                 $apFileContent .= "[Security]\n";
                 $apFileContent .= "Passphrase=".$redis->hGet('AccessPoint', 'passphrase')."\n";
-/*                $apFileContent .= "[IPv4]\n";
-                $apFileContent .= "Address=".$redis->hGet('AccessPoint', 'ip-address')."\n";
-                $apFileContent .= "Gateway=".$redis->hGet('AccessPoint', 'dhcp-option-router')."\n";
-                $apFileContent .= "Netmask=255.255.255.0\n";
-                $apFileContent .= "DNSList=".$redis->hGet('AccessPoint', 'dhcp-option-dns')."\n"; */
                 file_put_contents($file, $apFileContent);
             // }
             // set to ap mode
