@@ -230,7 +230,7 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
          if ($nic['scanAp']) {
             // we can create a virtual nic on wlan0 for the access point
             $redis->hSet('AccessPoint', 'virtual_ap_dev', 1);
-        }
+            }
         // but only if the interface supports it
         // if ($wlanNic['apFull']=='true'), it supports a virtual interface otherwise we need to use wlanX
         // if ($redis->hGet('AccessPoint', 'virtual_ap_dev')) {
