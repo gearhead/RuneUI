@@ -13092,14 +13092,14 @@ function set_alsa_default_card($redis, $cardName = null)
     $device = trim($acard['device']);
     $cardNumber = get_between_data($device, ':', ',');
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
-        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-control='.$acard['mixer_control'];
         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
             $mixerInfo .= ' --volume=none';
         }
     } else if (isset($device) && strpos(' '.$device, 'bluealsa')) {
         list($bluealsaMixerDevice, $bluealsaMixerControl) = explode(',', $device, 2);
         $bluealsaMixerControl = strtoupper(get_between_data($bluealsaMixerControl, '='));
-        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-name='.$bluealsaMixerControl.' --volume=mixer';
+        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-control='.$bluealsaMixerControl.' --volume=mixer';
     } else {
         $mixerInfo = ' --volume=auto';
     }
