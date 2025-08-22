@@ -8813,8 +8813,8 @@ function refresh_nics($redis)
         // with "* #{ managed } <= 2, #{ AP } <= 1, #{ P2P-client } <= 1, #{ P2P-device } <= 1. total <= 4, #channels <= 1"
         // but if this is shown like on the brcmfmac card:
         // 		 "* #{ managed } <= 2, #{ P2P-device } <= 1, #{ P2P-client, P2P-GO } <= 1, total <= 3, #channels <= 2"
-        // it will allow a scan of ssids and still maintain the AP... If 2 interfaces are not shown, we cannot actually create a 
-        // virtual interface 'ap0' as it gets all confused.  
+        // it will allow a scan of ssids and still maintain the AP... If 2 interfaces are not shown, we cannot actually create a
+        // virtual interface 'ap0' as it gets all confused.
         if (strpos($line, 'valid interface combinations:') !== false) {
             $validCombMode = true;
             $comboBlock = '';
@@ -8833,7 +8833,7 @@ function refresh_nics($redis)
                 }
                 // Once processed, assign final value
                 if (isset($wirelessNic[$phyDev]['nics'])) {
-                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {                 
+                    foreach ($wirelessNic[$phyDev]['nics'] as $nic) {
                         $networkInterfaces[$nic]['scanAp'] = $sawApSupported && $sawManagedInMultiChannelCombo;
                     }
                 }
