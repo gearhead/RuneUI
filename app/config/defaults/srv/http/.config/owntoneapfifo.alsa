@@ -1,0 +1,27 @@
+# this is part of RuneAudio
+# pcm output device to pipe aprplay output to an owntone fifo pipe
+pcm.owntoneapfifo {
+    type plug
+    slave.pcm aprate
+    hint {
+        show {
+            @func refer
+            name defaults.namehint.extended
+        }
+        description "pcm output device to pipe aprplay output to an owntone fifo pipe"
+   }
+}
+pcm.aprate {
+    type rate
+    slave {
+        pcm apwriteFile # Direct to the plugin which will write to a file
+        format S16_LE
+        rate 44100 # owntone rate
+    }
+}
+pcm.apwriteFile {
+    type file
+    slave.pcm null
+    file "/run/owntone/music/pipe_ap.fifo" # the ap owntone fifo file name
+    format "raw"
+}

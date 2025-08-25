@@ -1,0 +1,27 @@
+# this is part of RuneAudio
+# pcm output device to pipe bluealsa-aplay output to an owntone fifo pipe
+pcm.owntonebtfifo {
+    type plug
+    slave.pcm btrate
+    hint {
+        show {
+            @func refer
+            name defaults.namehint.extended
+        }
+        description "pcm output device to pipe bluealsa-aplay output to an owntone fifo pipe"
+   }
+}
+pcm.btrate {
+    type rate
+    slave {
+        pcm btwriteFile # Direct to the plugin which will write to a file
+        format S16_LE
+        rate 44100 # owntone rate
+    }
+}
+pcm.btwriteFile {
+    type file
+    slave.pcm null
+    file "/run/owntone/music/pipe_bt.fifo" # the bt owntone fifo file name
+    format "raw"
+}

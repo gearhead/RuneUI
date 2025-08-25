@@ -1,0 +1,27 @@
+# this is part of RuneAudio
+# pcm output device to pipe mpd output to an owntone fifo pipe
+pcm.owntonempdfifo {
+    type plug
+    slave.pcm mpdrate
+    hint {
+        show {
+            @func refer
+            name defaults.namehint.extended
+        }
+        description "pcm output device to pipe mpd output to an owntone fifo pipe"
+   }
+}
+pcm.mpdrate {
+    type rate
+    slave {
+        pcm mpdwriteFile # Direct to the plugin which will write to a file
+        format S16_LE
+        rate 44100 # owntone rate
+    }
+}
+pcm.mpdwriteFile {
+    type file
+    slave.pcm null
+    file "/run/owntone/music/pipe_mpd.fifo" # the mpd owntone fifo file name
+    format "raw"
+}
