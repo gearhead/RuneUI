@@ -78,7 +78,7 @@ while (true) {
     }
     if ($redis->get('activePlayer') === 'MPD') {
         // when the active player is MPD and it is not playing, but output is playing something then it is Bluetooth
-        $mpdStatus = strtolower(SysCmd('mpc status 2>&1 | xargs')[0]);
+        $mpdStatus = strtolower(SysCmd('mpc status 2>&1 | tr -d \\\'\" | xargs')[0]);
         if (strpos(' '.$mpdStatus, 'mpd error')) {
             // mpd is not yet running, cant do anything yet
             sleep(10);

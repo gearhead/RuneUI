@@ -55,6 +55,7 @@ wrk_mpdconf($redis, 'refresh');
 // ashuffle gets started automatically
 // refresh any hardware input cards, the card number(s) can change after a reboot
 wrk_hwinput($redis, 'refresh');
+wrk_mpdconf($redis, 'switchao');
 
 runelog('WORKER setplayer_async.php END...');
 #---

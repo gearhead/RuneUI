@@ -52,19 +52,31 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: owntone_monitor.php ---------------" > /var/log/runeaudio/owntone_monitor.log');
 runelog('WORKER owntone_monitor.php STARTING...');
 //
-$delay = 6;
-$cnt = $delay;
+// delay1 = 12 : runs every 60 seconds
+$delay1 = 12;
+$cnt1 = $delay1;
+// delay2 = 6 : runs every 30 seconds
+$delay2 = 6;
+$cnt2 = $delay2;
 while (true) {
     sleep(5);
-    if ($redis->hGet('owntone', 'enable') && ($redis->hGet('owntone', 'role') == 'server') && ($cnt-- <= 0)) {
+    if ($redis->hGet('owntone', 'enable') && ($redis->hGet('owntone', 'role') == 'server') && ($cnt1-- <= 0)) {
         $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
         if ($retval == 'changed') {
-            wrk_systemd_unit($redis, 'restart', 'owntone');
+            wrk_owntone($redis, 'reset');
         }
-        $cnt = $delay;
+        $cnt1 = $delay1;
     }
-    if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active')) {
-        wrk_owntone($redis, 'status');
+    if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active') && ($cnt2-- <= 0)) {
+        $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+        $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+        $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+        if ($mpdError && $owntoneRunning && $mpdRunning) {
+            wrk_owntone($redis, 'reset');
+        } else {
+            wrk_owntone($redis, 'status');
+        }
+        $cnt2 = $delay2;
     }
 }
 //

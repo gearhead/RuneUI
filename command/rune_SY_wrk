@@ -307,8 +307,11 @@ if ($playerid_db === '') {
     $firstlap = $start2-$start;
     $start3 = microtime(true);
     //
-    // create the directory structure for backup, shairport sysnc, spotifyd and PMD (this part is vital and must be run first)
+    // create the directory structure for backup, shairport sysnc, spotifyd and MPD (this part is vital and must be run first)
     sysCmdAsync($redis, '/srv/http/command/create_work_dirs.sh');
+    //
+    // initialise and start owntone, start before MPD
+    sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
     //
     // check and set HOSTNAME
     sysCmdAsync($redis, '/srv/http/command/sethost_async.php');
@@ -342,7 +345,9 @@ if ($playerid_db === '') {
     //
     // clear the current song data on the first pass after startup
     if (is_firstTime($redis, 'clear_act_player_info')) {
+        //$redis->set('act_player_info', json_encode(initialise_playback_array($redis, 'MPD')));
         $redis->set('act_player_info', json_encode(array()));
+        ui_render('playback', $redis->get('act_player_info'));
     }
     //
     // start mpd and wait for completion
@@ -381,9 +386,6 @@ if ($playerid_db === '') {
         // start shairport-sync if it is not already started
         sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php');
     }
-    //
-    // initialise and start owntone
-    sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
     //
     // check the availability of internet and services
     sysCmdAsync($redis, '/srv/http/command/internet_available_async.sh');
@@ -1085,7 +1087,7 @@ while (true) {
                 sysCmd('/srv/http/db/redis_datastore_setup check');
                 $redis->hSet('airplay', 'name', $airplay_name);
                 $redis->hSet('airplay', 'enable', $airplay_enable);
-                wrk_shairport($redis, $redis->get('ao'), $airplay_name);
+                wrk_shairport($redis, $redis->get('ao'), $airplay_name, $jobID);
                 $redis->sRem('w_lock', $jobID);
                 unset($airplay_name, $airplay_enable);
                 break;
@@ -1112,27 +1114,27 @@ while (true) {
                 break;
             case 'soxrairplay':
                 $redis->hSet('airplay', 'soxronoff', $job->action);
-                wrk_shairport($redis, $redis->get('ao'));
+                wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'metadataairplay':
                 $redis->hSet('airplay', 'metadataonoff', $job->action);
-                wrk_shairport($redis, $redis->get('ao'));
+                wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'artworkairplay':
                 $redis->hSet('airplay', 'artworkonoff', $job->action);
-                wrk_shairport($redis, $redis->get('ao'));
+                wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'airplayoutputformat':
                 $redis->hSet('airplay', 'alsa_output_format', $job->args);
-                wrk_shairport($redis, $redis->get('ao'));
+                wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'airplayoutputrate':
                 $redis->hSet('airplay', 'alsa_output_rate', $job->args);
-                wrk_shairport($redis, $redis->get('ao'));
+                wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'playernamemenu':

@@ -521,23 +521,34 @@
                             <option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
                             <option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
                         </select>
-                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound quality by changing this setting.<br>
-                        However, some DAC cards and output devices have problems playing at 16bit depth. And if you use a Mac as source (not a iPhone or iPad) then 24bit can be supported (you need to manually switch this ON on the Mac).<br>
-                        In these cases you can use this function change the bit depth to 16bit, 24bit or 32bit (S16, S24 or S32). Other values should only be set if you know what you are doing. Your sound card must be able to support your choice</span>
+                        <span class="help-block">Normally Airplay is set up to play music at 44.1kHz with 16bit depth.
+                        This is the normal transmission mode for mobile Airplay devices.
+                        Normally you will not improve the sound quality by changing this setting.
+                        For Multi-room use it is preferable to set the output format to S16<br>
+                        However, some DAC cards and output devices have problems playing at 16bit depth.
+                        And if you use a Mac as source (not a iPhone or iPad) then 24bit can be supported (you need to manually switch this ON on the Mac).<br>
+                        In these cases you can use this function change the bit depth to 16bit, 24bit or 32bit (S16, S24 or S32).
+                        Other values should only be set if you know what you are doing. Your sound card must be able to support your choice</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="airplayor">Airplay output rate</label>
                     <div class="col-sm-10">
                         <select id="airplayor" class="selectpicker" name="mode[airplayor]" data-style="btn-default btn-lg">
+                            <option value="auto" <?php if($this->airplayor === 'auto'): ?> selected <?php endif ?>> Automatic</option>
                             <option value="44100" <?php if($this->airplayor === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
                             <option value="88200" <?php if($this->airplayor === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
                             <option value="176400" <?php if($this->airplayor === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
                             <option value="352800" <?php if($this->airplayor === '352800'): ?> selected <?php endif ?>> 352.8kHz</option>
                         </select>
-                        <span class="help-block">Airplay is set up to play music at 44.1kHz with 16bit depth. This is the normal transmission mode for mobile Airplay devices. Normally you will not improve the sound quality by changing this setting.<br>
-                        But if you use a Mac (not a iPhone or iPad) as source for your Airplay music stream it can support sample rates up to 96kHz (you need to manually switch this ON on the Mac).<br>
-                        You can use this function to change the output sample rate to 44.1kHz, 88.2kHz, 176.4kHz or 352.8kHz. Your sound card must be able to support the chosen rate</span>
+                        <span class="help-block">The Airplay output rate is set to <strong>Automatic</strong> by default. This will normally select 44.1kHz.
+                        In combination with a 16bit depth this is the normal transmission mode for mobile Airplay devices.
+                        Normally you will not improve the sound quality by changing this setting as the correct rate will be selected automatically.
+                        You can use this function to change the output sample rate to 44.1kHz, 88.2kHz, 176.4kHz or 352.8kHz.
+                        Your sound card must be able to support the chosen rate<br>
+                        <i>Notes:
+                        A Mac (not a iPhone or iPad) can support sample rates up to 96kHz,you need to manually switch this ON on the Mac.<br>
+                        Multi-room can support 44.1kHz or 88.2kHz processing, you can select the rate below.</i></span>
                     </div>
                 </div>
             </div>
@@ -614,7 +625,7 @@
                             <option value="VAT" <?php if($this->UIorder === 'VAT'): ?> selected <?php endif ?>> Volume - Album - Time</option>
                             <option value="VTA" <?php if($this->UIorder === 'VTA'): ?> selected <?php endif ?>> Volume - Time - Album</option>
                         </select>
-                        <span class="help-block">In the main UI the main objects in the screen are arranged in <strong>Time - Album - Volume</strong> order by default.<br>
+                        <span class="help-block">In the main UI, the main objects in the screen are arranged in <strong>Time - Album - Volume</strong> order by default.<br>
                         These objects may be reordered into any way which you prefer. This is particularly useful when using vertically orientated local browser screens
                         or when a smart-phone is used as preferred remote control.<br>
                         <i>Notes: Regardless of this setting:<br>
@@ -629,7 +640,7 @@
                             <option value="album" <?php if($this->bigArt === 'album'): ?> selected <?php endif ?>> Large Album cover art</option>
                             <option value="artist" <?php if($this->bigArt === 'artist'): ?> selected <?php endif ?>> Large Artist photo art</option>
                         </select>
-                        <span class="help-block">In the screen saver pages the Album cover and Artist photo art are both displayed. By default the
+                        <span class="help-block">In the screen saver pages, the Album cover and Artist photo art are both displayed. By default the
                         Album cover has a large size and the Artist photo is small. You can swap the large and small images using this option.<br>
                         This also changes the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display which contains the resulting
                         small image.<br>
@@ -642,7 +653,7 @@
                     <label class="col-sm-2 control-label" for="artResizing">Local album art resizing</label>
                     <div class="col-sm-10">
                         <input class="form-control osk-trigger input-lg" type="number" id="artResizing" name="mode[artResizing]" value="<?=$this->artResizing ?>" min="100" max="1000" placeholder="350" data-trigger="change">
-                        <span class="help-block">In the main UI the locally sourced album art is displayed with a maximum format of n pixels high and n pixels wide.
+                        <span class="help-block">In the main UI, the locally sourced album art is displayed with a maximum format of n pixels high and n pixels wide.
                         When the locally sourced album art is larger it will be reduced in size so that it fits into n by n pixels.
                         The image aspect ratio remains unchanged.
                         You can change the 'n' value if you require a lower or higher image resolution.
@@ -684,6 +695,21 @@
                         A value of 8 is default, values between 6 and 14 are reasonable, a value less then 5 will disable the feature.
                         <i>Some Webradio stations repeat a metadata string many times each hour, this often contains text advertising the Radio Station and has no relationship to the song being played.
                         By counting the number of occurrences of each Webradio metadata string per hour these irrelevant messages can be identified and suppressed</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="MRorder">Multi-Room settings order</label>
+                    <div class="col-sm-10">
+                        <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
+                            <option value="MLC" <?php if($this->MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
+                            <option value="MCL" <?php if($this->MRorder === 'MCL'): ?> selected <?php endif ?>> Master - Client - Local</option>
+                            <option value="LMC" <?php if($this->MRorder === 'LMC'): ?> selected <?php endif ?>> Local - Master - Client</option>
+                            <option value="LCM" <?php if($this->MRorder === 'LCM'): ?> selected <?php endif ?>> Local - Client - Master</option>
+                            <option value="CML" <?php if($this->MRorder === 'CML'): ?> selected <?php endif ?>> Client - Master - Local</option>
+                            <option value="CLM" <?php if($this->MRorder === 'CLM'): ?> selected <?php endif ?>> Client - Local - Master</option>
+                        </select>
+                        <span class="help-block">In the Multi-Room UI, the groups of settings in the screen are arranged in <strong>Master - Local - Client</strong> order by default.<br>
+                        These objects may be reordered into any way which you prefer. This is particularly useful when you have no local outputs and are only interested in client outputs<br></span>
                     </div>
                 </div>
             </div>

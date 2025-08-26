@@ -108,7 +108,7 @@ rm -rf /var/lib/bluetooth/*
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
     bootsplash bt_mon_switch bt_scan_output chronyd connman-wait-online cron cronie dhcpcd dphys-swapfile\
-    haveged hciuart hostapd llmnrd local-browser local-browser-w mosquitto mpd mpdscribble nmb nmbd ntpd owntone owntone_monitor\
+    haveged hciuart hostapd llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdscribble nmb nmbd ntpd owntone owntone_monitor\
     owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
     shairport-sync smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2 upmpdcli upower winbind\
@@ -117,7 +117,7 @@ declare -a enable_arr=(amixer-webui avahi-daemon cmd_async_queue connman dbus fi
     redis rune_SY_wrk sshd systemd-journald systemd-resolved systemd-timesyncd udevil)
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
     bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd\
-    dphys-swapfile fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w mosquitto mpd mpdversion nmb\
+    dphys-swapfile fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdversion nmb\
     nmbd owntone owntone_monitor owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt\
     plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk rune_SY_wrk\
@@ -271,11 +271,11 @@ systemctl start mpd
 mpc stop
 mpc clear
 mpc rescan
-updating=$( mpc | grep -ic 'Updating' )
+updating=$( mpc status | grep -ic 'Updating' )
 cnt=7
 while [ "$updating" != "0" ] && [ $(( cnt-- )) -gt 0 ] ; do
     sleep 2
-    updating=$( mpc | grep -ic 'Updating' )
+    updating=$( mpc status | grep -ic 'Updating' )
     (( cnt-- ))
     if [ $cnt -le 0 ] ; then
         break

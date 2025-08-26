@@ -1,10 +1,10 @@
-# Note: Please keep this file in sync with owntone@.service.in
+# Note: Please keep this file in sync with owntone.service.in
 
 [Unit]
-Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
+Description=DAAP/DACP (iTunes), RSP, MPD server, with AirPlay and Remote - %I
 Documentation=man:owntone(8)
 Requires=network.target local-fs.target avahi-daemon.socket
-After=network-online.target sound.target remote-fs.target
+After=network.target sound.target remote-fs.target
 
 [Service]
 # always run as user mpd

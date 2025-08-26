@@ -66,23 +66,6 @@ if [[ "$enablesplash" != "0" ]] ; then
     fi
 fi
 echo "Stop MPD, services and unmount shares..."
-# stop playing
-mpc stop
-# set the MPD output to a hardware device, when it is set to Bluetooth it will fail on reboot
-#   on reboot when MPD has started a full configuration takes place, this is enough to enable it to start
-if [ "$hw_device" != "" ] ; then
-    # enable only the default device, everything else will be disabled
-    mpc enable only "$hw_device"
-    # save the current device
-    #redis-cli set ao "$hw_device"
-fi
-# always enable null and HTTPd streaming if configured
-mpc enable null
-streamname="${hostname}_stream"
-httpd=$( mpc outputs | grep -ic "$streamname" )
-if [ "$httpd" == "1" ] ; then
-    mpc enable "$streamname"
-fi
 # stop mpd & related jobs
 declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
 for i in "${stop_arr[@]}" ; do
@@ -90,9 +73,6 @@ for i in "${stop_arr[@]}" ; do
 done
 # set the mpd laststate to stop
 redis-cli set mpd_playback_laststate stop
-# remove the webradio song titles and current playing time from the MPD state file
-sed -i '/^Title: /d' '/var/lib/mpd/mpdstate'
-sed -i '/^time: /d' '/var/lib/mpd/mpdstate'
 # stop local browser & webserver
 pgrep -x xinit && systemctl stop local-browser
 pgrep -x weston && systemctl stop local-browser-w
@@ -106,10 +86,10 @@ fi
 redis-cli del cmd_queue
 redis-cli del cmd_queue_encoding
 # stop most of the systemd units which can be stopped, the order is important
-declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor owntone avahi-daemon\
+declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
     llmnrd mosquitto wsdd winbindd winbindd nmbd nmb smbd smd rune_MPDEM_wrk rune_PL_wrk rune_SDM_wrk rune_SSM_wrk shairport-sync\
-    spotifyd)
+    spotifyd owntone)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done

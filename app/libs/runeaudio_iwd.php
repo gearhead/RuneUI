@@ -9820,7 +9820,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     // a HW input is playing, ashuffle should not not be running
                     $mpdSingleRepeatRandomStopped = true;
                 } else {
-                    $mpcStatus = ' '.trim(preg_replace('!\s+!', ' ', strtolower(sysCmd('mpc status | xargs')[0])));
+                    $mpcStatus = ' '.trim(preg_replace('!\s+!', ' ', strtolower(sysCmd('mpc status | tr -d \\\'\" | xargs')[0])));
                     if (!strpos($mpcStatus, 'playing')) {
                         // not playing
                         $retval = sysCmd('mpc move '.$moveNr.' '.$moveNr.' || echo 1');
@@ -13092,14 +13092,14 @@ function set_alsa_default_card($redis, $cardName = null)
     $device = trim($acard['device']);
     $cardNumber = get_between_data($device, ':', ',');
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
-        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-name='.$acard['mixer_control'];
+        $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-control='.$acard['mixer_control'];
         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
             $mixerInfo .= ' --volume=none';
         }
     } else if (isset($device) && strpos(' '.$device, 'bluealsa')) {
         list($bluealsaMixerDevice, $bluealsaMixerControl) = explode(',', $device, 2);
         $bluealsaMixerControl = strtoupper(get_between_data($bluealsaMixerControl, '='));
-        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-name='.$bluealsaMixerControl.' --volume=mixer';
+        $mixerInfo = ' --mixer-device='.$bluealsaMixerDevice.' --mixer-control='.$bluealsaMixerControl.' --volume=mixer';
     } else {
         $mixerInfo = ' --volume=auto';
     }
@@ -16270,7 +16270,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 $server = 'localhost';
                 $redis->hSet('owntone', 'server', $server);
             } else {
-                $role = 'slave';
+                $role = 'client';
                 $redis->hSet('owntone', 'role', $role);
                 // use avahi-browse to determine the server name
                 //  if there are multiple owntone servers the first owntone server will be used
@@ -16299,8 +16299,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // role and the server name are known
                 //
                 // get the server configuration
-                if (($role == 'slave') && $ipAddress) {
-                    // it is quicker to use the IP address for the slave
+                if (($role == 'client') && $ipAddress) {
+                    // it is quicker to use the IP address for the client
                     $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/config"')[0];
                 } else {
                     // it is quicker to use 'localhost' for the server
@@ -16310,10 +16310,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 $redis->hSet('owntone', 'server_config', $retval);
                 $writeOutputs = false;
                 $writePresets = false;
-                if ($role == 'slave') {
-                    // role is slave, we are only interested in the seleccted 'active' outputs
+                if ($role == 'client') {
+                    // role is client, we are only interested in the seleccted 'active' outputs
                     if (isset($ipAddress) && $ipAddress) {
-                        // it is quicker to use the IP address for the slave
+                        // it is quicker to use the IP address for the client
                         $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/outputs"')[0];
                     } else {
                         $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
@@ -16329,7 +16329,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     $redis->hSet('owntone', 'outputs', json_encode($outputs));
                 } else if ($role == 'server') {
                     // role is server
-                    //  any slave which is up for which autoconnect is set will be connected
+                    //  any client which is up for which autoconnect is set will be connected
                     //  the default alsa output will be activated
                     //  the volume for local alsa will be set when activating
                     //  when a preset volume for non-alsa outputs is available it will be used when activating

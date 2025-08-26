@@ -72,25 +72,28 @@ $template->dev = $devmode;
 $activePlayer = $redis->get('activePlayer');
 // TODO: rework needed
 $template->activePlayer = $activePlayer;
+// owntone menu visible
+if ($redis->hGet('owntone', 'active') && ($redis->hGet('owntone', 'role') == 'server')) {
+    $template->owntoneMenu = 1;
+} else {
+    $template->owntoneMenu = 0;
+}
 // allowed controllers
 $controllers = array(
     'accesspoint',
     'alsamixer',
-//    'artist_info',
     'bluetooth',
-//    'coverart',
     'credits',
     'debug',
     'dev',
 //    'help',
     'index',
     'login',
-//    'lyric',
     'mpd',
     'network',
     'playback',
     'settings',
-//    'snapcast',
+    'multiroom',
     'sources',
     'tun'
 );

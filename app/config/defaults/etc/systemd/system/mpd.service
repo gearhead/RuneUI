@@ -8,16 +8,24 @@ User=mpd
 Type=notify
 #Type=exec
 RuntimeDirectory=mpd
+# remove the output device state, playtime and webradio song title from the state file before starting
+ExecStartPre=-/usr/bin/sed -i '/^audio_device_state\\:/d ; /^time\\:/d ; /^Title\\:/d' '/var/lib/mpd/mpdstate'
 ExecStart=/usr/bin/mpd --no-daemon
-# the following line ensures that mpd saves its state file on stop
-ExecStop=/usr/bin/mpd --kill
-# the following line could replace the previous two, whether the state file is saved on stop is unknown!
+# the following lines ensure that only output null is enabled on shutdown/restart
+#    and mpd saves its state file when the service stops or is restarted
+ExecStop=-/usr/bin/mpc enable only null
+ExecStop=-/usr/bin/mpc stop
+ExecStop=-/usr/bin/mpd --kill
+# the following line could replace ExecStart=... and ExecStop=..., whether the state file is saved on stop/restart is unknown!
 #ExecStart=/usr/bin/mpd --systemd
 
 # Enable this setting to ask systemd to watch over MPD, see
 # systemd.service(5).  This is disabled by default because it causes
-# periodic wakeups which are unnecessary if MPD is not playing.
+# periodic wakeups which are unnecessary if MPD is not running.
 #WatchdogSec=120
+
+# Force mpd to stop/restart within 10 seconds
+TimeoutStopSec=10
 
 # allow MPD to use real-time priority 50
 LimitRTPRIO=50
