@@ -57,7 +57,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('mpdconf', 'follow_inside_symlinks', 'yes');
             $redis->hSet('mpdconf', 'follow_outside_symlinks', 'yes');
             $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hSet('mpdconf', 'log_level', 'default');
+            $redis->hSet('mpdconf', 'log_level', 'warning');
             $redis->hSet('mpdconf', 'max_connections', '20');
             $redis->hSet('mpdconf', 'max_output_buffer_size', 32768);
             $redis->hSet('mpdconf', 'mixer_type', 'hardware');
@@ -100,7 +100,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('mpdconf', 'follow_inside_symlinks') || $redis->hSet('mpdconf', 'follow_inside_symlinks', 'yes');
             $redis->hExists('mpdconf', 'follow_outside_symlinks') || $redis->hSet('mpdconf', 'follow_outside_symlinks', 'yes');
             $redis->hExists('mpdconf', 'log_file') || $redis->hSet('mpdconf', 'log_file', '/var/log/runeaudio/mpd.log');
-            $redis->hExists('mpdconf', 'log_level') || $redis->hSet('mpdconf', 'log_level', 'default');
+            $redis->hExists('mpdconf', 'log_level') || $redis->hSet('mpdconf', 'log_level', 'warning');
             $redis->hExists('mpdconf', 'max_connections') || $redis->hSet('mpdconf', 'max_connections', '20');
             $redis->hExists('mpdconf', 'max_output_buffer_size') || $redis->hSet('mpdconf', 'max_output_buffer_size', 32768);
             $redis->hExists('mpdconf', 'mixer_type') || $redis->hSet('mpdconf', 'mixer_type', 'hardware');
