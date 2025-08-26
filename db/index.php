@@ -645,6 +645,294 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             ui_render('modal', json_encode($data));
             unset($data);
             break;
+        case 'MRconnect':
+            // Multi-room connect change
+            // params: id, name, selected
+            // returns: id, selected, volume, mute
+            // no break;
+        case 'MRvolume':
+            // Multi-room volume change
+            // params: id, name, volume
+            // returns: id, selected, volume, mute
+            // no break;
+        case 'MRmute':
+            // Multi-room mute change
+            // params: id, name, mute, volume
+            // returns: id, selected, volume, mute
+            $params = json_decode($_GET['params'], true);
+            $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            if (!$redis->hExists('owntone_presets', $params['name'])) {
+                // the presets entry is missing, create it
+                $preset = array();
+                $preset['mute'] = 0;
+                $preset['autoconnect'] = 0;
+                $preset['volume_preset'] = $defaultVolume;
+                $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+            } else {
+                $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+            }
+            // first set the redis outputs and presets to the expected new values and save them
+            if ((isset($params['mute']) && $params['mute'] && $preset['mute']) ||
+                   (isset($params['mute']) && !$params['mute'] && !$preset['mute'])) {
+                // mute requested, already muted or unmute requested, already unmuted
+                //  dont need to do anything, just return the correct values
+                $params['mute'] = $preset['mute'];
+                // get the current values for the volume and selected for the return values
+                $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
+                $params['volume'] = $output['volume'];
+                $params['selected'] = $output['selected'];
+            } else {
+                // redis outputs and/or presets need to be changed
+                if (isset($params['mute'])) {
+                    if (!$params['mute']) {
+                        // unmute requested, was muted, use the saved mute value as the new volume
+                        $params['volume'] = $preset['mute'];
+                        if ($preset['mute'] != $params['mute']) {
+                            $preset['mute'] = $params['mute'];
+                            $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                        }
+                    } else {
+                        // mute requested, was not muted, set the volume to zero and use the current volume as muted value
+                        $params['volume'] = 0;
+                        $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
+                        $params['mute'] = $output['volume'];
+                        if ($preset['mute'] != $output['volume']) {
+                            $preset['mute'] = $output['volume'];
+                            $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                        }
+                    }
+                } else {
+                    // parameter mute is not set so its not a mute action
+                    // its a volume change or connect/disconnect action
+                    //  in all cases set mute to 0
+                    $params['mute'] = 0;
+                    if ($preset['mute'] != 0) {
+                        $preset['mute'] = 0;
+                        $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                    }
+                }
+                $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
+                if (isset($params['volume']) && ($output['volume'] != $params['volume'])) {
+                    // volume change
+                    $output['volume'] = $params['volume'];
+                    $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
+                } else if (isset($params['selected']) && $output['selected'] != $params['selected']) {
+                    // connect/disconnect
+                    $output['selected'] = $params['selected'];
+                    if ($params['selected']) {
+                        // connect, set the connect volume
+                        $output['volume'] = $preset['volume_preset'];
+                    }
+                    $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
+                }
+                // now update the output volume and/or selected
+                // there can only be one connected bluetooth output, when multidevice is set it is possible to attempt to
+                //  connect two Bluetooth devices from the UI
+                //  to prevent problems, all other connected bluetooth devices are disconnected when a multidevice bluetooth
+                //      connect is requested, there will be a maximum of one device disconnected, mostly none
+                if (isset($params['selected']) && $params['selected'] && $redis->hGet('owntone', 'multidevice') && (substr($params['name'], 0, 11) == 'Bluetooth: ')) {
+                    // disconnect all other bluetooth outputs
+                    // get the redis outputs again
+                    $outputNames = $redis->hKeys('owntone_outputs');
+                    foreach ($outputNames as $outputName) {
+                        $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
+                        if ($output['type'] !=  'ALSA') {
+                            // not ALSA (bluetooth is an ALSA type)
+                            continue;
+                        }
+                        if (!$output['selected']) {
+                            // not connected
+                            continue;
+                        }
+                        if (substr($output['name'], 0, 11) != 'Bluetooth: ') {
+                            // not bluetooth
+                            continue;
+                        }
+                        if ($output['name'] == $params['name']) {
+                            // this is the current device, it is processed below
+                            continue;
+                        }
+                        // this one needs to be disconnected
+                        // unmute in the presets if required
+                        $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
+                        if (isset($preset['mute']) && ($preset['mute'] != 0)) {
+                            $preset['mute'] = 0;
+                            $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                        }
+                        // determine the volume
+                        $volume = $defaultVolume;
+                        if (isset($preset['autoconnect']) && isset($preset['volume_preset'])) {
+                            if (!$preset['autoconnect'] && ($preset['volume_preset'] != $defaultVolume)) {
+                                $preset['volume_preset'] = $defaultVolume;
+                                $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                            }
+                            $volume = $preset['volume_preset'];
+                        }
+                        // set up the disconnect command, run it and get the modified data
+                        $command =
+                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'" --data "{\"selected\": false, \"volume\": '.$volume.'}"';
+                        sysCmd($command);
+                        sysCmd($command);
+                        // get the changed values
+                        $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"');
+                        if (!isset($retval) || !is_array($retval)) {
+                            $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
+                        }
+                        // check that the command has returned valid data
+                        if (isset($retval) && is_array($retval)) {
+                            $retval = json_decode($retval[0], true);
+                            if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                                if (isset($retval['id']) && ($output['id'] == $retval['id']) && ($outputs[$output['name']] != $retval)) {
+                                    $redis->hSet('owntone_outputs', $outputName, json_encode($retval));
+                                }
+                            }
+                        }
+                    }
+                }
+                // normal processing to connect/disconnect or change the volume
+                if (isset($params['selected']) || isset($params['volume'])) {
+                    // set up the command
+                    $command =
+                        'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                    if (isset($params['selected']) && isset($params['volume'])) {
+                        if ($params['selected']) {
+                            $action = 'true';
+                        } else {
+                            $action = 'false';
+                        }
+                        $command .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                    } else if (isset($params['volume'])) {
+                        $command .= '\"volume\": '.$params['volume'].'}"';
+                    } else if (isset($params['selected'])) {
+                        if ($params['selected']) {
+                            $action = 'true';
+                        } else {
+                            $action = 'false';
+                        }
+                        // get the preset or default volume
+                        $params['volume'] = $defaultVolume;
+                        if (isset($preset['autoconnect']) && isset($preset['volume_preset'])) {
+                            if (!$preset['autoconnect'] && ($preset['volume_preset'] != $defaultVolume)) {
+                                $preset['volume_preset'] = $defaultVolume;
+                                $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                            }
+                            $params['volume'] = $preset['volume_preset'];
+                        }
+                        // connect/disconnect always setting the volume
+                        $command .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                    }
+                    // run the command only when there is something to do
+                    sysCmd($command);
+                }
+                // get the current settings of the output, update the redis outputs and set the return values
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
+                if (!isset($retval) || !is_array($retval)) {
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
+                }
+                if (isset($retval) && is_array($retval)) {
+                    $output = json_decode($retval[0], true);
+                    if (isset($output['id']) && ($output['id'] == $params['id'])) {
+                            $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
+                    } else {
+                        // invalid information returned, delete the output
+                         $redis->hDel('owntone_outputs', $params['name']);
+                    }
+                } else {
+                    // invalid information returned, delete the redis output entry
+                    $redis->hDel('owntone_outputs', $params['name']);
+                }
+                if (isset($output['id'])) {
+                    // valid output, correct the return values if required
+                    if (!isset($params['selected']) || ($output['selected'] != $params['selected'])) {
+                        $params['selected'] = $output['selected'];
+                    }
+                    if (!isset($params['volume']) || ($output['volume'] != $params['volume'])) {
+                        $params['volume'] = $output['volume'];
+                    }
+                } else {
+                    // output has been deleted
+                    $params['selected'] = 0;
+                    $params['volume'] = 0;
+                    $params['mute'] = 0;
+                    if (isset($preset['mute']) && $preset['mute']) {
+                        // correct the muted info in redis presets
+                        $preset['mute'] = 0;
+                        $redis->hSet('owntone', 'output_presets', $params['name'], json_encode($preset));
+                    }
+                }
+            }
+            echo json_encode(array(
+                'id' => $params['id'],
+                'selected' => $params['selected'],
+                'volume' => $params['volume'],
+                'mute' => $params['mute']));
+            unset($params, $defaultVolume, $preset, $output, $action, $volume);
+            break;
+        case 'MRpreset':
+            // Multi-room preset change
+            // params: id, name, autoconnect, volume_preset
+            // returns: id, autoconnect, volume_preset, selected, volume, mute
+            $params = json_decode($_GET['params'], true);
+            // get the default volume
+            $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            // Bluetooth can only have one autoconnect device
+            if ($params['autoconnect'] && (substr($params['name'], 0, 11) == 'Bluetooth: ')) {
+                // switching autoconnect on for a bluetooth output device
+                //  remove autoconnect for all other bluetooth output devices
+                $presetNames = $redis->hGet('owntone_presets');
+                foreach ($presetNames as $presetName) {
+                    if ($presetName = $params['name']) {
+                        // this one is processed below
+                        continue;
+                    }
+                    if (substr($presetName, 0, 11) == 'Bluetooth: ') {
+                        // check the autoconnect status
+                        $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
+                        if ($preset['autoconnect']) {
+                            // autoconnect is on, turn it off and set the preset volume to default
+                            $preset['autoconnect'] = 0;
+                            $preset['volume_preset'] = $defaultVolume;
+                            // save the preset
+                            $redis->hSet('owntone_presets', $presetName, json_encode($preset));
+                        }
+                    }
+                }
+            }
+            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+            $preset['autoconnect'] = $params['autoconnect'];
+            if (!$params['autoconnect']) {
+                // autoconnect switched off, set the preset volume to the default volume
+                $params['volume_preset'] = $defaultVolume;
+            }
+            $preset['volume_preset'] = $params['volume_preset'];
+            if (!isset($preset['mute'])) {
+                $preset['mute'] = 0;
+            }
+            // get and return redis current selected and volume values for the return values
+            $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
+            if (isset($output['selected'])) {
+                $selected = $output['selected'];
+            } else {
+                $selected = 0;
+            }
+            if (isset($output['volume'])) {
+                $volume = $output['volume'];
+                if ($output['volume']) {
+                    $preset['mute'] = 0;
+                }
+            } else {
+                $volume = 0;
+            }
+            $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+            echo json_encode(array(
+                'id' => $params['id'],
+                'autoconnect' => $params['autoconnect'],
+                'volume_preset' => $params['volume_preset'],
+                'selected' => $selected,
+                'volume' => $volume,
+                'mute' => $preset['mute']));
+            unset($params, $preset, $output, $selected, $volume);
+            break;
     }
 } else {
   echo 'MPD DB INTERFACE<br>';

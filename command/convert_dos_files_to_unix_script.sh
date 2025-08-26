@@ -60,43 +60,43 @@ if [ "$1" != "fast" ] && [ "$2" != "fast" ] && [ "$3" != "fast" ]; then
     #
     # all files in the directory /srv/http/app/config/defaults/ inclusive subdirectories
     cd /srv/http/app/config/defaults
-    find /srv/http/app/config/defaults/ -type f -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv/http/app/config/defaults/ -type f -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
     # all files in /srv/http/assets/js
     cd /srv/http/assets/js
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # all files in /srv/http/db
     cd /srv/http/db
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # all files in /srv/http/app
     cd /srv/http/app
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # all files in /srv/http/app/templates
     cd /srv/http/app/templates
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # all files in /srv/http/app/libs except the composer files
     mkdir /tmp/composer
     cp /srv/http/app/libs/composer.* /tmp/composer
     cd /srv/http/app/libs
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     cp /tmp/composer/* /srv/http/app/libs
     # all files in /srv/http/command
     cd /srv/http/command
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # all files in /srv/http
     cd /srv/http
-    dos2unix -ic0 * | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 * | xargs dos2unix -k -s -o
     # the files /srv/http/assets/css/*.css
     cd /srv/http/assets/css/
-    dos2unix -ic0 *.css | xargs -0 dos2unix -k -s -o
+    dos2unix -ic0 *.css | xargs dos2unix -k -s -o
     # all files named *.conf in /etc and subdirectories
     cd /home
-    find /etc -type f -name *.conf -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /etc -type f -name *.conf -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
     # specific files
-    find /srv -type f -name chromium-flags.conf -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
-    find /srv -type f -name i2s_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
-    find /srv -type f -name weston.ini -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
-    find /srv -type f -name audio_allowed_formats_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
-    find /srv -type f -name userconf.lua -exec bash -c "dos2unix -ic0 '{}' | xargs -0 dos2unix -k -s -o" \;
+    find /srv -type f -name chromium-flags.conf -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
+    find /srv -type f -name i2s_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
+    find /srv -type f -name weston.ini -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
+    find /srv -type f -name audio_allowed_formats_table*.txt -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
+    find /srv -type f -name userconf.lua -exec bash -c "dos2unix -ic0 '{}' | xargs dos2unix -k -s -o" \;
     #
     # Convert leading tabs to 4 spaces in the files
     #

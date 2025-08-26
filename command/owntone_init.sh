@@ -44,21 +44,30 @@ if [ "$cores" != "1" ] && [ "$owntone_enabled" == "1" ] ; then
     # examine the owntone config file to determine the directories and user
     owntone_dirs=$( grep -i '\s*directories\s*=\s*{\s*\"' /etc/owntone.conf | cut -d '{' -f 2 | cut -d '}' -f 1 | xargs | sed 's/\r$//' )
     owntone_user=$( grep -i '\s*uid\s*=' /etc/owntone.conf | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
+    owntone_logfile=$( grep -i '\s*logfile\s*=' /etc/owntone.conf | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
+    # fix ownership and privilages for the ownttone log file
+    if [ -f "$owntone_logfile" ] ; then
+        chmod 666 "$owntone_logfile"
+        chown $owntone_user:audio "$owntone_logfile"
+    fi
     # there can be multiple directories specified, create each one
     for x in $owntone_dirs ; do
         # echo $x
         # remove a trailing / if it exists
         x="${x%/}"
         # create the directory, including path, if required
-        mkdir -p $x
-        # change the privileges of the directory and its contents
-        chmod -R 664 $x
+        if [ ! -d "$x" ]; then
+            mkdir -p $x
+            # change the privileges of the directory and its contents
+            chmod 777 $x
+            chown $owntone_user:audio $x
+        fi
         if [ "$owntone_dir" == "" ] ; then
             # save the first directory, we will use this one for fifo files
             owntone_dir="$x"
             redis-cli hset owntone library_dir "$x"
             # different users need to write to this directory, change the privileges
-            chmod 777 $x
+            # chmod 777 $x
             # create the fifo pipes for mpd, spotify connect, airplay and bluetooth
             pipes='mpd sc ap bt'
             for pipe in $pipes ; do
@@ -69,10 +78,11 @@ if [ "$cores" != "1" ] && [ "$owntone_enabled" == "1" ] ; then
                     if [ -f $x/pipe_$pipe.fifo ]; then
                         rm $x/pipe_$pipe.fifo
                     fi
-                    mkfifo $x/pipe_$pipe.fifo
-                    mkfifo $x/pipe_$pipe.fifo.metadata
-                    chmod -R 666 $x/pipe_$pipe.fifo
-                    chmod -R 666 $x/pipe_$pipe.fifo.metadata
+                    # create the fifo data and metadata files with r/w for owner, group and public
+                    mkfifo -m 666 $x/pipe_$pipe.fifo
+                    mkfifo -m 666 $x/pipe_$pipe.fifo.metadata
+                    chown $owntone_user:audio $x/pipe_$pipe.fifo
+                    chown $owntone_user:audio $x/pipe_$pipe.fifo.metadata
                     if [ -f /etc/alsa/conf.d/99_runeaudio_owntone.conf ] ; then
                         alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" /etc/alsa/conf.d/99_runeaudio_owntone.conf )
                     else
@@ -95,7 +105,9 @@ if [ "$cores" != "1" ] && [ "$owntone_enabled" == "1" ] ; then
             done
         fi
         # change the ownership of the directory and its contents
-        chown -R $owntone_user:audio $x
+        # chown -R $owntone_user:audio $x
+        # change the privilages to r/w for owner and group, nothing for public
+        # chmod -R 660 $x
     done
     # start owntone
     systemctl start owntone

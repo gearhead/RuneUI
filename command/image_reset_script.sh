@@ -271,11 +271,11 @@ systemctl start mpd
 mpc stop
 mpc clear
 mpc rescan
-updating=$( mpc | grep -ic 'Updating' )
+updating=$( mpc status | grep -ic 'Updating' )
 cnt=7
 while [ "$updating" != "0" ] && [ $(( cnt-- )) -gt 0 ] ; do
     sleep 2
-    updating=$( mpc | grep -ic 'Updating' )
+    updating=$( mpc status | grep -ic 'Updating' )
     (( cnt-- ))
     if [ $cnt -le 0 ] ; then
         break

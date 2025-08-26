@@ -717,7 +717,7 @@ function renderLibraryHome() {
         divClose = '</div>',
         toggleMPD = '',
         notMPD = ((obj.ActivePlayer === 'Airplay') || (obj.ActivePlayer === 'SpotifyConnect') || (obj.ActivePlayer === 'Bluetooth'));
-    if(isLocalHost) {
+    if (isLocalHost) {
         content = '';
     } else {
         content = '<div class="col-sm-12"><h1 class="txtmid">Browse your library</h1></div>';
@@ -734,7 +734,7 @@ function renderLibraryHome() {
     }
     if (chkKey(obj.networkMounts)) {
     // network mounts block
-        if(isLocalHost) {
+        if (isLocalHost) {
             if (obj.networkMounts === 0) {
                 if (notMPD) {
                     content += divOpen + '<div id="home-nas" class="home-block inactive"><i class="fa fa-sitemap"></i><h3>Network mounts (0)</h3></div>' + divClose;
@@ -758,7 +758,7 @@ function renderLibraryHome() {
     }
     if (chkKey(obj.localStorages)) {
     // local storages block
-        if(isLocalHost) {
+        if (isLocalHost) {
             if (obj.localStorages === 0) {
                 content += '';
             } else {
@@ -774,7 +774,7 @@ function renderLibraryHome() {
     }
     if (chkKey(obj.USBMounts)) {
     // USB mounts block
-        if(isLocalHost) {
+        if (isLocalHost) {
             if (obj.USBMounts === 0) {
                 if (notMPD) {
                     content += divOpen + '<div id="home-usb" class="home-block inactive"><i class="fa fa-hdd-o"></i><h3>USB storage (0)</h3></div>' + divClose;
@@ -798,7 +798,7 @@ function renderLibraryHome() {
     }
     if (chkKey(obj.webradio)) {
     // webradios block
-        if(isLocalHost) {
+        if (isLocalHost) {
             if (obj.webradio === 0) {
                 if (notMPD) {
                     content += divOpen + '<div id="home-webradio" class="home-block inactive"><i class="fa fa-microphone"></i><h3>My Webradios (0)</h3></div>' + divClose;
@@ -821,25 +821,25 @@ function renderLibraryHome() {
         }
     }
     // Album list (static)
-    if(isLocalHost) {
+    if (isLocalHost) {
         content += divOpen + '<div id="home-albums" class="home-block' + toggleMPD + '" data-path="Albums" data-browsemode="album"><i class="fa fa-dot-circle-o"></i><h3>Albums</h3></div>' + divClose;
     } else {
         content += divOpen + '<div id="home-albums" class="home-block' + toggleMPD + '" data-path="Albums" data-browsemode="album"><i class="fa fa-dot-circle-o"></i><h3>Albums</h3>browse MPD database by album</div>' + divClose;
     }
     // Artist list (static)
-    if(isLocalHost) {
+    if (isLocalHost) {
         content += divOpen + '<div id="home-artists" class="home-block' + toggleMPD + '" data-path="Artists" data-browsemode="artist"><i class="fa fa-users"></i><h3>Artists</h3></div>' + divClose;
     } else {
         content += divOpen + '<div id="home-artists" class="home-block' + toggleMPD + '" data-path="Artists" data-browsemode="artist"><i class="fa fa-users"></i><h3>Artists</h3>browse MPD database by artist</div>' + divClose;
     }
     // Composer list (static)
-    if(isLocalHost) {
+    if (isLocalHost) {
         content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-user-pen"></i><h3>Composer</h3></div>' + divClose;
     } else {
         content += divOpen + '<div id="home-composer" class="home-block' + toggleMPD + '" data-path="Composer" data-browsemode="composer"><i class="fa fa-user-pen"></i><h3>Composer</h3>browse MPD database by composer</div>' + divClose;
     }
     // Genre list (static)
-    if(isLocalHost) {
+    if (isLocalHost) {
         content += divOpen + '<div id="home-genre" class="home-block' + toggleMPD + '" data-path="Genres" data-browsemode="genre"><i class="fa fa-tags"></i><h3>Genres</h3></div>' + divClose;
     } else {
         content += divOpen + '<div id="home-genre" class="home-block' + toggleMPD + '" data-path="Genres" data-browsemode="genre"><i class="fa fa-tags"></i><h3>Genres</h3>browse MPD database by genre</div>' + divClose;
@@ -847,7 +847,7 @@ function renderLibraryHome() {
 
     // Dirble block
     if (chkKey(obj.Dirble)) {
-        if(isLocalHost) {
+        if (isLocalHost) {
             content += divOpen + '<div id="home-dirble" class="home-block' + toggleMPD + '" data-plugin="Dirble" data-path="Dirble"><i class="fa fa-globe"></i><h3>Dirble</h3></div>' + divClose;
         } else {
             content += divOpen + '<div id="home-dirble" class="home-block' + toggleMPD + '" data-plugin="Dirble" data-path="Dirble"><i class="fa fa-globe"></i><h3>Dirble</h3>radio stations open directory</div>' + divClose;
@@ -857,7 +857,7 @@ function renderLibraryHome() {
     // Jamendo block
     if (chkKey(obj.Jamendo)) {
         // Jamendo
-        if(isLocalHost) {
+        if (isLocalHost) {
             content += divOpen + '<div id="home-jamendo" class="home-block' + toggleMPD + '" data-plugin="Jamendo" data-path="Jamendo"><i class="fa fa-play-circle-o"></i><h3>Jamendo<span id="home-count-jamendo"></span></h3></div>' + divClose;
         } else {
             content += divOpen + '<div id="home-jamendo" class="home-block' + toggleMPD + '" data-plugin="Jamendo" data-path="Jamendo"><i class="fa fa-play-circle-o"></i><h3>Jamendo<span id="home-count-jamendo"></span></h3>world\'s largest platform for free music</div>' + divClose;
@@ -872,7 +872,7 @@ function renderLibraryHome() {
         } else {
             GUI.libraryhome.HWinput.HWdevices = 0;
         }
-        if(isLocalHost) {
+        if (isLocalHost) {
             content += divOpen + '<div id="home-hwinput" class="home-block' + toggleMPD + '" data-plugin="HWinput" data-path="HWinput"><i class="fa fa-wave-square"></i><h3>HW Input (' + GUI.libraryhome.HWinput.HWdevices + ')</h3></div>' + divClose;
         } else {
             content += divOpen + '<div id="home-hwinput" class="home-block' + toggleMPD + '" data-plugin="HWinput" data-path="HWinput"><i class="fa fa-wave-square"></i><h3>HW Input (' + GUI.libraryhome.HWinput.HWdevices + ')</h3>browse locally connected hardware input devices</div>' + divClose;
@@ -899,7 +899,7 @@ function renderLibraryHome() {
             // eject off
             $('#eject').addClass('hide');
         }
-        if(isLocalHost) {
+        if (isLocalHost) {
             content += divOpen + '<div id="home-cdinput" class="home-block' + toggleMPD + '" data-plugin="CDinput" data-path="CDinput"><i class="fa fa-compact-disc"></i><h3>CD-Drive (' + GUI.libraryhome.CDinput.CDtracks + ')</h3></div>' + divClose;
         } else {
             content += divOpen + '<div id="home-cdinput" class="home-block' + toggleMPD + '" data-plugin="CDinput" data-path="CDinput"><i class="fa fa-compact-disc"></i><h3>CD-Drive (' + GUI.libraryhome.CDinput.CDtracks + ')</h3>browse locally connected CD-drive</div>' + divClose;

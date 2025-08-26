@@ -61,7 +61,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     fi
     # check that the process exists by getting the pid and validate
     pid=""
-    pid=$( pgrep -w $process | xargs )
+    pid=$( pgrep -x -w $process | xargs )
     if [ "$pid" == "" ] ; then
         # no pid
         continue
@@ -69,7 +69,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     # get the current nice value as an integer and validate (we can get more nice values returned)
     declare -i cur_nice=40
     declare -i n
-    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -x -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
     for n in $cur_nice_arr ; do
         if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
             # invalid current nice value
@@ -97,22 +97,26 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     #   alter niceness is only when necessary
     if [ $nice_val -lt 0 ] && [ $cur_nice -gt $nice_val ] ; then
         # required nice negative
-        renice $nice_val $( pgrep -w $process )
+        echo "$process "
+        renice $nice_val $( pgrep -x -w $process )
     elif [ $nice_val -gt 0 ] && [ $cur_nice -lt $nice_val ] ; then
         # required nice positive
-        renice $nice_val $( pgrep -w $process )
+        echo "$process "
+        renice $nice_val $( pgrep -x -w $process )
     elif [ $nice_val -eq 0 ] && [ $cur_nice -ne $nice_val ] ; then
         # required nice zero
-        renice $nice_val $( pgrep -w $process )
+        echo "$process "
+        renice $nice_val $( pgrep -x -w $process )
     fi
 done < /srv/http/db/prio_nice.txt
 #
 # MPD has the capability of setting its own priority in real time
 # the following is to make sure that its basis priority is set slightly lower
 # when mpd is updating; keep its niceness to -1
-mpd_updating=$( mpc status | xargs | grep -ic 'updating db' | xargs )
+mpd_updating=$( mpc status | grep -ic 'updating db' | xargs )
 if [ "$mpd_updating" == "1" ] ; then
-    renice -1 $(pgrep -w mpd)
+    echo "$process "
+    renice -1 $(pgrep -x -w mpd)
 fi
 }
 #
@@ -145,7 +149,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     fi
     # check that the process exists by getting the pid and validate
     pid=""
-    pid=$(  pgrep -w $process | xargs  )
+    pid=$(  pgrep -x -w $process | xargs  )
     if [ "$pid" == "" ] ; then
         # no pid
         continue
@@ -153,7 +157,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     # get the current nice value as an integer and validate (we can get more nice values returned)
     declare -i cur_nice=40
     declare -i n
-    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -x -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
     for n in $cur_nice_arr ; do
         if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
             # invalid current nice value
@@ -172,7 +176,8 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     # alter niceness is only when necessary
     if [ $cur_nice -ne $default_nice ] ; then
         # default nice and current nice differ
-        renice $default_nice $( pgrep -w $process )
+        echo "$process "
+        renice $default_nice $( pgrep -x -w $process )
     fi
 done < /srv/http/db/prio_nice.txt
 }

@@ -145,6 +145,18 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Multi-room Settings Order -----
+        if ((isset($_POST['mode']['MRorder'])) && ($_POST['mode']['MRorder'])) {
+            // value is set
+            if ($redis->hGet('owntone', 'MRorder') != $_POST['mode']['MRorder']) {
+                // value has changed, save it
+                $redis->hSet('owntone', 'MRorder', $_POST['mode']['MRorder']);
+                if ($redis->hGet('local_browser', 'enable')) {
+                    // local browser is enabled, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'localbrowser', 'action' => 'restart'));
+                }
+            }
+        }
         // ----- Art preferences -----
         if ((isset($_POST['mode']['bigArt'])) && ($_POST['mode']['bigArt'])) {
             // value is set
@@ -424,6 +436,7 @@ $template->sambaprodonoff = $redis->hGet('samba', 'prodonoff');
 $template->soxrmpdonoff = $redis->get('soxrmpdonoff');
 $template->playernamemenu = $redis->get('playernamemenu');
 $template->UIorder = $redis->get('UIorder');
+$template->MRorder = $redis->hGet('owntone', 'MRorder');
 $template->bigArt = $redis->get('remoteSSbigart');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
