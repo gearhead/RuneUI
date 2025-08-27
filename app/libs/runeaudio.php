@@ -4486,7 +4486,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // get the mpd configuration data
             $mpdcfg = $redis->hGetAll('mpdconf');
-            $output = null;
             // set mpd.conf file header
             $output =  "###################################\n";
             $output .= "#  Auto generated mpd.conf file   #\n";
@@ -4495,17 +4494,23 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .= "###################################\n";
             $output .= "#\n";
             // --- log settings ---
-            if ($mpdcfg['log_level'] === 'none') {
-                $redis->hDel('mpdconf', 'log_file');
-            } else {
-                $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
+            if (isset($mpdcfg['log_level']) && isset($mpdcfg['log_file']) && $mpdcfg['log_level'] && $mpdcfg['log_file']) {
+                $mpdcfg['log_level'] = strtolower(trim($mpdcfg['log_level']));
+                if (strpos('|error|warning|notice|info|verbose|', $mpdcfg['log_level'])) {
+                    $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
+                    $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
+                } else if (($mpdcfg['log_level'] == 'default')) {
+                    // let mpd assign its default log level
+                    $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
+                }
+                // specifying 'none' as the log_level will result in no log file
+            } else if (isset($mpdcfg['log_file']) && $mpdcfg['log_file']) {
+                // log file specified , but no log level - let mpd assign its default log level
                 $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
             }
             unset($mpdcfg['log_level'], $mpdcfg['log_file']);
             // --- state file ---
-            if (!isset($mpdcfg['state_file_enable']) || $mpdcfg['state_file_enable'] === 'no') {
-                // do nothing
-            } else {
+            if (isset($mpdcfg['state_file_enable']) && filter_var($mpdcfg['state_file_enable'], FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE)) {
                 $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
             unset($mpdcfg['state_file'], $mpdcfg['state_file_enable']);
@@ -4523,7 +4528,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             unset($mpdcfg['proxy_node'], $mpdcfg['proxy_port']);
             // --- bind_to_address & port ---
-            if (!isset($mpdcfg['bind_to_address']) || $mpdcfg['bind_to_address'] === '') {
+            if (!isset($mpdcfg['bind_to_address']) || !$mpdcfg['bind_to_address']) {
                 // not set, add localhost
                 $output .= "bind_to_address\t\"localhost\"\n";
             } else {
@@ -4571,7 +4576,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     case 'mixer_type':
                         // --- Mixer type ---
                         $hwmixer = 0;
-                        if ($value === 'software' OR $value === 'hardware') {
+                        if (($value === 'software') || ($value === 'hardware')) {
                             $redis->set('volume', 1);
                             $volumeControl = 1;
                             if ($value === 'hardware') {
@@ -4927,23 +4932,17 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // ui_notify($redis, 'MPD', 'config file part three finished');
             // write mpd.conf file to /tmp location
-            $fh = fopen('/tmp/mpd.conf', 'w');
-            fwrite($fh, $output);
-            fclose($fh);
+            $md5New = md5($output);
             // check whether the /tmp/mpd.conf is not the same as /etc/mpd.conf and has not the same md5 as stored
-            $md5Current = md5_file('/etc/mpd.conf');
-            $md5New = md5_file('/tmp/mpd.conf');
+            $mpdConfFileName = '/etc/mpd.conf';
+            $md5Current = md5_file($mpdConfFileName);
             $md5Redis = $redis->get('mpdconfhash');
             if (($md5Redis !== $md5New) || ($md5Redis !== $md5Current)) {
                 // mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
                 $redis->set('mpdconfchange', 1);
-                sysCmd('cp /tmp/mpd.conf /etc/mpd.conf');
-                sysCmd('rm -f /tmp/mpd.conf');
+                file_put_contents($mpdConfFileName, $output);
                 // update hash
                 $redis->set('mpdconfhash', $md5New);
-            } else {
-                // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
-                sysCmd('rm -f /tmp/mpd.conf');
             }
             break;
         case 'update':
