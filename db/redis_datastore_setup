@@ -43,7 +43,6 @@ function redisDatastore($redis, $action) {
     switch ($action) {
         case 'mpdreset':
             // default MPD config
-            $redis->del(mpdconf);
             $redis->hSet('mpdconf', 'audio_buffer_size', '4096');
             $redis->hSet('mpdconf', 'auto_update', 'no');
             $redis->hSet('mpdconf', 'bind_to_address', '/run/mpd/socket');
@@ -130,7 +129,6 @@ function redisDatastore($redis, $action) {
             break;
         case 'apreset':
             // Access Point
-            $redis->del(AccessPoint);
             $redis->hDel('AccessPoint', 'enable');
             $redis->hSet('AccessPoint', 'broadcast', '192.168.5.255');
             $redis->hSet('AccessPoint', 'channel', '7');
@@ -273,7 +271,6 @@ function redisDatastore($redis, $action) {
             break;
         case 'owntonereset':
             // Owntone - Multi-room
-            $redis->del('owntone');
             $redis->hSet('owntone', 'active', '0');
             $redis->hSet('owntone', 'default_volume', '40');
             $redis->hSet('owntone', 'device_ap', '');
@@ -351,7 +348,6 @@ function redisDatastore($redis, $action) {
             $redis->del('w_message');
             $redis->set('waitSyWrk', 0);
             // internet services
-            $redis->del('service');
             $redis->hSet('service', 'internet', 0);
             $redis->hSet('service', 'webradio', 0);
             $redis->hSet('service', 'dirble', 0);
@@ -374,7 +370,6 @@ function redisDatastore($redis, $action) {
             $redis->del('webradio_rejects');
             $redis->set('webradio_reject_count', 8);
             // Bluetooth
-            $redis->del('bluetooth');
             $redis->hSet('bluetooth', 'def_volume_in', '-1');
             // $redis->hSet('bluetooth', 'def_volume_out', '-1');
             $redis->hSet('bluetooth', 'fix_input_ba_volume', 0);
@@ -390,7 +385,6 @@ function redisDatastore($redis, $action) {
             $redis->set('bluetooth_status', json_encode(array()));
             $redis->del('bluetooth_on');
             // Spotify Connect
-            $redis->del('spotifyconnect');
             $redis->hSet('spotifyconnect', 'ao', '');
             $redis->hSet('spotifyconnect', 'api_id', '');
             $redis->hSet('spotifyconnect', 'api_secret', '');
@@ -419,7 +413,6 @@ function redisDatastore($redis, $action) {
             // $redis->hSet('spotifyconnect', 'password', '');
             // $redis->hSet('spotifyconnect', 'username', '');
             // Airplay
-            $redis->del('airplay');
             $redis->hDel('airplay', 'artworkonoff');
             $redis->hDel('airplay', 'metadataonoff');
             $redis->hDel('airplay', 'metadata_enabled');
@@ -450,7 +443,6 @@ function redisDatastore($redis, $action) {
             $redis->hSet('airplay', 'timeout', 20);
             $redis->hSet('airplay', 'user_agent', '');
             // dlna
-            $redis->del('dlna');
             $redis->hSet('dlna', 'enable', 0);
             $redis->hSet('dlna', 'file', '');
             $redis->hSet('dlna', 'logfile', '/var/log/runeaudio/upmpdcli.log');
@@ -460,12 +452,10 @@ function redisDatastore($redis, $action) {
             $redis->hSet('dlna', 'radioname', '');
             $redis->hSet('dlna', 'services', 'OpenHome');
             // CD hardware device
-            $redis->del('CD');
             $redis->hSet('CD', 'enable', 0);
             $redis->hSet('CD', 'autoplay', 'None');
             $redis->hSet('CD', 'status', json_encode(array()));
             // hardware input
-            $redis->del('hw_input');
             $redis->hSet('hw_input', 'enable', 0);
             $redis->hSet('hw_input', 'status', json_encode(array()));
             $redis->set('udevil', 1);
@@ -475,7 +465,6 @@ function redisDatastore($redis, $action) {
             $redis->set('playmod', 0);
             $redis->set('ramplay', 0);
             // last.fm
-            $redis->del('lastfm');
             $redis->hSet('lastfm', 'enable', 0);
             $redis->hSet('lastfm', 'user', 'user');
             $redis->hSet('lastfm', 'pass', 'pass');
@@ -491,7 +480,6 @@ function redisDatastore($redis, $action) {
             $redis->set('libaoconfchange', 0);
             $redis->set('mpd_max_logsize', 130000);
             // ashuffle global random
-            $redis->del('globalrandom');
             $redis->hSet('globalrandom', 'addrandom', 0);
             $redis->hSet('globalrandom', 'enable', 0);
             $redis->hSet('globalrandom', 'exclude', '');
@@ -523,7 +511,6 @@ function redisDatastore($redis, $action) {
             $redis->hSet('magick', 'resize', '350x350\>');
             $redis->hSet('magick', 'opts', '-strip -interlace Plane -quality 90');
             // local browser
-            $redis->del('local_browser');
             $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hSet('local_browser', 'enable', 0);
             $redis->hSet('local_browser', 'enable-splash', 0);
@@ -537,7 +524,6 @@ function redisDatastore($redis, $action) {
             //
             $redis->set('playernamemenu', 1);
             // avahi
-            $redis->del('avahi');
             $redis->hSet('avahi', 'confchange', 0);
             $redis->hSet('avahi', 'ip_setup', 'a');
             $redis->hSet('avahi', 'nic', '');
@@ -596,7 +582,6 @@ function redisDatastore($redis, $action) {
             $redis->set('timezone', 'Pacific/Pago_Pago');
             $redis->set('translate_mac_nic', json_encode(array()));
             // proxy settings
-            $redis->del('proxy');
             $redis->hSet('proxy', 'enable', 0);
             $redis->hSet('proxy', 'host', '');
             $redis->hSet('proxy', 'user', '');

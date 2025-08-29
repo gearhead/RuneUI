@@ -90,7 +90,17 @@ while (true) {
         closeMpdSocket($socket);
         $socket = 0;
     }
-    $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
+    $mpdBindToAddress = $redis->hGet('mpdconf', 'bind_to_address');
+    $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
+    if (!isset($mpdBindToAddress) || !$mpdBindToAddress || !$mpdRunning) {
+        // MPD bind to address not available or mpd not running
+        // close redis
+        $redis->close();
+        // sleep for 5 seconds and retry
+        sleep(5);
+        continue;
+    }
+    $socket = openMpdSocket($mpdBindToAddress, 0);
     if (!$socket) {
         // cant make a connection with MPD
         // close redis
