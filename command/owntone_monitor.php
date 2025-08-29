@@ -70,7 +70,7 @@ while (true) {
     if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active') && ($cnt2-- <= 0)) {
         $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
         $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-        $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+        $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
         if ($mpdError && $owntoneRunning && $mpdRunning) {
             wrk_owntone($redis, 'reset');
         } else {
