@@ -428,7 +428,7 @@ done
 #       global random (ashuffle & random), bluetooth (bluetooth), browser (browser), music metadata caching (cleancache),
 #       debug data - historical (debugdata), dirble (dirble), dlna (dlna), first time boot (first), HDMI info (hdmi), jamendo (jamendo),
 #       last FM (last), local browser (local), lock indicators (lock_), lyrics (lyric), MAC address (mac), ImageMagick (magick),
-#       mounted volume information (mou), MPD, (mpd), network information (net), Network interface card information (nic),
+#       mounted volume information (mou), MPD, (mpd), network information (net), Network interface card information (nic), owntone (owntone)
 #       batch processing queues (queue), DNS resolve information - historical (resolv), samba server (samba),
 #       OS update file md5 stamp (update), USB mounts and status and usb soundcards (usb), web streaming (web), wordlength (wordlength),
 #       debug variables (wrk)
@@ -439,7 +439,7 @@ for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done
 #   run in two steps, part 2
-redisvars=$( redis-cli --scan | grep -iE 'jamendo|last|local|lock_|lyric|mac|magick|mou|mpd|net|nic|queue|random|resolv|samba|spotify|update|usb|web|wordlength|wrk' | xargs )
+redisvars=$( redis-cli --scan | grep -iE 'jamendo|last|local|lock_|lyric|mac|magick|mou|mpd|net|nic|owntone|queue|random|resolv|samba|spotify|update|usb|web|wordlength|wrk' | xargs )
 for redisvar in $redisvars ; do
     redis-cli del $redisvar
 done

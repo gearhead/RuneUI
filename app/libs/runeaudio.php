@@ -16082,22 +16082,25 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // get the output preset keys
             $presetKeys = $redis->hKeys('owntone_presets');
             foreach ($presetKeys as $presetKey) {
-                $writePresets = false;
+                $writePreset = false;
                 $preset = json_decode($redis->hGet('owntone_presets', $presetKey), true);
                 if ($preset['mute'] != 0) {
                     $preset['mute'] = 0;
-                    $writePresets = true;
+                    $writePreset = true;
                 }
                 if (!$preset['autoconnect'] && ($preset['volume_preset'] != $defaultVolume)) {
                     $preset['volume_preset'] = $defaultVolume;
-                    $writePresets = true;
+                    $writePreset = true;
                 }
-                if ($writePresets) {
+                if ($writePreset) {
                     $redis->hSet('owntone_presets', $presetKey, json_encode($preset));
                 }
             }
-            // remove the owntone outputs
+            // remove the owntone outputs and other stored values
             $redis->del('owntone_outputs');
+            $resis->hSet('owntone', 'master', json_encode(array()));
+            $resis->hSet('owntone', 'server_config', json_encode(array()));
+            $resis->hSet('owntone', 'server_player', json_encode(array()));
             // remove the first time indicators for connecting owntone outputs
             sysCmd('rm -f /tmp/MR_*.firsttime');
             // set the mpd output and restart playing if required
