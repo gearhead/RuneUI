@@ -314,26 +314,29 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
             wrk_systemd_unit($redis, 'start', 'hostapd');
             // the config file for dnsmasq has moved, this code should work in all cases
             //  this can be removed in a future release
-            $file1 = '/etc/dnsmasq.conf';            // old location
             $file = '/etc/dnsmasq.d/runeap.conf';  // new location
+            $file1 = '/etc/dnsmasq.conf';            // old location
+            // $file2 is the distribution file
+            clearstatcache(true, $file);
             clearstatcache(true, $file1);
-            if (file_exists($file1)) {
-                copy($file1, $file);
-                unlink($file1);
-            } else {
-                clearstatcache(true, $file);
-                if (!file_exists($file)) {
-                    $file2 = '/srv/http/app/config/defaults'.$file;
+            if (!file_exists($file)) {
+                $file2 = '/srv/http/app/config/defaults'.$file;
+                clearstatcache(true, $file2);
+                if (file_exists($file2)) {
+                    copy($file2, $file);
+                } else {
+                    $file2 = '/srv/http/app/config/defaults'.$file1;
                     clearstatcache(true, $file2);
                     if (file_exists($file2)) {
                         copy($file2, $file);
-                    } else {
-                        $file2 = '/srv/http/app/config/defaults'.$file1;
-                        clearstatcache(true, $file2);
-                        if (file_exists($file2)) {
-                            copy($file2, $file);
-                        }
                     }
+                }
+            }
+            $fileMd5 = md5_file($file);
+            if (file_exists($file1)) {
+                $file1Md5 = md5_file($file1);
+                if ($fileExists && ($fileMd5 == $file1Md5)) {
+                    unlink($file1);
                 }
             }
             // change dhcp-range
