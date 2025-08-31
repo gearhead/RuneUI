@@ -16254,7 +16254,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
         case 'reset':
             // no $args
             wrk_systemd_unit($redis, 'stop', 'owntone');
-            sysCmd('rm -r '.$resdis->hGet('owntone', 'library_dir'));
+            sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir'));
             sysCmd('/srv/http/command/redis_datastore_setup owntonereset');
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);

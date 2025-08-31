@@ -16098,9 +16098,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // remove the owntone outputs and other stored values
             $redis->del('owntone_outputs');
-            $resis->hSet('owntone', 'master', json_encode(array()));
-            $resis->hSet('owntone', 'server_config', json_encode(array()));
-            $resis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hSet('owntone', 'master', json_encode(array()));
+            $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_player', json_encode(array()));
             // remove the first time indicators for connecting owntone outputs
             sysCmd('rm -f /tmp/MR_*.firsttime');
             // set the mpd output and restart playing if required
@@ -16131,7 +16131,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             wrk_owntone($redis, 'initialise');
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf"');
             if (!$mpdOwntoneOutput) {
-                sysCmdAsync($redis, '/srv/http/command/refresh_ao');
+                $redis->set('mpdconfchange', 1);
+                wrk_mpdconf($redis, 'refresh');
             }
             $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
             if ($retval == 'changed') {
@@ -16277,7 +16278,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             } else {
                 wrk_systemd_unit($redis, 'stop', 'owntone');
             }
-            sysCmd('rm -r '.$resdis->hGet('owntone', 'library_dir'));
+            sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir'));
             if ($args == 'full') {
                 sysCmd('/srv/http/db/redis_datastore_setup owntonereset');
             } else {

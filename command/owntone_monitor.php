@@ -60,23 +60,38 @@ $delay2 = 6;
 $cnt2 = $delay2;
 while (true) {
     sleep(5);
-    if ($redis->hGet('owntone', 'enable') && ($redis->hGet('owntone', 'role') == 'server') && ($cnt1-- <= 0)) {
-        $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
-        if ($retval == 'changed') {
-            wrk_owntone($redis, 'reset');
-        }
-        $cnt1 = $delay1;
-    }
-    if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active') && ($cnt2-- <= 0)) {
-        $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-        $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-        $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
-        if ($mpdError && $owntoneRunning && $mpdRunning) {
-            wrk_owntone($redis, 'reset');
+    if ($redis->hGet('owntone', 'enable') && !$redis->hGet('owntone', 'active')) {
+        if ($cnt1-- <= 0) {
+            $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
+            if ($retval == 'changed') {
+                wrk_owntone($redis, 'reset');
+            }
+            $cnt1 = $delay1;
+        } else if ($cnt2-- <= 0) {
+            $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+            $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+            $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
+            if ($mpdError && $owntoneRunning && $mpdRunning) {
+                wrk_owntone($redis, 'reset');
+            } else {
+                wrk_owntone($redis, 'status');
+            }
+            $cnt2 = $delay2;
         } else {
-            wrk_owntone($redis, 'status');
+            $mpdConfigured = sysCmd('grep -ic owntone /etc/mpd.conf | xargs')[0];
+            if ($mpdConfigured) {
+                $mpdOwntoneOutput = sysCmd('mpc outputs | grep -ic owntone | xargs')[0];
+                if (!$mpdOwntoneOutput) {
+                    $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                    if ($owntoneRunning) {
+                        $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
+                        if ($mpdRunning) {
+                            wrk_owntone($redis, 'reset');
+                        }
+                    }
+                }
+            }
         }
-        $cnt2 = $delay2;
     }
 }
 //
