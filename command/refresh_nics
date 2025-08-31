@@ -312,8 +312,30 @@ if ($apWifiNicFound && !$apUp && !$NormalWifiNicConnected) {
             $return = fwrite($fp, implode('', $newArray));
             fclose($fp);
             wrk_systemd_unit($redis, 'start', 'hostapd');
-            //
-            $file = '/etc/dnsmasq.conf';
+            // the config file for dnsmasq has moved, this code should work in all cases
+            //  this can be removed in a future release
+            $file1 = '/etc/dnsmasq.conf';            // old location
+            $file = '/etc/dnsmasq.d/runeap.conf';  // new location
+            clearstatcache(true, $file1);
+            if (file_exists($file1)) {
+                copy($file1, $file);
+                unlink($file1);
+            } else {
+                clearstatcache(true, $file);
+                if (!file_exists($file)) {
+                    $file2 = '/srv/http/app/config/defaults'.$file;
+                    clearstatcache(true, $file2);
+                    if (file_exists($file2)) {
+                        copy($file2, $file);
+                    } else {
+                        $file2 = '/srv/http/app/config/defaults'.$file1;
+                        clearstatcache(true, $file2);
+                        if (file_exists($file2)) {
+                            copy($file2, $file);
+                        }
+                    }
+                }
+            }
             // change dhcp-range
             $newArray = wrk_replaceTextLine($file, '', 'dhcp-range=', 'dhcp-range='.$redis->hGet('AccessPoint', 'dhcp-range'));
             // change dhcp-option dns-server
