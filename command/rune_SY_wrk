@@ -1570,7 +1570,7 @@ while (true) {
                         wrk_mpdRestorePlayerStatus($redis);
                     }
                     // success, set to retry in +/-8 hours
-                    $savecpuTimezone = 57400 + rand(0, 400);
+                    $savecpuAutostart = 57400 + rand(0, 400);
                 } else {
                     // not accessible double the delay time
                     // note: $savecpuAutostart is initialised to 0 (zero) and $savecpuAutostartPrev to 0,5
@@ -1589,7 +1589,7 @@ while (true) {
                 wrk_mpdRestorePlayerStatus($redis);
             }
             // success, set to retry in +/-8 hours
-            $savecpuTimezone = 57400 + rand(0, 400);
+            $savecpuAutostart = 57400 + rand(0, 400);
         }
         unset($autoplay, $file, $responce, $accessible, $random);
     }
