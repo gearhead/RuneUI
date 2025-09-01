@@ -80,6 +80,15 @@ function openMpdSocket($path, $type = 0, $sockVarName = null)
 //  are: $mpdsock_0_0, $mpdsock_2_9
 // the globally defined resource or object variables are removed when the socket is closed
 {
+    if (substr($path, 0, 5) == '/var/') {
+        // the specified socket is a socket file, not a web address
+        clearstatcache(true, $path);
+        if (!file_exists($path)) {
+            // the socket file does not exist
+            runelog("[open]\t>>>>>> OPEN MPD SOCKET ERROR - **Socket path invalid, no file found = ".$path."** <<<<<<",'');
+            return false;
+        }
+    }
     if (!isset($sockVarName) && !$sockVarName) {
         // find a free socket variable name
         for ($i = 0; $i <= 10; $i++) {
@@ -974,6 +983,8 @@ function sysCmdAsync($redis, $syscmd, $waitsec = null)
 //  otherwise the command will be queued to be executed sequentially by a single job
 //  the job to process the sequential queue will be started if it is not running
 {
+    // debug
+    // echo 'sysCmdAsync, '.date("Y-m-d G:i:s").': "'.$syscmd."\"\n";
     if (isset($waitsec) && is_numeric($waitsec)) {
         // a $waitsec value is present and valid, so start a new job
         $cmdstr = "/srv/http/command/cmd_async ".base64_encode($syscmd)." ".intval($waitsec);
@@ -3894,7 +3905,7 @@ function wrk_audioOutput($redis, $action)
                 if (isset($details['mixer_numid']) && is_numeric($details['mixer_numid']) && strlen($details['mixer_numid'])) {
                     // mixer number ID is specified, check that it is a valid number
                     $retval = sysCmd('amixer controls -c '.$card['number'].' | grep -ic "numid='.$details['mixer_numid'].'"');
-                    if(!isset($retval) || !is_array($retval) || !$retval[0]) {
+                    if (!isset($retval) || !is_array($retval) || !$retval[0]) {
                         // not found, unset the value
                         unset($details['mixer_numid']);
                     }
@@ -4317,8 +4328,20 @@ function wrk_kernelswitch($redis, $args)
 }
 
 function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
+// actions:
+//  checkacards
+//  reset
+//  writecfg
+//  update
+//  switchao
+//  refresh
+//  refreshsoundcards
+//  start
+//  forcestop
+//  stop
+//  restart
+//  forcerestart
 {
-    $owntoneActive = $redis->hGet('owntone', 'active');
     switch ($action) {
         case 'checkacards':
             if (is_firstTime($redis, 'checkacards')) {
@@ -4390,7 +4413,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // get the mpd configuration data
             $mpdcfg = $redis->hGetAll('mpdconf');
-            $output = null;
             // set mpd.conf file header
             $output =  "###################################\n";
             $output .= "#  Auto generated mpd.conf file   #\n";
@@ -4399,17 +4421,23 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .= "###################################\n";
             $output .= "#\n";
             // --- log settings ---
-            if ($mpdcfg['log_level'] === 'none') {
-                $redis->hDel('mpdconf', 'log_file');
-            } else {
-                $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
+            if (isset($mpdcfg['log_level']) && isset($mpdcfg['log_file']) && $mpdcfg['log_level'] && $mpdcfg['log_file']) {
+                $mpdcfg['log_level'] = strtolower(trim($mpdcfg['log_level']));
+                if (strpos('|error|warning|notice|info|verbose|', $mpdcfg['log_level'])) {
+                    $output .= "log_level\t\"".$mpdcfg['log_level']."\"\n";
+                    $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
+                } else if (($mpdcfg['log_level'] == 'default')) {
+                    // let mpd assign its default log level
+                    $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
+                }
+                // specifying 'none' as the log_level will result in no log file
+            } else if (isset($mpdcfg['log_file']) && $mpdcfg['log_file']) {
+                // log file specified , but no log level - let mpd assign its default log level
                 $output .= "log_file\t\"".$mpdcfg['log_file']."\"\n";
             }
             unset($mpdcfg['log_level'], $mpdcfg['log_file']);
             // --- state file ---
-            if (!isset($mpdcfg['state_file_enable']) || $mpdcfg['state_file_enable'] === 'no') {
-                // do nothing
-            } else {
+            if (isset($mpdcfg['state_file_enable']) && filter_var($mpdcfg['state_file_enable'], FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE)) {
                 $output .= "state_file\t\"".$mpdcfg['state_file']."\"\n";
             }
             unset($mpdcfg['state_file'], $mpdcfg['state_file_enable']);
@@ -4427,7 +4455,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             unset($mpdcfg['proxy_node'], $mpdcfg['proxy_port']);
             // --- bind_to_address & port ---
-            if (!isset($mpdcfg['bind_to_address']) || $mpdcfg['bind_to_address'] === '') {
+            if (!isset($mpdcfg['bind_to_address']) || !$mpdcfg['bind_to_address']) {
                 // not set, add localhost
                 $output .= "bind_to_address\t\"localhost\"\n";
             } else {
@@ -4475,7 +4503,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     case 'mixer_type':
                         // --- Mixer type ---
                         $hwmixer = 0;
-                        if ($value === 'software' OR $value === 'hardware') {
+                        if (($value === 'software') || ($value === 'hardware')) {
                             $redis->set('volume', 1);
                             $volumeControl = 1;
                             if ($value === 'hardware') {
@@ -4731,11 +4759,15 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 }
                 $output .="\tauto_resample \t\"no\"\n";
                 $output .="\tauto_format \t\"no\"\n";
-                if ($ao === $main_acard_name) {
-                    $output .="\tenabled \t\"yes\"\n";
-                } else {
-                    $output .="\tenabled \t\"no\"\n";
-                }
+                // if ($ao === $main_acard_name) {
+                    // $output .="\tenabled \t\"yes\"\n";
+                // } else {
+                    // $output .="\tenabled \t\"no\"\n";
+                // }
+                // allways set up all cards as disabled, except null and httpd streaming
+                //  this prevents mpd restarts triggered by changes output selection changes
+                //  the active card is enabled after restarting mpd
+                $output .="\tenabled \t\"no\"\n";
                 $output .="}\n";
                 unset($sub_interface);
                 // debug
@@ -4827,23 +4859,17 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // ui_notify($redis, 'MPD', 'config file part three finished');
             // write mpd.conf file to /tmp location
-            $fh = fopen('/tmp/mpd.conf', 'w');
-            fwrite($fh, $output);
-            fclose($fh);
+            $md5New = md5($output);
             // check whether the /tmp/mpd.conf is not the same as /etc/mpd.conf and has not the same md5 as stored
-            $md5Current = md5_file('/etc/mpd.conf');
-            $md5New = md5_file('/tmp/mpd.conf');
+            $mpdConfFileName = '/etc/mpd.conf';
+            $md5Current = md5_file($mpdConfFileName);
             $md5Redis = $redis->get('mpdconfhash');
             if (($md5Redis !== $md5New) || ($md5Redis !== $md5Current)) {
                 // mpd configuration has changed, set mpdconfchange on, to indicate that MPD needs to be restarted and shairport conf needs updating
                 $redis->set('mpdconfchange', 1);
-                sysCmd('cp /tmp/mpd.conf /etc/mpd.conf');
-                sysCmd('rm -f /tmp/mpd.conf');
+                file_put_contents($mpdConfFileName, $output);
                 // update hash
                 $redis->set('mpdconfhash', $md5New);
-            } else {
-                // nothing has changed, but don't unset mpdconfchange, a reboot may be needed for other reasons
-                sysCmd('rm -f /tmp/mpd.conf');
             }
             break;
         case 'update':
@@ -4857,21 +4883,27 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             wrk_mpdconf($redis, 'writecfg');
             break;
         case 'switchao':
+            $owntoneActive = $redis->hGet('owntone', 'active');
+            $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
             // switch audio output to $args
-            $args = trim($args);
+            if (isset($args)) {
+                $args = trim($args);
+            }
             // record current interface selection, note: $args can be an empty string!
-            $oldMpdout = $redis->get('ao');
-            if (!isset($args) || !$args) {
-                $ao_default = trim($redis->get('ao_default'));
-                if ($ao_default) {
-                    $args = $ao_default;
+            $oldMpdout = trim($redis->get('ao'));
+            if (!isset($args) || !$args || !$redis->hExists('acards', $args)) {
+                if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
+                    $args = $oldMpdout;
+                } else {
+                    $ao_default = trim($redis->get('ao_default'));
+                    if ($ao_default && $redis->hExists('acards', $ao_default)) {
+                        $args = $ao_default;
+                    } else {
+                        $args = '';
+                    }
                 }
             }
-            // debug
-            runelog('switchao (switch AO) from:', $oldMpdout);
-            runelog('switchao (switch AO) to  :', $args);
-            $startBluetooth = false;
-            if ($args && ($oldMpdout != $args) && $redis->hExists('acards', $args)) {
+            if ($oldMpdout != $args) {
                 $redis->set('ao', $args);
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
@@ -4879,9 +4911,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 // set this card to the default alsa card
                 set_alsa_default_card($redis, $args);
                 wrk_hwinput($redis, 'refresh');
+            } else {
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+            }
+            // debug
+            runelog('switchao (switch AO) from:', $oldMpdout);
+            runelog('switchao (switch AO) to  :', $args);
+            $startBluetooth = false;
+            if ($args) {
                 // get interface details
                 $acard = array();
-                if ($owntoneActive) {
+                if ($owntoneActive && $owntoneRunning) {
                     $activePlayer = $redis->get('activePlayer');
                     if ($activePlayer == 'MPD') {
                         $device = $redis->hGet('owntone', 'device_mpd');
@@ -4894,76 +4936,76 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     }
                     $acard['device'] = $device;
                     $acard['swdevice'] = $device;
-                    $acard['extlabel'] =  'Owntone';
+                    $acard['extlabel'] = 'Owntone';
                     $acard['sysname'] = 'owntone';
                     $acard['type'] = 'alsa';
                     $acard['description'] = 'Owntone';
                 }
                 $acard = array_merge($acard, json_decode($redis->hGet('acards', $args), true));
-                // save the card if it is a 'hw:' type
+                // save the card name if it is a 'hw:' type
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $args);
                 }
+                $mpdNullnable = true;
                 // correct the null output device
                 if (isset($acard['swdevice']) && $acard['swdevice']) {
                     if (substr($acard['swdevice'], 0, 9) == 'bluealsa:') {
                         // its a Bluetooth output, enable the null output device
-                        sysCmd('mpc enable null');
+                        $mpdNullnable = true;
                         // start Bluetooth
                         $startBluetooth = true;
                     } else if ((strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
                             (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
                         // its a vc4 hdmi or USB output, enable the null output device
-                        sysCmd('mpc enable null');
+                        $mpdNullnable = true;
                     } else {
                         // otherwise disable the null output device
-                        sysCmd('mpc disable null');
+                        $mpdNullnable = false;
                     }
-                } else {
-                    // invalid device (should never happen), enable the null output device
-                    sysCmd('mpc enable null');
                 }
                 // switch interface
-                if ($owntoneActive) {
-                    sysCmd('mpc enable only null owntone');
-                    wrk_owntone($redis, 'switchao');
+                $ownttoneSwitched = false;
+                $owntoneOutputSelected = sysCmd('mpc outputs | grep -i "(owntone)" | grep -ic "enabled"')[0];
+                if ($owntoneActive && $owntoneRunning) {
+                    if (!$owntoneOutputSelected) {
+                        sysCmd('mpc enable only null owntone');
+                        wrk_owntone($redis, 'switchao');
+                        $ownttoneSwitched = true;
+                    }
                 } else {
-                    sysCmd('mpc enable "'.$args.'"');
-                    sysCmd('mpc disable "'.$oldMpdout.'"');
+                    if ($owntoneOutputSelected) {
+                        $ownttoneSwitched = true;
+                    }
+                    if ($mpdNullnable) {
+                        sysCmd('mpc enable only null "'.$args.'"');
+                    } else {
+                        sysCmd('mpc enable only "'.$args.'"');
+                    }
                 }
                 // change the output for Airplay and Spotify Connect
                 wrk_shairport($redis, $args);
                 wrk_spotifyd($redis, $args);
                 sysCmdAsync($redis, '/srv/http/command/mpdconf_writecfg_async.php');
-            } else if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
-                // save the previous card if it is a 'hw:' type
-                $acard = json_decode($redis->hGet('acards', $oldMpdout), true);
-                if (isset($acard['device']) && ((substr($acard['device'], 0, 3) == 'hw:') || (substr($acard['device'], 0, 7) == 'plughw:'))) {
-                    $redis->set('ao_default', $oldMpdout);
-                }
-                sysCmd('mpc enable "'.$oldMpdout.'"');
-                // correct the null output device
-                if (isset($acard['swdevice']) && $acard['swdevice']) {
-                    if ((substr($acard['swdevice'], 0, 9) == 'bluealsa:') ||
-                            (strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
-                            (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
-                        // its a Bluetooth, vc4 hdmi or USB output, enable the null output device
-                        sysCmd('mpc enable null');
-                    } else {
-                        // otherwise disable the null output device
-                        sysCmd('mpc disable null');
+            } else {
+                // invalid device (could happen, e.g. owntone server with no local outputs)
+                //  enable the null output device and owntone if it is running
+                // args value is invalid
+                // switch interface if owntone is active and owntone output is not selected
+                if ($owntoneActive && $owntoneRunning) {
+                    $owntoneOutputSelected = sysCmd('mpc outputs | grep -i "(owntone)" | grep -ic "enabled"')[0];
+                    if (!$owntoneOutputSelected) {
+                        sysCmd('mpc enable only null owntone');
+                        wrk_owntone($redis, 'switchao');
+                        // change the output for Airplay and Spotify Connect
+                        wrk_shairport($redis, $args);
+                        wrk_spotifyd($redis, $args);
                     }
                 } else {
-                    // invalid device (could happen), enable the null output device
-                    sysCmd('mpc enable null');
+                    // disable all except null
+                    sysCmd('mpc enable only null');
+                    // // check that MPD only has one output enabled and if not correct it
+                    // sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                 }
-                // wrk_shairport($redis, $oldMpdout);
-                // wrk_spotifyd($redis, $oldMpdout);
-            } else {
-                // invalid device (could happen), enable the null output device
-                sysCmd('mpc enable null');
-                // check that MPD only has one output enabled and if not correct it
-                sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
             }
             if ($startBluetooth && sysCmd('mpc status | grep -ic "\[playing\]"')[0]) {
                 // // set the initial volume for the bluetooth device
@@ -4979,16 +5021,27 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 wrk_btcfg($redis, 'auto_volume');
             }
             // set notify label
-            if (isset($acard['description'])) {
-                $interface_label = $acard['description'];
-            } else if (isset($acard['extlabel'])) {
-                $interface_label = $acard['extlabel'];
-            } else {
-                $interface_label = $args;
+            $interface_label = '';
+            if ($args && ($oldMpdout != $args)) {
+                if (isset($acard['description'])) {
+                    $interface_label = $acard['description'];
+                } else if (isset($acard['extlabel'])) {
+                    $interface_label = $acard['extlabel'];
+                } else {
+                    $interface_label = $args;
+                }
             }
             // notify UI
-            if ($interface_label) {
-                ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+            if ($owntoneActive && $owntoneRunning && $ownttoneSwitched) {
+                if ($interface_label) {
+                    ui_notify($redis, 'Audio output switched', "Multi-room activated, current active local output:\n".$interface_label);
+                } else {
+                    ui_notify($redis, 'Audio output switched', "Multi-room activated");
+                }
+            } else {
+                if ($interface_label || $ownttoneSwitched) {
+                    ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+                }
             }
             if ($redis->get('activePlayer') != 'MPD') {
                 ui_notify($redis, 'Playback source switched to:', 'MPD');
@@ -5039,6 +5092,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 } else {
                     sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
                 }
+                wrk_mpdconf($redis, 'switchao');
                 // restart mpdscribble
                 if ($redis->hGet('lastfm', 'enable') === '1') {
                     wrk_systemd_unit($redis, 'reload-or-restart', 'mpdscribble');
@@ -5302,7 +5356,7 @@ function wrk_mpdRestorePlayerStatus($redis)
     $redis->hSet('globalrandom', 'wait_for_play', 0);
 }
 
-function wrk_spotifyd($redis, $ao = null, $name = null)
+function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
 {
     if (!isset($name) || empty($name) || !$name) {
         $name = trim($redis->hGet('spotifyconnect', 'device_name'));
@@ -5317,20 +5371,38 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     }
     $redis->hSet('spotifyconnect', 'device_name', $name);
     //
-    if (!isset($ao) || empty($ao) || !$ao) {
-        $ao = trim($redis->get('ao'));
-        if ($ao == '') {
-            $ao = end($redis->hKeys('acards'));
-            if ($ao != '') {
-                $redis->set('ao', $ao);
-                // set this card to the default alsa card
-                set_alsa_default_card($redis, $ao);
-                wrk_hwinput($redis, 'refresh');
-            }
-        }
-    } else {
+    if (isset($ao)) {
         $ao = trim($ao);
     }
+    // record current interface selection, note: $ao can be an empty string!
+    $oldMpdout = trim($redis->get('ao'));
+    if (!isset($ao) || !$ao || !$redis->hExists('acards', $ao)) {
+        if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
+            $ao = $oldMpdout;
+        } else {
+            $ao_default = trim($redis->get('ao_default'));
+            if ($ao_default && $redis->hExists('acards', $ao_default)) {
+                $ao = $ao_default;
+            } else {
+                $ao = '';
+            }
+        }
+    }
+    //
+    if ($oldMpdout != $ao) {
+        $redis->set('ao', $ao);
+        if (isset($jobID) && $jobID) {
+            $redis->sRem('w_lock', $jobID);
+        }
+        // set this card to the default alsa card
+        set_alsa_default_card($redis, $ao);
+        wrk_hwinput($redis, 'refresh');
+    } else {
+        if (isset($jobID) && $jobID) {
+            $redis->sRem('w_lock', $jobID);
+        }
+    }
+    //
     $redis->hSet('spotifyconnect', 'ao', $ao);
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
@@ -5348,13 +5420,19 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     }
     //
     // use the software defined device
-    if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
-        $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+    if (isset($acard['swdevice'])) {
+        if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
+            $redis->hSet('spotifyconnect', 'device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+        } else {
+            $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
+        }
     } else {
-        $redis->hSet('spotifyconnect', 'device', trim($acard['swdevice']));
+        // no output card available stop spotifyd and exit
+        wrk_systemd_unit($redis, 'stop', 'spotifyd');
+        return 0;
     }
     //
-    if (!empty($acard['mixer_control'])) {
+    if (isset($acard['mixer_control']) && !empty($acard['mixer_control'])) {
         $mixer = trim($acard['mixer_control']);
         $volume_control = 'alsa';
     } else {
@@ -5517,16 +5595,16 @@ function wrk_spotifyd($redis, $ao = null, $name = null)
     }
 }
 
-function wrk_shairport($redis, $ao = null, $name = null)
+function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
 {
     // debug
     // echo "wrk_shairport ao  :'".$ao."'\n";
     // echo "wrk_shairport name:'".$name."'\n";
     if (!isset($name) || empty($name) || !$name) {
         $name = trim($redis->hGet('airplay', 'device_name'));
-        if ($name == '') {
+        if (!$name) {
             $name = trim($redis->get('hostname'));
-            if ($name == '') {
+            if (!$name) {
                 $name = 'RuneAudio';
             }
         }
@@ -5535,23 +5613,38 @@ function wrk_shairport($redis, $ao = null, $name = null)
     }
     $redis->hSet('airplay', 'device_name', $name);
     //
-    if (!isset($ao) || empty($ao) || !$ao) {
-        $ao = trim($redis->hGet('airplay', 'ao'));
-        if ($ao == '') {
-            $ao = trim($redis->get('ao'));
-            if ($ao == '') {
-                $ao = end($redis->hKeys('acards'));
-                if ($ao != '') {
-                    $redis->set('ao', $ao);
-                    // set this card to the default alsa card
-                    set_alsa_default_card($redis, $ao);
-                    wrk_hwinput($redis, 'refresh');
-                }
-            }
-        }
-    } else {
+    if (isset($ao)) {
         $ao = trim($ao);
     }
+    // record current interface selection, note: $ao can be an empty string!
+    $oldMpdout = trim($redis->get('ao'));
+    if (!isset($ao) || !$ao || !$redis->hExists('acards', $ao)) {
+        if ($oldMpdout && $redis->hExists('acards', $oldMpdout)) {
+            $ao = $oldMpdout;
+        } else {
+            $ao_default = trim($redis->get('ao_default'));
+            if ($ao_default && $redis->hExists('acards', $ao_default)) {
+                $ao = $ao_default;
+            } else {
+                $ao = '';
+            }
+        }
+    }
+    //
+    if ($oldMpdout != $ao) {
+        $redis->set('ao', $ao);
+        if (isset($jobID) && $jobID) {
+            $redis->sRem('w_lock', $jobID);
+        }
+        // set this card to the default alsa card
+        set_alsa_default_card($redis, $ao);
+        wrk_hwinput($redis, 'refresh');
+    } else {
+        if (isset($jobID) && $jobID) {
+            $redis->sRem('w_lock', $jobID);
+        }
+    }
+    //
     $redis->hSet('airplay', 'ao', $ao);
     // debug
     // echo "wrk_shairport ao  :'".$ao."'\n";
@@ -5559,18 +5652,29 @@ function wrk_shairport($redis, $ao = null, $name = null)
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
     if (!isset($acard) || !is_array($acard) || !isset($acard['sysname'])) {
-        // no output devices
-        $redis->hSet('airplay', 'ao', '');
-        $redis->hSet('airplay', 'alsa_mixer_control', '');
-        $redis->hSet('airplay', 'alsa_mixer_device', '');
-        $redis->hSet('airplay', 'alsa_output_device', '');
-        // stop shairport-sync
-        wrk_systemd_unit($redis, 'stop', 'shairport-sync');
-        return 0;
-    }
-    // for owntone the output device is different, we leave the mixer pointing to the real output device
-    if ($redis->hGet('owntone', 'active')) {
-        $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
+        // for owntone the output device is different, we leave the mixer pointing to the real output device
+        if ($redis->hGet('owntone', 'active')) {
+            $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
+            $acard['device'] = $redis->hGet('owntone', 'device_ap');
+            $acard['extlabel'] = 'Owntone';
+            $acard['sysname'] = 'owntone';
+            $acard['type'] = 'alsa';
+            $acard['description'] = 'Owntone';
+        } else {
+            // no output devices
+            $redis->hSet('airplay', 'ao', '');
+            $redis->hSet('airplay', 'alsa_mixer_control', '');
+            $redis->hSet('airplay', 'alsa_mixer_device', '');
+            $redis->hSet('airplay', 'alsa_output_device', '');
+            // stop shairport-sync
+            wrk_systemd_unit($redis, 'stop', 'shairport-sync');
+            return 0;
+        }
+    } else {
+        // for owntone the output device is different, we leave the mixer pointing to the real output device
+        if ($redis->hGet('owntone', 'active')) {
+            $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
+        }
     }
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
@@ -5674,7 +5778,12 @@ function wrk_shairport($redis, $ao = null, $name = null)
         $newArray = wrk_replaceTextLine('', $newArray, ' alsa_mixer_device', 'mixer_device="'.$airplay['alsa_mixer_device'].'"; // alsa_mixer_device');
     }
     $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_format', 'output_format="'.$airplay['alsa_output_format'].'"; // alsa_output_format');
-    $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate='.$airplay['alsa_output_rate'].'; // alsa_output_rate');
+    if (is_numeric($airplay['alsa_output_rate'])) {
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate='.$airplay['alsa_output_rate'].'; // alsa_output_rate');
+    } else {
+        // the 'auto' option needs to be in quotes
+        $newArray = wrk_replaceTextLine('', $newArray, ' alsa_output_rate', 'output_rate="'.$airplay['alsa_output_rate'].'"; // alsa_output_rate');
+    }
     $newArray = wrk_replaceTextLine('', $newArray, ' pipe_pipe_name', 'name="'.$airplay['pipe_pipe_name'].'"; // pipe_pipe_name');
     if ($airplay['metadata_enabled'] === '') {
         $newArray = wrk_replaceTextLine('', $newArray, ' metadata_enabled', '// enabled="'.$airplay['metadata_enabled'].'"; // metadata_enabled');
@@ -9624,7 +9733,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     // a HW input is playing, ashuffle should not not be running
                     $mpdSingleRepeatRandomStopped = true;
                 } else {
-                    $mpcStatus = ' '.trim(preg_replace('!\s+!', ' ', strtolower(sysCmd('mpc status | xargs')[0])));
+                    $mpcStatus = ' '.trim(preg_replace('!\s+!', ' ', strtolower(sysCmd('mpc status | tr -d \\\'\" | xargs')[0])));
                     if (!strpos($mpcStatus, 'playing')) {
                         // not playing
                         $retval = sysCmd('mpc move '.$moveNr.' '.$moveNr.' || echo 1');
@@ -9675,7 +9784,7 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
                     // ashuffle not started
                     if ((($nasmounts == 0) && ($usbmounts == 0) && ($localstoragefiles == 0)) || ($activePlayer != 'MPD') || $mpdSingleRepeatRandomStopped) {
                         // nothing to play or active player is not MPD or MPS stopped, MPD single, repeat or random is set, do nothing
-                    } else if (!sysCmd('mpc outputs | grep -ic enabled')[0]) {
+                    } else if (!sysCmd('mpc outputs | grep -ic enabled | xargs')[0]) {
                         //  MPD is not running or has no valid output, do nothing
                     } else if (!sysCmd('mpc stats | grep -i songs | xargs | cut -d " " -f 2 | xargs')[0]) {
                         //  MPD is not running or there are no songs in its database, do nothing
@@ -9816,6 +9925,7 @@ function wrk_check_MPD_outputs($redis)
 // it is possible that stream output has been defined which is always active, so be careful
 // exclude the stream output when counting the enabled output's, there should then only be one enabled output
 {
+    return;
     // enable the null output
     sysCmd('mpc enable null');
     // get the card information
@@ -11871,10 +11981,17 @@ function wrk_get_webradio_art($redis, $radiostring)
         // no internet connection, just return a false value
         return 0;
     }
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $fileName = $artDir.'/none.png';
+    clearstatcache(true, $fileName);
+    if (!file_exists($fileName)) {
+        // metadata cache has not yet been initialised (on startup)
+        // so just return false
+        return 0;
+    }
     $info = array();
     $info['webradiostring'] = $radiostring;
     $info['webradiostring_filename'] = format_radiostring_file_name($radiostring);
-    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     $noRadioCache = true;
     if ($info['webradiostring_filename']) {
         $infoCache = array();
@@ -12869,15 +12986,8 @@ function set_alsa_default_card($redis, $cardName = null)
         $acard['sysname'] = 'owntone';
         $acard['type'] = 'alsa';
         $acard['description'] = 'Owntone';
-    } else if (!isset($cardName) || !$cardName) {
-        // no card defined
-        return;
-    }
-    if (isset($ao) && $ao) {
+    } else if (isset($cardName) && $cardName) {
         $acard = json_decode($redis->hGet('acards', $cardName), true);
-        if (!isset($acard['device']) || !$acard['device']) {
-            $acard = array_merge($acard, json_decode($redis->hGet('acards', $ao), true));
-        }
         if (!isset($acard['device']) || !$acard['device']) {
             // invalid card
             echo "Invalid ao card: '$cardName', '$ao'\n";
@@ -12889,12 +12999,16 @@ function set_alsa_default_card($redis, $cardName = null)
             if (($ao_default == $cardName) || ($ao_default == $ao)) {
                 $redis->set('ao_default', '');
             }
-            return;
         }
+    } else if (!isset($cardName) || !$cardName) {
+        // no card defined
+        $acard = array();
     }
     //
-    $device = trim($acard['device']);
-    $cardNumber = get_between_data($device, ':', ',');
+    if (isset($acard['device']) && $acard['device']) {
+        $device = trim($acard['device']);
+        $cardNumber = get_between_data($device, ':', ',');
+    }
     if (isset($acard['swmixer_device']) && isset($acard['mixer_control']) && $acard['swmixer_device'] && $acard['mixer_control']) {
         $mixerInfo = ' --mixer-device='.$acard['mixer_device'].' --mixer-control='.$acard['mixer_control'];
         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
@@ -15884,10 +15998,12 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
 //  conf_add_alsa_card, $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device')
 //  conf_add_alsa_cards, no $args
 //  initialise, no $args
-//  reset
+//  reset, $args = '' or 'full' when full redis owntone is reset
 //  status
 //  switchao
 //  switchplayer
+//  mute, $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+//  unmute, $args = '', 'all' or list of space delimited output_id's which should be unmuted, '' or 'all' = unmute all
 {
     switch ($action) {
         case 'activate':
@@ -15897,14 +16013,34 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
                 }
-                wrk_owntone($redis, 'initialise');
-                $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
-                if ($retval == 'changed') {
-                    wrk_systemd_unit($redis, 'restart', 'owntone');
+                // check that mpd is operating correctly and that all the output cards are defined for owntone
+                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+                $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                $owntoneCardStatus = wrk_owntone($redis, 'conf_add_alsa_cards');
+                if (($mpdError && $owntoneRunning && $mpdRunning) || ($owntoneCardStatus == 'changed') ) {
+                    // this will reset owntone, empty the fifo files and restart mpd
+                    wrk_owntone($redis, 'reset');
                 }
+                if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                    $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
+                    if ($mpdPlaying) {
+                        sysCmd('mpc pause');
+                    }
+                    sysCmd('mpc enable only null');
+                }
+                // wrk_owntone($redis, 'initialise');
+                // $cnt = 20;
+                // while (($cnt-- <= 0) &&  ) {
+                // }
                 wrk_owntone($redis, 'status');
-                wrk_owntone($redis, 'switch');
-                wrk_systemd_unit($redis, 'start', 'owntone_monitor');
+                wrk_systemd_unit($redis, 'start', 'owntone_monitor', 'async');
+                if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                    wrk_mpdconf($redis, 'switchao');
+                    if ($mpdPlaying) {
+                        sysCmd('mpc play');
+                    }
+                }
             }
             break;
         case 'deactivate':
@@ -15914,15 +16050,91 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 $redis->sRem('w_lock', $jobID);
             }
             wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+            if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
+                if ($mpdPlaying) {
+                    sysCmd('mpc pause');
+                }
+                sysCmd('mpc enable only null');
+            }
+            // deactivate all the owntone outputs when owntone is running
+            if (wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // mute owntone output
+                wrk_owntone($redis, 'mute');
+                // get the server name
+                $server = $redis->hget('owntone', 'server');
+                if (isset($server) && $server) {
+                    // get the outputs actual information
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                    if (!$retval || !is_array($retval)) {
+                        $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                    }
+                    if ($retval && is_array($retval)) {
+                        $retval = json_decode($retval[0], true);
+                    } else {
+                        $retval = array();
+                    }
+                    if (isset($retval['outputs'])) {
+                        foreach ($retval['outputs'] as $output) {
+                            if ($output['selected']) {
+                                // set up the command
+                                $command =
+                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                    ' --data '.
+                                    '"{\"selected\": false'.
+                                    '}"';
+                                // run the command
+                                sysCmd($command);
+                                sysCmd($command);
+                            }
+                        }
+                    }
+                }
+            }
+            // remove any mute entries and correct preset volume in the presets
+            // get the default volume
+            $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            // get the output preset keys
+            $presetKeys = $redis->hKeys('owntone_presets');
+            foreach ($presetKeys as $presetKey) {
+                $writePreset = false;
+                $preset = json_decode($redis->hGet('owntone_presets', $presetKey), true);
+                if ($preset['mute'] != 0) {
+                    $preset['mute'] = 0;
+                    $writePreset = true;
+                }
+                if (!$preset['autoconnect'] && ($preset['volume_preset'] != $defaultVolume)) {
+                    $preset['volume_preset'] = $defaultVolume;
+                    $writePreset = true;
+                }
+                if ($writePreset) {
+                    $redis->hSet('owntone_presets', $presetKey, json_encode($preset));
+                }
+            }
+            // remove the owntone outputs and other stored values
+            $redis->del('owntone_outputs');
+            $redis->hSet('owntone', 'master', json_encode(array()));
+            $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_player', json_encode(array()));
+            // remove the first time indicators for connecting owntone outputs
+            sysCmd('rm -f /tmp/MR_*.firsttime');
+            // set the mpd output and restart playing if required
+            if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                wrk_mpdconf($redis, 'switchao');
+                if ($mpdPlaying) {
+                    sysCmd('mpc play');
+                }
+            }
             break;
         case 'disable':
             // no $args
             $redis->hSet('owntone', 'enable', 0);
-            $redis->hSet('owntone', 'active', 0);
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
-            wrk_owntone($redis, 'deactivate');
+            if ($redis->hGet('owntone', 'active')) {
+                wrk_owntone($redis, 'deactivate');
+            }
             wrk_systemd_unit($redis, 'stop', 'owntone');
             break;
         case 'enable':
@@ -15931,11 +16143,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
-            unset_is_firstTime($redis, 'owntone_master_volume');
             wrk_owntone($redis, 'initialise');
+            $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf"');
+            if (!$mpdOwntoneOutput) {
+                $redis->set('mpdconfchange', 1);
+                wrk_mpdconf($redis, 'refresh');
+            }
             $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
             if ($retval == 'changed') {
-                wrk_systemd_unit($redis, 'restart', 'owntone');
+                if ($redis->hGet('owntone', 'active')) {
+                    wrk_owntone($redis, 'reset');
+                } else {
+                    wrk_systemd_unit($redis, 'restart', 'owntone');
+                }
             }
             break;
         case 'conf_add_alsa_card':
@@ -16014,7 +16234,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     foreach ($acards as $acard) {
                         $acard_decoded = array();
                         $acard_decoded = json_decode($acard, true);
-
                         $owntoneCard = array();
                         $owntoneCard['card_name'] = $acard_decoded['swdevice'];
                         $owntoneCard['nickname'] = $acard_decoded['description'];
@@ -16034,7 +16253,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     foreach ($btDevices as $btDevice) {
                         $owntoneCard = array();
                         $owntoneCard['card_name'] = "bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp";
-                        $owntoneCard['nickname'] = $btDevice['name'];
+                        $owntoneCard['nickname'] = 'Bluetooth: '.$btDevice['name'];
                         $owntoneCard['mixer'] = '';
                         $owntoneCard['mixer_device'] = '';
                         $owntoneCard['file'] = $tmpFile;
@@ -16056,15 +16275,41 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             sysCmd('/srv/http/command/owntone_init.sh');
             break;
         case 'reset':
-            // no $args
-            wrk_systemd_unit($redis, 'stop', 'owntone');
-            sysCmd('rm -r '.$resdis->hGet('owntone', 'library_dir'));
-            sysCmd('/srv/http/command/redis_datastore_setup owntonereset');
+            // $args = '' or 'full'
+            if (!isset($args)) {
+                $args = '';
+            }
+            $enable = $redis->hGet('owntone', 'enable');
+            $active = $redis->hGet('owntone', 'active');
+            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
+            if ($active) {
+                wrk_owntone($redis, 'deactivate');
+            } else {
+                wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+                wrk_mpdconf($redis, 'switchao');
+            }
+            if ($enable) {
+                wrk_owntone($redis, 'disable');
+            } else {
+                wrk_systemd_unit($redis, 'stop', 'owntone');
+            }
+            sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir'));
+            if ($args == 'full') {
+                sysCmd('/srv/http/db/redis_datastore_setup owntonereset');
+            } else {
+                sysCmd('/srv/http/db/redis_datastore_setup owntonecheck');
+            }
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
+            if ($mpdError) {
+                wrk_mpdconf($redis, 'forcerestart');
+            }
             copy('/srv/http/app/config/defaults/etc/owntone.conf', '/etc/owntone.conf');
             unlink('/etc/alsa/conf.d/99_runeaudio_owntone.conf');
+            $redis->hSet('owntone', 'enable', $enable);
+            $redis->hSet('owntone', 'active', $active);
+            sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
             break;
         case 'status':
             // no $args
@@ -16073,267 +16318,776 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 $redis->hSet('owntone', 'role', $role);
                 $server = 'localhost';
                 $redis->hSet('owntone', 'server', $server);
-            } else {
-                $role = 'slave';
-                $redis->hSet('owntone', 'role', $role);
-                // use avahi-browse to determine the server name
-                //  if there are multiple owntone servers the first owntone server will be used
-                $retval = sysCmd("avahi-browse -atrlkp | grep -i 'owntone' | grep -w '^='");
-                if (isset($retval) && $retval && is_array($retval)) {
-                    $retval = $retval[0];
-                } else {
-                    $retval = '';
+                $serverHostname = $redis->get('hostname');
+                $redis->hSet('owntone', 'server_hostname', $serverHostname);
+                $network_interfaces = json_decode($redis->get('network_interfaces'), true);
+                unset($ipAddress);
+                foreach ($network_interfaces as $network_interface) {
+                    if (!isset($ipAddress)) {
+                        if (isset($network_interface['ipv4Address'])) {
+                            $ipAddress = $network_interface['ipv4Address'];
+                        }
+                    } else if (isset($network_interface['technology']) && ($network_interface['technology'] == 'ethernet')) {
+                        if (isset($network_interface['ipv4Address'])) {
+                            $ipAddress = $network_interface['ipv4Address'];
+                        }
+                    }
                 }
-                if ($retval) {
-                    $server = get_between_data($retval, ';local;', '.local');
-                    if ($server) {
-                        $server = $server.'.local';
-                        $redis->hSet('owntone', 'server', $server);
+                $redis->hSet('owntone', 'server_ip_address', $ipAddress);
+            // } else {
+                // $role = 'client';
+                // $redis->hSet('owntone', 'role', $role);
+                // // use avahi-browse to determine the server name
+                // //  if there are multiple owntone servers the first owntone server will be used
+                // $retval = sysCmd("avahi-browse -atrlkp | grep -i 'owntone' | grep -w '^='");
+                // if (isset($retval) && $retval && is_array($retval)) {
+                    // $retval = $retval[0];
+                // } else {
+                    // $retval = '';
+                // }
+                // if ($retval) {
+                    // $server = get_between_data($retval, ';local;', '.local');
+                    // if ($server) {
+                        // $server = $server.'.local';
+                        // $redis->hSet('owntone', 'server', $server);
+                        // $redis->hSet('owntone', 'server_hostname', $server);
+                    // }
+                    // $ipAddress = get_between_data($retval, '.local;', ';');
+                    // if ($ipAddress) {
+                        // // it is quicker to use the IP address for the client
+                        // $redis->hSet('owntone', 'server_ip_address', $ipAddress);
+                        // $redis->hSet('owntone', 'server', $server);
+                    // }
+                // } else {
+                    // $server = '';
+                    // $ipAddress = '';
+                    // $redis->hSet('owntone', 'server', $server);
+                    // $redis->hSet('owntone', 'server_hostname', $server);
+                    // $redis->hSet('owntone', 'server_ip_address', $ipAddress);
+                // }
+            }
+            $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            $localVolume = $redis->get('lastmpdvolume');
+            if (!is_numeric($localVolume)) {
+                $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                if (!is_numeric($localVolume)) {
+                    $retval = json_decode($redis->get('act_player_info'), true);
+                    if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                        $localVolume = $retval['volume'];
+                    } else {
+                        $localVolume = $defaultVolume;
                     }
-                    $ipAddress = get_between_data($retval, '.local;', ';');
-                    if ($ipAddress) {
-                        $redis->hSet('owntone', 'server_ip_address', $ipAddress);
-                    }
-                } else {
-                    $server = '';
-                    $ipAddress = '';
+                    unset($retval);
                 }
             }
-            if ($role && $server) {
-                // role and the server name are known
+            $multidevice = $redis->hGet('owntone', 'multidevice');
+            $bluetoothConnected = false;
+            $totalOutputVolume = 0;
+            $numberOutputs = 0;
+            $unmuteMaster = false;
+            $detectedOutputNames = array();
+            if ($server && wrk_systemd_unit($redis, 'is-active', 'owntone') && ($role == 'server')) {
+                // role and the server name are known, the owntone job is running and the role is server
                 //
                 // get the server configuration
-                if (($role == 'slave') && $ipAddress) {
-                    // it is quicker to use the IP address for the slave
-                    $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/config"')[0];
+                $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"');
+                if (!$retval || !is_array($retval)) {
+                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"');
+                }
+                if ($retval && is_array($retval)) {
+                    $retval = $retval[0];
                 } else {
-                    // it is quicker to use 'localhost' for the server
-                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"')[0];
+                    $retval = array();
                 }
                 // save the server config, it is already in json format
                 $redis->hSet('owntone', 'server_config', $retval);
-                $writeOutputs = false;
-                $writePresets = false;
-                if ($role == 'slave') {
-                    // role is slave, we are only interested in the seleccted 'active' outputs
-                    if (isset($ipAddress) && $ipAddress) {
-                        // it is quicker to use the IP address for the slave
-                        $retval = sysCmd('curl -X GET -s "http://'.$ipAddress.':3689/api/outputs"')[0];
-                    } else {
-                        $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
-                    }
-                    // reformat the json output so that it can be indexed by 'name'
-                    $retval = json_decode($retval, true);
-                    foreach ($retval['outputs'] as $output) {
-                        if ($output['selected']) {
-                            $outputs[$output['name']] = $output;
+                // get the preset master volume level and save it
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/player"');
+                if (!$retval || !is_array($retval)) {
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/player"');
+                }
+                if ($retval && is_array($retval)) {
+                    $serverPlayer = json_decode($retval[0], true);
+                } else {
+                    $serverPlayer = array();
+                }
+                if (isset($serverPlayer['volume'])) {
+                    $redis->hSet('owntone', 'server_player', json_encode($serverPlayer));
+                    if (is_firstTime($redis, 'MR_owntone_master_volume')) {
+                        // save the server information (and master volume)
+                        $master['volume'] = $serverPlayer['volume'];
+                        if ($master['volume']) {
+                            $master['mute'] = 0;
                         }
+                        $redis->hSet('owntone', 'master', json_encode($master));
                     }
-                    // save the outputs
-                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
-                } else if ($role == 'server') {
-                    // role is server
-                    //  any slave which is up for which autoconnect is set will be connected
-                    //  the default alsa output will be activated
-                    //  the volume for local alsa will be set when activating
-                    //  when a preset volume for non-alsa outputs is available it will be used when activating
-                    //  preset entries will be generated with defaults for non-alsa outputs
-                    $outputPresets = json_decode($redis->hGet('owntone', 'output_presets'), true);
-                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
-                    $retval = json_decode($retval, true);
+                }
+                // get and save the local audio output name
+                $localOutputName = json_decode($redis->hGet('acards', $redis->get('ao')), true)['description'];
+                $redis->hSet('owntone', 'local_output_name', $localOutputName);
+                //  any client which is up for which autoconnect is set will be connected
+                //  the default alsa output will be activated
+                //  the volume for local alsa will be set when activating
+                //  when a preset volume for non-alsa outputs is available it will be used when activating
+                //  preset entries will be generated with defaults for non-alsa outputs
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                if (!$retval || !is_array($retval)) {
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                }
+                if ($retval && is_array($retval)) {
+                    $retval = json_decode($retval[0], true);
+                } else {
+                    $retval = array();
+                }
+                if (isset($retval['outputs'])) {
                     foreach ($retval['outputs'] as $output) {
-                        // reformat the json output so that it can be indexed by 'name' and also eliminate the local airplay output
+                        // eliminate the local airplay name from the output and remove an stored values for this output
                         if ($output['name'] == $redis->hGet('airplay', 'name')) {
-                            if (isset($outputs[$output['name']])) {
-                                unset($outputs[$output['name']]);
+                            if ($redis->hExists('owntone_outputs', $output['name'])) {
+                                $redis->hDel('owntone_outputs', $output['name']);
                             }
-                            if (isset($outputPresets[$output['name']])) {
-                                unset($outputPresets[$output['name']]);
-                                $writePresets = true;
+                            if ($redis->hExists('owntone_presets', $output['name'])) {
+                                $redis->hDel('owntone_presets', $output['name']);
                             }
-                        } else {
-                            $outputs[$output['name']] = $output;
+                            continue;
                         }
-                    }
-                    // save the current outputs
-                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
-                    // get the preset master volume level and use it if different to the current master volume,
-                    //  otherwise save the current master volume as the preset master volume
-                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/player"')[0];
-                    $redis->hSet('owntone', 'server_player', $retval);
-                    $serverPlayer = json_decode($retval, true);
-                    if (!isset($outputPresets['master']['volume'])) {
-                        $outputPresets['master']['volume'] = $serverPlayer['volume'];
-                        $writePresets = true;
-                    } else if (is_firstTime($redis, 'owntone_master_volume') && ($outputPresets['master']['volume'] != $serverPlayer['volume'])) {
-                        sysCmd('curl -X PUT -s "http://'.$server.':3689/api/player/volume?volume='.$outputPresets['master']['volume'].'"');
-                    }
-                    // get and save the local audio output name
-                    $localOutputName = json_decode($redis->hGet('acards', $redis->get('ao')) ,true)['description'];
-                    $redis->hSet('owntone', 'local_output_name', $localOutputName);
-                    // get the local volume level
-                    $localVolume = json_decode($redis->get('act_player_info'), true)['volume'];
-                    // loop through the detected outputs
-                    foreach ($outputs as $name => $output) {
                         $setvolume = false;
                         $disconnect = false;
                         $autoconnect = false;
+                        // get the output information again, there could be a long list of them and the content could change
+                        $command =
+                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                        // run the command
+                        $retval = sysCmd($command);
+                        if (!$retval || !is_array($retval)) {
+                            $retval = sysCmd($command);
+                        }
+                        if (isset($retval) && is_array($retval)) {
+                            $retval = json_decode($retval[0], true);
+                            if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                                $output = $retval;
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                        if (isset($output['name']) && $output['name']) {
+                            // save the output
+                            $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
+                            // save the detected names
+                            $detectedOutputNames[] = $output['name'];
+                            // get the preset info for this output
+                            //  there should be a preset entry for each output, create a default if required
+                            if (!$redis->hExists('owntone_presets', $output['name'])) {
+                                $preset['autoconnect'] = false;
+                                $preset['mute'] = 0;
+                                $preset['volume_preset'] = $defaultVolume;
+                                $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
+                            } else {
+                                $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                            }
+                        } else {
+                            continue;
+                        }
+                        $presetInitial = $preset;
                         if ($output['type'] == 'ALSA') {
-                            // ALSA outputs are local outputs, only one should be enabled, disable others
-                            if ($output['selected'] && ($name != $localOutputName)) {
-                                // this one is connected should not be be
-                                $disconnect = true;
-                            } else if (!$output['selected'] && ($name == $localOutputName)) {
-                                // this one is not connected and should be
-                                if (isset($outputPresets[$name]['volume']) && $outputPresets[$name]['volume']) {
-                                    $volume = $outputPresets[$name]['volume'];
+                            // ALSA outputs
+                            //  when $multidevice is set multiple local outputs are valid
+                            //  when $multidevice is not set only one local outputs should be enabled, disable others
+                            if ($multidevice) {
+                                // for multidevice connect once and don't disconnect
+                                //  always connect the active local device
+                                if (!$output['selected'] && ($output['name'] == $localOutputName) && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
+                                    // local device
+                                    $autoconnect = true;
+                                    $setvolume = true;
+                                    if ($preset['autoconnect'] && isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
+                                        // output is autoconnect so use the preset volume when valid
+                                        $volume = $preset['volume_preset'];
+                                    } else if (isset($localVolume) && is_numeric($localVolume)) {
+                                        // output is not autoconnect so use the local volume when valid
+                                        $volume = $localVolume;
+                                        if (!$preset['autoconnect']) {
+                                            // not autoconnect so set the preset volume to the default volume
+                                            $preset['volume_preset'] = $defaultVolume;
+                                        }
+                                    } else {
+                                        // use the default volume when no others are valid
+                                        $volume = $defaultVolume;
+                                        if (!$preset['autoconnect']) {
+                                            // not autoconnect so set the preset volume to the default volume
+                                            $preset['volume_preset'] = $defaultVolume;
+                                        }
+                                    }
+                                    if ($volume) {
+                                        // remove mute when volume is non zero
+                                        $preset['mute'] = 0;
+                                    }
+                                } else if (!$output['selected'] && $preset['autoconnect'] && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
+                                    // autoconnect
+                                    $autoconnect = true;
+                                    $setvolume = true;
+                                    if (isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
+                                        // autoconnect, use the preset volume when valid
+                                        $volume = $preset['volume_preset'];
+                                    } else {
+                                        // use the default volume when the preset volume is invalid
+                                        $volume = $defaultVolume;
+                                        if (!$preset['autoconnect']) {
+                                            // not autoconnect so set the preset volume to the default volume
+                                            $preset['volume_preset'] = $defaultVolume;
+                                        }
+                                    }
+                                    if ($volume) {
+                                        // remove mute when volume is non zero
+                                        $preset['mute'] = 0;
+                                    }
                                 } else {
-                                    $volume = $localVolume;
+                                    // not local device, nor selected
+                                    // set preset volume to default volume
+                                    $preset['volume_preset'] = $defaultVolume;
+                                    // remove mute when output volume is non-zero
+                                    if ($output['volume']) {
+                                        // remove mute when volume is non zero
+                                        $preset['mute'] = 0;
+                                    }
                                 }
-                                $setvolume = true;
-                                $autoconnect = true;
+                            } else {
+                                // not multidevice, only the current local mpd output should be connected
+                                //  use the current volume
+                                // autoconnect is always false for non-multidevice mode
+                                $preset['autoconnect'] = false;
+                                // preset volume is always the default volume when autoconnect is false
+                                $preset['volume_preset'] = $defaultVolume;
+                                if ($output['selected'] && ($output['name'] != $localOutputName)) {
+                                    // this one is connected should not be be
+                                    $disconnect = true;
+                                    $setvolume = true;
+                                    $volume = $defaultVolume;
+                                    $preset['mute'] = 0;
+                                } else if (!$output['selected'] && ($output['name'] == $localOutputName)) {
+                                    // this one is not connected and should be
+                                    $autoconnect = true;
+                                    $setvolume = true;
+                                    if (isset($localVolume) && is_numeric($localVolume)) {
+                                        // output is not autoconnect so use the local volume when valid
+                                        $volume = $localVolume;
+                                    } else {
+                                        // use the default volume when local volume is valid
+                                        $volume = $defaultVolume;
+                                    }
+                                    $preset['mute'] = 0;
+                                }
+                                if (!$setvolume && $output['volume']) {
+                                    // remove mute when volume is non zero
+                                    $preset['mute'] = 0;
+                                }
                             }
                         } else {
                             // non-alsa outputs are airplay or chromecast
-                            //  there should be a preset entry for each output, create a default if required
-                            if (!isset($outputPresets[$name]['autoconnect'])) {
-                                $outputPresets[$name]['autoconnect'] = false;
-                                $writePresets = true;
-                            }
-                            if (!isset($outputPresets[$name]['volume']) && isset($output['volume']) && $output['volume']) {
-                                $outputPresets[$name]['volume'] = $output['volume'];
-                                $writePresets = true;
-                            }
                             // do not automatically disconnect this type
-                            if (!$output['selected'] && $outputPresets[$name]['autoconnect']) {
+                            //  autoconnect only once
+                            if (!$output['selected'] && $preset['autoconnect'] && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
                                 // this one is not connected and should be
-                                if (isset($outputPresets[$name]['volume']) && $outputPresets[$name]['volume']) {
-                                    $volume = $outputPresets[$name]['volume'];
-                                    $setvolume = true;
-                                }
                                 $autoconnect = true;
+                                $setvolume = true;
+                                if (isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
+                                    // use the preset volume if valid
+                                    $volume = $preset['volume_preset'];
+                                } else {
+                                    // use the default volume when the preset volume is invalid
+                                    $volume = $defaultVolume;
+                                    // set the preset volume to default volume
+                                    $preset['volume_preset'] = $defaultVolume;
+                                }
+                                if ($volume) {
+                                    // remove mute when volume is non zero
+                                    $preset['mute'] = 0;
+                                }
+                            } else if (!$preset['autoconnect']) {
+                                // not autoconnect
+                                // set preset volume to default volume
+                                $preset['volume_preset'] = $defaultVolume;
+                                // remove mute when output volume is non-zero
+                                if ($output['volume']) {
+                                    // remove mute when volume is non zero
+                                    $preset['mute'] = 0;
+                                }
                             }
+                        }
+                        // only connect the first autoconnected bluetooth device
+                        if (substr($output['name'], 0, 11) == 'Bluetooth: ') {
+                            // it is a bluetooth output device
+                            if ($bluetoothConnected) {
+                                // there is already a bluetooth output device connected
+                                if ($autoconnect) {
+                                    // this is a subsequent bluetooth output device with autoconnect
+                                    $autoconnect = false;
+                                } else if ($output['selected']) {
+                                    // this is a subsequent bluetooth output device which is connected
+                                    $disconnect = true;
+                                }
+                            } else {
+                                // no bluetooth devices have been detected as connected
+                                if ($autoconnect || $output['selected']) {
+                                    // this one will be connected or is already connected
+                                    $bluetoothConnected = true;
+                                }
+                            }
+                        }
+                        if ($presetInitial != $preset) {
+                            // save the preset information when required
+                            $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                         }
                         // check for an autoconnect or disconnect
                         //  note: the preset volume is only set once when connecting
                         if ($autoconnect) {
                             // set up the command
                             $command =
-                                'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
-                            if ($setvolume) {
-                                $command .= '\"volume\": '.$volume;
-                                $outputs[$name]['volume'] = $volume;
-                            }
                             if ($autoconnect) {
-                                $command .= ' ,\"selected\": true';
-                                $outputs[$name]['selected'] = true;
+                                $command .= ' \"selected\": true';
+                                $output['selected'] = 1;
                             }
-                            $command .= '}"';
+                            if ($setvolume) {
+                                $command .= ', \"volume\": '.$volume;
+                                $output['volume'] = $volume;
+                            }
+                            $command .= ' }"';
                             // run the command
+                            file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             sysCmd($command);
-                            $writeOutputs = true;
+                            sysCmd($command);
                         } else if ($disconnect) {
                             // set up the command
                             $command =
-                                'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
-                                '"{\"selected\": false'.
-                                '}"';
-                            $outputs[$name]['selected'] = false;
+                                '"{';
+                            if ($disconnect) {
+                                $command .= ' \"selected\": true';
+                                $output['selected'] = 1;
+                            }
+                            if ($setvolume) {
+                                $command .= ', \"volume\": '.$volume;
+                                $output['volume'] = $volume;
+                            }
+                            $command .= ' }"';
+                            $output['selected'] = 0;
                             // run the command
+                            file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             sysCmd($command);
-                            $writeOutputs = true;
+                            sysCmd($command);
+                        }
+                        // get the current output data
+                        // set up the command
+                        $command =
+                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                        // run the command
+                        $retval = sysCmd($command);
+                        if (!$retval || !is_array($retval)) {
+                            $retval = sysCmd($command);
+                        }
+                        if (isset($retval) && is_array($retval)) {
+                            $retval = json_decode($retval[0], true);
+                            if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                                $output = $retval;
+                                // save the output when required
+                                $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
+                            } else {
+                                $redis->hDel('owntone_outputs', $output['name']);
+                                $output = array();
+                            }
+                        } else {
+                            $redis->hDel('owntone_outputs', $output['name']);
+                            $output = array();
+                        }
+                        // correct the mute if required
+                        if (!isset($output['volume']) || ($output['volume'] != 0)) {
+                            // no output or output volume non-zero, correct mute
+                            if ($preset['mute']) {
+                                $preset['mute'] = 0;
+                                // save the preset information
+                                $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
+                            }
+                        }
+                        if (isset($output['volume']) && is_numeric($output['volume'])) {
+                            // calculate the total volume and count the active outputs
+                            if ($output['selected']) {
+                                $totalOutputVolume += $preset['mute'] + $output['volume'];
+                                $numberOutputs++;
+                                if (!$preset['mute']) {
+                                    // this one is not muted
+                                    $unmuteMaster = true;
+                                }
+                            }
                         }
                     }
-                    if ($writeOutputs) {
-                        // outputs have changed, save them
-                        $redis->hSet('owntone', 'outputs', json_encode($outputs));
+                }
+                // correct any mute setting in the presets,  run only once after startup
+                //  this corrects the presets which currently have no active output
+                $presetNames = $redis->hKeys('owntone_presets');
+                if (is_firstTime($redis, 'MR_owntone_unmute')) {
+                    foreach ($presetNames as $presetName) {
+                        if (in_array($presetName, $detectedOutputNames)) {
+                            // skip presets for detected outputs, this check has already been done
+                            continue;
+                        }
+                        $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
+                        if (isset($preset['mute']) && ($preset['mute'] != 0)) {
+                            $preset['mute'] = 0;
+                            $redis->hSet('owntone_presets', $presetName, json_encode($preset));
+                        }
                     }
-                    if ($writePresets) {
-                        // presets have changed, save them
-                        $redis->hSet('owntone', 'output_presets', json_encode($outputPresets));
+                }
+                // remove any invalid outputs from redis
+                $outputNames = $redis->hKeys('owntone_outputs');
+                if (is_array($outputNames) && count($outputNames)) {
+                    foreach ($outputNames as $outputName) {
+                        if (in_array($outputName, $detectedOutputNames)) {
+                            // this one is valid
+                            continue;
+                        }
+                        if ($redis->hExists('owntone_outputs', $outputName)) {
+                            $redis->hDel('owntone_outputs', $outputName);
+                        }
                     }
+                }
+                // adjust the master volume and mute values
+                if ($numberOutputs) {
+                    // calculate the average volume
+                    //  $totalOutputVolume is the sum of all active 'output volume' plus all active 'mute value'
+                    //      per output only one of 'output volume' or 'mute value' will be set the other will be zero
+                    // $averageVolume is the volume if all active outputs were unmuted
+                    $averageVolume = round($totalOutputVolume / $numberOutputs);
+                    // just to be safe $averageVolume has a range of 0 to 100
+                    $averageVolume = min(100, $averageVolume);
+                    $averageVolume = max(0, $averageVolume);
+                    $master = json_decode($redis->hGet('owntone', 'master'), true);
+                    if ($unmuteMaster || !$averageVolume) {
+                        // at least one output has a non-zero volume, or average volume is zero, treat master as unmuted
+                        $master['mute'] = 0;
+                        $master['volume'] = $averageVolume;
+                    } else {
+                        // all outputs are muted treat master as muted
+                        $master['volume'] = 0;
+                        $master['mute'] = $averageVolume;
+                    }
+                    $redis->hSet('owntone', 'master', json_encode($master));
                 }
             } else {
                 // role cannot be established or no server can be determined, clear outputs
-                $redis->hSet('owntone', 'outputs', json_encode(array()));
+                $redis->del('owntone_outputs');
             }
             break;
         case 'switchao':
-            // no $args
-            // only relevant for the server when local output is enabled
-            $role = $redis->hGet('owntone', 'role');
-            if ($role == 'server') {
-                // server, get its name
-                $server = $redis->hGet('owntone', 'server');
-                // determine the local audio output
-                $ao = $redis->get('ao');
-                if ($ao) {
-                    $acard = json_decode($redis->hGet('acards', $ao), true);
-                    if (isset($acard['description']) && $acard['description']) {
-                        $localOutput = $acard['description'];
-                    } else {
-                        $localOutput = '';
-                    }
-                } else {
-                    $localOutput = '';
-                }
-                if ($localOutput) {
-                    // local output is set
-                    // get the owntone presets
-                    $outputPresets = json_decode($redis->hget('owntone', 'output_presets'), true);
-                    // get the local volume level
-                    $localVolume = json_decode($redis->get('act_player_info'), true)['volume'];
-                    // get the outputs
-                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"')[0];
-                    $retval = json_decode($retval, true);
-                    // loop through the outputs, only ALSA outputs are relevant
-                    foreach ($retval as $output) {
-                        if ($output['type'] == 'ALSA') {
-                            // ALSA output
-                            if ($output['selected'] && ($output['name'] != $localOutput)) {
-                                // output is selected when it should not be
-                                $output['selected'] = false;
-                                // set up the command
-                                $command =
-                                    'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
-                                    ' --data '.
-                                    '"{\"selected\": false'.
-                                    '}"';
-                                // run the command
-                                sysCmd($command);
-                            } else if (!$output['selected'] && ($output['name'] == $localOutput)) {
-                                // output is not selected when it should be
-                                $output['selected'] = true;
-                                // determine the volume
-                                if (isset($outputPresets[$output['name']]['volume']) && $outputPresets[$output['name']]['volume']) {
-                                    $volume = ', \"volume\": '.$outputPresets[$output['name']]['volume'];
-                                } else {
-                                    $volume = ', \"volume\": '.$localVolume;
-                                }
-                                // set up the command
-                                $command =
-                                    'curl -X PUT -s "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
-                                    ' --data '.
-                                    '"{\"selected\": true'.
-                                    $volume.
-                                    '}"';
-                                // run the command
-                                sysCmd($command);
-                            }
-                            // reformat the outputs so that it is indexed
-                            $outputs[$output['name']] = $output;
-                        }
-                    }
-                    // save the outputs
-                    $redis->hSet('owntone', 'outputs', json_encode($outputs));
-                }
-            }
+            // 'status' will correct any output
+            //  'status' is running in a 1.5 second loop in the systemd owntone_monitor unit when owntone is activated
+            break;
+            // // no $args
+            // // only relevant for the server when local output is enabled
+            // $multidevice = $redis->hGet('onetone', 'multidevice');
+            // if ($multidevice) {
+                // // do nothing when multidevice is set
+                // break;
+            // }
+            // // mpd and owntone must be running
+            // if (!wrk_systemd_unit($redis, 'is-active', 'mpd') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // // do nothing when mpd or owntone is not running
+                // break;
+            // }
+            // $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            // $role = $redis->hGet('owntone', 'role');
+            // if ($role == 'server') {
+                // // server, get its name
+                // $server = $redis->hGet('owntone', 'server');
+                // // determine the local audio output
+                // $ao = $redis->get('ao');
+                // if ($ao) {
+                    // $acard = json_decode($redis->hGet('acards', $ao), true);
+                    // if (isset($acard['description']) && $acard['description']) {
+                        // $localOutput = $acard['description'];
+                    // } else {
+                        // $localOutput = '';
+                    // }
+                // } else {
+                    // $localOutput = '';
+                // }
+                // if ($localOutput && $server) {
+                    // // local output is set
+                    // // get the owntone presets
+                    // $presetInitial = $redis->hget('owntone', 'output_presets');
+                    // $preset = json_decode($presetInitial, true);
+                    // // get the local volume level
+                    // $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
+                    // if (isset($actPlayerInfo['volume']) && is_numeric($actPlayerInfo['volume'])) {
+                        // $localVolume = $actPlayerInfo['volume'];
+                    // } else {
+                        // $retval = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                        // if (isset($retval) && is_numeric($retval)) {
+                            // $localVolume = $retval;
+                        // } else if (isset($preset[$localOutput]['volume_preset']) && is_numeric($preset[$localOutput]['volume_preset'])) {
+                            // $localVolume = $preset[$localOutput]['volume_preset'];
+                        // } else {
+                            // $localVolume = $defaultVolume;
+                        // }
+                    // }
+                    // unset($actPlayerInfo, $retval);
+                    // // get the outputs
+                    // $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"');
+                    // if (isset($retval[0]) && $retval[0]) {
+                        // $retval = json_decode($retval[0], true);
+                        // if (isset($retval['outputs']) && count($retval['outputs'])) {
+                            // // loop through the outputs, only ALSA outputs are relevant
+                            // $output = array();
+                            // foreach ($retval['outputs'] as $output) {
+                                // $outputUpdated = false;
+                                // if ($output['type'] != 'ALSA') {
+                                    // continue;
+                                // }
+                                // // ALSA output
+                                // if ($output['selected'] && ($output['name'] != $localOutput)) {
+                                    // // output is selected when it should not be
+                                    // $output['selected'] = false;
+                                    // $preset['autoconnect'] = false;
+                                    // $preset['volume_preset'] = $defaultVolume;
+                                    // if (!isset($preset['mute'])) {
+                                        // $preset[$output['name']]['mute'] = 0;
+                                    // }
+                                    // // set up the command
+                                    // $command =
+                                        // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                        // ' --data '.
+                                        // '"{\"selected\": false'.
+                                        // '}"';
+                                    // // run the command
+                                    // sysCmd($command);
+                                    // $outputUpdated = true;
+                                // } else if (!$output['selected'] && ($output['name'] == $localOutput)) {
+                                    // // output is not selected when it should be
+                                    // $output['selected'] = true;
+                                    // $preset[$output['name']]['autoconnect'] = false;
+                                    // $preset[$output['name']]['volume_preset'] = $localVolume;
+                                    // if (!isset($preset[$output['name']]['mute']) || $localVolume) {
+                                        // $preset[$output['name']]['mute'] = 0;
+                                    // }
+                                    // // determine the volume
+                                    // if (isset($volume) && $volume) {
+                                        // $volume = ', \"volume\": '.$localVolume;
+                                    // } else if (isset($preset[$output['name']]['volume_preset']) && $preset[$output['name']]['volume_preset']) {
+                                        // $volume = ', \"volume\": '.$preset[$output['name']]['volume_preset'];
+                                    // } else {
+                                        // $volume = '';
+                                    // }
+                                    // // set up the command
+                                    // $command =
+                                        // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                        // ' --data '.
+                                        // '"{\"selected\": true'.
+                                        // $volume.
+                                        // '}"';
+                                    // // run the command
+                                    // sysCmd($command);
+                                    // $outputUpdated = true;
+                                // }
+                                // // get the updated data if required
+                                // if ($outputUpdated) {
+                                    // // set up the command
+                                    // $command =
+                                        // 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                                    // // run the command
+                                    // $retval = sysCmd($command);
+                                    // if (isset($retval) && is_array($retval)) {
+                                        // $retval = json_decode($retval[0], true);
+                                        // if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                                            // $output[$output['name']] = $retval;
+                                        // }
+                                    // }
+                                // }
+                            // }
+                            // // save the outputs and presets if required
+                            // $outputInitial = $redis->hGet('owntone', 'outputs');
+                            // $outputInitialDecoded = json_decode($outputInitial, true);
+                            // $outputDecoded = array_merge($outputInitialDecoded, $output);
+                            // $outputEncoded = json_encode($outputDecoded);
+                            // if ($outputInitial != $outputEncoded) {
+                                // $redis->hSet('owntone', 'outputs', $outputEncoded);
+                            // }
+                            // $presetEncoded = json_encode($preset);
+                            // if ($presetInitial != $presetEncoded) {
+                                // $redis->hSet('owntone', 'output_presets', $presetEncoded);
+                            // }
+                        // }
+                    // }
+                // }
+            // }
             break;
         case 'switch_player':
             // no $args
+            // nothing special to do
+            break;
+        case 'muteasync':
+            // $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+            // used to mute all active unmuted outputs
+            //  when 'unmute' is specified the muted outputs will be unmuted after x seconds, where x is specified
+            //      by the redis variable 'owntone' 'unmute_delay'
+            //  mute with 'unmute' is used when pausing or stopping the player of switching outputs, owntone will
+            //      normally continue playing until the buffer empties
+            //      muting an unmuting gives the impression of responsiveness to UI commands
+            //  muting is carried out per output device not using the master mute
+            // check that owntone is running and is active
+            // this async version of the function starts the command file 'owntone_mute.php' asynchronously which in turn
+            //  calls wrk_owntone($redis, 'mute', $args);
+            // check that owntone is running and is active
+            if (!$redis->hGet('owntone', 'active') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // owntone is not running, do nothing
+                break;
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            if (!isset($args)) {
+                $args = '';
+            }
+            // run the command file asynchronously without queueing and with 0 seconds delay
+            sysCmdAsync($redis, '/srv/http/command/owntone_mute_async.php '.$args, 0);
+            break;
+        case 'mute':
+            // $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+            // used to mute all active unmuted outputs
+            //  when 'unmute' is specified the muted outputs will be unmuted after x seconds, where x is specified
+            //      by the redis variable 'owntone' 'unmute_delay'
+            //  mute with 'unmute' is used when pausing or stopping the player of switching outputs, owntone will
+            //      normally continue playing until the buffer empties
+            //      muting an unmuting gives the impression of responsiveness to UI commands
+            //  muting is carried out per output device not using the master mute
+            // check that owntone is running and is active
+            if (!$redis->hGet('owntone', 'active') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // owntone is not running, do nothing
+                break;
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            $outputNames = $redis->hKeys('owntone_outputs');
+            $mutedIds = '';
+            foreach ($outputNames as $outputName) {
+                $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
+                if (!$output['selected'] || ($output['volume'] == 0)) {
+                    // not connected or already muted or has zero volume
+                    continue;
+                }
+                $params = json_encode(array(
+                    "id" => $output['id'],
+                    "name" => $output['name'],
+                    "mute" => $output['volume'],
+                    "volume" => "0"
+                ));
+                // run the command
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/db/?cmd=MRmute&params='.$params.'"', 0);
+                // save the id
+                $mutedIds .= '-'.$output['id'];
+            }
+            if (isset($args) && ($args == 'unmute') && $mutedIds) {
+                // unmute set and there is something to unmute
+                $mutedIds = 'delay'.$mutedIds;
+                wrk_owntone($redis, 'unmuteasync', $mutedIds);
+            }
+            $master = json_decode($redis->hGet('owntone', 'master'), true);
+            $master['mute'] = $master['volume'];
+            $master['volume'] = 0;
+            $redis->hSet('owntone', 'master', json_encode($master));
+            break;
+        case 'unmuteasync':
+            // $args = '', 'all' or list of hyphen delimited output_id's which should be unmuted, '' or 'all' = unmute all
+            //  $args can be prefixed with 'delay(-)' which results in the asynchronous unmute action being delayed
+            //  the delay defined by the redis variable 'owntone' 'unmute_delay'
+            //  $args may also contain 'delay' or delay-all = unmute all with a delay
+            // used to temporarily mute the master volume when pausing or stopping mpd play or switching players
+            //  when this is not done owntone will continue playing its buffer until it is empty
+            //  a fixed delay between the mute and unmute action is currently used, defined by the redis variable 'owntone' 'unmute_delay'
+            //      (maybe a smarter way of working is required based on the 'owntone' 'server_player' 'state' which changes from
+            //          'play' to 'paused' when the buffer is empty)
+            // this async version of the function starts the command file 'owntone_unmute.php' asynchronously which in turn
+            //  calls wrk_owntone($redis, 'mute', $args);
+            // check that owntone is running
+            if (!$redis->hGet('owntone', 'active') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // owntone is not running, do nothing
+                break;
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            $delay = 0;
+            if (isset($args)) {
+                $args = trim($args);
+                if (substr($args, 0, 5) == 'delay') {
+                    $args = substr($args, 5);
+                    $delay = $redis->hGet('owntone', 'unmute_delay');
+                }
+            } else {
+                $args = '';
+            }
+            // remove any leading and trailing hyphens
+            $args = trim($args, '-');
+            // run the command file asynchronously without queueing and with x seconds delay
+            sysCmdAsync($redis, '/srv/http/command/owntone_unmute_async.php '.$args, $delay);
+            break;
+        case 'unmute':
+            // $args = '', 'all' or list of hyphen delimited output_id's which should be unmuted, '' or 'all' = unmute all
+            // check that owntone is running
+            if (!$redis->hGet('owntone', 'active') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+                // owntone is not running, do nothing
+                break;
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            if (isset($args) && $args) {
+                if (substr($args, 0, 3) == 'all') {
+                    $ids = false;
+                } else {
+                    $ids = explode('-', $array);
+                    if (!is_array($ids) || !count($ids)) {
+                        $ids = false;
+                    }
+                }
+            } else {
+                $ids = false;
+            }
+
+            $outputNames = $redis->hKeys('owntone_outputs');
+            foreach ($outputNames as $outputName) {
+                $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
+                if (!$output['selected'] || !$output['volume']) {
+                    // not connected or already unmuted or has a non-zero volume, do nothing
+                    continue;
+                }
+                if ($ids && !in_array($output['id'], $ids)) {
+                    // list of id's which should be unmuted available, but not found in
+                    continue;
+                }
+                $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
+                if (!$preset['mute']) {
+                    // unmuted, should never happen
+                    continue;
+                }
+                $params = json_encode(array(
+                    "id" => $output['id'],
+                    "name" => $output['name'],
+                    "mute" => "0",
+                    "volume" => $preset['mute']
+                ));
+                // run the command, ignore the output
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/db/?cmd=MRmute&params='.$params.'"', 0);
+            }
+            $master = json_decode($redis->hGet('owntone', 'master'), true);
+            $master['volume'] = $master['mute'];
+            $master['mute'] = 0;
+            $redis->hSet('owntone', 'master', json_encode($master));
             break;
    }
 }
