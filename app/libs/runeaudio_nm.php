@@ -16657,8 +16657,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $output['volume'] = $volume;
                             }
                             $command .= ' }"';
+                            // debug
+                            // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
-                            file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             sysCmd($command);
                             sysCmd($command);
                         } else if ($disconnect) {
@@ -16668,7 +16669,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 ' --data '.
                                 '"{';
                             if ($disconnect) {
-                                $command .= ' \"selected\": true';
+                                $command .= ' \"selected\": false';
                                 $output['selected'] = 1;
                             }
                             if ($setvolume) {
@@ -16677,8 +16678,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                             $command .= ' }"';
                             $output['selected'] = 0;
+                            // debug
+                            // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
-                            file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             sysCmd($command);
                             sysCmd($command);
                         }
