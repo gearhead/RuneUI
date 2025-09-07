@@ -480,7 +480,7 @@ if [ "$usercnt" == "0" ] ; then
 fi
 #   now the rest of the users, these are used by systemd
 #   note: remove user llmnrd from the list on the next release
-declare -a createusers=(mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil redis)
+declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil redis owntone)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "^_$i:" "/etc/passwd" )
     if [ "$usercnt" == "1" ] ; then
@@ -496,7 +496,7 @@ for i in "${createusers[@]}" ; do
 done
 #
 # make sure that Audio-specific users are member of the audio group
-declare -a audiousers=(http mpd spotifyd snapserver snapclient shairport-sync upmpdcli bluealsa mpdscribble)
+declare -a audiousers=(http mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -c audio )
     if [ "$audiocnt" == "0" ] ; then
