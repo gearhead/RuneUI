@@ -16245,7 +16245,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     $redis->sRem('w_lock', $jobID);
                 }
                 // // if $owntoneRunning, $mpdFifoFileExists or $mpdAlsaFifoDeviceExists is false reset owntone
-                // //  but dont run it if 
+                // //  but dont run it if
                 // if (!$owntoneRunning || !$mpdFifoFileExists || !$mpdAlsaFifoDeviceExists) {
                     // // this will reset owntone, empty the fifo files and restart mpd
                     // wrk_owntone($redis, 'reset');
