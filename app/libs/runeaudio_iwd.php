@@ -16206,19 +16206,59 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
         case 'activate':
             // no $args
             if ($redis->hget('owntone', 'enable')) {
+                // wait until owntone starts
+                $cnt = 10;
+                $owntoneRunning = false;
+                while (!$owntoneRunning && ($cnt-- >= 0)) {
+                    $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                    if (!$owntoneRunning) {
+                        sleep(2);
+                    }
+                }
+                // wait until the mpd fifo file is created
+                $cnt = 10;
+                $mpdFifoFileExists = false;
+                while (!$mpdFifoFileExists && ($cnt-- >= 0)) {
+                    $mpdFifoFile = $redis->hGet('owntone', 'pipe_mpd');
+                    if ($mpdFifoFile) {
+                        clearstatcache(true, $mpdFifoFile);
+                        $mpdFifoFileExists = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                    }
+                    if (!$mpdFifoFileExists) {
+                        sleep(2);
+                    }
+                }
+                // wait until alsa has created the software device which mpd uses to fill the fifo file
+                $cnt = 10;
+                $mpdAlsaFifoDeviceExists = false;
+                while (!$mpdAlsaFifoDeviceExists && ($cnt-- >= 0)) {
+                    $mpdAlsaFifoDevice = $redis->hGet('owntone', 'device_mpd');
+                    if ($mpdAlsaFifoDevice) {
+                        $mpdAlsaFifoDeviceExists = sysCmd('aplay -L | grep -c "'.$mpdAlsaFifoDevice.'" | xargs');
+                    }
+                    if (!$mpdAlsaFifoDeviceExists) {
+                        sleep(2);
+                    }
+                }
                 $redis->hSet('owntone', 'active', 1);
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
                 }
-                // check that mpd is operating correctly and that all the output cards are defined for owntone
-                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-                $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-                $owntoneCardStatus = wrk_owntone($redis, 'conf_add_alsa_cards');
-                if (($mpdError && $owntoneRunning && $mpdRunning) || ($owntoneCardStatus == 'changed') ) {
-                    // this will reset owntone, empty the fifo files and restart mpd
-                    wrk_owntone($redis, 'reset');
-                }
+                // // if $owntoneRunning, $mpdFifoFileExists or $mpdAlsaFifoDeviceExists is false reset owntone
+                // //  but dont run it if 
+                // if (!$owntoneRunning || !$mpdFifoFileExists || !$mpdAlsaFifoDeviceExists) {
+                    // // this will reset owntone, empty the fifo files and restart mpd
+                    // wrk_owntone($redis, 'reset');
+                // }
+                // // check that mpd is operating correctly and that all the output cards are defined for owntone
+                // $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+                // $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                // $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                // $owntoneCardStatus = wrk_owntone($redis, 'conf_add_alsa_cards');
+                // if (($mpdError && $owntoneRunning && $mpdRunning) || ($owntoneCardStatus == 'changed') ) {
+                    // // this will reset owntone, empty the fifo files and restart mpd
+                    // wrk_owntone($redis, 'reset');
+                // }
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                     $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                     if ($mpdPlaying) {
@@ -16226,12 +16266,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                     sysCmd('mpc enable only null');
                 }
-                // wrk_owntone($redis, 'initialise');
-                // $cnt = 20;
-                // while (($cnt-- <= 0) &&  ) {
-                // }
                 wrk_owntone($redis, 'status');
                 wrk_systemd_unit($redis, 'start', 'owntone_monitor', 'async');
+                sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                     wrk_mpdconf($redis, 'switchao');
                     if ($mpdPlaying) {
@@ -16564,8 +16601,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // }
             }
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
-            $localVolume = $redis->get('lastmpdvolume');
-            if (!is_numeric($localVolume)) {
+            $activePlayer = $redis->get('activePlayer');
+            if ($activePlayer == 'MPD') {
+                $localVolume = $redis->get('lastmpdvolume');
+            }
+            if (!isset($localVolume) || !is_numeric($localVolume)) {
                 $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
                 if (!is_numeric($localVolume)) {
                     $retval = json_decode($redis->get('act_player_info'), true);
@@ -17438,104 +17478,6 @@ function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
     }
 }
 
-// function to configure, start and stop snapcast
-function wrk_snapcast($redis, $action, $args = '', $jobID = '')
-// this function configures, starts and stops the snapcast server and the snapcast client
-// actions: enableserver, disableserver, configureserver, activateserver, deactivateserver, enableclient,
-//  disableclient, configureclient, activateclients, deactivateclients, switchclientoutput
-// args: can be empty, an array or a single value, depending on the action
-{
-    switch ($action) {
-        case 'enableserver':
-            // start and enable the snapcast server service, if it is not running
-            $redis->hSet('snapcast', 'enableserver', 1);
-            if (isset($jobID) && $jobID) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            wrk_snd_aloop($redis, 'add', 'snapcast');
-            $retval = sysCmd('aplay -l | grep -i Loopback | grep -i Card')[0];
-            if (isset($retval) && $retval) {
-                $loopbackCard = trim(get_between_data(strtolower($retval), 'card ', ':'));
-                if (isset($loopbackCard) && strlen($loopbackCard) && is_numeric($loopbackCard)) {
-                    $redis->hset('snapcast', 'loopbackcard', $loopbackCard);
-                }
-            }
-            wrk_snapcast($redis, 'configureserver', '', $jobID);
-            wrk_systemd_unit($redis, 'enable_and_start', 'snapserver');
-            break;
-        case 'disableserver':
-            // stop and disable the snapcast server service, if it is running
-            $redis->hSet('snapcast', 'enableserver', 0);
-            if (isset($jobID)) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            wrk_snd_aloop($redis, 'remove', 'snapcast');
-            wrk_systemd_unit($redis, 'disable_and_stop', 'snapserver');
-            break;
-        case 'configureserver';
-            // configure the server based on the arguments or when no arguments are given use the stored redis values
-            $serverconfig = redis->hGetall('snapcast');
-            if (isset($args) && is_array($args)) {
-                $serverconfig = array_merge($serverconfig, $args);
-                foreach ($args as $itemKey => $itemValue) {
-                    redis->hSet($itemKey, $itemValue);
-                }
-            }
-            if (isset($jobID)) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            if (wrk_mpd_loopback($redis) == 'changed') {
-                wrk_systemd_unit($redis, 'reload-or-restart', 'snapserver');
-            }
-            break;
-        case 'activateserver';
-            break;
-        case 'deactivateserver';
-            break;
-        case 'enableclient';
-            // start the snapcast client service, if it is not running
-            $redis->hSet('snapcast', 'enableclient', 1);
-            if (isset($jobID)) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            wrk_snapcast($redis, 'configureclient', '', $jobID);
-            wrk_systemd_unit($redis, 'enable_and_start', 'snapclient');
-            break;
-        case 'disableclient';
-            // stop the snapcast client, if it is running
-            $redis->hSet('snapcast', 'enableclient', 0);
-            if (isset($jobID)) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            wrk_systemd_unit($redis, 'disable_and_stop', 'snapclient');
-            break;
-        case 'configureclient';
-            // configure the client based on the arguments or when no arguments are given use the stored redis values
-            $clientconfig = redis->hGetall('snapcast');
-            if (isset($args) && is_array($args)) {
-                $clientconfig = array_merge($clientconfig, $args);
-                foreach ($args as $itemKey => $itemValue) {
-                    redis->hSet($itemKey, $itemValue);
-                }
-            }
-            if (isset($jobID)) {
-                $redis->sRem('w_lock', $jobID);
-            }
-            break;
-        case 'activateclients';
-            break;
-        case 'deactivateclients';
-            break;
-        case 'switchclientoutput';
-            break;
-        // case 'activateclient';
-            // break;
-        default:
-            ui_notifyError('Snapcast Configuration', 'Internal error: Invalid function call');
-            break;
-    }
-}
-
 // Function to control the loading of the ALSA loopback connector
 function wrk_snd_aloop($redis, $action, $component = null)
 // when the redis hash variable 'snd-aloop' has a value the loopback connector will loaded
@@ -17678,30 +17620,30 @@ function wrk_mpd_loopback($redis, $action = null)
         $output .="\tenabled \t\"no\"\n";
         $output .="}\n";
         //
-        $output .= "# Snapcast Server output\n";
-        $output .="audio_output {\n";
-        // $output .="name \t\t\"".$acard_decoded->name."\"\n";
-        $output .="\tname \t\t\"Snapcast_Server\"\n";
-        $output .="\ttype \t\t\"alsa\"\n";
-        $output .="\tdevice \t\t\"plughw:Loopback,0,1\"\n";
-        $output .="\tmixer_type \t\"none\"\n";
-        // test if there is an option for mpd.conf is set
-        // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
-        if (isset($acard_decoded['card_option'])) {
-            $output .= "\t".$acard_decoded['card_option']."\n";
-        }
-        $snapserverFormat = $redis->hget('snapcast', 'format');
-        if (isset($snapserverFormat) && $snapserverFormat) {
-            // Snap Server has a default fixed output sample rate
-            $output .= "\tallowed_formats\t\"".$snapserverFormat."\"\n";
-        } else {
-            // Snap Server has a default fixed output sample rate of 48000Hz, 16bit, 2 channels (stereo)
-            $output .= "\tallowed_formats\t\"48000:16:2\"\n";
-        }
-        $output .="\tauto_resample \t\"no\"\n";
-        $output .="\tauto_format \t\"no\"\n";
-        $output .="\tenabled \t\"no\"\n";
-        $output .="}\n";
+        // $output .= "# Snapcast Server output\n";
+        // $output .="audio_output {\n";
+        // // $output .="name \t\t\"".$acard_decoded->name."\"\n";
+        // $output .="\tname \t\t\"Snapcast_Server\"\n";
+        // $output .="\ttype \t\t\"alsa\"\n";
+        // $output .="\tdevice \t\t\"plughw:Loopback,0,1\"\n";
+        // $output .="\tmixer_type \t\"none\"\n";
+        // // test if there is an option for mpd.conf is set
+        // // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
+        // if (isset($acard_decoded['card_option'])) {
+            // $output .= "\t".$acard_decoded['card_option']."\n";
+        // }
+        // $snapserverFormat = $redis->hget('snapcast', 'format');
+        // if (isset($snapserverFormat) && $snapserverFormat) {
+            // // Snap Server has a default fixed output sample rate
+            // $output .= "\tallowed_formats\t\"".$snapserverFormat."\"\n";
+        // } else {
+            // // Snap Server has a default fixed output sample rate of 48000Hz, 16bit, 2 channels (stereo)
+            // $output .= "\tallowed_formats\t\"48000:16:2\"\n";
+        // }
+        // $output .="\tauto_resample \t\"no\"\n";
+        // $output .="\tauto_format \t\"no\"\n";
+        // $output .="\tenabled \t\"no\"\n";
+        // $output .="}\n";
         //
         $output .= "# Brutefir output\n";
         $output .="audio_output {\n";

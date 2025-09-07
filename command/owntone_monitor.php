@@ -90,7 +90,7 @@ while (true) {
             $mpdConfigured = sysCmd('grep -ic owntone /etc/mpd.conf | xargs')[0];
             if ($mpdConfigured) {
                 $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                if (!mpdError) {
+                if (!$mpdError) {
                     $mpdOwntoneOutput = sysCmd('mpc outputs | grep -ic owntone | xargs')[0];
                     if (!$mpdOwntoneOutput) {
                         $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
@@ -112,8 +112,22 @@ while (true) {
                 if ($localOutput) {
                     $localOutput = json_decode($localOutput, true);
                     if (isset($localOutput['selected']) && $localOutput['selected']) {
-                        $lastmpdvolume = $redis->get('lastmpdvolume');
-                        if (is_numeric($lastmpdvolume) && isset($localOutput['volume']) && ($lastmpdvolume != $localOutput['volume'])) {
+                        $activePlayer = $redis->get('activePlayer');
+                        if ($activePlayer == 'MPD') {
+                            $localVolume = $redis->get('lastmpdvolume');
+                        }
+                        // for all other active players mpd knows the current volume, but lastmpdvolume is not set to that value
+                        if (!isset($localVolume) || !is_numeric($localVolume)) {
+                            $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                            if (!is_numeric($localVolume)) {
+                                $retval = json_decode($redis->get('act_player_info'), true);
+                                if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                                    $localVolume = $retval['volume'];
+                                }
+                                unset($retval);
+                            }
+                        }
+                        if (is_numeric($localVolume) && isset($localOutput['volume']) && ($localVolume != $localOutput['volume'])) {
                             // local output volume has been changed via the UI and the output is active in owntone
                             // get the server
                             $server = $redis->hGet('owntone', 'server');
@@ -122,7 +136,7 @@ while (true) {
                                 $command =
                                     'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
                                     ' --data '.
-                                    '"{\"volume\": '.$lastmpdvolume.
+                                    '"{\"volume\": '.$localVolume.
                                     '}"';
                                 // run the command
                                 sysCmd($command);
@@ -150,11 +164,11 @@ while (true) {
                                     $localOutputPreset = json_decode($localOutputPreset, true);
                                     if (isset($localOutputPreset['mute'])) {
                                         $writePreset = false;
-                                        if ($lastmpdvolume && ($localOutputPreset['mute'] != 0)) {
+                                        if ($localVolume && ($localOutputPreset['mute'] != 0)) {
                                             $localOutputPreset['mute'] = 0;
                                             $writePreset = true;
-                                        } else if (!$lastmpdvolume && ($localOutputPreset['mute'] != $lastmpdvolume)){
-                                            $localOutputPreset['mute'] = $lastmpdvolume;
+                                        } else if (!$localVolume && ($localOutputPreset['mute'] != $localVolume)){
+                                            $localOutputPreset['mute'] = $localVolume;
                                             $writePreset = true;
                                         }
                                         if ($writePreset) {

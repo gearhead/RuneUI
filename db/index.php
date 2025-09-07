@@ -661,6 +661,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // returns: id, selected, volume, mute
             $params = json_decode($_GET['params'], true);
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
+            $server = $redis->hGet('owntone', 'server');
             if (!$redis->hExists('owntone_presets', $params['name'])) {
                 // the presets entry is missing, create it
                 $preset = array();
@@ -715,6 +716,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($params['volume']) && ($output['volume'] != $params['volume'])) {
                     // volume change
                     $output['volume'] = $params['volume'];
+                    if ($output['volume'] != $redis->get('lastmpdvolume')) {
+                        $activePlayer = $redis->get('activePlayer');
+                        if ($activePlayer == 'MPD') {
+                            $redis->set('lastmpdvolume', $params['volume']);
+                        }
+                        sysCmd('mpc volume '.$params['volume']);
+                    }
                     $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                 } else if (isset($params['selected']) && $output['selected'] != $params['selected']) {
                     // connect/disconnect

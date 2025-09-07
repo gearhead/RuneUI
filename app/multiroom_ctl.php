@@ -112,10 +112,14 @@ if (isset($outputNames) && $outputNames ) {
 $template->master = json_decode($redis->hGet('owntone', 'master'), true);
 $template->server = $redis->hGet('owntone', 'server');
 $template->status = '';
+$serverHostname = $redis->hGet('owntone', 'server_hostname');
+if ($serverHostname) {
+    $template->status .= 'Server Hostname: '.$serverHostname;
+}
 if ($redis->hGet('owntone', 'enable')) {
-    $template->status .= 'Enabled';
+    $template->status .= '; Server: Enabled';
 } else {
-    $template->status .= 'Disabled';
+    $template->status .= '; Server: Disabled';
 }
 if ($redis->hGet('owntone', 'active')) {
     $template->status .= ', Active';
@@ -124,14 +128,11 @@ if ($redis->hGet('owntone', 'active')) {
 }
 $role = $redis->hGet('owntone', 'role');
 if ($role) {
-    $template->status .= ', Role: '.ucfirst($role);
+    $template->status .= '; Role: '.ucfirst($role);
 }
-if (isset($outputs['master']['state']) && $outputs['master']['state']) {
-    $template->status .= ', State: '.ucfirst($outputs['master']['state']);
-}
-$serverHostname = $redis->hGet('owntone', 'server_hostname');
-if ($serverHostname) {
-    $template->status .= ', Server Hostname: '.$serverHostname;
+$server_player = json_decode($redis->hGet('owntone', 'server_player'), true);
+if (isset($server_player['state']) && $server_player['state']) {
+    $template->status .= '; State: '.ucfirst($server_player['state']);
 }
 //
 $template->hostname = $redis->get('hostname');
