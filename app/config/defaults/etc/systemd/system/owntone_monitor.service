@@ -4,7 +4,6 @@ After=owntone.service
 
 [Service]
 Type=simple
-# User=http
 ExecStart=/srv/http/command/owntone_monitor.php
 Restart=always
 
