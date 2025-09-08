@@ -16180,6 +16180,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
+            // remove the owntone outputs and other stored values
+            $redis->del('owntone_outputs');
+            $redis->hSet('owntone', 'master', json_encode(array()));
+            $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_player', json_encode(array()));
             wrk_owntone($redis, 'initialise');
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf"');
             if (!$mpdOwntoneOutput) {
