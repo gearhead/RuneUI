@@ -2,6 +2,7 @@
 Description=BlueALSA player service
 Documentation=man:bluealsa-aplay(1)
 Requisite=dbus.service
+After=bluealsa.service
 
 # In order to customize BlueALSA player D-Bus service one should create an
 # override for this systemd unit file. Please note, that in the override file
