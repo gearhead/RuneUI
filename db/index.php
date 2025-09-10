@@ -647,17 +647,20 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRconnect':
             // Multi-room connect change
-            // params: id, name, selected
+            // params: command, id, name, selected
+            // command = 'Connect'
             // returns: id, selected, volume, mute
             // no break;
         case 'MRvolume':
             // Multi-room volume change
-            // params: id, name, volume
+            // params: command, id, name, volume
+            // command = 'Volume'
             // returns: id, selected, volume, mute
             // no break;
         case 'MRmute':
             // Multi-room mute change
-            // params: id, name, mute, volume
+            // params: command, id, name, mute, volume
+            // command = 'Mute' or 'Unmute'
             // returns: id, selected, volume, mute
             $params = json_decode($_GET['params'], true);
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
@@ -673,8 +676,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
             }
             // first set the redis outputs and presets to the expected new values and save them
-            if ((isset($params['mute']) && $params['mute'] && $preset['mute']) ||
-                   (isset($params['mute']) && !$params['mute'] && !$preset['mute'])) {
+            if ((isset($params['command']) && ($params['command'] == 'Mute') && $preset['mute']) ||
+                   (isset($params['command']) && ($params['command'] == 'Unmute') && !$preset['mute'])) {
                 // mute requested, already muted or unmute requested, already unmuted
                 //  dont need to do anything, just return the correct values
                 $params['mute'] = $preset['mute'];
@@ -779,7 +782,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         // set up the disconnect command, run it and get the modified data
                         $command =
                             'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'" --data "{\"selected\": false, \"volume\": '.$volume.'}"';
-                        sysCmd($command);
                         sysCmd($command);
                         // get the changed values
                         $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"');

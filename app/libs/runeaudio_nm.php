@@ -16122,7 +16122,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                     '}"';
                                 // run the command
                                 sysCmd($command);
-                                sysCmd($command);
                             }
                         }
                     }
@@ -16706,7 +16705,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
                             sysCmd($command);
-                            sysCmd($command);
                         } else if ($disconnect) {
                             // set up the command
                             $command =
@@ -16726,7 +16724,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // debug
                             // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
-                            sysCmd($command);
                             sysCmd($command);
                         }
                         // get the current output data

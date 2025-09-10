@@ -16107,7 +16107,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                     '}"';
                                 // run the command
                                 sysCmd($command);
-                                sysCmd($command);
                             }
                         }
                     }
@@ -16157,6 +16156,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if ($redis->hGet('owntone', 'active')) {
                 wrk_owntone($redis, 'deactivate');
             }
+            // set the airplay output rate to 'auto', this is the default value
+            $redis->hSet('airplay', 'alsa_output_rate', 'auto');
+            // stop owntone
             wrk_systemd_unit($redis, 'stop', 'owntone');
             break;
         case 'enable':
@@ -16170,7 +16172,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
+            // set the airplay output rate to that of owntone
+            $redis->hSet('airplay', 'alsa_output_rate', $redis->hGet('owntone', 'rate'));
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf"');
             if (!$mpdOwntoneOutput) {
                 $redis->set('mpdconfchange', 1);
@@ -16691,7 +16696,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
                             sysCmd($command);
-                            sysCmd($command);
                         } else if ($disconnect) {
                             // set up the command
                             $command =
@@ -16711,7 +16715,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // debug
                             // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
-                            sysCmd($command);
                             sysCmd($command);
                         }
                         // get the current output data

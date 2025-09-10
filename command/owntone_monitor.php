@@ -140,7 +140,6 @@ while (true) {
                                     '}"';
                                 // run the command
                                 sysCmd($command);
-                                sysCmd($command);
                                 // get the current output data
                                 // set up the command
                                 $command =

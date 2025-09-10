@@ -12,28 +12,33 @@
             document.getElementById(range_fill).style.width = percent+ '%';
         }
         // functions for the master volume & master mute
+        function change_VolumeMaster() {
+            $('[id$=Volume]').val($('#VolumeMaster').val()).trigger('change');
+            wrk_change_VolumeMaster();
+        }
         function change_MuteMaster() {
             $('#MuteButtonMaster').html(($('#MuteMaster').val() == '0') ? 'Mute' : 'Unmute');
         }
         function click_MuteButtonMaster() {
+            document.getElementById("VolumeMaster").onchange = '';
             if ($('#MuteMaster').val() == '0') {
                 var masterVolume = $('#VolumeMaster').val();
-                $('[id$=Mute]').val('0');
-                // $('[id$=Volume]').val('1');
+                $('[id$=MuteCommand]').val('Mute');
                 $('[id$=MuteButton]').trigger('click');
                 $('#MuteMaster').val(masterVolume).trigger('change');
                 $('#VolumeMaster').val('0');
-                wrk_change_VolumeMaster();
             } else {
                 var masterMute = $('#MuteMaster').val()
-                // $('[id$=Mute]').val('1');
-                $('[id$=Volume]').val('0');
+                $('[id$=MuteCommand]').val('Unmute');
                 $('[id$=MuteButton]').trigger('click');
                 $('#MuteMaster').val('0').trigger('change');
                 $('#VolumeMaster').val(masterMute);
-                wrk_change_VolumeMaster();
             }
-            $('#'+id+'MuteButtonMaster').blur();
+            wrk_change_VolumeMaster();
+            $('#MuteButtonMaster').blur();
+            document.getElementById("VolumeMaster").onchange = function() {
+                change_VolumeMaster();
+            };
         }
         function wrk_change_VolumeMaster() {
             $('#VolumeLabelMaster').text('Volume: '+$('#VolumeMaster').val()+'%');
@@ -106,6 +111,7 @@
             $('#'+id+'MuteButton').html(($('#'+id+'Mute').val() == '0') ? 'Mute' : 'Unmute');
         }
         function click_MuteButton(id) {
+            document.getElementById(id+"Volume").onchange = '';
             if ($('#'+id+'Mute').val() == '0') {
                 $('#'+id+'Mute').val($('#'+id+'Volume').val()).trigger('change');
                 $('#'+id+'Volume').val('0');
@@ -123,6 +129,8 @@
             ajax_MRpreset(id);
         }
         function click_AutoconnectButton(id) {
+            document.getElementById(id+"Volume").onchange = '';
+            document.getElementById(id+"VolumePreset").onchange = '';
             if ($('#'+id+'Autoconnect').val() == '0') {
                 $('#'+id+'Autoconnect').val('1').trigger('change');
             } else {
@@ -149,6 +157,7 @@
         }
         function ajax_MRconnect(id) {
             var params = {
+                command : 'Connect',
                 id : id,
                 name : $('#'+id+'Name').val(),
                 selected : $('#'+id+'Selected').val(),
@@ -168,6 +177,7 @@
         }
         function ajax_MRvolume(id) {
             var params = {
+                command : 'Volume',
                 id : id,
                 name : $('#'+id+'Name').val(),
                 volume : $('#'+id+'Volume').val(),
@@ -187,6 +197,7 @@
         }
         function ajax_MRmute(id) {
             var params = {
+                command : $('#'+id+'MuteCommand').val(),
                 id : id,
                 name : $('#'+id+'Name').val(),
                 mute : $('#'+id+'Mute').val(),
@@ -217,6 +228,10 @@
             if ($('#'+ret.id+'Mute').val() != ret.mute) {
                 $('#'+ret.id+'Mute').val(ret.mute).trigger('change');
             }
+            $('#'+ret.id+'MuteCommand').val(($('#'+ret.id+'Mute').val() == '0') ? 'Mute' : 'Unmute');
+            document.getElementById(ret.id+"Volume").onchange = function() {
+                change_Volume(document.getElementById(ret.id+"ID").value);
+            };
         }
         function ajax_MRpreset(id) {
             var params = {
@@ -257,6 +272,12 @@
             if ($('#'+ret.id+'Mute').val() != ret.mute) {
                 $('#'+ret.id+'Mute').val(ret.mute).trigger('change');
             }
+            document.getElementById(ret.id+"Volume").onchange = function() {
+                change_Volume(document.getElementById(ret.id+"ID").value);
+            };
+            document.getElementById(ret.id+"VolumePreset").onchange = function() {
+                change_VolumePreset(document.getElementById(ret.id+"ID").value);
+            };
         }
     </script>
     <div>
@@ -342,6 +363,7 @@
                             <input id="<?=$l['id']?>ID" name="<?=$l['id']?>ID" type="hidden" value="<?=$l['id']?>">
                             <input id="<?=$l['id']?>Name" name="<?=$l['id']?>Name" type="hidden" value="<?=$l['name']?>">
                             <input id="<?=$l['id']?>Type" name="<?=$l['id']?>Type" type="hidden" value="<?=$l['type']?>">
+                            <input id="<?=$l['id']?>MuteCommand" name="<?=$l['id']?>MuteCommand" type="hidden" value="<?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?>">
                         </div>
                         <br>
                         <div id="<?=$l['id']?>Presets" name="<?=$l['id']?>Presets" style="width:max(55%,500px); min-height:70px;" class="boxed<?php if (!$l['selected'] || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>">
