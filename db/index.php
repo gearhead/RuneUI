@@ -663,13 +663,21 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // command = 'Mute' or 'Unmute'
             // returns: id, selected, volume, mute
             $params = json_decode($_GET['params'], true);
+            if (isset($params['selected'])) {
+                // in php we use true and false as boolians, make sure that the variable type for $params['selected'] is a boolean
+                if ($params['selected']) {
+                    $params['selected'] = true;
+                } else {
+                    $params['selected'] = false;
+                }
+            }
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
             if (!$redis->hExists('owntone_presets', $params['name'])) {
                 // the presets entry is missing, create it
                 $preset = array();
                 $preset['mute'] = 0;
-                $preset['autoconnect'] = 0;
+                $preset['autoconnect'] = false;
                 $preset['volume_preset'] = $defaultVolume;
                 $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
             } else {
@@ -861,7 +869,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                 } else {
                     // output has been deleted
-                    $params['selected'] = 0;
+                    $params['selected'] = false;
                     $params['volume'] = 0;
                     $params['mute'] = 0;
                     if (isset($preset['mute']) && $preset['mute']) {
@@ -870,6 +878,12 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $redis->hSet('owntone', 'output_presets', $params['name'], json_encode($preset));
                     }
                 }
+            }
+            // in javascript we use the 0 and 1 integers as boolians, so make sure $params['selected'] is correctly set
+            if ($params['selected']) {
+                $params['selected'] = 1;
+            } else {
+                $params['selected'] = 0;
             }
             echo json_encode(array(
                 'id' => $params['id'],
@@ -900,7 +914,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
                         if ($preset['autoconnect']) {
                             // autoconnect is on, turn it off and set the preset volume to default
-                            $preset['autoconnect'] = 0;
+                            $preset['autoconnect'] = false;
                             $preset['volume_preset'] = $defaultVolume;
                             // save the preset
                             $redis->hSet('owntone_presets', $presetName, json_encode($preset));

@@ -76,7 +76,7 @@ if (isset($outputNames) && $outputNames ) {
         foreach ($outputNames as $outputName) {
             if (!$redis->hExists('owntone_presets', $outputName)) {
                 $preset = array();
-                $preset['autoconnect'] = 0;
+                $preset['autoconnect'] = false;
                 $preset['mute'] = 0;
                 $preset['volume_preset'] = $defaultVolume;
             } else {

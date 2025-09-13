@@ -52,15 +52,18 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: owntone_monitor.php ---------------" > /var/log/runeaudio/owntone_monitor.log');
 runelog('WORKER owntone_monitor.php STARTING...');
 //
-// delay1 = 12 : runs every 60 seconds
+// delay1 = 20 : runs every 60 to 66 seconds
 $delay1 = 20;
+// initial wait = 60 seconds
 $cnt1 = $delay1;
-// delay2 = 6 : runs every 30 seconds
+// delay2 = 9 : runs every 27 to 33 seconds
 $delay2 = 10;
-$cnt2 = $delay2;
-// delay3 = 6 : runs every 9 seconds
-$delay3 = 3;
-$cnt3 = $delay2;
+// initial wait = 3 seconds
+$cnt2 = 1;
+// delay3 = 5 : runs every 15 to 21 seconds
+$delay3 = 5;
+// initial wait = 6 seconds
+$cnt3 = 2;
 while (true) {
     sleep(3);
     if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active')) {
@@ -71,7 +74,7 @@ while (true) {
             if ($retval == 'changed') {
                 wrk_owntone($redis, 'reset');
             }
-            $cnt1 = $delay1;
+            $cnt1 = $delay1 + rand(0, 2);
         } else if ($cnt2-- <= 0) {
             // this resolves the problem when mpd starts playing to a owntone fifo file before owntone has fully initialised
             //  this should never happen, wrk_owntone($redis, 'status') is the normal processing
@@ -83,7 +86,7 @@ while (true) {
             } else {
                 wrk_owntone($redis, 'status');
             }
-            $cnt2 = $delay2;
+            $cnt2 = $delay2 + rand(0, 2);
         } else if ($cnt3-- <= 0) {
             // this resolves the problem when the mpd config file has changed for owntone, but mpd has not restarted
             //  this should never happen
@@ -103,9 +106,9 @@ while (true) {
                     }
                 }
             }
-            $cnt3 = $delay3;
+            $cnt3 = $delay3 + rand(0, 2);
         } else {
-            // this modifies the owntone volume level of the local device when modified vis the UI
+            // this modifies the owntone volume level of the local device when modified via the UI
             $localOutputName = $redis->hGet('owntone', 'local_output_name');
             if ($localOutputName) {
                 $localOutput = $redis->hGet('owntone_outputs', $localOutputName);

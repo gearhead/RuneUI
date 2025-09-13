@@ -16694,7 +16694,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 '"{';
                             if ($autoconnect) {
                                 $command .= ' \"selected\": true';
-                                $output['selected'] = 1;
+                                $output['selected'] = true;
                             }
                             if ($setvolume) {
                                 $command .= ', \"volume\": '.$volume;
@@ -16713,14 +16713,14 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 '"{';
                             if ($disconnect) {
                                 $command .= ' \"selected\": false';
-                                $output['selected'] = 1;
+                                $output['selected'] = true;
                             }
                             if ($setvolume) {
                                 $command .= ', \"volume\": '.$volume;
                                 $output['volume'] = $volume;
                             }
                             $command .= ' }"';
-                            $output['selected'] = 0;
+                            $output['selected'] = false;
                             // debug
                             // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
                             // run the command
@@ -16758,11 +16758,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             }
                         }
-                        if (isset($output['volume']) && is_numeric($output['volume'])) {
-                            // calculate the total volume and count the active outputs
-                            if ($output['selected']) {
-                                $totalOutputVolume += $preset['mute'] + $output['volume'];
+                        if (isset($output['selected']) && $output['selected']) {
+                            if (isset($output['volume']) && is_numeric($output['volume'])) {
+                                // calculate the total volume and count the active outputs
+                                $totalOutputVolume += $output['volume'];
                                 $numberOutputs++;
+                            }
+                            if (isset($preset['mute']) && is_numeric($preset['mute'])) {
+                                // calculate the total volume including the muted volume
+                                $totalOutputVolume += $preset['mute'];
                                 if (!$preset['mute']) {
                                     // this one is not muted
                                     $unmuteMaster = true;
@@ -16811,7 +16815,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     $averageVolume = min(100, $averageVolume);
                     $averageVolume = max(0, $averageVolume);
                     $master = json_decode($redis->hGet('owntone', 'master'), true);
-                    if ($unmuteMaster || !$averageVolume) {
+                    if ($unmuteMaster) {
                         // at least one output has a non-zero volume, or average volume is zero, treat master as unmuted
                         $master['mute'] = 0;
                         $master['volume'] = $averageVolume;

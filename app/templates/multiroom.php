@@ -28,7 +28,7 @@
                 $('#MuteMaster').val(masterVolume).trigger('change');
                 $('#VolumeMaster').val('0');
             } else {
-                var masterMute = $('#MuteMaster').val()
+                var masterMute = $('#MuteMaster').val();
                 $('[id$=MuteCommand]').val('Unmute');
                 $('[id$=MuteButton]').trigger('click');
                 $('#MuteMaster').val('0').trigger('change');
@@ -68,7 +68,7 @@
                 $('#'+id+'MuteButton').removeClass('hide');
                 $('#'+id+'VolumeLabel').removeClass('hide');
                 $('#'+id+'Connected').removeClass('hide');
-                if (($('#'+id+'Type').val() == 'ALSA') && !$('#Multidevice').val()) {
+                if (($('#'+id+'Type').val() == 'ALSA') && ($('#Multidevice').val() == '0')) {
                     $('#'+id+'ConnectButton').addClass('hide');
                     $('#'+id+'Presets').addClass('hide');
                 } else {
@@ -125,7 +125,7 @@
             ajax_MRmute(id);
         }
         function change_VolumePreset(id) {
-            wrk_change_VolumePreset(id)
+            wrk_change_VolumePreset(id);
             ajax_MRpreset(id);
         }
         function click_AutoconnectButton(id) {
@@ -286,6 +286,10 @@
     </div>
     <div class="boxed">
         <p>Status: <strong><i><?=$this->status ?></i></strong><br></p>
+        <?php if (strpos($this->status, 'Play')): ?>
+            <p>Unsynchronised music streaming for your browser in mp3 format at 44,1khz, 320kbps is available using the link:
+            <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:3689/stream.mp3</a></span></p>
+        <?php endif;?>
         <div id="mr-refresh"<?php if (isset($this->controls) && count($this->controls)): ?> class="hide"<?php endif;?>>
             <p><i>Note: The data below is more than 5 minutes old, settings could have been modified by another RuneAudio player or additional clients
             may have been detected and added, clicking on <strong>Refresh</strong> this will reload the latest data</i></p>
@@ -304,39 +308,45 @@
             <?php if ($classification == 'master') : ?>
                 <legend><?=ucfirst($classification)?> Volume</legend>
                 <div style="width:max(55%,500px); min-height:70px;" class="boxed">
-                    <button id="MuteButtonMaster" name="MuteButtonMaster" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg" value="1"><?php if (!$this->master['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
+                    <button id="MuteButtonMaster" name="MuteButtonMaster" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg" value="1"
+                    onclick="click_MuteButtonMaster()"
+                    ><?php if (!$this->master['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
                     <div id="Connected" name="ConnectedMaster">
                         <label id="VolumeLabelMaster" for="VolumeMaster" class="btn btn-primary btn-lg">Volume: <?=$this->master['volume']?>%</label>
                         <div id="VolumeContainerMaster" name="VolumeContainerMaster" class="volume-slider-container">
                             <div class="volume-slider-fill" id="RangeFillMaster" name="RangeFillMaster"></div>
                             <input id="VolumeMaster" name="VolumeMaster" type="range" class="volume-slider" min="0" max="100" list='tickmarks' value="<?=$this->master['volume']?>"
-                            oninput="changeRange('VolumeMaster', 'RangeFillMaster')"/>
+                            oninput="changeRange('VolumeMaster', 'RangeFillMaster')"
+                            onchange="change_VolumeMaster()"
+                            />
                         </div>
                         <div id="tickmarks">
                             <p>0</p><p></p><p></p><p></p><p></p><p>50</p><p></p><p></p><p></p><p></p><p>100</p>
                         </div>
                     </div>
-                    <input id="MuteMaster" name="MuteMaster" type="hidden" value="<?php if ($this->master['mute']):?>1<?php else:?>0<?php endif;?>">
+                    <input id="MuteMaster" name="MuteMaster" type="hidden" value="<?=$this->master['mute']?>"
+                    onchange="change_MuteMaster()"
+                    />
                 </div>
                 <br>
                 <script>
-                    document.getElementById("VolumeMaster").onchange = function() {
-                        change_VolumeMaster();
-                    };
+                    // document.getElementById("VolumeMaster").onchange = function() {
+                        // change_VolumeMaster();
+                    // };
                     document.getElementById("MuteMaster").onchange = function() {
                         change_MuteMaster();
                     };
-                    document.getElementById("MuteButtonMaster").onclick = function() {
-                        click_MuteButtonMaster();
-                    };
+                    // document.getElementById("MuteButtonMaster").onclick = function() {
+                        // click_MuteButtonMaster();
+                    // };
                     document.onload = changeRange('VolumeMaster', 'RangeFillMaster');
                 </script>
-            <?php else: ?>
-                <legend><?=ucfirst($classification)?> Outputs & Volume</legend>
+            <?php else: $chromecast = false; ?>
+                <legend><?=ucfirst($classification)?> <?php if ($this->multidevice || ($classification  == 'client')): ?>Outputs & <?php endif;?>Volume</legend>
                 <?php if (isset($this->controls[$classification]) && count($this->controls[$classification])) :?>
                     <?php foreach ($this->controls[$classification] as $l) :?>
                         <?php if ($l['type'] == 'AirPlay'): ?><strong><u>AirPlay: <?=$l['name']?></u></strong>
-                        <?php elseif ($l['type'] == 'Chromecast'): ?><strong><u>Chromecast: <?=$l['name']?></u></strong>
+                        <?php elseif ($l['type'] == 'Chromecast'): $chromecast = true; ?><strong><u>Chromecast: <?=$l['name']?></u></strong>
                         <?php else: ?><strong><u><?=$l['name']?></u></strong>
                         <?php endif;?>
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
@@ -353,7 +363,7 @@
                                     <p>0</p><p></p><p></p><p></p><p></p><p>50</p><p></p><p></p><p></p><p></p><p>100</p>
                                 </div>
                             </div>
-                            <input id="<?=$l['id']?>Mute" name="<?=$l['id']?>Mute" type="hidden" value="<?php if ($l['mute']):?>1<?php else:?>0<?php endif;?>">
+                            <input id="<?=$l['id']?>Mute" name="<?=$l['id']?>Mute" type="hidden" value="<?=$l['mute']?>">
                             <input id="<?=$l['id']?>Selected" name="<?=$l['id']?>Selected" type="hidden" value="<?php if ($l['selected']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>Autoconnect" name="<?=$l['id']?>Autoconnect" type="hidden" value="<?php if ($l['autoconnect']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>HasPassword" name="<?=$l['id']?>HasPassword" type="hidden" value="<?php if ($l['has_password']):?>1<?php else:?>0<?php endif;?>">
@@ -410,10 +420,16 @@
                             document.onload = changeRange('<?=$l['id']?>VolumePreset', '<?=$l['id']?>PresetRangeFill');
                         </script>
                     <?php endforeach; ?>
+                    <?php if ($chromecast && ($classification == 'client')): ?>
+                        <p>Note: Chromecast clients cannot be precisely synchronised with other outputs</p>
+                    <?php elseif (($classification == 'local') && $this->multidevice): ?>
+                        <p>Notes: Multiple local devices cannot all be precisely synchronised with other outputs.<br>
+                            Local Bluetooth device synchronisation is particularly poor</p>
+                    <?php endif;?>
                 <?php else :?>
                     <p>No outputs of this type available!
-                    <?php if ($classification != 'client'): ?>
-                        <br>RuneAudio Multi-room clients must must have <strong>Airplay enabled</strong>. Apple Airplay devices and Chromecast devices should also be detected
+                    <?php if ($classification == 'client'): ?>
+                        <br>RuneAudio Multi-room clients must must have <strong>Airplay enabled</strong>. Apple Airplay devices and Chromecast devices should be detected automatically
                         <br></p>
                     <?php endif;?>
                 <?php endif;?>
