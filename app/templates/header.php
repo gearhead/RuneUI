@@ -76,9 +76,7 @@
             <li class="<?=$this->uri(1, 'mpd', 'active')?>"><a href="/mpd/"><i class="fa fa-cogs"></i> MPD</a></li>
             <li class="<?=$this->uri(1, 'settings', 'active')?>"><a href="/settings/"><i class="fa fa-wrench"></i> Settings</a></li>
             <li class="<?=$this->uri(1, 'network', 'active')?>"><a href="/network/"><i class="fa fa-sitemap"></i> Network</a></li>
-            <?php if ($this->owntoneMenu): ?>
-                <li class="<?=$this->uri(1, 'multiroom', 'active')?>"><a href="/multiroom/"><i class="fa fa-network-wired"></i> Multi-Room</a></li>
-            <?php endif ?>
+            <li id="menu_multiroom" class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$this->owntoneMenu): ?> hide<?php endif ?>"><a href="/multiroom/"><i class="fa fa-network-wired"></i> Multi-Room</a></li>
             <?php if (is_localhost()): ?>
                 <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "_self");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
             <?php else: ?>

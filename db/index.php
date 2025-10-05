@@ -788,29 +788,50 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             $volume = $preset['volume_preset'];
                         }
                         // set up the disconnect command, run it and get the modified data
-                        $command =
+                        $commandPut =
                             'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'" --data "{\"selected\": false, \"volume\": '.$volume.'}"';
-                        sysCmd($command);
+                        sysCmd($commandPut);
                         // get the changed values
-                        $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"');
-                        if (!isset($retval) || !is_array($retval)) {
-                            $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
+                        $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
+                            $retval = json_decode($retval[0], true);
+                            if (!isset($retval['id']) || ($output['id'] != $retval['id'])) {
+                                // an invalid result has been returned, try again
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    // an array returned
+                                    $retval = json_decode($retval[0], true);
+                                } else {
+                                    // no array returned
+                                    $retval = array();
+                                }
+                            }
+                        } else {
+                            // no array returned, try again
+                            $retval = sysCmd($commandGet);
+                            if (isset($retval[0])) {
+                                // an array returned
+                                $retval = json_decode($retval[0], true);
+                            } else {
+                                // no array returned
+                                $retval = array();
+                            }
                         }
                         // check that the command has returned valid data
-                        if (isset($retval) && is_array($retval)) {
-                            $retval = json_decode($retval[0], true);
-                            if (isset($retval['volume']) && is_numeric($retval['volume'])) {
-                                if (isset($retval['id']) && ($output['id'] == $retval['id']) && ($outputs[$output['name']] != $retval)) {
-                                    $redis->hSet('owntone_outputs', $outputName, json_encode($retval));
-                                }
+                        if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                            if (isset($retval['volume']) && is_numeric($retval['volume']) && ($outputs[$output['name']] != $retval)) {
+                                $redis->hSet('owntone_outputs', $outputName, json_encode($retval));
                             }
                         }
                     }
                 }
                 // normal processing to connect/disconnect or change the volume
+                $commandPut = '';
                 if (isset($params['selected']) || isset($params['volume'])) {
                     // set up the command
-                    $command =
+                    $commandPut =
                         'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
                     if (isset($params['selected']) && isset($params['volume'])) {
                         if ($params['selected']) {
@@ -818,9 +839,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         } else {
                             $action = 'false';
                         }
-                        $command .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                        $commandPut .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
                     } else if (isset($params['volume'])) {
-                        $command .= '\"volume\": '.$params['volume'].'}"';
+                        $commandPut .= '\"volume\": '.$params['volume'].'}"';
                     } else if (isset($params['selected'])) {
                         if ($params['selected']) {
                             $action = 'true';
@@ -837,26 +858,77 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             $params['volume'] = $preset['volume_preset'];
                         }
                         // connect/disconnect always setting the volume
-                        $command .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                        $commandPut .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
                     }
                     // run the command only when there is something to do
-                    sysCmd($command);
+                    sysCmd($commandPut);
                 }
                 // get the current settings of the output, update the redis outputs and set the return values
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
-                if (!isset($retval) || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"');
-                }
-                if (isset($retval) && is_array($retval)) {
+                $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
+                $retval = sysCmd($commandGet);
+                if (isset($retval[0])) {
+                    // an array returned
                     $output = json_decode($retval[0], true);
-                    if (isset($output['id']) && ($output['id'] == $params['id'])) {
-                            $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
-                    } else {
-                        // invalid information returned, delete the output
-                         $redis->hDel('owntone_outputs', $params['name']);
+                    if (!isset($output['id']) || ($output['id'] != $params['id'])) {
+                        // an invalid result has been returned, try again
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
+                            $output = json_decode($retval[0], true);
+                        } else {
+                            // no array returned
+                            $output = array();
+                        }
                     }
                 } else {
-                    // invalid information returned, delete the redis output entry
+                    // no array returned
+                    $retval = sysCmd($commandGet);
+                    if (isset($retval[0])) {
+                        // an array returned
+                        $output = json_decode($retval[0], true);
+                    } else {
+                        // no array returned
+                        $output = array();
+                    }
+                }
+                if (isset($output['id']) && ($output['id'] == $params['id'])) {
+                    // a valid result has been returned
+                    if (isset($output['volume']) && $commandPut && ($output['volume'] != $params['volume'])) {
+                        // volume is incorrectly set, run the PUT command again and attempt to retrieve the results
+                        sysCmd($commandPut);
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
+                            $output = json_decode($retval[0], true);
+                            if (!isset($output['id']) && ($output['id'] != $params['id'])) {
+                                // an invalid result has been returned, try again
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    // an array returned
+                                    $output = json_decode($retval[0], true);
+                                } else {
+                                    // no array returned
+                                    $output = array();
+                                }
+                            }
+                        } else {
+                            // no array returned, try again
+                            $retval = sysCmd($commandGet);
+                            if (isset($retval[0])) {
+                                // an array returned
+                                $output = json_decode($retval[0], true);
+                            } else {
+                                // no array returned
+                                $output = array();
+                            }
+                        }
+                    }
+                }
+                if (isset($output['id']) && ($output['id'] == $params['id'])) {
+                    // a valid result has been returned
+                    $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
+                } else {
+                    // invalid information returned, delete the output
                     $redis->hDel('owntone_outputs', $params['name']);
                 }
                 if (isset($output['id'])) {
@@ -905,7 +977,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 //  remove autoconnect for all other bluetooth output devices
                 $presetNames = $redis->hGet('owntone_presets');
                 foreach ($presetNames as $presetName) {
-                    if ($presetName = $params['name']) {
+                    if ($presetName == $params['name']) {
                         // this one is processed below
                         continue;
                     }
@@ -956,6 +1028,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'volume' => $volume,
                 'mute' => $preset['mute']));
             unset($params, $preset, $output, $selected, $volume);
+            break;
+        case 'MRowntone_active':
+            // Multi-room activate/deactivate
+            // params: 1 (activate) or 0, null (deactivate)
+            // returns: 1 (activated) or 0 (deactivated)
+            $params = $_GET['params'];
+            if (isset($params) && $params) {
+                wrk_owntone($redis, 'activate');
+            } else {
+                wrk_owntone($redis, 'deactivate');
+            }
+            echo $redis->hGet('owntone', 'active');
             break;
     }
 } else {

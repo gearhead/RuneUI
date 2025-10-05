@@ -191,10 +191,17 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Reset Airplay config</label>
+                    <label class="col-sm-2 control-label">Reset AirPlay config</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="airplayconfreset" id="syscmd-airplayconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">This will reset the shairport-sync.conf file back to defaults and reinitialise Airplay</span>
+                        <span class="help-block">This will reset the shairport-sync.conf file back to defaults and reinitialise AirPlay</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Reset MultiRoom config</label>
+                    <div class="col-sm-10">
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="multiroomconfreset" id="syscmd-multiconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <span class="help-block">This will reset the owntone.conf file back to defaults and reinitialise MultiRoom</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -228,13 +235,35 @@
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">These underclocking settings are switched <strong>OFF</strong> by default. They only have an effect on the Raspberry Pi models 3A+, 3B+ and B4.<br>
-                       <i>Please read these articles before switching underclocking ON: <a href="http://www.archimago.blogspot.com/2018/11/musings-raspberry-pi-3-b-touch.html" target="_blank" rel="nofollow">MUSINGS: Raspberry Pi 3 B+ "Touch" Optimizations; CRAAP Settings, and the "Extremus" Filter Setting</a> and
-                       <a href="http://www.archimago.blogspot.com/2020/10/musingshow-to-raspberry-pi-4-touch.html "target="_blank" rel="nofollow">MUSINGS/HOW-TO: Raspberry Pi 4 "Touch" Audio Streamer, and CRAAP settings! ;-) The decline of public feedback, virtual showrooms, value-added content and Darko Audio?</a><br>
-                       While we have not encountered any problems using these settings, use them at your own risk.<br>
-                       <strong>Why bother?</strong> Well, your Raspberry Pi will run slower and therefore cooler, this should reduce (audio) noise. Additionally the Raspberry Pi B4 model may
-                       be able to run using passive cooling using heatsinks, so without using a cooling fan. But this really depends on many factors like the case design, operation location, etc.</i></span>
+                        <i>Please read these articles before switching underclocking ON: <a href="http://www.archimago.blogspot.com/2018/11/musings-raspberry-pi-3-b-touch.html" target="_blank" rel="nofollow">MUSINGS: Raspberry Pi 3 B+ "Touch" Optimizations; CRAAP Settings, and the "Extremus" Filter Setting</a> and
+                        <a href="http://www.archimago.blogspot.com/2020/10/musingshow-to-raspberry-pi-4-touch.html "target="_blank" rel="nofollow">MUSINGS/HOW-TO: Raspberry Pi 4 "Touch" Audio Streamer, and CRAAP settings! ;-) The decline of public feedback, virtual showrooms, value-added content and Darko Audio?</a><br>
+                        While we have not encountered any problems using these settings, use them at your own risk.<br>
+                        <strong>Why bother?</strong> Well, your Raspberry Pi will run slower and therefore cooler, this should reduce (audio) noise. Additionally the Raspberry Pi B4 model may
+                        be able to run using passive cooling using heatsinks, so without using a cooling fan.
+                        But this really depends on many factors like the case design, operation location, etc.<br>
+                        You need to restart RuneAudio to activate a changed setting</i></span>
                     </div>
                 </div>
+                <?php if ($this->hwmodel == '11') : ?>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">Pi 5 force_turbo</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="pi5forceturbo" name="mode[pi5forceturbo][enable]" type="checkbox" value="1"<?php if((isset($this->pi5forceturbo)) && ($this->pi5forceturbo)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">This setting is only relevant for the Pi 5 model.<br>
+                        RuneAudio configures the setting to <strong>ON</strong> by default.
+                        This ensures that the system clocks run at a constant rate and therefore the data signals for DAC's and sound-cards are more consistent.<br>
+                        <i>When force_turbo is OFF the on-demand CPU frequency driver will raise clocks to their maximum frequencies when the ARM cores are busy,
+                        and will lower them to the minimum frequencies when the ARM cores are idle.
+                        When force_turbo is ON the maximum frequencies are used even when the ARM cores are not busy.<br>
+                        The Raspberry Pi 5 is very fast and even when running with force_turbo OFF it will probably be fast enough to keep everything running consisytantly.
+                        It will then will run slower and therefore cooler, this should reduce (audio) noise.<br>
+                        You need to restart RuneAudio to activate a changed setting</i></span>
+                    </div>
+                </div>
+                <?php endif ; ?>
             </div>
             <legend>Network - Advanced settings</legend>
             <div class="boxed-group">
@@ -470,69 +499,75 @@
                     </div>
                 </div>
             </div>
-            <legend>Airplay - Advanced settings</legend>
+            <legend>AirPlay - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">SoXr for Airplay</label>
+                    <label class="col-sm-2 control-label">SoXr for AirPlay</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="soxrairplayonoff" name="mode[soxrairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->soxrairplayonoff)) && ($this->soxrairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">SoXr for Airplay is set ON by default for most processors and OFF for the older slower devices.<br>
-                        <i>It should improve the quality of the 'synchronisation' of Airplay streams, read the shairport-sync documentation for details.
+                        <span class="help-block">SoXr for AirPlay is set ON by default for most processors and OFF for the older slower devices.<br>
+                        <i>It should improve the quality of the 'synchronisation' of AirPlay streams, read the shairport-sync documentation for details.
                             It imposes a CPU overhead which may be just too high for some of the processors used by RuneAudio (for example the Pi B+ or Pi Zero).
                             But this is also dependant on the set of features which have been enabled.</i></span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Airplay Meta-data</label>
+                    <label class="col-sm-2 control-label">AirPlay Meta-data</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="metadataairplayonoff" name="mode[metadataairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->metadataairplayonoff)) && ($this->metadataairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">Meta-data for Airplay is set ON or OFF depending on processor type.
-                        It imposes a medium CPU and memory overhead when Airplay is active.
+                        <span class="help-block">Meta-data for AirPlay is set ON or OFF depending on processor type.
+                        It imposes a medium CPU and memory overhead when AirPlay is active.
                         You can can override the default setting here</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Airplay Cover Art</label>
+                    <label class="col-sm-2 control-label">AirPlay Cover Art</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="artworkairplayonoff" name="mode[artworkairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->artworkairplayonoff)) && ($this->artworkairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                        <span class="help-block">Cover Art for Airplay is set ON or OFF depending on processor type.
-                        When set on it imposes a CPU overhead when Airplay is active. On less powerful processors it can fail to work properly.
-                        You can can override the default setting here. Cover Art is also automatically switched off when 'Airplay Metadata' is off</span>
+                        <span class="help-block">Cover Art for AirPlay is set ON or OFF depending on processor type.
+                        When set on it imposes a CPU overhead when AirPlay is active. On less powerful processors it can fail to work properly.
+                        You can can override the default setting here. Cover Art is also automatically switched off when 'AirPlay Metadata' is off</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="airplayof">Airplay output format</label>
+                    <label class="col-sm-2 control-label" for="airplayof">AirPlay output format</label>
                     <div class="col-sm-10">
                         <select id="airplayof" class="selectpicker" name="mode[airplayof]" data-style="btn-default btn-lg">
+                            <option value="auto" <?php if($this->airplayof === 'auto'): ?> selected <?php endif ?>> Automatic</option>
                             <option value="S16" <?php if($this->airplayof === 'S16'): ?> selected <?php endif ?>> S16</option>
+                            <option value="S16_LE" <?php if($this->airplayof === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
+                            <option value="S16_BE" <?php if($this->airplayof === 'S16_BE'): ?> selected <?php endif ?>> S16_BE</option>
                             <option value="S24" <?php if($this->airplayof === 'S24'): ?> selected <?php endif ?>> S24</option>
+                            <option value="S24_LE" <?php if($this->airplayof === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
+                            <option value="S24_BE" <?php if($this->airplayof === 'S24_BE'): ?> selected <?php endif ?>> S24_BE</option>
                             <option value="S32" <?php if($this->airplayof === 'S32'): ?> selected <?php endif ?>> S32</option>
+                            <option value="S32_LE" <?php if($this->airplayof === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
+                            <option value="S32_BE" <?php if($this->airplayof === 'S32_BE'): ?> selected <?php endif ?>> S32_BE</option>
                             <option value="U8" <?php if($this->airplayof === 'U8'): ?> selected <?php endif ?>> U8</option>
                             <option value="S8" <?php if($this->airplayof === 'S8'): ?> selected <?php endif ?>> S8</option>
                             <option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
                             <option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
                         </select>
-                        <span class="help-block">Normally Airplay is set up to play music at 44.1kHz with 16bit depth.
-                        This is the normal transmission mode for mobile Airplay devices.
-                        Normally you will not improve the sound quality by changing this setting.
-                        For Multi-room use it is preferable to set the output format to S16<br>
+                        <span class="help-block">The AirPlay output format is set to <strong>S16_LE</strong> by default.
+                        In combination with 44.1kHz output rate this is the normal transmission mode for mobile AirPlay devices.
+                        Normally you will not improve the sound quality by changing this setting.<br>
                         However, some DAC cards and output devices have problems playing at 16bit depth.
                         And if you use a Mac as source (not a iPhone or iPad) then 24bit can be supported (you need to manually switch this ON on the Mac).<br>
-                        In these cases you can use this function change the bit depth to 16bit, 24bit or 32bit (S16, S24 or S32).
+                        In these cases you can use this function change the bit depth to 16bit, 24bit or 32bit (S16_LE, S24_LE or S32_LE are the preferred settings).
                         Other values should only be set if you know what you are doing. Your sound card must be able to support your choice</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="airplayor">Airplay output rate</label>
+                    <label class="col-sm-2 control-label" for="airplayor">AirPlay output rate</label>
                     <div class="col-sm-10">
                         <select id="airplayor" class="selectpicker" name="mode[airplayor]" data-style="btn-default btn-lg">
                             <option value="auto" <?php if($this->airplayor === 'auto'): ?> selected <?php endif ?>> Automatic</option>
@@ -541,8 +576,8 @@
                             <option value="176400" <?php if($this->airplayor === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
                             <option value="352800" <?php if($this->airplayor === '352800'): ?> selected <?php endif ?>> 352.8kHz</option>
                         </select>
-                        <span class="help-block">The Airplay output rate is set to <strong>Automatic</strong> by default. This will normally select 44.1kHz.
-                        In combination with a 16bit depth this is the normal transmission mode for mobile Airplay devices.
+                        <span class="help-block">The AirPlay output rate is set to <strong>44.1kHz</strong> by default.
+                        In combination with S16_LE output format this is the normal transmission mode for mobile AirPlay devices.
                         Normally you will not improve the sound quality by changing this setting as the correct rate will be selected automatically.
                         You can use this function to change the output sample rate to 44.1kHz, 88.2kHz, 176.4kHz or 352.8kHz.
                         Your sound card must be able to support the chosen rate<br>
@@ -599,6 +634,83 @@
                     </div>
                 </div>
                 -->
+            </div>
+            <legend>MultiRoom - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="MRorder">MultiRoom UI device and client order</label>
+                    <div class="col-sm-10">
+                        <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
+                            <option value="MLC" <?php if($this->MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
+                            <option value="MCL" <?php if($this->MRorder === 'MCL'): ?> selected <?php endif ?>> Master - Client - Local</option>
+                            <option value="LMC" <?php if($this->MRorder === 'LMC'): ?> selected <?php endif ?>> Local - Master - Client</option>
+                            <option value="LCM" <?php if($this->MRorder === 'LCM'): ?> selected <?php endif ?>> Local - Client - Master</option>
+                            <option value="CML" <?php if($this->MRorder === 'CML'): ?> selected <?php endif ?>> Client - Master - Local</option>
+                            <option value="CLM" <?php if($this->MRorder === 'CLM'): ?> selected <?php endif ?>> Client - Local - Master</option>
+                        </select>
+                        <span class="help-block">In the Multi-Room UI,
+                        the groups of settings in the screen are arranged in <strong>Master - Local - Client</strong> order by default.<br>
+                        These objects may be reordered into any way which you prefer.
+                        This can be useful when you have no local outputs and are only interested in client outputs,
+                        or you never use the master volume controls<br></span>
+                    </div>
+                </div>
+                <!--
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="MRformat">MultiRoom audio format</label>
+                    <div class="col-sm-10">
+                        <select id="MRformat" class="selectpicker" name="mode[MRformat]" data-style="btn-default btn-lg">
+                            <option value="S16_LE" <?php if($this->MRformat === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
+                            <option value="S24_LE" <?php if($this->MRformat === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
+                            <option value="S32_LE" <?php if($this->MRformat === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
+                        </select>
+                        <span class="help-block">The default audio format for MultiRoom is S16_LE (signed 16-bit little-endian integer).
+                        This is the only format supported.
+                        If your music collection is primarily 32-bit high definition audio it can be set higher to S32_LE.
+                        When 16-bit music is encoded to 24-bit this will generally be zero filled when the sample rate is unchanged rather than being re&#8209;sampled.
+                        This adds little processing and network overhead.<br>
+                        <i>Notes: Most Apple devices do not support the S32_LE format.<br>MultiRoom processing will restart after changing this value,
+                        you may lose some of your current settings and it takes a while</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="MRrate">MultiRoom audio sample rate</label>
+                    <div class="col-sm-10">
+                        <select id="MRrate" class="selectpicker" name="mode[MRrate]" data-style="btn-default btn-lg">
+                            <option value="44100" <?php if($this->MRrate === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
+                            <option value="88200" <?php if($this->MRrate === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
+                            <option value="176400" <?php if($this->MRrate === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
+                        </select>
+                        <span class="help-block">The default audio sample rate for MultiRoom is 44.1kHz (lossless CD quality).
+                        This is the only format supported.
+                        If your music collection is primarily high definition audio a higher sample rate may improve the audio quality.
+                        However, the re&#8209;sampling required to achieve the higher sample rate has a processing overhead and the re&#8209;sampling proces may actually reduce the total quality.<br>
+                        <i>Notes: Most Apple devices do not support sample rates above 96kHz.<br>
+                        The audio format for MultiRoom is S16_LE (signed 16-bit little-endian integer), this is the only format supported.<br>
+                        MultiRoom processing will restart after changing this value,
+                        you may lose some of your current settings and it takes a while</i></span>
+                    </div>
+                </div>
+                -->
+            </div>
+            <legend>ALSA - Advanced settings</legend>
+            <div class="boxed-group">
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="ALSA_rate_converter">ALSA rate converter (re&#8209;sampeler)</label>
+                    <div class="col-sm-10">
+                        <select id="ALSA_rate_converter" class="selectpicker" name="mode[ALSA_rate_converter]" data-style="btn-default btn-lg">
+                            <option value="speexrate_best" <?php if($this->ALSA_rate_converter === 'speexrate_best'): ?> selected <?php endif ?>> speexrate_best</option>
+                            <option value="samplerate_best" <?php if($this->ALSA_rate_converter === 'samplerate_best'): ?> selected <?php endif ?>> samplerate_best</option>
+                        </select>
+                        <span class="help-block">The default ALSA rate converter is 'speexrate_best'.
+                        You can also use the alternative, 'samplerate_best'.<br>
+                        RuneAudio is constructed to avoid using the ALSA rate converter (re&#8209;sampler),
+                        if re-sampling is required the superior SoXr re-sampler is used where possible.
+                        However, the ALSA rate converter is sometimes unavoidable and is the fallback when nothing else works, normally it does nothing.<br>
+                        Speex is specifically designed for speech compression, while samplerate is a general purpose rate converter, both are set up for best quality
+                        </span>
+                    </div>
+                </div>
             </div>
             <legend>UI - Advanced settings</legend>
             <div class="boxed-group">
@@ -695,21 +807,6 @@
                         A value of 8 is default, values between 6 and 14 are reasonable, a value less then 5 will disable the feature.
                         <i>Some Webradio stations repeat a metadata string many times each hour, this often contains text advertising the Radio Station and has no relationship to the song being played.
                         By counting the number of occurrences of each Webradio metadata string per hour these irrelevant messages can be identified and suppressed</i></span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="col-sm-2 control-label" for="MRorder">Multi-Room settings order</label>
-                    <div class="col-sm-10">
-                        <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
-                            <option value="MLC" <?php if($this->MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
-                            <option value="MCL" <?php if($this->MRorder === 'MCL'): ?> selected <?php endif ?>> Master - Client - Local</option>
-                            <option value="LMC" <?php if($this->MRorder === 'LMC'): ?> selected <?php endif ?>> Local - Master - Client</option>
-                            <option value="LCM" <?php if($this->MRorder === 'LCM'): ?> selected <?php endif ?>> Local - Client - Master</option>
-                            <option value="CML" <?php if($this->MRorder === 'CML'): ?> selected <?php endif ?>> Client - Master - Local</option>
-                            <option value="CLM" <?php if($this->MRorder === 'CLM'): ?> selected <?php endif ?>> Client - Local - Master</option>
-                        </select>
-                        <span class="help-block">In the Multi-Room UI, the groups of settings in the screen are arranged in <strong>Master - Local - Client</strong> order by default.<br>
-                        These objects may be reordered into any way which you prefer. This is particularly useful when you have no local outputs and are only interested in client outputs<br></span>
                     </div>
                 </div>
             </div>
@@ -861,6 +958,26 @@
                     <label class="col-sm-2 control-label">Patches to support sample rates up to 384kHz</label>
                     <div class="col-sm-10">
                         <span class="help-block">We previously patched the kernel to support audio sample rates up to 384KHz. Our changes are now included as standard in the kernel</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">MultiRoom</label>
+                    <div class="col-sm-10">
+                        <span class="help-block">MultiRoom is implemented using owntone.<br>
+                        MultiRoom generates synchronised streamed music playback for one local device and multiple AirPlay clients.
+                        The AirPlay clients can include Apple, RuneAudio or Sonos devices.
+                        The data transmission format is AirPlay with ALAC data-compression.<br>
+                        When using MultiRoom all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
+                        Your music collection will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
+                        AirPlay input is also re-sampled to this rate by shairport&#8209;sync using the SoXr re&#8209;sampler.
+                        Typically the input is S16_LE, 44.1kHz so no re&#8209;sampling will be applied.<br>
+                        Bluetooth and Spotify Connect input is of a lossy quality, reconstituted to S16_LE, 44.1kHz.<br>
+                        In addition, MultiRoom can stream unsynchronised to Chromecast devices and the local network.
+                        Multiple local devices can also be enabled.
+                        Even though this is in theory unsynchronised, the Chromecast and local device synchronisation is very good.<br>
+                        When the output rate is not supported by the output device (e.g. bluetooth output), it will be re&#8209;sampled by ALSA.
+                        ALSA re&#8209;sampling is poor compared to SoXr. The ALSA re&#8209;sampling processing can be tweaked using the settings above.
+                        Most output devices will support the default audio format and sample rate.</span>
                     </div>
                 </div>
                 <div class="form-group">

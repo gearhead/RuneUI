@@ -2223,7 +2223,7 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
             // get the redis value for $args
             $args = $redis->hGet('avahi', 'ip_setup');
             // determine the automatic configuration
-            if ($args = 'a') {
+            if ($args == 'a') {
                 // determined by the scope of the ip addresses, 'global' (or 'site', ipv6 only) are routable
                 $ipv4Routable = sysCmd("ip add | grep -i 'inet\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
                 $ipv6Routable = sysCmd("ip add | grep -i 'inet6\s*' | grep -iEc 'scope\s*global|scope\s*site'")[0];
@@ -4385,15 +4385,15 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // for v0.20 and higher SoXr is reported in the --version list if it was included in the build
             if ($mpdversion >= '0.20.00') {
                 // MPD version is higher than 0.20
-                $count = sysCmd('grep -ic "soxr" /srv/http/.config/mpdversion.txt');
+                $count = sysCmd('grep -ic "soxr" /srv/http/.config/mpdversion.txt | xargs')[0];
             } elseif ($mpdversion >= '0.19.00') {
                 // MPD version is higher than 0.19 but lower than 0.20
-                $count = sysCmd('grep -hc "soxr" /usr/bin/mpd');
+                $count = sysCmd('grep -hc "soxr" /usr/bin/mpd | xargs')[0];
             } else {
                 // MPD version is lower than 0.19
-                $count[0] = 0;
+                $count = 0;
             }
-            if ($count[0] > 0) {
+            if ($count > 0) {
                 // SoXr has been built with MPD, so use it
                 $redis->hSet('mpdconf', 'soxr', 'very high');
             } else {
@@ -4812,6 +4812,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .="\tenabled \t\"yes\"\n";
             $output .="}\n";
             // ui_notify($redis, 'MPD', 'config file part two finished');
+            //
             // add the webstreaming output if requested
             if (isset($websteaming) && $websteaming) {
                 $output .="audio_output {\n";
@@ -4830,20 +4831,20 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $output .="\ttags \t\t\"yes\"\n";
                 $output .="}\n";
             }
-            // add owntone output if required
-            if ($redis->hGet('owntone', 'enable')) {
-                $output .="audio_output {\n";
-                $output .="\tname \t\t\"owntone\"\n";
-                $output .="\ttype \t\t\"alsa\"\n";
-                $output .="\tformat \t\t\"".$redis->hGet('owntone', 'rate').":16:2\"\n";
-                $output .= "\tdevice \t\t\"".$redis->hGet('owntone', 'device_mpd')."\"\n";
-                // null mixer
-                $output .= "\tmixer_type \t\"null\"\n";
-                $output .="\tauto_resample \t\"no\"\n";
-                $output .="\tauto_format \t\"no\"\n";
-                $output .="\tenabled \t\"no\"\n";
-                $output .="}\n";
-            }
+            //
+            // add owntone output
+            $output .="audio_output {\n";
+            $output .="\tname \t\t\"owntone\"\n";
+            $output .="\ttype \t\t\"alsa\"\n";
+            $output .="\tformat \t\t\"".$redis->hGet('owntone', 'rate').":".preg_replace('|[^0-9]|', '', $redis->hGet('owntone', 'format')).":2\"\n";
+            $output .= "\tdevice \t\t\"".$redis->hGet('owntone', 'device_mpd')."\"\n";
+            // null mixer
+            $output .= "\tmixer_type \t\"null\"\n";
+            $output .="\tauto_resample \t\"no\"\n";
+            $output .="\tauto_format \t\"no\"\n";
+            $output .="\tenabled \t\"no\"\n";
+            $output .="}\n";
+            //
             // some users need to add an extra parameters to the MPD configuration file
             // this can be specified in the file /home/your-extra-mpd.conf
             // see the example file: /srv/http/app/config/defaults/your-extra-mpd.conf
@@ -4885,9 +4886,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
         case 'switchao':
             $owntoneActive = $redis->hGet('owntone', 'active');
             $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
+            $argsOutputSelected = false;
+            $owntoneOutputSelected = false;
             // switch audio output to $args
             if (isset($args)) {
                 $args = trim($args);
+            } else {
+                $args = '';
             }
             // record current interface selection, note: $args can be an empty string!
             $oldMpdout = trim($redis->get('ao'));
@@ -4923,49 +4928,24 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             if ($args) {
                 // get interface details
                 $acard = array();
-                if ($owntoneActive && $owntoneRunning) {
-                    $activePlayer = $redis->get('activePlayer');
-                    if ($activePlayer == 'MPD') {
-                        $device = $redis->hGet('owntone', 'device_mpd');
-                    } else if ($activePlayer == 'Airplay') {
-                        $device = $redis->hGet('owntone', 'device_ap');
-                    } else if ($activePlayer == 'SpotifyConnect') {
-                        $device = $redis->hGet('owntone', 'device_sc');
-                    } else if ($activePlayer == 'Bluetooth') {
-                        $device = $redis->hGet('owntone', 'device_bt');
-                    }
-                    $acard['device'] = $device;
-                    $acard['swdevice'] = $device;
-                    $acard['extlabel'] = 'Owntone';
-                    $acard['sysname'] = 'owntone';
-                    $acard['type'] = 'alsa';
-                    $acard['description'] = 'Owntone';
-                }
-                $acard = array_merge($acard, json_decode($redis->hGet('acards', $args), true));
+                $acard = json_decode($redis->hGet('acards', $args), true);
                 // save the card name if it is a 'hw:' type
                 if (isset($acard['device']) && (substr($acard['device'], 0, 3) == 'hw:')) {
                     $redis->set('ao_default', $args);
                 }
-                $mpdNullnable = true;
-                // correct the null output device
-                if (isset($acard['swdevice']) && $acard['swdevice']) {
-                    if (substr($acard['swdevice'], 0, 9) == 'bluealsa:') {
-                        // its a Bluetooth output, enable the null output device
-                        $mpdNullnable = true;
-                        // start Bluetooth
-                        $startBluetooth = true;
-                    } else if ((strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
-                            (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
-                        // its a vc4 hdmi or USB output, enable the null output device
-                        $mpdNullnable = true;
-                    } else {
-                        // otherwise disable the null output device
-                        $mpdNullnable = false;
-                    }
-                }
                 // switch interface
                 $ownttoneSwitched = false;
-                $owntoneOutputSelected = sysCmd('mpc outputs | grep -i "(owntone)" | grep -ic "enabled"')[0];
+                $outputs = sysCmd('mpc outputs');
+                if (isset($outputs) && is_array($outputs) && count($outputs)) {
+                    foreach ($outputs as $output) {
+                        if (strpos($output, '(owntone)') && strpos($output, 'enabled')) {
+                            $owntoneOutputSelected = true;
+                        }
+                        if (strpos($output, '('.$args.')') && strpos($output, 'enabled')) {
+                            $argsOutputSelected = true;
+                        }
+                    }
+                }
                 if ($owntoneActive && $owntoneRunning) {
                     if (!$owntoneOutputSelected) {
                         sysCmd('mpc enable only null owntone');
@@ -4974,9 +4954,27 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     }
                 } else {
                     if ($owntoneOutputSelected) {
+                        wrk_owntone($redis, 'switchao');
                         $ownttoneSwitched = true;
                     }
-                    if ($mpdNullnable) {
+                    $mpdNullenable = true;
+                    // correct the null output device
+                    if (isset($acard['swdevice']) && $acard['swdevice']) {
+                        if (substr($acard['swdevice'], 0, 9) == 'bluealsa:') {
+                            // its a Bluetooth output, enable the null output device
+                            $mpdNullenable = true;
+                            // start Bluetooth
+                            $startBluetooth = true;
+                        } else if ((strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
+                                (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
+                            // its a vc4 hdmi or USB output, enable the null output device
+                            $mpdNullenable = true;
+                        } else {
+                            // otherwise disable the null output device
+                            $mpdNullenable = false;
+                        }
+                    }
+                    if ($mpdNullenable) {
                         sysCmd('mpc enable only null "'.$args.'"');
                     } else {
                         sysCmd('mpc enable only "'.$args.'"');
@@ -4991,18 +4989,24 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 //  enable the null output device and owntone if it is running
                 // args value is invalid
                 // switch interface if owntone is active and owntone output is not selected
+                $owntoneOutputSelected = sysCmd('mpc outputs | grep -i "(owntone)" | grep -ic "enabled" | xargs')[0];
                 if ($owntoneActive && $owntoneRunning) {
-                    $owntoneOutputSelected = sysCmd('mpc outputs | grep -i "(owntone)" | grep -ic "enabled"')[0];
                     if (!$owntoneOutputSelected) {
                         sysCmd('mpc enable only null owntone');
                         wrk_owntone($redis, 'switchao');
                         // change the output for Airplay and Spotify Connect
                         wrk_shairport($redis, $args);
                         wrk_spotifyd($redis, $args);
+                        $ownttoneSwitched = true;
                     }
                 } else {
                     // disable all except null
                     sysCmd('mpc enable only null');
+                    if ($owntoneOutputSelected) {
+                        wrk_shairport($redis, $args);
+                        wrk_spotifyd($redis, $args);
+                        $ownttoneSwitched = true;
+                    }
                     // // check that MPD only has one output enabled and if not correct it
                     // sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                 }
@@ -5022,26 +5026,32 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             }
             // set notify label
             $interface_label = '';
-            if ($args && ($oldMpdout != $args)) {
-                if (isset($acard['description'])) {
-                    $interface_label = $acard['description'];
-                } else if (isset($acard['extlabel'])) {
-                    $interface_label = $acard['extlabel'];
-                } else {
-                    $interface_label = $args;
-                }
+            if (isset($acard['description'])) {
+                $interface_label = $acard['description'];
+            } else if (isset($acard['extlabel'])) {
+                $interface_label = $acard['extlabel'];
+            } else {
+                $interface_label = $args;
             }
             // notify UI
-            if ($owntoneActive && $owntoneRunning && $ownttoneSwitched) {
-                if ($interface_label) {
-                    ui_notify($redis, 'Audio output switched', "Multi-room activated, current active local output:\n".$interface_label);
+            if ($ownttoneSwitched) {
+                if ($owntoneActive) {
+                    if ($interface_label) {
+                        ui_notify($redis, 'Audio output switched', "Multi-room activated, current active local output:\n".$interface_label);
+                    } else {
+                        ui_notify($redis, 'Audio output switched', "Multi-room activated");
+                    }
                 } else {
-                    ui_notify($redis, 'Audio output switched', "Multi-room activated");
+                    if ($interface_label) {
+                        ui_notify($redis, 'Audio output switched', "Multi-room deactivated, current active local output:\n".$interface_label);
+                    } else {
+                        ui_notify($redis, 'Audio output switched', "Multi-room deactivated");
+                    }
                 }
-            } else {
-                if ($interface_label || $ownttoneSwitched) {
-                    ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
-                }
+            // } else if ($interface_label && !$argsOutputSelected) {
+                // ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+            } else if ($interface_label && ($args != $oldMpdout)) {
+                ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
             }
             if ($redis->get('activePlayer') != 'MPD') {
                 ui_notify($redis, 'Playback source switched to:', 'MPD');
@@ -8058,7 +8068,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
         if ($simtrack && $simartist) {
             // If we have a track and an artist then make a call to mpd to add it. If it doesn't exist then it doesn't
             // matter
-            $status = sysCmd("mpc search artist '".$simartist."' title '".$simtrack. "' | head -n1 | mpc add");
+            sysCmd("mpc search artist '".$simartist."' title '".$simtrack. "' | head -n1 | mpc add");
             $retval = true;
         }
     }
@@ -9529,8 +9539,8 @@ function wrk_ashuffle($redis, $action = 'check', $playlistName = null)
     $playlistDirectory = rtrim(trim($redis->hget('mpdconf', 'playlist_directory')),'/');
     $ashuffleUnitFilename = '/etc/systemd/system/ashuffle.service';
     // to allow crossfade to work with ashuffle, when crossfade is set the queue needs to always have one extra song in the queue
-    $retval = sysCmd('mpc crossfade');
-    $retval = trim(preg_replace('/[^0-9]/', '', $retval[0]));
+    $retval = sysCmd('mpc crossfade | xargs')[0];
+    $retval = trim(preg_replace('/[^0-9]/', '', $retval));
     if (strlen($retval)) {
         if ($retval == 0) {
             $queuedSongs = 0;
@@ -12969,24 +12979,7 @@ function set_alsa_default_card($redis, $cardName = null)
     }
     $owntoneActive = $redis->hGet('owntone', 'active');
     $acard = array();
-    if ($owntoneActive) {
-        $activePlayer = $redis->get('activePlayer');
-        if ($activePlayer == 'MPD') {
-            $device = $redis->hGet('owntone', 'device_mpd');
-        } else if ($activePlayer == 'Airplay') {
-            $device = $redis->hGet('owntone', 'device_ap');
-        } else if ($activePlayer == 'SpotifyConnect') {
-            $device = $redis->hGet('owntone', 'device_sc');
-        } else if ($activePlayer == 'Bluetooth') {
-            $device = $redis->hGet('owntone', 'device_bt');
-        }
-        $acard['device'] = $device;
-        $acard['swdevice'] = $device;
-        $acard['extlabel'] =  'Owntone';
-        $acard['sysname'] = 'owntone';
-        $acard['type'] = 'alsa';
-        $acard['description'] = 'Owntone';
-    } else if (isset($cardName) && $cardName) {
+    if (isset($cardName) && $cardName) {
         $acard = json_decode($redis->hGet('acards', $cardName), true);
         if (!isset($acard['device']) || !$acard['device']) {
             // invalid card
@@ -13120,7 +13113,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
     switch ($action) {
         case 'enable':
             // enable Bluetooth, a reboot is required if it was disabled
-            if (isset($param) && ($param = 'async')) {
+            if (isset($param) && ($param == 'async')) {
                 sysCmdAsync($redis, '/srv/http/command/bt_on.sh');
             } else {
                 sysCmd('/srv/http/command/bt_on.sh');
@@ -13128,7 +13121,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             break;
         case 'disable':
             // run the command file to disable Bluetooth, a reboot is required if it was enabled
-            if (isset($param) && ($param = 'async')) {
+            if (isset($param) && ($param == 'async')) {
                 sysCmdAsync($redis, '/srv/http/command/bt_off.sh');
             } else {
                 sysCmd('/srv/http/command/bt_off.sh');
@@ -15991,26 +15984,29 @@ function check_webradio_string($redis, $webradioString)
 // function to manage owntone
 function wrk_owntone($redis, $action, $args = null, $jobID = null)
 // actions:
-//  activate
-//  deactivate
-//  disable
-//  enable
+//  activate, no $args
 //  conf_add_alsa_card, $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device')
 //  conf_add_alsa_cards, no $args
+//  config, $args = optional array containing changed configuration values
+//  deactivate, no $args
+//  disable, no $args
+//  enable, no $args
 //  initialise, no $args
+//  mute, $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds (see below for x)
+//  muteasync, $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds
 //  reset, $args = '' or 'full' when full redis owntone is reset
-//  status
-//  switchao
-//  switchplayer
-//  mute, $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+//  status, no $args
+//  switch_player, no $args
+//  switchao, no $args
 //  unmute, $args = '', 'all' or list of space delimited output_id's which should be unmuted, '' or 'all' = unmute all
+//  unmuteasync, $args = '', 'all' or list of hyphen delimited output_id's which should be unmuted, '' or 'all' = unmute all
 {
     switch ($action) {
         case 'activate':
             // no $args
-            if ($redis->hget('owntone', 'enable')) {
+            if ($redis->hGet('owntone', 'enable')) {
                 // wait until owntone starts
-                $cnt = 10;
+                $cnt = 20;
                 $owntoneRunning = false;
                 while (!$owntoneRunning && ($cnt-- >= 0)) {
                     $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
@@ -16019,63 +16015,79 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                 }
                 // wait until the mpd fifo file is created
-                $cnt = 10;
+                $cnt = 20;
                 $mpdFifoFileExists = false;
                 while (!$mpdFifoFileExists && ($cnt-- >= 0)) {
                     $mpdFifoFile = $redis->hGet('owntone', 'pipe_mpd');
                     if ($mpdFifoFile) {
                         clearstatcache(true, $mpdFifoFile);
-                        $mpdFifoFileExists = wrk_systemd_unit($redis, 'is-active', 'owntone');
+                        $mpdFifoFileExists = file_exists($mpdFifoFile);
                     }
                     if (!$mpdFifoFileExists) {
                         sleep(2);
                     }
                 }
                 // wait until alsa has created the software device which mpd uses to fill the fifo file
-                $cnt = 10;
+                $cnt = 20;
                 $mpdAlsaFifoDeviceExists = false;
                 while (!$mpdAlsaFifoDeviceExists && ($cnt-- >= 0)) {
                     $mpdAlsaFifoDevice = $redis->hGet('owntone', 'device_mpd');
                     if ($mpdAlsaFifoDevice) {
-                        $mpdAlsaFifoDeviceExists = sysCmd('aplay -L | grep -c "'.$mpdAlsaFifoDevice.'" | xargs');
+                        $mpdAlsaFifoDeviceExists = sysCmd('aplay -L | grep -c "'.$mpdAlsaFifoDevice.'" | xargs')[0];
                     }
                     if (!$mpdAlsaFifoDeviceExists) {
                         sleep(2);
                     }
                 }
-                $redis->hSet('owntone', 'active', 1);
+                // prevent owntone from activating too quickly after a deactivation
+                //  wait for a the reset period since the last owntone deactivation
+                // use the airplay timeout period as the reset period (seconds)
+                $resetPeriod = $redis->hGet('airplay', 'timeout');
+                // limit the reset period to a value between 10 and 20
+                $resetPeriod = max(10, min(20, $resetPeriod));
+                // get the last owntone deactivate time (seconds)
+                $deactivateTime = $redis->hGet('owntone', 'deactivate_time');
+                if (!is_numeric($deactivateTime)) {
+                    $deactivateTime = 0;
+                }
+                // get the current time (seconds)
+                $now = time();
+                // sleep if required
+                if (($deactivateTime + $resetPeriod) > $now) {
+                    sleep($deactivateTime + $resetPeriod - $now);
+                }
+                // switch player to MPD is required
+                if ($redis->get('activePlayer') != 'MPD') {
+                    wrk_stopPlayer($redis);
+                }
+                if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                    $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+                    if ($mpdError) {
+                        wrk_mpdconf($redis, 'forcerestart');
+                    }
+                } else {
+                    wrk_mpdconf($redis, 'start');
+                }
+                $redis->hSet('owntone', 'active', '1');
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
                 }
-                // // if $owntoneRunning, $mpdFifoFileExists or $mpdAlsaFifoDeviceExists is false reset owntone
-                // //  but dont run it if
-                // if (!$owntoneRunning || !$mpdFifoFileExists || !$mpdAlsaFifoDeviceExists) {
-                    // // this will reset owntone, empty the fifo files and restart mpd
-                    // wrk_owntone($redis, 'reset');
-                // }
-                // // check that mpd is operating correctly and that all the output cards are defined for owntone
-                // $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                // $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-                // $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-                // $owntoneCardStatus = wrk_owntone($redis, 'conf_add_alsa_cards');
-                // if (($mpdError && $owntoneRunning && $mpdRunning) || ($owntoneCardStatus == 'changed') ) {
-                    // // this will reset owntone, empty the fifo files and restart mpd
-                    // wrk_owntone($redis, 'reset');
-                // }
-                if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                    $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
-                    if ($mpdPlaying) {
-                        sysCmd('mpc pause');
-                    }
-                    sysCmd('mpc enable only null');
-                }
+                // remove the first time indicators for connecting owntone outputs
+                sysCmd('rm -f /tmp/MR_*.firsttime');
                 wrk_owntone($redis, 'status');
-                wrk_systemd_unit($redis, 'start', 'owntone_monitor', 'async');
+                wrk_systemd_unit($redis, 'start', 'owntone_monitor');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                    wrk_mpdconf($redis, 'switchao');
-                    if ($mpdPlaying) {
-                        sysCmd('mpc play');
+                    $owntoneSelected = sysCmd("mpc outputs | grep -i '(owntone)' | grep -ic enabled | xargs")[0];
+                    if (!$owntoneSelected) {
+                        if ($mpdPlaying) {
+                            sysCmd('mpc pause');
+                        }
+                        wrk_mpdconf($redis, 'switchao');
+                        if ($mpdPlaying) {
+                            sysCmd('mpc play');
+                        }
                     }
                 }
             }
@@ -16086,13 +16098,22 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
+            // save the deactivation time
+            $redis->hSet('owntone', 'deactivate_time', time());
             wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+            // remove the first time indicators for connecting owntone outputs
+            sysCmd('rm -f /tmp/MR_*.firsttime');
+            // switch player to MPD is required
+            if ($redis->get('activePlayer') != 'MPD') {
+                wrk_stopPlayer($redis);
+            }
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
-                if ($mpdPlaying) {
-                    sysCmd('mpc pause');
+                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+                if ($mpdError) {
+                    wrk_mpdconf($redis, 'forcerestart');
                 }
-                sysCmd('mpc enable only null');
+            } else {
+                wrk_mpdconf($redis, 'start');
             }
             // deactivate all the owntone outputs when owntone is running
             if (wrk_systemd_unit($redis, 'is-active', 'owntone')) {
@@ -16115,13 +16136,13 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         foreach ($retval['outputs'] as $output) {
                             if ($output['selected']) {
                                 // set up the command
-                                $command =
+                                $commandPut =
                                     'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                     ' --data '.
                                     '"{\"selected\": false'.
                                     '}"';
                                 // run the command
-                                sysCmd($command);
+                                sysCmd($commandPut);
                             }
                         }
                     }
@@ -16133,17 +16154,13 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // get the output preset keys
             $presetKeys = $redis->hKeys('owntone_presets');
             foreach ($presetKeys as $presetKey) {
-                $writePreset = false;
                 $preset = json_decode($redis->hGet('owntone_presets', $presetKey), true);
+                if (!$preset['autoconnect']) {
+                    $redis->hDel('owntone_presets', $presetKey);
+                    continue;
+                }
                 if ($preset['mute'] != 0) {
                     $preset['mute'] = 0;
-                    $writePreset = true;
-                }
-                if (!$preset['autoconnect'] && ($preset['volume_preset'] != $defaultVolume)) {
-                    $preset['volume_preset'] = $defaultVolume;
-                    $writePreset = true;
-                }
-                if ($writePreset) {
                     $redis->hSet('owntone_presets', $presetKey, json_encode($preset));
                 }
             }
@@ -16152,10 +16169,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
-            // remove the first time indicators for connecting owntone outputs
-            sysCmd('rm -f /tmp/MR_*.firsttime');
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                if ($mpdPlaying) {
+                    sysCmd('mpc pause');
+                }
                 wrk_mpdconf($redis, 'switchao');
                 if ($mpdPlaying) {
                     sysCmd('mpc play');
@@ -16171,6 +16189,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if ($redis->hGet('owntone', 'active')) {
                 wrk_owntone($redis, 'deactivate');
             }
+            // set the airplay output rate to its original value
+            $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
+            $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
+            if ($airplaySavedRate != $airplayRate) {
+                $redis->hSet('airplay', 'alsa_output_rate', $airplaySavedRate);
+            }
+            // set the airplay output format to its original value
+            $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
+            $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
+            if ($airplaySavedFormat != $airplayFormat) {
+                $redis->hSet('airplay', 'alsa_output_format', $airplaySavedFormat);
+            }
+            // stop owntone
             wrk_systemd_unit($redis, 'stop', 'owntone');
             break;
         case 'enable':
@@ -16184,20 +16215,50 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
-            $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf"');
+            // save the current airplay output rate and set the airplay output rate to that of owntone
+            $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
+            $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
+            $owntoneRate = $redis->hGet('owntone', 'rate');
+            if ($owntoneRate != $airplayRate) {
+                $redis->hSet('airplay', 'alsa_output_rate', $owntoneRate);
+                if (!isset($airplaySavedRate) || !$airplaySavedRate) {
+                    $redis->hSet('owntone', 'saved_airplay_rate', $airplayRate);
+                }
+            }
+            // save the current airplay output format and set the airplay output format to that of owntone
+            $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
+            $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
+            $owntoneFormat = $redis->hGet('owntone', 'format');
+            if ($owntoneFormat != $airplayFormat) {
+                $redis->hSet('airplay', 'alsa_output_format', $owntoneFormat);
+                if (!isset($airplaySavedFormat) || !$airplaySavedFormat) {
+                    $redis->hSet('owntone', 'saved_airplay_format', $airplayFormat);
+                }
+            }
+            $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf" | xargs')[0];
             if (!$mpdOwntoneOutput) {
                 $redis->set('mpdconfchange', 1);
                 wrk_mpdconf($redis, 'refresh');
             }
+            $mpdRestarted = sysCmd('mpc outputs | grep -ic owntone | xargs')[0];
+            if (!$mpdRestarted) {
+                wrk_mpdconf($redis, 'forcerestart');
+            }
             $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
             if ($retval == 'changed') {
                 if ($redis->hGet('owntone', 'active')) {
-                    wrk_owntone($redis, 'reset');
+                    wrk_owntone($redis, 'restart');
                 } else {
                     wrk_systemd_unit($redis, 'restart', 'owntone');
                 }
             }
+            // remove the owntone outputs and other stored values
+            $redis->del('owntone_outputs');
+            $redis->hSet('owntone', 'master', json_encode(array()));
+            $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_player', json_encode(array()));
             break;
         case 'conf_add_alsa_card':
             // $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device', 'file')
@@ -16260,6 +16321,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 $btDevices = wrk_btcfg($redis, 'status');
                 $confFile = '/etc/owntone.conf';
                 $tmpFile = '/tmp/owntone.conf';
+                clearstatcache(true, $confFile);
+                if (!file_exists($confFile)) {
+                    copy('/srv/http/app/config/defaults'.$confFile, $confFile);
+                    sysCmd('chmod 644 '.$confFile);
+                }
                 copy($confFile, $tmpFile);
                 sysCmd("sed -n -i '/^# RuneAudio automatically generated section/q;p' '".$tmpFile."'");
                 $output =
@@ -16302,6 +16368,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                     unset($btDevices, $btDevice, $owntoneCard);
                 }
+                $streamingInConfig = sysCmd('grep -ic "^\s*streaming\s*{" "'.$tmpFile.'" | xargs')[0];
+                if ($redis->hGet('owntone', 'streaming') && !$streamingInConfig) {
+                    $output = "#\n";
+                    $output .= "# web streaming in MP3 at 44100hz, 320bps\n";
+                    $output .= "streaming {\n";
+                    $output .= " sample_rate = 44100\n";
+                    $output .= " bit_rate = 320\n";
+                    $output .= "}\n";
+                    file_put_contents($tmpFile, $output, FILE_APPEND);
+                } else if (!$redis->hGet('owntone', 'streaming') && $streamingInConfig){
+                    sysCmd('sed -i "/^\s*streaming\s*{/,/^\s*}/d" "'.$tmpFile.'"');
+                }
                 if (md5_file($confFile) != md5_file($tmpFile)) {
                     copy($tmpFile, $confFile);
                     unlink($tmpFile);
@@ -16315,42 +16393,89 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // no $args
             sysCmd('/srv/http/command/owntone_init.sh');
             break;
-        case 'reset':
-            // $args = '' or 'full'
-            if (!isset($args)) {
-                $args = '';
+        case 'restart':
+            // switch to mpd
+            if ($redis->get('activePlayer') != 'MPD') {
+                wrk_stopPlayer($redis);
+            }
+            // save the mpd state
+            $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+            // set mpd output to null and pause mpd and determine an error message
+            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
+            if ($mpdError) {
+                wrk_mpdconf($redis, 'forcerestart');
+                $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+                sysCmd('mpc enable only null');
+            }
+            if ($mpdPlaying) {
+                sysCmd('mpc pause');
             }
             $enable = $redis->hGet('owntone', 'enable');
             $active = $redis->hGet('owntone', 'active');
-            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
             if ($active) {
                 wrk_owntone($redis, 'deactivate');
-            } else {
-                wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
-                wrk_mpdconf($redis, 'switchao');
-            }
-            if ($enable) {
                 wrk_owntone($redis, 'disable');
-            } else {
-                wrk_systemd_unit($redis, 'stop', 'owntone');
+                wrk_owntone($redis, 'enable');
+                wrk_owntone($redis, 'activate');
+            } else if ($enable) {
+                wrk_owntone($redis, 'disable');
+                wrk_owntone($redis, 'enable');
             }
-            sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir'));
+            wrk_mpdconf($redis, 'switchao');
+            if ($mpdPlaying) {
+                sysCmd('mpc play');
+            }
+            break;
+        case 'reset':
+            // $args = '' or 'full'
+            if (!isset($args) || !$args) {
+                $args = '';
+            }
+            // switch to mpd
+            if ($redis->get('activePlayer') != 'MPD') {
+                wrk_stopPlayer($redis);
+            }
+            // save the mpd state
+            $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+            // set mpd output to null and pause mpd and determine an error message
+            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
+            if ($mpdError) {
+                wrk_mpdconf($redis, 'forcerestart');
+                $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+                sysCmd('mpc enable only null');
+            }
+            if ($mpdPlaying) {
+                sysCmd('mpc pause');
+            }
+            $enable = $redis->hGet('owntone', 'enable');
+            $active = $redis->hGet('owntone', 'active');
+            if ($active) {
+                wrk_owntone($redis, 'deactivate');
+                wrk_owntone($redis, 'disable');
+            } else if ($enable) {
+                wrk_owntone($redis, 'disable');
+            }
             if ($args == 'full') {
                 sysCmd('/srv/http/db/redis_datastore_setup owntonereset');
+                unlink('/etc/owntone.conf');
             } else {
                 sysCmd('/srv/http/db/redis_datastore_setup owntonecheck');
+            }
+            sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir').'/*.fifo');
+            unlink('/etc/alsa/conf.d/99_runeaudio_owntone.conf');
+            if ($active) {
+                wrk_owntone($redis, 'enable');
+                wrk_owntone($redis, 'activate');
+            } else if ($enable) {
+                wrk_owntone($redis, 'enable');
             }
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
-            if ($mpdError) {
-                wrk_mpdconf($redis, 'forcerestart');
+            wrk_mpdconf($redis, 'switchao');
+            if ($mpdPlaying) {
+                sysCmd('mpc play');
             }
-            copy('/srv/http/app/config/defaults/etc/owntone.conf', '/etc/owntone.conf');
-            unlink('/etc/alsa/conf.d/99_runeaudio_owntone.conf');
-            $redis->hSet('owntone', 'enable', $enable);
-            $redis->hSet('owntone', 'active', $active);
-            sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
             break;
         case 'status':
             // no $args
@@ -16430,7 +16555,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $numberOutputs = 0;
             $unmuteMaster = false;
             $detectedOutputNames = array();
-            if ($server && wrk_systemd_unit($redis, 'is-active', 'owntone') && ($role == 'server')) {
+            if (isset($server) && $server && wrk_systemd_unit($redis, 'is-active', 'owntone') && ($role == 'server')) {
                 // role and the server name are known, the owntone job is running and the role is server
                 //
                 // get the server configuration
@@ -16474,16 +16599,30 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 //  the volume for local alsa will be set when activating
                 //  when a preset volume for non-alsa outputs is available it will be used when activating
                 //  preset entries will be generated with defaults for non-alsa outputs
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
-                if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
-                }
-                if ($retval && is_array($retval)) {
+                $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"';
+                $retval = sysCmd($commandGet);
+                if (isset($retval[0])) {
+                    // an array is returned
                     $retval = json_decode($retval[0], true);
+                    if (!isset($retval['outputs'])) {
+                        // returned value is invalid, try again
+                        $retval = sysCmd($commandGet);
+                        if ($retval && is_array($retval)) {
+                            $retval = json_decode($retval[0], true);
+                        } else {
+                            $retval = array();
+                        }
+                    }
                 } else {
-                    $retval = array();
+                    // no array returned, try again
+                    $retval = sysCmd($commandGet);
+                    if ($retval && is_array($retval)) {
+                        $retval = json_decode($retval[0], true);
+                    } else {
+                        $retval = array();
+                    }
                 }
-                if (isset($retval['outputs'])) {
+                if (isset($retval['outputs']) && count($retval['outputs'])) {
                     foreach ($retval['outputs'] as $output) {
                         // eliminate the local airplay name from the output and remove an stored values for this output
                         if ($output['name'] == $redis->hGet('airplay', 'name')) {
@@ -16499,20 +16638,33 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $disconnect = false;
                         $autoconnect = false;
                         // get the output information again, there could be a long list of them and the content could change
-                        $command =
+                        $commandGet =
                             'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                         // run the command
-                        $retval = sysCmd($command);
-                        if (!$retval || !is_array($retval)) {
-                            $retval = sysCmd($command);
-                        }
-                        if (isset($retval) && is_array($retval)) {
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
                             $retval = json_decode($retval[0], true);
-                            if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
-                                $output = $retval;
+                            if (!isset($retval['id']) || ($output['id'] != $retval['id'])) {
+                                // invalid returned value, try again
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    $retval = json_decode($retval[0], true);
+                                } else {
+                                    continue;
+                                }
+                            }
+                        } else {
+                            // no array returned, try again
+                            $retval = sysCmd($commandGet);
+                            if (isset($retval[0])) {
+                                $retval = json_decode($retval[0], true);
                             } else {
                                 continue;
                             }
+                        }
+                        if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                            $output = $retval;
                         } else {
                             continue;
                         }
@@ -16590,7 +16742,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 } else {
                                     // not local device, nor selected
                                     // set preset volume to default volume
-                                    $preset['volume_preset'] = $defaultVolume;
+                                    if (!$preset['autoconnect']) {
+                                        // not autoconnect so set the preset volume to the default volume
+                                        $preset['volume_preset'] = $defaultVolume;
+                                    }
                                     // remove mute when output volume is non-zero
                                     if ($output['volume']) {
                                         // remove mute when volume is non zero
@@ -16598,9 +16753,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                     }
                                 }
                             } else {
-                                // not multidevice, only the current local mpd output should be connected
+                                // ALSA, not multidevice, only the current local mpd output should be connected
                                 //  use the current volume
-                                // autoconnect is always false for non-multidevice mode
+                                // autoconnect is always false for ALSA devices in non-multidevice mode
                                 $preset['autoconnect'] = false;
                                 // preset volume is always the default volume when autoconnect is false
                                 $preset['volume_preset'] = $defaultVolume;
@@ -16686,66 +16841,123 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         }
                         // check for an autoconnect or disconnect
                         //  note: the preset volume is only set once when connecting
+                        $commandPut = '';
                         if ($autoconnect) {
                             // set up the command
-                            $command =
+                            $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
                             if ($autoconnect) {
-                                $command .= ' \"selected\": true';
+                                $commandPut .= ' \"selected\": true';
                                 $output['selected'] = true;
                             }
                             if ($setvolume) {
-                                $command .= ', \"volume\": '.$volume;
+                                $commandPut .= ', \"volume\": '.$volume;
                                 $output['volume'] = $volume;
                             }
-                            $command .= ' }"';
+                            $commandPut .= ' }"';
                             // debug
-                            // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
+                            // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
                             // run the command
-                            sysCmd($command);
+                            sysCmd($commandPut);
                         } else if ($disconnect) {
                             // set up the command
-                            $command =
+                            $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
                             if ($disconnect) {
-                                $command .= ' \"selected\": false';
+                                $commandPut .= ' \"selected\": false';
                                 $output['selected'] = true;
                             }
                             if ($setvolume) {
-                                $command .= ', \"volume\": '.$volume;
+                                $commandPut .= ', \"volume\": '.$volume;
                                 $output['volume'] = $volume;
                             }
-                            $command .= ' }"';
+                            $commandPut .= ' }"';
                             $output['selected'] = false;
                             // debug
-                            // file_put_contents('/home/owntone_autoconnect.txt', $command."\n", FILE_APPEND);
+                            // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
                             // run the command
-                            sysCmd($command);
+                            sysCmd($commandPut);
                         }
                         // get the current output data
                         // set up the command
-                        $command =
+                        $commandGet =
                             'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                         // run the command
-                        $retval = sysCmd($command);
-                        if (!$retval || !is_array($retval)) {
-                            $retval = sysCmd($command);
-                        }
-                        if (isset($retval) && is_array($retval)) {
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
                             $retval = json_decode($retval[0], true);
-                            if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
-                                $output = $retval;
-                                // save the output when required
-                                $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
-                            } else {
-                                $redis->hDel('owntone_outputs', $output['name']);
-                                $output = array();
+                            if (!isset($retval['id']) || ($output['id'] != $retval['id'])) {
+                                // invalid data returned, try again
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    // an array returned
+                                    $retval = json_decode($retval[0], true);
+                                } else {
+                                    // no array returned, clear the values
+                                    $retval = array();
+                                }
                             }
                         } else {
+                            // no array returned, try again
+                            $retval = sysCmd($commandGet);
+                            if (isset($retval[0])) {
+                                // an array returned
+                                $retval = json_decode($retval[0], true);
+                            } else {
+                                // no array returned, clear the values
+                                $retval = array();
+                            }
+                        }
+                        if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                            // valid output returned
+                            if ($commandPut && $setvolume) {
+                                // the PUT command is valid and volume should have been set
+                                if (!isset($retval['volume']) || ($retval['volume'] != $volume)) {
+                                    // returned volume is incorrectly set, try the PUT command again and retrieve the changed values
+                                    sysCmd($commandPut);
+                                    $retval = sysCmd($commandGet);
+                                    if (isset($retval[0])) {
+                                        // an array returned
+                                        $retval = json_decode($retval[0], true);
+                                        if (!isset($retval['id']) || ($output['id'] != $retval['id'])) {
+                                            // invalid data returned, try again
+                                            $retval = sysCmd($commandGet);
+                                            if (isset($retval[0])) {
+                                                // an array returned
+                                                $retval = json_decode($retval[0], true);
+                                            } else {
+                                                // no array returned, clear the values
+                                                $retval = array();
+                                                $output = array();
+                                            }
+                                        }
+                                    } else {
+                                        // no array returned, try again
+                                        $retval = sysCmd($commandGet);
+                                        if (isset($retval[0])) {
+                                            // an array returned
+                                            $retval = json_decode($retval[0], true);
+                                        } else {
+                                            // no array returned, clear the values
+                                            $retval = array();
+                                            $output = array();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                            // valid output returned
+                            $output = $retval;
+                            // save the output when required
+                            $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
+                        } else {
+                            // invalid output returned, delete the stored output
                             $redis->hDel('owntone_outputs', $output['name']);
                             $output = array();
                         }
@@ -16948,7 +17160,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                         // 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                                     // // run the command
                                     // $retval = sysCmd($command);
-                                    // if (isset($retval) && is_array($retval)) {
+                                    // if (isset($retval[0])) {
                                         // $retval = json_decode($retval[0], true);
                                         // if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
                                             // $output[$output['name']] = $retval;
@@ -16977,8 +17189,73 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // no $args
             // nothing special to do
             break;
+        case 'config':
+            // $args is an optional array containing changed user configured values
+            // used to change the owntone user configured $redis settings and propagate these to the owntone config file
+            // when $args is not passed this function will re-generate the owntone config file settings
+            $restart = false;
+            // user managed values which need a reset
+            $restartValues = array('streaming', 'rate');
+            // boolean user managed values which need to be checked for '' or null meaning 0
+            $booleanValues = array('multidevice', 'streaming');
+            foreach ($booleanValues as $booleanValue) {
+                if (!isset($args[$booleanValue])) {
+                    $args[$booleanValue] = '0';
+                }
+            }
+            if (isset($args) && is_array($args)) {
+                if (count($args)) {
+                    foreach ($args as $key => $value) {
+                        // ignore enable and activate array elements
+                        if ($key == 'enable') {
+                            continue;
+                        }
+                        if ($key == 'activate') {
+                            continue;
+                        }
+                        $value = trim($value);
+                        if (in_array($key, $booleanValues)) {
+                            if ($value) {
+                                $value = '1';
+                            } else {
+                                $value = '0';
+                            }
+                        }
+                        if ($value == '') {
+                            continue;
+                        }
+                        if (in_array($key, $restartValues) && ($redis->hGet('owntone', $key) != $value)) {
+                            $restart = true;
+                        }
+                        // change the values in redis owntone
+                        $redis->hSet('owntone', $key, $value);
+                    }
+                }
+            }
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            // the only value which needs to be propagated to the config file is 'streaming'
+            $confFile = '/etc/owntone.conf';
+            $streamingInConfig = sysCmd('grep -ic "^\s*streaming\s*{" "'.$confFile.'" | xargs')[0];
+            if ($redis->hGet('owntone', 'streaming') && !$streamingInConfig) {
+                // add the streaming section
+                $output = "streaming {\n";
+                $output .= " sample_rate = 44100\n";
+                $output .= " bit_rate = 320\n";
+                $output .= "}\n";
+                file_put_contents($confFile, $output, FILE_APPEND);
+            } else if (!$redis->hGet('owntone', 'streaming') && $streamingInConfig){
+                // remove the streaming section
+                sysCmd('sed -i "/^\s*streaming\s*{/,/^\s*}/d" "'.$confFile.'"');
+            }
+            if ($restart) {
+                // owntone needs to be restarted
+                wrk_owntone($redis, 'restart');
+            }
+            break;
         case 'muteasync':
-            // $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+            // $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds (see below for x)
             // used to mute all active unmuted outputs
             //  when 'unmute' is specified the muted outputs will be unmuted after x seconds, where x is specified
             //      by the redis variable 'owntone' 'unmute_delay'
@@ -17004,7 +17281,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             sysCmdAsync($redis, '/srv/http/command/owntone_mute_async.php '.$args, 0);
             break;
         case 'mute':
-            // $args = '' or 'ummute', when 'unmute' muted outputs will be unmuted after x seconds (see below for x)
+            // $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds (see below for x)
             // used to mute all active unmuted outputs
             //  when 'unmute' is specified the muted outputs will be unmuted after x seconds, where x is specified
             //      by the redis variable 'owntone' 'unmute_delay'
@@ -17168,8 +17445,8 @@ function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
             }
             if (isset($args) && (is_array($args) || is_object($args))) {
                 foreach ($args as $key => $value) {
-                    if (($key = 'bands_number') && ($value != $redis->hGet('alsa_equaliser', 'bands_number'))) {
-                        if ($value = 20) {
+                    if (($key == 'bands_number') && ($value != $redis->hGet('alsa_equaliser', 'bands_number'))) {
+                        if ($value == 20) {
                             wrk_alsa_equaliser($redis, 'bands_10_to_20');
                         }
                     }
@@ -17372,7 +17649,7 @@ function wrk_mpd_loopback($redis, $action = null)
     $output .= "##########################################################\n";
     $output .= "#\n";
     // determine whether the loopback connector is enabled/disabled
-    $loopbackEnabled = sysCmd("aplay -l | grep -i '^card' | grep -ic 'loopback'");
+    $loopbackEnabled = sysCmd("aplay -l | grep -i '^card' | grep -ic 'loopback'")[0];
     if (!$loopbackEnabled) {
         // the loopback connector is disabled, create an empty mpd sub-config file called /etc/mpd_loopback.conf
         $output .= "# Loopback connector is disabled, this file has no active contents.\n";

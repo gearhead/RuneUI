@@ -56,14 +56,15 @@ runelog('WORKER owntone_monitor.php STARTING...');
 $delay1 = 20;
 // initial wait = 60 seconds
 $cnt1 = $delay1;
-// delay2 = 9 : runs every 27 to 33 seconds
-$delay2 = 10;
-// initial wait = 3 seconds
-$cnt2 = 1;
-// delay3 = 5 : runs every 15 to 21 seconds
-$delay3 = 5;
-// initial wait = 6 seconds
-$cnt3 = 2;
+// delay2 = 7 : runs every 21 to 23 seconds
+$delay2 = 7;
+// initial wait = 9 seconds
+$cnt2 = 3;
+// delay3 = 20 : runs every 60 to 69 seconds
+$delay3 = 20;
+// initial wait = 9 seconds
+$cnt3  = 3;
+// loop forever
 while (true) {
     sleep(3);
     if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active')) {
@@ -72,7 +73,7 @@ while (true) {
             //  it should not happen very often as historically discovered local devices are cached and included
             $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
             if ($retval == 'changed') {
-                wrk_owntone($redis, 'reset');
+                wrk_owntone($redis, 'restart');
             }
             $cnt1 = $delay1 + rand(0, 2);
         } else if ($cnt2-- <= 0) {
@@ -87,95 +88,106 @@ while (true) {
                 wrk_owntone($redis, 'status');
             }
             $cnt2 = $delay2 + rand(0, 2);
-        } else if ($cnt3-- <= 0) {
-            // this resolves the problem when the mpd config file has changed for owntone, but mpd has not restarted
-            //  this should never happen
-            $mpdConfigured = sysCmd('grep -ic owntone /etc/mpd.conf | xargs')[0];
-            if ($mpdConfigured) {
-                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                if (!$mpdError) {
-                    $mpdOwntoneOutput = sysCmd('mpc outputs | grep -ic owntone | xargs')[0];
-                    if (!$mpdOwntoneOutput) {
-                        $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
-                        if ($owntoneRunning) {
-                            $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
-                            if ($mpdRunning) {
-                                wrk_owntone($redis, 'reset');
+        // } else if ($cnt3-- <= 0) {
+            // journalctl -u owntone | tail -n 10 | grep -ic 'raop: TEARDOWN request failed in session shutdown'
+            // // this resolves the problem when owntone is stopped and restarted too quickly
+            // //  this should never happen
+            // $error1 = sysCmd("journalctl -u owntone | tail -n 10 | grep -ic 'raop: TEARDOWN request failed in session shutdown' | xargs")[0];
+            // // $error2 = sysCmd("journalctl -u owntone | tail -n 10 | grep -ic 'player: Source is not providing sufficient data' | xargs")[0];
+            // $owntoneServerPlayer = json_decode($redis->hGet('owntone', 'server_player'), true);
+            // if ($error1) {
+                // wrk_owntone($redis, 'restart');
+            // }
+            // $cnt3 = $delay3 + rand(0, 2);
+        }
+        //
+        // this section modifies the owntone volume level of the local device when modified via the UI via MPD, Spotify, Airplay or Bluetooth
+        //  too keep it responsive, it runs every 3 seconds or so
+        $localOutputName = $redis->hGet('owntone', 'local_output_name');
+        if ($localOutputName) {
+            $localOutput = $redis->hGet('owntone_outputs', $localOutputName);
+            if ($localOutput) {
+                $localOutput = json_decode($localOutput, true);
+                if (isset($localOutput['selected']) && $localOutput['selected']) {
+                    $activePlayer = $redis->get('activePlayer');
+                    if ($activePlayer == 'MPD') {
+                        $localVolume = $redis->get('lastmpdvolume');
+                    }
+                    // for all other active players mpd knows the current volume, but lastmpdvolume is not set to that value
+                    if (!isset($localVolume) || !is_numeric($localVolume)) {
+                        $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                        if (!is_numeric($localVolume)) {
+                            $retval = json_decode($redis->get('act_player_info'), true);
+                            if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                                $localVolume = $retval['volume'];
                             }
+                            unset($retval);
                         }
                     }
-                }
-            }
-            $cnt3 = $delay3 + rand(0, 2);
-        } else {
-            // this modifies the owntone volume level of the local device when modified via the UI
-            $localOutputName = $redis->hGet('owntone', 'local_output_name');
-            if ($localOutputName) {
-                $localOutput = $redis->hGet('owntone_outputs', $localOutputName);
-                if ($localOutput) {
-                    $localOutput = json_decode($localOutput, true);
-                    if (isset($localOutput['selected']) && $localOutput['selected']) {
-                        $activePlayer = $redis->get('activePlayer');
-                        if ($activePlayer == 'MPD') {
-                            $localVolume = $redis->get('lastmpdvolume');
-                        }
-                        // for all other active players mpd knows the current volume, but lastmpdvolume is not set to that value
-                        if (!isset($localVolume) || !is_numeric($localVolume)) {
-                            $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                            if (!is_numeric($localVolume)) {
-                                $retval = json_decode($redis->get('act_player_info'), true);
-                                if (isset($retval['volume']) && is_numeric($retval['volume'])) {
-                                    $localVolume = $retval['volume'];
-                                }
-                                unset($retval);
-                            }
-                        }
-                        if (is_numeric($localVolume) && isset($localOutput['volume']) && ($localVolume != $localOutput['volume'])) {
-                            // local output volume has been changed via the UI and the output is active in owntone
-                            // get the server
-                            $server = $redis->hGet('owntone', 'server');
-                            if ($server) {
-                                // set up the command
-                                $command =
-                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
-                                    ' --data '.
-                                    '"{\"volume\": '.$localVolume.
-                                    '}"';
-                                // run the command
-                                sysCmd($command);
-                                // get the current output data
-                                // set up the command
-                                $command =
-                                    'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"';
-                                // run the command
-                                $retval = sysCmd($command);
-                                if (!$retval || !is_array($retval)) {
-                                    $retval = sysCmd($command);
-                                }
-                                if (isset($retval) && is_array($retval)) {
-                                    $retval = json_decode($retval[0], true);
-                                    if (isset($retval['id']) && ($localOutput['id'] == $retval['id'])) {
-                                        $localOutput = $retval;
-                                        // save the output when required
-                                        $redis->hSet('owntone_outputs', $localOutput['name'], json_encode($localOutput));
+                    if (is_numeric($localVolume) && isset($localOutput['volume']) && ($localVolume != $localOutput['volume'])) {
+                        // local output volume has been changed via the UI and the output is active in owntone
+                        // get the server
+                        $server = $redis->hGet('owntone', 'server');
+                        if ($server) {
+                            // set up the command
+                            $commandPut =
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
+                                ' --data '.
+                                '"{\"volume\": '.$localVolume.
+                                '}"';
+                            // run the command
+                            sysCmd($commandPut);
+                            // get the current output data
+                            // set up the command
+                            $commandGet =
+                                'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"';
+                            // run the command
+                            $retval = sysCmd($commandGet);
+                            if (isset($retval[0])) {
+                                // an array returned
+                                $retval = json_decode($retval[0], true);
+                                if (!isset($retval['id']) || ($localOutput['id'] != $retval['id'])) {
+                                    // invalid data returned, try again
+                                    $retval = sysCmd($commandGet);
+                                    if (isset($retval[0])) {
+                                        // an array returned
+                                        $retval = json_decode($retval[0], true);
+                                    } else {
+                                        // no array returned, clear the values
+                                        $retval = array();
                                     }
                                 }
-                                // check for mute
-                                $localOutputPreset = $redis->hGet('owntone_presets', $localOutputName);
-                                if ($localOutputPreset) {
-                                    $localOutputPreset = json_decode($localOutputPreset, true);
-                                    if (isset($localOutputPreset['mute'])) {
-                                        $writePreset = false;
-                                        if ($localVolume && ($localOutputPreset['mute'] != 0)) {
-                                            $localOutputPreset['mute'] = 0;
-                                            $writePreset = true;
-                                        } else if (!$localVolume && ($localOutputPreset['mute'] != $localVolume)){
-                                            $localOutputPreset['mute'] = $localVolume;
-                                            $writePreset = true;
-                                        }
-                                        if ($writePreset) {
-                                            $redis->hSet('owntone_presets', $localOutputName, json_encode($localOutputPreset));
-                                        }
+                            } else {
+                                // no array returned, try again
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    // an array returned
+                                    $retval = json_decode($retval[0], true);
+                                } else {
+                                    // no array returned, clear the values
+                                    $retval = array();
+                                }
+                            }
+                            if (isset($retval['id']) && ($localOutput['id'] == $retval['id'])) {
+                                $localOutput = $retval;
+                                // save the output when required
+                                $redis->hSet('owntone_outputs', $localOutput['name'], json_encode($localOutput));
+                            }
+                            // check for mute
+                            $localOutputPreset = $redis->hGet('owntone_presets', $localOutputName);
+                            if ($localOutputPreset) {
+                                $localOutputPreset = json_decode($localOutputPreset, true);
+                                if (isset($localOutputPreset['mute'])) {
+                                    $writePreset = false;
+                                    if ($localVolume && ($localOutputPreset['mute'] != 0)) {
+                                        $localOutputPreset['mute'] = 0;
+                                        $writePreset = true;
+                                    } else if (!$localVolume && ($localOutputPreset['mute'] != $localVolume)){
+                                        $localOutputPreset['mute'] = $localVolume;
+                                        $writePreset = true;
+                                    }
+                                    if ($writePreset) {
+                                        $redis->hSet('owntone_presets', $localOutputName, json_encode($localOutputPreset));
                                     }
                                 }
                             }
@@ -184,6 +196,8 @@ while (true) {
                 }
             }
         }
+        // this section posts the current song metadata to the owntone metadata fifo
+        //  ...
     }
 }
 //

@@ -230,4 +230,12 @@ if(!hashCFG($redis, 'check_mpd')) {
     unset($i2smodule, $acards, $card, $data, $details);
     $template->ao = $redis->get('ao');
     $template->active_player = $redis->get('activePlayer');
+    $template->owntoneEnabled = 0;
+    if ($redis->hGet('owntone', 'enable')) {
+        if (wrk_systemd_unit($redis, 'is-active', 'owntone')) {
+            // owntone is enabled and is running
+            $template->owntoneEnabled = 1;
+        }
+    }
+    $template->owntone['active'] = $redis->hGet('owntone', 'active');
 }

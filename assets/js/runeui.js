@@ -2345,7 +2345,7 @@ function renderModal(text){
             $('#' + modal_info.id).on('hidden.bs.modal', function(){
                    $(this).find('input').val('');
                 });
-            $('#' + modal_info.id).modal();
+            $('#' + modal_info.id).modal().focus();
         }
     }
 }
@@ -3694,6 +3694,17 @@ if ($('#playback').length) {
                 }
             });
 
+            // show/hide multiroom details
+            $('#owntone').change(function(){
+                if ($(this).prop('checked')) {
+                    $('#owntoneDetails').removeClass('hide');
+                    $('#owntoneBox').addClass('boxed-group');
+                } else {
+                    $('#owntoneDetails').addClass('hide');
+                    $('#owntoneBox').removeClass('boxed-group');
+                }
+            });
+
             // show/hide CD input details
             $('#cdinput').change(function(){
                 if ($(this).prop('checked')) {
@@ -3885,13 +3896,32 @@ if ($('#playback').length) {
 
             // output interface select
             $('#audio-output-interface').change(function(){
-                renderMSG([{'title': 'Switching audio output', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin', 'delay': 5000 }]);
+                renderMSG([{'title': 'Switching audio output', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
                 var output = $(this).val();
                 $.ajax({
                     type: 'POST',
                     url: '/mpd/',
                     data: {
                         ao: output
+                    },
+                    cache: false
+                });
+            });
+            // owntone activate/deactivate
+            $('#owntone_active').change(function(){
+                renderMSG([{'title': 'Switching MultiRoom', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
+                var checked = (($('#owntone_active').is(':checked')) ? '1' : '0');
+                $.ajax({
+                    type: 'GET',
+                    url: '/db/?cmd=MRowntone_active&params='+checked,
+                    success: function(data){
+                        // console.log('owntone data', data);
+                        if (data === '1') {
+                            $('#menu_multiroom').removeClass('hide');
+                        } else {
+                            $('#menu_multiroom').addClass('hide');
+                        }
+                        renderMSG([{'title': 'MultiRoom', 'text': ((data === '1') ? 'Activated' : 'Deactivated')}]);
                     },
                     cache: false
                 });

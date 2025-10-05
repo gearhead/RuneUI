@@ -975,26 +975,26 @@ while (true) {
                                                     $name = $value;
                                                     break;
                                                 case 'Repeat':
-                                                    if ($value = 'singletrack') {
+                                                    if ($value == 'singletrack') {
                                                         $repeat = 1;
                                                         $single = 1;
-                                                    } else if ($value = 'alltrack') {
+                                                    } else if ($value == 'alltrack') {
                                                         $repeat = 1;
                                                         $single = 0;
-                                                    } else if ($value = 'group') {
+                                                    } else if ($value == 'group') {
                                                         $repeat = 1;
                                                         $single = 0;
-                                                    } else if ($value = 'off') {
+                                                    } else if ($value == 'off') {
                                                         $repeat = 0;
                                                         $single = 0;
                                                     }
                                                     break;
                                                 case 'Shuffle':
-                                                    if ($value = 'alltracks') {
+                                                    if ($value == 'alltracks') {
                                                         $random = 1;
-                                                    } else if ($value = 'group') {
+                                                    } else if ($value == 'group') {
                                                         $random = 1;
-                                                    } else if ($value = 'off') {
+                                                    } else if ($value == 'off') {
                                                         $random = 0;
                                                     }
                                                     break;

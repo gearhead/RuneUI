@@ -15,7 +15,7 @@ pcm.mpdrate {
     type rate
     slave {
         pcm mpdwriteFile # Direct to the plugin which will write to a file
-        format S16_LE
+        format S16_LE # owntone format
         rate 44100 # owntone rate
     }
 }

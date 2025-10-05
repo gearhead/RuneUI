@@ -278,6 +278,10 @@ if (isset($_POST)) {
             // create worker job (stop Spotify Connect)
             $redis->hGet('spotifyconnect','enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'stop'));
         }
+        if (isset($_POST['features']['owntone']) && is_array($_POST['features']['owntone'])) {
+            // create worker job (stop/start/modify owntone)
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_enable', 'args' => $_POST['features']['owntone']));
+        }
     }
     // ----- SYSTEM COMMANDS -----
     if (isset($_POST['syscmd'])){
@@ -348,6 +352,10 @@ $template->coverart = $redis->get('coverart');
 $template->lastfm = $redis->hGetAll('lastfm');
 $template->proxy = $redis->hGetAll('proxy');
 $template->spotifyconnect = $redis->hGetAll('spotifyconnect');
+$template->owntone['enable'] = $redis->hGet('owntone', 'enable');
+$template->owntone['default_volume'] = $redis->hGet('owntone', 'default_volume');
+$template->owntone['multidevice'] = $redis->hGet('owntone', 'multidevice');
+$template->owntone['streaming'] = $redis->hGet('owntone', 'streaming');
 $template->samba = $redis->hGetAll('samba');
 $template->hwplatformid = $redis->get('hwplatformid');
 $template->i2smodule = $redis->get('i2smodule');
@@ -407,9 +415,11 @@ $template->pwd_protection = $redis->get('pwd_protection');
 $template->memory = $redis->get('memoryKb');
 $cores = $redis->get('cores');
 $template->cores = $cores;
-// check if a local browser is supported, hardware must be multiprocessor
+// check if a local browser and owntone are supported, hardware must be multiprocessor
 if ($redis->get('cores') > 1) {
     $template->local_browseronoff = true;
+    $template->local_owntoneonoff = true;
 } else {
     $template->local_browseronoff = false;
+    $template->local_owntoneonoff = false;
 }

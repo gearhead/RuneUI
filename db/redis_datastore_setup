@@ -272,12 +272,14 @@ function redisDatastore($redis, $action) {
         case 'owntonereset':
             // Owntone - Multi-room
             $redis->hSet('owntone', 'active', '0');
+            $redis->hSet('owntone', 'deactivate_time', time());
             $redis->hSet('owntone', 'default_volume', '40');
             $redis->hSet('owntone', 'device_ap', '');
             $redis->hSet('owntone', 'device_bt', '');
             $redis->hSet('owntone', 'device_mpd', '');
             $redis->hSet('owntone', 'device_sc', '');
             $redis->hSet('owntone', 'enable', '0');
+            $redis->hSet('owntone', 'format', 'S16_LE');
             $redis->hSet('owntone', 'library_dir', '');
             $redis->hSet('owntone', 'local_output_name', '');
             $redis->hSet('owntone', 'MRorder', 'MLC');
@@ -288,10 +290,13 @@ function redisDatastore($redis, $action) {
             $redis->hSet('owntone', 'pipe_sc', '');
             $redis->hSet('owntone', 'rate', '44100');
             $redis->hSet('owntone', 'role', '');
+            $redis->hDel('owntone', 'saved_airplay_format');
+            $redis->hDel('owntone', 'saved_airplay_rate');
             $redis->hSet('owntone', 'server', '');
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hSet('owntone', 'streaming', '0');
             $redis->hSet('owntone', 'unmute_delay', '5');
             $redis->del('owntone_outputs');
             $redis->del('owntone_presets');
@@ -299,12 +304,14 @@ function redisDatastore($redis, $action) {
         case 'owntonecheck':
             // owntone - Multi-room
             $redis->hExists('owntone', 'active') || $redis->hSet('owntone', 'active', '0');
+            $redis->hExists('owntone', 'deactivate_time') || $redis->hSet('owntone', 'deactivate_time', time());
             $redis->hExists('owntone', 'default_volume') || $redis->hSet('owntone', 'default_volume', '40');
             $redis->hExists('owntone', 'device_ap') || $redis->hSet('owntone', 'device_ap', '');
             $redis->hExists('owntone', 'device_bt') || $redis->hSet('owntone', 'device_bt', '');
             $redis->hExists('owntone', 'device_mpd') || $redis->hSet('owntone', 'device_mpd', '');
             $redis->hExists('owntone', 'device_sc') || $redis->hSet('owntone', 'device_sc', '');
             $redis->hExists('owntone', 'enable') || $redis->hSet('owntone', 'enable', '0');
+            $redis->hExists('owntone', 'format') || $redis->hSet('owntone', 'format', 'S16_LE');
             $redis->hExists('owntone', 'library_dir') || $redis->hSet('owntone', 'library_dir', '');
             $redis->hExists('owntone', 'local_output_name') || $redis->hSet('owntone', 'local_output_name', '');
             $redis->hExists('owntone', 'MRorder') || $redis->hSet('owntone', 'MRorder', 'MLC');
@@ -319,6 +326,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('owntone', 'server_config') || $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hExists('owntone', 'server_player') || $redis->hSet('owntone', 'server_player', json_encode(array()));
             $redis->hExists('owntone', 'server_ip_address') || $redis->hSet('owntone', 'server_ip_address', '');
+            $redis->hExists('owntone', 'streaming') || $redis->hSet('owntone', 'streaming', '0');
             $redis->hExists('owntone', 'unmute_delay') || $redis->hSet('owntone', 'unmute_delay', '5');
             break;
         case 'reset':
@@ -335,6 +343,7 @@ function redisDatastore($redis, $action) {
             $redis->set('savecpuSmt', 480);
             $redis->set('hdmivc4hw', 4);
             $redis->set('aocardexceptions', '');
+            $redis->hSet('alsa', 'ALSA_rate_converter', 'speexrate_best');
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -421,8 +430,8 @@ function redisDatastore($redis, $action) {
             $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
             $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hSet('airplay', 'alsa_output_device', 'default');
-            $redis->hSet('airplay', 'alsa_output_format', 'S16');
-            $redis->hSet('airplay', 'alsa_output_rate', 'auto');
+            $redis->hSet('airplay', 'alsa_output_format', 'S16_LE');
+            $redis->hSet('airplay', 'alsa_output_rate', '44100');
             $redis->hSet('airplay', 'ao', '');
             $redis->hSet('airplay', 'dacp_id', '');
             $redis->hSet('airplay', 'enable', 0);
@@ -626,6 +635,7 @@ function redisDatastore($redis, $action) {
             $redis->exists('savecpuSmt') || $redis->set('savecpuSmt', 480);
             $redis->exists('hdmivc4hw') || $redis->set('hdmivc4hw', 4);
             $redis->exists('aocardexceptions') || $redis->set('aocardexceptions', '');
+            $redis->hExists('alsa', 'ALSA_rate_converter') || $redis->hSet('alsa', 'ALSA_rate_converter', 'speexrate_best');
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing
@@ -705,8 +715,8 @@ function redisDatastore($redis, $action) {
             $redis->hExists('airplay', 'alsa_mixer_control') || $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
             $redis->hExists('airplay', 'alsa_mixer_device') || $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hExists('airplay', 'alsa_output_device') || $redis->hSet('airplay', 'alsa_output_device', 'default');
-            $redis->hExists('airplay', 'alsa_output_format') || $redis->hSet('airplay', 'alsa_output_format', 'S16');
-            $redis->hExists('airplay', 'alsa_output_rate') || $redis->hSet('airplay', 'alsa_output_rate', 'auto');
+            $redis->hExists('airplay', 'alsa_output_format') || $redis->hSet('airplay', 'alsa_output_format', 'S16_LE');
+            $redis->hExists('airplay', 'alsa_output_rate') || $redis->hSet('airplay', 'alsa_output_rate', '44100');
             $redis->hExists('airplay', 'ao') || $redis->hSet('airplay', 'ao', '');
             $redis->hExists('airplay', 'dacp_id') || $redis->hSet('airplay', 'dacp_id', '');
             $redis->hExists('airplay', 'enable') || $redis->hSet('airplay', 'enable', 0);

@@ -157,6 +157,33 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Multi-room rate -----
+        if ((isset($_POST['mode']['MRrate'])) && ($_POST['mode']['MRrate'])) {
+            // value is set
+            if ($redis->hGet('owntone', 'rate') != $_POST['mode']['MRrate']) {
+                // value has changed, save it
+                $redis->hSet('owntone', 'rate', $_POST['mode']['MRrate']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
+            }
+        }
+        // ----- Multi-room format -----
+        if ((isset($_POST['mode']['MRformat'])) && ($_POST['mode']['MRformat'])) {
+            // value is set
+            if ($redis->hGet('owntone', 'format') != $_POST['mode']['MRformat']) {
+                // value has changed, save it
+                $redis->hSet('owntone', 'format', $_POST['mode']['MRformat']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
+            }
+        }
+        // ----- ALSA rate converter (re-sampeler)  -----
+        if ((isset($_POST['mode']['ALSA_rate_converter'])) && ($_POST['mode']['ALSA_rate_converter'])) {
+            // value is set
+            if ($redis->hGet('alsa', 'ALSA_rate_converter') != $_POST['mode']['ALSA_rate_converter']) {
+                // value has changed, save it
+                $redis->set('alsa', 'ALSA_rate_converter', $_POST['mode']['ALSA_rate_converter']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ALSA_rate_converter', 'args' => $_POST['mode']['ALSA_rate_converter']));
+            }
+        }
         // ----- Art preferences -----
         if ((isset($_POST['mode']['bigArt'])) && ($_POST['mode']['bigArt'])) {
             // value is set
@@ -313,6 +340,14 @@ if (isset($_POST)) {
             // create worker job (set off)
             $redis->get('underclocking') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'underclocking', 'action' => 0));
         }
+        // ----- Pi5 force_turbo -----
+        if ((isset($_POST['mode']['pi5forceturbo']['enable'])) && ($_POST['mode']['pi5forceturbo']['enable'])) {
+            // create worker job (set on)
+            $redis->get('forceturbo') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'forceturbo', 'action' => 1));
+        } else {
+            // create worker job (set off)
+            $redis->get('forceturbo') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'forceturbo', 'action' => 0));
+        }
         // ----- MPD configuration -----
         if (isset($_POST['mode']['conf'])) {
             if (
@@ -388,6 +423,8 @@ if (isset($_POST)) {
         if ($_POST['syscmd'] === 'netconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'reset'));
         // ----- RESET MPD CONFIG -----
         if ($_POST['syscmd'] === 'mpdconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'reset'));
+        // ----- RESET OWNTONE CONFIG -----
+        if ($_POST['syscmd'] === 'multiroomconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
         // ----- RESTART PHP-FPM -----
         if ($_POST['syscmd'] === 'phprestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'phprestart'));
         // ----- GIT PULL -----
@@ -437,6 +474,8 @@ $template->soxrmpdonoff = $redis->get('soxrmpdonoff');
 $template->playernamemenu = $redis->get('playernamemenu');
 $template->UIorder = $redis->get('UIorder');
 $template->MRorder = $redis->hGet('owntone', 'MRorder');
+$template->MRrate = $redis->hGet('owntone', 'rate');
+$template->MRformat = $redis->hGet('owntone', 'format');
 $template->bigArt = $redis->get('remoteSSbigart');
 $template->soxrairplayonoff = $redis->hGet('airplay', 'soxronoff');
 $template->metadataairplayonoff = $redis->hGet('airplay', 'metadataonoff');
@@ -465,6 +504,9 @@ $template->fix_input_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_input_ba
 $template->fix_output_ba_volume_enabled = $redis->hGet('bluetooth', 'fix_output_ba_volume');
 $template->local_browser_browser = $redis->hGet('local_browser', 'browser');
 $template->local_browser_windows = $redis->hGet('local_browser', 'windows');
+$template->hwmodel = $redis->get('hwmodel');
+$template->pi5forceturbo = sysCmd("grep -ic '^\s*force_turbo=1' '".$redis->get('p1mountpoint')."/config.txt' | xargs")[0];
+$redis->set('forceturbo', $template->pi5forceturbo);
 
 // debug
 // var_dump($template->dev);

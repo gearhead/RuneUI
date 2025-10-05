@@ -48,9 +48,16 @@ define('APP', '/srv/http/app/');
 // reset logfile
 sysCmd('echo "--------------- start: owntone_init_async.php ---------------" > /var/log/runeaudio/owntone_init_async.log');
 runelog('WORKER owntone_init_async.php STARTING...');
-if ($redis->hGet('owntone', 'enable')) {
+// get the owntone enable and active settings,then set them to inactive an disabled
+//  then enable/disable and activate/deactivate owntone based on the original values
+// the deactivate and disable routines run quickly so create little overhead in the boot sequence
+$enable = $redis->hGet('owntone', 'enable');
+$active = $redis->hGet('owntone', 'active');
+$redis->hSet('owntone', 'enable', 0);
+$redis->hSet('owntone', 'active', 0);
+if ($enable) {
     wrk_owntone($redis, 'enable');
-    if ($redis->hGet('owntone', 'active')) {
+    if ($active) {
         wrk_owntone($redis, 'activate');
     } else {
         wrk_owntone($redis, 'deactivate');

@@ -37,7 +37,8 @@
                     </select>
                     <input class="form-control input-lg" type="text" id="overlay" name="overlay" value="<?php echo $this->i2smodule; ?>" disabled autocomplete="off">
                     <span class="help-block">Enable I&#178;S sound-card output by selecting one of the available drivers.<br>
-                    <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">MPD configuration select menu</a>, where you will need to select the output interface to make it work.<br>
+                    <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">MPD menu, audio output section</a>,
+                        where you will need to select the required output interface.<br>
                     <i>After applying the settings for your hardware the 'best choice' overlay driver will be selected and displayed</i></span>
                 </div>
             </div>
@@ -223,7 +224,7 @@
                         <?php if($this->ao): ?>
                             <span class="help-block">Toggle the capability of receiving wireless streaming of audio via AirPlay protocol</span>
                         <?php else: ?>
-                            <span class="help-block">There are no valid audio outputs defined, <strong>Airplay will not work correctly</strong></span>
+                            <span class="help-block">There are no valid audio outputs defined, <strong>AirPlay will not work correctly</strong></span>
                         <?php endif ?>
                     </div>
                 </div>
@@ -418,6 +419,79 @@
                     </div>
                 </div>
             </div>
+
+            <div <?php if((isset($this->owntone['enable'])) && ($this->owntone['enable'])): ?>class="boxed-group"<?php endif ?> id="owntoneBox">
+                <?php if($this->local_owntoneonoff): ?>
+                <div class="form-group">
+                    <label for="owntone" class="control-label col-sm-2">MultiRoom</label>
+                    <div class="col-sm-10">
+                        <label class="switch-light well" onclick="">
+                            <input id="owntone" name="features[owntone][enable]" type="checkbox" value="1"<?php if((isset($this->owntone['enable'])) && ($this->owntone['enable'])): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                        <span class="help-block">Toggle the capability of synchronised streaming of audio via AirPlay and Chromecast protocols using owntone.<br>
+                            After switching MultiRoom <strong>ON</strong> it can be activated/deactivated in the <a href="/mpd/">MPD menu, audio output section</a></span>
+                    </div>
+                </div>
+                <div class="<?php if($this->owntone['enable'] != 1): ?>hide<?php endif ?>" id="owntoneDetails">
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="owntone_default_volume">Default Volume</label>
+                        <div class="col-sm-10">
+                            <input class="form-control osk-trigger input-lg" type="number" id="owntone_default_volume" name="features[owntone][default_volume]" value="<?=$this->owntone['default_volume'] ?>" data-trigger="change" min="1" max="100" placeholder="40" />
+                            <span class="help-block">Set the default connect volume level for devices or clients, default value: <strong>40%</strong>.
+                            For the locally selected MPD output device this value will be ignored, it will be automatically connected using the current MPD volume level.
+                            The default can be overridden when configuring MultiRoom</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="owntone_multidevice">Local Multi-device support</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="owntone_multidevice" name="features[owntone][multidevice]" type="checkbox" value="1"<?php if((isset($this->owntone['multidevice'])) && ($this->owntone['multidevice'])): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">This setting controls the ability to simultaneously activate all locally available output devices.
+                            The default value is <strong>OFF</strong>, meaning that only the locally selected MPD output device is available, this is normally what is required.
+                            When <strong>ON</strong>, all locally available output devices may be simultaneously activated.
+                            However, music synchronisation across multiple local devices may not always 100% correct.
+                            Regardless of this setting, when the MPD output device in the <a href="/mpd/">MPD menu, audio output section</a> is changed,
+                            the MultiRoom local output device will also be switched</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-sm-2" for="owntone_streaming">Web Audio Steaming Support</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="owntone_streaming" name="features[owntone][streaming]" type="checkbox" value="1"<?php if((isset($this->owntone['streaming'])) && ($this->owntone['streaming'])): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">Toggle local internet audio streaming support.
+                            The default value is <strong>OFF</strong>.
+                            Audio streaming is MP3 in format at 44,1khz, 320kbps.
+                            Web audio streaming is not fully synchronised, but provides a solution for streaming music to a mobile device or PC.
+                            When activated, steaming is available via the link:
+                            <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:3689/stream.mp3</a></span>.<br>
+                            <i>Note: Changing this setting will cause MultiRoom to restart, you may lose some MultiRoom settings</i></span>
+                        </div>
+                    </div>
+                    <div class="form-group form-actions">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                            <span class="help-block"> </span>
+                        </div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="form-group">
+                    <label for="local_browser" class="control-label col-sm-2">MultiRoom</label>
+                    <div class="col-sm-10">
+                        <span class="help-block"><br>Disabled, not supported on this model<br><br></span>
+                    </div>
+                </div>
+                <?php endif ?>
+            </div>
+
+
             <div class="form-group">
                 <label for="hwinput" class="control-label col-sm-2">Local HW Input</label>
                 <div class="col-sm-10">

@@ -240,6 +240,11 @@ if ($playerid_db === '') {
         wrk_netconfig($redis, 'disableWiFi');
     }
     //
+    // store the memory and number of cores
+    $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
+    $redis->set('cores', $cores);
+    $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo')[0]));
+    //
     // check and update the valid ciphers for use in the asynchronous command queue
     sysCmd('/srv/http/command/test_ciphers.php');
     //
@@ -310,8 +315,15 @@ if ($playerid_db === '') {
     // create the directory structure for backup, shairport sysnc, spotifyd and MPD (this part is vital and must be run first)
     sysCmdAsync($redis, '/srv/http/command/create_work_dirs.sh');
     //
-    // initialise and start owntone, start before MPD
-    sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
+    // store the memory and number of cores
+    $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc | xargs')[0]);
+    $redis->set('cores', $cores);
+    $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo | xargs')[0]));
+    //
+    // initialise and start owntone, start before MPD, only attempt to start on multiprocessor hardware
+    if ( $cores > 1) {
+        sysCmdAsync($redis, '/srv/http/command/owntone_init_async.php');
+    }
     //
     // check and set HOSTNAME
     sysCmdAsync($redis, '/srv/http/command/sethost_async.php');
@@ -331,11 +343,6 @@ if ($playerid_db === '') {
         $redis->hset('AccessPoint', 'interface', '');
         $redis->hset('AccessPoint', 'NAT-configured', 0);
     }
-    //
-    // store the memory and number of cores
-    $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
-    $redis->set('cores', $cores);
-    $redis->set('memoryKb', preg_replace('/[^0-9]/', '', sysCmd('grep -i MemTotal /proc/meminfo')[0]));
     //
     // set the Wi-Fi regulatory domain based on the current time zone
     wrk_setRegDom($redis);
@@ -1129,11 +1136,13 @@ while (true) {
                 break;
             case 'airplayoutputformat':
                 $redis->hSet('airplay', 'alsa_output_format', $job->args);
+                $redis->hDel('owntone', 'saved_airplay_format');
                 wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'airplayoutputrate':
                 $redis->hSet('airplay', 'alsa_output_rate', $job->args);
+                $redis->hDel('owntone', 'saved_airplay_rate');
                 wrk_shairport($redis, $redis->get('ao'), '', $jobID);
                 $redis->sRem('w_lock', $jobID);
                 break;
@@ -1311,6 +1320,48 @@ while (true) {
                 }
                 unset($action);
                 break;
+            case 'owntone_enable':
+                foreach ($job->args as $arg => $value) {
+                    $args[$arg] = $value;
+                }
+                if (isset($args['enable'])) {
+                    if ($args['enable'] && !$redis->hGet('owntone', 'enable')) {
+                        wrk_owntone($redis, 'config', $args);
+                        wrk_owntone($redis, 'enable', '', $jobID);
+                    } else if (!$args['enable'] && $redis->hGet('owntone', 'enable')) {
+                        wrk_owntone($redis, 'config', $args);
+                        wrk_owntone($redis, 'disable', '', $jobID);
+                    } else {
+                        wrk_owntone($redis, 'config', $args, $jobID);
+                    }
+                } else {
+                    wrk_owntone($redis, 'config', $args, $jobID);
+                }
+                $redis->sRem('w_lock', $jobID);
+                unset($args);
+                break;
+            case 'owntone_active':
+                if (isset($job->args->active)) {
+                    if ($job->args->active && !$redis->hGet('owntone', 'active')) {
+                        wrk_owntone($redis, 'activate', '', $jobID);
+                    } else if (!$job->args->active && $redis->hGet('owntone', 'active')) {
+                        wrk_owntone($redis, 'deactivate', '', $jobID);
+                    }
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'owntone_reset':
+                $redis->sRem('w_lock', $jobID);
+                wrk_owntone($redis, 'reset', '', $jobID);
+                break;
+            case 'ALSA_rate_converter':
+                $redis->sRem('w_lock', $jobID);
+                if (sysCmd('grep -ic "^\s*defaults.pcm.rate_converter" "/etc/alsa/conf.d/99-runeaudio.conf" | xargs')[0]) {
+                    sysCmd('sed "/^\s*defaults.pcm.rate_converter/c\defaults.pcm.rate_converter \"'.$args.'\"" "/etc/alsa/conf.d/99-runeaudio.conf"');
+                } else {
+                    file_put_contents('/etc/alsa/conf.d/99-runeaudio.conf', "\n".'defaults.pcm.rate_converter "'.$args.'"'."\n", FILE_APPEND);
+                }
+                break;
             case 'artworkSC':
                 $redis->hSet('spotifyconnect', 'metadata_enabled', $job->action);
                 $redis->sRem('w_lock', $jobID);
@@ -1428,6 +1479,19 @@ while (true) {
                     sysCmd("sed -i '/Underclocking start/,/Underclocking end/d' '".$p1mountpoint."/config.txt'");
                     $redis->set('underclocking', 0);
                     ui_notify($redis, 'Underclocking', 'Disabled');
+                }
+                break;
+            case 'forceturbo':
+                if ($job->action === 1) {
+                    $redis->set('forceturbo', 1);
+                } else {
+                    $redis->set('forceturbo', 0);
+                }
+                $redis->sRem('w_lock', $jobID);
+                if ($job->action === 1) {
+                    sysCmd("sed -i '/force_turbo=1/c force_turbo=1' '".$redis->get('p1mountpoint')."/config.txt'");
+                } else {
+                    sysCmd("sed -i '/force_turbo=1/c #force_turbo=1' '".$redis->get('p1mountpoint')."/config.txt'");
                 }
                 break;
             case 'kill_weston':

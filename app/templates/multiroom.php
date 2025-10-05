@@ -286,8 +286,8 @@
     </div>
     <div class="boxed">
         <p>Status: <strong><i><?=$this->status ?></i></strong><br></p>
-        <?php if (strpos($this->status, 'Play')): ?>
-            <p>Unsynchronised music streaming for your browser in mp3 format at 44,1khz, 320kbps is available using the link:
+        <?php if ($this->owntoneStreaming): ?>
+            <p>Unsynchronised music streaming for your browser in MP3 format at 44,1khz, 320kbps is available using the link:
             <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:3689/stream.mp3</a></span></p>
         <?php endif;?>
         <div id="mr-refresh"<?php if (isset($this->controls) && count($this->controls)): ?> class="hide"<?php endif;?>>

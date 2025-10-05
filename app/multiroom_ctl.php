@@ -111,6 +111,7 @@ if (isset($outputNames) && $outputNames ) {
 }
 $template->master = json_decode($redis->hGet('owntone', 'master'), true);
 $template->server = $redis->hGet('owntone', 'server');
+$template->owntoneStreaming = $redis->hGet('owntone', 'streaming');
 $template->status = '';
 $serverHostname = $redis->hGet('owntone', 'server_hostname');
 if ($serverHostname) {
