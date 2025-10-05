@@ -244,7 +244,7 @@
                         You need to restart RuneAudio to activate a changed setting</i></span>
                     </div>
                 </div>
-                <?php if ($this->hwmodel == '11') : ?>
+                <?php if ($this->hwmodel == '17') : ?>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Pi 5 force_turbo</label>
                     <div class="col-sm-10">
