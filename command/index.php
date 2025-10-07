@@ -84,6 +84,15 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                 }
                 unset($mpdSendResponse, $volume, $sign, $lastvolume);
             }
+            if ($redis->hGet('owntone', 'active')) {
+                if ($mpdSendResponse && strpos(' '.$response, 'OK')) {
+                    if (strpos(' '.$_GET['cmd'], 'play') || strpos(' '.$_GET['cmd'], 'previous') || strpos(' '.$_GET['cmd'], 'next')) {
+                        ui_notify($redis, 'MultiRoom', 'There is a delay when using MultiRoom');
+                    } else if (strpos(' '.$_GET['cmd'], 'stop') || strpos(' '.$_GET['cmd'], 'pause')) {
+                        wrk_owntone($redis, 'muteasync', 'unmute');
+                    }
+                }
+            }
         } else if ($activePlayer === 'Bluetooth') {
             list($command, $value) = explode(' ', trim(preg_replace('/\s+/', ' ', $_GET['cmd']), 2));
             if (isset($command)) {

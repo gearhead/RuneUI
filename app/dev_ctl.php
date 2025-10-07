@@ -163,7 +163,7 @@ if (isset($_POST)) {
             if ($redis->hGet('owntone', 'rate') != $_POST['mode']['MRrate']) {
                 // value has changed, save it
                 $redis->hSet('owntone', 'rate', $_POST['mode']['MRrate']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonerestart'));
             }
         }
         // ----- Multi-room format -----
@@ -172,7 +172,7 @@ if (isset($_POST)) {
             if ($redis->hGet('owntone', 'format') != $_POST['mode']['MRformat']) {
                 // value has changed, save it
                 $redis->hSet('owntone', 'format', $_POST['mode']['MRformat']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonerestart'));
             }
         }
         // ----- ALSA rate converter (re-sampeler)  -----
@@ -424,7 +424,7 @@ if (isset($_POST)) {
         // ----- RESET MPD CONFIG -----
         if ($_POST['syscmd'] === 'mpdconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'mpdcfg', 'action' => 'reset'));
         // ----- RESET OWNTONE CONFIG -----
-        if ($_POST['syscmd'] === 'multiroomconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_reset'));
+        if ($_POST['syscmd'] === 'multiroomconfreset') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonereset', 'args' => 'full'));
         // ----- RESTART PHP-FPM -----
         if ($_POST['syscmd'] === 'phprestart') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'phprestart'));
         // ----- GIT PULL -----

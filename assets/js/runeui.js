@@ -3908,12 +3908,12 @@ if ($('#playback').length) {
                 });
             });
             // owntone activate/deactivate
-            $('#owntone_active').change(function(){
+            $('#owntoneactive').change(function(){
                 renderMSG([{'title': 'Switching MultiRoom', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
-                var checked = (($('#owntone_active').is(':checked')) ? '1' : '0');
+                var checked = (($('#owntoneactive').is(':checked')) ? '1' : '0');
                 $.ajax({
                     type: 'GET',
-                    url: '/db/?cmd=MRowntone_active&params='+checked,
+                    url: '/db/?cmd=MRowntoneactive&params='+checked,
                     success: function(data){
                         // console.log('owntone data', data);
                         if (data === '1') {

@@ -280,7 +280,7 @@ if (isset($_POST)) {
         }
         if (isset($_POST['features']['owntone']) && is_array($_POST['features']['owntone'])) {
             // create worker job (stop/start/modify owntone)
-            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntone_enable', 'args' => $_POST['features']['owntone']));
+            $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntoneenable', 'args' => $_POST['features']['owntone']));
         }
     }
     // ----- SYSTEM COMMANDS -----

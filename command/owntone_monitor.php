@@ -103,8 +103,13 @@ while (true) {
         //
         // this section modifies the owntone volume level of the local device when modified via the UI via MPD, Spotify, Airplay or Bluetooth
         //  too keep it responsive, it runs every 3 seconds or so
+        //  when automute is active this routine is skipped, automute happens when pause or stop is clicked in the UI
+        //      the idea of automute is to give a feeling of responsiveness when stopping play, in reality owntone will continue playing for a couple of seconds
         $localOutputName = $redis->hGet('owntone', 'local_output_name');
-        if ($localOutputName) {
+        $now = time();
+        $automuteDelay = $redis->hGet('owntone', 'unmute_delay');
+        $automuteTime = $redis->hGet('owntone', 'automute');
+        if ($localOutputName && ($now > ($automuteTime + $automuteDelay))) {
             $localOutput = $redis->hGet('owntone_outputs', $localOutputName);
             if ($localOutput) {
                 $localOutput = json_decode($localOutput, true);

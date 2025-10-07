@@ -727,7 +727,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($params['volume']) && ($output['volume'] != $params['volume'])) {
                     // volume change
                     $output['volume'] = $params['volume'];
-                    if ($output['volume'] != $redis->get('lastmpdvolume')) {
+                    if (($output['volume'] != $redis->get('lastmpdvolume')) && (!isset($params['automute']) || !$params['automute'])) {
                         $activePlayer = $redis->get('activePlayer');
                         if ($activePlayer == 'MPD') {
                             $redis->set('lastmpdvolume', $params['volume']);
@@ -1029,7 +1029,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'mute' => $preset['mute']));
             unset($params, $preset, $output, $selected, $volume);
             break;
-        case 'MRowntone_active':
+        case 'MRowntoneactive':
             // Multi-room activate/deactivate
             // params: 1 (activate) or 0, null (deactivate)
             // returns: 1 (activated) or 0 (deactivated)

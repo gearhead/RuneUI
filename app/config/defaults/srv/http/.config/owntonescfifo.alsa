@@ -1,27 +1,23 @@
 # this is part of RuneAudio
 # pcm output device to pipe spotify connect output to an owntone fifo pipe
 pcm.owntonescfifo {
-    type plug
-    slave.pcm scrate
-    hint {
-        show {
-            @func refer
-            name defaults.namehint.extended
-        }
-        description "pcm output device to pipe spotify connect output to an owntone fifo pipe"
-   }
-}
-pcm.scrate {
-    type rate
-    slave {
-        pcm scwriteFile # Direct to the plugin which will write to a file
-        format S16_LE # owntone format
-        rate 44100 # owntone rate
-    }
-}
-pcm.scwriteFile {
-    type file
-    slave.pcm null
-    file "/run/owntone/music/pipe_sc.fifo" # the sc owntone fifo file name
-    format "raw"
+ type plug
+ slave.pcm {
+  type rate
+  slave.pcm {
+   type file
+   slave.pcm null
+   file "/run/owntone/music/pipe_sc.fifo" # the sc owntone fifo file name
+   format "raw"
+  }
+  format S16_LE # owntone format
+  rate 44100 # owntone rate
+ }
+ hint {
+  show {
+   @func refer
+   name defaults.namehint.extended
+  }
+  description "pcm output device to pipe spotify connect output to an owntone fifo pipe"
+ }
 }

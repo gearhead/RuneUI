@@ -17502,14 +17502,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     // not connected or already muted or has zero volume
                     continue;
                 }
-                $params = json_encode(array(
+                $params = rawurlencode(json_encode(array(
+                    "command" => 'Mute',
                     "id" => $output['id'],
                     "name" => $output['name'],
                     "mute" => $output['volume'],
                     "volume" => "0"
-                ));
+                )));
                 // run the command
-                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/db/?cmd=MRmute&params='.$params.'"', 0);
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
                 // save the id
                 $mutedIds .= '-'.$output['id'];
             }
@@ -17556,7 +17557,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // remove any leading and trailing hyphens
             $args = trim($args, '-');
             // run the command file asynchronously without queueing and with x seconds delay
-            sysCmdAsync($redis, '/srv/http/command/owntone_unmute_async.php '.$args, $delay);
+            sysCmdAsync($redis, '/srv/http/command/owntone_unmute_async.php "'.$args.'"', $delay);
             break;
         case 'unmute':
             // $args = '', 'all' or list of hyphen delimited output_id's which should be unmuted, '' or 'all' = unmute all
@@ -17572,7 +17573,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 if (substr($args, 0, 3) == 'all') {
                     $ids = false;
                 } else {
-                    $ids = explode('-', $array);
+                    $ids = explode('-', $args);
                     if (!is_array($ids) || !count($ids)) {
                         $ids = false;
                     }
@@ -17584,27 +17585,28 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $outputNames = $redis->hKeys('owntone_outputs');
             foreach ($outputNames as $outputName) {
                 $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
-                if (!$output['selected'] || !$output['volume']) {
-                    // not connected or already unmuted or has a non-zero volume, do nothing
+                if (!$output['selected'] || $output['volume']) {
+                    // not connected or has a non-zero volume, do nothing
                     continue;
                 }
                 if ($ids && !in_array($output['id'], $ids)) {
-                    // list of id's which should be unmuted available, but not found in
+                    // list of id's which should be unmuted available, but not found, do nothing
                     continue;
                 }
                 $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
                 if (!$preset['mute']) {
-                    // unmuted, should never happen
+                    // mute set to zero, cant unmute
                     continue;
                 }
-                $params = json_encode(array(
+                $params = rawurlencode(json_encode(array(
+                    "command" => "Unmute",
                     "id" => $output['id'],
                     "name" => $output['name'],
                     "mute" => "0",
                     "volume" => $preset['mute']
-                ));
+                )));
                 // run the command, ignore the output
-                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/db/?cmd=MRmute&params='.$params.'"', 0);
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
             }
             $master = json_decode($redis->hGet('owntone', 'master'), true);
             $master['volume'] = $master['mute'];

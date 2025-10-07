@@ -49,10 +49,10 @@
                     </div>
                     <?php endif; ?>
                     <?php if ($this->owntoneEnabled): ?>
-                    <label class="col-sm-2 control-label" for="owntone_active">Multiroom Activation</label>
+                    <label class="col-sm-2 control-label" for="owntoneactive">Multiroom Activation</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
-                            <input id="owntone_active" name="conf[owntone][active]" type="checkbox" value="1"<?php if((isset($this->owntone['active'])) && ($this->owntone['active'])): ?> checked="checked" <?php endif ?>>
+                            <input id="owntoneactive" name="conf[owntone][active]" type="checkbox" value="1"<?php if((isset($this->owntone['active'])) && ($this->owntone['active'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">Activate/Deactivate MultiRoom.

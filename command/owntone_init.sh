@@ -39,7 +39,6 @@ set +e # continue on errors
 cd /home
 # only create on multiprocessor models and when multi-room is enabled
 cores=$( redis-cli get cores )
-owntone_enabled=$( redis-cli hget owntone enable )
 if [ "$cores" != "1" ] ; then
     # refresh the config file if it does not exist
     if ( ! -f "/etc/owntone.conf") ; then

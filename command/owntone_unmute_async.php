@@ -49,7 +49,7 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: owntone_unmute_async.php ---------------" > /var/log/runeaudio/owntone_unmute_async.log');
 runelog('WORKER owntone_unmute_async.php STARTING...');
 if (isset($argv[1]) && $argv[1]) {
-    wrk_owntone($redis, 'unmute', $argsv[1]);
+    wrk_owntone($redis, 'unmute', $argv[1]);
 } else {
     wrk_owntone($redis, 'unmute');
 }

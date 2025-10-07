@@ -1320,10 +1320,13 @@ while (true) {
                 }
                 unset($action);
                 break;
-            case 'owntone_enable':
+            case 'owntoneenable':
+                $args['enable'] = 0;
                 foreach ($job->args as $arg => $value) {
                     $args[$arg] = $value;
                 }
+                // debug
+                // $redis->set('wrk_owntoneenable', json_encode($args));
                 if (isset($args['enable'])) {
                     if ($args['enable'] && !$redis->hGet('owntone', 'enable')) {
                         wrk_owntone($redis, 'config', $args);
@@ -1340,7 +1343,7 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 unset($args);
                 break;
-            case 'owntone_active':
+            case 'owntoneactive':
                 if (isset($job->args->active)) {
                     if ($job->args->active && !$redis->hGet('owntone', 'active')) {
                         wrk_owntone($redis, 'activate', '', $jobID);
@@ -1350,9 +1353,17 @@ while (true) {
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
-            case 'owntone_reset':
+            case 'owntonereset':
                 $redis->sRem('w_lock', $jobID);
-                wrk_owntone($redis, 'reset', '', $jobID);
+                if (isset($job->args) && ($job->args == 'full')) {
+                    wrk_owntone($redis, 'reset', 'full', $jobID);
+                } else {
+                    wrk_owntone($redis, 'reset', '', $jobID);
+                }
+                break;
+            case 'owntonerestart':
+                $redis->sRem('w_lock', $jobID);
+                wrk_owntone($redis, 'restart', '', $jobID);
                 break;
             case 'ALSA_rate_converter':
                 $redis->sRem('w_lock', $jobID);
