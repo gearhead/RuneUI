@@ -31,7 +31,7 @@
 #  coder: janui
 #  date: April 2025
 #
-# when owntone is enabled, create the owntone music library directory(s), fifo pipes and devices then start owntone
+# create the owntone music library directory(s), fifo pipes and devices then start owntone
 #
 {
 set -x # echo no commands to cli
@@ -39,7 +39,11 @@ set +e # continue on errors
 cd /home
 # only create on multiprocessor models and when multi-room is enabled
 cores=$( redis-cli get cores )
-if [ "$cores" != "1" ] ; then
+if (( cores > 1 )) ; then
+    # remove any old format alsa config files, this test can be removed in a future version
+    if ( -f "/etc/alsa/conf.d/99_runeaudio_owntone.conf") ; then
+        rm /etc/alsa/conf.d/99_runeaudio_owntone.conf
+    fi
     # refresh the config file if it does not exist
     if ( ! -f "/etc/owntone.conf") ; then
         cp /srv/http/app/confif/defaults/etc/owntone.conf /etc/owntone.conf
@@ -87,18 +91,18 @@ if [ "$cores" != "1" ] ; then
                     chown $owntone_user:audio $x/pipe_$pipe.fifo
                     chown $owntone_user:audio $x/pipe_$pipe.fifo.metadata
                 fi
-                if [ -f /etc/alsa/conf.d/99_runeaudio_owntone.conf ] ; then
-                    alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" /etc/alsa/conf.d/99_runeaudio_owntone.conf )
+                if [ -f /etc/alsa/conf.d/99-runeaudio-owntone.conf ] ; then
+                    alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" /etc/alsa/conf.d/99-runeaudio-owntone.conf )
                 else
                     alsa_dev="0"
                 fi
                 # set up an alsa output for $pipe which writes to the $pipe pipe
                 if [ "$alsa_dev" == "0" ] ; then
-                    cat "/srv/http/.config/owntone$pipe""fifo.alsa" >> /etc/alsa/conf.d/99_runeaudio_owntone.conf
+                    cat "/srv/http/.config/owntone$pipe""fifo.alsa" >> /etc/alsa/conf.d/99-runeaudio-owntone.conf
                 fi
-                pipe_name=$( grep -ic "file.*$x/pipe_$pipe\.fifo.*\#.*$pipe.*owntone.*fifo" /etc/alsa/conf.d/99_runeaudio_owntone.conf )
+                pipe_name=$( grep -ic "file.*$x/pipe_$pipe\.fifo.*\#.*$pipe.*owntone.*fifo" /etc/alsa/conf.d/99-runeaudio-owntone.conf )
                 if [ "$pipe_name" == "0" ] ; then
-                    sed  -i "/file.*#.*$pipe.*owntone.*fifo/ c\    file \"$x/pipe_$pipe\.fifo\" \# the $pipe owntone fifo file name" /etc/alsa/conf.d/99_runeaudio_owntone.conf
+                    sed  -i "/file.*#.*$pipe.*owntone.*fifo/ c\    file \"$x/pipe_$pipe\.fifo\" \# the $pipe owntone fifo file name" /etc/alsa/conf.d/99-runeaudio-owntone.conf
                 fi
             done
         fi
@@ -108,14 +112,14 @@ if [ "$cores" != "1" ] ; then
         # chmod -R 660 $x
     done
     rate=$( redis-cli hget owntone rate )
-    rate_cnt=$( grep -i 'rate.*# owntone rate' /etc/alsa/conf.d/99_runeaudio_owntone.conf | grep -ic $rate )
+    rate_cnt=$( grep -i 'rate.*# owntone rate' /etc/alsa/conf.d/99-runeaudio-owntone.conf | grep -ic $rate )
     if [ "$rate_cnt" != "4" ] ; then
-        sed -i "/rate.*# owntone rate/ s/rate.*# owntone rate.*/rate $rate # owntone rate/" /etc/alsa/conf.d/99_runeaudio_owntone.conf
+        sed -i "/rate.*# owntone rate/ s/rate.*# owntone rate.*/rate $rate # owntone rate/" /etc/alsa/conf.d/99-runeaudio-owntone.conf
     fi
     format=$( redis-cli hget owntone format )
-    format_cnt=$( grep -i 'format.*# owntone format' /etc/alsa/conf.d/99_runeaudio_owntone.conf | grep -ic $format )
+    format_cnt=$( grep -i 'format.*# owntone format' /etc/alsa/conf.d/99-runeaudio-owntone.conf | grep -ic $format )
     if [ "$format_cnt" != "4" ] ; then
-        sed -i "/format.*# owntone format/ s/format.*# owntone format.*/format $format # owntone format/" /etc/alsa/conf.d/99_runeaudio_owntone.conf
+        sed -i "/format.*# owntone format/ s/format.*# owntone format.*/format $format # owntone format/" /etc/alsa/conf.d/99-runeaudio-owntone.conf
     fi
     # start owntone
     systemctl start owntone

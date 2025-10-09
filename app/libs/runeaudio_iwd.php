@@ -16274,6 +16274,26 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_owntone($redis, 'status');
                 wrk_systemd_unit($redis, 'start', 'owntone_monitor');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+                // save the current airplay output rate and set the airplay output rate to that of owntone
+                $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
+                $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
+                $owntoneRate = $redis->hGet('owntone', 'rate');
+                if ($owntoneRate != $airplayRate) {
+                    $redis->hSet('airplay', 'alsa_output_rate', $owntoneRate);
+                    if (!$airplaySavedRate) {
+                        $redis->hSet('owntone', 'saved_airplay_rate', $airplayRate);
+                    }
+                }
+                // save the current airplay output format and set the airplay output format to that of owntone
+                $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
+                $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
+                $owntoneFormat = $redis->hGet('owntone', 'format');
+                if ($owntoneFormat != $airplayFormat) {
+                    $redis->hSet('airplay', 'alsa_output_format', $owntoneFormat);
+                    if (!$airplaySavedFormat) {
+                        $redis->hSet('owntone', 'saved_airplay_format', $airplayFormat);
+                    }
+                }
                 $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                     $owntoneSelected = sysCmd("mpc outputs | grep -i '(owntone)' | grep -ic enabled | xargs")[0];
@@ -16366,6 +16386,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            // set the airplay output rate to its original value
+            $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
+            $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
+            if ($airplaySavedRate && ($airplaySavedRate != $airplayRate)) {
+                $redis->hSet('airplay', 'alsa_output_rate', $airplaySavedRate);
+            }
+            // set the airplay output format to its original value
+            $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
+            $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
+            if ($airplaySavedFormat && ($airplaySavedFormat != $airplayFormat)) {
+                $redis->hSet('airplay', 'alsa_output_format', $airplaySavedFormat);
+            }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                 if ($mpdPlaying) {
@@ -16386,18 +16418,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if ($redis->hGet('owntone', 'active')) {
                 wrk_owntone($redis, 'deactivate');
             }
-            // set the airplay output rate to its original value
-            $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
-            $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
-            if ($airplaySavedRate != $airplayRate) {
-                $redis->hSet('airplay', 'alsa_output_rate', $airplaySavedRate);
-            }
-            // set the airplay output format to its original value
-            $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
-            $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
-            if ($airplaySavedFormat != $airplayFormat) {
-                $redis->hSet('airplay', 'alsa_output_format', $airplaySavedFormat);
-            }
             // stop owntone
             wrk_systemd_unit($redis, 'stop', 'owntone');
             break;
@@ -16414,26 +16434,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_player', json_encode(array()));
             // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
-            // save the current airplay output rate and set the airplay output rate to that of owntone
-            $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
-            $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
-            $owntoneRate = $redis->hGet('owntone', 'rate');
-            if ($owntoneRate != $airplayRate) {
-                $redis->hSet('airplay', 'alsa_output_rate', $owntoneRate);
-                if (!isset($airplaySavedRate) || !$airplaySavedRate) {
-                    $redis->hSet('owntone', 'saved_airplay_rate', $airplayRate);
-                }
-            }
-            // save the current airplay output format and set the airplay output format to that of owntone
-            $airplaySavedFormat = $redis->hGet('owntone', 'saved_airplay_format');
-            $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
-            $owntoneFormat = $redis->hGet('owntone', 'format');
-            if ($owntoneFormat != $airplayFormat) {
-                $redis->hSet('airplay', 'alsa_output_format', $owntoneFormat);
-                if (!isset($airplaySavedFormat) || !$airplaySavedFormat) {
-                    $redis->hSet('owntone', 'saved_airplay_format', $airplayFormat);
-                }
-            }
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf" | xargs')[0];
             if (!$mpdOwntoneOutput) {
                 $redis->set('mpdconfchange', 1);
@@ -16659,7 +16659,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 sysCmd('/srv/http/db/redis_datastore_setup owntonecheck');
             }
             sysCmd('rm -r '.$redis->hGet('owntone', 'library_dir').'/*.fifo');
-            unlink('/etc/alsa/conf.d/99_runeaudio_owntone.conf');
+            unlink('/etc/alsa/conf.d/99-runeaudio-owntone.conf');
             if ($active) {
                 wrk_owntone($redis, 'enable');
                 wrk_owntone($redis, 'activate');
@@ -17494,6 +17494,12 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
+            if (isset($args) && ($args == 'unmute')) {
+                $automute = '1';
+                $redis->hSet('owntone', 'automute', time());
+            } else {
+                $automute = '0';
+            }
             $outputNames = $redis->hKeys('owntone_outputs');
             $mutedIds = '';
             foreach ($outputNames as $outputName) {
@@ -17507,7 +17513,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     "id" => $output['id'],
                     "name" => $output['name'],
                     "mute" => $output['volume'],
-                    "volume" => "0"
+                    "volume" => "0",
+                    "automute" => $automute
                 )));
                 // run the command
                 sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');

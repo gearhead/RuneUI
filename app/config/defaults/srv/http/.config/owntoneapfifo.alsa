@@ -2,22 +2,31 @@
 # pcm output device to pipe airplay output to an owntone fifo pipe
 pcm.owntoneapfifo {
  type plug
- slave.pcm {
-  type rate
-  slave.pcm {
-   type file
-   slave.pcm null
-   file "/run/owntone/music/pipe_ap.fifo" # the ap owntone fifo file name
-   format "raw"
-  }
+ slave {
+  # type rate # by not specifying 'type rate' the rate converter will only be used when required
+  pcm "owntoneapFIFO"
   format S16_LE # owntone format
   rate 44100 # owntone rate
+  channels 2 # owntone channels
  }
  hint {
   show {
    @func refer
    name defaults.namehint.extended
   }
-  description "pcm output device to pipe airplay output to an owntone fifo pipe"
+  description "pcm output device to pipe airplay output to an owntone fifo pipe with rate conversion (S16_LE, 44.1kHz)"
+ }
+}
+pcm.owntoneapFIFO {
+ type file
+ slave.pcm null
+ file "/run/owntone/music/pipe_ap.fifo" # the ap owntone fifo file name
+ format "raw"
+ hint {
+  show {
+   @func refer
+   name defaults.namehint.extended
+  }
+  description "pcm output device to pipe airplay output to an owntone fifo pipe without rate conversion"
  }
 }
