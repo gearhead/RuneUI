@@ -143,6 +143,7 @@ redis-cli del bluetooth_connects
 redis-cli del bluetooth_status
 redis-cli del webradio_timers
 redis-cli del webradio_rejects
+redis-cli del owntone_outputs
 # set various options off, setting them on will validate the new hardware environment, no data will be lost
 redis-cli hset spotifyconnect enable '0'
 redis-cli hset airplay enable '0'
@@ -150,9 +151,22 @@ redis-cli hset dlna enable '0'
 redis-cli hset lastfm enable '0'
 redis-cli hset dlna enable '0'
 redis-cli hset samba readwrite '0'
+redis-cli hset owntone active '0'
+redis-cli hset owntone enable '0'
 # remove various redis variables which cause problems (mostly from mpdconf), most redundant setting have no effect
 redis-cli hdel mpdconf snapcast
 redis-cli hdel mpdconf brutefir
+# owntone modifies some airplay values, set them back to their saved original values
+savedRate=$( redis-cli hget owntone saved_airplay_rate )
+savedFormat=$( redis-cli hget owntone saved_airplay_format )
+if [ "$savedRate" != "" ] ; then
+    redis-cli hset airplay alsa_output_rate $savedRate
+fi
+if [ "$savedFormat" != "" ] ; then
+    redis-cli hset airplay alsa_output_format $savedFormat
+fi
+redis-cli hdel owntone saved_airplay_rate
+redis-cli hdel owntone saved_airplay_format
 # generate default values for missing redis variables
 /srv/http/db/redis_datastore_setup check
 # unset any locks
