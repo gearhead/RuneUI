@@ -16188,6 +16188,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if ($mpdPlaying) {
                     sysCmd('mpc pause');
                 }
