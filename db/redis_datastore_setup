@@ -343,7 +343,7 @@ function redisDatastore($redis, $action) {
             $redis->set('savecpuSmt', 480);
             $redis->set('hdmivc4hw', 4);
             $redis->set('aocardexceptions', '');
-            $redis->hSet('alsa', 'ALSA_rate_converter', 'speexrate_best');
+            $redis->hSet('alsa', 'alsa_rate_converter', 'samplerate_best');
             // UI login password
             $redis->set('pwd_protection', 0);
             $option = array('cost' => 12);
@@ -635,7 +635,7 @@ function redisDatastore($redis, $action) {
             $redis->exists('savecpuSmt') || $redis->set('savecpuSmt', 480);
             $redis->exists('hdmivc4hw') || $redis->set('hdmivc4hw', 4);
             $redis->exists('aocardexceptions') || $redis->set('aocardexceptions', '');
-            $redis->hExists('alsa', 'ALSA_rate_converter') || $redis->hSet('alsa', 'ALSA_rate_converter', 'speexrate_best');
+            $redis->hExists('alsa', 'alsa_rate_converter') || $redis->hSet('alsa', 'alsa_rate_converter', 'samplerate_best');
             // UI login password
             if ((!empty(trim($redis->get('pwd_protection')))) && (!empty(trim($redis->get('password'))))){
                 // do nothing

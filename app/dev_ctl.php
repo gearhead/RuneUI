@@ -176,12 +176,12 @@ if (isset($_POST)) {
             }
         }
         // ----- ALSA rate converter (re-sampeler)  -----
-        if ((isset($_POST['mode']['ALSA_rate_converter'])) && ($_POST['mode']['ALSA_rate_converter'])) {
+        if ((isset($_POST['mode']['alsa_rate_converter'])) && ($_POST['mode']['alsa_rate_converter'])) {
             // value is set
-            if ($redis->hGet('alsa', 'ALSA_rate_converter') != $_POST['mode']['ALSA_rate_converter']) {
+            if ($redis->hGet('alsa', 'alsa_rate_converter') != $_POST['mode']['alsa_rate_converter']) {
                 // value has changed, save it
-                $redis->set('alsa', 'ALSA_rate_converter', $_POST['mode']['ALSA_rate_converter']);
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ALSA_rate_converter', 'args' => $_POST['mode']['ALSA_rate_converter']));
+                $redis->set('alsa', 'alsa_rate_converter', $_POST['mode']['alsa_rate_converter']);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'alsa_rate_converter', 'args' => $_POST['mode']['alsa_rate_converter']));
             }
         }
         // ----- Art preferences -----
@@ -507,6 +507,7 @@ $template->local_browser_windows = $redis->hGet('local_browser', 'windows');
 $template->hwmodel = $redis->get('hwmodel');
 $template->pi5forceturbo = sysCmd("grep -ic '^\s*force_turbo=1' '".$redis->get('p1mountpoint')."/config.txt' | xargs")[0];
 $redis->set('forceturbo', $template->pi5forceturbo);
+$template->alsa_rate_converter = $redis->hGet('alsa', 'alsa_rate_converter');
 
 // debug
 // var_dump($template->dev);

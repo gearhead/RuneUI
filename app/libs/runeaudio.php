@@ -16188,6 +16188,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if ($mpdPlaying) {
                     sysCmd('mpc pause');
                 }
@@ -17409,6 +17410,49 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode($master));
             break;
    }
+}
+
+// function to encode and send airplay metadata for owntone
+function wrk_airplay_metadata_encoder($redis, $action, $args)
+{
+// The AirPlay metadata is sent to a fifo pipe the format is as follows:
+// Single line version without payload:
+//  <item><type>HEX_ENCODED_TYPE</type><code>HEX_ENCODED_CODE</code><length>PAYLOAD_LENGTH</length></item>
+// Example:
+//  <item><type>73736e63</type><code>70626567</code><length>0</length></item>
+// Which decodes to (using the function hex2bin() for type and code):
+//  <item><type>ssnc</type><code>pbeg</code><length>0</length></item>
+// Multiple line version with payload:
+//  <item><type>HEX_ENCODED_TYPE</type><code>HEX_ENCODED_CODE</code><length>PAYLOAD_LENGTH</length>
+//  <data encoding="base64">
+//  THE_DATA_PAYLOAD</data></item>
+// Example:
+//  <item><type>636f7265</type><code>61736172</code><length>10</length>
+//  <data encoding="base64">
+//  SW50cjBiZWF0eg==</data></item>
+// Which decodes to (using the function hex2bin() for type and code and base64_decode() for the data payload)
+//  <item><type>core</type><code>asar</code><length>10</length>
+//  <data encoding="base64">
+//  Intr0beatz</data></item>
+//
+// For encoding we use the functions bin2hex() for type and code and base64_encode() for the data payload
+//
+// It is implemented as 3 actions, where $action = 'no_payload', 'payload' and 'picture'
+//  $action = 'no_payload'
+//      $args is an array containing type and code
+//          array('type' => '<type_value>', 'code' => '<code_value>');
+//      The $args type and code are compulsory.
+//  $action = 'payload'
+//      $args is an array containing type, code and payload
+//          array('type' => '<type_value>', 'code' => '<code_value>', 'payload' => 'the_payload_data');
+//      The $args type, code and payload are compulsory.
+//  $action = 'picture'
+//      $args is an array containing type and code
+//          array('type' => '<type_value>', 'code' => '<code_value>', 'url' => 'url_of_the_jpeg_image_file', 'filename' => 'full_path_and_filename_of_the_jpeg_image_file');
+//      It is possible that the filename is not filled. Then the url must be used to retrieve the file. The file must then be
+//          converted to an appropriate size (height and width) in jpeg format.
+//      The url is not required when the filename is given.
+//
 }
 
 /*

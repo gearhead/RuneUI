@@ -1365,12 +1365,13 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 wrk_owntone($redis, 'restart', '', $jobID);
                 break;
-            case 'ALSA_rate_converter':
+            case 'alsa_rate_converter':
+                $redis->hSet('alsa', 'alsa_rate_converter', $job->args);
                 $redis->sRem('w_lock', $jobID);
                 if (sysCmd('grep -ic "^\s*defaults.pcm.rate_converter" "/etc/alsa/conf.d/99-runeaudio.conf" | xargs')[0]) {
-                    sysCmd('sed "/^\s*defaults.pcm.rate_converter/c\defaults.pcm.rate_converter \"'.$args.'\"" "/etc/alsa/conf.d/99-runeaudio.conf"');
+                    sysCmd('sed -i "/^\s*defaults.pcm.rate_converter/c\defaults.pcm.rate_converter \"'.$job->args.'\"" "/etc/alsa/conf.d/99-runeaudio.conf"');
                 } else {
-                    file_put_contents('/etc/alsa/conf.d/99-runeaudio.conf', "\n".'defaults.pcm.rate_converter "'.$args.'"'."\n", FILE_APPEND);
+                    file_put_contents('/etc/alsa/conf.d/99-runeaudio.conf', "\n".'defaults.pcm.rate_converter "'.$job->args.'"'."\n", FILE_APPEND);
                 }
                 break;
             case 'artworkSC':

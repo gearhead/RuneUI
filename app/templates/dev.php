@@ -696,14 +696,14 @@
             <legend>ALSA - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="ALSA_rate_converter">ALSA rate converter (re&#8209;sampeler)</label>
+                    <label class="col-sm-2 control-label" for="alsa_rate_converter">ALSA rate converter (re&#8209;sampeler)</label>
                     <div class="col-sm-10">
-                        <select id="ALSA_rate_converter" class="selectpicker" name="mode[ALSA_rate_converter]" data-style="btn-default btn-lg">
-                            <option value="speexrate_best" <?php if($this->ALSA_rate_converter === 'speexrate_best'): ?> selected <?php endif ?>> speexrate_best</option>
-                            <option value="samplerate_best" <?php if($this->ALSA_rate_converter === 'samplerate_best'): ?> selected <?php endif ?>> samplerate_best</option>
+                        <select id="alsa_rate_converter" class="selectpicker" name="mode[alsa_rate_converter]" data-style="btn-default btn-lg">
+                            <option value="speexrate_best" <?php if($this->alsa_rate_converter === 'speexrate_best'): ?> selected <?php endif ?>> speexrate_best</option>
+                            <option value="samplerate_best" <?php if($this->alsa_rate_converter === 'samplerate_best'): ?> selected <?php endif ?>> samplerate_best</option>
                         </select>
-                        <span class="help-block">The default ALSA rate converter is 'speexrate_best'.
-                        You can also use the alternative, 'samplerate_best'.<br>
+                        <span class="help-block">The default ALSA rate converter is 'samplerate_best'.
+                        You can also use the alternative, 'speexrate_best'.<br>
                         RuneAudio is constructed to avoid using the ALSA rate converter (re&#8209;sampler),
                         if re-sampling is required the superior SoXr re-sampler is used where possible.
                         However, the ALSA rate converter is sometimes unavoidable and is the fallback when nothing else works, normally it does nothing.<br>
