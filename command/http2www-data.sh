@@ -5,7 +5,7 @@ systemctl stop weston.service
 systemctl stop amixer-webui.service
 systemctl stop local-browser-w.service
 
-# add the user www-data if it exists, first remove it
+# add the www-data user if it exists, first remove it
 usercnt=$( grep -c "^www-data:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
     userdel -r "www-data"
@@ -15,7 +15,7 @@ useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-da
 # and just to be safe modify the www-data account
 usermod -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 
-# remove the user http if it exists, http was previously the webserver user, superseded by www-data
+# remove the http user if it exists, http was previously the webserver user, superseded by www-data
 usercnt=$( grep -c "^http:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
     userdel "http"
@@ -31,23 +31,36 @@ for i in "${audiousers[@]}" ; do
 done
 
 # fix lines containing 'user=http' with 'user=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl 'user\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
-grep -rl 'User\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/User\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'user\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'User\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/User\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'group=http' with 'group=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl 'group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/group\s*=\s*http\s*$/s/http/www-data/'
-grep -rl 'Group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'Group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
+# fix lines containing 'listen.owner=http' with 'listen.owner=www-data', retaining spaces and uppercase/lowercase in /srv/*
+grep -rl --exclude=http2www-dat.sh 'listen\.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.owner\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'Listen.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen.owner\s*=\s*http\s*$/s/http/www-data/'
+# fix lines containing 'listen.group=http' with 'listen.group=www-data', retaining spaces and uppercase/lowercase in /srv/*
+grep -rl --exclude=http2www-dat.sh 'listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'Listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen\.group\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'user http' with 'user www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl 'user\s*http' /srv | xargs -d '\n' sed -i '/user\s*http/s/http/www-data/'
-grep -rl 'User\s*http' /srv | xargs -d '\n' sed -i '/User\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'user\s*http' /srv | xargs -d '\n' sed -i '/user\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'User\s*http' /srv | xargs -d '\n' sed -i '/User\s*http/s/http/www-data/'
 # fix lines containing 'group http' with 'group www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl 'group\s*http' /srv | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
-grep -rl 'Group\s*http' /srv | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'group\s*http' /srv | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-dat.sh 'Group\s*http' /srv | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
+
 # fix lines containing 'user=http' with 'user=www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'user\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
 grep -rl 'User\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/User\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'group=http' with 'group=www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/group\s*=\s*http\s*$/s/http/www-data/'
 grep -rl 'Group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
+# fix lines containing 'listen.owner=http' with 'listen.owner=www-data', retaining spaces and uppercase/lowercase in /srv/*
+grep -rl 'listen\.owner\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/listen\.owner\s*=\s*http\s*$/s/http/www-data/'
+grep -rl 'Listen.owner\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Listen.owner\s*=\s*http\s*$/s/http/www-data/'
+# fix lines containing 'listen.group=http' with 'listen.group=www-data', retaining spaces and uppercase/lowercase in /srv/*
+grep -rl 'listen\.group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/listen\.group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl 'Listen\.group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Listen\.group\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'user http' with 'user www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'user\s*http' /etc | xargs -d '\n' sed -i '/user\s*http/s/http/www-data/'
 grep -rl 'User\s*http' /etc | xargs -d '\n' sed -i '/User\s*http/s/http/www-data/'

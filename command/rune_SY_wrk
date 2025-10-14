@@ -99,13 +99,8 @@ if (file_exists($fileName)) {
 $redis->set('disk_error', 0);
 //
 // clean up Rern's addons security
-// Rern's addons menu
-if ($redis->hGet('addons', 'addo') != '') {
-    // do nothing
-} else {
-    // not set or is empty so delete the sudo enable-all file for user http - used for addons menu
-    sysCmd('rm -f /etc/sudoers.d/http');
-}
+// Rern's addons menu, remove sudoer for http user
+sysCmd('rm -f /etc/sudoers.d/http');
 //
 // determine the actual mpd player version
 //  the text file is created on boot by the systemd unit mpdversion service

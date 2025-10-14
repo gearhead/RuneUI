@@ -481,7 +481,7 @@ fi
 # create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
 useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 usermod -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
-#   remove the user http if it exists, http was previously the webserver user, superseded by www-data
+#   remove the http user if it exists, http was previously the webserver user, superseded by www-data
 usercnt=$( grep -c "^http:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
     userdel "http"
