@@ -4,7 +4,7 @@ After=bluealsa.service
 
 [Service]
 Type=simple
-# User=http
+# User=www-data
 ExecStart=/srv/http/command/bt_mon_switch.php
 Restart=always
 

@@ -6,8 +6,8 @@ Description=Rune Audio Amixer-WebUI Service
 After=sound.target network.target
 
 [Service]
-User=http
-Group=http
+User=www-data
+Group=www-data
 RuntimeDirectory=uwsgi
 WorkingDirectory=/srv/http/amixer
 #ExecStart=/usr/bin/python /srv/http/amixer/alsamixer_webui.py

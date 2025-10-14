@@ -5,7 +5,7 @@ Wants=seatd.service
 
 [Service]
 Type=notify
-#User=http
+#User=www-data
 # cannot run as http, so chown after start
 Group=www-data
 RuntimeDirectory=weston

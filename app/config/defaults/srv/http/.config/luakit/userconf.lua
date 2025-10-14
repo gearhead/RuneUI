@@ -1,4 +1,4 @@
--- RuneAudio Luakit configuration file for user http
+-- RuneAudio Luakit configuration file for user www-data
 -- File name: /srv/http/.config/luakit/userconf.lua
 -- The line 'settings.webview.zoom_level' is modified in the Settings UI, it is a percentage (100 = 100%)
 --
