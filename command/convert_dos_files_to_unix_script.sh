@@ -262,8 +262,8 @@ sync
 umount overlay_art_cache
 sync
 # now change the permissions of the UI files
-find /srv/http/ \! -user http -exec chown http:http {} \;
-find /srv/http/ \! -group http -exec chown http:http {} \;
+find /srv/http/ \! -user www-data -exec chown www-data:www-data {} \;
+find /srv/http/ \! -group www-data -exec chown www-data:www-data {} \;
 find /srv/http/ -type f \! -perm 644 -exec chmod 644 {} \;
 find /srv/http/ -type d \! -perm 755 -exec chmod 755 {} \;
 find /etc -type f -name *.conf \! -perm 644 -exec chmod 644 {} \;
@@ -298,8 +298,8 @@ find /usr/lib/udev/hwdb.d/ -type f -executable -exec chmod -x {} \;
 find / -maxdepth 3 -type f -name udevil \! -perm -u+s -exec chmod +s {} \;
 # luakit will fail to start when it cant read its recovery session (luakit runs as http)
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -perm 666 -exec chmod 666 {} \;
-find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user http -exec chown http:http {} \;
-find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -group http -exec chown http:http {} \;
+find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user www-data -exec chown www-data:www-data {} \;
+find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -group www-data -exec chown www-data:www-data {} \;
 # customised apt command needs to be executable
 find /usr/local/sbin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 {} \;
 #---

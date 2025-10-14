@@ -95,7 +95,7 @@ cp /home/getID3/getid3/* /srv/http/app/libs/vendor/getid3
 # copy the saved version of audioinfo.class.php from /home to the getid3 files directory
 cp /home/audioinfo.class.php /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # correct the ownership of the audioinfo.class.php file
-chown http:http /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
+chown www-data:www-data /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # remove the saved version of the audioinfo.class.php file
 rm /home/audioinfo.class.php
 # remove the downloaded getID3 files

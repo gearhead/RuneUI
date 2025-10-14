@@ -54,21 +54,6 @@ pacman -S mpd ffmpeg mpc --noconfirm
 rm -r /home/mpdupdate
 #
 # check file protection and ownership
-chown -R http:http /srv/http/
-find /srv/http/ -type f -exec chmod 644 {} \;
-find /srv/http/ -type d -exec chmod 755 {} \;
-find /etc -name *.conf -exec chmod 644 {} \;
-find /usr/lib/systemd/system -name *.service -exec chmod 644 {} \;
-chmod 644 /etc/nginx/html/50x.html
-chmod 777 /run
-chmod 755 /srv/http/command/*
-chmod 755 /srv/http/db/redis_datastore_setup
-chmod 755 /srv/http/db/redis_acards_details
-chmod 755 /etc/X11/xinit/start_chromium.sh
-chown mpd:audio /mnt/MPD/*
-chown mpd:audio /mnt/MPD/USB/*
-chmod 777 /mnt/MPD/USB
-chmod 777 /mnt/MPD/USB/*
-chown -R mpd:audio /var/lib/mpd
+/srv/http/command/convert_dos_files_to_unix_script.sh
 #---
 #End script

@@ -848,33 +848,6 @@
     </form>
     <form class="form-horizontal" method="post">
         <fieldset>
-            <!--
-            <legend>Rern's Addons</legend>
-            <div class="boxed-group">
-                <div class="form-group">
-                    <label class="col-sm-2 control-label">Install Rern's Addons Menu</label>
-                    <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="rerninstall" id="syscmd-rerninstall" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">See the RuneAudio forum for details: <a href="http://www.runeaudio.com/forum/addons-menu-install-addons-the-easy-way-t5370.html#p22376" target="_blank" rel="nofollow">Addons Menu - Install addons the easy way</a> <br>
-                        We had intended to pre-install Rern's very popular Addons Menu in this image.
-                        However we discovered that by installing the Addons Menu a significant security risk was created effectively giving the http user (this is the user which owns the web-server) root privileges.
-                        This is done by creating the /etc/sudoers.d/http file containing 'http ALL=NOPASSWD: ALL'. We feel it is inappropriate to distribute an image with this included.<br>
-                        Nevertheless, you can choose, it's a trade-off between security and easy additional functionality. You could also choose to remove Rern's Addons Menu after installing the parts which you need.<br>
-                        Parts of Rern's Addons are pre-installed in this image or are no longer applicable: Midori has been replaced by Chromium, MPD has been already been upgraded to V0.20.20, Backup Restore is available (see Settings UI), Extend the Linux partition is available (above), Boot Logo is pre-installed on the Pi2 image, Samba has already been upgraded to V4.8.1, Rune UI password is available and RuneUI Fonts (Extended Characters) is pre-installed.<br>
-                        Refresh the browser after installing, this should enable the Addons Menu.<br>
-                        You can remove the Rern's Addons Menu via the Addons Menu.<br>
-                        The functionality within Rern's Addons Menu is not supported by the RuneAudio team, but you can get help via the forum</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="col-sm-2 control-label">Remove Rern's Addons Menu</label>
-                    <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="rernremove" id="syscmd-rernremove" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">If Rern's Addons Menu stops working, or the install command fails, or you cannot de-install it; this may fix it</span>
-                    </div>
-                </div>
-            </div>
-            -->
             <legend>System utilities</legend>
             <div class="boxed-group">
                 <div class="form-group">

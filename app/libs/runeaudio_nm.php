@@ -1984,8 +1984,8 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             clearstatcache(true, $filePathName);
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
-                sysCmd('mkdir "'.$filePath.'"; chown http:http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http:http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('mkdir "'.$filePath.'"; chown www-data:www-data "'.$filePath.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown www-data:www-data "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic "^[\s]*--force-device-scale-factor[\s]*=" "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -2001,8 +2001,8 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
             clearstatcache(true, $filePathName);
             if (!file_exists($filePathName)) {
                 $filePath = pathinfo($filePathName)['dirname'];
-                sysCmd('mkdir "'.$filePath.'"; chown http:http "'.$filePath.'"');
-                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown http:http "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
+                sysCmd('mkdir "'.$filePath.'"; chown www-data:www-data "'.$filePath.'"');
+                sysCmd('cp "/srv/http/app/config/defaults'.$filePathName.'" "'.$filePathName.'"; chown www-data:www-data "'.$filePathName.'"; chmod 644 "'.$filePathName.'"');
             }
             if (sysCmd('grep -ic settings.webview.zoom_level "'.$filePathName.'"')[0]) {
                 // scale factor line exists, modify it
@@ -2446,7 +2446,7 @@ function wrk_backup($redis, $bktype = null)
     // delete the diff file for config.txt
     unlink('/home/config.txt.diff');
     // change the file privileges
-    sysCmd('chown http:http '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
+    sysCmd('chown www-data:www-data '."'".$filepath."'".' ; chmod 644 '."'".$filepath."'");
     sysCmd('sync');
     return $filepath;
 }
@@ -3583,7 +3583,7 @@ function wrk_playernamemenu($action)
     fwrite($fp, implode("", $newArray));
     fclose($fp);
     unset($newArray);
-    sysCmd('chown http:http '.$file);
+    sysCmd('chown www-data:www-data '.$file);
     sysCmd('chmod 644 '.$file);
 }
 
@@ -15510,8 +15510,8 @@ function audioCardPi5($redis)
     sysCmd("sed -i '/hifiberry-dacplus|52Pi NVDAC/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/hifiberry-dacplus|Argon BLSTR DAC/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/pisound|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
-    // change the file privileges to read only and owner/group to http:http
-    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    // change the file privileges to read only and owner/group to www-data:www-data
+    sysCmd('chown www-data:www-data /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
     $i2smodule_select = trim($redis->get('i2smodule_select'));
     $reboot = false;
     if (substr($i2smodule_select, 0, 5) != 'none|') {
@@ -15568,8 +15568,8 @@ function audioCardNonPi5($redis)
     sysCmd("sed -i '/hifiberry-dac|Pine HatDrive! Piano/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/inno-dac-pro|Inno-Maker Raspberry Pi HiFi DAC Pro HAT ES9038Q2M/d' '/srv/http/.config/i2s_table.txt'");
     sysCmd("sed -i '/pisound-pi5|Blokas Labs pisound card/d' '/srv/http/.config/i2s_table.txt'");
-    // change the file privileges to read only and owner/group to http:http
-    sysCmd('chown http:http /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
+    // change the file privileges to read only and owner/group to www-data:www-data
+    sysCmd('chown www-data:www-data /srv/http/.config/i2s_table.txt ; chmod 444 /srv/http/.config/i2s_table.txt');
     $i2smodule_select = trim($redis->get('i2smodule_select'));
     $reboot = false;
     if (substr($i2smodule_select, 0, 5) != 'none|') {
@@ -16203,6 +16203,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if ($mpdPlaying) {
                     sysCmd('mpc pause');
                 }
@@ -17424,6 +17425,145 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode($master));
             break;
    }
+}
+
+// function to encode and send airplay metadata for owntone
+function wrk_airplay_metadata_encoder($redis, $action, $args)
+// The AirPlay metadata is sent to a fifo pipe the format is as follows:
+// Single line variation without payload:
+//  <item><type>HEX_ENCODED_TYPE</type><code>HEX_ENCODED_CODE</code><length>PAYLOAD_LENGTH</length></item>
+// Example:
+//  <item><type>73736e63</type><code>70626567</code><length>0</length></item>
+// Which decodes to (using the function hex2bin() for type and code):
+//  <item><type>ssnc</type><code>pbeg</code><length>0</length></item>
+// Multiple line variation with payload:
+//  <item><type>HEX_ENCODED_TYPE</type><code>HEX_ENCODED_CODE</code><length>PAYLOAD_LENGTH</length>
+//  <data encoding="base64">
+//  THE_DATA_PAYLOAD</data></item>
+// Example:
+//  <item><type>636f7265</type><code>61736172</code><length>10</length>
+//  <data encoding="base64">
+//  SW50cjBiZWF0eg==</data></item>
+// Which decodes to (using the function hex2bin() for type and code and base64_decode() for the data payload)
+//  <item><type>core</type><code>asar</code><length>10</length>
+//  <data encoding="base64">
+//  Intr0beatz</data></item>
+//
+// For encoding we use the functions bin2hex() for 'type' and 'code' and base64_encode() for 'the data payload'
+//
+// It is implemented as 3 actions, where $action = 'no_payload', 'payload' and 'picture'
+//  $action = 'no_payload'
+//      $args is an array containing type and code:
+//          array('type' => '<type_value>', 'code' => '<code_value>');
+//      The $args type and code are compulsory.
+//  $action = 'payload'
+//      $args is an array containing type, code and payload:
+//          array('type' => '<type_value>', 'code' => '<code_value>', 'payload' => 'the_payload_data');
+//      The $args type, code and payload are compulsory.
+//  $action = 'picture'
+//      $args is an array containing type, code, url and filename:
+//          array('type' => '<type_value>', 'code' => '<code_value>', 'url' => 'url_of_the_jpeg_image_file', 'filename' => 'full_path_and_filename_of_the_jpeg_image_file');
+//      It is possible that the filename is not filled. Then the url must be used to retrieve the file. The file must then be
+//          converted to an appropriate size (height and width) in jpeg format.
+//      The url is not required when the filename is given.
+//      For pictures we avoid readin the payload into php, as the file size is unkown ancould be very large.
+//          The file and payload manipulation is done in bash
+//
+{
+    if (!is_array($args)) {
+        return false;
+    } else if (!isset($args['type']) || !isset($args['code']) || !$args['type'] || $args['code']) {
+        return false;
+    } else if (!isset($action) || !$action) {
+        return false;
+    }
+    $activePlayer = $redis->get('activePlayer');
+    if ($activePlayer == 'MPD') {
+        $file = $redis->hGet('owntone', 'pipe_mpd').'.metadata';
+    } else if ($activePlayer == 'Airplay') {
+        $file = $redis->hGet('owntone', 'pipe_ap').'.metadata';
+    } else if ($activePlayer == 'SpotifyConnect') {
+        $file = $redis->hGet('owntone', 'pipe_sc').'.metadata';
+    } else if ($activePlayer == 'Bluetooth') {
+        $file = $redis->hGet('owntone', 'pipe_bt').'.metadata';
+    }
+    switch ($action) {
+        case 'no_payload':
+            // send the single line data
+            $output = '<item><type>'.
+                        bin2hex($args['type']).
+                        '</type><code>'.
+                        bin2hex($args['code']).
+                        '</code><length>'.
+                        // length is always zero
+                        '0'.
+                        '</length></item>'."\n";
+            file_put_contents($file, $output, FILE_APPEND);
+            break;
+        case 'payload':
+            // send the multiple line data with the payload
+            if (!isset($args['payload']) || !$args['payload']) {
+                return false;
+            }
+            $payloadEncoded = base64_encode($args['payload']);
+            $output =
+                        // first line
+                        '<item><type>'.
+                        bin2hex($args['type']).
+                        '</type><code>'.
+                        bin2hex($args['code']).
+                        '</code><length>'.
+                        strlen($payloadEncoded).
+                        '</length>'."\n".
+                        // second line
+                        '<data encoding="base64">'."\n".
+                        // third line
+                        $payloadEncoded.
+                        '</data></item>'."\n";
+            file_put_contents($file, $output, FILE_APPEND);
+            break;
+        case 'picture':
+            // send a picture
+            if (!isset($args['filename']) || !$args['filename']) {
+                if (!isset($args['url']) || !$args['url']) {
+                    return false;
+                }
+            }
+            $filePayload = '/tmp/owntone_image.base64';
+            if (!isset($args['filename']) || !$args['filename']) {
+                // get the file with the program wget, pipe it to the program imagemagik convert,
+                //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
+                //  use '-interlace Plane' and '-quality 80' to reduce the file size, pipe the output as jpg to the program base64
+                //  and store the output of base64 as the payload file
+                sysCmd('wget -q -o- '.$args['url'].' | convert - -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 jpg:- | base64 -e - > "'.$filePayload.'"');
+            } else {
+                // open the file with the program imagemagik convert,
+                //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
+                //  use '-interlace Plane' and '-quality 80' to reduce the file size, pipe the output as jpg to the program base64
+                //  and store the output of base64 as the payload file
+                sysCmd('convert '.$args['filename'].' -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 jpg:- | base64 -e - > "'.$filePayload.'"');
+            }
+            // clear the cache for the payload file
+            clearstatcache(true, $filePayload);
+            $output =
+                        // first line
+                        '<item><type>'.
+                        bin2hex($args['type']).
+                        '</type><code>'.
+                        bin2hex($args['code']).
+                        '</code><length>'.
+                        filesize($filePayload).
+                        '</length>'."\n".
+                        // second line
+                        '<data encoding="base64">'."\n";
+            // send the first two lines
+            file_put_contents($file, $output, FILE_APPEND);
+            // the third line is sent from bash
+            sysCmd('( cat '.$filePayload.' ; echo "</data></item>" ) > "'.$file.'"');
+            // delete the payload file
+            unlink(filePayload);
+            break;
+    }
 }
 
 /*

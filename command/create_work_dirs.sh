@@ -212,7 +212,7 @@ fi
 redis-cli set backup_dir "$backupDir"
 # create the directory , change the owner and privileges and delete its contents(if any)
 mkdir -p "$backupDir"
-chown -R http:http "$backupDir"
+chown -R www-data:www-data "$backupDir"
 chmod -R 755 "$backupDir"
 rm -fR $backupDir/*
 #
@@ -262,7 +262,7 @@ if [[ "$artDir" == "" ]]; then
 fi
 if [[ ! -d "$artDir" ]]; then
     mkdir -p "$artDir"
-    chown -R http:http "$artDir"
+    chown -R www-data:www-data "$artDir"
     chmod 755 "$artDir"
     chmod -R 644 $artDir/*
 fi

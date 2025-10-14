@@ -472,15 +472,21 @@ passworddate=$( chage -l root | grep -i 'Last password change' | cut -d ':' -f 2
 redis-cli set passworddate "$passworddate"
 #
 # make sure that Rune-specific users are created
-#   first the user http, this has a specific default account
+#   first the user www-data, this has a specific default account
+usercnt=$( grep -c "www-data:" "/etc/passwd" )
+if [ "$usercnt" == "1" ] ; then
+#   remove the user www-data if it exists
+    userdel -r "www-data"
+fi
+# create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
+useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+#   remove the user http if it exists, http was previously the webserver user, superseded by www-data
 usercnt=$( grep -c "http:" "/etc/passwd" )
-if [ "$usercnt" == "0" ] ; then
-    # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
-    useradd -U -c "http webserver user" -d /srv/http -s /usr/bin/nologin "http"
+if [ "$usercnt" == "1" ] ; then
+    userdel -r "http"
 fi
 #   now the rest of the users, these are used by systemd
-#   note: remove user llmnrd from the list on the next release
-declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc llmnrd udevil redis owntone)
+declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "^_$i:" "/etc/passwd" )
     if [ "$usercnt" == "1" ] ; then
@@ -496,7 +502,7 @@ for i in "${createusers[@]}" ; do
 done
 #
 # make sure that Audio-specific users are member of the audio group
-declare -a audiousers=(http mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
+declare -a audiousers=(www-data mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
 for i in "${audiousers[@]}" ; do
     audiocnt=$( groups $i | grep -c audio )
     if [ "$audiocnt" == "0" ] ; then
@@ -517,7 +523,7 @@ for i in "${devusers[@]}" ; do
 done
 # #
 # # make sure that Video-specific users are member of the video group
-# declare -a videousers=(http)
+# declare -a videousers=(www-data)
 # for i in "${videousers[@]}" ; do
     # videocnt=$( groups $i | grep -c video )
     # if [ "$videocnt" == "0" ] ; then
@@ -1051,7 +1057,7 @@ rm -r /srv/http/tmp/*
 umount http-tmp
 rm -r /srv/http/tmp
 mkdir /srv/http/tmp
-chown http:http /srv/http/tmp
+chown www-data:www-data /srv/http/tmp
 chmod 777 /srv/http/tmp
 mount http-tmp
 # many of the remaining lines in this section fail! this is not a problem

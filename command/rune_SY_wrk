@@ -566,7 +566,7 @@ while (true) {
                     // TO-DO: use the airplay redis variables to determine the metadata artwork directory
                     sysCmd('mkdir -p /srv/http/tmp/airplay');
                     sysCmd('cp /srv/http/assets/img/airplay-default.png /srv/http/tmp/airplay/airplay-default.png');
-                    sysCmd('chown -R http:http /srv/http/tmp');
+                    sysCmd('chown -R www-data:www-data /srv/http/tmp');
                     sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-default.png');
                     // start or re-start shairport-sync service
                     $redis->hSet('airplay', 'enable', 1);
