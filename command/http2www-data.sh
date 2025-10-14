@@ -31,23 +31,23 @@ for i in "${audiousers[@]}" ; do
 done
 
 # fix lines containing 'user=http' with 'user=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'user\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'User\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/User\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'user\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'User\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/User\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'group=http' with 'group=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/group\s*=\s*http\s*$/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'Group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'Group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'listen.owner=http' with 'listen.owner=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'listen\.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.owner\s*=\s*http\s*$/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'Listen.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen.owner\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'listen\.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.owner\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'Listen.owner\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen.owner\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'listen.group=http' with 'listen.group=www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.group\s*=\s*http\s*$/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'Listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen\.group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/listen\.group\s*=\s*http\s*$/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'Listen\.group\s*=\s*http\s*$' /srv | xargs -d '\n' sed -i '/Listen\.group\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'user http' with 'user www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'user\s*http' /srv | xargs -d '\n' sed -i '/user\s*http/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'User\s*http' /srv | xargs -d '\n' sed -i '/User\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'user\s*http' /srv | xargs -d '\n' sed -i '/user\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'User\s*http' /srv | xargs -d '\n' sed -i '/User\s*http/s/http/www-data/'
 # fix lines containing 'group http' with 'group www-data', retaining spaces and uppercase/lowercase in /srv/*
-grep -rl --exclude=http2www-dat.sh 'group\s*http' /srv | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
-grep -rl --exclude=http2www-dat.sh 'Group\s*http' /srv | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'group\s*http' /srv | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
+grep -rl --exclude=http2www-data.sh 'Group\s*http' /srv | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
 
 # fix lines containing 'user=http' with 'user=www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'user\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/user\s*=\s*http\s*$/s/http/www-data/'
