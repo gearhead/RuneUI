@@ -473,17 +473,18 @@ redis-cli set passworddate "$passworddate"
 #
 # make sure that Rune-specific users are created
 #   first the user www-data, this has a specific default account
-usercnt=$( grep -c "www-data:" "/etc/passwd" )
-if [ "$usercnt" == "1" ] ; then
+usercnt=$( grep -c "^www-data:" "/etc/passwd" )
+if [ "$usercnt" != "0" ] ; then
 #   remove the user www-data if it exists
     userdel -r "www-data"
 fi
 # create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
 useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+usermod -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 #   remove the user http if it exists, http was previously the webserver user, superseded by www-data
-usercnt=$( grep -c "http:" "/etc/passwd" )
-if [ "$usercnt" == "1" ] ; then
-    userdel -r "http"
+usercnt=$( grep -c "^http:" "/etc/passwd" )
+if [ "$usercnt" != "0" ] ; then
+    userdel "http"
 fi
 #   now the rest of the users, these are used by systemd
 declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone)
@@ -497,7 +498,7 @@ for i in "${createusers[@]}" ; do
         # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
         useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
     else
-        usermod -L -s /usr/bin/bash "$i"
+        usermod -L -d /dev/null -s /usr/bin/nologin "$i"
     fi
 done
 #

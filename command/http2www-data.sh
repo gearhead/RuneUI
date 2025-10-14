@@ -5,17 +5,20 @@ systemctl stop weston.service
 systemctl stop amixer-webui.service
 systemctl stop local-browser-w.service
 
-# remove the user www-data if it exists
-usercnt=$( grep -c "www-data:" "/etc/passwd" )
-if [ "$usercnt" == "1" ] ; then
+# add the user www-data if it exists, first remove it
+usercnt=$( grep -c "^www-data:" "/etc/passwd" )
+if [ "$usercnt" != "0" ] ; then
     userdel -r "www-data"
 fi
 # recreate the www-data user with no password, locked, default directory /srv/http and pointing to the shell /usr/bin/nologin
 useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+# and just to be safe modify the www-data account
+usermod -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+
 # remove the user http if it exists, http was previously the webserver user, superseded by www-data
-usercnt=$( grep -c "http:" "/etc/passwd" )
-if [ "$usercnt" == "1" ] ; then
-    userdel -r "http"
+usercnt=$( grep -c "^http:" "/etc/passwd" )
+if [ "$usercnt" != "0" ] ; then
+    userdel "http"
 fi
 
 # make sure that Audio-specific users are member of the audio group
