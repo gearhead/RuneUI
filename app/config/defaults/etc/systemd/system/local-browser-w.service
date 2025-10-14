@@ -5,8 +5,8 @@ Wants=weston.service
 
 [Service]
 Type=simple
-User=http
-Group=http
+User=www-data
+Group=www-data
 WorkingDirectory=/srv/http
 Environment="HOME=/srv/http"
 Environment="XDG_RUNTIME_DIR=/run/weston"
