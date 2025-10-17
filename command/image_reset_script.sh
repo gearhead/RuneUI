@@ -111,7 +111,7 @@ declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor blueto
     haveged hciuart hostapd llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdscribble nmb nmbd ntpd owntone owntone_monitor\
     owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
-    shairport-sync smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2 upmpdcli upower winbind\
+    shairport-sync smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2 upmpdcli upower uwsgi winbind\
     winbindd)
 declare -a enable_arr=(amixer-webui avahi-daemon cmd_async_queue connman dbus fix_ethx fix_usbdevices fix_wlanx iwd mpdversion nginx\
     redis rune_SY_wrk sshd systemd-journald systemd-resolved systemd-timesyncd udevil)
@@ -122,13 +122,13 @@ declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-moni
     plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk rune_SY_wrk\
     samba-ad-dc shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd triggerhappy udevil\
-    udisks2 upmpdcli upower winbind winbindd wsdd)
+    udisks2 upmpdcli upower uwsgi winbind winbindd wsdd)
 if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
     declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile haveged llmnrd\
-        php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
+        php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 else
     declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile getty@tty1\
-        haveged llmnrd php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower)
+        haveged llmnrd php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 fi
 declare -a unmask_arr=(systemd-journald)
 #
