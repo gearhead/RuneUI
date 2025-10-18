@@ -57,7 +57,7 @@ grep -rl 'group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/group\s*=\s*http\s
 grep -rl 'Group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Group\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'listen.owner=http' with 'listen.owner=www-data', retaining spaces and uppercase/lowercase in /srv/*
 grep -rl 'listen\.owner\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/listen\.owner\s*=\s*http\s*$/s/http/www-data/'
-grep -rl 'Listen.owner\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Listen.owner\s*=\s*http\s*$/s/http/www-data/'
+grep -rl 'Listen\.owner\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Listen\.owner\s*=\s*http\s*$/s/http/www-data/'
 # fix lines containing 'listen.group=http' with 'listen.group=www-data', retaining spaces and uppercase/lowercase in /srv/*
 grep -rl 'listen\.group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/listen\.group\s*=\s*http\s*$/s/http/www-data/'
 grep -rl 'Listen\.group\s*=\s*http\s*$' /etc | xargs -d '\n' sed -i '/Listen\.group\s*=\s*http\s*$/s/http/www-data/'
@@ -67,6 +67,8 @@ grep -rl 'User\s*http' /etc | xargs -d '\n' sed -i '/User\s*http/s/http/www-data
 # fix lines containing 'group http' with 'group www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'group\s*http' /etc | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
 grep -rl 'Group\s*http' /etc | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
+sed -i '/uid\s*=\s*http/s/uid\s*=\s*http/uid=www-data/' '/etc/fstab'
+sed -i '/gid\s*=\s*http/s/gid\s*=\s*http/gid=www-data/' '/etc/fstab'
 
 # fix file protections and change ownerships
 find /srv/http/command/ -type f \! -perm 755 -exec chmod 755 {} \;
