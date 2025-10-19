@@ -52,14 +52,14 @@ xset -dpms &
 matchbox-window-manager -use_titlebar no -use_cursor no &
 
 # install multimedia keyboard shortcuts
-sudo -u http xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
+sudo -u www-data xbindkeys -f /srv/http/.xbindkeysrc -X :0 &
 
 # determine the browser
 browser=$( redis-cli hget local_browser browser )
 # use luakit as default
 # luakit for local browser, compacter than chromium, supports JavaScript, which also scales <100%
 if [ "$browser" == "luakit" ] ; then
-    sudo -u http /usr/bin/luakit
+    sudo -u www-data /usr/bin/luakit
 fi
 
 # optionally use chromium-browser/chromium
@@ -75,5 +75,5 @@ if [ "$browser" == "chromium-browser" ] || [ "$browser" == "chromium" ] ; then
     else
         chromium_flags=$( grep -v '^\(#.*\)\?$' /srv/http/.config/chromium-flags.conf | xargs )
     fi
-    sudo -u http  /usr/bin/$browser $chromium_flags http://localhost/
+    sudo -u www-data  /usr/bin/$browser $chromium_flags http://localhost/
 fi

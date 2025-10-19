@@ -78,7 +78,7 @@ rm -r /srv/http/app/libs/vendor/getid3
 rm -r /srv/http/app/libs/vendor/Zend
 rm -r /srv/http/app/libs/vendor/ziegler
 # install/upgrade the composer components
-sudo -u http ./composer.phar --with-all-dependencies update
+sudo -u www-data ./composer.phar --with-all-dependencies update
 # create a symlink in the vendor directory pointing to the getid3 files
 ln -s /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 # remove the composer setup script

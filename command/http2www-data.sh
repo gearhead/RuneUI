@@ -67,8 +67,17 @@ grep -rl 'User\s*http' /etc | xargs -d '\n' sed -i '/User\s*http/s/http/www-data
 # fix lines containing 'group http' with 'group www-data', retaining spaces and uppercase/lowercase in /etc/*
 grep -rl 'group\s*http' /etc | xargs -d '\n' sed -i '/group\s*http/s/http/www-data/'
 grep -rl 'Group\s*http' /etc | xargs -d '\n' sed -i '/Group\s*http/s/http/www-data/'
+
+# fix fstab, lines containing 'uid=http' and 'gid=http'
 sed -i '/uid\s*=\s*http/s/uid\s*=\s*http/uid=www-data/' '/etc/fstab'
 sed -i '/gid\s*=\s*http/s/gid\s*=\s*http/gid=www-data/' '/etc/fstab'
+
+# fix any logrotate definitions, lines containing http http in /etc/logrotate.d
+grep -irl 'http\s*http' /etc/logrotate.d | xargs -d '\n' sed -i '/http\s*http/s/http\s*http/www-data www-data/'
+
+# fix any sudo commands using user http
+grep -irl 'sudo.*-u\s*http' /srv | xargs -d '\n' sed -i '/sudo.*-u\s*http/s/-u\s*http/-u www-data/'
+grep -irl 'sudo.*-u\s*http' /etc | xargs -d '\n' sed -i '/sudo.*-u\s*http/s/-u\s*http/-u www-data/'
 
 # fix file protections and change ownerships
 find /srv/http/command/ -type f \! -perm 755 -exec chmod 755 {} \;
