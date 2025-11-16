@@ -288,7 +288,7 @@ while (true) {
                     }
                 }
                 if ((isset($actPlayerInfoSave['duration']) && isset($actPlayerInfo['duration']) &&
-                        (actPlayerInfoSave['duration'] != $actPlayerInfo['duration'])) || 
+                        (actPlayerInfoSave['duration'] != $actPlayerInfo['duration'])) ||
                         (isset($actPlayerInfoSave['last_elapsed']) && isset($actPlayerInfo['last_elapsed']) &&
                         (actPlayerInfoSave['last_elapsed'] != $actPlayerInfo['last_elapsed'])) ||
                         (isset($actPlayerInfoSave['time_last_elapsed']) && isset($actPlayerInfo['time_last_elapsed']) &&
