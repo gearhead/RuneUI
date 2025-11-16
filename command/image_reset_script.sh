@@ -680,6 +680,11 @@ fi
 if [ "$os" == "ARCH" ] ; then
     rm -f /usr/local/bin/apt
 fi
+# this cleans up an the apt override file from a previous version, it can be removed in the future
+if [ ! -h "/usr/local/sbin" ] && [ -f "/usr/local/sbin/apt" ] ; then
+    # rm -f /usr/local/sbin/apt
+    echo "delete"
+fi
 #   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
 if [ "$os" == "RPiOS" ] ; then
