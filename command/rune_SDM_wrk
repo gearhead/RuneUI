@@ -78,10 +78,10 @@ if ($redis->get('remoteSSbigart') === 'album') {
 // get the last stored status
 $status = json_decode($redis->get('act_player_info'), true);
 if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
-	// there is a local output and owntone is active
-	$status['local_volume_control'] = 1;
+    // there is a local output and owntone is active
+    $status['local_volume_control'] = 1;
 } else {
-	$status['local_volume_control'] = 0;
+    $status['local_volume_control'] = 0;
 }
 $updateUI = false;
 $cnt = 20;
@@ -229,7 +229,7 @@ do {
         $status['elapsed'] = "0";
         $status['song_percent'] = "0";
         $status['time_last_elapsed'] = microtime(true);
-		$status['last_elapsed'] = $status['elapsed'];
+        $status['last_elapsed'] = $status['elapsed'];
         if ($save_last_volume) {
             // set the volume to the last one used when playing spotify connect
             $lastvolume = $redis->hGet('spotifyconnect', 'lastvolume');
@@ -306,8 +306,8 @@ do {
             $status['elapsed'] = "0";
             $status['song_percent'] = "0";
         }
-		$status['time_last_elapsed'] = microtime(true);
-		$status['last_elapsed'] = $status['elapsed'];
+        $status['time_last_elapsed'] = microtime(true);
+        $status['last_elapsed'] = $status['elapsed'];
         $updateUI = true;
     }
     //
@@ -321,7 +321,7 @@ do {
             $status['elapsed'] = "0";
             $status['song_percent'] = "0";
             $status['time_last_elapsed'] = microtime(true);
-			$status['last_elapsed'] = $status['elapsed'];
+            $status['last_elapsed'] = $status['elapsed'];
             $updateUI = true;
         }
     }
@@ -335,7 +335,7 @@ do {
         } else {
             // a valid preload or play event
             $status['time_last_elapsed'] = microtime(true);
-			$status['last_elapsed'] = $status['elapsed'];
+            $status['last_elapsed'] = $status['elapsed'];
             if (!isset($spotifyInfo['track_id'])) {
                 // its not in the cache, get the spotify info
                 $spotifyInfo[$job['track_id']] = wrk_getSpotifyMetadata($redis, $job['track_id']);
@@ -359,8 +359,8 @@ do {
                         $status['elapsed'] = "0";
                         $status['song_percent'] = "0";
                     }
-					$status['time_last_elapsed'] = $now;
-					$status['last_elapsed'] = $status['elapsed'];
+                    $status['time_last_elapsed'] = $now;
+                    $status['last_elapsed'] = $status['elapsed'];
                     $status['state'] = "play";
                     $status['currentartist'] = $spotifyInfo[$job['track_id']]['artist'];
                     $status['currentalbumartist'] = $spotifyInfo[$job['track_id']]['artist'];
@@ -432,8 +432,8 @@ do {
                     $status['elapsed'] = "0";
                     $status['song_percent'] = "0";
                 }
-				$status['time_last_elapsed'] = $now;
-				$status['last_elapsed'] = $status['elapsed'];
+                $status['time_last_elapsed'] = $now;
+                $status['last_elapsed'] = $status['elapsed'];
                 $status['state'] = "play";
                 // its a play event and we have all the available data
                 $status['currentartist'] = trim($spotifyInfo[$job['track_id']]['artist']);

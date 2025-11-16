@@ -126,10 +126,10 @@ $status['bigArtURL'] = $artUrl.'/black.png';
 $status['time_last_elapsed'] = microtime(true);
 $status['last_elapsed'] = $status['elapsed'];
 if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
-	// there is a local output and owntone is active
-	$status['local_volume_control'] = 1;
+    // there is a local output and owntone is active
+    $status['local_volume_control'] = 1;
 } else {
-	$status['local_volume_control'] = 0;
+    $status['local_volume_control'] = 0;
 }
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
@@ -331,9 +331,9 @@ while (true) {
                         echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc PICT' expected '$type $code'\n";
                     }
                 }
-				if ($redis->hGet('owntone', 'role') == 'client') {
-					$status['state'] = $redis->hGet('owntone', 'state');
-				}
+                if ($redis->hGet('owntone', 'role') == 'client') {
+                    $status['state'] = $redis->hGet('owntone', 'state');
+                }
                 switch ($tag) {
                     case 'ssnc pffr':
                         // unknown - 4 byte integer
@@ -611,18 +611,18 @@ while (true) {
                         break;
                     case 'ssnc flsr':
                         // flush request > pause (RTP Frame number) - base 64 string
-						// argument is current play position
+                        // argument is current play position
                         runelog('rune_SSM_wrk: Flush request: ', $buf);
-						if ($redis->hGet('owntone', 'role') == 'client') {
-							$status['state'] = 'pause';
-							$render = $status;
-							unset($render['elapsed'], $render['song_percent']);
-							$redis->set('act_player_info', json_encode($status));
-						}
-						if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
-							$status['last_elapsed'] = microtime(true);
-							$status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
-						}
+                        if ($redis->hGet('owntone', 'role') == 'client') {
+                            $status['state'] = 'pause';
+                            $render = $status;
+                            unset($render['elapsed'], $render['song_percent']);
+                            $redis->set('act_player_info', json_encode($status));
+                        }
+                        if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
+                            $status['last_elapsed'] = microtime(true);
+                            $status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
+                        }
                         break;
                     case 'ssnc pfls':
                         // play stream flush - format unknown
@@ -666,12 +666,12 @@ while (true) {
                         $status['song_lyrics'] = ' ';
                         $status['artist_bio_summary'] = ' ';
                         $status['artist_similar'] = ' ';
-						if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
-							// there is a local output and owntone is active
-							$status['local_volume_control'] = 1;
-						} else {
-							$status['local_volume_control'] = 0;
-						}
+                        if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+                            // there is a local output and owntone is active
+                            $status['local_volume_control'] = 1;
+                        } else {
+                            $status['local_volume_control'] = 0;
+                        }
                         if ($metadataIncludeCoverArt) {
                             $status['mainArtURL'] = $artUrl.'/airplay.png';
                             $status['smallArtURL'] = $artUrl.'/black.png';
@@ -770,7 +770,7 @@ while (true) {
                             $status['song_percent'] = min(100, round((100 * $status['elapsed']) / $status['time']));
                         }
                         $status['time_last_elapsed'] = microtime(true);
-						$status['last_elapsed'] = $status['elapsed'];
+                        $status['last_elapsed'] = $status['elapsed'];
                         // save and post the playback data to the UI
                         $redis->set('act_player_info', json_encode($status));
                         // only send the information when not receiving from owntone

@@ -382,8 +382,8 @@ do {
         // start of track elapsed & percentage played
         $status['elapsed'] = 0;
         $status['song_percent'] = 0;
-		$status['time_last_elapsed'] = microtime(true);
-		$status['last_elapsed'] = $status['elapsed'];
+        $status['time_last_elapsed'] = microtime(true);
+        $status['last_elapsed'] = $status['elapsed'];
         // information from spotify
         $status['currentartist'] = $spotifyInfo['artist'];
         $status['currentalbumartist'] = $spotifyInfo['artist'];
