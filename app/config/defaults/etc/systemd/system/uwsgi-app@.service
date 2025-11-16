@@ -13,7 +13,7 @@ Group = www-data
 RuntimeDirectory=uwsgi/%i
 #StateDirectory=uwsgi/%i
 RuntimeDirectoryMode=0775
-KillSignal=SIGQUIT
+#KillSignal=SIGQUIT
 #Type=notify
 Type=simple
 
