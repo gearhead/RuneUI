@@ -1813,16 +1813,28 @@ function hashCFG($redis, $action = 'check_mpd')
 
 function runelog($title, $data = null, $function_name = null)
 {
-// Connect to Redis backend
-    $store = new Redis();
-    $store->pconnect('/run/redis/socket');
-    $debug_level = $store->get('debug');
-    if (isset($function_name)) {
-        $function_name = '['.$function_name.'] ';
+    // Connect to Redis backend
+    // normally $redis is defined in the base calling script, make it available in the function by setting $redis to global
+    if (isset($GLOBALS['redis'])) {
+        // $redis is available, make it global and get the value
+        global $redis;
+        $debug_level = $redis->get('debug');
+        // don’t close redis! closing it will also close it in the calling script
     } else {
-        $function_name = '';
+        // $redis is not available globally, connect to Redis and get the value
+        $redis = new Redis();
+        // use pconnect, this will default to connect when multithreading is not available
+        $redis->pconnect('/run/redis/socket');
+        $debug_level = $redis->get('debug');
+        // don’t close redis, it will close automatically when the function exits
     }
+    //
     if ($debug_level !== '0') {
+        if (isset($function_name)) {
+            $function_name = '['.$function_name.'] ';
+        } else {
+            $function_name = '';
+        }
         if (is_array($data) || is_object($data)) {
             if (is_array($data)) error_log($function_name.'### '.$title.' ### $data type = array',0);
             if (is_object($data)) error_log($function_name.'### '.$title.' ### $data type = object',0);
@@ -1830,10 +1842,9 @@ function runelog($title, $data = null, $function_name = null)
                 error_log($function_name.'### '.$title.' ###  [\''.$key.'\'] => '.$value,0);
             }
         } else {
-            error_log($function_name.'### '.$title.' ###  '.$data,0);
+            error_log($function_name.'### '.$title.' ###  '.$data, 0);
         }
     }
-    $store->close();
 }
 
 function waitSyWrk($redis, $jobID)
