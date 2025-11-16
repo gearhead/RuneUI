@@ -174,7 +174,7 @@ if ($playerid_db != '') {
 }
 
 // check git branch
-$gitbranch = sysCmd('sudo -u wwww-data git --git-dir=/srv/http/.git -C /srv/http/ branch --show-current | xargs')[0];
+$gitbranch = sysCmd('sudo -u www-data git --git-dir=/srv/http/.git -C /srv/http/ branch --show-current | xargs')[0];
 if (isset($gitbranch) && $gitbranch) {
     runelog('GIT BRANCH: ', $gitbranch);
     $redis->hSet('git', 'branch', $gitbranch);
