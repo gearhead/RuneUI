@@ -678,7 +678,7 @@ if [ "$fstabok" == "0" ] ; then
     sed -i "\|/dev/mmcblk0p1|s| $oldp1mountpoint| $newp1mountpoint|" /etc/fstab
 fi
 if [ "$os" == "ARCH" ] ; then
-    rm -f /usr/local/sbin/apt
+    rm -f /usr/local/bin/apt
 fi
 #   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!

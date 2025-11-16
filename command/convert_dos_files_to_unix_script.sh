@@ -301,6 +301,6 @@ find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -perm 666 -exec chmod 
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user www-data -exec chown www-data:www-data {} \;
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -group www-data -exec chown www-data:www-data {} \;
 # customised apt command needs to be executable
-find /usr/local/sbin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 {} \;
+find /usr/local/bin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 {} \;
 #---
 #End script
