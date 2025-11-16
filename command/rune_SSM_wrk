@@ -67,7 +67,7 @@ function decode($str) {
 sysCmd('echo "--------------- start: rune_SSM_wrk ---------------" > /var/log/runeaudio/rune_SSM_wrk.log');
 runelog('WORKER rune_SSM_wrk START');
 // reset state
-$airplay_handle = FALSE;
+$airplay_handle = false;
 $mode = 'any';
 // get the album art directory and url dir
 $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
@@ -124,7 +124,13 @@ $status['mainArtURL'] = $artUrl.'/airplay.png';
 $status['smallArtURL'] = $artUrl.'/black.png';
 $status['bigArtURL'] = $artUrl.'/black.png';
 $status['time_last_elapsed'] = microtime(true);
-$status['local_volume_control'] = 0;
+$status['last_elapsed'] = $status['elapsed'];
+if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+	// there is a local output and owntone is active
+	$status['local_volume_control'] = 1;
+} else {
+	$status['local_volume_control'] = 0;
+}
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
 ui_render('playback', json_encode($status));
@@ -141,12 +147,18 @@ while (true) {
                 $airplay_handle = fopen($airplayMetadataPipeName, 'r');
                 if ($airplay_handle) {
                     runelog('rune_SSM_wrk: Airplay metadata file opened: ', $airplayMetadataPipeName);
-                    // set stream set blocking to true, fgets will now wait for data
+                    // set stream set blocking to true, fgets will now wait for data to complete
                     stream_set_blocking($airplay_handle, TRUE);
+                    // timeout after 10 seconds - that is a long time - but it should prevent this routine from locking up
+                    //  however it will only work when the stream is created correctly (see: https://www.php.net/manual/en/function.stream-set-timeout.php)
+                    stream_set_timeout($airplay_handle, 10);
+                    // possible alternatives
+                    // socket_set_option($airplay_handle, SOL_SOCKET, SO_RCVTIMEO, array('sec'=>10));
+                    // socket_set_option($airplay_handle, SOL_SOCKET, SO_SNDTIMEO, array('sec'=>10));
                     sleep(1);
                 } else {
                     runelog('rune_SSM_wrk: Airplay metadata file open failed: ', $airplayMetadataPipeName);
-                    $airplay_handle = FALSE;
+                    $airplay_handle = false;
                     sleep(2);
                     break;
                 }
@@ -154,24 +166,32 @@ while (true) {
                 runelog('rune_SSM_wrk: Airplay metadata file is already open: ', $airplayMetadataPipeName);
             }
             // read the metadata file
-            // fgets() will wait for data
+            // fgets() will return false when there is no data (this appears to be equivalent to an end of file marker),
+            //  in blocking mode when there is data it will wait until the data is complete terminated by an end of line marker (\n)
+            //  it seems that and end of file can also terminate a data record, there is no character representation of an end of file marker (no idea how this works??)
+            //  the data is returned including the end of line marker (or end of file)
             $airplay_meta_line = fgets($airplay_handle);
             if (!$airplay_meta_line) {
-                // there is an error
+                // there is an error of no data or end of file
                 // close the metadata file, wait, then loop
                 runelog('rune_SSM_wrk: Airplay metadata file read fail, closing the metadata file');
                 // maybe shairport-sync has crashed, close the metadata file
                 fclose($airplay_handle);
-                $airplay_handle = FALSE;
+                $airplay_handle = false;
                 sleep(2);
                 break;
             }
             // decode the metadata
             if ($mode == 'any') {
                 if (preg_match('#<item><type>(\w+)</type><code>(\w+)</code><length>(\d+)</length>#', $airplay_meta_line, $matches)) {
-                    $type = decode($matches[1]);
-                    $code = decode($matches[2]);
+                    if (strlen($airplay_meta_line) < 80) {
+                        sysCmd("echo -n '".str_replace(chr(0), '~', $airplay_meta_line)."' >> /home/airplay.metadata");
+                    // $type = decode($matches[1]);
+                    // $code = decode($matches[2]);
+                    $type = hex2bin($matches[1]);
+                    $code = hex2bin($matches[2]);
                     $buf = '';
+                    $data = '';
                     $length = $matches[3];
                 }
                 else if (preg_match('#<data encoding="base64">#', $airplay_meta_line)) {
@@ -179,12 +199,16 @@ while (true) {
                 }
             } else if ($mode == 'data') {
                 if (preg_match('#^(.*)</data>#', $airplay_meta_line, $matches)) {
+                    $buf = $data;
                     $buf .= $matches[1];
                     $buf = base64_decode($buf);
                     $mode = 'any';
+                    $data = '';
                 }
                 else {
-                    $data .= $airplay_meta_line;
+                    if (strlen(rtrim($airplay_meta_line, "\n\r"))) {
+                        $data .= rtrim($airplay_meta_line, "\n\r");
+                    }
                 }
             }
             if ($redis->get('volume') && !isset($status['volume'])) {
@@ -206,8 +230,12 @@ while (true) {
                     $status['song_percent'] = 0;
                     $status['state'] = 'stop';
                     $status['time_last_elapsed'] = $now;
+                    $status['last_elapsed'] = $status['elapsed'];
                     $redis->set('act_player_info', json_encode($status));
-                    ui_render('playback', json_encode($status));
+                    // only send the information when not receiving from owntone
+                    if ($redis->hGet('owntone', 'role') != 'client') {
+                        ui_render('playback', json_encode($status));
+                    }
                 } else {
                     // otherwise, make sure the countdown is running
                     $status['state'] = 'play';
@@ -220,97 +248,125 @@ while (true) {
                 $debugMetadata = true;
                 if ($debugMetadata) {
                     if (($type != 'core') && ($code === 'phbt')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core phbt' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core phbt' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'phb0')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core phb0' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core phb0' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ofps')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ofps' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core ofps' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ofmt')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ofmt' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core ofmt' expected '$type $code'\n";
                     } else if ((($type != 'core') && ($type != 'ssnc')) && ($code === 'styp')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core styp' and/or 'ssnc styp' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core styp' and/or 'ssnc styp' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'svna')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core svna' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core svna' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'ascp')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core ascp' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core ascp' expected '$type $code'\n";
                     } else if (($type != 'xesam') && ($code === 'composer')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'xesam composer' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'xesam composer' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdk')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdk' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asdk' expected '$type $code'\n";
                     } else if (($type != 'sps') && ($code === 'songdatakind')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'sps songdatakind' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'sps songdatakind' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'caps')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core caps' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core caps' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core astn' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astc')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astc' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core astc' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asdn' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asdc')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asdc' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asdc' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asar')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asar' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asar' expected '$type $code'\n";
                     } else if (($type != 'xesam') && ($code === 'albumArtist')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'xesam albumArtist' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'xesam albumArtist' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'astm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core astm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core astm' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asal')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asal' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asal' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'minm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core minm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core minm' expected '$type $code'\n";
                     } else if (($type != 'core') && ($code === 'asgn')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'core asgn' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'core asgn' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'stal')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc stal' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc stal' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'mdst')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc mdst' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc mdst' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'mden')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc mden' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc mden' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'prsm')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc prsm' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc prsm' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'clip')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc clip' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc clip' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'svip')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc svip' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc svip' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'snua')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc snua' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc snua' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'acre')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc acre' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc acre' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'daid')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc daid' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc daid' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'dapo')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc dapo' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc dapo' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pend')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pend' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pend' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'flsr')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc flsr' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc flsr' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pfls')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pfls' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pfls' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pbeg')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pbeg' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pbeg' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pcst')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pcst' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pcst' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pcen')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pcen' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pcen' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'snam')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc snam' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc snam' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'pvol')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc pvol' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc pvol' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'prgr')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc prgr' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc prgr' expected '$type $code'\n";
                     } else if (($type != 'ssnc') && ($code === 'PICT')) {
-                        echo "rune_SSM_wrk: Incorrect metadata decoding, 'ssnc PICT' should be '$type $code'\n";
+                        echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc PICT' expected '$type $code'\n";
                     }
                 }
+				if ($redis->hGet('owntone', 'role') == 'client') {
+					$status['state'] = $redis->hGet('owntone', 'state');
+				}
                 switch ($tag) {
                     case 'ssnc pffr':
+                        // unknown - 4 byte integer
+                    case 'core mikd':
+                        // item kind (2 for music) - 1 byte integer
+                    case 'core miid':
+                        // item id - 4 byte integer
+                    case 'core mcti':
+                        // the id of an item in its container - 4 byte integer
                     case 'core ascr':
-                        // unknown
+                        // unknown - unknown format
+                    case 'core asaa':
+                        // unknown, looks like album artist, maybe track artist - base 64 string
+                    case 'core asdm':
+                        // song, date modified - 4 byte integer
+                    case 'core aeMK':
+                        // unknown - 4 byte integer
+                    case 'core aeMk':
+                        // unknown - 1 byte integer
+                    case 'core asfm':
+                        // song format (e.g. 'wav') - base 64 string
+                    case 'core asbr':
+                        // song bitrate - 2 byte integer
+                    case 'core asdt':
+                        // song description (e.g. 'wav audio file') - base 64 string
+                    case 'core ased':
+                        // unknown - 1 byte integer
+                    case 'core asac':
+                        // unknown - 2 byte integer
                         runelog("rune_SSM_wrk: Unknown '".$type." ".$code."' ", $buf);
                         break;
                     case 'core phbt':
-                        // FramePosition
+                        // FramePosition - base 64 string
                         // FramePosition/FirstFramePosition metadata is generated only if the progress_interval in the metadata section
                         //  of the configuration file is non-zero. The progress interval can also be set by a new
                         //  SetFramePositionUpdateInterval method in the D-Bus interface.
@@ -322,7 +378,7 @@ while (true) {
                         runelog('rune_SSM_wrk: FramePosition: ', $buf);
                         break;
                     case 'core phb0':
-                        // FirstFramePosition
+                        // FirstFramePosition - base 64 string
                         // FramePosition/FirstFramePosition metadata is generated only if the progress_interval in the metadata section
                         //  of the configuration file is non-zero. The progress interval can also be set by a new
                         //  SetFramePositionUpdateInterval method in the D-Bus interface.
@@ -334,40 +390,40 @@ while (true) {
                         runelog('rune_SSM_wrk: FirstFramePosition: ', $buf);
                         break;
                     case 'core ofps':
-                        // OutputRate
+                        // OutputRate - probably base 64 string
                         $redis->hSet('airplay','Output_Rate', trim($buf));
                         runelog('rune_SSM_wrk: Airplay OutputRate: ', $buf);
                         break;
                     case 'core ofmt':
-                        // OutputFormat
+                        // OutputFormat - format unknown possibly the same as 'core asfm'
                         $redis->hSet('airplay','Output_Format', trim($buf));
                         runelog('rune_SSM_wrk: Airplay OutputFormat: ', $buf);
                         break;
                     case 'core styp':
                     case 'ssnc styp':
-                        // StreamType
+                        // StreamType (e.g. 'Realime' or 'Buffered') - base 64 string
                         $redis->hSet('airplay','Stream_Type', trim($buf));
                         runelog('rune_SSM_wrk: Airplay StreamType: ', $buf);
                         break;
                     case 'core svna':
-                        // ServiceName
+                        // ServiceName - probably base 64 string
                         $redis->hSet('airplay','ServiceName', trim($buf));
                         runelog('rune_SSM_wrk: Airplay ServiceName: ', $buf);
                         break;
                     case 'core mper':
-                        // persistent ID
+                        // persistent ID - 8 byte integer
                         $redis->hSet('airplay','persistent_ID', trim($buf));
                         runelog('rune_SSM_wrk: Airplay persistent ID: ', $buf);
                         break;
                     case 'core ascp':
                     case 'xesam composer':
-                        // composer
+                        // composer - base 64 string
                         $status['currentcomposer'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Airplay composer: ', $buf);
                         break;
                     case 'core asdk':
                     case 'sps songdatakind':
-                        // song data kind
+                        // song data kind - 1 byte integer
                         // derived from the asdk metadata token, to the metadata bundle presented in the D-Bus interface. If 0 it seems to
                         //  indicate an item of a specific duration such as an audio track; if 1 it seems to mean the stream is of unknown
                         //  duration, for example an internet radio stream.
@@ -381,34 +437,34 @@ while (true) {
                         runelog('rune_SSM_wrk: Airplay song data kind: ', $buf);
                         break;
                     case 'core caps':
-                        // ?caps?
+                        // ?caps? unknown - 1 byte integer
                         runelog('rune_SSM_wrk: Airplay ?caps?: ', $buf);
                         break;
                     case 'core astn':
-                        // song track number
+                        // song track number - 2 byte integer
                         runelog('rune_SSM_wrk: Airplay song track number: ', $buf);
                         break;
                     case 'core astc':
-                        // song track count
+                        // song track count - 2 byte integer
                         runelog('rune_SSM_wrk: Airplay song track count: ', $buf);
                         break;
                     case 'core asdn':
-                        // song track disk number
+                        // song track disk number - 2 byte integer
                         runelog('rune_SSM_wrk: Airplay song track disc number: ', $buf);
                         break;
                     case 'core asdc':
-                        // song track disk count
+                        // song track disk count - 2 byte integer
                         runelog('rune_SSM_wrk: Airplay song track disc count: ', $buf);
                         break;
                     case 'core asar':
                     case 'xesam albumArtist':
-                        // artist
+                        // artist - base 64 string
                         $status['currentalbumartist'] = empty($buf) ? 'Unknown' : trim($buf);
                         $status['currentartist'] = $status['currentalbumartist'];
                         runelog('rune_SSM_wrk: Currentartist: ', $status['currentartist']);
                         break;
                     case 'core astm':
-                        // song time in milliseconds - only use it if it is set to a positive value, also see 'ssnc prgr' progress
+                        // song time in milliseconds - only use it if it is set to a positive value, also see 'ssnc prgr' progress - 4 byte integer
                         $timeMiliseconds = intval($buf);
                         if ($timeMiliseconds > 0) {
                             $status['time'] = round($timeMiliseconds / 1000);
@@ -417,17 +473,17 @@ while (true) {
                         runelog('rune_SSM_wrk: Song time $buf: ', $buf);
                         break;
                     case 'core asal':
-                        // album
+                        // album - base 64 string
                         $status['currentalbum'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Currentalbum: ', $status['currentalbum']);
                         break;
                     case 'core minm':
-                        // song
+                        // song - base 64 string
                         $status['currentsong'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Currentsong: ', $status['currentsong']);
                         break;
                     case 'core asgn':
-                        // genre
+                        // genre - base 64 string
                         $status['genre'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Genre: ', $status['genre']);
                         break;
@@ -436,11 +492,11 @@ while (true) {
                         runelog('rune_SSM_wrk: Pipe stalled, no arguments - closing the metadata file');
                         // close the pipe, wait and loop
                         fclose($airplay_handle);
-                        $airplay_handle = FALSE;
+                        $airplay_handle = false;
                         sleep(2);
                         break;
                     case 'ssnc mdst':
-                        // metadata start
+                        // metadata start (RTP Frame number) - base 64 string
                         runelog('rune_SSM_wrk: Metadata start: ', $buf);
                         $status['song_lyrics'] = ' ';
                         $status['artist_bio_summary'] = ' ';
@@ -448,10 +504,13 @@ while (true) {
                         $render = $status;
                         unset($render['elapsed'], $render['song_percent']);
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($render));
+                        // only send the information when not receiving it from owntone
+                        if ($redis->hGet('owntone', 'role') != 'client') {
+                            ui_render('playback', json_encode($render));
+                        }
                         break;
                     case 'ssnc mden':
-                        // metadata end
+                        // metadata end (RTP Frame number matching that of metadata start 'ssnc mdst') - base 64 string
                         runelog('rune_SSM_wrk: Metadata end: ', $buf);
                         //
                         // now get the artist art and song information (also done after album art - see below)
@@ -486,7 +545,10 @@ while (true) {
                         $render = $status;
                         unset($render['elapsed'], $render['song_percent']);
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($render));
+                        // only send the information when not receiving from owntone
+                        if ($redis->hGet('owntone', 'role') != 'client') {
+                            ui_render('playback', json_encode($render));
+                        }
                         break;
                     case 'ssnc prsm':
                         // play stream resume, no arguments
@@ -495,35 +557,38 @@ while (true) {
                         $render = $status;
                         unset($render['elapsed'], $render['song_percent']);
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($render));
+                        // only send the information when not receiving from owntone
+                        if ($redis->hGet('owntone', 'role') != 'client') {
+                            ui_render('playback', json_encode($render));
+                        }
                         break;
                     case 'ssnc clip':
-                        // source IP number, can be ipv4 or ipv6
+                        // source IP number, can be ipv4 or ipv6 - probably base 64 string
                         $redis->hSet('airplay','source_ip_number', trim($buf));
                         runelog('rune_SSM_wrk: Source IP number: ', $buf);
                         break;
                     case 'ssnc svip':
-                        // server IP number
+                        // server IP number - probably base 64 string
                         $redis->hSet('airplay','server_ip_number', trim($buf));
                         runelog('rune_SSM_wrk: Server IP number: ', $buf);
                         break;
                     case 'ssnc snua':
-                        // user agent
+                        // user agent - format unknown
                         $redis->hSet('airplay','user_agent', trim($buf));
                         runelog('rune_SSM_wrk: User agent: ', $buf);
                         break;
                     case 'ssnc acre':
-                        // source Active-Remote token
+                        // source Active-Remote token - format unknown
                         $redis->hSet('airplay','source_active_remote_token', trim($buf));
                         runelog('rune_SSM_wrk: Source active-Remote token: ', $buf);
                         break;
                     case 'ssnc daid':
-                        // source DACP-ID
+                        // source DACP-ID - format unknown
                         $redis->hSet('airplay','dacp_id', trim($buf));
                         runelog('rune_SSM_wrk: Source DACP-ID: ', $buf);
                         break;
                     case 'ssnc dapo':
-                        // source remote control port number
+                        // source remote control port number - base 64 string
                         $redis->hSet('airplay','source_remote_control_port_number', trim($buf));
                         runelog('rune_SSM_wrk: Source remote control port number: ', $buf);
                         break;
@@ -533,7 +598,7 @@ while (true) {
                         // Set up the UI for switching
                         // close the pipe, wait and exit
                         fclose($airplay_handle);
-                        $airplay_handle = FALSE;
+                        $airplay_handle = false;
                         $status['currentalbumartist'] = "Airplay";
                         $status['currentartist'] = "Airplay";
                         $status['currentalbum'] = "-----";
@@ -545,11 +610,22 @@ while (true) {
                         ui_render('playback', json_encode($render));
                         break;
                     case 'ssnc flsr':
-                        // flush request > pause
+                        // flush request > pause (RTP Frame number) - base 64 string
+						// argument is current play position
                         runelog('rune_SSM_wrk: Flush request: ', $buf);
+						if ($redis->hGet('owntone', 'role') == 'client') {
+							$status['state'] = 'pause';
+							$render = $status;
+							unset($render['elapsed'], $render['song_percent']);
+							$redis->set('act_player_info', json_encode($status));
+						}
+						if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
+							$status['last_elapsed'] = microtime(true);
+							$status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
+						}
                         break;
                     case 'ssnc pfls':
-                        // play stream flush, no arguments
+                        // play stream flush - format unknown
                         runelog('rune_SSM_wrk: Play stream flush, no arguments');
                         //break;
                     case 'ssnc pbeg':
@@ -590,7 +666,12 @@ while (true) {
                         $status['song_lyrics'] = ' ';
                         $status['artist_bio_summary'] = ' ';
                         $status['artist_similar'] = ' ';
-                        $status['local_volume_control'] = 0;
+						if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+							// there is a local output and owntone is active
+							$status['local_volume_control'] = 1;
+						} else {
+							$status['local_volume_control'] = 0;
+						}
                         if ($metadataIncludeCoverArt) {
                             $status['mainArtURL'] = $artUrl.'/airplay.png';
                             $status['smallArtURL'] = $artUrl.'/black.png';
@@ -603,11 +684,11 @@ while (true) {
                         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
                         break;
                     case 'ssnc pcst':
-                        // start picture send, no arguments
+                        // start picture send (RTP Frame number) - base 64 string
                         runelog('rune_SSM_wrk: Start picture send, no arguments');
                         break;
                     case 'ssnc pcen':
-                        // end picture send, no arguments
+                        // end picture send (RTP Frame number marchin that of start picture send 'ssnc pcst') - base 64 string
                         runelog('rune_SSM_wrk: End picture send, no arguments');
                         // post the playback data to the UI
                         // $render = $status;
@@ -617,12 +698,12 @@ while (true) {
                         // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
                         break;
                     case 'ssnc snam':
-                        // name of user sending device
+                        // name of user sending device - probably base 64 string
                         $redis->hSet('airplay','device_name', trim($buf));
                         runelog('rune_SSM_wrk: Name of user sending device: ', $buf);
                         break;
                     case 'ssnc pvol':
-                        // volume
+                        // volume - base 64 string
                         // The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume",
                         // where "volume", "lowest_volume" and "highest_volume" are given in dB.
                         // The "airplay_volume" is what's sent by the source (e.g. iTunes) to the player,
@@ -633,7 +714,13 @@ while (true) {
                         $render = $status;
                         unset($render['elapsed'], $render['song_percent']);
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($render));
+                        // only send the information when not receiving from owntone
+                        if ($redis->hGet('owntone', 'role') != 'client') {
+                            ui_render('playback', json_encode($render));
+                        } else {
+                            // its an owntone client, just send the volume level
+                            ui_render('playback', json_encode(array('volume' -> $status['volume'])));
+                        }
                         // 'mpc volume' returns the correct volume as long as MPD is running (which it should be)
                         // if ($redis->get('volume')) {
                             // $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep volume: | xargs')[0]);
@@ -652,7 +739,7 @@ while (true) {
                         runelog('rune_SSM_wrk: Volume    : ', $status['volume']);
                         break;
                     case 'ssnc prgr':
-                        // progress
+                        // progress- base 64 string
                         // This is metadata from AirPlay consisting of RTP timestamps for the start of the current play sequence,
                         // the current play point and the end of the play sequence. The timestamps probabably wrap at 2^32.
                         $progress = explode('/', $buf);
@@ -683,9 +770,13 @@ while (true) {
                             $status['song_percent'] = min(100, round((100 * $status['elapsed']) / $status['time']));
                         }
                         $status['time_last_elapsed'] = microtime(true);
+						$status['last_elapsed'] = $status['elapsed'];
                         // save and post the playback data to the UI
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render('playback', json_encode($status));
+                        // only send the information when not receiving from owntone
+                        if ($redis->hGet('owntone', 'role') != 'client') {
+                            ui_render('playback', json_encode($status));
+                        }
                         // debug
                         // var_dump($progress);
                         // echo "status['time'] ".$status['time']."\n";
@@ -698,7 +789,7 @@ while (true) {
                         runelog('rune_SSM_wrk: State   : ', $status['state']);
                         break;
                     case 'ssnc PICT':
-                        // artwork
+                        // artwork - base 64 string
                         // skip this section if cover art is not set
                         if ($metadataIncludeCoverArt) {
                             $bufLen = strlen($buf);
@@ -728,8 +819,10 @@ while (true) {
                                 // create a new image file
                                 // the order of information supply (metadata > image or image > metadata) seems to be
                                 //  random and some images are sent more than once!
-                                //  therefore you never know which image belongs to which song, no way to optimise this
-                                //  just use a single file name which has a ?<identifier> tag to force a browser reload
+                                //  therefore its difficult to determine which image belongs to which song
+                                //      it can be optimised - the progress ('ssnc prgr') 'begin track timestamp' and 'end track timestamp' define limits
+                                //          when start/end metadata or start/end picture send timestamps fall between these limits its for the same song
+                                //  we cheat and just use a single file name which has an ?<identifier> tag to always force a browser reload
                                 $random = mt_rand();
                                 $formattedArtName = 'Airplay_Image';
                                 $artFileName = $artDir.'/'.$formattedArtName.'.'.$imgtype;
@@ -755,46 +848,53 @@ while (true) {
                             $render = $status;
                             unset($render['elapsed'], $render['song_percent']);
                             $redis->set('act_player_info', json_encode($status));
-                            ui_render('playback', json_encode($render));
+                            // only send the information when not receiving from owntone
+                            if ($redis->hGet('owntone', 'role') != 'client') {
+                                ui_render('playback', json_encode($render));
+                            }
                             // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                             //
                             // now get the artist art and song information (also done after metadata end - see above)
-                            $info = array();
-                            $info['artist'] = $status['currentartist'];
-                            $info['albumartist'] = $status['currentalbumartist'];
-                            $info['song'] = $status['currentsong'];
-                            $retval = get_artistInfo($redis, $info);
-                            if ($retval) {
-                                $info = array_merge($info, $retval);
+                            // only process this section when not receiving from owntone
+                            if ($redis->hGet('owntone', 'role') != 'client') {
+                                $info = array();
+                                $info['artist'] = $status['currentartist'];
+                                $info['albumartist'] = $status['currentalbumartist'];
+                                $info['song'] = $status['currentsong'];
+                                $retval = get_artistInfo($redis, $info);
+                                if ($retval) {
+                                    $info = array_merge($info, $retval);
+                                }
+                                $retval = get_songInfo($redis, $info);
+                                if ($retval) {
+                                    $info = array_merge($status, $retval);
+                                }
+                                $status['song_lyrics'] = $info['song_lyrics'];
+                                $status['artist_bio_summary'] = $info['artist_bio_summary'];
+                                $status['artist_similar'] = $info['artist_similar'];
+                                if ($albumBig) {
+                                    $status['smallArtURL'] = $info['artist_arturl'];
+                                } else {
+                                    $status['bigArtURL'] = $info['artist_arturl'];
+                                }
+                                if (strpos(' '.$status['smallArtURL'], '/none.png')) {
+                                    $status['smallArtURL'] = $status['mainArtURL'];
+                                }
+                                if (strpos(' '.$status['smallArtURL'], '/none.png')) {
+                                    $status['smallArtURL'] = $status['mainArtURL'];
+                                }
+                                $render = $status;
+                                unset($render['elapsed'], $render['song_percent']);
+                                $redis->set('act_player_info', json_encode($status));
+                                ui_render('playback', json_encode($render));
                             }
-                            $retval = get_songInfo($redis, $info);
-                            if ($retval) {
-                                $info = array_merge($status, $retval);
-                            }
-                            $status['song_lyrics'] = $info['song_lyrics'];
-                            $status['artist_bio_summary'] = $info['artist_bio_summary'];
-                            $status['artist_similar'] = $info['artist_similar'];
-                            if ($albumBig) {
-                                $status['smallArtURL'] = $info['artist_arturl'];
-                            } else {
-                                $status['bigArtURL'] = $info['artist_arturl'];
-                            }
-                            if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                                $status['smallArtURL'] = $status['mainArtURL'];
-                            }
-                            if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                                $status['smallArtURL'] = $status['mainArtURL'];
-                            }
-                            $render = $status;
-                            unset($render['elapsed'], $render['song_percent']);
-                            $redis->set('act_player_info', json_encode($status));
-                            ui_render('playback', json_encode($render));
                             // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                             // clean up the metadata, async and at low priority
                             sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
                             //$status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
                             //$status['time_last_elapsed'] = microtime(true);
+                            //$status['last_elapsed'] = $status['elapsed'];
                             //$status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
                             //$redis->set('act_player_info', json_encode($status));
                             //sleep(2);
@@ -813,7 +913,7 @@ while (true) {
                 $type = '';
                 $code = '';
             }
-        } while (($redis->get('activePlayer') === 'Airplay') && ($airplay_handle != FALSE));
+        } while (($redis->get('activePlayer') === 'Airplay') && ($airplay_handle != false));
         sleep(1);
     }
 // --- WORKER MAIN LOOP --- //

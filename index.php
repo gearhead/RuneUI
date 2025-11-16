@@ -75,8 +75,15 @@ $template->activePlayer = $activePlayer;
 // owntone menu visible
 if ($redis->hGet('owntone', 'active') && ($redis->hGet('owntone', 'role') == 'server')) {
     $template->owntoneMenu = 1;
+	$template->owntoneMenuTab = 0;
 } else {
     $template->owntoneMenu = 0;
+	$template->owntoneServer = $redis->hGet('owntone', 'server');
+	if ($template->owntoneServer && ($redis->hGet('owntone', 'role') == 'client')) {
+		$template->owntoneMenuTab = 1;
+	} else {
+		$template->owntoneMenuTab = 0;
+	}
 }
 // allowed controllers
 $controllers = array(

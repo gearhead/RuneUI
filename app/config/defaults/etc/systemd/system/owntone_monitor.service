@@ -1,5 +1,5 @@
 [Unit]
-Description=Owntone monitor to detect changed local outputs and network clients
+Description=Owntone monitor to detect changed local outputs and network clients. And to provide metatdata to clients.
 After=owntone.service
 
 [Service]

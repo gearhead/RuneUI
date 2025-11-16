@@ -1032,14 +1032,20 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
         case 'MRowntoneactive':
             // Multi-room activate/deactivate
             // params: 1 (activate) or 0, null (deactivate)
-            // returns: 1 (activated) or 0 (deactivated)
+            // returns (echo to the UI): 1 (activated) or 0 (deactivated)
             $params = $_GET['params'];
             if (isset($params) && $params) {
-                wrk_owntone($redis, 'activate');
+				$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntoneactive', 'args' => array('active' => true)));
+                // wrk_owntone($redis, 'activate');
             } else {
-                wrk_owntone($redis, 'deactivate');
+				$jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntoneactive', 'args' => array('active' => false)));
+                // wrk_owntone($redis, 'deactivate');
             }
+			if (isset($jobID)) {
+				waitSyWrk($redis, $jobID);
+			}
             echo $redis->hGet('owntone', 'active');
+			unset($params, $jobID);
             break;
     }
 } else {

@@ -1748,7 +1748,7 @@ function netMounts($redis, $action, $data = null)
 function recursiveDelete($str)
 {
     // clear the cache otherwise is_file() and is_dir() return incorrect values
-    clearstatcache($str);
+    clearstatcache(true, $str);
     if(is_file($str)) {
         return @unlink($str);
         // TODO: add search path in playlist and remove from playlist
@@ -5079,17 +5079,17 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         sysCmd('mpc enable only null owntone');
                         wrk_owntone($redis, 'switchao');
                         // change the output for Airplay and Spotify Connect
-                        wrk_shairport($redis, $args);
-                        wrk_spotifyd($redis, $args);
                         $ownttoneSwitched = true;
+						wrk_shairport($redis);
+						wrk_spotifyd($redis);
                     }
                 } else {
                     // disable all except null
                     sysCmd('mpc enable only null');
                     if ($owntoneOutputSelected) {
-                        wrk_shairport($redis, $args);
-                        wrk_spotifyd($redis, $args);
                         $ownttoneSwitched = true;
+						wrk_shairport($redis);
+						wrk_spotifyd($redis);
                     }
                     // // check that MPD only has one output enabled and if not correct it
                     // sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
@@ -5550,7 +5550,7 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
     $spotifyd_conf .= "# RuneAudio auto generated spotifyd.conf file, do not edit\n";
     $spotifyd_conf .= "# Configuration File for Spotifyd\n";
     $spotifyd_conf .= "# A spotify playing daemon - Spotify Connect Receiver\n";
-    $spotifyd_conf .= '# See: https://spotifyd.github.io/spotifyd/config/File.html'."\n";
+    $spotifyd_conf .= '# See: https://github.com/Spotifyd/spotifyd/blob/master/contrib/spotifyd.conf'."\n";
     $spotifyd_conf .= '# Also see: /srv/http/app/config/defaults/spotifyd.conf'."\n";
     $spotifyd_conf .= "############################################################\n";
     $spotifyd_conf .= "#\n";
@@ -5568,8 +5568,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
             case "device_type":
             case "mixer":
             case "onevent":
-            case "password":
-            case "username":
+			// username and password are no longer used
+            // case "password":
+            // case "username":
                 if ($value) {
                     $spotifyd_conf .= $param." = ".'"'.$value.'"'."\n";
                 }
@@ -5589,7 +5590,13 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
                 // }
                 // use the last MPD volume, it gets set when spotifyd starts, not when the stream starts
                 $spotifyd_conf .= "# initial_volume gets used when spotifyd starts, not when the stream starts\n";
-                $spotifyd_conf .= "initial_volume = ".'"'.$redis->get('lastmpdvolume').'"'."\n";
+				if ($redis->hGet('owntone', 'active')) {
+					// owntone is active, output volume is 100%
+					$spotifyd_conf .= "initial_volume = 100\n";
+				} else {
+					// use mpd volume
+					$spotifyd_conf .= "initial_volume = ".$redis->get('lastmpdvolume')."\n";
+				}
                 break;
             case "volume_control":
                 $spotifyd_conf .= "volume-control = ".'"'.$value.'"'."\n";
@@ -5610,8 +5617,9 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
                 break;
             case "cache_path":
                 if ($value != '') {
-                    $spotifyd_conf .= "# Disable the cache, it uses too much memory\n";
+                    $spotifyd_conf .= "# Disable the audio cache, it uses too much memory, but specify a directory for credentials\n";
                     $spotifyd_conf .= "# ".$param." = ".'"'.$value.'"'."\n";
+					$spotifyd_conf .= "# no_audio_cache = true\n";
                     if (isset($sccfg['max_cache_size']) && $sccfg['max_cache_size']) {
                         $spotifyd_conf .= "# Maximum cache size, defined in bytes\n";
                         $spotifyd_conf .= "# max_cache_size = ".'"'.$sccfg['max_cache_size'].'"'."\n";
@@ -5746,29 +5754,30 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
     //
     $acard = json_decode($redis->hGet('acards', $ao), true);
     if (!isset($acard) || !is_array($acard) || !isset($acard['sysname'])) {
+		// no output devices
+		$redis->hSet('airplay', 'ao', '');
+		$redis->hSet('airplay', 'alsa_mixer_control', '');
+		$redis->hSet('airplay', 'alsa_mixer_device', '');
+		$redis->hSet('airplay', 'alsa_output_device', '');
+		$acard['sysname'] = '';
+		$acard['type'] = '';
+		$acard['device'] = '';
+		$acard['swdevice'] = '';
         // for owntone the output device is different, we leave the mixer pointing to the real output device
         if ($redis->hGet('owntone', 'active')) {
-            $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
-            $acard['device'] = $redis->hGet('owntone', 'device_ap');
-            $acard['extlabel'] = 'Owntone';
-            $acard['sysname'] = 'owntone';
-            $acard['type'] = 'alsa';
-            $acard['description'] = 'Owntone';
+			$redis->hSet('airplay', 'output_backend', 'pipe');
         } else {
-            // no output devices
-            $redis->hSet('airplay', 'ao', '');
-            $redis->hSet('airplay', 'alsa_mixer_control', '');
-            $redis->hSet('airplay', 'alsa_mixer_device', '');
-            $redis->hSet('airplay', 'alsa_output_device', '');
-            // stop shairport-sync
+			// stop shairport-sync
             wrk_systemd_unit($redis, 'stop', 'shairport-sync');
             return 0;
         }
     } else {
         // for owntone the output device is different, we leave the mixer pointing to the real output device
         if ($redis->hGet('owntone', 'active')) {
-            $acard['swdevice'] = $redis->hGet('owntone', 'device_ap');
-        }
+            $redis->hSet('airplay', 'output_backend', 'pipe');
+        } else {
+			$redis->hSet('airplay', 'output_backend', 'alsa');
+		}
     }
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
@@ -6841,21 +6850,22 @@ function wrk_startPlayer($redis, $newPlayer)
     } elseif (($activePlayer === 'Airplay') && ($newPlayer != 'Airplay')) {
         // stop the Airplay metadata worker
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
-        // if ($newPlayer === 'SpotifyConnect') {
-            // this will disconnect an exiting Airplay stream
-            // do it only when connecting to another stream
-            wrk_systemd_unit($redis, 'restart', 'shairport-sync');
-        // }
+		// stop shairport-sync to drop any AirPlay connections
+		wrk_systemd_unit($redis, 'stop', 'shairport-sync');
+		if ($redis->hGet('owntone', 'client')) {
+			// currnetly working as an owntone client
+			//	restart shairport-sync asyncronously afer a delay (5 seconds), this ensures that owntone recognises that it has lost a connection
+			sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php', 5);
+		} else {
+			// Apple devices detect an AirPLay disconnect directly, shairport-sync can be restarted immediately
+			wrk_systemd_unit($redis, 'start', 'shairport-sync');
+		}
     } elseif (($activePlayer === 'SpotifyConnect') && ($newPlayer != 'SpotifyConnect')) {
         // stop SpotifyConnect worker for SpotifyConnect
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
         // set the new player
         $redis->set('activePlayer', $newPlayer);
-        // if ($newPlayer === 'Airplay') {
-            // this will disconnect an exiting SpotifyConnect stream
-            // do it only when connecting to another stream
-            wrk_systemd_unit($redis, 'restart', 'spotifyd');
-        // }
+		wrk_systemd_unit($redis, 'restart', 'spotifyd');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
         sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
         if (($newPlayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'pause')) {
@@ -7643,6 +7653,8 @@ function ui_status($redis, $mpd, $status)
         $status['playlist'] = rand(-100, -1);
         //  elapsed and song_pecent are zero
         $status['elapsed'] = 0;
+		$status['time_last_elapsed'] = microtime(true);
+		$status['last_elapsed'] = $status['elapsed'];
         $status['song_percent'] = 0;
         //  set up the song, nextsong, songid and nextsongid, however nextsong and nextsongid could be incorrect but this will be
         //      corrected when something is played
@@ -7779,18 +7791,24 @@ function ui_status($redis, $mpd, $status)
         if (!isset($lastRadioDetails['file'])) {
             // no last radio information, its a new radio
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
         } else if ($status['file'] != $lastRadioDetails['file']) {
             // its a different radio station
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
         } else if ($status['state'] == 'stop') {
             // its stopped
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
@@ -7808,6 +7826,8 @@ function ui_status($redis, $mpd, $status)
                 }
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             }
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = $now;
         } else if ($status['state'] == 'pause') {
@@ -7823,6 +7843,8 @@ function ui_status($redis, $mpd, $status)
                 }
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));;
             }
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $pauseTimeStamp = $now;
             $elapsedTimeStamp = $now;
         }
@@ -7852,18 +7874,24 @@ function ui_status($redis, $mpd, $status)
         if (!isset($lastAlsaDetails['file'])) {
             // no last radio information, its a new radio
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
         } else if ($status['file'] != $lastAlsaDetails['file']) {
             // its a different radio station
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
         } else if ($status['state'] == 'stop') {
             // its stopped
             $status['elapsed'] = 0;
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $status['song_percent'] = 0;
             $pauseTimeStamp = 0;
             $elapsedTimeStamp = 0;
@@ -7879,6 +7907,8 @@ function ui_status($redis, $mpd, $status)
                     // it had paused, update the elapsed time
                     $status['elapsed'] = round($status['elapsed'] - ($now - $lastAlsaDetails['paused_time']));
                 }
+				$status['time_last_elapsed'] = $now;
+				$status['last_elapsed'] = $status['elapsed'];
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             }
             $pauseTimeStamp = 0;
@@ -7896,6 +7926,8 @@ function ui_status($redis, $mpd, $status)
                 }
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));;
             }
+			$status['time_last_elapsed'] = $now;
+			$status['last_elapsed'] = $status['elapsed'];
             $pauseTimeStamp = $now;
             $elapsedTimeStamp = $now;
         }
@@ -8164,6 +8196,9 @@ function ui_render($channel, $data)
 {
     curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
+    // if ($redis->hget('owntone', 'active')) {
+        // $redis->$redis->lPush('owntone_render', $data);
+    // }
 }
 
 function ui_timezone() {
@@ -8356,6 +8391,8 @@ function ui_update($redis, $sock = null, $clientUUID = null)
                 } else {
                     $status['elapsed'] = round(microtime(true) - $status['time_last_elapsed']);
                 }
+				$status['time_last_elapsed'] = microtime(true);
+				$status['last_elapsed'] = $status['elapsed'];
                 $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
             } else {
                 unset($status['song_percent'], $status['elapsed']);
@@ -11347,12 +11384,33 @@ function get_songInfo($redis, $info = array())
         $searchSongs[] = $song;
     }
     // search for an existing cached file
+	//	when this player is working as an owntone client we can also get a copy of the file from the owntone server when
+	//	no local copy of the cached file exists (there will always be a valid file on the owntone server)
+	if (($redis->hGet('owntone', 'role') == 'client') && ($redis->get('activePlayer') == 'Airplay')) {
+		// this is an owntone client, get the server id (contains the IP address or sometimes the url)
+		$owntoneServer = $redis->hGet('owntone', 'server');
+	} else {
+		$owntoneServer = '';
+	}
     foreach ($searchArtists as $searchArtist) {
         foreach ($searchSongs as $searchSong) {
             $songFilename = format_artist_song_file_name($searchArtist, $searchSong);
             $fileName = $artDir.'/'.$songFilename.'.song';
             clearstatcache(true, $fileName);
-            if (file_exists($fileName)) {
+			$fileExists = file_exists($fileName);
+			if (!$fileExists && $owntoneServer) {
+				// no local file found and owntone is active as client, use wget spider to determine if th file exists on the owntone server
+				$fileNameRemote = 'http://'.$owntoneServer.get_between_data($fileName, 'srv/http');
+				$notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
+				if (!$notFound) {
+					// file found on the owntone server, copy it to the local file name
+					sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
+					// just to be sure, recheck that the file exists
+					clearstatcache(true, $fileName);
+					$fileExists = file_exists($fileName);
+				}
+			}
+            if ($fileExists) {
                 // found a cached file, update its timestamp, use it and return
                 $infoCache = json_decode(trim(file_get_contents($fileName)), true);
                 if ($songFilename === $infoCache['song_filename']) {
@@ -11819,11 +11877,32 @@ function get_artistInfo($redis, $info = array())
         }
     }
     // search for an existing cached file
+	//	when this player is working as an owntone client we can also get a copy of the file from the owntone server when
+	//	no local copy of the cached file exists (there will always be a valid file on the owntone server)
+	if (($redis->hGet('owntone', 'role') == 'client') && ($redis->get('activePlayer') == 'Airplay')) {
+		// this is an owntone client, get the server id (contains the IP address or sometimes the url)
+		$owntoneServer = $redis->hGet('owntone', 'server');
+	} else {
+		$owntoneServer = '';
+	}
     foreach ($searchArtists as $searchArtist) {
         $artistFilename = format_artist_file_name($searchArtist);
         $fileName = $artDir.'/'.$artistFilename.'.artist';
         clearstatcache(true, $fileName);
-        if (file_exists($fileName)) {
+		$fileExists = file_exists($fileName);
+		if (!$fileExists && $owntoneServer) {
+			// no local file found and owntone is active ac client, use wget spider to determine if th file exists on the owntone server
+			$fileNameRemote = 'http://'.$owntoneServer.get_between_data($fileName, 'srv/http');
+			$notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
+			if (!$notFound) {
+				// file found on the owntone server, copy it to the local file name
+				sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
+				// just to be sure, recheck that the file exists
+				clearstatcache(true, $fileName);
+				$fileExists = file_exists($fileName);
+			}
+		}
+        if ($fileExists) {
             // found a cached file, update its timestamp, use it and return
             $infoCache = json_decode(trim(file_get_contents($fileName)), true);
             if ($fileName == $artDir.'/'.$infoCache['artist_filename'].'.artist') {
@@ -12332,6 +12411,8 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['currentsong'] = '';
     $status['duration'] = '0';
     $status['elapsed'] = '0';
+	$status['time_last_elapsed'] = microtime(true);
+	$status['last_elapsed'] = $status['elapsed'];
     $status['file'] = '';
     $status['fileext'] = '';
     if ($playerTypeLower === 'mpd') {
@@ -15812,13 +15893,13 @@ function wrk_systemd_unit($redis, $action, $arg='', $async='', $delay='')
         case 'daemon-reload':
             $cmd = '( systemctl daemon-reload'.$allToNull.'&& echo 1 ) | xargs';
             break;
-         case 'daemon-reload_and_restart':
+        case 'daemon-reload_and_restart':
             $cmd = '( systemctl daemon-reload ; systemctl restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
-         case 'daemon-reload_and_start':
+        case 'daemon-reload_and_start':
             $cmd = '( systemctl daemon-reload ; systemctl reload-or-restart '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
-       case 'disable':
+        case 'disable':
             $cmd = '( systemctl disable '.$arg.$allToNull.'&& echo 1 ) | xargs';
             break;
         case 'disable_and_stop':
@@ -16093,6 +16174,25 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $redis->hSet('owntone', 'saved_airplay_format', $airplayFormat);
                     }
                 }
+                // save the current airplay pipe output and set the airplay pipe output to that of owntone
+                $airplaySavedPipeName = $redis->hGet('owntone', 'saved_airplay_pipe_name');
+                $airplayPipeName = $redis->hGet('airplay', 'pipe_pipe_name');
+                $owntonePipeName = $redis->hGet('owntone', 'pipe_ap');
+                if ($owntonePipeName != $airplayPipeName) {
+                    $redis->hSet('airplay', 'pipe_pipe_name', $owntonePipeName);
+                    if (!$airplaySavedPipeName) {
+                        $redis->hSet('owntone', 'saved_airplay_pipe_name', $airplayPipeName);
+                    }
+                }
+                // save the current spotify connect volume control and set the current spotify connect volume control to 'none'
+                $spotifyconnectSavedVolumeControl = $redis->hGet('owntone', 'saved_spotifyconnect_volume_control');
+                $spotifyconnectVolumeControl = $redis->hGet('spotifyconnect', 'volume_control');
+                if ($spotifyconnectVolumeControl != $spotifyconnectVolumeControl) {
+                    $redis->hSet('spotifyconnect', 'volume_control', 'none');
+                    if (!$spotifyconnectSavedVolumeControl) {
+                        $redis->hSet('owntone', 'saved_spotifyconnect_volume_control', $spotifyconnectVolumeControl);
+                    }
+                }
                 $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
                     $owntoneSelected = sysCmd("mpc outputs | grep -i '(owntone)' | grep -ic enabled | xargs")[0];
@@ -16196,6 +16296,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $airplayFormat = $redis->hGet('airplay', 'alsa_output_format');
             if ($airplaySavedFormat && ($airplaySavedFormat != $airplayFormat)) {
                 $redis->hSet('airplay', 'alsa_output_format', $airplaySavedFormat);
+            }
+            // set the airplay pipe name to its original value
+            $airplaySavedPipeName = $redis->hGet('owntone', 'saved_airplay_pipe_name');
+            $airplayPipeName = $redis->hGet('airplay', 'pipe_pipe_name');
+            if ($airplaySavedPipeName && ($airplaySavedPipeName != $airplayFormat)) {
+                $redis->hSet('airplay', 'pipe_pipe_name', $airplaySavedPipeName);
+            }
+            // set the spotify connect volume control to its original value
+            $spotifyconnectSavedVolumeControl = $redis->hGet('owntone', 'saved_spotifyconnect_volume_control');
+            $spotifyconnectVolumeControl = $redis->hGet('spotifyconnect', 'volume_control');
+            if ($spotifyconnectSavedVolumeControl && ($spotifyconnectSavedVolumeControl != $spotifyconnectVolumeControl)) {
+                $redis->hSet('spotifyconnect', 'volume_control', $spotifyconnectSavedVolumeControl);
             }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
@@ -16556,9 +16668,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // role and the server name are known, the owntone job is running and the role is server
                 //
                 // get the server configuration
-                $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/config"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/config"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/config"');
                 }
                 if ($retval && is_array($retval)) {
                     $retval = $retval[0];
@@ -17457,24 +17569,25 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
 //          array('type' => '<type_value>', 'code' => '<code_value>', 'payload' => 'the_payload_data');
 //      The $args type, code and payload are compulsory.
 //  $action = 'picture'
-//      $args is an array containing type, code, url and filename:
+//      $args is an array containing type, code, url and optional filename:
 //          array('type' => '<type_value>', 'code' => '<code_value>', 'url' => 'url_of_the_jpeg_image_file', 'filename' => 'full_path_and_filename_of_the_jpeg_image_file');
 //      It is possible that the filename is not filled. Then the url must be used to retrieve the file. The file must then be
 //          converted to an appropriate size (height and width) in jpeg format.
 //      The url is not required when the filename is given.
-//      For pictures we avoid readin the payload into php, as the file size is unkown ancould be very large.
+//      For pictures we avoid reading the payload into php, as the file size is unknown and could be very large.
 //          The file and payload manipulation is done in bash
 //
 {
     if (!is_array($args)) {
         return false;
-    } else if (!isset($args['type']) || !isset($args['code']) || !$args['type'] || $args['code']) {
+    } else if (!isset($args['type']) || !isset($args['code']) || !$args['type'] || !$args['code']) {
         return false;
     } else if (!isset($action) || !$action) {
         return false;
     }
     $activePlayer = $redis->get('activePlayer');
     if ($activePlayer == 'MPD') {
+		// $file = '/home/metadata';
         $file = $redis->hGet('owntone', 'pipe_mpd').'.metadata';
     } else if ($activePlayer == 'Airplay') {
         $file = $redis->hGet('owntone', 'pipe_ap').'.metadata';
@@ -17501,7 +17614,6 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
             if (!isset($args['payload']) || !$args['payload']) {
                 return false;
             }
-            $payloadEncoded = base64_encode($args['payload']);
             $output =
                         // first line
                         '<item><type>'.
@@ -17509,12 +17621,12 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                         '</type><code>'.
                         bin2hex($args['code']).
                         '</code><length>'.
-                        strlen($payloadEncoded).
+                        strlen($args['payload']).
                         '</length>'."\n".
                         // second line
                         '<data encoding="base64">'."\n".
                         // third line
-                        $payloadEncoded.
+                        base64_encode($args['payload']).
                         '</data></item>'."\n";
             file_put_contents($file, $output, FILE_APPEND);
             break;
@@ -17525,39 +17637,57 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                     return false;
                 }
             }
-            $filePayload = '/tmp/owntone_image.base64';
-            if (!isset($args['filename']) || !$args['filename']) {
-                // get the file with the program wget, pipe it to the program imagemagik convert,
-                //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
-                //  use '-interlace Plane' and '-quality 80' to reduce the file size, pipe the output as jpg to the program base64
-                //  and store the output of base64 as the payload file
-                sysCmd('wget -q -o- '.$args['url'].' | convert - -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 jpg:- | base64 -e - > "'.$filePayload.'"');
-            } else {
-                // open the file with the program imagemagik convert,
-                //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
-                //  use '-interlace Plane' and '-quality 80' to reduce the file size, pipe the output as jpg to the program base64
-                //  and store the output of base64 as the payload file
-                sysCmd('convert '.$args['filename'].' -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 jpg:- | base64 -e - > "'.$filePayload.'"');
-            }
-            // clear the cache for the payload file
-            clearstatcache(true, $filePayload);
-            $output =
-                        // first line
-                        '<item><type>'.
-                        bin2hex($args['type']).
-                        '</type><code>'.
-                        bin2hex($args['code']).
-                        '</code><length>'.
-                        filesize($filePayload).
-                        '</length>'."\n".
-                        // second line
-                        '<data encoding="base64">'."\n";
-            // send the first two lines
-            file_put_contents($file, $output, FILE_APPEND);
-            // the third line is sent from bash
-            sysCmd('( cat '.$filePayload.' ; echo "</data></item>" ) > "'.$file.'"');
-            // delete the payload file
-            unlink(filePayload);
+            $filePicture = '/tmp/owntone_image.jpg';
+			if (isset($args['filename']) && $args['filename']) {
+				$picture = $args['filename'];
+			} else {
+				$picture = $args['url'];
+			}
+			if (($redis->hGet('owntone', 'picture') != $picture) || !file_exists($filePicture)) {
+				// its a new picture
+				$redis->hSet('owntone', 'picture', $picture);
+				// clear the cache for the picture file
+				clearstatcache(true, $filePicture);
+				if (file_exists($filePicture)) {
+					// delete the picture file if it exists
+					unlink($filePicture);
+				}
+				// create the picture file
+				if (!isset($args['filename']) || !$args['filename']) {
+					// get the file with the program wget, pipe it to the program imagemagik convert,
+					//  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
+					//  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
+					//	pipe the output in jpg format to the picture file
+					sysCmd('wget -q -O - -i '.$args['url'].' | convert - -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 -define jpeg:extent=32kb "'.$filePicture.'"');
+				} else {
+					// open the file with the program imagemagik convert,
+					//  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
+					//  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
+					//	pipe the output in jpg format to the picture file
+					sysCmd('convert '.$args['filename'].' -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 -define jpeg:extent=32kb "'.$filePicture.'"');
+				}
+			}
+            // clear the cache for the picture file
+            clearstatcache(true, $filePicture);
+			if (file_exists($filePicture)) {
+				// the picture file has been created
+				$output =
+							// first line
+							'<item><type>'.
+							bin2hex($args['type']).
+							'</type><code>'.
+							bin2hex($args['code']).
+							'</code><length>'.
+							filesize($filePicture).
+							'</length>'."\n".
+							// second line
+							'<data encoding="base64">'."\n";
+				// send the first two lines
+				file_put_contents($file, $output, FILE_APPEND);
+				// the third line is sent from bash, it encodes the picture as base64, sends it and adds the final tags
+				sysCmd('( base64 -e "'.$filePicture.'" ; echo "</data></item>" ) > "'.$file.'"');
+				// sysCmd('( echo "</data></item>" ) > "'.$file.'"');
+			}
             break;
     }
 }

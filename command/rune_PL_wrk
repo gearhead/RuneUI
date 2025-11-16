@@ -200,11 +200,14 @@ while (true) {
             $status['volume'] = $redis->get('lastmpdvolume');
             // Is the volume control active?
             $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
-            if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
-                // player volume control active
+            if ($redis->get('ao') && (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software'))) {
+                // there is an audio output & player volume control active
                 $status['local_volume_control'] = 1;
+            } else if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+				// there is an oudio output and owntone is active
+				$status['local_volume_control'] = 1;
             } else {
-                // player volume control disabled
+                // no audio output or owntone inactive and player volume control disabled
                 $status['local_volume_control'] = 0;
             }
             $player_volume_control = '';
@@ -364,6 +367,8 @@ while (true) {
                         $newStatus['bigArtURL'] = $artUrl.'/none.png';
                         $newStatus['smallArtURL'] = $artUrl.'/none.png';
                         $newStatus['elapsed'] = 0;
+						$newStatus['time_last_elapsed'] = microtime(true);
+						$newStatus['last_elapsed'] = $newStatus['elapsed'];
                         $newStatus['song_percent'] = 0;
                         $status = $newStatus;
                         $mpdChangeSong = false;
@@ -556,9 +561,12 @@ while (true) {
                 if (!isset($status['local_volume_control']) || ($player_volume_control != $player_volume_control_new)) {
                     // local volume control unset or player volume control changed
                     $player_volume_control = $player_volume_control_new;
-                    if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
-                        // player volume control active
+                    if ($redis->get('ao') && (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software'))) {
+                        // outpt available and player volume control active
                         $status['local_volume_control'] = 1;
+                    } else if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+						// there is a local output and owntone is active
+						$local_volume_control = 1;
                     } else {
                         // player volume control disabled
                         $status['local_volume_control'] = 0;
@@ -737,21 +745,136 @@ while (true) {
             $airplay_timeout = $redis->hGet('airplay', 'timeout');
             $airplay_timeout_count = $airplay_timeout;
             $sleepUntilTime = microtime(true)+2;
+			$cntOwntone = 2;
+			$role = $redis->hGet('owntone', 'role');
+			if ($role != 'server') {
+				$redis->hSet('owntone', 'role', '');
+				$redis->hSet('owntone', 'server_hostname', '');
+				$redis->hSet('owntone', 'server_ip_address', '');
+				$redis->hSet('owntone', 'server', '');
+			}
             do {
-                // sometimes shareport sync fails to terminate properly, the code fixes it, timing out after a specified time when nothing is playing.
+				// sometimes shareport sync fails to terminate properly, the code fixes it, timing out after a specified time when nothing is playing
+				//	but when owntone is the sending device do not time out, allow pause
                 if (is_playing($redis)) {
                     runelog('rune_PL_wrk: Airplay is playing');
                     $airplay_timeout_count = $airplay_timeout;
+					$redis->hSet('owntone', 'state', 'play');
                 } else {
+					// update the state to paused
+					$status = json_decode($redis->get('act_player_info'), true);
+					$redis->hSet('owntone', 'state', 'pause');
+					// decrement the counter
                     runelog('rune_PL_wrk: Airplay is not playing');
                     $airplay_timeout_count -= 2;
                 }
                 runelog('rune_PL_wrk: Airplay timeout count', $airplay_timeout_count);
+                // determine whether we are an owntone client, do this on the second iteration then every 60 seconds (30 iterations)
+				//	or just before we time out
+				if (($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
+					// last reported host device was running owntone
+					// reset the counter to 30 iterations
+					$cntOwntone = 30;
+					// get the host device name if not already determined
+					$owntoneRole = $redis->hGet('owntone', 'role');
+					$owntoneServer = $redis->hGet('owntone', 'server');
+					if (!$owntoneRole || !$owntoneServer) {
+						// use the server, description is available
+						$owntoneServers = array();
+						$description = strtolower($redis->hget('airplay', 'description'));
+						if (strpos(' '.$description, 'owntone')) {
+							$descriptionArray = explode(' ', strtolower($description));
+							if (isset($descriptionArray[2]) && $descriptionArray[2])
+								// no ip address for this one
+								$owntoneServers[$descriptionArray[2].'.local'] = '';
+						}
+						// search for all owntone multiroom servers whih avahi-browse
+						$owntoneAvahiServers = sysCmd("avahi-browse -atrklvp | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//' | xargs");
+						foreach ($owntoneAvahiServers as $owntoneAvahiServer) {
+							// each line contains the hostname and IP address delimited with a semicolon
+							$retval = explode(';', $owntoneAvahiServer);
+							if (count($retval) == 2) {
+								// use it if there are two entries in the array (one occurrence of a semicolon in the returned value)
+								$owntoneServers[$retval[0]] = $retval[1];
+							}
+						}
+						// walk through the servers and retrieve the owntone output information
+						foreach ($owntoneServers as $owntoneServerHostname -> $owntoneServerIP) {
+							if (isset($owntoneServerIP) && $owntoneServerIP) {
+								// possible that no IP address is available, then use the hostname
+								//	ip address is much faster
+								$owntoneServerHostname = $owntoneServerHostname;
+								$owntoneServerIP = $owntoneServerIP;
+								$owntoneServer = $owntoneServerIP;
+							} else {
+								$owntoneServerHostname = $owntoneServerHostname;
+								$owntoneServerIP = '';
+								$owntoneServer = $owntoneServerHostname;
+							}
+							// determine if owntone is running on the host device name and get the device status
+							$commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
+							$retval = sysCmd($commandGet);
+							if (isset($retval[0])) {
+								// an array is returned
+								$retval = json_decode($retval[0], true);
+								if (isset($retval['outputs'])) {
+									// the outputs have been returned, loop through them
+									$thisHostname = strtolower($redis->get('hostname'));
+									foreach ($retval['outputs'] as $output) {
+										if (strtolower($output['name']) == $thisHostname) {
+											// this is the entry for for this client
+											if ($output['selected']) {
+												// it is connected
+												$redis->hSet('owntone', 'role', 'client');
+												$redis->hSet('owntone', 'server_hostname', $owntoneServerHostname);
+												$redis->hSet('owntone', 'server_ip_address', $owntoneServerIP);
+												$redis->hSet('owntone', 'server', $owntoneServer);
+												// break both foreach loops
+												break 2;
+											}
+										}
+									}
+								}
+							}
+						}
+					} else if (($owntoneRole == 'client') && $owntoneServer) {
+						// we have already determined the server, check that it is still connected to this client
+						// determine if owntone is running on the host device name and get the device status
+						$commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
+						$retval = sysCmd($commandGet);
+						if (isset($retval[0])) {
+							// an array is returned
+							$retval = json_decode($retval[0], true);
+							if (isset($retval['outputs'])) {
+								// the outputs have been returned, loop through them
+								$thisHostname = strtolower($redis->get('hostname'));
+								foreach ($retval['outputs'] as $output) {
+									if (strtolower($output['name']) == $thisHostname) {
+										// this is the entry for for this client
+										if (!$output['selected']) {
+											// it is not (no longer) connected
+											$redis->hSet('owntone', 'role', '');
+											$redis->hSet('owntone', 'server_hostname', '');
+											$redis->hSet('owntone', 'server_ip_address', '');
+											$redis->hSet('owntone', 'server', '');
+											// break the foreach loop
+											break;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
                 if ($airplay_timeout_count <= 0) {
                     runelog('rune_PL_wrk: Airplay timeout initiated');
-                    wrk_stopPlayer($redis);
                     $airplay_timeout_count = $airplay_timeout;
-                    break;
+					// when operating as an owntone client (MultiRoom) don't timeout, the state is changed to paused
+					if ($redis->hGet('owntone', 'role') != 'client') {
+						// not an owntone client
+						wrk_stopPlayer($redis);
+						break;
+					}
                 }
                 // 2 second sleep
                 $sleepTime = $sleepUntilTime - microtime(true);
@@ -761,7 +884,9 @@ while (true) {
                 }
                 $sleepUntilTime = microtime(true)+2;
             } while ($redis->get('activePlayer') === 'Airplay');
-            unset($status['local_volume_control']);
+			unset($airplay_timeout, $airplay_timeout_count, $sleepUntilTime, $cntOwntone, $owntoneRole, $owntoneServer, $owntoneServers, $description);
+			unset($descriptionArray, $owntoneAvahiServers, $retval, $owntoneServerHostname, $owntoneServerIP, $commandGet, $thisHostname, $output);
+			unset($sleepTime, $status['local_volume_control']);
             sleep(1);
         } else if ($activePlayer === 'SpotifyConnect') {
             //
@@ -829,6 +954,10 @@ while (true) {
             $bluetooth_timeout = $redis->hGet('bluetooth', 'timeout');
             $bluetooth_timeout_count = $bluetooth_timeout;
             $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
+			if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+				// there is a local output and owntone is active
+				$local_volume_control = 1;
+			}
             $status['local_volume_control'] = 0;
             $status['state'] = '';
             $bitrate = '~190';
@@ -929,6 +1058,10 @@ while (true) {
                         $checkAudioCnt = 5;
                         $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
                         $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
+						if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
+							// there is a local output and owntone is active
+							$local_volume_control = 1;
+						}
                         $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
                         if ($playing) {
                             $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
@@ -1081,6 +1214,8 @@ while (true) {
                                         } else {
                                             $status['elapsed'] = 0;
                                         }
+										$status['time_last_elapsed'] = microtime(true);
+										$status['last_elapsed'] = $status['elapsed'];
                                         if (isset($duration) && isset($elapsed)) {
                                             $status['song_percent'] = round(($elapsed * 100) / $duration);
                                         } else {
@@ -1177,7 +1312,7 @@ while (true) {
                                             $status['volume'] = $volume;
                                             $status['duration'] = $duration;
                                             $status['time'] = round($status['duration']);
-                                            $status['elapsed'] = round($elapsed);
+                                            $status['last_elapsed'] = $status['elapsed'];
                                             $status['song_percent'] = round(($elapsed * 100) / $duration);
                                             ui_render('playback', json_encode($status));
                                             unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
@@ -1266,6 +1401,8 @@ while (true) {
                     $status['duration'] = $duration;
                     if (isset($elapsed)) {
                         $status['elapsed'] = $elapsed;
+						$status['time_last_elapsed'] = microtime(true);
+						$status['last_elapsed'] = $status['elapsed'];
                         if (isset($song_percent)) {
                             $status['song_percent'] = $song_percent;
                         }

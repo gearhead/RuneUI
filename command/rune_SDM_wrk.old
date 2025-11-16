@@ -200,6 +200,7 @@ do {
         $status['elapsed'] = "0";
         $status['song_percent'] = "0";
         $status['time_last_elapsed'] = microtime(true);
+        $status['last_elapsed'] = $status['elapsed'];
         if ($alsaVolume) {
             $lastvolume = preg_replace('/[^0-9]/', '', $redis->hGet('spotifyconnect', 'lastvolume'));
             if (isset($lastvolume) && strlen($lastvolume)) {
@@ -230,6 +231,7 @@ do {
         $status['song_percent'] = 0;
         $status['elapsed'] = 0;
         $status['time_last_elapsed'] = microtime(true);
+        $status['last_elapsed'] = $status['elapsed'];
     }
     if ($job['event'] != 'endofqueue') {
         $eventQueue = true;
@@ -289,6 +291,7 @@ do {
         if ($job['position_ms']) {
             $status['elapsed'] = round($job['position_ms']/1000);
             $status['time_last_elapsed'] = microtime(true);
+            $status['last_elapsed'] = $status['elapsed'];
             // calculate the percentage played
             if ($status['time'] != 0) {
                 $status['song_percent'] = min(100, round(($status['elapsed'] / $status['time']) * 100));
@@ -379,6 +382,8 @@ do {
         // start of track elapsed & percentage played
         $status['elapsed'] = 0;
         $status['song_percent'] = 0;
+		$status['time_last_elapsed'] = microtime(true);
+		$status['last_elapsed'] = $status['elapsed'];
         // information from spotify
         $status['currentartist'] = $spotifyInfo['artist'];
         $status['currentalbumartist'] = $spotifyInfo['artist'];
@@ -409,9 +414,11 @@ do {
             && $status['time'] && $status['elapsed'] && ($status['state'] === 'play')) {
         $status['elapsed'] = round($status['elapsed'] + $now - $status['time_last_elapsed']);
         $status['time_last_elapsed'] = $now;
+        $status['last_elapsed'] = $status['elapsed'];
         $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
     } else if ($status['state'] != 'play') {
         $status['time_last_elapsed'] = $now;
+        $status['last_elapsed'] = $status['elapsed'];
     }
     $active_player = $redis->get('activePlayer');
     if ($updateUI && ($active_player == 'SpotifyConnect')) {

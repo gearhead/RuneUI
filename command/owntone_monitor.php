@@ -52,6 +52,23 @@ define('APP', '/srv/http/app/');
 sysCmd('echo "--------------- start: owntone_monitor.php ---------------" > /var/log/runeaudio/owntone_monitor.log');
 runelog('WORKER owntone_monitor.php STARTING...');
 //
+// initialise some things for the metadata routine
+$actPlayerInfoSave = array();
+$playStarted = false;
+$hostname = $redis->get('hostname');
+// calculate an offset for timeRTP so that we use values which will not loop out of bounds
+//  timeRTPOffset is added to timeRTP values to keep the initial value between (1000000000 and 2000000000)
+$timeRTP = substr(round(microtime(true) * 44100), -9);
+$timeRTP1stChar = substr($timeRTP, 0, 1);
+if ($timeRTP1stChar == 0) {
+    $timeRTPOffset = 1000000000;
+} else if ($timeRTP1stChar > 1) {
+    $timeRTPOffset = ($timeRTP1stChar - 1) * -1000000000;
+} else {
+    $timeRTPOffset = 0;
+}
+// cycle delay times
+//
 // delay1 = 20 : runs every 60 to 66 seconds
 $delay1 = 20;
 // initial wait = 60 seconds
@@ -64,9 +81,21 @@ $cnt2 = 3;
 $delay3 = 20;
 // initial wait = 9 seconds
 $cnt3  = 3;
+// sleep time initialisation
+$sleepUntilTime = microtime(true) + 3;
 // loop forever
 while (true) {
-    sleep(3);
+    // 3 second sleep, always sleep for a minimum of 1 second
+    //  some of the actions below could take much longer than 3 seconds
+    $sleepTime = $sleepUntilTime - microtime(true);
+    if ($sleepTime > 1) {
+        $sleepTime = intval($sleepTime * 1000000);
+        usleep($sleepTime);
+    } else {
+        sleep(1);
+    }
+    $sleepUntilTime = microtime(true) + 3;
+    //
     if ($redis->hGet('owntone', 'enable') && $redis->hGet('owntone', 'active')) {
         if ($cnt1-- <= 0) {
             // this restarts mpd and owntone when owntone discovers new local output devices
@@ -100,6 +129,7 @@ while (true) {
             // }
             // $cnt3 = $delay3 + rand(0, 2);
         }
+        continue;
         //
         // this section modifies the owntone volume level of the local device when modified via the UI via MPD, Spotify, Airplay or Bluetooth
         //  too keep it responsive, it runs every 3 seconds or so
@@ -202,7 +232,325 @@ while (true) {
             }
         }
         // this section posts the current song metadata to the owntone metadata fifo
-        //  ...
+        //
+        $action = array();
+        $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
+        if (isset($actPlayerInfo['state'])) {
+            // if ($redis->hGet('owntone', 'newconnection')) {
+                    // $action['start'] = true;
+                    // $action['change_song'] = true;
+                    // $action['change_picture'] = true;
+                    // $action['play'] = true;
+                    // $redis->hSet('owntone', 'newconnection', 0);
+            // } else
+            if (!isset($actPlayerInfoSave['currentalbumartist']) ||
+                    !isset($actPlayerInfoSave['currentartist']) ||
+                    !isset($actPlayerInfoSave['currentalbum']) ||
+                    !isset($actPlayerInfoSave['currentsong']) ||
+                    !isset($actPlayerInfoSave['currentcomposer']) ||
+                    !isset($actPlayerInfoSave['duration']) ||
+                    !isset($actPlayerInfoSave['genre']) ||
+                    !isset($actPlayerInfoSave['file']) ||
+                    !isset($actPlayerInfoSave['state']) ||
+                    !isset($actPlayerInfoSave['mainArtURL']) ||
+                    !isset($actPlayerInfoSave['time_last_elapsed'])) {
+                if ($actPlayerInfo['state'] == 'play') {
+                    $action['start'] = true;
+                    $action['change_song'] = true;
+                    $action['change_picture'] = true;
+                    $action['play'] = true;
+                    $playStarted = true;
+                }
+            } else if ($playStarted) {
+                if (isset($actPlayerInfoSave['mainArtURL']) && isset($actPlayerInfo['mainArtURL']) &&
+                        ($actPlayerInfoSave['mainArtURL'] != $actPlayerInfo['mainArtURL'])) {
+                    $action['change_picture'] = true;
+                }
+                if ((isset($actPlayerInfoSave['currentalbumartist']) && isset($actPlayerInfo['currentalbumartist']) &&
+                        ($actPlayerInfoSave['currentalbumartist'] != $actPlayerInfo['currentalbumartist'])) ||
+                        (isset($actPlayerInfoSave['currentartist']) && isset($actPlayerInfo['currentartist']) &&
+                        ($actPlayerInfoSave['currentartist'] != $actPlayerInfo['currentartist'])) ||
+                        (isset($actPlayerInfoSave['currentalbum']) && isset($actPlayerInfo['currentalbum']) &&
+                        ($actPlayerInfoSave['currentalbum'] != $actPlayerInfo['currentalbum'])) ||
+                        (isset($actPlayerInfoSave['currentsong']) && isset($actPlayerInfo['currentsong']) &&
+                        ($actPlayerInfoSave['currentsong'] != $actPlayerInfo['currentsong'])) ||
+                        (isset($actPlayerInfoSave['file']) && isset($actPlayerInfo['file']) &&
+                        ($actPlayerInfoSave['file'] != $actPlayerInfo['file']))) {
+                    $action['change_song'] = true;
+                }
+                if (isset($actPlayerInfoSave['state']) && isset($actPlayerInfo['state']) &&
+                        ($actPlayerInfoSave['state'] != $actPlayerInfo['state'])) {
+                    // state change
+                    if (($actPlayerInfoSave['state'] == 'play') && ($actPlayerInfo['state'] != 'play')) {
+                        $action['pause'] = true;
+                    } else if (($actPlayerInfoSave['state'] != 'play') && ($actPlayerInfo['state'] == 'play')) {
+                        $action['play'] = true;
+                    }
+                }
+                if ((isset($actPlayerInfoSave['duration']) && isset($actPlayerInfo['duration']) &&
+                        (actPlayerInfoSave['duration'] != $actPlayerInfo['duration'])) || 
+                        (isset($actPlayerInfoSave['last_elapsed']) && isset($actPlayerInfo['last_elapsed']) &&
+                        (actPlayerInfoSave['last_elapsed'] != $actPlayerInfo['last_elapsed'])) ||
+                        (isset($actPlayerInfoSave['time_last_elapsed']) && isset($actPlayerInfo['time_last_elapsed']) &&
+                        (actPlayerInfoSave['time_last_elapsed'] != $actPlayerInfo['time_last_elapsed']))) {
+                    // song duration change
+                    $action['play'] = true;
+                }
+            }
+            if ($playStarted) {
+                if (isset($action['start']) && $action['start']) {
+                    // start of stream event
+                    // no information required to process this event
+                    //
+                    // play stream begin(ssnc pbeg), no payload
+                    $args = array('type' => 'ssnc', 'code' => 'pbeg');
+                    wrk_airplay_metadata_encoder($redis, 'no_payload', $args);
+                    //
+                    // unknown purpose (ssnc pres), no payload
+                    $args = array('type' => 'ssnc', 'code' => 'pres');
+                    wrk_airplay_metadata_encoder($redis, 'no_payload', $args);
+                    //
+                    // unknown purpose (ssnc pffr), no payload
+                    $args = array('type' => 'ssnc', 'code' => 'pffr');
+                    wrk_airplay_metadata_encoder($redis, 'no_payload', $args);
+                    //
+                    // name of user sending device (ssnc snam)
+                    $args = array('type' => 'ssnc', 'code' => 'pffr', 'payload' => 'Owntone on '.$hostname);
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    foreach ($actPlayerInfo as $key => $value) {
+                        $actPlayerInfoSave[$key] = '';
+                    }
+                }
+                if (isset($action['change_picture']) && $action['change_picture']) {
+                    // change picture event
+                    if (isset($actPlayerInfo['mainArtURL']) && $actPlayerInfo['mainArtURL']) {
+                        // the information is available to process this event
+                        //
+                        // start picture send (ssnc pcst), payload is current RTP timestamp
+                        $timeRTP = substr(round((microtime(true) * 44100) + $timeRTPOffset), -9);
+                        $args = array('type' => 'ssnc', 'code' => 'pcst', 'payload' => $timeRTP);
+                        wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                        //
+                        // artwork send (ssnc PICT)
+                        $args = array('type' => 'ssnc', 'code' => 'PICT');
+                        if (strtolower(substr($actPlayerInfo['mainArtURL'], 0, 4)) == 'http') {
+                            $args['url'] = $actPlayerInfo['mainArtURL'];
+                        } else {
+                            $args['url'] = 'http://'.$hostname.'.local/'.$actPlayerInfo['mainArtURL'];
+                            $args['filname'] = '/srv/http/'.$actPlayerInfo['mainArtURL'];
+                        }
+                        wrk_airplay_metadata_encoder($redis, 'picture', $args);
+                        //
+                        // end picture send (ssnc pcen), it has the same RTP timestamp as the start picture send (ssnc pcst)
+                        $args = array('type' => 'ssnc', 'code' => 'pcen', 'payload' => $timeRTP);
+                        wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                        //
+                        $actPlayerInfoSave['mainArtURL'] = $actPlayerInfo['mainArtURL'];
+                    }
+                }
+                if (isset($action['play']) && $action['play']) {
+                    // start of play of song event
+                    if (isset($actPlayerInfo['time_last_elapsed']) && trim($actPlayerInfo['time_last_elapsed']) &&
+                            isset($actPlayerInfo['last_elapsed']) && strlen($actPlayerInfo['last_elapsed']) &&
+                            isset($actPlayerInfo['duration']) && strlen($actPlayerInfo['duration'])) {
+                        // the information is available to process this event
+                        //
+                        // progress (ssnc prgr)
+                        // This is metadata from AirPlay consisting of RTP timestamps for the start of the current play sequence,
+                        // the current play point and the end of the play sequence.
+                        $now = microtime(true); // time now in seconds from epoch
+                        $timeLastElapsed = $actPlayerInfo['time_last_elapsed']; // the time last elapsed was set in seconds from epoch
+                        $lastElapsed = $actPlayerInfo['last_elapsed']; // last elapsed time in seconds
+                        $duration = $actPlayerInfo['duration']; // song duration in seconds
+                        // now calculate the start and end time in milliseconds when the current time is current play point
+                        $startTimeRTP = substr(round((($timeLastElapsed - $lastElapsed) * 44100) + $timeRTPOffset), -9);
+                        $endTimeRTP = substr(round((($duration + $timeLastElapsed - $lastElapsed) * 44100) + $timeRTPOffset), -9);
+                        $timeRTP = substr(round(($now * 44100) + $timeRTPOffset), -9);
+                        $args = array('type' => 'ssnc', 'code' => 'prgr', 'payload' => $startTimeRTP.'/'.$timeRTP.'/'.$endTimeRTP);
+                        wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                        //
+                        // play stream resume (ssnc prsm)
+                        $args = array('type' => 'ssnc', 'code' => 'prsm');
+                        wrk_airplay_metadata_encoder($redis, 'no_payload', $args);
+                        //
+                        // StreamType (ssnc styp)
+                        $args = array('type' => 'ssnc', 'code' => 'styp', 'payload' => 'Buffered');
+                        wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                        //
+                        $actPlayerInfoSave['time_last_elapsed'] = $actPlayerInfo['time_last_elapsed'];
+                        $actPlayerInfoSave['last_elapsed'] = $actPlayerInfo['last_elapsed'];
+                        $actPlayerInfoSave['duration'] = $actPlayerInfo['duration'];
+                        if (isset($actPlayerInfo['state']) && $actPlayerInfo['state']) {
+                            $actPlayerInfoSave['state'] = $actPlayerInfo['state'];
+                        } else {
+                            $actPlayerInfoSave['state'] = '';
+                        }
+                    }
+                }
+                if (isset($action['change_song']) && $action['change_song']) {
+                    // information required to process this event is determined per item
+                    //
+                    // metadata start (ssnc mdst), argument is the current RTP timestamp
+                    $timeRTP = substr(round((microtime(true) * 44100) + $timeRTPOffset), -9);
+                    $args = array('type' => 'ssnc', 'code' => 'mdst', 'payload' => $timeRTP);
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // persistent ID (core mper), argument value is unknown, length is 8 bytes
+                    //  we implement this by using the hash('crc32b', <string>) function, which returns an 8 byte string
+                    //  where the string is:
+                    //      file + currentalbumartist + currentartist + currentalbum + currentsong
+                    $string = '';
+                    if (isset($actPlayerInfo['file'])) {
+                        $string .= $actPlayerInfo['file'];
+                    }
+                    if (isset($actPlayerInfo['currentalbumartist'])) {
+                        $string .= $actPlayerInfo['currentalbumartist'];
+                    }
+                    if (isset($actPlayerInfo['currentartist'])) {
+                        $string .= $actPlayerInfo['currentartist'];
+                    }
+                    if (isset($actPlayerInfo['currentalbum'])) {
+                        $string .= $actPlayerInfo['currentalbum'];
+                    }
+                    if (isset($actPlayerInfo['currentsong'])) {
+                        $string .= $actPlayerInfo['currentsong'];
+                    }
+                    $args = array('type' => 'core', 'code' => 'mper', 'payload' => hash('crc32b', $string));
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // album (core asal)
+                    if (isset($actPlayerInfo['currentalbum']) && trim($actPlayerInfo['currentalbum'])) {
+                        $args = array('type' => 'core', 'code' => 'asal', 'payload' => $actPlayerInfo['currentalbum']);
+                        $actPlayerInfoSave['currentalbum'] = $actPlayerInfo['currentalbum'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'asal', 'payload' => '');
+                        $actPlayerInfoSave['currentalbum'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // artist (core asar)
+                    if (isset($actPlayerInfo['currentartist']) && trim($actPlayerInfo['currentartist'])) {
+                        $args = array('type' => 'core', 'code' => 'asar', 'payload' => $actPlayerInfo['currentartist']);
+                        $actPlayerInfoSave['currentartist'] = $actPlayerInfo['currentartist'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'asar', 'payload' => '');
+                        $actPlayerInfoSave['currentartist'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // composer (core ascp)
+                    if (isset($actPlayerInfo['currentcomposer']) && trim($actPlayerInfo['currentcomposer'])) {
+                        $args = array('type' => 'core', 'code' => 'ascp', 'payload' => $actPlayerInfo['currentcomposer']);
+                        $actPlayerInfoSave['currentcomposer'] = $actPlayerInfo['currentcomposer'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'ascp', 'payload' => '');
+                        $actPlayerInfoSave['currentcomposer'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // genre (core asgn)
+                    if (isset($actPlayerInfo['genre']) && trim($actPlayerInfo['genre'])) {
+                        $args = array('type' => 'core', 'code' => 'asgn', 'payload' => $actPlayerInfo['genre']);
+                        $actPlayerInfoSave['genre'] = $actPlayerInfo['genre'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'asgn', 'payload' => '');
+                        $actPlayerInfoSave['genre'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // song (core minm)
+                    if (isset($actPlayerInfo['currentsong']) && trim($actPlayerInfo['currentsong'])) {
+                        $args = array('type' => 'core', 'code' => 'asgn', 'payload' => $actPlayerInfo['currentsong']);
+                        $actPlayerInfoSave['currentsong'] = $actPlayerInfo['currentsong'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'asgn', 'payload' => '');
+                        $actPlayerInfoSave['currentsong'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // song track number (core astn), 2 byte integer (unsigned short - always 16 bit, big endian byte order)
+                    //  we dont use this in runeaudio, just encode zero
+                    $args = array('type' => 'core', 'code' => 'astn', 'payload' => pack("n", 0));
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // song track count (core astc), 2 byte integer (unsigned short - always 16 bit, big endian byte order)
+                    //  we dont use this in runeaudio, just encode zero
+                    $args = array('type' => 'core', 'code' => 'astc', 'payload' => pack("n", 0));
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // song data kind (core asdk), single byte integer, unsigned
+                    // derived from the asdk metadata token, to the metadata bundle presented in the D-Bus interface. If 0 it seems to
+                    //  indicate an item of a specific duration such as an audio track; if 1 it seems to mean the stream is of unknown
+                    //  duration, for example an internet radio stream.
+                    // radio, alsa input and bluetooth fall into the unknown duration type (1), in all other cases the length of the song is known (0)
+                    if (isset($actPlayerInfo['actPlayer']) &&
+                            (((isset($actPlayerInfo['radio']) && $actPlayerInfo['actPlayer'] == 'MPD') && $actPlayerInfo['radio']) ||
+                            ((isset($actPlayerInfo['file']) && $actPlayerInfo['actPlayer'] == 'MPD') && (strtolower(substr($actPlayerInfo['file'], 0, 5)) == 'alsa:')) ||
+                            ($actPlayerInfo['actPlayer'] == 'Bluetooth'))) {
+                        $args = array('type' => 'core', 'code' => 'asdk', 'payload' => pack("C", 1));
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'asdk', 'payload' => pack("C", 0));
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // ?caps? (core caps), unknown purpose, singe byte integer (unsigned) - seems always to have a value of 1 or 2 (mostly 2)
+                    //  use a value of 2
+                    $args = array('type' => 'core', 'code' => 'caps', 'payload' => pack("C", 2));
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // song time in milliseconds (core astm), 4 byte integer (unsigned long (always 32 bit, big endian byte order))- also see 'ssnc prgr' progress
+                    if (isset($actPlayerInfo['duration'])) {
+                        $args = array('type' => 'core', 'code' => 'astm', 'payload' => pack("N", ($actPlayerInfo['duration'] * 1000)));
+                        $actPlayerInfoSave['duration'] = $actPlayerInfo['duration'];
+                    } else {
+                        $args = array('type' => 'core', 'code' => 'astm', 'payload' => pack("N", 0));
+                        $actPlayerInfoSave['duration'] = '';
+                    }
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // metadata end (ssnc mden), payload is same RTP timestamp as metadata start (ssnc mdst)
+                    $args = array('type' => 'ssnc', 'code' => 'mdst', 'payload' => $timeRTP);
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    if (trim($actPlayerInfo['file'])) {
+                        $actPlayerInfoSave['file'] = $actPlayerInfo['file'];
+                    } else {
+                        $actPlayerInfoSave['file'] = '';
+                    }
+                    if (trim($actPlayerInfo['currentalbumartist'])) {
+                        $actPlayerInfoSave['currentalbumartist'] = $actPlayerInfo['currentalbumartist'];
+                    } else {
+                        $actPlayerInfoSave['currentalbumartist'] = '';
+                    }
+                    if (trim($actPlayerInfo['actPlayer'])) {
+                        $actPlayerInfoSave['actPlayer'] = $actPlayerInfo['actPlayer'];
+                    } else {
+                        $actPlayerInfoSave['actPlayer'] = '';
+                    }
+                    if (trim($actPlayerInfo['radio'])) {
+                        $actPlayerInfoSave['radio'] = $actPlayerInfo['radio'];
+                    } else {
+                        $actPlayerInfoSave['radio'] = '';
+                    }
+                }
+                if (isset($action['pause']) && $action['pause']) {
+                    // the pause action needs no further information
+                    //
+                    // flush stream request = pause (ssnc flsr), payload is current RTP timestamp
+                    $timeRTP = substr(round((microtime(true) * 44100) + $timeRTPOffset), -9);
+                    $args = array('type' => 'ssnc', 'code' => 'flsr', 'payload' => $timeRTP);
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // play stream flush (ssnc pfls), payload is current RTP timestamp
+                    $timeRTP = substr(round((microtime(true) * 44100) + $timeRTPOffset), -9);
+                    $args = array('type' => 'ssnc', 'code' => 'pfls', 'payload' => $timeRTP);
+                    wrk_airplay_metadata_encoder($redis, 'payload', $args);
+                    //
+                    // $actPlayerInfoSave = $actPlayerInfo;
+                }
+            }
+        }
     }
 }
 //

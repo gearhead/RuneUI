@@ -927,6 +927,8 @@ while (true)  {
                 if (($state == 'stop') || ($status['state'] == 'stop')) {
                     $status['song_percent'] = 0;
                     $status['elapsed'] = 0;
+					$status['time_last_elapsed'] = microtime(true);
+					$status['last_elapsed'] = $status['elapsed'];
                 }
                 $status['mainArtURL'] = $song['albumarturl'];
                 if ($bigartIsAlbum) {
@@ -998,6 +1000,8 @@ while (true)  {
                     if (($state == 'stop') || ($status['state'] == 'stop')) {
                         $status['song_percent'] = 0;
                         $status['elapsed'] = 0;
+						$status['time_last_elapsed'] = microtime(true);
+						$status['last_elapsed'] = $status['elapsed'];
                     } else {
                         unset($status['song_percent'], $status['elapsed']);
                     }
