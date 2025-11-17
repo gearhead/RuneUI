@@ -230,23 +230,6 @@ rm -f /usr/local/bin/uninstall_enha.sh
 redis-cli del addons
 redis-cli del addo
 #
-# Make sure cron/cronie is installed for logrotate (not activated)
-#   This should be removed in a future release
-if [ "$os" == "RPiOS" ] ; then
-    a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
-    if [ "$a" == "0" ] ; then
-        bash -c "apt install -y cron >/dev/null 2>&1"
-        systemctl disable cron
-        systemctl stop cron
-    fi
-elif [ "$os" == "ARCH" ] ; then
-    # on ARCH cronie provides cron
-    pacman -Q cronie || pacman -Sy cronie --noconfirm
-    systemctl disable cronie
-    systemctl stop cronie
-    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
-fi
-#
 # remove user files
 rm -rf /root/*
 rm -f /srv/http/.config/debug.*
@@ -688,8 +671,24 @@ if [ "$os" == "ARCH" ] ; then
 fi
 # this cleans up an the apt override file from a previous version, it can be removed in the future
 if [ ! -h "/usr/local/sbin" ] && [ -f "/usr/local/sbin/apt" ] ; then
-    # rm -f /usr/local/sbin/apt
-    echo "delete"
+    rm -f /usr/local/sbin/apt
+fi
+#
+# Make sure cron/cronie is installed for logrotate (not activated)
+#   This should be removed in a future release
+if [ "$os" == "RPiOS" ] ; then
+    a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
+    if [ "$a" == "0" ] ; then
+        bash -c "apt install -y cron >/dev/null 2>&1"
+        systemctl disable cron
+        systemctl stop cron
+    fi
+elif [ "$os" == "ARCH" ] ; then
+    # on ARCH cronie provides cron
+    pacman -Q cronie || pacman -Sy cronie --noconfirm
+    systemctl disable cronie
+    systemctl stop cronie
+    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
 fi
 #   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!
