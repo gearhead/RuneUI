@@ -236,7 +236,7 @@ if ($playerid_db === '') {
     }
     //
     // create the directory structure for backup, shairport sysnc, spotifyd and MPD
-    sysCmd($redis, '/srv/http/command/create_work_dirs.sh');
+    sysCmd('/srv/http/command/create_work_dirs.sh');
     //
     // store the memory and number of cores
     $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
