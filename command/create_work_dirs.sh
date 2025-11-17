@@ -47,7 +47,7 @@ function enable_overlay_art_cache {
 # we are very careful creating and using these partitions, if anything is not as expected this routine will do nothing
 #   it is set up is such a way that when something goes wrong it will continue to work without the persistent cache
     artDir="$1"
-    partitions=$( fdisk /dev/mmcblk0 -l | grep -ic mmcblk0p )
+    partitions=$( fdisk /dev/mmcblk0 -l | grep -ic mmcblk0p | xargs )
     if [ "$partitions" == "2" ]; then
         # standard number of partitions are there, try to create the cache partition
         # first do a dry run to create a third partition contiguously after partition 2 and collect some data
@@ -130,8 +130,8 @@ function enable_overlay_art_cache {
                     # wait for the /home/cache mount to complete
                     homecachemounted=0
                     while (( homecachemounted == 0 )) ; do
-                        test_count1=$( grep -ic "mmcblk0p$partitions" '/proc/mounts' )
-                        test_count2=$( grep -ic '/home/cache' '/proc/mounts' )
+                        test_count1=$( grep -ic "mmcblk0p$partitions" '/proc/mounts' | xargs )
+                        test_count2=$( grep -ic '/home/cache' '/proc/mounts' | xargs )
                         if [ "$test_count1" == "0" ] && [ "$test_count1" == "0" ]; then
                             homecachemounted=0
                             sleep 1
@@ -142,12 +142,12 @@ function enable_overlay_art_cache {
                     # make sure the file system is correct
                     partprobe /dev/mmcblk0
                     resize2fs /dev/mmcblk0p$partitions
-                    # check the label of /dev/mmcblk0p3 is 'runecache'
-                    runecachelabel=$( e2label /dev/mmcblk0p3 | xargs )
+                    # check the label of /dev/mmcblk0p? is 'runecache'
+                    runecachelabel=$( e2label /dev/mmcblk0p$partitions | xargs )
                     if [ "$runecachelabel" == "" ] ; then
-                        e2label /dev/mmcblk0p3 runecache
+                        e2label /dev/mmcblk0p$partitions runecache
                     fi
-                    test_count1=$( grep -ic 'overlay_art_cache' '/proc/mounts' )
+                    test_count1=$( grep -ic 'overlay_art_cache' '/proc/mounts' | xargs )
                     if [ "$test_count1" == "0" ]; then
                         # the overlay art cache is not mounted
                         mkdir -p /home/cache/art
