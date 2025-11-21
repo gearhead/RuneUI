@@ -8781,6 +8781,7 @@ function refresh_nics($redis)
 
         if (!$hasPersistentProfile) {
             $techOutput = shell_exec("nmcli -t -f DEVICE,TYPE device status | grep -w $nic");
+
             if (strpos($techOutput, 'wifi') !== false && $nic !== 'ap0') {
                 $state = trim(shell_exec("nmcli -t -f GENERAL.STATE device show $nic | cut -d: -f2"));
                 if (strpos($state, '100') === 0) {
@@ -8810,7 +8811,10 @@ function refresh_nics($redis)
                 wrk_netconfig($redis, 'saveEthernet', '', $args);
             }
         }
+
+
     }
+
 
     // add ip addresses to array $networkInterfaces with ip address
     $addrs = sysCmd("ip -o  address | sed 's,[ ]\+, ,g'");
@@ -9058,8 +9062,7 @@ function refresh_nics($redis)
             $redis->Set('network_info_time', $nowSeconds);
         }
     }
-
-// delete networks for invalid nics from the network info array
+    // delete networks for invalid nics from the network info array
     // also subtract 3 from all network strength values and remove values which go negative
     // all networks which are (re)detected will reset their strength to the actual value
     // the networks which are successively not detected will be shown as weak and eventually be deleted
@@ -9077,7 +9080,7 @@ function refresh_nics($redis)
             }
         }
     }
-    
+    //
     // always clear the optimise wifi array
     $optimiseWifi = array();
     $accessPoint = $redis->hGet('AccessPoint', 'ssid');
@@ -9085,365 +9088,323 @@ function refresh_nics($redis)
     $hiddenCount = 0;
     $networkInterfacesModified = false;
     $avahiNic = '';
-    
-    // Get all NetworkManager connections
-    $nmConnections = sysCmd('nmcli -t -f NAME,UUID,TYPE,DEVICE connection show');
-    $connectionList = array();
-    
-    foreach ($nmConnections as $conn) {
-        $parts = explode(':', $conn);
-        if (count($parts) >= 4) {
-            $connectionList[] = array(
-                'name' => $parts[0],
-                'uuid' => $parts[1],
-                'type' => $parts[2],
-                'device' => $parts[3]
-            );
+    // get the services
+//    $services = sysCmd('connmanctl services');
+    $services = sysCmd('/usr/bin/python3 /srv/http/command/conn.py');
+    foreach ($services as $service) {
+        unset($security, $strength, $strengthStars);
+        $status = strtoupper(trim(substr($service, 0, 4)));
+        // in theory ssid should be max 21 characters long, but there are longer ones!
+        if (strpos($service, ' ethernet_')) {
+            $pos = 25;
+        } else if (strpos($service, ' wifi_')) {
+            $pos = strpos($service, ' wifi_', 24);
+        } else {
+            $pos = 25;
         }
-    }
-    
-    // Get available WiFi networks using iw scan
-    $wifiNetworks = array();
-    foreach ($networkInterfaces as $nic => $nicInfo) {
-        if ($nicInfo['technology'] === 'wifi') {
-            // Get the interface's MAC address (not the AP's BSSID)
-            $nicMacAddress = str_replace(':', '', strtolower($nicInfo['macAddress']));
-            
-            $scanResults = sysCmd('iw dev '.$nic.' scan 2>/dev/null');
-            $currentNetwork = array();
-            
-            foreach ($scanResults as $line) {
-                $line = trim($line);
-                
-                if (strpos($line, 'BSS ') === 0) {
-                    // Save previous network if exists
-                    if (!empty($currentNetwork) && isset($currentNetwork['ssid'])) {
-                        $currentNetwork['nic'] = $nic;
-                        $currentNetwork['macAddress'] = $nicMacAddress;
-                        $wifiNetworks[] = $currentNetwork;
-                    }
-                    // Start new network - we'll use interface MAC, not BSSID
-                    $currentNetwork = array();
-                } elseif (strpos($line, 'SSID: ') === 0) {
-                    $currentNetwork['ssid'] = substr($line, 6);
-                } elseif (strpos($line, 'signal: ') === 0) {
-                    // Signal in dBm, convert to percentage (rough approximation)
-                    preg_match('/-?[0-9]+\.?[0-9]*/', $line, $matches);
-                    if (isset($matches[0])) {
-                        $dbm = floatval($matches[0]);
-                        // Convert dBm to percentage (approximation: -30dBm=100%, -90dBm=0%)
-                        $currentNetwork['strength'] = max(0, min(100, 2 * ($dbm + 100)));
-                    }
-                } elseif (strpos($line, 'capability:') !== false) {
-                    // Check for security
-                    if (strpos($line, 'Privacy') !== false) {
-                        $currentNetwork['hasPrivacy'] = true;
-                    }
-                } elseif (strpos($line, 'RSN:') === 0) {
-                    $currentNetwork['security'] = 'PSK';
-                } elseif (strpos($line, 'WPA:') === 0 && !isset($currentNetwork['security'])) {
-                    $currentNetwork['security'] = 'PSK';
+        $ssid = trim(substr($service, 4, $pos - 4));
+        $connmanString = trim(substr($service, $pos));
+        $connmanStringParts = explode('_', $connmanString);
+        $technology = $connmanStringParts[0];
+        if (!in_array($technology, $process_technology)) {
+            // skip technologies not listed
+            continue;
+        }
+        $macAddress = trim($connmanStringParts[1]);
+        // clean up any invalid connman config files
+//        if (in_array(implode(':', str_split($macAddress, 2)), $networkSpoofArray)) {
+            // remove nic with tho old MAC address from the connman cache and restart connman
+//            $connmanConfDir = '/var/lib/connman/*'.$macAddress.'*';
+//            sysCmd('rm -fr '.$connmanConfDir);
+//            wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
+//            continue;
+//        }
+        if (isset($translateMacNic[$macAddress.'_'])) {
+            $nic = $translateMacNic[$macAddress.'_'];
+            if (($accessPointEnabled) && ($accessPoint === $ssid)) {
+                // ssid configured as an AccessPoint, so skip
+                continue;
+            }
+        } else {
+            $nic = '000000';
+        }
+        if ($technology === 'ethernet') {
+            // connect wired interface
+            if ($networkInterfaces[$nic]['connected']) {
+                // do nothing
+            } else {
+                wrk_netconfig($redis, 'autoconnect-on', $connmanString);
+            }
+        } else if ($technology === 'wifi') {
+            // this is for WiFi
+            if ($ssid === '') {
+                // when the ssid is empty it is a hidden ssid, so make it unique, there may be more than one
+                $ssid = '<Hidden'.++$hiddenCount.'>';
+            }
+        } else {
+            // not Wi-Fi or Wired Ethernet, so skip it (could be Bluetooth, etc.)
+            continue;
+        }
+        $ssidHex = implode(unpack("H*", trim($ssid)));
+        // set the deault values for DNS name servers and gateway from
+        $networkInfo[$macAddress.'_'.$ssidHex]['primaryDns'] = $networkInterfaces[$nic]['primaryDns'];
+        $networkInfo[$macAddress.'_'.$ssidHex]['secondaryDns'] = $networkInterfaces[$nic]['secondaryDns'];
+        $networkInterfaces[$nic]['defaultGateway'] = $networkInterfaces[$nic]['defaultGateway'];
+        // get the signal strength, security, DNS name servers and gateway from connman
+//        $connmanLines = sysCmd('connmanctl services '.$connmanString);
+        $connmanLines = sysCmd('/usr/bin/python3 /srv/http/command/services.py '.$connmanString);
+        foreach ($connmanLines as $connmanLine) {
+            $connmanLineParts = explode('=', $connmanLine, 2);
+            if (count($connmanLineParts) !=2) {
+                // skip the line if it has no value (or '=' character)
+                continue;
+            }
+            $entry = ' '.strtolower(trim($connmanLineParts[0]));
+            $value = strtolower(trim($connmanLineParts[1], " \t\n\r\0\x0B]["));
+            if (strpos($entry, '.configuration') && !strpos($entry, 'ipv6.')) {
+                // don't use the .configuration lines unless its ipv6.configuration
+                continue;
+            }
+            if (strpos($entry, 'security')) {
+                $value = strtoupper($value);
+                if ($value == 'NONE') {
+                    // when $value is 'NONE' set it to 'OPEN'
+                    $value = 'OPEN';
                 }
-            }
-            
-            // Save last network
-            if (!empty($currentNetwork) && isset($currentNetwork['ssid'])) {
-                $currentNetwork['nic'] = $nic;
-                $currentNetwork['macAddress'] = $nicMacAddress;
-                $wifiNetworks[] = $currentNetwork;
-            }
-        }
-    }
-    
-    // Process wired connections first
-    foreach ($networkInterfaces as $nic => $nicInfo) {
-        if ($nicInfo['technology'] === 'ethernet' && $nicInfo['connected']) {
-            $macAddress = str_replace(':', '', strtolower($nicInfo['macAddress']));
-            $ssid = 'Wired';
-            $ssidHex = implode(unpack("H*", $ssid));
-            $key = $macAddress.'_'.$ssidHex;
-            
-            // Get connection details from nmcli
-            $deviceDetails = sysCmd('nmcli -t -f IP4.DNS,IP4.GATEWAY,IP4.ADDRESS,GENERAL.STATE device show '.$nic);
-            
-            $networkInfo[$key]['primaryDns'] = $nicInfo['primaryDns'];
-            $networkInfo[$key]['secondaryDns'] = $nicInfo['secondaryDns'];
-            $networkInfo[$key]['defaultGateway'] = $nicInfo['defaultGateway'];
-            $networkInfo[$key]['ipv4Mask'] = $nicInfo['ipv4Mask'];
-            
-            foreach ($deviceDetails as $detail) {
-                $detailParts = explode(':', $detail, 2);
-                if (count($detailParts) == 2) {
-                    $field = trim($detailParts[0]);
-                    $value = trim($detailParts[1]);
-                    
-                    if ($field === 'IP4.DNS[1]') {
-                        $networkInfo[$key]['primaryDns'] = $value;
-                        $networkInterfaces[$nic]['primaryDns'] = $value;
-                        $networkInterfacesModified = true;
-                    } elseif ($field === 'IP4.DNS[2]') {
-                        $networkInfo[$key]['secondaryDns'] = $value;
-                        $networkInterfaces[$nic]['secondaryDns'] = $value;
-                        $networkInterfacesModified = true;
-                    } elseif ($field === 'IP4.GATEWAY') {
-                        if ($value && $value != $nicInfo['defaultGateway']) {
-                            $networkInfo[$key]['defaultGateway'] = $value;
-                            $networkInterfaces[$nic]['defaultGateway'] = $value;
-                            $networkInterfacesModified = true;
-                        }
-                    } elseif ($field === 'IP4.ADDRESS[1]') {
-                        // Extract netmask from CIDR notation
-                        if (strpos($value, '/') !== false) {
-                            list($ip, $cidr) = explode('/', $value);
-                            $mask = long2ip(-1 << (32 - (int)$cidr));
-                            if ($mask != $nicInfo['ipv4Mask']) {
-                                $networkInfo[$key]['ipv4Mask'] = $mask;
-                                $networkInterfaces[$nic]['ipv4Mask'] = $mask;
+                $networkInfo[$macAddress.'_'.$ssidHex]['security'] = $value;
+            } else if (strpos($entry, 'strength')) {
+                if ($value) {
+                    $strength = $value;
+                    $networkInfo[$macAddress.'_'.$ssidHex]['strength'] = $strength;
+                    // strength is a value from 1 to 100, genereate 1 to 5 stars
+                    $networkInfo[$macAddress.'_'.$ssidHex]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/20)));
+                }
+            } else if (strpos($entry, 'nameservers')) {
+                if ($value) {
+                    $nameservers = explode(',', $value);
+                    if (isset($nameservers[0])) {
+                        $nameservers[0] = trim($nameservers[0]);
+                        if ($nameservers[0]) {
+                            if ($networkInfo[$macAddress.'_'.$ssidHex]['primaryDns'] != $nameservers[0]) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['primaryDns'] = $nameservers[0];
+                                $networkInfo[$macAddress.'_'.$ssidHex]['secondaryDns'] = '';
+                                $networkInterfaces[$nic]['primaryDns'] = $nameservers[0];
+                                $networkInterfaces[$nic]['secondaryDns'] = '';
                                 $networkInterfacesModified = true;
                             }
                         }
-                    } elseif ($field === 'GENERAL.STATE') {
-                        $state = explode(' ', $value)[0];
-                        $networkInfo[$key]['status'] = ($state === '100') ? 'AR' : '';
+                    }
+                    if (isset($nameservers[1])) {
+                        $nameservers[1] = trim($nameservers[1]);
+                        if ($nameservers[1]) {
+                            if ($networkInfo[$macAddress.'_'.$ssidHex]['secondaryDns'] != $nameservers[1]) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['secondaryDns'] = $nameservers[1];
+                                $networkInterfaces[$nic]['secondaryDns'] = $nameservers[1];
+                                $networkInterfacesModified = true;
+                            }
+                        }
                     }
                 }
-            }
-            
-            $networkInfo[$key]['ssid'] = $ssid;
-            $networkInfo[$key]['ssidHex'] = $ssidHex;
-            $networkInfo[$key]['connmanString'] = 'ethernet_'.$macAddress.'_cable';
-            $networkInfo[$key]['macAddress'] = $macAddress;
-            $networkInfo[$key]['technology'] = 'ethernet';
-            $networkInfo[$key]['nic'] = $nic;
-            $networkInfo[$key]['security'] = 'NONE';
-            $networkInfo[$key]['configured'] = true;
-            $networkInfo[$key]['autoconnect'] = true;
-            $networkInfo[$key]['online'] = $nicInfo['connected'];
-            $networkInfo[$key]['ready'] = $nicInfo['connected'];
-            
-            if (isset($nicInfo['ipStatus'])) {
-                $networkInfo[$key]['ipStatus'] = $nicInfo['ipStatus'];
-            }
-            if (isset($nicInfo['ipInfo'])) {
-                $networkInfo[$key]['ipInfo'] = $nicInfo['ipInfo'];
-            }
-            if (isset($nicInfo['ipv4Address'])) {
-                $networkInfo[$key]['ipv4Address'] = $nicInfo['ipv4Address'];
-            }
-            if (isset($nicInfo['ipv6Address'])) {
-                $networkInfo[$key]['ipv6Address'] = $nicInfo['ipv6Address'];
-            }
-            
-            // Select nic for avahi
-            if ($nicInfo['connected'] && isset($nicInfo['ipStatus']) && $nicInfo['ipStatus'] === 'UP') {
-                $avahiNic = $nic;
-            }
-        }
-    }
-    
-    // Process WiFi networks
-    foreach ($wifiNetworks as $wifiNet) {
-        $macAddress = $wifiNet['macAddress'];
-        $ssid = $wifiNet['ssid'];
-        $nic = $wifiNet['nic'];
-        
-        // Skip access point SSIDs
-        if ($accessPointEnabled && $accessPoint === $ssid) {
-            continue;
-        }
-        
-        // Handle hidden SSIDs
-        if ($ssid === '') {
-            $ssid = '<Hidden'.++$hiddenCount.'>';
-        }
-        
-        $ssidHex = implode(unpack("H*", trim($ssid)));
-        $key = $macAddress.'_'.$ssidHex;
-        
-        // Set default values
-        $networkInfo[$key]['primaryDns'] = $networkInterfaces[$nic]['primaryDns'];
-        $networkInfo[$key]['secondaryDns'] = $networkInterfaces[$nic]['secondaryDns'];
-        $networkInfo[$key]['defaultGateway'] = $networkInterfaces[$nic]['defaultGateway'];
-        $networkInfo[$key]['ipv4Mask'] = $networkInterfaces[$nic]['ipv4Mask'];
-        
-        // Set security
-        if (!isset($wifiNet['security'])) {
-            $networkInfo[$key]['security'] = isset($wifiNet['hasPrivacy']) ? 'WEP' : 'OPEN';
-        } else {
-            $networkInfo[$key]['security'] = $wifiNet['security'];
-        }
-        
-        // Set strength
-        if (isset($wifiNet['strength'])) {
-            $strength = $wifiNet['strength'];
-            $networkInfo[$key]['strength'] = $strength;
-            $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($strength/20)));
-        }
-        
-        $networkInfo[$key]['ssid'] = $ssid;
-        $networkInfo[$key]['ssidHex'] = $ssidHex;
-        $networkInfo[$key]['connmanString'] = 'wifi_'.$macAddress.'_'.$ssidHex.'_managed_psk';
-        $networkInfo[$key]['macAddress'] = $macAddress;
-        $networkInfo[$key]['technology'] = 'wifi';
-        $networkInfo[$key]['nic'] = $nic;
-        
-        // Check if this network has a saved connection
-        $isConfigured = false;
-        $connectionUuid = null;
-        $isAutoconnect = false;
-        
-        foreach ($connectionList as $conn) {
-            if ($conn['type'] === '802-11-wireless') {
-                // Get connection details to match SSID
-                $connDetails = sysCmd('nmcli -t -f 802-11-wireless.ssid connection show "'.$conn['name'].'"');
-                foreach ($connDetails as $detail) {
-                    if (strpos($detail, '802-11-wireless.ssid:') === 0) {
-                        $connSsid = substr($detail, 21);
-                        if ($connSsid === $ssid) {
-                            $isConfigured = true;
-                            $connectionUuid = $conn['uuid'];
-                            
-                            // Check if connected to this device
-                            $isConnected = ($conn['device'] === $nic);
-                            
-                            // Get autoconnect status
-                            $autoconnectInfo = sysCmd('nmcli -t -f connection.autoconnect connection show "'.$conn['name'].'"');
-                            foreach ($autoconnectInfo as $ac) {
-                                if (strpos($ac, 'connection.autoconnect:yes') !== false) {
-                                    $isAutoconnect = true;
+            } else if (strpos($entry, 'ipv4')) {
+                // pick up the IP assignment (Static or DHCP)
+                if ($value && strpos(' '.$value, 'method')) {
+                    $method = substr($value, strpos($value, 'method'));
+                    $method = explode('=', $method, 2);
+                    if (isset($method[1])) {
+                        $method[1] = trim($method[1]);
+                        if ($method[1]) {
+                            $method = $method[1];
+                            if (strpos(' '.$method, ',')) {
+                                $method = substr($method, 0, strpos($method, ','));
+                            }
+                            if (strpos(' '.$method, '=')) {
+                                $method = substr($method, 0, strpos($method, '='));
+                            }
+                            if ($method && ($method == 'dhcp')) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['ipAssignment'] = 'DHCP';
+                                if (!isset($networkInterfaces[$nic]['ipAssignment']) || ($networkInterfaces[$nic]['ipAssignment'] != 'DHCP')) {
+                                    $networkInterfaces[$nic]['ipAssignment'] = 'DHCP';
+                                    $networkInterfacesModified = true;
+                                }
+                            } else if ($method && ($method == 'fixed')) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['ipAssignment'] = 'Static';
+                                if (!isset($networkInterfaces[$nic]['ipAssignment']) || ($networkInterfaces[$nic]['ipAssignment'] != 'Static')) {
+                                    $networkInterfaces[$nic]['ipAssignment'] = 'Static';
+                                    $networkInterfacesModified = true;
                                 }
                             }
-                            
-                            // Get IP configuration if connected
-                            if ($isConnected) {
-                                $deviceDetails = sysCmd('nmcli -t -f IP4.DNS,IP4.GATEWAY,IP4.ADDRESS,IP6.ADDRESS,GENERAL.STATE device show '.$nic);
-                                
-                                foreach ($deviceDetails as $detail) {
-                                    $detailParts = explode(':', $detail, 2);
-                                    if (count($detailParts) == 2) {
-                                        $field = trim($detailParts[0]);
-                                        $value = trim($detailParts[1]);
-                                        
-                                        if ($field === 'IP4.DNS[1]') {
-                                            $networkInfo[$key]['primaryDns'] = $value;
-                                            $networkInterfaces[$nic]['primaryDns'] = $value;
-                                            $networkInterfacesModified = true;
-                                        } elseif ($field === 'IP4.DNS[2]') {
-                                            $networkInfo[$key]['secondaryDns'] = $value;
-                                            $networkInterfaces[$nic]['secondaryDns'] = $value;
-                                            $networkInterfacesModified = true;
-                                        } elseif ($field === 'IP4.GATEWAY') {
-                                            if ($value) {
-                                                $networkInfo[$key]['defaultGateway'] = $value;
-                                                $networkInterfaces[$nic]['defaultGateway'] = $value;
-                                                $networkInterfacesModified = true;
-                                            }
-                                        } elseif ($field === 'IP4.ADDRESS[1]') {
-                                            if (strpos($value, '/') !== false) {
-                                                list($ip, $cidr) = explode('/', $value);
-                                                $mask = long2ip(-1 << (32 - (int)$cidr));
-                                                $networkInfo[$key]['ipv4Mask'] = $mask;
-                                                $networkInterfaces[$nic]['ipv4Mask'] = $mask;
-                                                $networkInterfacesModified = true;
-                                            }
-                                        } elseif ($field === 'GENERAL.STATE') {
-                                            $state = explode(' ', $value)[0];
-                                            if ($state === '100') {
-                                                $networkInfo[$key]['status'] = $isAutoconnect ? 'AR' : 'R';
-                                                $networkInfo[$key]['online'] = true;
-                                                $networkInfo[$key]['ready'] = true;
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Copy interface info
-                                if (isset($networkInterfaces[$nic]['ipStatus'])) {
-                                    $networkInfo[$key]['ipStatus'] = $networkInterfaces[$nic]['ipStatus'];
-                                }
-                                if (isset($networkInterfaces[$nic]['ipv4Address'])) {
-                                    $networkInfo[$key]['ipv4Address'] = $networkInterfaces[$nic]['ipv4Address'];
-                                }
-                                if (isset($networkInterfaces[$nic]['ipv6Address'])) {
-                                    $networkInfo[$key]['ipv6Address'] = $networkInterfaces[$nic]['ipv6Address'];
+                        }
+                    }
+                }
+                // pick up the device gateway
+                if ($value && strpos(' '.$value, 'gateway')) {
+                    $gateway = substr($value, strpos($value, 'gateway'));
+                    $gateway = explode('=', $gateway, 2);
+                    if (isset($gateway[1])) {
+                        $gateway[1] = trim($gateway[1]);
+                        if ($gateway[1]) {
+                            $gateway = $gateway[1];
+                            if (strpos(' '.$gateway, ',')) {
+                                $gateway = substr($gateway, 0, strpos($gateway, ','));
+                            }
+                            if (strpos(' '.$gateway, '=')) {
+                                $gateway = substr($gateway, 0, strpos($gateway, '='));
+                            }
+                            if ($gateway && ($gateway != $networkInterfaces[$nic]['defaultGateway'])) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['defaultGateway'] = $gateway;
+                                if (!isset($networkInterfaces[$nic]['defaultGateway']) || ($networkInterfaces[$nic]['defaultGateway'] != $gateway)) {
+                                    $networkInterfaces[$nic]['defaultGateway'] = $gateway;
+                                    $networkInterfacesModified = true;
                                 }
                             }
-                            break;
+                        }
+                    }
+                } else {
+                    $networkInfo[$macAddress.'_'.$ssidHex]['defaultGateway'] = $networkInterfaces[$nic]['defaultGateway'];
+                }
+                // pick up the device network mask
+                if ($value && strpos(' '.$value, 'netmask')) {
+                    $netmask = substr($value, strpos($value, 'netmask'));
+                    $netmask = explode('=', $netmask, 2);
+                    if (isset($netmask[1])) {
+                        $netmask[1] = trim($netmask[1]);
+                        if ($netmask[1]) {
+                            $netmask = $netmask[1];
+                            if (strpos(' '.$netmask, ',')) {
+                                $netmask = substr($netmask, 0, strpos($netmask, ','));
+                            }
+                            if (strpos(' '.$netmask, '=')) {
+                                $netmask = substr($netmask, 0, strpos($netmask, '='));
+                            }
+                            if ($netmask && ($netmask != $networkInterfaces[$nic]['ipv4Mask'])) {
+                                $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Mask'] = $netmask;
+                                if (!isset($networkInterfaces[$nic]['ipv4Mask']) || ($networkInterfaces[$nic]['ipv4Mask'] != $netmask)) {
+                                    $networkInterfaces[$nic]['ipv4Mask'] = $netmask;
+                                    $networkInterfacesModified = true;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Mask'] = $networkInterfaces[$nic]['ipv4Mask'];
+                }
+            } else if (strpos($entry, 'ipv6.configuration')) {
+                if ($value) {
+                    If (strpos($value, ',')) {
+                        $ipv6Configuration = explode(',', $value);
+                    } else {
+                        $ipv6Configuration[0] = $value;
+                    }
+                    foreach ($ipv6Configuration as $ipv6Part) {
+                        $ipv6Part = trim($ipv6Part);
+                        if (strpos(' '.$ipv6Part, '=')) {
+                            list($ipv6Item, $ipv6Value) = explode('=', $ipv6Part, 2);
+                            $networkInfo[$macAddress.'_'.$ssidHex]['ipv6.'.trim($ipv6Item)] = trim($ipv6Value);
                         }
                     }
                 }
             }
         }
-        
-        $networkInfo[$key]['configured'] = $isConfigured;
-        $networkInfo[$key]['autoconnect'] = $isAutoconnect;
-        
-        if (!$isConfigured) {
-            $networkInfo[$key]['status'] = '';
-            $networkInfo[$key]['online'] = false;
-            $networkInfo[$key]['ready'] = false;
+        $networkInfo[$macAddress.'_'.$ssidHex]['ssid'] = $ssid;
+        $networkInfo[$macAddress.'_'.$ssidHex]['ssidHex'] = $ssidHex;
+        $networkInfo[$macAddress.'_'.$ssidHex]['status'] = $status;
+        $networkInfo[$macAddress.'_'.$ssidHex]['connmanString'] = $connmanString;
+        $networkInfo[$macAddress.'_'.$ssidHex]['macAddress'] = $macAddress;
+        $networkInfo[$macAddress.'_'.$ssidHex]['technology'] = $technology;
+        if (isset($security)) {
+
         }
-        
-        // Add to optimization array if configured and secure
-        if ($isConfigured && $networkInfo[$key]['security'] != 'OPEN') {
-            $strength = isset($wifiNet['strength']) ? $wifiNet['strength'] : 3;
-            $optimiseWifi[] = array(
-                'connmanString' => $networkInfo[$key]['connmanString'],
-                'connectionName' => $conn['name'] ?? null,
-                'strength' => $strength,
-                'macAddress' => $macAddress,
-                'ssidHex' => $ssidHex
-            );
+        if ($nic != '000000') {
+            $networkInfo[$macAddress.'_'.$ssidHex]['nic'] = $nic;
+        }
+        //
+        if ($status) {
+            $networkInfo[$macAddress.'_'.$ssidHex]['configured'] = true;
+            if (strpos(' '.$status, 'A')) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['autoconnect'] = true;
+            } else {
+                $networkInfo[$macAddress.'_'.$ssidHex]['autoconnect'] = false;
+            }
+            if (strpos(' '.$status, 'O')) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['online'] = true;
+            } else {
+                $networkInfo[$macAddress.'_'.$ssidHex]['online'] = false;
+            }
+            if (strpos(' '.$status, 'R')) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ready'] = true;
+            } else {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ready'] = false;
+            }
+            if (isset($networkInterfaces[$nic]['ipStatus'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipStatus'] = $networkInterfaces[$nic]['ipStatus'];
+            }
+            if (isset($networkInterfaces[$nic]['ipInfo'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipInfo'] = $networkInterfaces[$nic]['ipInfo'];
+            }
+            if (isset($networkInterfaces[$nic]['ipv4Address'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Address'] = $networkInterfaces[$nic]['ipv4Address'];
+            }
+            if (isset($networkInterfaces[$nic]['ipv6Address'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipv6Address'] = $networkInterfaces[$nic]['ipv6Address'];
+            }
+            if (isset($networkInterfaces[$nic]['ipv4Rest'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipv4Rest'] = $networkInterfaces[$nic]['ipv4Rest'];
+            }
+            if (isset($networkInterfaces[$nic]['ipv6Rest'])) {
+                $networkInfo[$macAddress.'_'.$ssidHex]['ipv6Rest'] = $networkInterfaces[$nic]['ipv6Rest'];
+            }
+        } else {
+            $networkInfo[$macAddress.'_'.$ssidHex]['configured'] = false;
+            $networkInfo[$macAddress.'_'.$ssidHex]['autoconnect'] = false;
+            $networkInfo[$macAddress.'_'.$ssidHex]['online'] = false;
+            $networkInfo[$macAddress.'_'.$ssidHex]['ready'] = false;
+        }
+        if (($networkInfo[$macAddress.'_'.$ssidHex]['technology'] === 'wifi') &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['configured']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['security'] != 'OPEN')) {
+            // write the configured wifi networks to an array for autoconnect optimisation
+            // autoconnect is never automatically set for OPEN security
+            if (!isset($strength) || !$strength) {
+                // strength is not set, probably a restore from backup, set strength to a default value of 3
+                $strength = 3;
+            }
+            $optimiseWifi[] = array('connmanString' => $connmanString
+                , 'strength' => $strength
+                , 'macAddress' => $macAddress
+                , 'ssidHex' => $ssidHex
+                );
+        }
+        // select the nic to use for avahi
+        if (($networkInfo[$macAddress.'_'.$ssidHex]['technology'] === 'ethernet') &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['configured']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['autoconnect']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['online']) &&
+                ($networkInfo[$macAddress.'_'.$ssidHex]['ipStatus'] === 'UP')) {
+            // use this nic for avahi
+            // $avahiNic will contain the last detected wired (ethernet) interface which is:
+            //  configured, autoconnect (on), online and has an 'UP' ipStatus
+            //  the value is left unset when only Wi-Fi networks are detected
+            $avahiNic = $networkInfo[$macAddress.'_'.$ssidHex]['nic'];
         }
     }
-    
-    // Set the selected nic for avahi
+    //
+    // set the selected nic for avahi
+    // allowing more than one interface to be active will cause problems with Microsoft Windows clients
+    // the last detected wired (ethernet) interface will be used
+    // when only Wi-Fi networks are detected no interfaces are specifically selected
+    //
     if ($redis->hGet('avahi', 'nic') != $avahiNic) {
+        // the nic assigned to avahi need to be changed
         if ($avahiNic === '') {
             $avahiLine = '#allow-interfaces=eth0';
         } else {
             $avahiLine = 'allow-interfaces='.$avahiNic;
         }
         sysCmd("sed -i '/allow-interfaces=/c\\".$avahiLine."' /etc/avahi/avahi-daemon.conf");
+        // avahi needs to be reloaded to activate the new entry in the config file
         wrk_systemd_unit($redis, 'daemon-reload_and_start', 'avahi-daemon');
         $redis->hSet('avahi', 'nic', $avahiNic);
     }
-    
-    // Optimize WiFi connections
-    if ($redis->get('network_autoOptimiseWifi')) {
-        $strengthCol = array_column($optimiseWifi, 'strength');
-        $ssidHexCol = array_column($optimiseWifi, 'ssidHex');
-        $macAddressCol = array_column($optimiseWifi, 'macAddress');
-        array_multisort($strengthCol, SORT_DESC, $ssidHexCol, SORT_ASC, $macAddressCol, SORT_ASC, $optimiseWifi);
-        
-        $processedMacs = array();
-        $processedSsids = array();
-        
-        foreach ($optimiseWifi as $network) {
-            $macAddress = $network['macAddress'];
-            $ssidHex = $network['ssidHex'];
-            
-            if (!in_array($macAddress, $processedMacs) && !in_array($ssidHex, $processedSsids)) {
-                // Enable autoconnect for strongest signal
-                if (isset($network['connectionName'])) {
-                    sysCmd('nmcli connection modify "'.$network['connectionName'].'" connection.autoconnect yes');
-                }
-                $processedMacs[] = $macAddress;
-                $processedSsids[] = $ssidHex;
-            } else {
-                // Disable autoconnect for weaker signals
-                if (isset($network['connectionName'])) {
-                    sysCmd('nmcli connection modify "'.$network['connectionName'].'" connection.autoconnect no');
-                }
-            }
-        }
-    }
-    
-    $redis->set('network_info', json_encode($networkInfo));
-    if ($networkInterfacesModified) {
-        $redis->set('network_interfaces', json_encode($networkInterfaces));
-    }
-    
     //
     // optimise wifi for the next reboot and the first time after setting up a Wi-Fi network
     // this is done by setting autoconnect on for the best network reception (per nic & ssid combination) and off for the rest
