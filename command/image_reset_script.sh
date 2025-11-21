@@ -230,23 +230,6 @@ rm -f /usr/local/bin/uninstall_enha.sh
 redis-cli del addons
 redis-cli del addo
 #
-# Make sure cron/cronie is installed for logrotate (not activated)
-#   This should be removed in a future release
-if [ "$os" == "RPiOS" ] ; then
-    a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
-    if [ "$a" == "0" ] ; then
-        bash -c "apt install -y cron >/dev/null 2>&1"
-        systemctl disable cron
-        systemctl stop cron
-    fi
-elif [ "$os" == "ARCH" ] ; then
-    # on ARCH cronie provides cron
-    pacman -Q cronie || pacman -Sy cronie --noconfirm
-    systemctl disable cronie
-    systemctl stop cronie
-    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
-fi
-#
 # remove user files
 rm -rf /root/*
 rm -f /srv/http/.config/debug.*
@@ -480,7 +463,7 @@ if [ "$usercnt" != "0" ] ; then
 fi
 # create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
 useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
-usermod -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+usermod -L -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 #   remove the http user if it exists, http was previously the webserver user, superseded by www-data
 usercnt=$( grep -c "^http:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
@@ -495,19 +478,19 @@ for i in "${createusers[@]}" ; do
     fi
     usercnt=$( grep -c "^$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
-        # create the accounts with no password, locked and pointing to the shell /usr/bin/nologin
+        # create the accounts with no password
         useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
-    else
-        usermod -L -d /dev/null -s /usr/bin/nologin "$i"
     fi
+    # ensure these users are locked, with default directory /dev/null and pointing to the shell /usr/bin/nologin
+    usermod -L -d /dev/null -s /usr/bin/nologin "$i"
 done
 #
-# make sure that Audio-specific users are member of the audio group
+# make sure that audio-specific users are member of the audio group
 declare -a audiousers=(www-data mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
 for i in "${audiousers[@]}" ; do
-    audiocnt=$( groups $i | grep -c audio )
+    audiocnt=$( groups "$i" | grep -c 'audio' )
     if [ "$audiocnt" == "0" ] ; then
-        usermod -a -G audio $i
+        usermod -a -G audio "$i"
     fi
 done
 #
@@ -516,40 +499,46 @@ declare -a devusers=(udevil)
 declare -a devgroups=(audio disk floppy optical storage)
 for i in "${devusers[@]}" ; do
     for j in "${devgroups[@]}" ; do
-        devusercnt=$( groups $i | grep -c $j )
+        devusercnt=$( groups "$i" | grep -c "$j" )
         if [ "$devusercnt" == "0" ] ; then
-            usermod -a -G $j $i
+            usermod -a -G "$j" "$i"
         fi
     done
+done
+#
+# some users need to have /usr/bin/bash as shell to be able to run scripts
+declare -a shellbinbashusers=(spotifyd)
+for i in "${shellbinbashusers[@]}" ; do
+    shellnologin=$( grep -i "^$i" /etc/passwd | grep -ic '/usr/bin/nologin' )
+    if [ "$shellnologin" == "1" ] ; then
+        # lock the user account to prevent logins and change the shell
+        usermod -L -s '/usr/bin/bash' "$i"
+    fi
 done
 # #
 # # make sure that Video-specific users are member of the video group
 # declare -a videousers=(www-data)
 # for i in "${videousers[@]}" ; do
-    # videocnt=$( groups $i | grep -c video )
+    # videocnt=$( groups "$i" | grep -c 'video' )
     # if [ "$videocnt" == "0" ] ; then
-        # usermod -a -G video $i
+        # usermod -a -G video "$i"
     # fi
 # done
 # #
 # # some users need root privileges, add the root group
 # declare -a rootusers=(rune_worker)
 # for i in "${rootusers[@]}" ; do
-    # rootcnt=$( groups $i | grep -c root )
+    # rootcnt=$( groups "$i" | grep -c 'root' )
     # if [ "$rootcnt" == "0" ] ; then
-        # usermod -a -G root $i
+        # usermod -a -G root "$i"
     # fi
 # done
-# #
-# # the spotifyd account needs to have its shell pointing to /usr/bin/bash to be able to run scripts
-# # also disable logins by locking the account NOTE: now done above, this can be removed
-# usermod -L -s /usr/bin/bash spotifyd
 #
 # seems that there is a known bug in avahi-daemon where it expects group netdev to exist
 #   the netdev group is normally created by dhcdbd, which we don't use
 #   at some stage in the future the next line can be removed when it is fixed
 # add system group netdev if it is not defined
-grep -i netdev /etc/group || groupadd --system netdev
+grep -i '^netdev' /etc/group || groupadd --system 'netdev'
 #
 # add waveshare LDC touchscreen overlays, only when xwindows is installed
 if [ -f "/bin/xinit" ] ; then
@@ -682,8 +671,24 @@ if [ "$os" == "ARCH" ] ; then
 fi
 # this cleans up an the apt override file from a previous version, it can be removed in the future
 if [ ! -h "/usr/local/sbin" ] && [ -f "/usr/local/sbin/apt" ] ; then
-    # rm -f /usr/local/sbin/apt
-    echo "delete"
+    rm -f /usr/local/sbin/apt
+fi
+#
+# Make sure cron/cronie is installed for logrotate (not activated)
+#   This should be removed in a future release
+if [ "$os" == "RPiOS" ] ; then
+    a=$( apt -qq list cron 2> /dev/null | grep -ci installed )
+    if [ "$a" == "0" ] ; then
+        bash -c "apt install -y cron >/dev/null 2>&1"
+        systemctl disable cron
+        systemctl stop cron
+    fi
+elif [ "$os" == "ARCH" ] ; then
+    # on ARCH cronie provides cron
+    pacman -Q cronie || pacman -Sy cronie --noconfirm
+    systemctl disable cronie
+    systemctl stop cronie
+    cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
 fi
 #   PHP configuration files differ, all files are distributed, make sure only the required files are in the production directories
 #   NOTE: when the PHP version on RPiOS changes this code needs to be changed!!

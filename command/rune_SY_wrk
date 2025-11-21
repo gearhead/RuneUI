@@ -235,6 +235,9 @@ if ($playerid_db === '') {
         wrk_netconfig($redis, 'disableWiFi');
     }
     //
+    // create the directory structure for backup, shairport sysnc, spotifyd and MPD
+    sysCmd('/srv/http/command/create_work_dirs.sh');
+    //
     // store the memory and number of cores
     $cores = preg_replace('/[^0-9]/', '', sysCmd('nproc')[0]);
     $redis->set('cores', $cores);
