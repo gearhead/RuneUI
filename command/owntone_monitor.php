@@ -255,24 +255,36 @@ while (true) {
                 $actPlayerInfoSave = $actPlayerInfo;
                 $serverHostname = $redis->hGet('owntone', 'server_hostname');
                 $serverIpAddress = $redis->hGet('owntone', 'server_ip_address');
-                $commandPut = 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://".$server.":3689/api/queue/items/now_playing?';
+                $commandPut = 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue/items/now_playing?';
                 if (isset($actPlayerInfo['currentsong'])) {
                     $commandPut .= 'title='.urlencode($actPlayerInfo['currentsong']).'&';
+                } else {
+                    $commandPut .= 'title=&';
                 }
                 if (isset($actPlayerInfo['currentalbum'])) {
                     $commandPut .= 'album='.urlencode($actPlayerInfo['currentalbum']).'&';
+                } else {
+                    $commandPut .= 'album=&';
                 }
                 if (isset($actPlayerInfo['currentartist'])) {
                     $commandPut .= 'artist='.urlencode($actPlayerInfo['currentartist']).'&';
+                } else {
+                    $commandPut .= 'artist=&';
                 }
                 if (isset($actPlayerInfo['currentalbumartist'])) {
                     $commandPut .= 'album_artist='.urlencode($actPlayerInfo['currentalbumartist']).'&';
+                } else {
+                    $commandPut .= 'album_artist=&';
                 }
                 if (isset($actPlayerInfo['currentcomposer'])) {
                     $commandPut .= 'composer='.urlencode($actPlayerInfo['currentcomposer']).'&';
+                } else {
+                    $commandPut .= 'composer=&';
                 }
                 if (isset($actPlayerInfo['genre'])) {
                     $commandPut .= 'genre='.urlencode($actPlayerInfo['genre']).'&';
+                } else {
+                    $commandPut .= 'genre=&';
                 }
                 if (isset($actPlayerInfo['mainArtURL'])) {
                     if (strtolower(substr($actPlayerInfo['mainArtURL'], 0, 4) == 'http')) {
@@ -284,6 +296,8 @@ while (true) {
                             $commandPut .= 'artwork_url='.$serverIpAddress.'/'.urlencode($actPlayerInfo['mainArtURL']).'&';
                         }
                     }
+                } else {
+                    $commandPut .= 'artwork_url=&';
                 }
                 // run the command
                 $commandPut = rtrim($commandPut, '&').'"';

@@ -16708,19 +16708,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 if ($retval && is_array($retval)) {
                     $retval = $retval[0];
                 } else {
-                    $retval = array();
+                    $retval = json_encode(array());
                 }
                 // save the server config, it is already in json format
                 $redis->hSet('owntone', 'server_config', $retval);
                 // get the server queue information
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689//api/queue"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689//api/queue"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue"');
                 }
                 if ($retval && is_array($retval)) {
                     $retval = $retval[0];
                 } else {
-                    $retval = array();
+                    $retval = json_encode(array());
                 }
                 // save the server queue information, it is already in json format
                 $redis->hSet('owntone', 'server_queue', $retval);
@@ -16732,7 +16732,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 if ($retval && is_array($retval)) {
                     $serverPlayer = json_decode($retval[0], true);
                 } else {
-                    $serverPlayer = array();
+                    $serverPlayer = json_encode(array());
                 }
                 if (isset($serverPlayer['volume'])) {
                     $redis->hSet('owntone', 'server_player', json_encode($serverPlayer));
