@@ -9059,8 +9059,7 @@ function refresh_nics($redis)
             $redis->Set('network_info_time', $nowSeconds);
         }
     }
-
-// delete networks for invalid nics from the network info array
+    // delete networks for invalid nics from the network info array
     // also subtract 3 from all network strength values and remove values which go negative
     // all networks which are (re)detected will reset their strength to the actual value
     // the networks which are successively not detected will be shown as weak and eventually be deleted
@@ -9078,7 +9077,7 @@ function refresh_nics($redis)
             }
         }
     }
-    
+    //
     // always clear the optimise wifi array
     $optimiseWifi = array();
     $accessPoint = $redis->hGet('AccessPoint', 'ssid');
