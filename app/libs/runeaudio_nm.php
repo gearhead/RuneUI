@@ -16192,8 +16192,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     wrk_stopPlayer($redis);
                 }
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                    $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                    if ($mpdError) {
+                    $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                    if (strpos($retval, ' error')) {
                         wrk_mpdconf($redis, 'forcerestart');
                     }
                 } else {
@@ -16251,8 +16251,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $redis->hSet('owntone', 'saved_spotifyconnect_volume_control', $spotifyconnectVolumeControl);
                     }
                 }
-                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
                 if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
+                    // save the mpd state
+                    $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                    if (strpos($retval, ' error')) {
+                        wrk_mpdconf($redis, 'forcerestart');
+                        $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                    }
+                    if (strpos($retval, '[playing]')) {
+                        $mpdPlaying = true;
+                    } else {
+                        $mpdPlaying = false;
+                    }
                     $owntoneSelected = sysCmd("mpc outputs | grep -i '(owntone)' | grep -ic enabled | xargs")[0];
                     if (!$owntoneSelected) {
                         if ($mpdPlaying) {
@@ -16283,8 +16293,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_stopPlayer($redis);
             }
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
-                if ($mpdError) {
+                $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                if (strpos($retval, ' error')) {
                     wrk_mpdconf($redis, 'forcerestart');
                 }
             } else {
@@ -16371,9 +16381,17 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // set the mpd output and restart playing if required
             if (wrk_systemd_unit($redis, 'is-active', 'mpd')) {
-                $mpdPlaying = sysCmd("mpc status | grep -ic '[playing]' | xargs")[0];
-                if ($mpdPlaying) {
+                // save the mpd state
+                $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                if (strpos($retval, ' error')) {
+                    wrk_mpdconf($redis, 'forcerestart');
+                    $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+                }
+                if (strpos($retval, '[playing]')) {
+                    $mpdPlaying = true;
                     sysCmd('mpc pause');
+                } else {
+                    $mpdPlaying = false;
                 }
                 wrk_mpdconf($redis, 'switchao');
                 if ($mpdPlaying) {
@@ -16570,16 +16588,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_stopPlayer($redis);
             }
             // save the mpd state
-            $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
-            // set mpd output to null and pause mpd and determine an error message
-            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
-            if ($mpdError) {
+            $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+            if (strpos($retval, ' error')) {
                 wrk_mpdconf($redis, 'forcerestart');
-                $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+                sysCmd('mpc enable only null');
+                $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+            } else {
                 sysCmd('mpc enable only null');
             }
-            if ($mpdPlaying) {
+            if (strpos($retval, '[playing]')) {
+                $mpdPlaying = true;
                 sysCmd('mpc pause');
+            } else {
+                $mpdPlaying = false;
             }
             $enable = $redis->hGet('owntone', 'enable');
             $active = $redis->hGet('owntone', 'active');
@@ -16607,16 +16628,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_stopPlayer($redis);
             }
             // save the mpd state
-            $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
-            // set mpd output to null and pause mpd and determine an error message
-            $mpdError = sysCmd('mpc enable only null 2>&1 | grep -ic error | xargs')[0];
-            if ($mpdError) {
+            $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+            if (strpos($retval, ' error')) {
                 wrk_mpdconf($redis, 'forcerestart');
-                $mpdPlaying = sysCmd('mpc status | grep -ic "\[playing\]" | xargs')[0];
+                sysCmd('mpc enable only null');
+                $retval = sysCmd('mpc status 2>&1 | xargs')[0];
+            } else {
                 sysCmd('mpc enable only null');
             }
-            if ($mpdPlaying) {
+            if (strpos($retval, '[playing]')) {
+                $mpdPlaying = true;
                 sysCmd('mpc pause');
+            } else {
+                $mpdPlaying = false;
             }
             $enable = $redis->hGet('owntone', 'enable');
             $active = $redis->hGet('owntone', 'active');
