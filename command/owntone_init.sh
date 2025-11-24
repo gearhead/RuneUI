@@ -90,6 +90,12 @@ if (( cores > 1 )) ; then
                     mkfifo -m 666 $x/pipe_$pipe.fifo.metadata
                     chown $owntone_user:audio $x/pipe_$pipe.fifo
                     chown $owntone_user:audio $x/pipe_$pipe.fifo.metadata
+                    # the creation of the fifo data file above is too late for some systemd units, set up tmpfiles.d/owntone.conf to
+                    #   create the files at startup
+                    #   the lines of code above are still necessary, they will recreate an empty fifo file when owntone restarts
+                    sed -i "/pipe_$pipe.fifo/d" "/etc/tmpfiles.d/owntone.conf"
+                    echo "p $x/pipe_$pipe.fifo 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
+                    echo "p $x/pipe_$pipe.fifo.metadata 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
                 fi
                 if [ -f /etc/alsa/conf.d/99-runeaudio-owntone.conf ] ; then
                     alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" /etc/alsa/conf.d/99-runeaudio-owntone.conf )
