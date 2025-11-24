@@ -985,7 +985,7 @@ while (true)  {
                     // use exit code 0 'Successful end'
                     // exit(0);
                 }
-                ui_render('playback', json_encode($status));
+                ui_render($redis, 'playback', json_encode($status));
                 // debug
                 // echo "0-3: ".$saveFile.", ".$status['file']."\n";
                 runelog('[rune_MPDEM_wrk] 0-3');
@@ -1029,7 +1029,7 @@ while (true)  {
                         // use error code 0 'Successful end'
                         // exit(0);
                     }
-                    ui_render('playback', json_encode($status));
+                    ui_render($redis, 'playback', json_encode($status));
                     // debug
                     // echo "1-3: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 1-3');
@@ -1193,7 +1193,7 @@ while (true)  {
                     // use exit code 0 'Successful end'
                     // exit(0);
                 }
-                ui_render('playback', json_encode($status));
+                ui_render($redis, 'playback', json_encode($status));
                 // debug
                 // echo "3-3: ".$saveFile.", ".$status['file']."\n";
                 runelog('[rune_MPDEM_wrk] 3-2');
@@ -1230,7 +1230,7 @@ while (true)  {
                         // use exit code 0 'Successful end'
                         // exit(0);
                     }
-                    ui_render('playback', json_encode($status));
+                    ui_render($redis, 'playback', json_encode($status));
                     // debug
                     // echo "4-3: ".$saveFile.", ".$status['file']."\n";
                     runelog('[rune_MPDEM_wrk] 4-3');

@@ -274,7 +274,7 @@ do {
         $status['bigArtURL'] = $artUrl.'/black.png';
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
-        ui_render('playback', json_encode($status));
+        ui_render($redis, 'playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
         sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
@@ -374,7 +374,7 @@ do {
                     $status['artist_similar'] = ' ';
                     // save JSON response for extensions
                     $redis->set('act_player_info', json_encode($status));
-                    ui_render('playback', json_encode($status));
+                    ui_render($redis, 'playback', json_encode($status));
                     sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                 }
                 // now get the artist art and song information, this can take a while to retrieve
@@ -527,7 +527,7 @@ do {
         $updateUI = false;
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
-        ui_render('playback', json_encode($status));
+        ui_render($redis, 'playback', json_encode($status));
         sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         if (isset($job['track_id']) && $job['track_id'] && ($last_track_id != $job['track_id'])) {

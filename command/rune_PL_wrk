@@ -163,7 +163,7 @@ while (true) {
                 } else {
                     $status['radio'] = false;
                 }
-                // ui_render('playback', json_encode($status));
+                // ui_render($redis, 'playback', json_encode($status));
                 // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
             } else {
                 // no status returned, assume mpd not yet ready
@@ -213,7 +213,7 @@ while (true) {
             $player_volume_control = '';
             $redis->set('pl_length', $status['playlistlength']);
             $redis->set('act_player_info', json_encode($status));
-            ui_render('playback', json_encode($status));
+            ui_render($redis, 'playback', json_encode($status));
             // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value
@@ -688,7 +688,7 @@ while (true) {
                     // normal process render the UI
                     // post $status to the UI
                     runelog('rune_PL_wrk: ui_render() response', json_encode($status));
-                    ui_render('playback', json_encode($status));
+                    ui_render($redis, 'playback', json_encode($status));
                 }
                 if ($redis->hGet('globalrandom', 'enable') && (!isset($status['state']) || ($status['state'] === 'play')) && ($status['nextsongid'] === 0)) {
                     // now playing the last track in the queue
@@ -942,7 +942,7 @@ while (true) {
                 // $status = json_decode($redis->get('act_player_info'), true);
                 runelog('---------------------------- FORCE UPDATE Bluetooth ----------------------------------');
                 $status = initialise_playback_array($redis, 'Bluetooth');
-                ui_render('playback', json_encode($status));
+                ui_render($redis, 'playback', json_encode($status));
                 $redis->set('act_player_info', json_encode($status));
                 $audio = $status['audio'];
                 $btDeviceName = $status['currentalbum'];
@@ -1221,7 +1221,7 @@ while (true) {
                                         } else {
                                             $status['song_percent'] = 0;
                                         }
-                                        ui_render('playback', json_encode($status));
+                                        ui_render($redis, 'playback', json_encode($status));
                                         $redis->set('act_player_info', json_encode($status));
                                         // now get the artist art and song information, this can take a while to retrieve
                                         $info = array();
@@ -1292,7 +1292,7 @@ while (true) {
                                         }
                                         $trackElapsedTime = $status['time_last_elapsed'] - $status['elapsed'] + $status['time'];
                                         unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
-                                        ui_render('playback', json_encode($status));
+                                        ui_render($redis, 'playback', json_encode($status));
                                         $redis->set('act_player_info', json_encode($status));
                                         $checkElapsedCnt = 0;
                                         $metadataCnt = 2;
@@ -1314,7 +1314,7 @@ while (true) {
                                             $status['time'] = round($status['duration']);
                                             $status['last_elapsed'] = $status['elapsed'];
                                             $status['song_percent'] = round(($elapsed * 100) / $duration);
-                                            ui_render('playback', json_encode($status));
+                                            ui_render($redis, 'playback', json_encode($status));
                                             unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
                                             $redis->set('act_player_info', json_encode($status));
                                             // repeat after 6 cycles (outside loop 2 seconds x inner loop 5 seconds)x6 = 60 seconds
@@ -1407,7 +1407,7 @@ while (true) {
                             $status['song_percent'] = $song_percent;
                         }
                     }
-                    ui_render('playback', json_encode($status));
+                    ui_render($redis, 'playback', json_encode($status));
                     unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);                }
                     $redis->set('act_player_info', json_encode($status));
                 runelog('rune_PL_wrk: Bluetooth timeout count', $bluetooth_timeout_count);

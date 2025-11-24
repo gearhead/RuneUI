@@ -199,7 +199,7 @@ do {
         $status['bigArtURL'] = $artUrl.'/black.png';
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
-        ui_render('playback', json_encode($status));
+        ui_render($redis, $redis, 'playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
         sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
@@ -322,7 +322,7 @@ do {
     if ($active_player == 'SpotifyConnect') {
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
-        ui_render('playback', json_encode($status));
+        ui_render($redis, $redis, 'playback', json_encode($status));
         sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";

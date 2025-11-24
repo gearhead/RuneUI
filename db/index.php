@@ -642,7 +642,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if (isset($_POST['clientUUID']) && $_POST['clientUUID']) {
                 $data['clientUUID'] = $_POST['clientUUID'];
             }
-            ui_render('modal', json_encode($data));
+            ui_render($redis, 'modal', json_encode($data));
             unset($data);
             break;
         case 'MRconnect':

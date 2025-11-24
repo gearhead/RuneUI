@@ -6802,7 +6802,7 @@ function wrk_startPlayer($redis, $newPlayer)
             //  state is paused then its real previous state was playing
             $redis->set('mpd_playback_laststate', 'play');
         }
-        ui_render('playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
+        ui_render($redis, 'playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
         sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'reset');
@@ -7420,14 +7420,14 @@ function ui_notify($redis, $title, $text, $type = null, $permanotice = null)
             // echo "Message : $message\n";
             runelog('Message : '.$message);
             if (isset($message) && $message) {
-                ui_render('notify', base64_decode($message));
+                ui_render($redis, 'notify', base64_decode($message));
                 // sleep for 0,5 second between sending messages
                 usleep(500000);
                 // sleep(1);
             }
         } while (isset($message) && $message);
         // display the current message
-        ui_render('notify', json_encode($output));
+        ui_render($redis, 'notify', json_encode($output));
     }
 }
 
@@ -7462,14 +7462,14 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
             // echo "Message : $message\n";
             runelog('Message : '.$message);
             if (isset($message) && $message) {
-                ui_render('notify', base64_decode($message));
+                ui_render($redis, 'notify', base64_decode($message));
                 // sleep for 0,5 second between sending messages
                 usleep(500000);
                 // sleep(1);
             }
         } while (isset($message) && $message);
         // display the current message
-        ui_render('notify', json_encode($output));
+        ui_render($redis, 'notify', json_encode($output));
     }
 }
 
@@ -7537,7 +7537,7 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
             // }
             // break;
     // }
-    // if (wrk_notify_check($notification)) ui_render('notify', $notification);
+    // if (wrk_notify_check($notification)) ui_render($redis, 'notify', $notification);
 // }
 
 // function wrk_notify_check($notification)
@@ -7563,7 +7563,7 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
     // public function output()
     // {
         // $queue = getPlayQueue($this->socket);
-        // ui_render('queue', json_encode($queue));
+        // ui_render($redis, 'queue', json_encode($queue));
     // }
 // }
 
@@ -8034,7 +8034,7 @@ function ui_libraryHome($redis, $clientUUID = null)
                 'ActivePlayer' => $activePlayer, 'clientUUID' => $clientUUID, 'HWinput' => $hwInput, 'CDinput' => $cdInput));
     // Encode UI response
     runelog('ui_libraryHome - JSON: ', $jsonHome);
-    ui_render('library', $jsonHome);
+    ui_render($redis, 'library', $jsonHome);
 }
 
 function ui_lastFM_coverart($redis, $artist, $album, $lastfmApikey, $proxy)
@@ -8119,7 +8119,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
 }
 
 // push UI update to NGiNX channel
-function ui_render($channel, $data)
+function ui_render($redis, $channel, $data)
 {
     curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
@@ -8324,7 +8324,7 @@ function ui_update($redis, $sock = null, $clientUUID = null)
             } else {
                 unset($status['song_percent'], $status['elapsed']);
             }
-            ui_render('playback', json_encode($status));
+            ui_render($redis, 'playback', json_encode($status));
             break;
     }
 }
@@ -12508,7 +12508,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     }
     // save JSON response for extensions
     $redis->set('act_player_info', json_encode($status));
-    ui_render('playback', json_encode($status));
+    ui_render($redis, 'playback', json_encode($status));
     sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
     sysCmdAsync($redis, '/srv/http/command/ui_update_async', 0);
     return $status;

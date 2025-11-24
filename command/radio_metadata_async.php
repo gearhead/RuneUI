@@ -73,7 +73,7 @@ if (($lock === '0') || ($lock === '9')  || ($lock >= 9)) {
     }
     if ($status['radio'])  {
         $redis->set('act_player_info', json_encode($newStatus));
-        ui_render('playback', json_encode($newStatus));
+        ui_render($redis, 'playback', json_encode($newStatus));
     }
     // unlock
     $redis->set('lock_radio_metadata', '0');
