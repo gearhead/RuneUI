@@ -473,7 +473,7 @@ while (true) {
                     // reset the re-render time
                     $nextRenderTime = microtime(true) + 20;
                 }
-                
+
             }
             unset($now, $client, $value, $renderedClientKey, $decoded, $encoded);
         }
