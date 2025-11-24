@@ -271,6 +271,10 @@ function redisDatastore($redis, $action) {
             break;
         case 'owntonereset':
             // Owntone - Multi-room
+            $redis->del('owntone_outputs');
+            $redis->del('owntone_presets');
+            $redis->hDel('owntone', 'saved_airplay_format');
+            $redis->hDel('owntone', 'saved_airplay_rate');
             $redis->hSet('owntone', 'active', '0');
             $redis->hSet('owntone', 'deactivate_time', time());
             $redis->hSet('owntone', 'default_volume', '40');
@@ -290,16 +294,13 @@ function redisDatastore($redis, $action) {
             $redis->hSet('owntone', 'pipe_sc', '');
             $redis->hSet('owntone', 'rate', '44100');
             $redis->hSet('owntone', 'role', '');
-            $redis->hDel('owntone', 'saved_airplay_format');
-            $redis->hDel('owntone', 'saved_airplay_rate');
             $redis->hSet('owntone', 'server', '');
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'streaming', '0');
             $redis->hSet('owntone', 'unmute_delay', '5');
-            $redis->del('owntone_outputs');
-            $redis->del('owntone_presets');
             break;
         case 'owntonecheck':
             // owntone - Multi-room
@@ -324,8 +325,9 @@ function redisDatastore($redis, $action) {
             $redis->hExists('owntone', 'role') || $redis->hSet('owntone', 'role', '');
             $redis->hExists('owntone', 'server') || $redis->hSet('owntone', 'server', '');
             $redis->hExists('owntone', 'server_config') || $redis->hSet('owntone', 'server_config', json_encode(array()));
-            $redis->hExists('owntone', 'server_player') || $redis->hSet('owntone', 'server_player', json_encode(array()));
             $redis->hExists('owntone', 'server_ip_address') || $redis->hSet('owntone', 'server_ip_address', '');
+            $redis->hExists('owntone', 'server_player') || $redis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hExists('owntone', 'server_queue') || $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hExists('owntone', 'streaming') || $redis->hSet('owntone', 'streaming', '0');
             $redis->hExists('owntone', 'unmute_delay') || $redis->hSet('owntone', 'unmute_delay', '5');
             break;

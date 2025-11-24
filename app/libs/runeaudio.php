@@ -8196,9 +8196,10 @@ function ui_render($redis, $channel, $data)
 {
     curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
-    // if ($redis->hget('owntone', 'active')) {
-        // $redis->$redis->lPush('owntone_render', $data);
-    // }
+    if (($channel == 'playback') && $redis->hget('owntone', 'active')) {
+        // its the playback channel and owntone is active, post the data to the owntone render fifo queue
+        $redis->lPush('owntone_render', $data);
+    }
 }
 
 function ui_timezone() {
@@ -16145,6 +16146,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 } else {
                     wrk_mpdconf($redis, 'start');
                 }
+                // clear all entries from the client render queue
+                $redis->del('owntone_render');
+                // add the current active player info to the client render queue
+                $redis->lPush('owntone_render', $redis->get('act_player_info'));
                 $redis->hSet('owntone', 'active', '1');
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
@@ -16211,6 +16216,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
         case 'deactivate':
             // no $args
             $redis->hSet('owntone', 'active', 0);
+            $redis->del('owntone_render');
             if (isset($jobID) && $jobID) {
                 $redis->sRem('w_lock', $jobID);
             }
@@ -16284,6 +16290,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->del('owntone_outputs');
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
             // set the airplay output rate to its original value
             $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
@@ -16343,6 +16350,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->del('owntone_outputs');
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
             // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
@@ -16367,6 +16375,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->del('owntone_outputs');
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
+            $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
             break;
         case 'conf_add_alsa_card':
@@ -16679,6 +16688,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 }
                 // save the server config, it is already in json format
                 $redis->hSet('owntone', 'server_config', $retval);
+                // get the server queue information
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689//api/queue"');
+                if (!$retval || !is_array($retval)) {
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689//api/queue"');
+                }
+                if ($retval && is_array($retval)) {
+                    $retval = $retval[0];
+                } else {
+                    $retval = array();
+                }
+                // save the server queue information, it is already in json format
+                $redis->hSet('owntone', 'server_queue', $retval);
                 // get the preset master volume level and save it
                 $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/player"');
                 if (!$retval || !is_array($retval)) {
@@ -17093,6 +17114,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                     $unmuteMaster = true;
                                 }
                             }
+                            // add the selected output to the array $selectedOutputs
+                            $selectedOutputs[$output['name']] = true;
                         }
                     }
                 }
@@ -17535,6 +17558,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
    }
 }
 
+/*
 // function to encode and send airplay metadata for owntone
 function wrk_airplay_metadata_encoder($redis, $action, $args)
 // The AirPlay metadata is sent to a fifo pipe the format is as follows:
@@ -17685,14 +17709,13 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                 // send the first two lines
                 file_put_contents($file, $output, FILE_APPEND);
                 // the third line is sent from bash, it encodes the picture as base64, sends it and adds the final tags
-                sysCmd('( base64 -e "'.$filePicture.'" ; echo "</data></item>" ) > "'.$file.'"');
+                sysCmd('( base64 "'.$filePicture.'" ; echo "</data></item>" ) > "'.$file.'"');
                 // sysCmd('( echo "</data></item>" ) > "'.$file.'"');
             }
             break;
     }
 }
 
-/*
 // function to control alsa equaliser
 function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
 //

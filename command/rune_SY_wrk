@@ -439,15 +439,13 @@ if ($playerid_db === '') {
         $redis->set('first_time_boot', 0);
     }
     //
-    // save the redis database to disk
-    $redis->bgsave();
-    // don't close redis, it has been opened with a $redis->pconnect() which reuses connections.
-    // $redis->close();
-    //
     $start4 = microtime(true);
     $starttime = ($start4-$start3)+$firstlap;
     runelog('WORKER rune_SY_wrk.php STARTED in '.$starttime.' seconds.');
     ui_notify($redis, 'system worker', 'rune_SY_wrk started in '.$starttime.' seconds.');
+    //
+    // save the redis database to disk
+    $redis->bgsave();
     runelog('--- NORMAL STARTUP');
     // --- NORMAL STARTUP //
 }

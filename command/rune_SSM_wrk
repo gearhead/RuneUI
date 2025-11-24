@@ -52,7 +52,9 @@ require_once('/srv/http/app/libs/runeaudio.php');
 // Connect to Redis backend include
 require_once('/srv/http/app/libs/openredis.php');
 error_reporting(E_ALL & ~E_NOTICE);
-
+// debug
+// unlink('/home/airplay.metadata');
+//
 // decode 'any' strings
 function decode($str) {
     $res = "";
@@ -133,7 +135,7 @@ if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
 }
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
-ui_render('playback', json_encode($status));
+ui_render($redis, 'playback', json_encode($status));
 sysCmd('curl -X GET -s http://localhost/command/?cmd=renderui');
 // --- WORKER MAIN LOOP --- //
 while (true) {
@@ -184,8 +186,12 @@ while (true) {
             // decode the metadata
             if ($mode == 'any') {
                 if (preg_match('#<item><type>(\w+)</type><code>(\w+)</code><length>(\d+)</length>#', $airplay_meta_line, $matches)) {
-                    if (strlen($airplay_meta_line) < 80) {
-                        sysCmd("echo -n '".str_replace(chr(0), '~', $airplay_meta_line)."' >> /home/airplay.metadata");
+                    // debug
+                    // if (strlen($airplay_meta_line) < 80) {
+                        // sysCmd("echo -n '".str_replace(chr(0), '~', $airplay_meta_line)."' >> /home/airplay.metadata");
+                    // } else {
+                        // sysCmd("echo 'data length ".strlen($airplay_meta_line)."' >> /home/airplay.metadata");
+                    // }
                     // $type = decode($matches[1]);
                     // $code = decode($matches[2]);
                     $type = hex2bin($matches[1]);
@@ -193,17 +199,36 @@ while (true) {
                     $buf = '';
                     $data = '';
                     $length = $matches[3];
+                    // debug
+                    // sysCmd("echo 'decoded ".preg_replace('/[^A-Za-z0-9]/', '', $type)." ".preg_replace('/[^A-Za-z0-9]/', '', $code)."' >> /home/airplay.metadata");
                 }
                 else if (preg_match('#<data encoding="base64">#', $airplay_meta_line)) {
+                    // debug
+                    // sysCmd("echo -n '".$airplay_meta_line."' >> /home/airplay.metadata");
                     $mode = 'data';
                 }
             } else if ($mode == 'data') {
                 if (preg_match('#^(.*)</data>#', $airplay_meta_line, $matches)) {
+                    // debug
+                    // if (strlen($airplay_meta_line) < 80) {
+                        // sysCmd("echo -n '".str_replace(chr(0), '~', $airplay_meta_line)."' >> /home/airplay.metadata");
+                    // } else {
+                        // sysCmd("echo 'data length ".strlen($airplay_meta_line)."' >> /home/airplay.metadata");
+                    // }
                     $buf = $data;
                     $buf .= $matches[1];
                     $buf = base64_decode($buf);
                     $mode = 'any';
                     $data = '';
+                    // debug
+                    // if (strlen($buf) < 5) {
+                        // sysCmd("echo 'decoded64 ".implode(',', unpack('C*', $buf))."' >> /home/airplay.metadata");
+                        // sysCmd("echo 'decoded64 ".str_replace(chr(0), '~', $buf)."' >> /home/airplay.metadata");
+                    // } else if (strlen($buf) < 80) {
+                        // sysCmd("echo 'decoded64 ".str_replace(chr(0), '~', $buf)."' >> /home/airplay.metadata");
+                    // } else {
+                        // sysCmd("echo 'decoded64 data length ".strlen($buf)."' >> /home/airplay.metadata");
+                    // }
                 }
                 else {
                     if (strlen(rtrim($airplay_meta_line, "\n\r"))) {
@@ -618,6 +643,8 @@ while (true) {
                             $render = $status;
                             unset($render['elapsed'], $render['song_percent']);
                             $redis->set('act_player_info', json_encode($status));
+                            // its an owntone client, just send the volume level, the state and the local volume control
+                            ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
                         }
                         if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
                             $status['last_elapsed'] = microtime(true);
@@ -916,7 +943,5 @@ while (true) {
         } while (($redis->get('activePlayer') === 'Airplay') && ($airplay_handle != false));
         sleep(1);
     }
-// --- WORKER MAIN LOOP --- //
-// close Redis connection
-$redis->close();
 }
+// --- WORKER MAIN LOOP --- //

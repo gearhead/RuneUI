@@ -1044,6 +1044,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if (isset($jobID)) {
                 waitSyWrk($redis, $jobID);
             }
+            sleep(1);
             echo $redis->hGet('owntone', 'active');
             unset($params, $jobID);
             break;

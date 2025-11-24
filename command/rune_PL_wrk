@@ -761,7 +761,7 @@ while (true) {
                     $airplay_timeout_count = $airplay_timeout;
                     $redis->hSet('owntone', 'state', 'play');
                 } else {
-                    // update the state to paused
+                    // update the owntone state to paused
                     $status = json_decode($redis->get('act_player_info'), true);
                     $redis->hSet('owntone', 'state', 'pause');
                     // decrement the counter
@@ -771,7 +771,8 @@ while (true) {
                 runelog('rune_PL_wrk: Airplay timeout count', $airplay_timeout_count);
                 // determine whether we are an owntone client, do this on the second iteration then every 60 seconds (30 iterations)
                 //	or just before we time out
-                if (($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
+                $role = $redis->hGet('owntone', 'role');
+                if (($role != 'server') || ($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
                     // last reported host device was running owntone
                     // reset the counter to 30 iterations
                     $cntOwntone = 30;
@@ -869,7 +870,7 @@ while (true) {
                 if ($airplay_timeout_count <= 0) {
                     runelog('rune_PL_wrk: Airplay timeout initiated');
                     $airplay_timeout_count = $airplay_timeout;
-                    // when operating as an owntone client (MultiRoom) don't timeout, the state is changed to paused
+                    // when operating as an owntone client (MultiRoom) don't timeout, the state will be changed to paused
                     if ($redis->hGet('owntone', 'role') != 'client') {
                         // not an owntone client
                         wrk_stopPlayer($redis);
