@@ -259,32 +259,32 @@ while (true) {
                 if (isset($actPlayerInfo['currentsong'])) {
                     $commandPut .= 'title='.urlencode($actPlayerInfo['currentsong']).'&';
                 } else {
-                    $commandPut .= 'title=&';
+                    $commandPut .= 'title='.urlencode('Unknown Title').'&';
                 }
                 if (isset($actPlayerInfo['currentalbum'])) {
                     $commandPut .= 'album='.urlencode($actPlayerInfo['currentalbum']).'&';
                 } else {
-                    $commandPut .= 'album=&';
+                    $commandPut .= 'album='.urlencode('Unknown Album').'&';
                 }
                 if (isset($actPlayerInfo['currentartist'])) {
                     $commandPut .= 'artist='.urlencode($actPlayerInfo['currentartist']).'&';
                 } else {
-                    $commandPut .= 'artist=&';
+                    $commandPut .= 'artist='.urlencode('Unknown Artist').'&';
                 }
                 if (isset($actPlayerInfo['currentalbumartist'])) {
                     $commandPut .= 'album_artist='.urlencode($actPlayerInfo['currentalbumartist']).'&';
                 } else {
-                    $commandPut .= 'album_artist=&';
+                    $commandPut .= 'album_artist='.urlencode('Unknown Artist').'&';
                 }
                 if (isset($actPlayerInfo['currentcomposer'])) {
                     $commandPut .= 'composer='.urlencode($actPlayerInfo['currentcomposer']).'&';
                 } else {
-                    $commandPut .= 'composer=&';
+                    $commandPut .= 'composer='.urlencode('Unknown Composer').'&';
                 }
                 if (isset($actPlayerInfo['genre'])) {
                     $commandPut .= 'genre='.urlencode($actPlayerInfo['genre']).'&';
                 } else {
-                    $commandPut .= 'genre=&';
+                    $commandPut .= 'genre='.urlencode('Unknown Genre').'&';
                 }
                 if (isset($actPlayerInfo['mainArtURL'])) {
                     if (strtolower(substr($actPlayerInfo['mainArtURL'], 0, 4) == 'http')) {
@@ -293,11 +293,11 @@ while (true) {
                         if ($serverHostname) {
                             $commandPut .= 'artwork_url=http://'.$serverHostname.'.local/'.urlencode($actPlayerInfo['mainArtURL']).'&';
                         } else if ($serverIpAddress) {
-                            $commandPut .= 'artwork_url='.$serverIpAddress.'/'.urlencode($actPlayerInfo['mainArtURL']).'&';
+                            $commandPut .= 'artwork_url='.urlencode('http://'.$serverIpAddress.'/'.$actPlayerInfo['mainArtURL']).'&';
                         }
                     }
                 } else {
-                    $commandPut .= 'artwork_url=&';
+                    $commandPut .= 'artwork_url='.urlencode('http://'.$serverHostname.'.local/tmp/art/black.png').'&';
                 }
                 // run the command
                 $commandPut = rtrim($commandPut, '&').'"';
@@ -345,26 +345,25 @@ while (true) {
             // $clientIp now contains a list of runeaudio nodes on the network, excluding this node, it also contains the IP address of each node
             unset($retval, $avahi_line, $avahiElement, $clientname);
             if (count($clientIp)) {
-                // there are other runeaudio nodes, get the owntone client list
-                $outputs = $redis->hGetall('owntone_outputs');
+                // there are other runeaudio nodes
                 foreach ($clientIp as $clientname => $value) {
                     // work through the runeaudio node list
-                    if (!in_array($clientname, $outputs)) {
+                    if (!$redis->hExists('owntone_outputs', $clientname)) {
                         // its not an owntone client, delete it from the list
                         unset($clientIp[$clientname]);
                         continue;
                     }
-                    // get the details from the owntone client list
-                    $outputDetail = json_decode($outputs[$clientname], true);
+                    // its an owntone client, determine if it is connected
+                    $outputDetail = json_decode($redis->hGet('owntone_outputs', $clientname), true);
                     if (!$outputDetail['selected']) {
                         // the output is not connected, delete it from the list
                         unset($clientIp[$clientname]);
                     }
                 }
-                unset($outputs, $clientname, $outputDetail);
+                unset($clientname, $value, $outputDetail);
             }
         }
-        // $clientIp now contains a list of currently connected runeaudio owntone clients, it also contains the IP address of each client
+        // $clientIp now contains a list of currently connected runeaudio owntone clients, it may also contain the IP address of each client
         if ($redis->lLen('owntone_render')) {
             // something to process
             while ($redis->lLen('owntone_render')) {
@@ -407,8 +406,11 @@ while (true) {
                 $decoded['radio'] = false;
                 $imageUrls = array('bigArtURL', 'coverArtPreload', 'mainArtURL', 'smallArtURL');
                 foreach ($imageUrls as $imageUrl) {
+                    if (!isset($decoded[$imageUrl])) {
+                        continue;
+                    }
                     $decoded[$imageUrl] = trim(strtolower($decoded[$imageUrl]));
-                    if (isset($decoded[$imageUrl]) && $decoded[$imageUrl]) {
+                    if ($decoded[$imageUrl]) {
                         if (substr($decoded[$imageUrl], 0, 4) != 'http') {
                             $decoded[$imageUrl] = 'http://'.$server.'/'.$decoded[$imageUrl];
                         }

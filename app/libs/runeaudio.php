@@ -8421,7 +8421,7 @@ function curlPost($url, $data, $proxy = null)
     curl_setopt($ch, CURLOPT_HTTPHEADER, array("Connection: close"));
     curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
     curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    if (isset($proxy)) {
+    if (isset($proxy) && is_array($proxy)) {
         if ($proxy['enable'] === '1') {
             $proxy['user'] === '' || curl_setopt($ch, CURLOPT_PROXYUSERPWD, $proxy['user'].':'.$proxy['pass']);
             curl_setopt($ch, CURLOPT_PROXY, $proxy['host']);
@@ -8448,7 +8448,7 @@ function curlGet($url, $proxy = null)
     curl_setopt($ch, CURLOPT_HTTPHEADER, array("Connection: close"));
     curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
     curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    if (isset($proxy)) {
+    if (isset($proxy) && is_array($proxy)) {
         if (isset($proxy['enable']) && $proxy['enable'] === '1' && isset($proxy['host']) && $proxy['host']) {
             if (isset($proxy['user']) && $proxy['user'] && isset($proxy['pass'])) {
                 curl_setopt($ch, CURLOPT_PROXYUSERPWD, $proxy['user'].':'.$proxy['pass']);
