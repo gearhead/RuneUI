@@ -9078,7 +9078,7 @@ function refresh_nics($redis)
             }
         }
     }
-    
+
     // always clear the optimise wifi array
     $optimiseWifi = array();
     $accessPoint = $redis->hGet('AccessPoint', 'ssid');
@@ -9086,11 +9086,11 @@ function refresh_nics($redis)
     $hiddenCount = 0;
     $networkInterfacesModified = false;
     $avahiNic = '';
-    
+
     // Get all NetworkManager connections
     $nmConnections = sysCmd('nmcli -t -f NAME,UUID,TYPE,DEVICE connection show');
     $connectionList = array();
-    
+
     foreach ($nmConnections as $conn) {
         $parts = explode(':', $conn);
         if (count($parts) >= 4) {
@@ -9102,10 +9102,10 @@ function refresh_nics($redis)
             );
         }
     }
-    
+
     // Get available WiFi networks - use per-interface scanning for accuracy
     $wifiNetworks = array();
-    
+
     foreach ($networkInterfaces as $nic => $nicInfo) {
         if ($nicInfo['technology'] === 'wifi') {
             // Check if interface is managed by NetworkManager
@@ -9114,7 +9114,7 @@ function refresh_nics($redis)
                 // Skip unmanaged interfaces (like AP mode)
                 continue;
             }
-            
+
             // Get the interface's MAC address
             if (isset($nicInfo['macAddress']) && $nicInfo['macAddress']) {
                 $nicMacAddress = str_replace(':', '', strtolower($nicInfo['macAddress']));
@@ -9127,26 +9127,26 @@ function refresh_nics($redis)
                     $nicMacAddress = '000000000000';
                 }
             }
-            
+
             // Request a fresh scan
             sysCmd('nmcli device wifi rescan ifname '.$nic.' 2>/dev/null');
             sleep(2);
-            
+
             // Get scan results using multiline mode
             $wifiList = sysCmd('nmcli -t -f SSID,SIGNAL,SECURITY -m multiline device wifi list ifname '.$nic);
-            
+
             if (empty($wifiList)) {
                 continue;
             }
-            
+
             $currentNetwork = array();
             foreach ($wifiList as $line) {
                 $line = trim($line);
-                
+
                 if ($line === '') {
                     continue;
                 }
-                
+
                 if (strpos($line, 'SSID:') === 0) {
                     // Save previous network if complete
                     if (isset($currentNetwork['ssid']) && isset($currentNetwork['signal'])) {
@@ -9167,7 +9167,7 @@ function refresh_nics($redis)
                     }
                 }
             }
-            
+
             // Save last network
             if (isset($currentNetwork['ssid']) && isset($currentNetwork['signal'])) {
                 $currentNetwork['macAddress'] = $nicMacAddress;
@@ -9176,7 +9176,7 @@ function refresh_nics($redis)
             }
         }
     }
-    
+
     // Process wired connections first
     foreach ($networkInterfaces as $nic => $nicInfo) {
         if ($nicInfo['technology'] === 'ethernet' && $nicInfo['connected']) {
@@ -9184,21 +9184,21 @@ function refresh_nics($redis)
             $ssid = 'Wired';
             $ssidHex = implode(unpack("H*", $ssid));
             $key = $macAddress.'_'.$ssidHex;
-            
+
             // Get connection details from nmcli
             $deviceDetails = sysCmd('nmcli -t -f IP4.DNS,IP4.GATEWAY,IP4.ADDRESS,GENERAL.STATE device show '.$nic);
-            
+
             $networkInfo[$key]['primaryDns'] = $nicInfo['primaryDns'];
             $networkInfo[$key]['secondaryDns'] = $nicInfo['secondaryDns'];
             $networkInfo[$key]['defaultGateway'] = $nicInfo['defaultGateway'];
             $networkInfo[$key]['ipv4Mask'] = $nicInfo['ipv4Mask'];
-            
+
             foreach ($deviceDetails as $detail) {
                 $detailParts = explode(':', $detail, 2);
                 if (count($detailParts) == 2) {
                     $field = trim($detailParts[0]);
                     $value = trim($detailParts[1]);
-                    
+
                     if ($field === 'IP4.DNS[1]') {
                         $networkInfo[$key]['primaryDns'] = $value;
                         $networkInterfaces[$nic]['primaryDns'] = $value;
@@ -9229,7 +9229,7 @@ function refresh_nics($redis)
                     }
                 }
             }
-            
+
             $networkInfo[$key]['ssid'] = $ssid;
             $networkInfo[$key]['ssidHex'] = $ssidHex;
             $networkInfo[$key]['connmanString'] = 'ethernet_'.$macAddress.'_cable';
@@ -9241,7 +9241,7 @@ function refresh_nics($redis)
             $networkInfo[$key]['autoconnect'] = true;
             $networkInfo[$key]['online'] = $nicInfo['connected'];
             $networkInfo[$key]['ready'] = $nicInfo['connected'];
-            
+
             if (isset($nicInfo['ipStatus'])) {
                 $networkInfo[$key]['ipStatus'] = $nicInfo['ipStatus'];
             }
@@ -9254,14 +9254,14 @@ function refresh_nics($redis)
             if (isset($nicInfo['ipv6Address'])) {
                 $networkInfo[$key]['ipv6Address'] = $nicInfo['ipv6Address'];
             }
-            
+
             // Select nic for avahi
             if ($nicInfo['connected'] && isset($nicInfo['ipStatus']) && $nicInfo['ipStatus'] === 'UP') {
                 $avahiNic = $nic;
             }
         }
     }
-    
+
     // Process WiFi networks
     foreach ($wifiNetworks as $wifiNet) {
         $macAddress = $wifiNet['macAddress'];
@@ -9269,22 +9269,22 @@ function refresh_nics($redis)
         $signal = $wifiNet['signal'];
         $nic = $wifiNet['nic'];
         $security = isset($wifiNet['security_raw']) ? $wifiNet['security_raw'] : '';
-        
+
         // Skip invalid entries
         if ($signal === 0) {
             continue;
         }
-        
+
         // Handle hidden/empty networks - skip them entirely
         if ($ssid === '' || $ssid === '--') {
             continue;
         }
-        
+
         // Skip access point SSIDs
         if ($accessPointEnabled && $accessPoint === $ssid) {
             continue;
         }
-        
+
         // Parse security type
         $securityType = 'OPEN';
         if ($security !== '' && $security !== '--') {
@@ -9300,35 +9300,35 @@ function refresh_nics($redis)
                 $securityType = 'IEEE8021X';
             }
         }
-        
+
         $ssidHex = implode(unpack("H*", trim($ssid)));
         $key = $macAddress.'_'.$ssidHex;
-        
+
         // Set default values
         $networkInfo[$key]['primaryDns'] = $networkInterfaces[$nic]['primaryDns'];
         $networkInfo[$key]['secondaryDns'] = $networkInterfaces[$nic]['secondaryDns'];
         $networkInfo[$key]['defaultGateway'] = $networkInterfaces[$nic]['defaultGateway'];
         $networkInfo[$key]['ipv4Mask'] = $networkInterfaces[$nic]['ipv4Mask'];
-        
+
         // Set security and strength
         $networkInfo[$key]['security'] = $securityType;
         $networkInfo[$key]['strength'] = $signal;
         $networkInfo[$key]['strengthStars'] = str_repeat(' &#9733', max(1, round($signal/20)));
-        
+
         $networkInfo[$key]['ssid'] = $ssid;
         $networkInfo[$key]['ssidHex'] = $ssidHex;
         $networkInfo[$key]['connmanString'] = 'wifi_'.$macAddress.'_'.$ssidHex.'_managed_psk';
         $networkInfo[$key]['macAddress'] = $macAddress;
         $networkInfo[$key]['technology'] = 'wifi';
         $networkInfo[$key]['nic'] = $nic;
-        
+
         // Check if this network has a saved connection
         $isConfigured = false;
         $connectionName = null;
         $isAutoconnect = false;
         $isConnected = false;
         $isOnline = false;
-        
+
         foreach ($connectionList as $conn) {
             if ($conn['type'] === '802-11-wireless') {
                 $connDetails = sysCmd('nmcli -t -f 802-11-wireless.ssid connection show "'.$conn['name'].'"');
@@ -9338,25 +9338,25 @@ function refresh_nics($redis)
                         if ($connSsid === $ssid) {
                             $isConfigured = true;
                             $connectionName = $conn['name'];
-                            
+
                             $isConnected = ($conn['device'] === $nic && $conn['device'] !== '--');
-                            
+
                             $autoconnectInfo = sysCmd('nmcli -t -f connection.autoconnect connection show "'.$conn['name'].'"');
                             foreach ($autoconnectInfo as $ac) {
                                 if (strpos($ac, 'connection.autoconnect:yes') !== false) {
                                     $isAutoconnect = true;
                                 }
                             }
-                            
+
                             if ($isConnected) {
                                 $deviceDetails = sysCmd('nmcli -t -f IP4.DNS,IP4.GATEWAY,IP4.ADDRESS,GENERAL.STATE device show '.$nic);
-                                
+
                                 foreach ($deviceDetails as $detail) {
                                     $detailParts = explode(':', $detail, 2);
                                     if (count($detailParts) == 2) {
                                         $field = trim($detailParts[0]);
                                         $value = trim($detailParts[1]);
-                                        
+
                                         if ($field === 'IP4.DNS[1]') {
                                             $networkInfo[$key]['primaryDns'] = $value;
                                             $networkInterfaces[$nic]['primaryDns'] = $value;
@@ -9387,7 +9387,7 @@ function refresh_nics($redis)
                                         }
                                     }
                                 }
-                                
+
                                 if (isset($networkInterfaces[$nic]['ipStatus'])) {
                                     $networkInfo[$key]['ipStatus'] = $networkInterfaces[$nic]['ipStatus'];
                                 }
@@ -9413,12 +9413,12 @@ function refresh_nics($redis)
                 }
             }
         }
-        
+
         $networkInfo[$key]['configured'] = $isConfigured;
         $networkInfo[$key]['autoconnect'] = $isAutoconnect;
         $networkInfo[$key]['online'] = $isOnline;
         $networkInfo[$key]['ready'] = $isConnected;
-        
+
         $status = '';
         if ($isConfigured) {
             if ($isAutoconnect) {
@@ -9432,7 +9432,7 @@ function refresh_nics($redis)
             }
         }
         $networkInfo[$key]['status'] = $status;
-        
+
         if ($isConfigured && $securityType != 'OPEN') {
             $optimiseWifi[] = array(
                 'connmanString' => $networkInfo[$key]['connmanString'],
@@ -9443,7 +9443,7 @@ function refresh_nics($redis)
             );
         }
     }
-    
+
     // Set the selected nic for avahi
     if ($redis->hGet('avahi', 'nic') != $avahiNic) {
         if ($avahiNic === '') {
@@ -9455,21 +9455,21 @@ function refresh_nics($redis)
         wrk_systemd_unit($redis, 'daemon-reload_and_start', 'avahi-daemon');
         $redis->hSet('avahi', 'nic', $avahiNic);
     }
-    
+
     // Optimize WiFi connections
     if ($redis->get('network_autoOptimiseWifi')) {
         $strengthCol = array_column($optimiseWifi, 'strength');
         $ssidHexCol = array_column($optimiseWifi, 'ssidHex');
         $macAddressCol = array_column($optimiseWifi, 'macAddress');
         array_multisort($strengthCol, SORT_DESC, $ssidHexCol, SORT_ASC, $macAddressCol, SORT_ASC, $optimiseWifi);
-        
+
         $processedMacs = array();
         $processedSsids = array();
-        
+
         foreach ($optimiseWifi as $network) {
             $macAddress = $network['macAddress'];
             $ssidHex = $network['ssidHex'];
-            
+
             if (!in_array($macAddress, $processedMacs) && !in_array($ssidHex, $processedSsids)) {
                 if (isset($network['connectionName'])) {
                     sysCmd('nmcli connection modify "'.$network['connectionName'].'" connection.autoconnect yes');
@@ -9483,7 +9483,7 @@ function refresh_nics($redis)
             }
         }
     }
-    
+
     $redis->set('network_info', json_encode($networkInfo));
     if ($networkInterfacesModified) {
         $redis->set('network_interfaces', json_encode($networkInterfaces));
