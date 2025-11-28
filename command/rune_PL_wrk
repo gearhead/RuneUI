@@ -771,8 +771,8 @@ while (true) {
                 runelog('rune_PL_wrk: Airplay timeout count', $airplay_timeout_count);
                 // determine whether we are an owntone client, do this on the second iteration then every 60 seconds (30 iterations)
                 //	or just before we time out
-                $role = $redis->hGet('owntone', 'role');
-                if (($role != 'server') || ($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
+                $owntoneRole = $redis->hGet('owntone', 'role');
+                if (($owntoneRole != 'server') || ($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
                     // last reported host device was running owntone
                     // reset the counter to 30 iterations
                     $cntOwntone = 30;
@@ -790,7 +790,7 @@ while (true) {
                                 $owntoneServers[$descriptionArray[2].'.local'] = '';
                         }
                         // search for all owntone multiroom servers whih avahi-browse
-                        $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//' | xargs");
+                        $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp 2>/dev/null | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//' | xargs");
                         foreach ($owntoneAvahiServers as $owntoneAvahiServer) {
                             // each line contains the hostname and IP address delimited with a semicolon
                             $retval = explode(';', $owntoneAvahiServer);
@@ -800,7 +800,7 @@ while (true) {
                             }
                         }
                         // walk through the servers and retrieve the owntone output information
-                        foreach ($owntoneServers as $owntoneServerHostname -> $owntoneServerIP) {
+                        foreach ($owntoneServers as $owntoneServerHostname => $owntoneServerIP) {
                             if (isset($owntoneServerIP) && $owntoneServerIP) {
                                 // possible that no IP address is available, then use the hostname
                                 //	ip address is much faster

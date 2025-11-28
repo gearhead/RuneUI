@@ -62,4 +62,3 @@ if (isset($argv[1]) && is_numeric($argv[1])) {
 sysCmd('curl -s -X GET http://localhost/command/?cmd=renderui');
 
 runelog('WORKER ui_update_async END...');
-

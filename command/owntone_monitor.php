@@ -251,67 +251,77 @@ while (true) {
                 (!isset($actPlayerInfoSave['file']) || (isset($actPlayerInfo['file']) &&
                 ($actPlayerInfoSave['file'] != $actPlayerInfo['file'])))) {
             $server = $redis->hGet('owntone', 'server');
-            if ($server) {
+            $serverPlayer = $redis->hGet('owntone', 'server_player');
+            if (isset($serverPlayer) && $serverPlayer) {
+                $serverPlayer = json_decode($serverPlayer, true);
+            } else {
+                $serverPlayer = array();
+            }
+            if ($server && isset($serverPlayer['state']) && ($serverPlayer['state'] == 'play')) {
                 $actPlayerInfoSave = $actPlayerInfo;
                 $serverHostname = $redis->hGet('owntone', 'server_hostname');
                 $serverIpAddress = $redis->hGet('owntone', 'server_ip_address');
                 $commandPut = 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue/items/now_playing?';
-                if (isset($actPlayerInfo['currentsong'])) {
+                if (isset($actPlayerInfo['currentsong']) && trim($actPlayerInfo['currentsong'])) {
                     $commandPut .= 'title='.urlencode($actPlayerInfo['currentsong']).'&';
                 } else {
                     $commandPut .= 'title='.urlencode('Unknown Title').'&';
                 }
-                if (isset($actPlayerInfo['currentalbum'])) {
+                if (isset($actPlayerInfo['currentalbum']) && trim($actPlayerInfo['currentalbum'])) {
                     $commandPut .= 'album='.urlencode($actPlayerInfo['currentalbum']).'&';
                 } else {
                     $commandPut .= 'album='.urlencode('Unknown Album').'&';
                 }
-                if (isset($actPlayerInfo['currentartist'])) {
+                if (isset($actPlayerInfo['currentartist']) && trim($actPlayerInfo['currentartist'])) {
                     $commandPut .= 'artist='.urlencode($actPlayerInfo['currentartist']).'&';
                 } else {
                     $commandPut .= 'artist='.urlencode('Unknown Artist').'&';
                 }
-                if (isset($actPlayerInfo['currentalbumartist'])) {
+                if (isset($actPlayerInfo['currentalbumartist']) && trim($actPlayerInfo['currentalbumartist'])) {
                     $commandPut .= 'album_artist='.urlencode($actPlayerInfo['currentalbumartist']).'&';
                 } else {
                     $commandPut .= 'album_artist='.urlencode('Unknown Artist').'&';
                 }
-                if (isset($actPlayerInfo['currentcomposer'])) {
+                if (isset($actPlayerInfo['currentcomposer']) && trim($actPlayerInfo['currentcomposer'])) {
                     $commandPut .= 'composer='.urlencode($actPlayerInfo['currentcomposer']).'&';
                 } else {
                     $commandPut .= 'composer='.urlencode('Unknown Composer').'&';
                 }
-                if (isset($actPlayerInfo['genre'])) {
+                if (isset($actPlayerInfo['genre']) && trim($actPlayerInfo['genre'])) {
                     $commandPut .= 'genre='.urlencode($actPlayerInfo['genre']).'&';
                 } else {
                     $commandPut .= 'genre='.urlencode('Unknown Genre').'&';
                 }
-                if (isset($actPlayerInfo['mainArtURL'])) {
+                if (isset($actPlayerInfo['mainArtURL']) && trim($actPlayerInfo['mainArtURL'])) {
                     if (strtolower(substr($actPlayerInfo['mainArtURL'], 0, 4) == 'http')) {
                         $commandPut .= 'artwork_url'.urlencode($actPlayerInfo['mainArtURL']).'&';
                     } else {
-                        if ($serverHostname) {
-                            $commandPut .= 'artwork_url=http://'.$serverHostname.'.local/'.urlencode($actPlayerInfo['mainArtURL']).'&';
-                        } else if ($serverIpAddress) {
+                        if ($serverIpAddress) {
                             $commandPut .= 'artwork_url='.urlencode('http://'.$serverIpAddress.'/'.$actPlayerInfo['mainArtURL']).'&';
+                        } else if ($serverHostname) {
+                            $commandPut .= 'artwork_url='.urlencode('http://'.$serverHostname.'.local/'.$actPlayerInfo['mainArtURL']).'&';
                         }
                     }
                 } else {
-                    $commandPut .= 'artwork_url='.urlencode('http://'.$serverHostname.'.local/tmp/art/black.png').'&';
+                    if ($serverIpAddress) {
+                        $commandPut .= 'artwork_url='.urlencode('http://'.$serverIpAddress.'/tmp/art/black.png').'&';
+                    } else if ($serverHostname) {
+                        $commandPut .= 'artwork_url='.urlencode('http://'.$serverHostname.'.local/tmp/art/black.png').'&';
+                    }
                 }
                 // run the command
                 $commandPut = rtrim($commandPut, '&').'"';
                 sysCmd($commandPut);
             }
         }
+        unset($actPlayerInfo, $server, $serverPlayer, $serverHostname, $serverIpAddress, $commandPut);
         //
         // this section post the current player information (redis cur_player_info) to each of the runeAudio owntone clients
         //  this is not really what we want to do as Airplay clients will receive no metadata
         // create a list of the runeaudio hostnames and ip addresses
         //
         // first create a list of owntone runeaudio clients
-        $server = $redis->hGet('owntone', 'server');
-        $retval = sysCmd("avahi-browse -atrlkp | grep -i 'skin_name=RuneUI'");
+        $retval = sysCmd("avahi-browse -atrlkp 2>/dev/null | grep -i 'skin_name=RuneUI'");
         if (is_array($retval)) {
             $clientIp = array();
             foreach ($retval as $avahi_line) {
@@ -330,7 +340,7 @@ while (true) {
                     continue;
                 }
                 // an eth? nic is preferable to a wlan? nic
-                // an ipv4 is preferable to ipv6
+                // an ipv4 connection is preferable to ipv6
                 // retrieve the existing client IP details
                 $storedclientIpDetails = json_decode($clientIp[$clientname], true);
                 if ((substr($avahiElement[1], 0, 4) == 'eth') && (substr($storedclientIpDetails['nic'], 0, 3) != 'eth')) {
@@ -346,26 +356,38 @@ while (true) {
             unset($retval, $avahi_line, $avahiElement, $clientname);
             if (count($clientIp)) {
                 // there are other runeaudio nodes
+                $outputs = $redis->hGetall('owntone_outputs');
+                foreach ($outputs as $clientname => $output) {
+                    // the array has a key in mixed case, convert it to lower case
+                    $outputs[strtolower($clientname)] = $output;
+                    unset($outputs[$clientname]);
+                }
                 foreach ($clientIp as $clientname => $value) {
                     // work through the runeaudio node list
-                    if (!$redis->hExists('owntone_outputs', $clientname)) {
+                    if (!isset($outputs[$clientname])) {
                         // its not an owntone client, delete it from the list
                         unset($clientIp[$clientname]);
                         continue;
                     }
                     // its an owntone client, determine if it is connected
-                    $outputDetail = json_decode($redis->hGet('owntone_outputs', $clientname), true);
+                    $outputDetail = json_decode($outputs[$clientname], true);
                     if (!$outputDetail['selected']) {
                         // the output is not connected, delete it from the list
                         unset($clientIp[$clientname]);
                     }
                 }
-                unset($clientname, $value, $outputDetail);
+                unset($outputs, $clientname, $output, $value, $outputDetail);
             }
         }
+        while ($redis->lLen('owntone_render') > 5) {
+            // more than 5 render events in the queue, remove the oldest ones
+            $redis->rPop('owntone_render');
+        }
         // $clientIp now contains a list of currently connected runeaudio owntone clients, it may also contain the IP address of each client
-        if ($redis->lLen('owntone_render')) {
-            // something to process
+        $serverHostname = strtolower($redis->hGet('owntone', 'server_hostname'));
+        $serverIpAddress = strtolower($redis->hGet('owntone', 'server_ip_address'));
+        if ($redis->lLen('owntone_render') && ($serverHostname || $serverIpAddress) && count($clientIp)) {
+            // something to process and the server ip address and/or hostmane has been determined and there is a client to service
             while ($redis->lLen('owntone_render')) {
                 // read the fifo queue, the queue contains all of the records of act_player_info which have been sent to the UI
                 $encoded = $redis->rPop('owntone_render');
@@ -373,7 +395,11 @@ while (true) {
                 if (!strlen($encoded)) {
                     continue;
                 }
-                $decoded = json_decode($encoded, true);
+                if (isset($lastOwntoneRender)) {
+                    $decoded = array_merge(json_decode($lastOwntoneRender, true), json_decode($encoded, true));
+                } else {
+                    $decoded = json_decode($encoded, true);
+                }
                 // some modifications are required to the render array
                 //  volume must be deleted, this is set by the client
                 //  local_volume_control must be deleted, this is set by the client
@@ -381,6 +407,7 @@ while (true) {
                 //  owntone actPlayer is always Airplay
                 //  owntone always operates at 44100:16:2
                 //  owntone bitrate is always 1,411
+                //  owntone audio channels is always Stereo
                 //  owntone consume is always 0
                 //  owntone radio is always false
                 //  the urls of images must be prefixed with the ip address
@@ -402,6 +429,7 @@ while (true) {
                 $decoded['audio_sample_depth'] = '24';
                 $decoded['audio_sample_rate'] = 44.1;
                 $decoded['bitrate'] = 1411;
+                $decoded['audio_channels'] = "Stereo";
                 $decoded['consume'] = '0';
                 $decoded['radio'] = false;
                 $imageUrls = array('bigArtURL', 'coverArtPreload', 'mainArtURL', 'smallArtURL');
@@ -412,11 +440,18 @@ while (true) {
                     $decoded[$imageUrl] = trim(strtolower($decoded[$imageUrl]));
                     if ($decoded[$imageUrl]) {
                         if (substr($decoded[$imageUrl], 0, 4) != 'http') {
-                            $decoded[$imageUrl] = 'http://'.$server.'/'.$decoded[$imageUrl];
+                            if ($serverIpAddress) {
+                                $decoded[$imageUrl] = 'http://'.$serverIpAddress.'/'.$decoded[$imageUrl];
+                            } else if ($serverIpAddress) {
+                                $decoded[$imageUrl] = 'http://'.serverHostname.'.local/'.$decoded[$imageUrl];
+                            } else {
+                                unset($decoded[$imageUrl]);
+                            }
                         }
                     }
                 }
                 $encoded = json_encode($decoded);
+                echo 'Encoded: '.$encoded."\n";
                 $lastOwntoneRender = $encoded;
                 // now send the render information to each of the runeadio owntone clients
                 foreach ($clientIp as $client) {
@@ -424,17 +459,17 @@ while (true) {
                     if (isset($client['ip_address']) && $client['ip_address']) {
                         curlPost('http://'.$client['ip_address'].'/pub?id=playback', $encoded);
                     } else {
-                        curlPost('http://'.$client['clientname'].'/pub?id=playback', $encoded);
+                        curlPost('http://'.$client['clientname'].'.local/pub?id=playback', $encoded);
                     }
                     // keep a list of clients which have had at least one render action
-                    $renderedClients[$client['clientname']] = $true;
+                    $renderedClients[$client['clientname']] = true;
                     // sleep for 0.05 seconds
                     usleep(50000);
                 }
             }
             // we re-render the last information every 20 seconds, this means a reactivated inactive browser will be refreshed after 10 seconds on average
             $nextRenderTime = microtime(true) + 20;
-            unset ($encoded, $decoded, $imageUrls, );
+            unset ($encoded, $decoded, $imageUrls, $serverIpAddress, $serverHostname);
         } else {
             // there is nothing to process, re-render after timeout or when a new client has attached
             if (isset($lastOwntoneRender) && count($clientIp)) {
@@ -451,7 +486,7 @@ while (true) {
                 if ($newClient || (isset($nextRenderTime) && ($nextRenderTime <= $now))) {
                     // there is a new client or re-render time has expired
                     foreach ($renderedClients as $renderedClientKey => $value) {
-                        if (!in_array($renderedClientKey, $clientIp)) {
+                        if (!isset($clientIp[$renderedClientKey])) {
                             // this client was connected, but not any more, remove it from the rendered client list
                             unset($renderedClients[$renderedClientKey]);
                         }
@@ -460,10 +495,10 @@ while (true) {
                     $decoded = json_decode($lastOwntoneRender, true);
                     if (($decoded['state'] == 'play') && isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
                             && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
-                            && $decoded['last_elapsed'] && $decoded['time_last_elapsed'] && $decoded['time']) {
+                            && $decoded['time_last_elapsed'] && $decoded['time']) {
                         // state is play and we have the information to recalculate the elapsed time
-                        $decoded['elapsed'] = round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed']));
-                        $decoded['song_percent'] = min(100, round(100 * $decoded['elapsed'] / $decoded['time']));
+                        $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
+                        $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
                         $decoded['last_elapsed'] = $decoded['elapsed'];
                         $decoded['time_last_elapsed'] = $now;
                         $encoded = json_encode($decoded);
@@ -479,7 +514,7 @@ while (true) {
                         if (isset($client['ip_address']) && $client['ip_address']) {
                             curlPost('http://'.$client['ip_address'].'/pub?id=playback', $encoded);
                         } else {
-                            curlPost('http://'.$client['clientname'].'/pub?id=playback', $encoded);
+                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', $encoded);
                         }
                         // keep a list of clients which have had at least one render action
                         $renderedClients[$client['clientname']] = true;
@@ -491,12 +526,12 @@ while (true) {
                 }
 
             }
-            unset($now, $client, $value, $renderedClientKey, $decoded, $encoded);
+            unset($newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded);
         }
         unset($clientIp);
         //
         // // this section posts the current song metadata to the owntone metadata fifo
-        // //   this should work but does not,
+        // //   this should work but does not
         // //
         // $action = array();
         // $actPlayerInfo = json_decode($redis->get('act_player_info'), true);

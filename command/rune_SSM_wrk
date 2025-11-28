@@ -135,8 +135,10 @@ if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
 }
 // save JSON response for extensions
 $redis->set('act_player_info', json_encode($status));
-ui_render($redis, 'playback', json_encode($status));
-sysCmd('curl -X GET -s http://localhost/command/?cmd=renderui');
+if ($redis->hGet('owntone', 'role') != 'client') {
+    ui_render($redis, 'playback', json_encode($status));
+    sysCmd('curl -X GET -s http://localhost/command/?cmd=renderui');
+}
 // --- WORKER MAIN LOOP --- //
 while (true) {
     if ($activePlayer !== "Airplay") {
@@ -357,7 +359,11 @@ while (true) {
                     }
                 }
                 if ($redis->hGet('owntone', 'role') == 'client') {
-                    $status['state'] = $redis->hGet('owntone', 'state');
+                    $state = $redis->hGet('owntone', 'state');
+                    if ($state && ($state != $status['state'])) {
+                        $status['state'] = $state;
+                        ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
+                    }
                 }
                 switch ($tag) {
                     case 'ssnc pffr':
@@ -369,9 +375,9 @@ while (true) {
                     case 'core mcti':
                         // the id of an item in its container - 4 byte integer
                     case 'core ascr':
-                        // unknown - unknown format
+                        // unknown (all as?? codes seem to be song attributes) - unknown format
                     case 'core asaa':
-                        // unknown, looks like album artist, maybe track artist - base 64 string
+                        // unknown, content looks like album artist, maybe track artist - base 64 string
                     case 'core asdm':
                         // song, date modified - 4 byte integer
                     case 'core aeMK':
@@ -385,9 +391,15 @@ while (true) {
                     case 'core asdt':
                         // song description (e.g. 'wav audio file') - base 64 string
                     case 'core ased':
-                        // unknown - 1 byte integer
+                        // unknown (all as?? codes seem to be song attributes) - 1 byte integer
                     case 'core asac':
-                        // unknown - 2 byte integer
+                        // unknown (all as?? codes seem to be song attributes) - 2 byte integer
+                        runelog("rune_SSM_wrk: Unknown '".$type." ".$code."' ", $buf);
+                    case 'core asai':
+                        // unknown (all as?? codes seem to be song attributes) - format unknown
+                        runelog("rune_SSM_wrk: Unknown '".$type." ".$code."' ", $buf);
+                    case 'core asyr':
+                        // song year - 2 byte integer
                         runelog("rune_SSM_wrk: Unknown '".$type." ".$code."' ", $buf);
                         break;
                     case 'core phbt':
@@ -426,7 +438,7 @@ while (true) {
                         break;
                     case 'core styp':
                     case 'ssnc styp':
-                        // StreamType (e.g. 'Realime' or 'Buffered') - base 64 string
+                        // StreamType (e.g. 'Realtime' or 'Buffered') - base 64 string
                         $redis->hSet('airplay','Stream_Type', trim($buf));
                         runelog('rune_SSM_wrk: Airplay StreamType: ', $buf);
                         break;
@@ -647,13 +659,13 @@ while (true) {
                             ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
                         }
                         if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
-                            $status['last_elapsed'] = microtime(true);
+                            $status['time_last_elapsed'] = microtime(true);
                             $status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
                         }
                         break;
                     case 'ssnc pfls':
                         // play stream flush - format unknown
-                        runelog('rune_SSM_wrk: Play stream flush, no arguments');
+                        runelog('rune_SSM_wrk: Play stream flush, format unknown');
                         //break;
                     case 'ssnc pbeg':
                         // play stream begin, no arguments
@@ -663,17 +675,19 @@ while (true) {
                         //sysCmd('chown -f www-data:www-data /srv/http/tmp/airplay/airplay-cover.*');
                         //sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-cover.*');
                         $status = array();
-                        if ($redis->get('volume') && !empty($redis->get('lastmpdvolume'))) {
-                            $status['volume'] = $redis->get('lastmpdvolume');
+                        if ($redis->hGet('owntone', 'role') == 'client') {
+                            if ($redis->get('volume') && !empty($redis->get('lastmpdvolume'))) {
+                                $status['volume'] = $redis->get('lastmpdvolume');
+                            }
+                            // Example: "44100:16:2";
+                            $status['audio'] = $sampleRate.":".$sampleDepth.":2";
+                            // Example: "44.1";
+                            $status['audio_sample_rate'] = $sampleRateK;
+                            // Example: "16";
+                            $status['audio_sample_depth'] = $sampleDepth;
+                            $status['bitrate'] = "1411";
+                            $status['audio_channels'] = "Stereo";
                         }
-                        // Example: "44100:16:2";
-                        $status['audio'] = $sampleRate.":".$sampleDepth.":2";
-                        // Example: "44.1";
-                        $status['audio_sample_rate'] = $sampleRateK;
-                        // Example: "16";
-                        $status['audio_sample_depth'] = $sampleDepth;
-                        $status['bitrate'] = "1411";
-                        $status['audio_channels'] = "Stereo";
                         $status['random'] = "0";
                         $status['single'] = "0";
                         $status['consume'] = "0";
@@ -706,9 +720,11 @@ while (true) {
                         }
                         // save JSON response for extensions
                         $redis->set('act_player_info', json_encode($status));
-                        ui_render($redis, 'playback', json_encode($status));
-                        //sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
-                        sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
+                        if ($redis->hGet('owntone', 'role') == 'client') {
+                            ui_render($redis, 'playback', json_encode($status));
+                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                            sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
+                        }
                         break;
                     case 'ssnc pcst':
                         // start picture send (RTP Frame number) - base 64 string

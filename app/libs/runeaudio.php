@@ -8196,7 +8196,7 @@ function ui_render($redis, $channel, $data)
 {
     curlPost('http://localhost/pub?id='.$channel, $data);
     runelog('ui_render channel=', $channel);
-    if (($channel == 'playback') && $redis->hget('owntone', 'active')) {
+    if (($channel == 'playback') && $redis->hGet('owntone', 'active')) {
         // its the playback channel and owntone is active, post the data to the owntone render fifo queue
         $redis->lPush('owntone_render', $data);
     }
