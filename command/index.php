@@ -61,9 +61,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $response = ui_update($redis, $socket);
         }
     } else {
-        // if ($redis->hGet('owntone', 'active')) {
-            // // owntone local device volume setting
-        // } else
         if ($activePlayer === 'MPD') {
             $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);
             // debug
@@ -74,7 +71,8 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             // ui_notify($redis, 'MPD response', $response);
             // catch any volume change set in the UI, and save its value
             //  the volume can also be set by streaming services this code is not used in those cases
-            if (strpos(' '.$_GET['cmd'], 'setvol') && $mpdSendResponse && strpos(' '.$response, 'OK')) {
+            //  don't save the volume when owntone is active
+            if (!$redis->hGet('owntone', 'active') && strpos(' '.$_GET['cmd'], 'setvol') && $mpdSendResponse && strpos(' '.$response, 'OK')) {
                 // 'setvol <999>' is the command, the command was successfully sent and the response was OK, save the value
                 // remove all non-numeric values from the command
                 $volume = trim(preg_replace('/[^0-9]/', '', $_GET['cmd']));

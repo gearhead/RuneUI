@@ -144,20 +144,14 @@ while (true) {
             if ($localOutput) {
                 $localOutput = json_decode($localOutput, true);
                 if (isset($localOutput['selected']) && $localOutput['selected']) {
-                    $activePlayer = $redis->get('activePlayer');
-                    if ($activePlayer == 'MPD') {
-                        $localVolume = $redis->get('lastmpdvolume');
-                    }
-                    // for all other active players mpd knows the current volume, but lastmpdvolume is not set to that value
-                    if (!isset($localVolume) || !is_numeric($localVolume)) {
-                        $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                        if (!is_numeric($localVolume)) {
-                            $retval = json_decode($redis->get('act_player_info'), true);
-                            if (isset($retval['volume']) && is_numeric($retval['volume'])) {
-                                $localVolume = $retval['volume'];
-                            }
-                            unset($retval);
+                    // for all active players mpd knows the current volume, lastmpdvolume is never set
+                    $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                    if (!is_numeric($localVolume)) {
+                        $retval = json_decode($redis->get('act_player_info'), true);
+                        if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                            $localVolume = $retval['volume'];
                         }
+                        unset($retval);
                     }
                     if (is_numeric($localVolume) && isset($localOutput['volume']) && ($localVolume != $localOutput['volume'])) {
                         // local output volume has been changed via the UI and the output is active in owntone

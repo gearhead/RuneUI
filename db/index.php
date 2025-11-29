@@ -727,11 +727,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($params['volume']) && ($output['volume'] != $params['volume'])) {
                     // volume change
                     $output['volume'] = $params['volume'];
-                    if (($output['volume'] != $redis->get('lastmpdvolume')) && (!isset($params['automute']) || !$params['automute'])) {
+                    $mpdVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                    if (($output['volume'] != $mpdVolume) && (!isset($params['automute']) || !$params['automute'])) {
                         $activePlayer = $redis->get('activePlayer');
-                        if ($activePlayer == 'MPD') {
-                            $redis->set('lastmpdvolume', $params['volume']);
-                        }
                         sysCmd('mpc volume '.$params['volume']);
                     }
                     $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
