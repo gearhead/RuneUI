@@ -358,13 +358,6 @@ while (true) {
                         echo "rune_SSM_wrk: Unexpected metadata decoding, 'ssnc PICT' expected '$type $code'\n";
                     }
                 }
-                if ($redis->hGet('owntone', 'role') == 'client') {
-                    $state = $redis->hGet('owntone', 'state');
-                    if ($state && ($state != $status['state'])) {
-                        $status['state'] = $state;
-                        ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
-                    }
-                }
                 switch ($tag) {
                     case 'ssnc pffr':
                         // unknown - 4 byte integer
@@ -516,6 +509,10 @@ while (true) {
                         break;
                     case 'core minm':
                         // song - base 64 string
+                        if (trim($buf) && strpos(' '.$buf, 'pipe_') && strpos(' '.$buf, '.fifo')) {
+                            // its an owntone stream, this is running as a multroom client
+                            $redis->hSet('owntone', 'role', 'client');
+                        }
                         $status['currentsong'] = empty($buf) ? 'Unknown' : trim($buf);
                         runelog('rune_SSM_wrk: Currentsong: ', $status['currentsong']);
                         break;
@@ -650,14 +647,6 @@ while (true) {
                         // flush request > pause (RTP Frame number) - base 64 string
                         // argument is current play position
                         runelog('rune_SSM_wrk: Flush request: ', $buf);
-                        if ($redis->hGet('owntone', 'role') == 'client') {
-                            $status['state'] = 'pause';
-                            $render = $status;
-                            unset($render['elapsed'], $render['song_percent']);
-                            $redis->set('act_player_info', json_encode($status));
-                            // its an owntone client, just send the volume level, the state and the local volume control
-                            ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
-                        }
                         if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
                             $status['time_last_elapsed'] = microtime(true);
                             $status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
@@ -720,9 +709,8 @@ while (true) {
                         }
                         // save JSON response for extensions
                         $redis->set('act_player_info', json_encode($status));
-                        if ($redis->hGet('owntone', 'role') == 'client') {
+                        if ($redis->hGet('owntone', 'role') != 'client') {
                             ui_render($redis, 'playback', json_encode($status));
-                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
                             sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
                         }
                         break;
@@ -737,8 +725,10 @@ while (true) {
                         // $render = $status;
                         // unset($render['elapsed'], $render['song_percent']);
                         // $redis->set('act_player_info', json_encode($status));
-                        // ui_render($redis, 'playback', json_encode($render));
-                        // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
+                        // if ($redis->hGet('owntone', 'role') != 'client') {
+                            // ui_render($redis, 'playback', json_encode($render));
+                            // sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
+                        // }
                         break;
                     case 'ssnc snam':
                         // name of user sending device - probably base 64 string
@@ -760,9 +750,6 @@ while (true) {
                         // only send the information when not receiving from owntone
                         if ($redis->hGet('owntone', 'role') != 'client') {
                             ui_render($redis, 'playback', json_encode($render));
-                        } else {
-                            // its an owntone client, just send the volume level, the state and the local volume control
-                            ui_render($redis, 'playback', json_encode(array('volume' -> $status['volume'], 'state' -> $status['state'], 'local_volume_control' -> $status['local_volume_control'])));
                         }
                         // 'mpc volume' returns the correct volume as long as MPD is running (which it should be)
                         // if ($redis->get('volume')) {
@@ -773,7 +760,9 @@ while (true) {
                             // $render = $status;
                             // unset($render['elapsed'], $render['song_percent']);
                             // $redis->set('act_player_info', json_encode($status));
-                            // ui_render($redis, 'playback', json_encode($render));
+                            // if ($redis->hGet('owntone', 'role') != 'client') {
+                                // ui_render($redis, 'playback', json_encode($render));
+                            // }
                         // }
                         // debug
                         // var_dump($volume);

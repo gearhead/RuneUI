@@ -766,17 +766,14 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     // get the redis outputs again
                     $outputNames = $redis->hKeys('owntone_outputs');
                     foreach ($outputNames as $outputName) {
-                        $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
-                        if ($output['type'] !=  'ALSA') {
-                            // not ALSA (bluetooth is an ALSA type)
+                        if (substr($outputName, 0, 11) != 'Bluetooth: ') {
+                            // not bluetooth
                             continue;
                         }
+                        // bluetooth, get the details
+                        $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
                         if (!$output['selected']) {
                             // not connected
-                            continue;
-                        }
-                        if (substr($output['name'], 0, 11) != 'Bluetooth: ') {
-                            // not bluetooth
                             continue;
                         }
                         if ($output['name'] == $params['name']) {
@@ -974,7 +971,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'selected' => $params['selected'],
                 'volume' => $params['volume'],
                 'mute' => $params['mute']));
-            unset($params, $defaultVolume, $preset, $output, $action, $volume);
+            unset($params, $defaultVolume, $preset, $output, $action, $volume, $localOutputName);
             break;
         case 'MRpreset':
             // Multi-room preset change

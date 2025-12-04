@@ -127,7 +127,7 @@ if (( cores > 1 )) ; then
     if [ "$format_cnt" != "4" ] ; then
         sed -i "/format.*# owntone format/ s/format.*# owntone format.*/format $format # owntone format/" /etc/alsa/conf.d/99-runeaudio-owntone.conf
     fi
-    # tweak the output for mpd, this changes the use of the fifo pipe with rate conversion (S16_LE, 44.1kHz) to fifo pipe without rate conversion
+    # tweak the output for mpd, this changes the use of the fifo pipe with rate conversion (S16_LE, 44.1kHz) to the fifo pipe without rate conversion
     #   the pipe without rate conversion has no plugins
     device_mpd=$( redis-cli hget owntone device_mpd )
     device_mpd="${device_mpd/fifo/FIFO}"

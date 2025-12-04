@@ -6852,10 +6852,14 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
         // stop shairport-sync to drop any AirPlay connections
         wrk_systemd_unit($redis, 'stop', 'shairport-sync');
-        if ($redis->hGet('owntone', 'client')) {
+        if ($redis->hGet('owntone', 'role') == 'client') {
             // currnetly working as an owntone client
             //	restart shairport-sync asyncronously afer a delay (5 seconds), this ensures that owntone recognises that it has lost a connection
             sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php', 5);
+            $redis->hSet('owntone', 'role', '');
+            $redis->hSet('owntone', 'server_hostname', '');
+            $redis->hSet('owntone', 'server_ip_address', '');
+            $redis->hSet('owntone', 'server', '');
         } else {
             // Apple devices detect an AirPLay disconnect directly, shairport-sync can be restarted immediately
             wrk_systemd_unit($redis, 'start', 'shairport-sync');
@@ -8366,40 +8370,55 @@ function wrk_setRegDom($redis)
 function ui_update($redis, $sock = null, $clientUUID = null)
 {
     ui_libraryHome($redis, $clientUUID);
-    switch ($redis->get('activePlayer')) {
-        case 'MPD':
-            if ($sock) {
-                // to get MPD out of its idle-loop we discribe to a channel
-                sendMpdCommand($sock, 'subscribe renderui');
-                sendMpdCommand($sock, 'unsubscribe renderui');
-            }
-            return sysCmd('mpc status && mpc move 1 1 || mpc clear')[0];
-            break;
-            // if ($redis->get('pl_length') !== '0') {
-                // sendMpdCommand($sock, 'swap 0 0');
-            // } else {
-                // sendMpdCommand($sock, 'clear');
-            // }
-            // // return MPD response
-            // return readMpdResponse($sock);
-            // break;
-        default:
-            // for streaming - airplay, spotify connect & bluetooth
-            $status = json_decode($redis->get('act_player_info'), true);
-            if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
-                if (isset($status['elapsed'])) {
-                    $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
-                } else {
-                    $status['elapsed'] = round(microtime(true) - $status['time_last_elapsed']);
+    // when this is an owntone client requested a refresh on the server
+    if ($redis->hGet('owntone', 'role') == 'client') {
+        // this is an owntone client
+        $owntoneServerHostname = $redis->hGet('owntone', 'server_hostname');
+        $owntoneServerIpAddress = $redis->hGet('owntone', 'server_ip_address');
+        if ($owntoneServerIpAddress) {
+            // we have a server ip address, send a refresh request
+            sysCmd('curl -X PUT -s "http://'.$owntoneServerIpAddress.'/command/?cmd=renderui"');
+        } else if ($owntoneServerHostname) {
+            // we have a hostname, send a refresh request
+            sysCmd('curl -X PUT -s "http://'.$owntoneServerHostname.'.local/command/?cmd=renderui"');
+        }
+    } else {
+        // this is not an owntone client
+        switch ($redis->get('activePlayer')) {
+            case 'MPD':
+                if ($sock) {
+                    // to get MPD out of its idle-loop we discribe to a channel
+                    sendMpdCommand($sock, 'subscribe renderui');
+                    sendMpdCommand($sock, 'unsubscribe renderui');
                 }
-                $status['time_last_elapsed'] = microtime(true);
-                $status['last_elapsed'] = $status['elapsed'];
-                $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
-            } else {
-                unset($status['song_percent'], $status['elapsed']);
-            }
-            ui_render($redis, 'playback', json_encode($status));
-            break;
+                return sysCmd('mpc status && mpc move 1 1 || mpc clear')[0];
+                break;
+                // if ($redis->get('pl_length') !== '0') {
+                    // sendMpdCommand($sock, 'swap 0 0');
+                // } else {
+                    // sendMpdCommand($sock, 'clear');
+                // }
+                // // return MPD response
+                // return readMpdResponse($sock);
+                // break;
+            default:
+                // for streaming - airplay, spotify connect & bluetooth
+                $status = json_decode($redis->get('act_player_info'), true);
+                if (($status['time'] != 0) && isset($status['time_last_elapsed']) && $status['time_last_elapsed'] && ($status['state'] == 'play')) {
+                    if (isset($status['elapsed'])) {
+                        $status['elapsed'] = round($status['elapsed'] + microtime(true) - $status['time_last_elapsed']);
+                    } else {
+                        $status['elapsed'] = round(microtime(true) - $status['time_last_elapsed']);
+                    }
+                    $status['time_last_elapsed'] = microtime(true);
+                    $status['last_elapsed'] = $status['elapsed'];
+                    $status['song_percent'] = min(100, round(100*$status['elapsed']/$status['time']));
+                } else {
+                    unset($status['song_percent'], $status['elapsed']);
+                }
+                ui_render($redis, 'playback', json_encode($status));
+                break;
+        }
     }
 }
 
@@ -16302,6 +16321,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hSet('owntone', 'role', '');
+            $redis->hSet('owntone', 'server_hostname', '');
+            $redis->hSet('owntone', 'server_ip_address', '');
+            $redis->hSet('owntone', 'server', '');
             // set the airplay output rate to its original value
             $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
             $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
@@ -16370,6 +16393,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'server_player', json_encode(array()));
+            $redis->hSet('owntone', 'role', '');
+            $redis->hSet('owntone', 'server_hostname', '');
+            $redis->hSet('owntone', 'server_ip_address', '');
+            $redis->hSet('owntone', 'server', '');
             // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf" | xargs')[0];
@@ -16389,12 +16416,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     wrk_systemd_unit($redis, 'restart', 'owntone');
                 }
             }
-            // remove the owntone outputs and other stored values
-            $redis->del('owntone_outputs');
-            $redis->hSet('owntone', 'master', json_encode(array()));
-            $redis->hSet('owntone', 'server_config', json_encode(array()));
-            $redis->hSet('owntone', 'server_queue', json_encode(array()));
-            $redis->hSet('owntone', 'server_player', json_encode(array()));
             break;
         case 'conf_add_alsa_card':
             // $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device', 'file')

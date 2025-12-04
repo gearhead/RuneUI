@@ -705,9 +705,9 @@
                         <span class="help-block">The default ALSA rate converter is 'samplerate_best'.
                         You can also use the alternative, 'speexrate_best'.<br>
                         RuneAudio is constructed to avoid using the ALSA rate converter (re&#8209;sampler),
-                        if re-sampling is required the superior SoXr re-sampler is used where possible.
+                        if re-sampling is required the superior SoXr re-sampler is used whenever possible.
                         However, the ALSA rate converter is sometimes unavoidable and is the fallback when nothing else works, normally it does nothing.<br>
-                        Speex is specifically designed for speech compression, while samplerate is a general purpose rate converter, both are set up for best quality
+                        Speex is specifically designed for speech compression, while samplerate is a general purpose rate converter, both options are configured for best quality available
                         </span>
                     </div>
                 </div>
@@ -941,13 +941,13 @@
                         The AirPlay clients can include Apple, RuneAudio or Sonos devices.
                         The data transmission format is AirPlay with ALAC data-compression.<br>
                         When using MultiRoom all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
-                        Your music collection will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
+                        When playing your music collection it will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
                         AirPlay input is also re-sampled to this rate by shairport&#8209;sync using the SoXr re&#8209;sampler.
                         Typically the input is S16_LE, 44.1kHz so no re&#8209;sampling will be applied.<br>
                         Bluetooth and Spotify Connect input is of a lossy quality, reconstituted to S16_LE, 44.1kHz.<br>
                         In addition, MultiRoom can stream unsynchronised to Chromecast devices and the local network.
                         Multiple local devices can also be enabled.
-                        Even though this is in theory unsynchronised, the Chromecast and local device synchronisation is very good.<br>
+                        Even though Chromecast is in theory unsynchronised, the local device synchronisation is very good.<br>
                         When the output rate is not supported by the output device (e.g. bluetooth output), it will be re&#8209;sampled by ALSA.
                         ALSA re&#8209;sampling is poor compared to SoXr. The ALSA re&#8209;sampling processing can be tweaked using the settings above.
                         Most output devices will support the default audio format and sample rate.</span>

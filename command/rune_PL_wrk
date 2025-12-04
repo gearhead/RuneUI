@@ -335,6 +335,11 @@ while (true) {
                         $saveUpdating_db = false;
                     }
                 }
+                // when playing and elapsed is set, save elapsed to last elapsed and set time_last_elapsed to the current time
+                if (isset($newStatus['state']) && ($newStatus['state'] == 'play') && isset($newStatus['elapsed']) && $newStatus['elapsed']) {
+                    $newStatus['last_elapsed'] = $newStatus['elapsed'];
+                    $newStatus['time_last_elapsed'] = microtime(true);
+                }
                 // the redis variable 'act_player_info' also gets modified in the script rune_MPDEM_wrk, refresh it here
                 //  also update the variable, this acts as a sort of optimistic lock
                 //  updates of 'act_player_info' in this script have priority over updates carried out in rune_MPDEM_wrk
@@ -746,13 +751,6 @@ while (true) {
             $airplay_timeout_count = $airplay_timeout;
             $sleepUntilTime = microtime(true)+2;
             $cntOwntone = 2;
-            $role = $redis->hGet('owntone', 'role');
-            if ($role != 'server') {
-                $redis->hSet('owntone', 'role', '');
-                $redis->hSet('owntone', 'server_hostname', '');
-                $redis->hSet('owntone', 'server_ip_address', '');
-                $redis->hSet('owntone', 'server', '');
-            }
             do {
                 // sometimes shareport sync fails to terminate properly, the code fixes it, timing out after a specified time when nothing is playing
                 //	but when owntone is the sending device do not time out, allow pause
@@ -770,48 +768,87 @@ while (true) {
                 }
                 runelog('rune_PL_wrk: Airplay timeout count', $airplay_timeout_count);
                 // determine whether we are an owntone client, do this on the second iteration then every 60 seconds (30 iterations)
-                //	or just before we time out
+                //	or just before a time out
                 $owntoneRole = $redis->hGet('owntone', 'role');
-                if (($owntoneRole != 'server') || ($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
-                    // last reported host device was running owntone
-                    // reset the counter to 30 iterations
-                    $cntOwntone = 30;
-                    // get the host device name if not already determined
-                    $owntoneRole = $redis->hGet('owntone', 'role');
-                    $owntoneServer = $redis->hGet('owntone', 'server');
-                    if (!$owntoneRole || !$owntoneServer) {
-                        // use the server, description is available
-                        $owntoneServers = array();
-                        $description = strtolower($redis->hget('airplay', 'description'));
-                        if (strpos(' '.$description, 'owntone')) {
-                            $descriptionArray = explode(' ', strtolower($description));
-                            if (isset($descriptionArray[2]) && $descriptionArray[2])
-                                // no ip address for this one
-                                $owntoneServers[$descriptionArray[2].'.local'] = '';
-                        }
-                        // search for all owntone multiroom servers whih avahi-browse
-                        $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp 2>/dev/null | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//' | xargs");
-                        foreach ($owntoneAvahiServers as $owntoneAvahiServer) {
-                            // each line contains the hostname and IP address delimited with a semicolon
-                            $retval = explode(';', $owntoneAvahiServer);
-                            if (count($retval) == 2) {
-                                // use it if there are two entries in the array (one occurrence of a semicolon in the returned value)
-                                $owntoneServers[$retval[0]] = $retval[1];
+                if ($owntoneRole != 'server') {
+                    $owntoneRole = '';
+                    $serverHostname = '';
+                    $serverIpAddress = '';
+                    $server = '';
+                }
+                if (($cntOwntone-- <= 0) || ($airplay_timeout_count <= 0)) {
+                    if (($redis->hGet('owntone', 'role') != 'server') && !$redis->hGet('owntone', 'server')) {
+                        // last reported host device was running owntone
+                        // reset the counter to 30 iterations
+                        $cntOwntone = 30;
+                        // get the host device name if not already determined
+                        $owntoneRole = $redis->hGet('owntone', 'role');
+                        $owntoneServer = $redis->hGet('owntone', 'server');
+                        if (!$owntoneRole || !$owntoneServer) {
+                            // use the server, description is available
+                            $owntoneServers = array();
+                            $description = strtolower($redis->hget('airplay', 'description'));
+                            if (strpos(' '.$description, 'owntone')) {
+                                $descriptionArray = explode(' ', strtolower($description));
+                                if (isset($descriptionArray[2]) && $descriptionArray[2])
+                                    // no ip address for this one
+                                    $owntoneServers[$descriptionArray[2].'.local'] = '';
                             }
-                        }
-                        // walk through the servers and retrieve the owntone output information
-                        foreach ($owntoneServers as $owntoneServerHostname => $owntoneServerIP) {
-                            if (isset($owntoneServerIP) && $owntoneServerIP) {
-                                // possible that no IP address is available, then use the hostname
-                                //	ip address is much faster
-                                $owntoneServerHostname = $owntoneServerHostname;
-                                $owntoneServerIP = $owntoneServerIP;
-                                $owntoneServer = $owntoneServerIP;
-                            } else {
-                                $owntoneServerHostname = $owntoneServerHostname;
-                                $owntoneServerIP = '';
-                                $owntoneServer = $owntoneServerHostname;
+                            // search for all owntone multiroom servers whih avahi-browse
+                            $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp 2>/dev/null | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//'");
+                            foreach ($owntoneAvahiServers as $owntoneAvahiServer) {
+                                // each line contains the hostname and IP address delimited with a semicolon
+                                $retval = explode(';', $owntoneAvahiServer);
+                                if (count($retval) == 2) {
+                                    // use it if there are two entries in the array (one occurrence of a semicolon in the returned value)
+                                    $owntoneServers[$retval[0]] = $retval[1];
+                                }
                             }
+                            // walk through the servers and retrieve the owntone output information
+                            foreach ($owntoneServers as $owntoneServerHostname => $owntoneServerIP) {
+                                if (isset($owntoneServerIP) && $owntoneServerIP) {
+                                    // possible that no IP address is available, then use the hostname
+                                    //	ip address is much faster
+                                    $owntoneServerHostname = $owntoneServerHostname;
+                                    $owntoneServerIP = $owntoneServerIP;
+                                    $owntoneServer = $owntoneServerIP;
+                                } else {
+                                    $owntoneServerHostname = $owntoneServerHostname;
+                                    $owntoneServerIP = '';
+                                    $owntoneServer = $owntoneServerHostname;
+                                }
+                                // determine if owntone is running on the host device name and get the device status
+                                $commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
+                                $retval = sysCmd($commandGet);
+                                if (isset($retval[0])) {
+                                    // an array is returned
+                                    $retval = json_decode($retval[0], true);
+                                    if (isset($retval['outputs'])) {
+                                        // the outputs have been returned, loop through them
+                                        $thisHostname = strtolower($redis->get('hostname'));
+                                        foreach ($retval['outputs'] as $output) {
+                                            if (strtolower($output['name']) == $thisHostname) {
+                                                // this is the entry for for this client
+                                                if ($output['selected']) {
+                                                    // this is connected
+                                                    $owntoneRole = 'client';
+                                                    $serverHostname = $owntoneServerHostname;
+                                                    $serverIpAddress = $owntoneServerIP;
+                                                    $server = $owntoneServer;
+                                                    // break both foreach loops
+                                                    break 2;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            $redis->hSet('owntone', 'role', $owntoneRole);
+                            $redis->hSet('owntone', 'server_hostname', explode('.local', $serverHostname, 2)[0]);
+                            $redis->hSet('owntone', 'server_ip_address', $serverIpAddress);
+                            $redis->hSet('owntone', 'server', explode('.local', $server, 2)[0]);
+                        } else if (($redis->hGet('owntone', 'role') == 'client') && $redis->hGet('owntone', 'server')) {
+                            // we have already determined the server, check that it is still connected to this client
                             // determine if owntone is running on the host device name and get the device status
                             $commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
                             $retval = sysCmd($commandGet);
@@ -825,45 +862,26 @@ while (true) {
                                         if (strtolower($output['name']) == $thisHostname) {
                                             // this is the entry for for this client
                                             if ($output['selected']) {
-                                                // it is connected
-                                                $redis->hSet('owntone', 'role', 'client');
-                                                $redis->hSet('owntone', 'server_hostname', $owntoneServerHostname);
-                                                $redis->hSet('owntone', 'server_ip_address', $owntoneServerIP);
-                                                $redis->hSet('owntone', 'server', $owntoneServer);
-                                                // break both foreach loops
-                                                break 2;
+                                                // this is connected
+                                                $owntoneRole = 'client';
+                                                $serverHostname = $owntoneServerHostname;
+                                                $serverIpAddress = $owntoneServerIP;
+                                                $server = $owntoneServer;
+                                                // break the foreach loop
+                                                break;
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                    } else if (($owntoneRole == 'client') && $owntoneServer) {
-                        // we have already determined the server, check that it is still connected to this client
-                        // determine if owntone is running on the host device name and get the device status
-                        $commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
-                        $retval = sysCmd($commandGet);
-                        if (isset($retval[0])) {
-                            // an array is returned
-                            $retval = json_decode($retval[0], true);
-                            if (isset($retval['outputs'])) {
-                                // the outputs have been returned, loop through them
-                                $thisHostname = strtolower($redis->get('hostname'));
-                                foreach ($retval['outputs'] as $output) {
-                                    if (strtolower($output['name']) == $thisHostname) {
-                                        // this is the entry for for this client
-                                        if (!$output['selected']) {
-                                            // it is not (no longer) connected
-                                            $redis->hSet('owntone', 'role', '');
-                                            $redis->hSet('owntone', 'server_hostname', '');
-                                            $redis->hSet('owntone', 'server_ip_address', '');
-                                            $redis->hSet('owntone', 'server', '');
-                                            // break the foreach loop
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
+                            $redis->hSet('owntone', 'role', $owntoneRole);
+                            $redis->hSet('owntone', 'server_hostname', explode('.local', $serverHostname, 2)[0]);
+                            $redis->hSet('owntone', 'server_ip_address', $serverIpAddress);
+                            $redis->hSet('owntone', 'server', explode('.local', $server, 2)[0]);
+                        } else {
+                            $redis->hSet('owntone', 'server_hostname', explode('.local', $serverHostname, 2)[0]);
+                            $redis->hSet('owntone', 'server_ip_address', $serverIpAddress);
+                            $redis->hSet('owntone', 'server', explode('.local', $server, 2)[0]);
                         }
                     }
                 }

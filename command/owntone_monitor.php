@@ -162,7 +162,7 @@ while (true) {
                             $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
                                 ' --data '.
-                                '"{\"volume\": '.$localVolume.
+                                '"{ \"volume\": '.$localVolume.
                                 '}"';
                             // run the command
                             sysCmd($commandPut);
@@ -368,6 +368,10 @@ while (true) {
                     if (!$outputDetail['selected']) {
                         // the output is not connected, delete it from the list
                         unset($clientIp[$clientname]);
+                    } else {
+                        $clientIpDetail = json_decode($clientIp[$clientname], true);
+                        $clientIpDetail['volume'] = $outputDetail['volume'];
+                        $clientIp[$clientname] = json_encode($clientIpDetail);
                     }
                 }
                 unset($outputs, $clientname, $output, $value, $outputDetail);
@@ -377,7 +381,8 @@ while (true) {
             // more than 5 render events in the queue, remove the oldest ones
             $redis->rPop('owntone_render');
         }
-        // $clientIp now contains a list of currently connected runeaudio owntone clients, it may also contain the IP address of each client
+        // $clientIp now contains a list of currently connected runeaudio owntone clients, it also contains the volume level for each client,
+        //  it may also contain the IP address of each client
         $serverHostname = strtolower($redis->hGet('owntone', 'server_hostname'));
         $serverIpAddress = strtolower($redis->hGet('owntone', 'server_ip_address'));
         if ($redis->lLen('owntone_render') && ($serverHostname || $serverIpAddress) && count($clientIp)) {
@@ -389,11 +394,11 @@ while (true) {
                 if (!strlen($encoded)) {
                     continue;
                 }
-                if (isset($lastOwntoneRender)) {
-                    $decoded = array_merge(json_decode($lastOwntoneRender, true), json_decode($encoded, true));
-                } else {
+                //if (isset($lastOwntoneRender)) {
+                    //$decoded = array_merge(json_decode($lastOwntoneRender, true), json_decode($encoded, true));
+                //} else {
                     $decoded = json_decode($encoded, true);
-                }
+                //}
                 // some modifications are required to the render array
                 //  volume must be deleted, this is set by the client
                 //  local_volume_control must be deleted, this is set by the client
@@ -420,7 +425,7 @@ while (true) {
                 }
                 $decoded['actPlayer'] = 'Airplay';
                 $decoded['audio'] = '44100:16:2';
-                $decoded['audio_sample_depth'] = '24';
+                $decoded['audio_sample_depth'] = '16';
                 $decoded['audio_sample_rate'] = 44.1;
                 $decoded['bitrate'] = 1411;
                 $decoded['audio_channels'] = "Stereo";
@@ -444,16 +449,32 @@ while (true) {
                         }
                     }
                 }
-                $encoded = json_encode($decoded);
-                echo 'Encoded: '.$encoded."\n";
-                $lastOwntoneRender = $encoded;
+                if ($decoded['state'] == 'play') {
+                    if (isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
+                            && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
+                            && $decoded['time_last_elapsed'] && $decoded['time']) {
+                        // state is play and we have the information to recalculate the elapsed time
+                        $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
+                        $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                        $decoded['last_elapsed'] = $decoded['elapsed'];
+                        $decoded['time_last_elapsed'] = $now;
+                    }
+                    $lastOwntoneRender = json_encode($decoded);
+                } else {
+                    // state is pause, ensure that the elapsed information is removed
+                    unset($decoded['elapsed'], $decoded['song_percent']);
+                }
+                echo 'Encoded pipe:'.$lastOwntoneRender."\n";
                 // now send the render information to each of the runeadio owntone clients
                 foreach ($clientIp as $client) {
                     $client = json_decode($client, true);
+                    if (isset($client['volume'])) {
+                        $decoded['volume'] = $client['volume'];
+                    }
                     if (isset($client['ip_address']) && $client['ip_address']) {
-                        curlPost('http://'.$client['ip_address'].'/pub?id=playback', $encoded);
+                        curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
                     } else {
-                        curlPost('http://'.$client['clientname'].'.local/pub?id=playback', $encoded);
+                        curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
                     }
                     // keep a list of clients which have had at least one render action
                     $renderedClients[$client['clientname']] = true;
@@ -487,28 +508,32 @@ while (true) {
                     }
                     // prepare the render message, the elapsed values must be recalculated or the elapsed and song percentage must be cleared
                     $decoded = json_decode($lastOwntoneRender, true);
-                    if (($decoded['state'] == 'play') && isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
-                            && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
-                            && $decoded['time_last_elapsed'] && $decoded['time']) {
-                        // state is play and we have the information to recalculate the elapsed time
-                        $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
-                        $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
-                        $decoded['last_elapsed'] = $decoded['elapsed'];
-                        $decoded['time_last_elapsed'] = $now;
-                        $encoded = json_encode($decoded);
-                        $lastOwntoneRender = $encoded;
+                    if ($decoded['state'] == 'play') {
+                        if (isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
+                                && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
+                                && $decoded['time_last_elapsed'] && $decoded['time']) {
+                            // state is play and we have the information to recalculate the elapsed time
+                            $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
+                            $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                            $decoded['last_elapsed'] = $decoded['elapsed'];
+                            $decoded['time_last_elapsed'] = $now;
+                        }
+                        $lastOwntoneRender = json_encode($decoded);
                     } else {
-                        // state is pause or we don’t have the details to calculate the elapsed time, ensure that the elapsed information is removed
+                        // state is pause, ensure that the elapsed information is removed
                         unset($decoded['elapsed'], $decoded['song_percent']);
-                        $encoded = json_encode($decoded);
                     }
+                    echo 'Encoded refr:'.json_encode($decoded)."\n";
                     foreach ($clientIp as $client) {
                         // render the last rendered information with updated elapsed information to each client
                         $client = json_decode($client, true);
+                        if (isset($client['volume'])) {
+                            $decoded['volume'] = $client['volume'];
+                        }
                         if (isset($client['ip_address']) && $client['ip_address']) {
-                            curlPost('http://'.$client['ip_address'].'/pub?id=playback', $encoded);
+                            curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
                         } else {
-                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', $encoded);
+                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
                         }
                         // keep a list of clients which have had at least one render action
                         $renderedClients[$client['clientname']] = true;
