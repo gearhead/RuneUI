@@ -464,7 +464,8 @@ while (true) {
                     // state is pause, ensure that the elapsed information is removed
                     unset($decoded['elapsed'], $decoded['song_percent']);
                 }
-                echo 'Encoded pipe:'.$lastOwntoneRender."\n";
+                // debug
+                // echo 'Encoded pipe:'.$lastOwntoneRender."\n";
                 // now send the render information to each of the runeadio owntone clients
                 foreach ($clientIp as $client) {
                     $client = json_decode($client, true);
@@ -523,7 +524,8 @@ while (true) {
                         // state is pause, ensure that the elapsed information is removed
                         unset($decoded['elapsed'], $decoded['song_percent']);
                     }
-                    echo 'Encoded refr:'.json_encode($decoded)."\n";
+                    // debug
+                    // echo 'Encoded refr:'.json_encode($decoded)."\n";
                     foreach ($clientIp as $client) {
                         // render the last rendered information with updated elapsed information to each client
                         $client = json_decode($client, true);
