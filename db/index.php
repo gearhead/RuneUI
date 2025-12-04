@@ -38,8 +38,6 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
 } else {
     require_once('/var/www/app/config/config.php');
 }
-//require_once($_SERVER['HOME'].'/app/config/config.php');
-//require_once('/var/www/app/config/config.php');
 ini_set('display_errors', -1);
 error_reporting(E_ALL);
 // check current player backend
@@ -724,13 +722,29 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                 }
                 $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
-                if (isset($params['volume']) && ($output['volume'] != $params['volume'])) {
-                    // volume change
-                    $output['volume'] = $params['volume'];
-                    $mpdVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                    if (($output['volume'] != $mpdVolume) && (!isset($params['automute']) || !$params['automute'])) {
-                        $activePlayer = $redis->get('activePlayer');
-                        sysCmd('mpc volume '.$params['volume']);
+                if (isset($params['volume'])) {
+                    if ($output['volume'] != $params['volume']) {
+                        // volume change
+                        $output['volume'] = $params['volume'];
+                    }
+                    $localOutputName = $redis->hGet('owntone', 'local_output_name');
+                    if ($localOutputName && ($localOutputName == $output['name'])) {
+                        // this is the local output, mpd volume needs correcting
+                        $automuteTimeEnd = intval($redis->hGet('owntone', 'automute')) + intval($redis->hGet('owntone', 'unmute_delay'));
+                        $now = microtime(true);
+                        if ($automuteTimeEnd && ($automuteTimeEnd > $now)) {
+                            // automute is active, change the mpd volume synchronously with a delay until after the automute expires,
+                            //  no need to check its current mpd volume level
+                            // first change the mute volume level, this will be ignored if it has already been applied
+                            $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                            $preset['mute'] = $params['volume'];
+                            $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
+                            // now change the mpd volume
+                            sysCmdAsync($redis, 'mpc volume '.$params['volume'], ceil($now - $automuteTimeEnd + 1));
+                        } else {
+                            // change the mpd volume, no need to check its current  mpd volume level
+                            sysCmd('mpc volume '.$params['volume']);
+                        }
                     }
                     $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                 } else if (isset($params['selected']) && $output['selected'] != $params['selected']) {
