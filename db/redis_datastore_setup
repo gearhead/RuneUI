@@ -284,6 +284,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('owntone', 'device_sc', '');
             $redis->hSet('owntone', 'enable', '0');
             $redis->hSet('owntone', 'format', 'S16_LE');
+            $redis->hSet('owntone', 'latency', 3);
             $redis->hSet('owntone', 'library_dir', '');
             $redis->hSet('owntone', 'local_output_name', '');
             $redis->hSet('owntone', 'MRorder', 'MLC');
@@ -313,6 +314,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('owntone', 'device_sc') || $redis->hSet('owntone', 'device_sc', '');
             $redis->hExists('owntone', 'enable') || $redis->hSet('owntone', 'enable', '0');
             $redis->hExists('owntone', 'format') || $redis->hSet('owntone', 'format', 'S16_LE');
+            $redis->hExists('owntone', 'latency') || $redis->hSet('owntone', 'latency', 3);
             $redis->hExists('owntone', 'library_dir') || $redis->hSet('owntone', 'library_dir', '');
             $redis->hExists('owntone', 'local_output_name') || $redis->hSet('owntone', 'local_output_name', '');
             $redis->hExists('owntone', 'MRorder') || $redis->hSet('owntone', 'MRorder', 'MLC');

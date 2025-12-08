@@ -730,7 +730,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $localOutputName = $redis->hGet('owntone', 'local_output_name');
                     if ($localOutputName && ($localOutputName == $output['name'])) {
                         // this is the local output, mpd volume needs correcting
-                        $automuteTimeEnd = intval($redis->hGet('owntone', 'automute')) + intval($redis->hGet('owntone', 'unmute_delay'));
+                        $automuteTimeEnd = floatval($redis->hGet('owntone', 'automute')) + intval($redis->hGet('owntone', 'unmute_delay'));
                         $now = microtime(true);
                         if ($automuteTimeEnd && ($automuteTimeEnd > $now)) {
                             // automute is active, change the mpd volume synchronously with a delay until after the automute expires,

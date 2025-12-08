@@ -68,7 +68,8 @@ if ($timeRTP1stChar == 0) {
     $timeRTPOffset = 0;
 }
 $renderedClients = array();
-// cycle delay times
+// cycle delay times, there are 3 counters, the whole routine is repeated every 3 seconds (including the processing time)
+//  a minimum 'sleep' of 1 second is always applied regardless of the processing time
 //
 // delay1 = 20 : runs every 60 to 66 seconds
 $delay1 = 20;
@@ -82,6 +83,18 @@ $cnt2 = 3;
 $delay3 = 20;
 // initial wait = 9 seconds
 $cnt3  = 3;
+//
+// this routine re-renders the last rendered UI information to the clients periodically
+//  at startup the re-render frequency is higher until the maximum re-render delay is exceeded
+//  the higher re-render frequency is also applied when a new client is detected 
+// re-render delay multiplier, 2, means that the last render time is doubled for the next iteration
+$renderMultplier = 2;
+// current re-render delay, initially set to 1 second
+$renderDelay = 1;
+// maximum re-render delay, 20 seconds, means that a reactivated UI will wait for 10 seconds on average to re-render
+$renderDelayMax = 20;
+// next render time
+$nextRenderTime = microtime(true) + $renderDelay;
 // sleep time initialisation
 $sleepUntilTime = microtime(true) + 3;
 // loop forever
@@ -137,8 +150,8 @@ while (true) {
         //      the idea of automute is to give a feeling of responsiveness when stopping play, in reality owntone will continue playing for a couple of seconds
         $localOutputName = $redis->hGet('owntone', 'local_output_name');
         $now = time();
-        $automuteDelay = $redis->hGet('owntone', 'unmute_delay');
-        $automuteTime = $redis->hGet('owntone', 'automute');
+        $automuteDelay = intval($redis->hGet('owntone', 'unmute_delay'));
+        $automuteTime = floatval($redis->hGet('owntone', 'automute'));
         if ($localOutputName && ($now > ($automuteTime + $automuteDelay))) {
             $localOutput = $redis->hGet('owntone_outputs', $localOutputName);
             if ($localOutput) {
@@ -385,121 +398,130 @@ while (true) {
         //  it may also contain the IP address of each client
         $serverHostname = strtolower($redis->hGet('owntone', 'server_hostname'));
         $serverIpAddress = strtolower($redis->hGet('owntone', 'server_ip_address'));
-        if ($redis->lLen('owntone_render') && ($serverHostname || $serverIpAddress) && count($clientIp)) {
-            // something to process and the server ip address and/or hostmane has been determined and there is a client to service
-            while ($redis->lLen('owntone_render')) {
-                // read the fifo queue, the queue contains all of the records of act_player_info which have been sent to the UI
-                $encoded = $redis->rPop('owntone_render');
-                // check the length of the output (0 = end), this should never happen
-                if (!strlen($encoded)) {
-                    continue;
-                }
-                //if (isset($lastOwntoneRender)) {
-                    //$decoded = array_merge(json_decode($lastOwntoneRender, true), json_decode($encoded, true));
-                //} else {
-                    $decoded = json_decode($encoded, true);
-                //}
-                // some modifications are required to the render array
-                //  volume must be deleted, this is set by the client
-                //  local_volume_control must be deleted, this is set by the client
-                //  owntone state stop is always pause
-                //  owntone actPlayer is always Airplay
-                //  owntone always operates at 44100:16:2
-                //  owntone bitrate is always 1,411
-                //  owntone audio channels is always Stereo
-                //  owntone consume is always 0
-                //  owntone radio is always false
-                //  the urls of images must be prefixed with the ip address
-                //      bigArtURL
-                //      coverArtPreload
-                //      mainArtURL
-                //      smallArtURL
-                if (isset($decoded['volume'])) {
-                    unset($decoded['volume']);
-                }
-                if (isset($decoded['local_volume_control'])) {
-                    unset($decoded['local_volume_control']);
-                }
-                if (isset($decoded['state']) && ($decoded['state'] == 'stop')) {
-                    $decoded['state'] = 'pause';
-                }
-                $decoded['actPlayer'] = 'Airplay';
-                $decoded['audio'] = '44100:16:2';
-                $decoded['audio_sample_depth'] = '16';
-                $decoded['audio_sample_rate'] = 44.1;
-                $decoded['bitrate'] = 1411;
-                $decoded['audio_channels'] = "Stereo";
-                $decoded['consume'] = '0';
-                $decoded['radio'] = false;
-                $imageUrls = array('bigArtURL', 'coverArtPreload', 'mainArtURL', 'smallArtURL');
-                foreach ($imageUrls as $imageUrl) {
-                    if (!isset($decoded[$imageUrl])) {
+        if (($serverHostname || $serverIpAddress) && count($clientIp)) {
+            if ($redis->lLen('owntone_render')) {
+                // something to process and the server ip address and/or hostmane has been determined and there is a client to service
+                while ($redis->lLen('owntone_render')) {
+                    // read the fifo queue, the queue contains all of the records of act_player_info which have been sent to the UI
+                    $encoded = $redis->rPop('owntone_render');
+                    // check the length of the output (0 = end), this should never happen
+                    if (!strlen($encoded)) {
                         continue;
                     }
-                    $decoded[$imageUrl] = trim(strtolower($decoded[$imageUrl]));
-                    if ($decoded[$imageUrl]) {
-                        if (substr($decoded[$imageUrl], 0, 4) != 'http') {
-                            if ($serverIpAddress) {
-                                $decoded[$imageUrl] = 'http://'.$serverIpAddress.'/'.$decoded[$imageUrl];
-                            } else if ($serverIpAddress) {
-                                $decoded[$imageUrl] = 'http://'.serverHostname.'.local/'.$decoded[$imageUrl];
-                            } else {
-                                unset($decoded[$imageUrl]);
+                    $decoded = json_decode($encoded, true);
+                    // some modifications are required to the render array
+                    //  volume must be deleted, this is set by the client
+                    //  local_volume_control must be deleted, this is set by the client
+                    //  owntone state stop is always pause
+                    //  owntone actPlayer is always Airplay
+                    //  owntone always operates at 44100:16:2
+                    //  owntone bitrate is always 1,411
+                    //  owntone audio channels is always Stereo
+                    //  owntone consume is always 0
+                    //  the urls of images must be prefixed with the ip address
+                    //      bigArtURL
+                    //      coverArtPreload
+                    //      mainArtURL
+                    //      smallArtURL
+                    if (isset($decoded['volume'])) {
+                        unset($decoded['volume']);
+                    }
+                    if (isset($decoded['local_volume_control'])) {
+                        unset($decoded['local_volume_control']);
+                    }
+                    if (isset($decoded['state']) && ($decoded['state'] == 'stop')) {
+                        $decoded['state'] = 'pause';
+                    }
+                    $decoded['actPlayer'] = 'Airplay';
+                    $decoded['audio'] = '44100:16:2';
+                    $decoded['audio_sample_depth'] = '16';
+                    $decoded['audio_sample_rate'] = 44.1;
+                    $decoded['bitrate'] = 1411;
+                    $decoded['audio_channels'] = "Stereo";
+                    $decoded['consume'] = '0';
+                    $imageUrls = array('bigArtURL', 'coverArtPreload', 'mainArtURL', 'smallArtURL');
+                    foreach ($imageUrls as $imageUrl) {
+                        if (!isset($decoded[$imageUrl])) {
+                            continue;
+                        }
+                        $decoded[$imageUrl] = trim(strtolower($decoded[$imageUrl]));
+                        if ($decoded[$imageUrl]) {
+                            if (substr($decoded[$imageUrl], 0, 4) != 'http') {
+                                if ($serverIpAddress) {
+                                    $decoded[$imageUrl] = 'http://'.$serverIpAddress.'/'.$decoded[$imageUrl];
+                                } else if ($serverIpAddress) {
+                                    $decoded[$imageUrl] = 'http://'.serverHostname.'.local/'.$decoded[$imageUrl];
+                                } else {
+                                    unset($decoded[$imageUrl]);
+                                }
                             }
                         }
                     }
-                }
-                if ($decoded['state'] == 'play') {
-                    if (isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
-                            && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
-                            && $decoded['time_last_elapsed'] && $decoded['time']) {
-                        // state is play and we have the information to recalculate the elapsed time
-                        $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
-                        $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
-                        $decoded['last_elapsed'] = $decoded['elapsed'];
-                        $decoded['time_last_elapsed'] = $now;
+                    if ($decoded['state'] == 'play') {
+                        if (isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
+                                && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
+                                && $decoded['time_last_elapsed'] && $decoded['time']) {
+                            // state is play and we have the information to recalculate the elapsed time
+                            $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
+                            $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                            $decoded['last_elapsed'] = $decoded['elapsed'];
+                            $decoded['time_last_elapsed'] = $now;
+                        }
+                        // process the latency for the UI render, the delay is about 3 seconds
+                        if (isset($decoded['elapsed'])) {
+                            $owntoneLatency = intval($redis->hGet('owntone', 'latency'));
+                            if ($decoded['elapsed'] <= $owntoneLatency) {
+                                // the elapsed time is less than $owntoneLatency seconds, sleep until this time has passed
+                                sleep(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                            }
+                            // subtract 3 seconds from the elapsed time
+                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency);
+                            if (isset($decoded['time']) && $decoded['time']) {
+                                $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                            }
+                        }
+                    } else {
+                        // state is pause, ensure that the elapsed information is removed
+                        unset($decoded['elapsed'], $decoded['song_percent']);
                     }
                     $lastOwntoneRender = json_encode($decoded);
-                } else {
-                    // state is pause, ensure that the elapsed information is removed
-                    unset($decoded['elapsed'], $decoded['song_percent']);
-                }
-                // debug
-                // echo 'Encoded pipe:'.$lastOwntoneRender."\n";
-                // now send the render information to each of the runeadio owntone clients
-                foreach ($clientIp as $client) {
-                    $client = json_decode($client, true);
-                    if (isset($client['volume'])) {
-                        $decoded['volume'] = $client['volume'];
+                    // debug
+                    // echo 'Encoded pipe:'.$lastOwntoneRender."\n";
+                    // now send the render information to each of the runeadio owntone clients
+                    foreach ($clientIp as $client) {
+                        $client = json_decode($client, true);
+                        if (isset($client['volume'])) {
+                            $decoded['volume'] = $client['volume'];
+                        }
+                        if (isset($client['ip_address']) && $client['ip_address']) {
+                            curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
+                        } else {
+                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
+                        }
+                        // keep a list of clients which have had at least one render action
+                        $renderedClients[$client['clientname']] = true;
+                        // sleep for 0.05 seconds
+                        usleep(50000);
                     }
-                    if (isset($client['ip_address']) && $client['ip_address']) {
-                        curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
-                    } else {
-                        curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
-                    }
-                    // keep a list of clients which have had at least one render action
-                    $renderedClients[$client['clientname']] = true;
-                    // sleep for 0.05 seconds
-                    usleep(50000);
                 }
-            }
-            // we re-render the last information every 20 seconds, this means a reactivated inactive browser will be refreshed after 10 seconds on average
-            $nextRenderTime = microtime(true) + 20;
-            unset ($encoded, $decoded, $imageUrls, $serverIpAddress, $serverHostname);
-        } else {
-            // there is nothing to process, re-render after timeout or when a new client has attached
-            if (isset($lastOwntoneRender) && count($clientIp)) {
-                // we have rendered some information to a client and there are currently runeaudio owntone clients attached
+                // recalulate the re-render time
+                $renderDelay = min($renderDelayMax, ($renderDelay * $renderMultplier));
+                $nextRenderTime = microtime(true) + $renderDelay;
+                unset ($encoded, $decoded, $imageUrls, $serverIpAddress, $serverHostname);
+            } else if (isset($lastOwntoneRender)) {
+                // there is nothing to process in the redis fifo queue, but there is something to re-render
                 $newClient = false;
                 foreach ($clientIp as $client => $value) {
-                    if (!in_array($client, $renderedClients)) {
+                    if (!isset($renderedClients[$client])) {
                         // new client has attached
                         $newClient = true;
+                        // set the re-render delay to 1
+                        $renderDelay = 1;
                         break;
                     }
                 }
                 $now = microtime(true);
-                if ($newClient || (isset($nextRenderTime) && ($nextRenderTime <= $now))) {
+                if ($newClient || ($nextRenderTime <= $now)) {
                     // there is a new client or re-render time has expired
                     foreach ($renderedClients as $renderedClientKey => $value) {
                         if (!isset($clientIp[$renderedClientKey])) {
@@ -515,15 +537,23 @@ while (true) {
                                 && $decoded['time_last_elapsed'] && $decoded['time']) {
                             // state is play and we have the information to recalculate the elapsed time
                             $decoded['elapsed'] = max(0, round($decoded['last_elapsed'] + ($now - $decoded['time_last_elapsed'])));
-                            $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
                             $decoded['last_elapsed'] = $decoded['elapsed'];
                             $decoded['time_last_elapsed'] = $now;
+                            // process the latency for the UI render, the delay is about 3 seconds
+                            $owntoneLatency = intval($redis->hGet('owntone', 'latency'));
+                            if ($decoded['elapsed'] <= $owntoneLatency) {
+                                // the elapsed time is less than $owntoneLatency seconds, sleep until this time has passed
+                                sleep(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                            }
+                            // subtract 3 seconds from the elapsed time
+                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency);
+                            $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
                         }
-                        $lastOwntoneRender = json_encode($decoded);
                     } else {
                         // state is pause, ensure that the elapsed information is removed
                         unset($decoded['elapsed'], $decoded['song_percent']);
                     }
+                    $lastOwntoneRender = json_encode($decoded);
                     // debug
                     // echo 'Encoded refr:'.json_encode($decoded)."\n";
                     foreach ($clientIp as $client) {
@@ -542,14 +572,13 @@ while (true) {
                         // sleep for 0.1 seconds
                         usleep(100000);
                     }
-                    // reset the re-render time
-                    $nextRenderTime = microtime(true) + 20;
+                    // calculate the next re-render time
+                    $renderDelay = min($renderDelayMax, ($renderDelay * $renderMultplier));
+                    $nextRenderTime = microtime(true) + $renderDelay;
                 }
-
             }
-            unset($newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded);
         }
-        unset($clientIp);
+        unset($clientIp, $newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded);
         //
         // // this section posts the current song metadata to the owntone metadata fifo
         // //   this should work but does not

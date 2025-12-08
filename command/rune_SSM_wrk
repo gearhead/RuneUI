@@ -239,8 +239,12 @@ while (true) {
                 }
             }
             if ($redis->get('volume') && !isset($status['volume'])) {
-                if (!empty($redis->get('lastmpdvolume'))) {
-                    $status['volume'] = $redis->get('lastmpdvolume');
+                $lastmpdvolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                if (!is_numeric($lastmpdvolume)) {
+                    $lastmpdvolume = $redis->get('lastmpdvolume');
+                }
+                if (is_numeric($lastmpdvolume)) {
+                    $status['volume'] = $lastmpdvolume;
                     $redis->set('act_player_info', json_encode($status));
                 }
             }
@@ -665,8 +669,12 @@ while (true) {
                         //sysCmd('chmod 644 /srv/http/tmp/airplay/airplay-cover.*');
                         $status = array();
                         if ($redis->hGet('owntone', 'role') == 'client') {
-                            if ($redis->get('volume') && !empty($redis->get('lastmpdvolume'))) {
-                                $status['volume'] = $redis->get('lastmpdvolume');
+                            $lastmpdvolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                            if (!is_numeric($lastmpdvolume)) {
+                                $lastmpdvolume = $redis->get('lastmpdvolume');
+                            }
+                            if ($redis->get('volume') && is_numeric($lastmpdvolume)) {
+                                $status['volume'] = $lastmpdvolume;
                             }
                             // Example: "44100:16:2";
                             $status['audio'] = $sampleRate.":".$sampleDepth.":2";

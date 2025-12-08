@@ -197,7 +197,13 @@ while (true) {
             if (!isset($status['playlistlength'])) {
                 $status['playlistlength'] = 0;
             }
-            $status['volume'] = $redis->get('lastmpdvolume');
+            $lastmpdvolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+            if (!is_numeric($lastmpdvolume)) {
+                $lastmpdvolume = $redis->get('lastmpdvolume');
+            }
+            if (is_numeric($lastmpdvolume)) {
+                $status['volume'] = $lastmpdvolume;
+            }            
             // Is the volume control active?
             $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
             if ($redis->get('ao') && (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software'))) {

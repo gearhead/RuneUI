@@ -5107,11 +5107,38 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('mpdconfchange', 0);
                     sleep(1);
                     // ashuffle gets started automatically
-                    // restore the player status
-                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    // restore the player
+                    if ($redis->hGet('owntone', 'active')) {
+                        $owntoneLocalOutputName = $redis->hGet('owntone', 'local_output_name');
+                        if ($owntoneLocalOutputName) {
+                            $owntoneLocalOutputInfo = $redis->hGet('owntone_outputs', $owntoneLocalOutputName);
+                            if ($owntoneLocalOutputInfo) {
+                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo);
+                                if (isset($owntoneLocalOutputInfo['volume']) && is_numeric($owntoneLocalOutputInfo['volume'])) {
+                                    sysCmd('mpc volume '.$owntoneLocalOutputInfo['volume']);
+                                }
+                            }
+                        }
+                    } else {
+                        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    }
                     wrk_mpdRestorePlayerStatus($redis);
                 } else {
-                    sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    // just restore the player volume
+                    if ($redis->hGet('owntone', 'active')) {
+                        $owntoneLocalOutputName = $redis->hGet('owntone', 'local_output_name');
+                        if ($owntoneLocalOutputName) {
+                            $owntoneLocalOutputInfo = $redis->hGet('owntone_outputs', $owntoneLocalOutputName);
+                            if ($owntoneLocalOutputInfo) {
+                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo);
+                                if (isset($owntoneLocalOutputInfo['volume']) && is_numeric($owntoneLocalOutputInfo['volume'])) {
+                                    sysCmd('mpc volume '.$owntoneLocalOutputInfo['volume']);
+                                }
+                            }
+                        }
+                    } else {
+                        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
+                    }
                 }
                 wrk_mpdconf($redis, 'switchao');
                 // restart mpdscribble
@@ -5126,7 +5153,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // set process priority
             sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
             sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
-            unset($activePlayer);
+            unset($activePlayer, $owntoneLocalOutputName, $owntoneLocalOutputInfo);
             break;
         case 'forcestop':
             ui_notify($redis, 'MPD', 'stopping MPD');
@@ -5522,7 +5549,11 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
                     $spotifyd_conf .= "initial_volume = 100\n";
                 } else {
                     // use mpd volume
-                    $spotifyd_conf .= "initial_volume = ".$redis->get('lastmpdvolume')."\n";
+                    $mpdVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                    if (!is_numeric($mpdVolume)) {
+                        $mpdVolume = $redis->get('lastmpdvolume');
+                    }
+                    $spotifyd_conf .= "initial_volume = ".$mpdVolume."\n";
                 }
                 break;
             case "volume_control":
@@ -5577,7 +5608,11 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
             $retval = sysCmd("mpc status | grep -ic '\[playing\]' | xargs")[0];
             unset($playState);
             if ($retval) {
-                if (($redis->hGet('mpdconf', 'mixer_type') != 'disabled') && ($redis->get('lastmpdvolume') < 72)) {
+                $lastmpdvolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+                if (!is_numeric($lastmpdvolume)) {
+                    $lastmpdvolume = $redis->get('lastmpdvolume');
+                }
+                if (($redis->hGet('mpdconf', 'mixer_type') != 'disabled') && ($lastmpdvolume < 72)) {
                     $playState = 'play';
                     sysCmd('mpc pause');
                 }
@@ -5618,8 +5653,6 @@ function wrk_spotifyd($redis, $ao = null, $name = null, $jobID = null)
             runelog('restart spotifyd');
             wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnect', 'action' => 'start'));
             $redis->hSet('spotifyconnect', 'last_track_id', '');
-            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-            // no need to start this, spotifyconnect is disconnected //wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'start'));
         }
     }
 }
@@ -6798,7 +6831,6 @@ function wrk_startPlayer($redis, $newPlayer)
         $redis->set('activePlayer', $newPlayer);
         wrk_systemd_unit($redis, 'restart', 'spotifyd');
         $redis->hSet('spotifyconnect', 'last_track_id', '');
-        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
         if (($newPlayer === 'MPD') && ($redis->get('mpd_playback_laststate') == 'pause')) {
             // to-do: work out a better way to do this
             // we need to pause MPD very early to allow spotify connect to start correctly
@@ -6812,6 +6844,9 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
         sleep(2);
+    }
+    if ($newPlayer == 'MPD') {
+        sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
     }
     if ($sock) {
         // to get MPD out of its idle-loop we discribe to a channel
@@ -7161,12 +7196,6 @@ function wrk_changeHostname($redis, $newhostname)
     if ((trim($redis->hGet('spotifyconnect', 'device_name')) === $rhn) && ($newhostname != $rhn)) {
         $redis->hSet('spotifyconnect', 'device_name', $newhostname);
         wrk_spotifyd($redis, $redis->get('ao'), $newhostname);
-        // if ($redis->hGet('spotifyconnect','enable') === '1') {
-            // runelog("service: spotifyconnect restart",'');
-            // wrk_systemd_unit($redis, 'reload-or-restart', 'spotifyd');
-            // $redis->hSet('spotifyconnect', 'last_track_id', '');
-            // sysCmd('mpc volume '.$redis->get('lastmpdvolume'));
-        // }
     }
     // update dlna name
     if ((trim($redis->hGet('dlna', 'name')) === $rhn) && ($newhostname != $rhn)) {
@@ -10841,7 +10870,8 @@ function set_last_mpd_volume($redis)
                 } else {
                     $firstTimeVolumeMatch = true;
                 }
-                sysCmd('echo "startMpdVolume :'.$startMpdVolume.', lastMpdVolume :'.$lastMpdVolume.', mpdVolume :'.$mpdVolume.', setMpdVolume :'.$setMpdVolume.'" >> /tmp/volume.log');
+                // debug
+                // sysCmd('echo "startMpdVolume :'.$startMpdVolume.', lastMpdVolume :'.$lastMpdVolume.', mpdVolume :'.$mpdVolume.', setMpdVolume :'.$setMpdVolume.'" >> /tmp/volume.log');
                 // careful: the volume control works in steps, these steps are based on the capabilities of the sound card, so
                 //  the return value after setting the volume may not be exactly the same as the requested value
                 // use a soft increase/decrease when the difference greater than 4%, otherwise directly set the pre-set value
@@ -12558,8 +12588,11 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     $status['song_lyrics'] = ' ';
     $status['artist_bio_summary'] = ' ';
     $status['artist_similar'] = ' ';
-    $volume = intval($redis->get('lastmpdvolume'));
-    if ($redis->get('volume') && strlen($volume)) {
+    $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+    if (!is_numeric($volume)) {
+        $volume = intval($redis->get('lastmpdvolume'));
+    }
+    if ($redis->get('volume') && is_numeric($volume)) {
         $status['volume'] = $volume;
     } else {
         $status['volume'] = '0';
@@ -16796,20 +16829,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $activePlayer = $redis->get('activePlayer');
-            if ($activePlayer == 'MPD') {
-                $localVolume = $redis->get('lastmpdvolume');
-            }
-            if (!isset($localVolume) || !is_numeric($localVolume)) {
-                $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                if (!is_numeric($localVolume)) {
-                    $retval = json_decode($redis->get('act_player_info'), true);
-                    if (isset($retval['volume']) && is_numeric($retval['volume'])) {
-                        $localVolume = $retval['volume'];
-                    } else {
-                        $localVolume = $defaultVolume;
-                    }
-                    unset($retval);
+            $localVolume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
+            if (!is_numeric($localVolume)) {
+                $retval = json_decode($redis->get('act_player_info'), true);
+                if (isset($retval['volume']) && is_numeric($retval['volume'])) {
+                    $localVolume = $retval['volume'];
+                } else {
+                    $localVolume = $defaultVolume;
                 }
+                unset($retval);
             }
             $multidevice = $redis->hGet('owntone', 'multidevice');
             $bluetoothConnected = false;
