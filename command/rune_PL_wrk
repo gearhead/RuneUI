@@ -203,7 +203,7 @@ while (true) {
             }
             if (is_numeric($lastmpdvolume)) {
                 $status['volume'] = $lastmpdvolume;
-            }            
+            }
             // Is the volume control active?
             $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
             if ($redis->get('ao') && (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software'))) {

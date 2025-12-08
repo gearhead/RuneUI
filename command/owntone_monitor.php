@@ -86,7 +86,7 @@ $cnt3  = 3;
 //
 // this routine re-renders the last rendered UI information to the clients periodically
 //  at startup the re-render frequency is higher until the maximum re-render delay is exceeded
-//  the higher re-render frequency is also applied when a new client is detected 
+//  the higher re-render frequency is also applied when a new client is detected
 // re-render delay multiplier, 2, means that the last render time is doubled for the next iteration
 $renderMultplier = 2;
 // current re-render delay, initially set to 1 second
