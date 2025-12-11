@@ -1870,7 +1870,7 @@ while (true) {
             sysCmdAsync($redis, '/srv/http/command/debug_collector');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'avahi_check_ip')) {
-            // check that avahi has the correct ip settings;
+            // check that avahi has the correct ip and git version settings
             sysCmdAsync($redis, '/srv/http/command/check_ip_avahiconfig_async.php');
             $savecpuOneTimeActions = 11 + rand(0, 10);
         } else if (is_firstTime($redis, 'check_connman')) {

@@ -55,18 +55,18 @@ runelog('WORKER owntone_monitor.php STARTING...');
 // initialise some things for the metadata routine
 $actPlayerInfoSave = array();
 // $playStarted = false;
+// // calculate an offset for timeRTP so that we use values which will not loop out of bounds
+// //  timeRTPOffset is added to timeRTP values to keep the initial value between (1000000000 and 2000000000)
+// $timeRTP = substr(round(microtime(true) * 44100), -9);
+// $timeRTP1stChar = substr($timeRTP, 0, 1);
+// if ($timeRTP1stChar == 0) {
+    // $timeRTPOffset = 1000000000;
+// } else if ($timeRTP1stChar > 1) {
+    // $timeRTPOffset = ($timeRTP1stChar - 1) * -1000000000;
+// } else {
+    // $timeRTPOffset = 0;
+// }
 $serverHostname = $redis->hGet('owntone', 'server_hostname');
-// calculate an offset for timeRTP so that we use values which will not loop out of bounds
-//  timeRTPOffset is added to timeRTP values to keep the initial value between (1000000000 and 2000000000)
-$timeRTP = substr(round(microtime(true) * 44100), -9);
-$timeRTP1stChar = substr($timeRTP, 0, 1);
-if ($timeRTP1stChar == 0) {
-    $timeRTPOffset = 1000000000;
-} else if ($timeRTP1stChar > 1) {
-    $timeRTPOffset = ($timeRTP1stChar - 1) * -1000000000;
-} else {
-    $timeRTPOffset = 0;
-}
 $renderedClients = array();
 // cycle delay times, there are 3 counters, the whole routine is repeated every 3 seconds (including the processing time)
 //  a minimum 'sleep' of 1 second is always applied regardless of the processing time
@@ -89,8 +89,10 @@ $cnt3  = 3;
 //  the higher re-render frequency is also applied when a new client is detected
 // re-render delay multiplier, 2, means that the last render time is doubled for the next iteration
 $renderMultplier = 2;
-// current re-render delay, initially set to 1 second
-$renderDelay = 1;
+// render delay initial value, 3 seconds
+$renderDelayInitial = 3;
+// current re-render delay
+$renderDelay = $renderDelayInitial;
 // maximum re-render delay, 20 seconds, means that a reactivated UI will wait for 10 seconds on average to re-render
 $renderDelayMax = 20;
 // next render time
@@ -333,13 +335,29 @@ while (true) {
             $clientIp = array();
             foreach ($retval as $avahi_line) {
                 // the avahi line contains a semicolon (;) delimited list
-                $avahiElement = explode(';', strtolower($avahi_line));
+                $avahiElement = explode(';', strtolower($avahi_line), 7);
                 // the interesting elemens are:
                 //  1 - the nic (e.g. eth0)
                 //  2 - ip type (e.g. ipv4)
                 //  6 - clientname (e.g. runeaudio.local)
                 //  7 - IP address (e.g. 192.168.2.10)
+                //  8 - text information, space delimited, within quotes
+                //      0 - "org.freedesktop.Avahi.cookie=<value>"
+                //      1 - "runeos_version=<value>"
+                //      2 - "skin_name=<value>"
                 //
+                // rendering to old versions of runeaudio wont work, just skip them
+                if (isset($avahiElement[8])) {
+                    $textInfo = explode(' ', $avahiElement[8]);
+                    list($textKey, $runeosVersion) = explode('=', trim($textInfo[1], " \"\'\n\r\t\v\x00", 2));
+                    if ($textKey == 'runeos_version') {
+                        $version = substr($runeosVersion, 0, 3);
+                        if ($version < '0.7') {
+                            // version 0.7 and higher are supported
+                            continue;
+                        }
+                    }
+                }
                 // remove the '.local' from the client name
                 $clientname = explode('.', $avahiElement[6], 2)[0];
                 if (!isset($clientIp[$clientname])) {
@@ -347,19 +365,20 @@ while (true) {
                     continue;
                 }
                 // an eth? nic is preferable to a wlan? nic
-                // an ipv4 connection is preferable to ipv6
                 // retrieve the existing client IP details
                 $storedclientIpDetails = json_decode($clientIp[$clientname], true);
                 if ((substr($avahiElement[1], 0, 4) == 'eth') && (substr($storedclientIpDetails['nic'], 0, 3) != 'eth')) {
                     $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
                     continue;
                 }
+                // an ipv4 connection is preferable to ipv6
                 if ((substr($avahiElement[2], 0, 4) == 'ipv4') && (substr($storedclientIpDetails['ip_type'], 0, 4) != 'ipv4')) {
                     $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
                     continue;
                 }
             }
-            // $clientIp now contains a list of runeaudio nodes on the network, excluding this node, it also contains the IP address of each node
+            // $clientIp now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
+            //  it also contains the IP address of each node if available
             unset($retval, $avahi_line, $avahiElement, $clientname);
             if (count($clientIp)) {
                 // there are other runeaudio nodes
@@ -390,17 +409,20 @@ while (true) {
                 unset($outputs, $clientname, $output, $value, $outputDetail);
             }
         }
+        // $clientIp now contains a list of currently connected runeaudio owntone clients capable of receiving metadata, it also contains the volume level for each client,
+        //  it may also contain the IP address of each client
+        // remove old render events from the queue
         while ($redis->lLen('owntone_render') > 5) {
             // more than 5 render events in the queue, remove the oldest ones
             $redis->rPop('owntone_render');
         }
-        // $clientIp now contains a list of currently connected runeaudio owntone clients, it also contains the volume level for each client,
-        //  it may also contain the IP address of each client
+        // process the render events
         $serverHostname = strtolower($redis->hGet('owntone', 'server_hostname'));
         $serverIpAddress = strtolower($redis->hGet('owntone', 'server_ip_address'));
         if (($serverHostname || $serverIpAddress) && count($clientIp)) {
+            // we know this hostname or IP address and there are connected clients capable of receiving metadata to service
             if ($redis->lLen('owntone_render')) {
-                // something to process and the server ip address and/or hostmane has been determined and there is a client to service
+                // there is something to process
                 while ($redis->lLen('owntone_render')) {
                     // read the fifo queue, the queue contains all of the records of act_player_info which have been sent to the UI
                     $encoded = $redis->rPop('owntone_render');
@@ -515,8 +537,8 @@ while (true) {
                     if (!isset($renderedClients[$client])) {
                         // new client has attached
                         $newClient = true;
-                        // set the re-render delay to 1
-                        $renderDelay = 1;
+                        // set the re-render delay to its initial value
+                        $renderDelay = $renderDelayInitial;
                         break;
                     }
                 }

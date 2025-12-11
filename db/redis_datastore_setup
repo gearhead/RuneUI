@@ -564,7 +564,7 @@ function redisDatastore($redis, $action) {
             $redis->set('opcache', 1);
             $redis->set('buildversion', 'janui-20231210');
             $redis->set('patchlevel', 0);
-            $redis->set('release', '0.6b');
+            $redis->set('release', '0.7b-dev');
             // HW platform data
             // $redis->set('playerid', '');
             // $redis->set('hwplatform', '');
@@ -845,7 +845,7 @@ function redisDatastore($redis, $action) {
             $redis->exists('opcache') || $redis->set('opcache', 1);
             $redis->exists('buildversion') || $redis->set('buildversion', 'janui-20231210');
             $redis->exists('patchlevel') || $redis->set('patchlevel', 0);
-            $redis->exists('release') || $redis->set('release', '0.6b');
+            $redis->exists('release') || $redis->set('release', '0.7b-dev');
             // HW platform data
             $redis->exists('playerid') || $redis->set('playerid', '');
             $redis->exists('hwplatform') || $redis->set('hwplatform', '');

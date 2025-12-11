@@ -2282,16 +2282,19 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
             break;
         case 'hostname':
             $hostname = $args;
-            // clear the cache otherwise file_exists() returns incorrect values
-            clearstatcache(true, '/etc/avahi/services/runeaudio.service');
-            if (!file_exists('/etc/avahi/services/runeaudio.service')) {
-                runelog('avahi service descriptor not present, initializing...');
-                sysCmd('/usr/bin/cp /srv/http/app/config/defaults/avahi_runeaudio.service /etc/avahi/services/runeaudio.service');
-            }
             $file = '/etc/avahi/services/runeaudio.service';
-            $newArray = wrk_replaceTextLine($file, '','replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
-            // Commit changes to /tmp/runeaudio.service
             $newfile = '/tmp/runeaudio.service';
+            // clear the cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, $file);
+            if (!file_exists($file)) {
+                runelog('avahi service descriptor not present, initializing...');
+                sysCmd('/usr/bin/cp /srv/http/app/config/defaults'.$file.' '.$file);
+            }
+            $newArray = wrk_replaceTextLine($file, '', 'replace-wildcards', '<name replace-wildcards="yes">RuneAudio ['.$hostname.'] ['.getmac('eth0').']</name>');
+            // also set the correct git version in the avahi record
+            $gitbranch = $redis->hGet('git', 'branch');
+            $newArray = wrk_replaceTextLine('', $newArray, 'runeos_version=', '    <txt-record>runeos_version='.$gitbranch.'-gearhead-janui</txt-record>');
+            // Commit changes to newfile
             $fp = fopen($newfile, 'w');
             fwrite($fp, implode("", $newArray));
             fclose($fp);
@@ -2304,11 +2307,37 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
                 // avahi configuration has changed, set avahi confchange on
                 $redis->hSet('avahi', 'confchange', 1);
                 sysCmd('cp '.$newfile.' '.$file);
-                sysCmd('rm -f '.$newfile);
+                sysCmd('rm -f '.$file);
+                sysCmd('chmod 644 '.$newfile);
                 // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
                 sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
                 // and line beginning with ::1 (IPv6)
                 sysCmd('sed -i "/^::1/c\::1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
+            }
+            break;
+         case 'version':
+            // set the correct git version in the avahi record, no params
+            $file = '/etc/avahi/services/runeaudio.service';
+            $newfile = '/tmp/runeaudio.service';
+            // clear the cache otherwise file_exists() returns incorrect values
+            clearstatcache(true, $file);
+            if (!file_exists($file)) {
+                runelog('avahi service descriptor not present, initializing...');
+                sysCmd('/usr/bin/cp /srv/http/app/config/defaults'.$file.' '.$file);
+            }
+            $gitbranch = $redis->hGet('git', 'branch');
+            copy($file, $newfile);
+            sysCmd('sed -i "/runeos_version/c\    <txt-record>runeos_version='.$gitbranch.'-gearhead-janui</txt-record>" '.$newfile);
+            if (md5_file($file) === md5_file($newfile)) {
+                // nothing has changed, set avahi confchange off
+                $redis->hSet('avahi', 'confchange', 0);
+                sysCmd('rm -f '.$newfile);
+            } else {
+                // avahi configuration has changed, set avahi confchange on
+                $redis->hSet('avahi', 'confchange', 1);
+                sysCmd('cp '.$newfile.' '.$file);
+                sysCmd('chmod 644 '.$file);
+                sysCmd('rm -f '.$newfile);
             }
             break;
     }
@@ -6839,7 +6868,7 @@ function wrk_startPlayer($redis, $newPlayer)
             $redis->set('mpd_playback_laststate', 'play');
         }
         ui_render($redis, 'playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
-        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
@@ -6871,7 +6900,7 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     }
     usleep(500000);
-    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
     // set process priority
     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 }
@@ -8333,10 +8362,10 @@ function ui_update($redis, $sock = null, $clientUUID = null)
         $owntoneServerIpAddress = $redis->hGet('owntone', 'server_ip_address');
         if ($owntoneServerIpAddress) {
             // we have a server ip address, send a refresh request
-            sysCmd('curl -X PUT -s "http://'.$owntoneServerIpAddress.'/command/?cmd=renderui"');
+            sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServerIpAddress.'/command/?cmd=renderui"');
         } else if ($owntoneServerHostname) {
             // we have a hostname, send a refresh request
-            sysCmd('curl -X PUT -s "http://'.$owntoneServerHostname.'.local/command/?cmd=renderui"');
+            sysCmd('curl -X GET -s --connect-timeout 2 -m 10 --retry 2 "http://'.$owntoneServerHostname.'.local/command/?cmd=renderui"');
         }
     } else {
         // this is not an owntone client
@@ -12606,7 +12635,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     // save JSON response for extensions
     $redis->set('act_player_info', json_encode($status));
     ui_render($redis, 'playback', json_encode($status));
-    sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
     sysCmdAsync($redis, '/srv/http/command/ui_update_async', 0);
     return $status;
 }

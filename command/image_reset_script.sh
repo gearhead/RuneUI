@@ -980,6 +980,8 @@ patchlevel=$( redis-cli get patchlevel | xargs )
 release=$( redis-cli get release | xargs )
 linuxver=$( uname -sr | xargs )
 gitbranch=$( git --git-dir=/srv/http/.git branch --show-current | xargs )
+# set the git branch in the avahi service
+sed -i "/runeos_version/c\    <txt-record>runeos_version=$gitbranch-gearhead-janui</txt-record>" /etc/avahi/services/runeaudio.service
 if [ "$gitbranch" == "$release" ] ; then
     if [ "${gitbranch:3:1}" == "a" ] ; then
         experimental="Alpha"

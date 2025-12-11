@@ -201,7 +201,7 @@ do {
         $redis->set('act_player_info', json_encode($status));
         ui_render($redis, $redis, 'playback', json_encode($status));
         // echo $job['event']." ".$job['track_id']." Init\n";
-        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         $status['song_percent'] = 0;
         $status['elapsed'] = 0;
@@ -323,7 +323,7 @@ do {
         // save JSON response for extensions
         $redis->set('act_player_info', json_encode($status));
         ui_render($redis, $redis, 'playback', json_encode($status));
-        sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+        sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
         sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
         // echo $job['event']." ".$job['track_id']." Main\n";
     }

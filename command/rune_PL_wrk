@@ -147,7 +147,7 @@ while (true) {
                     $status = array();
                 }
                 runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
-                // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
                 $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
                 $status['mainArtURL'] = $artUrl.'/none.png';
                 $status['smallArtURL'] = $artUrl.'/black.png';
@@ -164,7 +164,7 @@ while (true) {
                     $status['radio'] = false;
                 }
                 // ui_render($redis, 'playback', json_encode($status));
-                // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
             } else {
                 // no status returned, assume mpd not yet ready
                 if ($socket) {
@@ -220,7 +220,7 @@ while (true) {
             $redis->set('pl_length', $status['playlistlength']);
             $redis->set('act_player_info', json_encode($status));
             ui_render($redis, 'playback', json_encode($status));
-            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+            // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value
             set_last_mpd_volume($redis);

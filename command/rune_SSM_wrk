@@ -137,7 +137,7 @@ if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
 $redis->set('act_player_info', json_encode($status));
 if ($redis->hGet('owntone', 'role') != 'client') {
     ui_render($redis, 'playback', json_encode($status));
-    sysCmd('curl -X GET -s http://localhost/command/?cmd=renderui');
+    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
 }
 // --- WORKER MAIN LOOP --- //
 while (true) {
@@ -892,7 +892,7 @@ while (true) {
                             if ($redis->hGet('owntone', 'role') != 'client') {
                                 ui_render($redis, 'playback', json_encode($render));
                             }
-                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                            // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
                             //
                             // now get the artist art and song information (also done after metadata end - see above)
                             // only process this section when not receiving from owntone
@@ -928,7 +928,7 @@ while (true) {
                                 $redis->set('act_player_info', json_encode($status));
                                 ui_render($redis, 'playback', json_encode($render));
                             }
-                            // sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                            // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
                             // clean up the metadata, async and at low priority
                             sysCmdAsync($redis, '/srv/http/command/clean_music_metadata_async.php');
                             //sleep(1);
@@ -939,7 +939,7 @@ while (true) {
                             //$redis->set('act_player_info', json_encode($status));
                             //sleep(2);
                             //sysCmdAsync($redis, '/var/www/command/ui_update_async', 0);
-                            //sysCmd('curl -X PUT -s http://localhost/command/?cmd=renderui');
+                            //sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
                         }
                         break;
                     default:

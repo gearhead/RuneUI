@@ -48,6 +48,9 @@ define('APP', '/srv/http/app/');
 // reset logfile
 sysCmd('echo "--------------- start: check_ip_avahiconfig_async.php ---------------" > /var/log/runeaudio/check_ip_avahiconfig_async.log');
 runelog('WORKER check_ip_avahiconfig_async.php STARTING...');
+// check the ip settings
 wrk_avahiconfig($redis, 'check_ip');
+// check the git version settings
+wrk_avahiconfig($redis, 'version');
 
 runelog('WORKER check_ip_avahiconfig_async.php END...');
