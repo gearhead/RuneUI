@@ -11065,25 +11065,25 @@ function get_musicBrainz($redis, $url)
 // no authorisation token is required in the $url parameter
 {
     $musicbrainzUp = $redis->hGet('service', 'musicbrainz');
-    $MusicBrainzUserAgent = 'RuneAudio/'.$redis->hGet('git', 'branch').'.'.$redis->get('buildversion').' ( https://www.runeaudio.com/forum/member857.html )';
+    $MusicBrainzUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui)';
     // $proxy = $redis->hGetall('proxy');
     // proxy currently not implemented
     if (!$musicbrainzUp) {
         // musicbrainz is down
         return 0;
     }
-    $opts = array('http' =>
-        array(
-            // timeout in seconds
-            // 5 seconds is a little on the high side, 2 or 3 is probably better
-            // setting it higher results in less failures, but can result in delays
-            'timeout' => 5,
-            // ignore any errors, we check the returned value for errors
-            'ignore_errors' => '1',
-            // set up the user agent ! this is very important !
-            'user_agent' => $MusicBrainzUserAgent
-        )
-    );
+    // $opts = array('http' =>
+        // array(
+            // // timeout in seconds
+            // // 5 seconds is a little on the high side, 2 or 3 is probably better
+            // // setting it higher results in less failures, but can result in delays
+            // 'timeout' => 5,
+            // // ignore any errors, we check the returned value for errors
+            // 'ignore_errors' => '1',
+            // // set up the user agent ! this is very important !
+            // 'user_agent' => $MusicBrainzUserAgent
+        // )
+    // );
     // proxy is something like this - untested
     // if (isset($proxy['enable']) && $proxy['enable']) {
         // if (isset($proxy['host']) && $proxy['host']) {
@@ -11093,8 +11093,9 @@ function get_musicBrainz($redis, $url)
             // }
         // }
     // }
-    $context  = stream_context_create($opts);
-    $retval = json_decode(file_get_contents($url, false, $context), true);
+    // $context  = stream_context_create($opts);
+    // $retval = json_decode(file_get_contents($url, false, $context), true);???
+    $retval = json_decode(sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 --user-agent "'.$MusicBrainzUserAgent.'" "'.$url.'"')[0], true);
     if (isset($retval['error'])) {
         // error response, some are ok, I cannot fine a full list, so it is trial and error
         if (strpos(strtolower(' '.$retval['error']),'do not match')) {
