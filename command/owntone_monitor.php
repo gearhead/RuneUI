@@ -335,26 +335,28 @@ while (true) {
             $clientIp = array();
             foreach ($retval as $avahi_line) {
                 // the avahi line contains a semicolon (;) delimited list
-                $avahiElement = explode(';', strtolower($avahi_line), 7);
+                $avahiElement = explode(';', strtolower($avahi_line), 10);
                 // the interesting elemens are:
                 //  1 - the nic (e.g. eth0)
                 //  2 - ip type (e.g. ipv4)
                 //  6 - clientname (e.g. runeaudio.local)
                 //  7 - IP address (e.g. 192.168.2.10)
-                //  8 - text information, space delimited, within quotes
+                //  9 - text information, space delimited, within quotes
                 //      0 - "org.freedesktop.Avahi.cookie=<value>"
                 //      1 - "runeos_version=<value>"
                 //      2 - "skin_name=<value>"
                 //
                 // rendering to old versions of runeaudio wont work, just skip them
-                if (isset($avahiElement[8])) {
-                    $textInfo = explode(' ', $avahiElement[8]);
-                    list($textKey, $runeosVersion) = explode('=', trim($textInfo[1], " \"\'\n\r\t\v\x00", 2));
-                    if ($textKey == 'runeos_version') {
-                        $version = substr($runeosVersion, 0, 3);
-                        if ($version < '0.7') {
-                            // version 0.7 and higher are supported
-                            continue;
+                if (isset($avahiElement[9])) {
+                    $textInfo = explode(' ', $avahiElement[9]);
+                    foreach ($textInfo as $textInfoEntry) {
+                        list($textKey, $runeosVersion) = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
+                        if ($textKey == 'runeos_version') {
+                            $version = substr($runeosVersion, 0, 3);
+                            if ($version < '0.7') {
+                                // only version 0.7 and higher are supported, continue the 2nd outside loop
+                                continue 2;
+                            }
                         }
                     }
                 }
