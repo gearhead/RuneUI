@@ -9136,8 +9136,7 @@ function refresh_nics($redis)
             $redis->Set('network_info_time', $nowSeconds);
         }
     }
-
-// delete networks for invalid nics from the network info array
+    // delete networks for invalid nics from the network info array
     // also subtract 3 from all network strength values and remove values which go negative
     // all networks which are (re)detected will reset their strength to the actual value
     // the networks which are successively not detected will be shown as weak and eventually be deleted
@@ -16239,7 +16238,6 @@ function check_webradio_string($redis, $webradioString)
 }
 
 // function to manage owntone
-// function to manage owntone
 function wrk_owntone($redis, $action, $args = null, $jobID = null)
 // actions:
 //  activate, no $args
@@ -17759,6 +17757,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
    }
 }
 
+/*
 // function to encode and send airplay metadata for owntone
 function wrk_airplay_metadata_encoder($redis, $action, $args)
 // The AirPlay metadata is sent to a fifo pipe the format is as follows:
@@ -17909,14 +17908,13 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                 // send the first two lines
                 file_put_contents($file, $output, FILE_APPEND);
                 // the third line is sent from bash, it encodes the picture as base64, sends it and adds the final tags
-                sysCmd('( base64 -e "'.$filePicture.'" ; echo "</data></item>" ) > "'.$file.'"');
+                sysCmd('( base64 "'.$filePicture.'" ; echo "</data></item>" ) > "'.$file.'"');
                 // sysCmd('( echo "</data></item>" ) > "'.$file.'"');
             }
             break;
     }
 }
 
-/*
 // function to control alsa equaliser
 function wrk_alsa_equaliser($redis, $action, $args = null, $jobID = null)
 //
@@ -18148,7 +18146,7 @@ function wrk_mpd_loopback($redis, $action = null)
     $output .= "##########################################################\n";
     $output .= "#\n";
     // determine whether the loopback connector is enabled/disabled
-    $loopbackEnabled = sysCmd("aplay -l | grep -i '^card' | grep -ic 'loopback'")[0];
+    $loopbackEnabled = sysCmd("aplay -l | grep -i '^card' | grep -ic 'loopback' | xargs")[0];
     if (!$loopbackEnabled) {
         // the loopback connector is disabled, create an empty mpd sub-config file called /etc/mpd_loopback.conf
         $output .= "# Loopback connector is disabled, this file has no active contents.\n";

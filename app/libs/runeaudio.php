@@ -8246,7 +8246,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
         if ($simtrack && $simartist) {
             // If we have a track and an artist then make a call to mpd to add it. If it doesn't exist then it doesn't
             // matter
-            $status = sysCmd("mpc search artist '".$simartist."' title '".$simtrack. "' | head -n1 | mpc add");
+            sysCmd("mpc search artist '".$simartist."' title '".$simtrack. "' | head -n1 | mpc add");
             $retval = true;
         }
     }
