@@ -4928,6 +4928,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
             $argsOutputSelected = false;
             $owntoneOutputSelected = false;
+            $ownttoneSwitched = false;
             // switch audio output to $args
             if (isset($args)) {
                 $args = trim($args);
@@ -4974,7 +4975,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $args);
                 }
                 // switch interface
-                $ownttoneSwitched = false;
                 $outputs = sysCmd('mpc outputs');
                 if (isset($outputs) && is_array($outputs) && count($outputs)) {
                     foreach ($outputs as $output) {
@@ -5073,6 +5073,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else {
                 $interface_label = $args;
             }
+            // switch to MPD if it is not active
+            if ($redis->get('activePlayer') != 'MPD') {
+                ui_notify($redis, 'Playback source switched to:', 'MPD');
+                wrk_stopPlayer($redis);
+            }
             // notify UI
             if ($ownttoneSwitched) {
                 if ($owntoneActive) {
@@ -5088,14 +5093,18 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         ui_notify($redis, 'Audio output switched', "Multi-room deactivated");
                     }
                 }
-            // } else if ($interface_label && !$argsOutputSelected) {
-                // ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
-            } else if ($interface_label && ($args != $oldMpdout)) {
-                ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
-            }
-            if ($redis->get('activePlayer') != 'MPD') {
-                ui_notify($redis, 'Playback source switched to:', 'MPD');
-                wrk_stopPlayer($redis);
+            } else {
+                if ($owntoneActive) {
+                    if ($interface_label) {
+                        ui_notify($redis, 'Audio output switched', "Multi-room active, current active local output:\n".$interface_label);
+                    } else {
+                        ui_notify($redis, 'Audio output switched', "Multi-room active");
+                    }
+                } else {
+                    if ($interface_label) {
+                        ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+                    }
+                }
             }
             break;
         case 'refresh':
@@ -13301,7 +13310,10 @@ function set_alsa_default_card($redis, $cardName = null)
         $acard['device'] = $redis->hGet('owntone', 'device_bt');
     }
     // also configure bluealsa to point at the default card
-    sysCmd('echo "OPTIONS=\"--pcm='.$acard['device'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
+    if (isset($acard['device']) && isset($mixerInfo) && isset($bluealsaFileName) &&
+            $acard['device'] && $mixerInfo && $bluealsaFileName) {
+        sysCmd('echo "OPTIONS=\"--pcm='.$acard['device'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');
+    }
     // force alsa to reload all card profiles (should not be required, but some USB audio devices seem to need it)
     sysCmd('alsactl kill rescan');
     // restart bluealsa-aplay if it is running
