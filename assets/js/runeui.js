@@ -264,18 +264,21 @@ function refreshTimer(startFrom, stopTo = null, state) {
 // update playback progress knob
 function refreshKnob() {
     // alert("refreshKnob");
-    if (typeof GUI.json.song_percent !== 'undefined') {
+    var uiElapsed = parseInt($('#time').val());
+    // only update the elapsed countdown initial time when it is set and differs by 2,5% to the shown time, or when elapsed or shown countdown is zero
+    if ((typeof GUI.json.song_percent !== 'undefined') && ((uiElapsed == 0) || (GUI.json.song_percent == 0) || (Math.abs(GUI.json.song_percent - uiElapsed) >= 25))) {
         var initTime = parseInt(GUI.json.song_percent)*10;
     }
-    if (typeof GUI.json.time !== 'undefined') {
+    var el = parseInt($('.countdown-amount').html());
+    // only update the elapsed time when it is set and differs by 3 seconds to the shown time, or when elapsed time or shown elapsed time is zero
+    if ((typeof GUI.json.time !== 'undefined') && ((el == 0) || (GUI.json.time == 0) || (Math.abs(GUI.json.time - el) >= 3))) {
         var delta = parseInt(GUI.json.time);
         var step = parseInt(1000/delta);
     }
-    var el = $('.countdown-amount').html();
     // console.log('initTime = ' + initTime + ', delta = ' + delta + ', step = ' + step + ', el = ' + el + ', GUI.json.elapsed = ' + GUI.json.elapsed);
     var time = $('#time');
-    window.clearInterval(GUI.currentKnob);
     time.val(initTime, false).trigger('update');
+    window.clearInterval(GUI.currentKnob);
     if (GUI.state === 'play') {
         GUI.currentKnob = setInterval(function() {
             // console.log('initTime = ', initTime);
