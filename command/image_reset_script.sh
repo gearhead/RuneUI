@@ -390,6 +390,8 @@ else
         ln -sf "$fullFilename" "/usr/bin/$firmwareName"
     done
 fi
+# reload the services, these may have been updated from git hub
+systemctl daemon-reload
 #
 # disable specified services, these may have been updated from git hub
 for i in "${disable_arr[@]}" ; do
@@ -613,7 +615,7 @@ ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
 # set op logrotate
 if [ "$os" == "ARCH" ] ; then
     cp /srv/http/app/config/defaults/logrotate/etc/cron.daily/logrotate /etc/cron.daily/logrotate
-    // more files are requied here
+    # more files are requied here
 fi
 #
 # set specific files for ARCH and RPiOS version compatibility
@@ -708,7 +710,7 @@ if [ "$os" == "RPiOS" ] ; then
         exit
         # when this error occurs look at all occurrences of the old version number in this script, they will need to be changed
         # also the contents of /srv/http/app/config/defaults/etc/php will need to change
-        # and the files /srv/http/app/config/defaults//etc/systemd/system/php-fpm.service* will need to be modified
+        # and the files /srv/http/app/config/defaults/etc/systemd/system/php-fpm.service* will need to be modified
     fi
 fi
 for f in /etc/php/*.* ;  do
