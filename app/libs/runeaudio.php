@@ -2307,8 +2307,8 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
                 // avahi configuration has changed, set avahi confchange on
                 $redis->hSet('avahi', 'confchange', 1);
                 sysCmd('cp '.$newfile.' '.$file);
-                sysCmd('rm -f '.$file);
-                sysCmd('chmod 644 '.$newfile);
+                sysCmd('rm -f '.$newfile);
+                sysCmd('chmod 644 '.$file);
                 // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
                 sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
                 // and line beginning with ::1 (IPv6)
@@ -2322,22 +2322,26 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
             // clear the cache otherwise file_exists() returns incorrect values
             clearstatcache(true, $file);
             if (!file_exists($file)) {
+                // the service file is not present, initialise it
                 runelog('avahi service descriptor not present, initializing...');
-                sysCmd('/usr/bin/cp /srv/http/app/config/defaults'.$file.' '.$file);
-            }
-            $gitbranch = $redis->hGet('git', 'branch');
-            copy($file, $newfile);
-            sysCmd('sed -i "/runeos_version/c\    <txt-record>runeos_version='.$gitbranch.'-gearhead-janui</txt-record>" '.$newfile);
-            if (md5_file($file) === md5_file($newfile)) {
-                // nothing has changed, set avahi confchange off
-                $redis->hSet('avahi', 'confchange', 0);
-                sysCmd('rm -f '.$newfile);
+                // call change hostname with the current hostname
+                $hostname = $redis->get('hostname');
+                wrk_avahiconfig($redis, 'hostname', $hostname);
             } else {
-                // avahi configuration has changed, set avahi confchange on
-                $redis->hSet('avahi', 'confchange', 1);
-                sysCmd('cp '.$newfile.' '.$file);
-                sysCmd('chmod 644 '.$file);
-                sysCmd('rm -f '.$newfile);
+                $gitbranch = $redis->hGet('git', 'branch');
+                copy($file, $newfile);
+                sysCmd('sed -i "/runeos_version/c\    <txt-record>runeos_version='.$gitbranch.'-gearhead-janui</txt-record>" '.$newfile);
+                if (md5_file($file) === md5_file($newfile)) {
+                    // nothing has changed, set avahi confchange off
+                    $redis->hSet('avahi', 'confchange', 0);
+                    sysCmd('rm -f '.$newfile);
+                } else {
+                    // avahi configuration has changed, set avahi confchange on
+                    $redis->hSet('avahi', 'confchange', 1);
+                    sysCmd('cp '.$newfile.' '.$file);
+                    sysCmd('chmod 644 '.$file);
+                    sysCmd('rm -f '.$newfile);
+                }
             }
             break;
     }
