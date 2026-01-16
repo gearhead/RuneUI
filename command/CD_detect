@@ -50,36 +50,87 @@ runelog('WORKER CD_detect STARTING...');
 // define APP global
 define('APP', '/srv/http/app/');
 
-$cdTracks = json_decode($redis->hGet('CD', 'status'), true);
-$actPlayerInfo = json_decode($redis->get('act_player_info'), true);
-if (isset($argv[1]) && isset($cdTracks) && isset($actPlayerInfo['file']) && isset($actPlayerInfo['state']) &&
-        ($argv[1] == 'changed') &&
-        is_array($cdTracks) && count($cdTracks) &&
-        ($actPlayerInfo['state'] != 'stop') &&
-        (substr($actPlayerInfo['file'], 0, 7) == 'cdda://')) {
-    // the eject button on the cd-drive has been activated while a CD is playing
-    // close the CD-tray
-    sysCmd('eject --trayclose');
-    ui_notify($redis, 'CD Input', 'Eject requested');
-    $action = 'eject';
-} else {
-    $action = $argv[1];
+// note: this routine gets called when:
+//  the CD drive eject button is pressed
+//  the CD tray is closed
+//  the CD tray is opened using an eject command
+// the routine is always called with an action parameter ($argv[1]), optionally a second parameter can be set with the value 'async'
+//  when called with the async parameter the routine is run asynchronously with root privileges
+//  when this routine is called from udev it is run asynchronously, this is required as udev routines time out after several seconds
+//
+// this routine serves both the CD input and CD ripper processing
+//  it does nothing when CD input and CD ripper are disabled
+// when called from udev this routine has insufficient privileges to run correctly, it is then called with the parameter async
+//  it must execute the requested routines through the job queue (rune_SY_wrk), which calls this routine without async
+//
+if ($redis->hGet('CDripper', 'enable')) {
+    // CD ripper enabled
+    // action is always rip
+    $action = 'rip';
+} else if ($redis->hGet('CD', 'enable')) {
+    // CD input enabled
+    $cdTracks = json_decode($redis->hGet('CD', 'status'), true);
+    $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
+    if (isset($argv[1]) && isset($cdTracks) && isset($actPlayerInfo['file']) && isset($actPlayerInfo['state']) &&
+            ($argv[1] == 'changed') &&
+            is_array($cdTracks) && count($cdTracks) &&
+            ($actPlayerInfo['state'] != 'stop') &&
+            (substr($actPlayerInfo['file'], 0, 7) == 'cdda://')) {
+        // the eject button on the cd-drive has been activated while a CD is playing
+        // close the CD-tray
+        sysCmd('eject --trayclose');
+        ui_notify($redis, 'CD Input', 'Eject requested');
+        $action = 'eject';
+    } else {
+        $action = $argv[1];
+    }
 }
 
 // this routine can be called to run asynchronously (e.g. when called from udev, to prevent a timeout)
 //  the second parameter has a value of 'async' when asynchronous is requested
-if (isset($argv[2]) && ($argv[2] === 'async')) {
+//  when action is unset it does nothing
+if (isset($action) && isset($argv[2]) && ($argv[2] === 'async')) {
     runelog('running asynchronously');
-    sysCmdAsync($redis, '/srv/http/command/CD_detect '.$action);
+    // the asynchronously run routine is not queued, but is run immediately (after 0 seconds) via the command queue
+    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cddetect_async', 'action' => $action));
     // close Redis connection
     $redis->close();
     runelog('WORKER CD_detect END...');
     exit;
 }
 // debug
-// ui_notify($redis, "CD_detect", $argv[1]);
-runelog('CD_detect', $argv[1]);
-wrk_CD($redis, $argv[1]);
+if (isset($argv[1])) {
+    // ui_notify($redis, "CD_detect", $argv[1]);
+    runelog('CD_detect', $argv[1]);
+} else {
+    // ui_notify($redis, "CD_detect", 'argv[1] unset');
+    runelog('CD_detect', 'argv[1] unset');
+}
+if ($redis->hGet('CDripper', 'enable')) {
+    // CD ripper enabled
+    // sleep for 5 seconds to allow the CD state to be fully detected
+    sleep(5);
+    // run cdparanoia to detect the drive attributes
+    sysCmd('cdparanoia -vsQ');
+    sleep(5);
+    $cdDrive = intval(sysCmd("ls -al /dev/cdrom 2>/dev/null | grep -ic '/dev/cdrom\s*->' | xargs")[0]);
+    if (!$cdDrive) {
+        // no CD drive detected
+        exit;
+    }
+    $noCdInDrive = intval(sysCmd("blockdev --getsize64 /dev/cdrom >/dev/null 2>&1 ; echo $? | xargs")[0]);
+    if ($noCdInDrive) {
+        // no CD in drive
+        exit;
+    }
+    // set the process priority low
+    proc_nice(10);
+    // action is always 'rip'
+    wrk_CDripper($redis, 'rip');
+} else if (isset($argv[1]) && $redis->hGet('CD', 'enable')) {
+    // CD input enabled
+    wrk_CD($redis, $argv[1]);
+}
 
 // close Redis connection
 $redis->close();

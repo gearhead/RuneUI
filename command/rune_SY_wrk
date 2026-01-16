@@ -1564,6 +1564,26 @@ while (true) {
                 }
                 $redis->sRem('w_lock', $jobID);
                 break;
+            case 'cdripper':
+                // wrk_CDripper($redis, $action='', $args=null, $jobID=null)
+                if (isset($job->args)) {
+                    wrk_CDripper($redis, $job->action, $job->args, $jobID);
+                } else {
+                    wrk_CDripper($redis, $job->action, '', $jobID);
+                }
+                $redis->sRem('w_lock', $jobID);
+                break;
+            case 'cddetect_async':
+                $redis->sRem('w_lock', $jobID);
+                // start CD_detect with the passed action asynchronously
+                //  without queuing when this is a multiprocessor, starting immediately (0 seconds delay) 
+                //  in the command queue when this is a single processor
+                if ($redis->get('cores') > 1) {
+                    sysCmdAsync($redis, '/srv/http/command/CD_detect '.$job->action, 0);
+                } else {
+                    sysCmdAsync($redis, '/srv/http/command/CD_detect '.$job->action);
+                }
+                break;
             case 'firefox':
                 $redis->sRem('w_lock', $jobID);
                 if ($job->action == 'IPv6Off') {

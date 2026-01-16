@@ -687,7 +687,7 @@ function setUIbuttons(activePlayer) {
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
         }
-        if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://') || (GUI.file.substr(0, 7) === 'cdda://')) {
+        if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://')) {
             // sometimes there is no metadata, here no metadata
             $('#overlay-social-open').addClass('hide');
             $('#songinfo-open').addClass('hide');
@@ -1818,6 +1818,12 @@ function populateDB(options){
             content = '<legend>&nbsp;CD Input';
             if ((typeof GUI.libraryhome.CDinput.model != 'undefined') && GUI.libraryhome.CDinput.model) {
                 content += ' - ' + GUI.libraryhome.CDinput.model + ' (' + GUI.libraryhome.CDinput.device + ')';
+                if (typeof GUI.libraryhome.CDinput.artist != 'undefined') {
+                    content += '<br><i>' + GUI.libraryhome.CDinput.artist + '</i>';
+                    if (typeof GUI.libraryhome.CDinput.album != 'undefined') {
+                        content += '<br><i>' + GUI.libraryhome.CDinput.album + '</i>';
+                    }
+                }
             }
             if ((typeof GUI.libraryhome.CDinput.error != 'undefined') && GUI.libraryhome.CDinput.error) {
                 content += '<br><i>&nbsp;' + GUI.libraryhome.CDinput.error + '</i>';
@@ -3713,9 +3719,28 @@ if ($('#playback').length) {
                 if ($(this).prop('checked')) {
                     $('#cdDetails').removeClass('hide');
                     $('#cdBox').addClass('boxed-group');
+                    // disable CD ripper
+                    if ($("#cdripper").prop('checked')) {
+                        $("#cdripper").prop('checked', false).trigger('change');
+                    }
                 } else {
                     $('#cdDetails').addClass('hide');
                     $('#cdBox').removeClass('boxed-group');
+                }
+            });
+            
+            // show/hide CD ripper details
+            $('#cdripper').change(function(){
+                if ($(this).prop('checked')) {
+                    $('#cdRipperDetails').removeClass('hide');
+                    $('#cdRipperBox').addClass('boxed-group');
+                    // disable CD Input
+                    if ($("#cdinput").prop('checked')) {
+                        $("#cdinput").prop('checked', false).trigger('change');
+                    }
+                } else {
+                    $('#cdRipperDetails').addClass('hide');
+                    $('#cdRipperBox').removeClass('boxed-group');
                 }
             });
 

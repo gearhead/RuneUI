@@ -437,6 +437,14 @@ while (true) {
                     // its an alsa hw source or a CD source
                     //  there is no metadata available
                     $newStatus['currentalbumartist'] = $newStatus['currentartist'];
+                    $newStatus['currentcomposer'] = '...';
+                    $newStatus['song_lyrics'] = ' ';
+                    $newStatus['artist_bio_summary'] = ' ';
+                    $newStatus['artist_similar'] = ' ';
+                    $newStatus['mainArtURL'] = $artUrl.'/none.png';
+                    $newStatus['bigArtURL'] = $artUrl.'/none.png';
+                    $newStatus['smallArtURL'] = $artUrl.'/none.png';
+                    $mpdChangeSong = false;
                     if (strtolower(substr($newStatus['file'], 0, 5)) == 'alsa:') {
                         // // its an alsa hw source
                         // if (!$hwSource) {
@@ -471,8 +479,10 @@ while (true) {
                         $cdTrack = end($cdDeviceParts);
                         if (isset($cdTrack) && $cdTrack) {
                             $newStatus['currentsong'] = 'CD Track #'.$cdTrack;
+                            $cdTrack = intval($cdTrack);
                         } else {
                             $newStatus['currentsong'] = 'CD All Tracks';
+                            $cdTrack = 0;
                         }
                         $newStatus['currentalbum'] = $newStatus['file'];
                         $rateParts = explode(':', $newStatus['audio']);
@@ -484,17 +494,123 @@ while (true) {
                         } else {
                             $newStatus['bitrate'] = 1411;
                         }
-                        unset($cdDeviceParts, $cdTrack, $rateParts);
+                        // maybe we have determined what the CD is, then there is metadata available
+                        $abcdeRoot = $redis->hGet('CD', 'abcde_root');
+                        if ($redis->hExists('CD', 'artist')) {
+                            // there is metadata available
+                            $newStatus['currentartist'] = $redis->hGet('CD', 'artist');
+                            $newStatus['currentalbumartist'] = $newStatus['currentartist'];
+                            // $mpdChangeSong = true;
+                            if ($redis->hExists('CD', 'album')) {
+                                $newStatus['currentalbum'] = $redis->hGet('CD', 'album');
+                            }
+                            if (isset($cdTrack) && is_numeric($cdTrack)) {
+                                $tracks = trim($redis->hGet('CD', 'status'));
+                                if ($tracks) {
+                                    $tracks = json_decode($tracks, true);
+                                    if (isset($tracks[$cdTrack]['name']) && $tracks[$cdTrack]['name']) {
+                                        $newStatus['currentsong'] = trim(substr($tracks[$cdTrack]['name'], 2));
+                                    }
+                                }
+                            }
+                            $artFileNameSource = $abcdeRoot.'/cdinfo/cover.jpg';
+                            $md5Name = md5($newStatus['currentartist'].$newStatus['currentalbum']);
+                            $artFileNameTarget = $artDir.'/'.$md5Name.'.jpg';
+                            $artFileUrl = $artUrl.'/'.$md5Name.'.jpg';
+                            clearstatcache(true, $artFileNameTarget);
+                            clearstatcache(true, $artFileNameSource);
+                            if (file_exists($artFileNameTarget)) {
+                                // the art file already exists
+                                $newStatus['mainArtURL'] = $artFileUrl;
+                            } else if (file_exists($artFileNameSource)) {
+                                // a source art file exists, use imagemagik convert to make a copy in the art directory
+                                $magick_opts = trim($redis->hGet('magick', 'opts'));
+                                $magick_resize = trim($redis->hGet('magick', 'resize'));
+                                if ($magick_resize) {
+                                    sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
+                                } else {
+                                    sysCmd('convert -resize 350x350\> '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
+                                }
+                                list($width, $height, $type, $attr) = getimagesize($artFileNameTarget);
+                                // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                                if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
+                                    // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                                    $newStatus['mainArtURL'] = $artFileUrl;
+                                } else {
+                                    // the image file has an invalid format or is very small, delete it and its source
+                                    unlink($artFileNameTarget);
+                                    unlink($artFileNameSource);
+                                }
+                            }
+                            // now get the artist info and song info
+                            $info = array();
+                            $info['artist'] = html_entity_decode($newStatus['currentartist']);
+                            $info['albumartist'] = $info['artist'];
+                            $info['song'] = html_entity_decode($newStatus['currentsong']);
+                            $info['album'] = html_entity_decode($newStatus['currentalbum']);
+                            $retval = get_artistInfo($redis, $info);
+                            if ($retval) {
+                                $info = array_merge($info, $retval);
+                            }
+                            $retval = get_songInfo($redis, $info);
+                            if ($retval) {
+                                $info = array_merge($info, $retval);
+                            }
+                            $newStatus['song_lyrics'] = $info['song_lyrics'];
+                            $newStatus['artist_bio_summary'] = $info['artist_bio_summary'];
+                            $newStatus['artist_similar'] = $info['artist_similar'];
+                            if (strpos(' '.$newStatus['mainArtURL'], '/none.png')) {
+                                $retval = get_albumInfo($redis, $info);
+                                if ($retval) {
+                                    $info = array_merge($info, $retval);
+                                }
+                                if (strpos(' '.$info['mainArtURL'], '/none.png')) {
+                                    $newStatus['mainArtURL'] = $info['artist_arturl'];
+                                } else {
+                                    $newStatus['mainArtURL'] = $info['album_arturl_large'];
+                                }
+                            }
+                            if ($redis->get('remoteSSbigart') === 'album') {
+                                $albumBig = true;
+                            } else {
+                                $albumBig = false;
+                            }
+                            if ($albumBig) {
+                                $newStatus['smallArtURL'] = $info['artist_arturl'];
+                                $newStatus['bigArtURL'] = $newStatus['mainArtURL'];
+                            } else {
+                                $newStatus['smallArtURL'] = $newStatus['mainArtURL'];
+                                $newStatus['bigArtURL'] = $info['artist_arturl'];
+                            }
+                            if (strpos(' '.$newStatus['smallArtURL'], '/none.png')) {
+                                $newStatus['smallArtURL'] = $newStatus['mainArtURL'];
+                            }
+                            if (strpos(' '.$newStatus['bigArtURL'], '/none.png')) {
+                                $newStatus['bigArtURL'] = $newStatus['mainArtURL'];
+                            }
+                            // recalculate the elapsed time and percentage played if more than 2 seconds have elapsed since elapsed time was last determined
+                            //  this will adjust the elapsed time to reflect any significant processing time for metadata
+                            if (isset($newStatus['time_last_elapsed']) && isset($newStatus['last_elapsed']) && isset($newStatus['elapsed'])) {
+                                // there is enough information to evaluate the elapsed time
+                                $now = microtime(true);
+                                if (($now - $newStatus['time_last_elapsed']) > 2) {
+                                    //  a significant time has passed since the elapsed time was determined, recalculate
+                                    $newStatus['elapsed'] = round($newStatus['last_elapsed'] + $now - $newStatus['time_last_elapsed']);
+                                    $newStatus['last_elapsed'] = $newStatus['elapsed'];
+                                    $newStatus['time_last_elapsed'] = $now;
+                                    if (isset($newStatus['duration']) && $newStatus['duration']) {
+                                        // duration is set and it is non-zero
+                                        $newStatus['song_percent'] = round(($newStatus['elapsed'] * 100) / $newStatus['duration']);
+                                    } else {
+                                        $newStatus['song_percent'] = 0;
+                                    }
+                                }
+                            }
+                        }
+                        unset($cdDeviceParts, $cdTrack, $rateParts, $tracks, $artFileNameSource, $md5Name, $artFileNameTarget, $artFileUrl, $magick_opts, $magick_resize);
+                        unset($width, $height, $type, $attr, $info, $retval);
                     }
-                    $newStatus['currentcomposer'] = '...';
-                    $newStatus['song_lyrics'] = ' ';
-                    $newStatus['artist_bio_summary'] = ' ';
-                    $newStatus['artist_similar'] = ' ';
-                    $newStatus['mainArtURL'] = $artUrl.'/none.png';
-                    $newStatus['bigArtURL'] = $artUrl.'/none.png';
-                    $newStatus['smallArtURL'] = $artUrl.'/none.png';
                     $status = $newStatus;
-                    $mpdChangeSong = false;
                 } else {
                     // its not a radio, a alsa hw source nor a hardware CD source, try fixing the display data from cached values
                     if ($newStatus['file'] &&

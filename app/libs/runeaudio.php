@@ -11010,7 +11010,7 @@ function get_musicBrainz($redis, $url)
         // }
     // }
     // $context  = stream_context_create($opts);
-    // $retval = json_decode(file_get_contents($url, false, $context), true);???
+    // $retval = json_decode(file_get_contents($url, false, $context), true);
     $retval = json_decode(sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 --user-agent "'.$MusicBrainzUserAgent.'" "'.$url.'"')[0], true);
     if (isset($retval['error'])) {
         // error response, some are ok, I cannot fine a full list, so it is trial and error
@@ -14450,6 +14450,15 @@ function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
                     wrk_CD($redis, 'eject');
                 }
             }
+            // determine the memory available when more thean 700Mb set up abcde to use /tmp/cdinfo & /tmp/abcde.* (tmpfs)
+            //  otherwise use /home/cdinfo & /home/abcde.* (micro-sd card)
+            if ($redis->get('memoryKb') > 700000) {
+                $abcdeRoot = '/tmp';
+            } else {
+                $abcdeRoot = '/home';
+            }
+            $redis->hSet('CD', 'abcde_root', $abcdeRoot);
+            sysCmd("rm -r '".$abcdeRoot."/cdinfo' ; rm -r '".$abcdeRoot."/abcde.'*");
             wrk_CD($redis, 'changed');
             unset($key, $value);
             break;
@@ -14690,6 +14699,10 @@ function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
             $redis->hDel('CD', 'device');
             $redis->hDel('CD', 'model');
             $redis->hSet('CD', 'error', 'Processing, please wait a couple of seconds and then refresh the UI');
+            $redis->hDel('CD', 'artist');
+            $redis->hDel('CD', 'album');
+            $abcdeRoot = $redis->hGet('CD', 'abcde_root');
+            sysCmd("rm -r '".$abcdeRoot."/cdinfo' ; rm -r '".$abcdeRoot."/abcde.'*");
             // determine the CD drive status and number of tracks on the cd
             $cnt = 5;
             while (!isset($retval) || !is_array($retval) || (count($retval) < 4)) {
@@ -14749,7 +14762,7 @@ function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
                 }
             }
             foreach ($cdTracks as $key => $cdInfo) {
-                // build up the track ID's which MPD understands
+                // build up the track ID's which MPD understands and add any discovered album, artist and track names
                 if ($key == 0) {
                     // full CD entry
                     $cdTracks[$key]['file'] = 'cdda://';
@@ -14758,8 +14771,89 @@ function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
                     $cdTracks[$key]['file'] = 'cdda:/'.$device.'/'.$key;
                 }
             }
+            // post the cd information without identifying the CD
             $redis->hSet('CD', 'status', json_encode($cdTracks));
             ui_libraryHome($redis);
+            //
+            // get the CD identity and album art if possible using abcde
+            // make sure the cdinfo directory exists and is empty
+            sysCmd("rm -r '".$abcdeRoot."/cdinfo' ; mkdir -p '".$abcdeRoot."/cdinfo'");
+            // make sure the abcde parameter file points to the correct output directory
+            sysCmd("sed -i '/^\s*OUTPUTDIR\s*=/c\OUTPUTDIR=".$abcdeRoot."/cdinfo' '/etc/abcde_cdplay.conf'");
+            $notOk = 1;
+            $cnt = 3;
+            // try abcde 3 times
+            while (($cnt-- > 0) && $notOk) {
+                $notOk = intval(sysCmd("cd '".$abcdeRoot."/cdinfo' ; abcde -N -c '/etc/abcde_cdplay.conf' > /dev/null 2>&1 ; echo $? | xargs")[0]);
+                if ($notOk) {
+                    sleep(3);
+                } else {
+                    $fileName = $abcdeRoot.'/cdinfo/album.txt';
+                    clearstatcache(true, $fileName);
+                    if (file_exists($fileName)) {
+                        $album = strtolower(trim(file_get_contents($fileName)));
+                        if (($album == '') || ($album == 'unknown album')) {
+                            $notOk = 1;
+                            sleep(3);
+                        }
+                    } else {
+                        $notOk = 1;
+                        sleep(3);
+                    }                        
+                }
+            }
+            $fileName = $abcdeRoot.'/cdinfo/album.txt';
+            clearstatcache(true, $fileName);
+            if (file_exists($fileName)) {
+                $album = htmlentities(trim(file_get_contents($fileName)));
+            } else {
+                $album = '';
+            }
+            $fileName = $abcdeRoot.'/cdinfo/artist.txt';
+            clearstatcache(true, $fileName);
+            if (file_exists($fileName)) {
+                $artist = htmlentities(trim(file_get_contents($fileName)));
+            } else {
+                $artist = '';
+            }
+            $fileName = $abcdeRoot.'/cdinfo/playlist.m3u';
+            clearstatcache(true, $fileName);
+            if (file_exists($fileName)) {
+                $tracks = explode("\n", trim(file_get_contents($fileName)));
+            } else {
+                $tracks = array();
+            }
+            if (($album == '') || (strtolower($album) == 'unknown album')) {
+                $album = '';
+                $artist = '';
+                $tracks = array();
+            } else {
+                $redis->hSet('CD', 'artist', $artist);
+                $redis->hSet('CD', 'album', $album);
+            }
+            //
+            if ($album) {
+                // the CD has been identified, update the tracks
+                foreach ($cdTracks as $key => $cdInfo) {
+                    // build up the track ID's which MPD understands and add any discovered album, artist and track names
+                    if ($key == 0) {
+                        // full CD entry
+                        if ($album) {
+                            $cdTracks[$key]['name'] .= ' : '.$album;
+                        }
+                    } else {
+                        // CD track entry
+                        if (isset($tracks[$key - 1]) && $tracks[$key - 1]) {
+                            $cdTracks[$key]['name'] = htmlentities(trim(substr($tracks[$key - 1], 0, -5)));
+                        }
+                    }
+                }
+                //
+                $redis->hSet('CD', 'status', json_encode($cdTracks));
+                ui_libraryHome($redis);
+            }
+            sysCmd("rm -r '".$abcdeRoot."/abcde.'*");
+            //
             break;
     }
 }
@@ -17675,6 +17769,380 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'master', json_encode($master));
             break;
    }
+}
+
+function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
+// functions for attached CDripper drive
+// returns true on success false on failure
+{
+    $cdDrive = intval(sysCmd("ls -al /dev/cdrom 2>/dev/null | grep -ic '/dev/cdrom\s*->' | xargs")[0]);
+    if ($cdDrive) {
+        $noCdInDrive = intval(sysCmd("blockdev --getsize64 /dev/cdrom >/dev/null 2>&1 ; echo $? | xargs")[0]);
+    } else {
+        $noCdInDrive = 1;
+    }
+    $cdStorageDevice = $redis->hGet('CDripper', 'cdstoragedevice');
+    if ($cdStorageDevice == 'None') {
+        $cdStorageDevice = '';
+    }
+    $ripDirectory = '/'.trim($redis->hGet('CDripper', 'ripdir'), " \n\r\t\v\x00/");
+    switch ($action) {
+        case 'start':
+            // no break
+            // break;
+        case 'stop':
+            if (isset($args) && (is_array($args) || is_object($args))) {
+                foreach ($args as $key => $value) {
+                    $redis->hSet('CDripper', $key, $value);
+                }
+            }
+            if ($action == 'start') {
+                if ($cdDrive) {
+                    $redis->hSet('CDripper', 'enable', 1);
+                    ui_notify($redis, "CD ripper", 'Enabled');
+                    if ($cdStorageDevice == '') {
+                        ui_notify($redis, "CD ripper", 'Define a CD storage location to activate');
+                    }
+                } else {
+                    $redis->hSet('CDripper', 'enable', 0);
+                    ui_notify($redis, "CD ripper", 'No CD-Drive available, disabled');
+                }
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+            } else if ($action == 'stop') {
+                $redis->hSet('CDripper', 'enable', 0);
+                ui_notify($redis, "CD ripper", 'Disabled');
+                if (isset($jobID) && $jobID) {
+                    $redis->sRem('w_lock', $jobID);
+                }
+                // kill any abcde jobs
+                sysCmd("pkill abcde");
+                if (!$noCdInDrive) {
+                    // there is a CD inserted, eject it
+                    wrk_CDripper($redis, 'eject');
+                }
+            }
+            if ($cdStorageDevice && $ripDirectory) {
+                sysCmd("rm -r '".$cdStorageDevice.$ripDirectory."/abcde.'*");
+            }
+            unset($key, $value);
+            break;
+        case 'eject':
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            if ($cdDrive) {
+                sysCmd('eject --cdrom');
+                ui_notify($redis, "CD ripper", 'CD Ejected');
+            }
+            unset($device);
+            break;
+        case 'rip':
+            if (isset($jobID) && $jobID) {
+                $redis->sRem('w_lock', $jobID);
+            }
+            if (!$redis->hget('CDripper', 'enable')) {
+                ui_notify($redis, "CD ripper", 'Invalid function call, CD ripper is disabled', '', 1);
+                return false;
+            }
+            if (!$cdDrive) {
+                wrk_CDripper($redis, 'start');
+                wrk_CDripper($redis, 'eject');
+                return false;
+            }
+            if ($noCdInDrive) {
+                ui_notify($redis, "CD ripper", 'No CD in the drive', '', 1);
+                wrk_CDripper($redis, 'eject');
+                return false;
+            }
+            $mountLine = sysCmd("mount -l | grep -i '".$cdStorageDevice."' | xargs")[0];
+            if (($cdStorageDevice == '') || ($cdStorageDevice == 'None')) {
+                // no rip device selected
+                ui_notify($redis, "CD ripper", 'Define a CD storage location to activate', '', 1);
+                wrk_CDripper($redis, 'eject');
+                // debug
+                echo "Define a CD storage location to activate\n";
+                return false;
+            } else {
+                $mountLine = trim(sysCmd("mount -l | grep -i '".$cdStorageDevice."' | xargs")[0]);
+                if (!$mountLine) {
+                    // the select drive in no longer mounted
+                    ui_notify($redis, "CD ripper", 'Network device '.$cdStorageDevice.' is no longer mounted, deactivating', '', 1);
+                    $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                    wrk_CDripper($redis, 'eject');
+                    // debug
+                    echo "Network device ".$cdStorageDevice." is no longer mounted, deactivating\n";
+                    return false;
+                } else if (substr($mountLine, 0, 7) == '/dev/sd') {
+                    // a local rip device selected, remount it read/write
+                    sysCmd('mount -o remount,rw '.$cdStorageDevice);
+                } else {
+                    // a network rip device selected, ensure that it is writeable
+                    $readOnly = strpos('x'.$mountLine, ' (ro,');
+                    if (!$readOnly) {
+                        // its mounted r/w
+                        // check that the share is r/w
+                        $noWrite = sysCmd("touch '".$cdStorageDevice."/xxx1234567890xxx' >/dev/null ; echo $? | xargs")[0];
+                        if (!$noWrite) {
+                            // successful write, file share is r/w, remove the file created in the touch
+                            sysCmd("rm '".$cdStorageDevice."/xxx1234567890xxx'");
+                        }
+                    }
+                    if ($readOnly) {
+                        // device is mounted read only
+                        ui_notify($redis, "CD ripper", 'Network device '.$cdStorageDevice.' is mounted read only, deactivating', '', 1);
+                        $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                        wrk_CDripper($redis, 'eject');
+                        // debug
+                        echo "Network device ".$cdStorageDevice." is no longer mounted, deactivating\n";
+                        return false;
+                    } else if ($noWrite) {
+                        // share is mounted read only
+                        ui_notify($redis, "CD ripper", 'Network share '.$cdStorageDevice.' is shared read only, deactivating', '', 1);
+                        $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                        wrk_CDripper($redis, 'eject');
+                        // debug
+                        echo "Network share ".$cdStorageDevice." is shared read only, deactivating\n";
+                        return false;
+                    }
+                }
+            }
+            $abcdeOutputDirectory = $cdStorageDevice.$ripDirectory;
+            sysCmd("sed -i '/^\s*OUTPUTDIR\s*=/c\OUTPUTDIR=".$abcdeOutputDirectory."' '/etc/abcde.conf'");
+            //
+            $device = trim(sysCmd("df --output -B M | grep -iE '^//|^/dev/sd' | grep -i '".$cdStorageDevice."'")[0]);
+            if (!$device) {
+                // device is no longer mounted mounted
+                ui_notify($redis, "CD ripper", 'Device '.$cdStorageDevice.' is no longer mounted, deactivating', '', 1);
+                $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                wrk_CDripper($redis, 'eject');
+                // debug
+                echo "Network device ".$cdStorageDevice." is no longer mounted, deactivating\n";
+                return false;
+            } else {
+                $deviceDetails = explode(' ', trim(preg_replace('!\s+!', ' ', $device)));
+                // relevant details
+                //  0 : Filesystem
+                //  2 : Label
+                //  6 : Device capacity Mb (with trailing M)
+                //  8 : Free space b (with trailing M)
+                // 11 : Mount
+                $freeSpace = preg_replace('/[^0-9\s]/', '', $deviceDetails[8]);
+                if ($freeSpace < 600) {
+                    // device has insufficient free space
+                    ui_notify($redis, "CD ripper", 'Insufficient free space on device '.$cdStorageDevice.', minimum 600Mb required, '.$freeSpace.' available, deactivating', '', 1);
+                    $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                    wrk_CDripper($redis, 'eject');
+                    // debug
+                    echo "Insufficient free space on device ".$cdStorageDevice.", minimum 600Mb required, ".$freeSpace." available, deactivating\n";
+                    return false;
+                }
+            }
+            sysCmd("pkill abcde");
+            $cnt = 5;
+            $notOk = 1;
+            while (($cnt-- > 0) && $notOk) {
+                $notOk = intval(sysCmd("cdparanoia -vsQ > /dev/null 2>&1 ; echo $? | xargs")[0]);
+                if ($notOk) {
+                    sleep(3);
+                }
+            }
+            if ($notOk) {
+                ui_notify($redis, "CD ripper", 'Cannot read audio tracks from the CD, please check the CD', '', 1);
+                wrk_CDripper($redis, 'eject');
+                return false;
+            }
+            $logFile = '/var/log/runeaudio/abcde.log';
+            $cnt = 3;
+            $ok = 0;
+            $notOk = 1;
+            while (($cnt-- > 0) && (!$ok || $notOk)) {
+                clearstatcache(true, $logFile);
+                if (file_exists($logFile)) {
+                    unlink($logFile);
+                }
+                sysCmd("mkdir -p '".$abcdeOutputDirectory."'");
+                sysCmdAsync($redis, "cd '".$abcdeOutputDirectory."' ; abcde -N >> '".$logFile."' 2>&1", 0);
+                sleep(15);
+                $ok = intval(sysCmd("pgrep abcde | wc -l | xargs")[0]);
+                if ($ok) {
+                    $notOk = 0;
+                }
+                if (!$notOk) {
+                    $notOk = intval(sysCmd("grep -ic '[WARNING] Error trying to calculate disc ids' '".$logFile."' 2>/dev/null | xargs")[0]);
+                }
+                if (!$notOk) {
+                    $notOk = intval(sysCmd("grep -ic 'Unable to open disc' '".$logFile."' 2>/dev/null | xargs")[0]);
+                }
+                if (!$notOk) {
+                    $notOk = intval(sysCmd("grep -ic 'abcde-musicbrainz-tool failed to run' '".$logFile."' 2>/dev/null | xargs")[0]);
+                }
+                if (!$notOk) {
+                    $notOk = intval(sysCmd("grep -ic 'paranoia_read: CDROM drive unavailable, bailing.' '".$logFile."' 2>/dev/null | xargs")[0]);
+                }
+                if (!$ok || $notOk) {
+                    sysCmd("pkill abcde");
+                    sleep(5);
+                    sysCmd("rm -r '".$abcdeOutputDirectory."/abcde.'*");
+                    sleep(1);
+                    sysCmd("cdparanoia -vsQ");
+                    sleep(3);
+                }
+            }
+            if (!$ok || $notOk) {
+                sysCmd("pkill abcde");
+                ui_notify($redis, "CD ripper", 'Something went wrong, check the CD is a music CD or try cleaning the CD and reinsert', 1);
+                wrk_CDripper($redis, 'eject');
+                // debug
+                echo "Something went wrong, check the CD is a music CD or try cleaning the CD and reinsert";
+                return false;
+            }
+            // set sleep time to 10 minutes (600 seconds)
+            $sleepTime = 600;
+            $sleepUntil = time() + $sleepTime;
+            $md5LogFileOld = md5_file($logFile);
+            $loopCnt = 20;
+            while (true) {
+                sleep(30);
+                if (time() > $sleepUntil) {
+                    $sleepUntil = time() + $sleepTime;
+                    $md5LogFileNew = md5_file($logFile);
+                    if ($md5LogFileOld != $md5LogFileNew) {
+                        // the log file is showing progress, continue
+                        $md5LogFileOld = $md5LogFileNew;
+                        continue;
+                    } else {
+                        $stalled = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic '^Done.' | xargs")[0]);
+                        if ($stalled) {
+                            // last line of the log begins with 'Done', but nothing has changed in the log for 10 minutes, stalled, try again by restarting acbde
+                            sysCmd('pkill abcde');
+                            sleep(1);
+                            sysCmd("cdparanoia -vsQ");
+                            sleep(3);
+                            sysCmdAsync($redis, "cd '".$abcdeOutputDirectory."' ; abcde -N >> '".$logFile."' 2>&1", 0);
+                            sleep(5);
+                            $md5LogFileOld = md5_file($logFile);
+                            $loopCnt--;
+                            continue;
+                        }
+                    }
+                    if (--$loopCnt <= 0) {
+                        // been running for 20 cycles of 10 minuets or 20 error conditions (or combination of cycles and errors), eject and terminate
+                        ui_notify($redis, "CD ripper", 'Something went wrong, the CD could be a copy protected or the CD could be damaged, you could try cleaning the CD then reinserting', '', 1);
+                        // debug
+                        echo "Something went wrong, the CD could be a copy protected or the CD could be damaged, you could try cleaning the CD then reinserting\n";
+                        sysCmd("pkill abcde");
+                        wrk_CDripper($redis, 'eject');
+                        return false;
+                    }
+                }
+                $noMatches = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'No lookup matches.' | xargs")[0]);
+                if (!isset($noMatchesNotified) && $noMatches) {
+                    // the log contains 'No lookup matches.', CD has not been identified
+                    $noMatchesNotified = true;
+                    ui_notify($redis, "CD ripper", 'Unable to identify the CD, continuing processing as \'unknown artist\' and \'unknown album\'.');
+                    // debug
+                    echo "Unable to identify the CD, continuing processing as 'unknown artist' and 'unknown album'\n";
+                }
+                $noCover = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'could not get cover' | xargs")[0]);
+                if (!isset($noCoverNotified) && $noCover) {
+                    // the log contains 'could not get cover', cover art could not be found
+                    $noCoverNotified = true;
+                    ui_notify($redis, "CD ripper", 'Unable to retrieve album art, continuing processing without the image file.');
+                    // debug
+                    echo "Unable to retrieve album art, continuing processing without image file\n";
+                }
+                $notCleaning = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'Not cleaning' | xargs")[0]);
+                if ($notCleaning) {
+                    // last line of the log contains 'Not cleaning', something has gone wrong, try again by restarting acbde
+                    sysCmd('pkill abcde');
+                    sleep(1);
+                    sysCmd("cdparanoia -vsQ");
+                    sleep(1);
+                    sysCmdAsync($redis, "cd '".$abcdeOutputDirectory."' ; abcde -N >> '".$logFile."' 2>&1", 0);
+                    sleep(5);
+                    $md5LogFileOld = md5_file($logFile);
+                    $loopCnt--;
+                    $sleepUntil = time() + $sleepTime;
+                    continue;
+                }
+                $finished = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic '^Finished.' | xargs")[0]);
+                if ($finished) {
+                    // last line of the log begins with 'Finished' and does not contain 'Not cleaning', completed without problems
+                    sysCmd("pkill abcde ; rm -r '".$abcdeOutputDirectory."/abcde.'*");
+                    // clean up
+                    $fromDirectory = $abcdeOutputDirectory.'/';
+                    if (isset($noMatches) && $noMatches) {
+                        // artist and album unknown,
+                        // the files are moved to 'Unknown Artist/Unknown Album' or the files get dumped in the /rips directory
+                        //  move them to 'Unknown Artist <timestamp>/Unknown Album <timestamp>'
+                        $now = time();
+                        $unknownDirectory = $fromDirectory.'Unknown Artist/Unknown Album';
+                        $toDirectory = $fromDirectory.'Unknown Artist '.$now.'/Unknown Album '.$now;
+                        clearstatcache(true, $unknownDirectory);
+                        if (file_exists($unknownDirectory)) {
+                            sysCmd('mkdir -p "'.$toDirectory.'"');
+                            sysCmd('mv "'.$unknownDirectory.'" "'.$toDirectory.'"');
+                            sysCmd('rm -r "'.$unknownDirectory.'"');
+                        }
+                    }
+                    // delete any remaining files in the rip directory
+                    sysCmd('rm "'.$fromDirectory.'"*');
+                    $finishedNotify = "Finished ripping.";
+                    if (isset($noMatches) && $noMatches) {
+                        $finishedNotify .= "\nUnable to identify the CD, processed as 'Unknown Artist ".$now."' and 'Unknown Album ".$now."'.";
+                    }
+                    if (isset($noCover) && $noCover) {
+                        $finishedNotify .= "\n'Unable to retrieve album art, processed without image file.'";
+                    }
+                    ui_notify($redis, "CD ripper", $finishedNotify, '', 1);
+                    wrk_CDripper($redis, 'eject');
+                    break;
+                }
+                $cdDrive = intval(sysCmd("ls -al /dev/cdrom 2>/dev/null | grep -ic '/dev/cdrom\s*->' | xargs")[0]);
+                if (!$cdDrive) {
+                    /// CD drive has been removed, eject and terminate
+                    ui_notify($redis, "CD ripper", 'CD Drive has been unexpectedly removed', '', 1);
+                    // debug
+                    echo "CD Drive has been removed\n";
+                    sysCmd("pkill abcde");
+                    wrk_CDripper($redis, 'eject');
+                    wrk_CDripper($redis, 'start');
+                    return false;
+                }
+                if ($cdDrive) {
+                    $noCdInDrive = intval(sysCmd("blockdev --getsize64 /dev/cdrom > /dev/null 2>&1 ; echo $? | xargs")[0]);
+                } else {
+                    $noCdInDrive = 1;
+                }
+                if ($noCdInDrive) {
+                    /// no CD in the drive, eject and terminate
+                    ui_notify($redis, "CD ripper", 'The CD has been unexpectedly ejected', '', 1);
+                    // debug
+                    echo "CD has been ejected\n";
+                    sysCmd("pkill abcde");
+                    wrk_CDripper($redis, 'eject');
+                    wrk_CDripper($redis, 'start');
+                    return false;
+                }
+                $running = sysCmd("pgrep abcde | wc -l | xargs")[0];
+                $finished = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic '^Finished.' | xargs")[0]);
+                if (!$running && !$finished) {
+                    // abcde has stopped running, but it is not finished, something has gone wrong, try again by restarting acbde
+                    sysCmd("cdparanoia -vsQ");
+                    sleep(1);
+                    sysCmdAsync($redis, "cd '".$abcdeOutputDirectory."' ; abcde -N >> '".$logFile."' 2>&1", 0);
+                    sleep(5);
+                    $md5LogFileOld = md5_file($logFile);
+                    $loopCnt--;
+                    $sleepUntil = time() + $sleepTime;
+                    continue;
+                }
+            }
+            break;
+    }
+    return true;
 }
 
 /*

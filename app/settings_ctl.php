@@ -194,6 +194,7 @@ if (isset($_POST)) {
             // create worker job (stop hwinput)
             $redis->hGet('hw_input', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'hwinput', 'action' => 'stop'));
         }
+        // CD input
         if (isset($_POST['features']['cdautoplay']) && $_POST['features']['cdautoplay']) {
             $cdautoplay = $_POST['features']['cdautoplay'];
         } else {
@@ -213,6 +214,27 @@ if (isset($_POST)) {
         } else {
             // create worker job (stop cdinput) when started
             $redis->hGet('CD', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdinput', 'action' => 'stop'));
+        }
+        // CD ripper
+        if (isset($_POST['features']['cdstoragedevice']) && $_POST['features']['cdstoragedevice']) {
+            $cdstoragedevice = $_POST['features']['cdstoragedevice'];
+        } else {
+            $cdstoragedevice = 'None';
+        }
+        if ($cdstoragedevice != $redis->hGet('CDripper', 'cdstoragedevice')) {
+            if (isset($_POST['features']['cdripper']) && $_POST['features']['cdripper']) {
+                // create worker job (start cdripper) with arguments containing UI values
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdripper', 'action' => 'start', 'args' => array('cdstoragedevice' => $cdstoragedevice)));
+            } else {
+                // create worker job (stop cdripper) with arguments containing UI values
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdripper', 'action' => 'stop', 'args' => array('cdstoragedevice' => $cdstoragedevice)));
+            }
+        } else if (isset($_POST['features']['cdripper']) && $_POST['features']['cdripper']) {
+            // create worker job (start cdripper) when stopped
+            $redis->hGet('CDripper', 'enable') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdripper', 'action' => 'start'));
+        } else {
+            // create worker job (stop cdripper) when started
+            $redis->hGet('CDripper', 'enable') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'cdripper', 'action' => 'stop'));
         }
         if (isset($_POST['features']['coverart']) && $_POST['features']['coverart']) {
             if ($redis->get('coverart') != 1) {
@@ -419,7 +441,95 @@ $template->cores = $cores;
 if ($redis->get('cores') > 1) {
     $template->local_browseronoff = true;
     $template->local_owntoneonoff = true;
+    $template->local_cdripperonoff = true;
 } else {
     $template->local_browseronoff = false;
     $template->local_owntoneonoff = false;
+    $template->local_cdripperonoff = false;
 }
+// proces CD ripper information
+$stillMounted = false;
+if ($template->local_cdripperonoff) {
+    // check that a cd drive is present
+    $template->cdstoragedevices = array();
+    $template->cdstoragedevice = $redis->hGet('CDripper', 'cdstoragedevice');
+    $template->storagedevices = '<strong>Available devices and relevance</strong><br>';
+    $template->ripdirectory = '/'.trim($redis->hGet('CDripper', 'ripdir'), " \n\r\t\v\x00/");
+    $cdPresent = sysCmd("ls -al /dev/cdrom 2>/dev/null | grep -ic '/dev/cdrom\s*->' | xargs")[0];
+    if ($cdPresent) {
+        // only process when a CD drive is present
+        // get a list of devices, only network devices and disks are selected
+        $devices = sysCmd("df --output -B M | grep -iE '^//|^/dev/sd'");
+        if (count($devices)) {
+            foreach ($devices as $device) {
+                $deviceDetails = explode(' ', trim(preg_replace('!\s+!', ' ', $device)));
+                // relevant details
+                //  0 : Filesystem
+                //  2 : Label
+                //  6 : Device capacity Mb (with trailing M)
+                //  8 : Free space b (with trailing M)
+                // 11 : Mount
+                $freeSpace = preg_replace('/[^0-9\s]/', '', $deviceDetails[8]);
+                if (($freeSpace < 600) && ($deviceDetails[11].'/rips' == $template->cdstoragedevice)) {
+                    $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+                    $template->cdstoragedevice = 'None';
+                }
+                $readOnly = 0;
+                $noWrite = 0;
+                if (substr($deviceDetails[0], 0, 2) == '//') {
+                    // its a network mount
+                    $readOnly = sysCmd("mount -l | grep -i '".$deviceDetails[0]."' | grep -ic '(ro,' | xargs")[0];
+                    if (!$readOnly) {
+                        // its mounted r/w
+                        // check that the share is r/w
+                        $noWrite = sysCmd("touch /mnt/MPD/USB/sda1-usb-USB_SanDisk_3.2G/xxx1234567890xxx >/dev/null ; echo $? | xargs")[0];
+                        if (!$noWrite) {
+                            // successful write, file share is r/w, remove the file created in the touch
+                            sysCmd("rm /mnt/MPD/USB/sda1-usb-USB_SanDisk_3.2G/xxx1234567890xxx");
+                        }
+                    }
+                    $template->storagedevices .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
+                    if ($freeSpace < 600) {
+                        $template->storagedevices .= '<strong>Insufficient free space</strong><br>';
+                    } else if ($readOnly) {
+                        $template->storagedevices .= '<strong>Read only mount</strong><br>';
+                    } else if ($noWrite) {
+                        $template->storagedevices .= '<strong>Read only network share</strong><br>';
+                    } else if ($deviceDetails[11] == $template->cdstoragedevice) {
+                        $template->storagedevices .= '<strong>Selected</strong><br>';
+                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $stillMounted = true;
+                    } else {
+                        $template->storagedevices .= '<strong>Device usable</strong><br>';
+                        $template->cdstoragedevices[] = $deviceDetails[11];
+                    }
+                } else {
+                    // its a sd?? filesystem mount
+                    $template->storagedevices .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
+                    if ($freeSpace < 600) {
+                        $template->storagedevices .= '<strong>Insufficient free space</strong><br>';
+                    } else if ($deviceDetails[11] == $template->cdstoragedevice) {
+                        $template->storagedevices .= '<strong>Selected</strong><br>';
+                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $stillMounted = true;
+                    } else {
+                        $template->storagedevices .= '<strong>Device usable</strong><br>';
+                        $template->cdstoragedevices[] = $deviceDetails[11];
+                    }
+                }
+            }
+        } else {
+            $template->storagedevices = '<strong>No devices detected</strong><br>';
+        }
+    } else {
+        $template->storagedevices = '<strong>No CD-ROM Connected</strong><br>';
+    }
+} else {
+    $redis->hSet('CDripper', 'enable', 0);
+    $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+}
+if (!isset($template->cdstoragedevices) || !count($template->cdstoragedevices) || !$stillMounted) {
+    $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+}
+$template->cdripper = $redis->hGet('CDripper', 'enable');
+$template->cdstoragedevice = $redis->hGet('CDripper', 'cdstoragedevice');

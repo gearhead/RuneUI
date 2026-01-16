@@ -468,6 +468,10 @@ function redisDatastore($redis, $action) {
             $redis->hSet('CD', 'enable', 0);
             $redis->hSet('CD', 'autoplay', 'None');
             $redis->hSet('CD', 'status', json_encode(array()));
+            // CD ripper
+            $redis->hSet('CDripper', 'enable', 0);
+            $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+            $redis->hSet('CDripper', 'ripdir', 'rips');
             // hardware input
             $redis->hSet('hw_input', 'enable', 0);
             $redis->hSet('hw_input', 'status', json_encode(array()));
@@ -753,6 +757,10 @@ function redisDatastore($redis, $action) {
             $redis->hExists('CD', 'enable') || $redis->hSet('CD', 'enable', 0);
             $redis->hExists('CD', 'autoplay') || $redis->hSet('CD', 'autoplay', 'None');
             $redis->hExists('CD', 'status') || $redis->hSet('CD', 'status', json_encode(array()));
+            // CD ripper
+            $redis->hExists('CDripper', 'enable') || $redis->hSet('CDripper', 'enable', 0);
+            $redis->hExists('CDripper', 'cdstoragedevice') || $redis->hSet('CDripper', 'cdstoragedevice', 'None');
+            $redis->hExists('CDripper', 'ripdir') || $redis->hSet('CDripper', 'ripdir', 'rips');
             // hardware input
             $redis->hExists('hw_input', 'enable') || $redis->hSet('hw_input', 'enable', 0);
             $redis->hExists('hw_input', 'status') || $redis->hSet('hw_input', 'status', json_encode(array()));

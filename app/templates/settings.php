@@ -521,6 +521,9 @@
                         </label>
                         <span class="help-block">Toggle local CD-Drive input. When <strong>ON</strong> a locally connected CD-drive will be detected and
                                                 the CD-tracks can be selected and played from the Library tab.<br>
+                                                <?php if($this->local_cdripperonoff): ?>
+                                                Selecting this option will automatically switch the <strong>CD Ripper</strong> OFF.<br>
+                                                <?php endif ?>
                                                 <i>The CD-drive must be self powered, USB power is insufficient</i></span>
                     </div>
                     <div class="<?php if (!isset($this->cdinput) || !$this->cdinput): ?>hide<?php endif ?>" id="cdDetails">
@@ -535,7 +538,7 @@
                                     <option value="AddNextPlay" title="Add Next & Play" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'AddNextPlay')): ?> selected <?php endif ?>>Add to the Next position in the queue & Play</option>
                                     <option value="ClearAddPlay" title="Clear, Add & Play" <?php if (isset($this->cdautoplay) && ($this->cdautoplay === 'ClearAddPlay')): ?> selected <?php endif ?>>Clear the queue, Add & Play</option>
                                 </select>
-                                <span class="help-block">Enable/Disable CD autoplay and chose the autoplay queueing method<br><br>
+                                <span class="help-block">Enable/Disable CD autoplay and choose the autoplay queueing method<br><br>
                                                     <i>To eject CD's please use the <strong>Eject button</strong> in the main player UI, try to avoid using the eject button on the CD-Drive</i></span>
                             </div>
                         </div>
@@ -547,6 +550,68 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div <?php if (isset($this->cdripper) && $this->cdripper): ?>class="boxed-group"<?php endif ?> id="cdRipperBox">
+                <?php if($this->local_cdripperonoff): ?>
+                <div class="form-group">
+                    <label for="cdripper" class="control-label col-sm-2">CD Ripper</label>
+                    <div class="col-sm-10">
+                        <label class="switch-light well" onclick="">
+                            <input id="cdripper" name="features[cdripper]" type="checkbox" value="1"<?php if((isset($this->cdripper)) && $this->cdripper): ?> checked="checked" <?php endif ?>>
+                            <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                        </label>
+                        <span class="help-block">Toggle CD Ripper. When <strong>ON</strong> a locally connected CD-drive will be detected and
+                                                when a CD is inserted it will be ripped to the storage location.<br>
+                                                Selecting this option will automatically switch the <strong>Local CD-Drive Input</strong> OFF.<br>
+                                                <i>The CD-drive must be self powered, USB power is insufficient</i></span>
+                    </div>
+                    <div class="<?php if (!isset($this->cdripper) || !$this->cdripper): ?>hide<?php endif ?>" id="cdRipperDetails">
+                        <div class="form-group">
+                            <label class="control-label col-sm-2" for="availabledevices">Storage devices</label>
+                            <div class="col-sm-10">
+                                <span id="availabledevices" class="help-block"><?=$this->storagedevices ?></span>
+                            </div>
+                            <label class="control-label col-sm-2" for="cdstoragedevice">Output storage device</label>
+                            <div class="col-sm-10">
+                                <select class="selectpicker" name="features[cdstoragedevice]" data-style="btn-default btn-lg">
+                                    <option value="None" title="None" <?php if (!isset($this->cdstoragedevice) || ($this->cdstoragedevice === '') || ($this->cdstoragedevice === 'None')): ?> selected <?php endif ?>>None (disabled)</option>
+                                    <?php foreach ($this->cdstoragedevices as $cdstoragedevice): ?>
+                                        <option value="<?=$cdstoragedevice ?>" title="<?=$cdstoragedevice ?>" <?php if (($this->cdstoragedevice === $cdstoragedevice)): ?> selected <?php endif ?>> <?=$cdstoragedevice ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="help-block">Select the CD Ripper output storage device.<br>
+                                                    <strong>CD Ripping will activate only after selecting a storage device.</strong>
+                                                    The storage device can be a network device or a USB drive and it must have at least 600Mb free space.
+                                                    Network devices must be shared and mounted as read/write in order to appear in the list.
+                                                    Valid USB devices will appear automatically in the list and will be automatically remounted as read/write if selected.<br>
+                                                    CD Ripping takes place automatically after loading a CD.
+                                                    The CD will eject automatically after completion.
+                                                    If the storage device becomes full (less than 600Mb) ripping will deactivate.<br>
+                                                    <i>'abcde' is used for the ripping process.
+                                                    Ripped CD files are stored in the '<strong><?=$this->ripdirectory?></strong>' directory on the selected storage location.
+                                                    While very good, the ripping process is rarely successful in fully completing album art and metadata processing as required.
+                                                    It is assumed that the ripped output will need be tweaked using a program like 'MP3TAG', 'EasyTag', 'PuddleTag' or 'MusicBrainz Picard' on a laptop or desktop.
+                                                    Its probably best to do this before merging the rips into your music collection.<br>
+                                                    It is recommended to dismount USB devices before unplugging them, do this by clicking on the device in the <a href="/sources/">Sources menu</a>.<br>
+                                                    Please ensure that you understand and comply with the relevant legislation before making copies of CD's</i></span>
+                            </div>
+                        </div>
+                        <div class="form-group form-actions">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button class="btn btn-primary btn-lg" value="1" name="features[submit]" type="submit">apply settings</button>
+                                <span class="help-block"> </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="form-group">
+                    <label for="local_browser" class="control-label col-sm-2">CD Ripper</label>
+                    <div class="col-sm-10">
+                        <span class="help-block"><br>Disabled, not supported on this model<br><br></span>
+                    </div>
+                </div>
+                <?php endif ?>
             </div>
             <div <?php if((isset($this->local_browser['enable'])) && ($this->local_browser['enable'])): ?>class="boxed-group"<?php endif ?> id="local_browserBox">
                 <?php if($this->local_browseronoff): ?>
