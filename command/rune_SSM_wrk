@@ -575,8 +575,8 @@ while (true) {
                         if (strpos(' '.$status['smallArtURL'], '/none.png')) {
                             $status['smallArtURL'] = $status['mainArtURL'];
                         }
-                        if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                            $status['smallArtURL'] = $status['mainArtURL'];
+                        if (strpos(' '.$status['bigArtURL'], '/none.png')) {
+                            $status['bigArtURL'] = $status['mainArtURL'];
                         }
                         //
                         // save and post the playback data to the UI
@@ -920,8 +920,8 @@ while (true) {
                                 if (strpos(' '.$status['smallArtURL'], '/none.png')) {
                                     $status['smallArtURL'] = $status['mainArtURL'];
                                 }
-                                if (strpos(' '.$status['smallArtURL'], '/none.png')) {
-                                    $status['smallArtURL'] = $status['mainArtURL'];
+                                if (strpos(' '.$status['bigArtURL'], '/none.png')) {
+                                    $status['bigArtURL'] = $status['mainArtURL'];
                                 }
                                 $render = $status;
                                 unset($render['elapsed'], $render['song_percent']);

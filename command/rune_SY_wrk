@@ -528,7 +528,9 @@ while (true) {
                     usleep(500000);
                     //sleep(1);
                 }
-                if ($cnt >= 0) {
+                // sleep for 3 seconds first, this allows any long processing in the UI to complete
+                sleep(3);
+                if (($cnt >= 0) && !$redis->get('waitSyWrk') && !$redis->sCard('w_lock')) {
                     // we can process the queued messages
                     do {
                         $message = $redis->rPop('w_message');
@@ -541,7 +543,7 @@ while (true) {
                             // sleep(1);
                             ui_render($redis, 'notify', base64_decode($message));
                         }
-                    } while (isset($message) && $message);
+                    } while (isset($message) && $message && !$redis->get('waitSyWrk') && !$redis->sCard('w_lock'));
                 } else {
                     // requeue this job, don't use 'noduplicates' the current entry has not been deleted yet
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'notify_async'));
