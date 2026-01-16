@@ -3728,7 +3728,7 @@ if ($('#playback').length) {
                     $('#cdBox').removeClass('boxed-group');
                 }
             });
-            
+
             // show/hide CD ripper details
             $('#cdripper').change(function(){
                 if ($(this).prop('checked')) {

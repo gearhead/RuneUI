@@ -14799,7 +14799,7 @@ function wrk_CD($redis, $action='', $args = null, $track = null, $jobID = null)
                     } else {
                         $notOk = 1;
                         sleep(3);
-                    }                        
+                    }
                 }
             }
             $fileName = $abcdeRoot.'/cdinfo/album.txt';
