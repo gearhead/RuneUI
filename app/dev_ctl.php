@@ -216,7 +216,7 @@ if (isset($_POST)) {
                 $redis->del('cleancache');
             }
         }
-        // ----- album art match percentage -----
+        // ----- Album art match percentage -----
         if ((isset($_POST['mode']['artMatchPercentage'])) && ($_POST['mode']['artMatchPercentage'])) {
             // value is set
             if ($redis->get('albumart_match_percentage') != $_POST['mode']['artMatchPercentage']) {
@@ -224,7 +224,7 @@ if (isset($_POST)) {
                 $redis->set('albumart_match_percentage', $_POST['mode']['artMatchPercentage']);
             }
         }
-        // ----- webradio metadata reject count -----
+        // ----- Webradio metadata reject count -----
         if ((isset($_POST['mode']['webradioRejectCount'])) && ($_POST['mode']['webradioRejectCount'])) {
             // value is set
             if ($redis->get('webradio_reject_count') != $_POST['mode']['webradioRejectCount']) {

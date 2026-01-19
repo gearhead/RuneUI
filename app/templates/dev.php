@@ -386,11 +386,15 @@
                     <label class="col-sm-2 control-label" for="log-level">Log Level</label>
                     <div class="col-sm-10">
                         <select id="log-level" name="mode[conf][log_level]" class="selectpicker" data-style="btn-default btn-lg">
-                            <option value="default" <?php if($this->conf['log_level'] == 'default'): ?> selected <?php endif ?>>default</option>
-                            <option value="secure" <?php if($this->conf['log_level'] == 'secure'): ?> selected <?php endif ?>>secure</option>
-                            <option value="verbose" <?php if($this->conf['log_level'] == 'verbose'): ?> selected <?php endif ?>>verbose</option>
+                            <option value="default" <?php if($this->conf['log_level'] == 'default'): ?> selected <?php endif ?>> default</option>
+                            <option value="error" <?php if($this->conf['log_level'] == 'error'): ?> selected <?php endif ?>> error</option>
+                            <option value="warning" <?php if($this->conf['log_level'] == 'warning'): ?> selected <?php endif ?>> warning</option>
+                            <option value="notice" <?php if($this->conf['log_level'] == 'notice'): ?> selected <?php endif ?>> notice</option>
+                            <option value="info" <?php if($this->conf['log_level'] == 'info'): ?> selected <?php endif ?>> info</option>
+                            <option value="verbose" <?php if($this->conf['log_level'] == 'verbose'): ?> selected <?php endif ?>> verbose</option>
                         </select>
-                        <span class="help-block">This setting controls the type of information which is logged. Available settings are "default", "secure" or "verbose".
+                        <span class="help-block">This setting controls the type of information which is logged.
+                        The "default" setting allows MPD to allocate its default setting, this currently translates to "notice" (V.0.24.5).<br>
                         <i>The "verbose" setting is recommended for troubleshooting, though this can quickly stretch available resources on limited hardware storage</i></span>
                     </div>
                 </div>

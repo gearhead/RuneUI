@@ -17800,6 +17800,10 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                 if ($cdDrive) {
                     $redis->hSet('CDripper', 'enable', 1);
                     ui_notify($redis, "CD ripper", 'Enabled');
+                    $cdStorageDevice = $redis->hGet('CDripper', 'cdstoragedevice');
+                    if ($cdStorageDevice == 'None') {
+                        $cdStorageDevice = '';
+                    }
                     if ($cdStorageDevice == '') {
                         ui_notify($redis, "CD ripper", 'Define a CD storage location to activate');
                     }
