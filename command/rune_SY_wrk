@@ -180,6 +180,12 @@ if (isset($gitbranch) && $gitbranch) {
     $redis->hSet('git', 'branch', $gitbranch);
 }
 
+// eject CD if CD-drive is present and a CD is inserted
+$noCdInDrive = intval(sysCmd("blockdev --getsize64 /dev/cdrom >/dev/null 2>&1 ; echo $? | xargs")[0]);
+if (!$noCdInDrive) {
+    sysCmd('eject --cdrom');
+}
+
 if ($playerid_db === '') {
     // RUNEAUDIO FIRST RUN PROCESS --- //
     runelog('>>>>>>RUNEAUDIO FIRST RUN PROCESS ---');
@@ -1641,18 +1647,31 @@ while (true) {
     if ($savecpuAutostart-- <= 0) {
         $autoplay = $redis->get('mpd_autoplay');
         if ($autoplay) {
-            $file = json_decode($redis->get('act_player_info'), true)['file'];
+            $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
+            if (isset($actPlayerInfo['file'])) {
+                $uri = json_decode($redis->get('act_player_info'), true)['file'];
+            } else {
+                $uri = get_current_song_from_statefile($redis, 'uri');
+            }
             $accessible = false;
-            if ($file) {
-                if (substr($file, 0, 4) == 'http') {
-                    // its a webradio or network file, just check that we have an active internet connection
+            $dontAutostart = false;
+            if ($uri) {
+                if (substr($uri, 0, 4) == 'http') {
+                    // its a webradio or network uri, just check that we have an active internet connection
                     $responce = sysCmd('wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1 ; echo $? | xargs')[0];
                     if ($responce == 0) {
                         $accessible = true;
                     }
+                } else if (substr($uri, 0, 4) == 'cdda') {
+                    // its a CD, dont autostart
+                    $dontAutostart = true;
+                } else if (substr($uri, 0, 4) == 'alsa') {
+                    // its a hardware input, dont autostart
+                    $dontAutostart = true;
                 } else {
                     // its a normal file, check that it exists
-                    $file = '/mnt/MPD/'.$file;
+                    $file = $redis->hGet('mpdconf', 'music_directory').'/'.$uri;
+                    clearstatcache(true, $file);
                     if (file_exists($file)) {
                         $accessible = true;
                     }
@@ -1661,6 +1680,13 @@ while (true) {
                     // start play if enabled
                     if (is_firstTime($redis, 'autoplay')) {
                         $redis->set('mpd_playback_laststate', 'play');
+                        wrk_mpdRestorePlayerStatus($redis);
+                    }
+                    // success, set to retry in +/-8 hours
+                    $savecpuAutostart = 57400 + rand(0, 400);
+                } else if ($dontAutostart) {
+                    if (is_firstTime($redis, 'autoplay')) {
+                        $redis->set('mpd_playback_laststate', 'stop');
                         wrk_mpdRestorePlayerStatus($redis);
                     }
                     // success, set to retry in +/-8 hours

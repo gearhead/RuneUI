@@ -18149,6 +18149,56 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
     return true;
 }
 
+function get_current_song_from_statefile($redis, $type='file')
+// returns a string containing full filename or URI of the current MPD song from the mpd statefile or false when no current song is set
+// Optional $type can be in upper, lower or mixes-case with the values:
+//  file: returns the full filename of the song (default)
+//  uri: returns the URI of the song
+{
+    $type = strtolower($type);
+    $statefileName = $redis->hGet('mpdconf', 'state_file');
+    $statefileLines = explode("\n", file_get_contents($statefileName));
+    foreach ($statefileLines as $statefileLine) {
+        $statefileLine = trim($statefileLine);
+        if (strpos(' '.$statefileLine, 'current: ') == 1) {
+            list($dummy, $current) = explode(': ', $statefileLine, 2);
+            $current = trim(current);
+            if (is_numeric($current)) {
+                continue;
+            } else {
+                unset($current);
+                break;
+            }
+        }
+        if (isset($current) && strpos(' '.$statefileLine, 'song_begin: ') == 1) {
+            list($dummy, $uri) = explode(': ', $statefileLine, 2);
+            $uri = trim($uri);
+            if ($uri) {
+                $file = $uri;
+            } else {
+                unset($uri);
+            }
+            continue;
+        }
+        if (isset($current) && strpos(' '.$statefileLine, $current.': ') == 1) {
+            list($dunmmy, $uri) = explode(': ', $statefileLine, 2);
+            $uri = trim($uri);
+            if ($uri) {
+                $file = $redis->hGet('mpdconf', 'music_directory').'/'.$uri;
+            } else {
+                unset($uri);
+            }
+            break;
+        }
+    }
+    if (($type = 'uri') && isset($uri) && $uri) {
+        return $uri;
+    } else if (($type = 'file') && isset($file) && $file) {
+        return $file;
+    }
+    return 0;
+}
+
 /*
 // function to encode and send airplay metadata for owntone
 function wrk_airplay_metadata_encoder($redis, $action, $args)
