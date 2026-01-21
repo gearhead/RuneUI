@@ -2307,8 +2307,8 @@ function wrk_avahiconfig($redis, $action, $args = null, $jobID = null)
                 // avahi configuration has changed, set avahi confchange on
                 $redis->hSet('avahi', 'confchange', 1);
                 sysCmd('cp '.$newfile.' '.$file);
-                sysCmd('rm -f '.$file);
-                sysCmd('chmod 644 '.$newfile);
+                sysCmd('rm -f '.$newfile);
+                sysCmd('chmod 644 '.$file);
                 // also modify /etc/hosts replace line beginning with 127.0.0.1 (PIv4)
                 sysCmd('sed -i "/^127.0.0.1/c\127.0.0.1       localhost localhost.localdomain '.$hostname.'.local '.$hostname.'" /etc/hosts');
                 // and line beginning with ::1 (IPv6)
