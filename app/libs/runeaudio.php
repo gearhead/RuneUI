@@ -18041,7 +18041,7 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                         return false;
                     }
                 }
-                $noMatches = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'No lookup matches.' | xargs")[0]);
+                $noMatches = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'No lookup matches.' | xargs")[0]);
                 if (!isset($noMatchesNotified) && $noMatches) {
                     // the log contains 'No lookup matches.', CD has not been identified
                     $noMatchesNotified = true;
@@ -18049,7 +18049,7 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                     // debug
                     echo "Unable to identify the CD, continuing processing as 'unknown artist' and 'unknown album'\n";
                 }
-                $noCover = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'could not get cover' | xargs")[0]);
+                $noCover = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'could not get cover' | xargs")[0]);
                 if (!isset($noCoverNotified) && $noCover) {
                     // the log contains 'could not get cover', cover art could not be found
                     $noCoverNotified = true;
@@ -18076,26 +18076,11 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                     // last line of the log begins with 'Finished' and does not contain 'Not cleaning', completed without problems
                     sysCmd("pkill abcde ; rm -r '".$abcdeOutputDirectory."/abcde.'*");
                     // clean up
-                    $fromDirectory = $abcdeOutputDirectory.'/';
-                    if (isset($noMatches) && $noMatches) {
-                        // artist and album unknown,
-                        // the files are moved to 'Unknown Artist/Unknown Album' or the files get dumped in the /rips directory
-                        //  move them to 'Unknown Artist <timestamp>/Unknown Album <timestamp>'
-                        $now = time();
-                        $unknownDirectory = $fromDirectory.'Unknown Artist/Unknown Album';
-                        $toDirectory = $fromDirectory.'Unknown Artist '.$now.'/Unknown Album '.$now;
-                        clearstatcache(true, $unknownDirectory);
-                        if (file_exists($unknownDirectory)) {
-                            sysCmd('mkdir -p "'.$toDirectory.'"');
-                            sysCmd('mv "'.$unknownDirectory.'" "'.$toDirectory.'"');
-                            sysCmd('rm -r "'.$unknownDirectory.'"');
-                        }
-                    }
                     // delete any remaining files in the rip directory
                     sysCmd('rm "'.$fromDirectory.'"*');
                     $finishedNotify = "Finished ripping.";
                     if (isset($noMatches) && $noMatches) {
-                        $finishedNotify .= "\nUnable to identify the CD, processed as 'Unknown Artist ".$now."' and 'Unknown Album ".$now."'.";
+                        $finishedNotify .= "\nUnable to identify the CD, processed as 'Unknown Artist' and 'Unknown Album'.";
                     }
                     if (isset($noCover) && $noCover) {
                         $finishedNotify .= "\n'Unable to retrieve album art, processed without image file.'";
