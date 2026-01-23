@@ -444,7 +444,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label col-sm-2" for="owntone_multidevice">Local Multi-device support</label>
+                        <label class="control-label col-sm-2" for="owntone_multidevice">Local Multi-device Support</label>
                         <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
                                 <input id="owntone_multidevice" name="features[owntone][multidevice]" type="checkbox" value="1"<?php if((isset($this->owntone['multidevice'])) && ($this->owntone['multidevice'])): ?> checked="checked" <?php endif ?>>
