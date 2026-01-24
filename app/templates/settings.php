@@ -451,10 +451,12 @@
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                             <span class="help-block">This setting controls the ability to simultaneously activate all locally available output devices.
+                            It also gives more control over all local output devices.
                             The default value is <strong>OFF</strong>, meaning that only the locally selected MPD output device is available, this is normally what is required.
-                            When <strong>ON</strong>, all locally available output devices may be simultaneously activated.
-                            However, music synchronisation across multiple local devices may not always 100% correct.
-                            Regardless of this setting, when the MPD output device in the <a href="/mpd/">MPD menu, audio output section</a> is changed,
+                            When <strong>ON</strong>, all locally available output devices may be simultaneously activated and/or deactivated.<br>
+                            <i>Notes:<br>
+                            Music synchronisation across multiple local devices may not always be 100% correct.<br>
+                            Regardless of this setting, when the MPD output device is changed in the <a href="/mpd/">MPD menu, audio output section</a>,
                             the MultiRoom local output device will also be switched</span>
                         </div>
                     </div>
