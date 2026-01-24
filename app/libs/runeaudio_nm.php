@@ -18133,11 +18133,14 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                     // last line of the log begins with 'Finished' and does not contain 'Not cleaning', completed without problems
                     sysCmd("pkill abcde ; rm -r '".$abcdeOutputDirectory."/abcde.'*");
                     // clean up
+                    // rename any 'Unknown Artist' or 'Unknown Album' directories so that a timestamp is included in the directory name
+                    $now = time();
+                    sysCmd('find "'.$abcdeOutputDirectory.'" -depth -type d -name "Unknown Artist" -exec mv "{}" "{} '.$now.'"  \;');
+                    sysCmd('find "'.$abcdeOutputDirectory.'" -depth -type d -name "Unknown Album" -exec mv "{}" "{} '.$now.'"  \;');
                     // delete any remaining files in the rip directory
-                    sysCmd('rm "'.$fromDirectory.'"*');
                     $finishedNotify = "Finished ripping.";
                     if (isset($noMatches) && $noMatches) {
-                        $finishedNotify .= "\nUnable to identify the CD, processed as 'Unknown Artist' and 'Unknown Album'.";
+                        $finishedNotify .= "\nUnable to identify the CD, processed as 'Unknown Artist ".$now."' and 'Unknown Album ".$now."'.";
                     }
                     if (isset($noCover) && $noCover) {
                         $finishedNotify .= "\n'Unable to retrieve album art, processed without image file.'";
