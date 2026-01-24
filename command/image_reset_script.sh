@@ -1107,6 +1107,9 @@ mkdir /srv/http/tmp
 chown root:root /srv/http/tmp
 chmod 777 /srv/http/tmp
 mount http-tmp
+//
+// remove documentation:
+find /usr/share/doc -type f -name *.gz -delete
 #
 # zero fill the file system if parameter 'full' is selected
 # this takes ages to run, but the compressed distribution image will then be much smaller
