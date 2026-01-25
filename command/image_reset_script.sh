@@ -511,10 +511,23 @@ done
 # some users need to have /usr/bin/bash as shell to be able to run scripts
 declare -a shellbinbashusers=(spotifyd)
 for i in "${shellbinbashusers[@]}" ; do
+    # by default these are created with '/usr/bin/nologin' as the shell location
     shellnologin=$( grep -i "^$i" /etc/passwd | grep -ic '/usr/bin/nologin' )
     if [ "$shellnologin" == "1" ] ; then
         # lock the user account to prevent logins and change the shell
         usermod -L -s '/usr/bin/bash' "$i"
+    fi
+done
+#
+# some users need to make subdirectories in the default account in which to save files, these need a default account
+declare -a homeusers=(owntone)
+for i in "${homeusers[@]}" ; do
+    # by default these are created with '/dev/null' as the default directory
+    shellnologin=$( grep -i "^$i" /etc/passwd | grep -ic '/dev/null' )
+    if [ "$shellnologin" == "1" ] ; then
+        # lock the user account to prevent logins and change the shell
+        # the user directory is made in the tmpfs /var/run directory, the directory has the name of the user
+        usermod -L -d "/var/run/$i" "$i"
     fi
 done
 # #
