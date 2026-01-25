@@ -18098,21 +18098,25 @@ function wrk_CDripper($redis, $action='', $args = null, $jobID = null)
                         return false;
                     }
                 }
-                $noMatches = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'No lookup matches.' | xargs")[0]);
-                if (!isset($noMatchesNotified) && $noMatches) {
-                    // the log contains 'No lookup matches.', CD has not been identified
-                    $noMatchesNotified = true;
-                    ui_notify($redis, "CD ripper", 'Unable to identify the CD, continuing processing as \'unknown artist\' and \'unknown album\'.');
-                    // debug
-                    echo "Unable to identify the CD, continuing processing as 'unknown artist' and 'unknown album'\n";
+                if (!isset($noMatchesNotified)) {
+                    $noMatches = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'No lookup matches.' | xargs")[0]);
+                    if ($noMatches) {
+                        // the log contains 'No lookup matches.', CD has not been identified
+                        $noMatchesNotified = true;
+                        ui_notify($redis, "CD ripper", 'Unable to identify the CD, continuing processing as \'unknown artist\' and \'unknown album\'.');
+                        // debug
+                        echo "Unable to identify the CD, continuing processing as 'unknown artist' and 'unknown album'\n";
+                    }
                 }
-                $noCover = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'could not get cover' | xargs")[0]);
-                if (!isset($noCoverNotified) && $noCover) {
-                    // the log contains 'could not get cover', cover art could not be found
-                    $noCoverNotified = true;
-                    ui_notify($redis, "CD ripper", 'Unable to retrieve album art, continuing processing without the image file.');
-                    // debug
-                    echo "Unable to retrieve album art, continuing processing without image file\n";
+                if (!isset($noCoverNotified)) {
+                    $noCover = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | grep -ic 'could not get cover' | xargs")[0]);
+                    if ($noCover) {
+                        // the log contains 'could not get cover', cover art could not be found
+                        $noCoverNotified = true;
+                        ui_notify($redis, "CD ripper", 'Unable to retrieve album art, continuing processing without the image file.');
+                        // debug
+                        echo "Unable to retrieve album art, continuing processing without image file\n";
+                    }
                 }
                 $notCleaning = intval(sysCmd("grep '^\s*.' '".$logFile."' 2>/dev/null | tail -n 1 | grep -ic 'Not cleaning' | xargs")[0]);
                 if ($notCleaning) {
