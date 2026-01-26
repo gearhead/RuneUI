@@ -339,7 +339,8 @@ while (true) {
                 // the interesting elemens are:
                 //  1 - the nic (e.g. eth0)
                 //  2 - ip type (e.g. ipv4)
-                //  6 - clientname (e.g. runeaudio.local)
+                //  3 - string containing the real client name (ie runeaudio) it is preceded with '\091' and it followed by a '\093'
+                //  6 - clientname including poossible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
                 //  7 - IP address (e.g. 192.168.2.10)
                 //  9 - text information, space delimited, within quotes
                 //      0 - "org.freedesktop.Avahi.cookie=<value>"
@@ -361,7 +362,24 @@ while (true) {
                     }
                 }
                 // remove the '.local' from the client name
-                $clientname = explode('.', $avahiElement[6], 2)[0];
+                //  there should never really be more than one '.' in the string, but if there is this will still work
+                $clientnameArray = explode('.', $avahiElement[6]);
+                array_pop($clientnameArray);
+                $clientname = implode('.', $clientnameArray);
+                // remove any suffixes from the client name
+                if (strpos(' '.$clientname, '-')) {
+                    // a suffix has a '-' followed by a number, so there is possibly a suffix present
+                    if (!strpos(' '.strtolower($avahiElement[3]), "\\091".strtolower($clientname)."\\093")) {
+                        // no match, looks like there is a suffix, remove the last '-' and anything following it
+                        $clientnameArray = explode('-', $clientname);
+                        $suffix = array_pop($clientnameArray);
+                        $clientnameNew = implode('-', $clientnameArray);
+                        if (strpos(' '.strtolower($avahiElement[3]), "\\091".strtolower($clientnameNew)."\\093") && is_numeric($suffix)) {
+                            // the new client name is valid, use it
+                            $clientname = $clientnameNew;
+                        }
+                    }
+                }
                 if (!isset($clientIp[$clientname])) {
                     $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
                     continue;
@@ -381,7 +399,7 @@ while (true) {
             }
             // $clientIp now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
             //  it also contains the IP address of each node if available
-            unset($retval, $avahi_line, $avahiElement, $clientname);
+            unset($retval, $avahi_line, $avahiElement, $clientname, $clientnameArray, $clientnameNew, $suffix);
             if (count($clientIp)) {
                 // there are other runeaudio nodes
                 $outputs = $redis->hGetall('owntone_outputs');
