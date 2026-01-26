@@ -118,12 +118,17 @@ class getid3_write_metaflac
 					$commandline .= ' --import-picture-from='.escapeshellarg($picturecommand);
 				}
 				$commandline .= ' '.escapeshellarg($this->filename).' 2>&1';
-				$metaflacError = `$commandline`;
+				$metaflacError = shell_exec($commandline);
 
 				if (empty($metaflacError)) {
-					clearstatcache(true, $this->filename);
-					if ($timestampbeforewriting == filemtime($this->filename)) {
-						$metaflacError = 'File modification timestamp has not changed - it looks like the tags were not written';
+					if (abs(time() - $timestampbeforewriting) < 5) {
+						// https://github.com/JamesHeinrich/getID3/issues/474
+						// probably working on a temporary (or otherwise newly-created) file so hack-check file-modification-date will always fail
+					} else {
+						clearstatcache(true, $this->filename);
+						if ($timestampbeforewriting == filemtime($this->filename)) {
+							$metaflacError = 'File modification timestamp has not changed - it looks like the tags were not written';
+						}
 					}
 				}
 			} else {
@@ -138,7 +143,7 @@ class getid3_write_metaflac
 				$commandline .= ' --import-picture-from='.escapeshellarg($picturecommand);
 			}
 			$commandline .= ' '.escapeshellarg($this->filename).' 2>&1';
-			$metaflacError = `$commandline`;
+			$metaflacError = shell_exec($commandline);
 
 		}
 
@@ -177,7 +182,7 @@ class getid3_write_metaflac
 				$timestampbeforewriting = filemtime($this->filename);
 
 				$commandline = GETID3_HELPERAPPSDIR.'metaflac.exe --remove-all-tags "'.$this->filename.'" 2>&1';
-				$metaflacError = `$commandline`;
+				$metaflacError = shell_exec($commandline);
 
 				if (empty($metaflacError)) {
 					clearstatcache(true, $this->filename);
@@ -193,7 +198,7 @@ class getid3_write_metaflac
 
 			// It's simpler on *nix
 			$commandline = 'metaflac --remove-all-tags "'.$this->filename.'" 2>&1';
-			$metaflacError = `$commandline`;
+			$metaflacError = shell_exec($commandline);
 
 		}
 

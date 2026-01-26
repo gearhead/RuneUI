@@ -387,7 +387,7 @@ class getID3
 	 */
 	protected $startup_warning = '';
 
-	const VERSION           = '1.9.23-202502021530';
+	const VERSION           = '1.9.24-202601080932';
 	const FREAD_BUFFER_SIZE = 32768;
 
 	const ATTACHMENTS_NONE   = false;
@@ -481,7 +481,7 @@ class getID3
 					if (strpos($value, ' ') !== false) {
 						if (!empty($path_so_far)) {
 							$commandline = 'dir /x '.escapeshellarg(implode(DIRECTORY_SEPARATOR, $path_so_far));
-							$dir_listing = `$commandline`;
+							$dir_listing = shell_exec($commandline);
 							$lines = explode("\n", $dir_listing);
 							foreach ($lines as $line) {
 								$line = trim($line);
@@ -529,7 +529,7 @@ class getID3
 	 * @return bool
 	 */
 	public function setOption($optArray) {
-		if (!is_array($optArray) || empty($optArray)) {
+		if (empty($optArray)) {
 			return false;
 		}
 		foreach ($optArray as $opt => $val) {
@@ -1821,7 +1821,7 @@ class getID3
 					if (file_exists(GETID3_HELPERAPPSDIR.'vorbiscomment.exe')) {
 
 						$commandline = '"'.GETID3_HELPERAPPSDIR.'vorbiscomment.exe" -w -c "'.$empty.'" "'.$file.'" "'.$temp.'"';
-						$VorbisCommentError = `$commandline`;
+						$VorbisCommentError = shell_exec($commandline);
 
 					} else {
 
@@ -1832,7 +1832,7 @@ class getID3
 				} else {
 
 					$commandline = 'vorbiscomment -w -c '.escapeshellarg($empty).' '.escapeshellarg($file).' '.escapeshellarg($temp).' 2>&1';
-					$VorbisCommentError = `$commandline`;
+					$VorbisCommentError = shell_exec($commandline);
 
 				}
 
@@ -1950,6 +1950,12 @@ class getID3
 		// Set playtime string
 		if (!empty($this->info['playtime_seconds']) && empty($this->info['playtime_string'])) {
 			$this->info['playtime_string'] = getid3_lib::PlaytimeString($this->info['playtime_seconds']);
+		}
+
+		// Look up codec name if fourcc is set but codec is not
+		if (!empty($this->info['video']['fourcc']) && !isset($this->info['video']['codec'])) {
+			$this->include_module('audio-video.riff');
+			$this->info['video']['codec'] = getid3_riff::fourccLookup($this->info['video']['fourcc']);
 		}
 	}
 
