@@ -1,0 +1,29 @@
+name: PHP
+
+on: [push]
+
+jobs:
+  run:
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        php-versions: ["8.2", "8.3", "8.4"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: mbstring, intl
+          ini-values: post_max_size=256M, max_execution_time=180
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Validate Composer
+        run: composer validate
+      - name: Install Composer Deps
+        run: composer install
+      - name: Run Tests
+        run: composer test
