@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9cb95090bf610fdc3c73b2bf1f6fb618",
+    "content-hash": "8b3590563a1f81863133bebebbe724e7",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -447,24 +447,32 @@
         },
         {
             "name": "league/plates",
-            "version": "1.2.1",
+            "version": "v3.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/plates.git",
-                "reference": "f07800f916133f3767057f2518380211241215aa"
+                "reference": "12ee65166adbc6fb5916fb80b0c0758e49a2d996"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/plates/zipball/f07800f916133f3767057f2518380211241215aa",
-                "reference": "f07800f916133f3767057f2518380211241215aa",
+                "url": "https://api.github.com/repos/thephpleague/plates/zipball/12ee65166adbc6fb5916fb80b0c0758e49a2d996",
+                "reference": "12ee65166adbc6fb5916fb80b0c0758e49a2d996",
                 "shasum": ""
             },
+            "require": {
+                "php": "^8.0"
+            },
             "require-dev": {
-                "mikey179/vfsstream": "v1.2.0",
-                "mockery/mockery": "dev-master@dev",
-                "phpunit/phpunit": "3.7.*"
+                "mikey179/vfsstream": "^1.6",
+                "phpunit/phpunit": "^11.4",
+                "squizlabs/php_codesniffer": "^3.5"
             },
             "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.0-dev"
+                }
+            },
             "autoload": {
                 "psr-4": {
                     "League\\Plates\\": "src"
@@ -479,20 +487,27 @@
                     "name": "Jonathan Reinink",
                     "email": "jonathan@reinink.ca",
                     "role": "Developer"
+                },
+                {
+                    "name": "RJ Garcia",
+                    "email": "ragboyjr@icloud.com",
+                    "role": "Developer"
                 }
             ],
-            "description": "Plates, the native PHP template system that’s fast, easy to use and easy to extend.",
-            "homepage": "http://platesphp.com",
+            "description": "Plates, the native PHP template system that's fast, easy to use and easy to extend.",
+            "homepage": "https://platesphp.com",
             "keywords": [
                 "league",
                 "package",
-                "templating"
+                "templates",
+                "templating",
+                "views"
             ],
             "support": {
                 "issues": "https://github.com/thephpleague/plates/issues",
-                "source": "https://github.com/thephpleague/plates/tree/master"
+                "source": "https://github.com/thephpleague/plates/tree/v3.6.0"
             },
-            "time": "2014-02-20T16:17:35+00:00"
+            "time": "2024-11-02T15:03:35+00:00"
         },
         {
             "name": "psr/http-client",

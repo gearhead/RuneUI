@@ -49,30 +49,30 @@ if (isset($jobID)) {
     waitSyWrk($redis,$jobID);
 }
 
-$template->enable = $redis->hGet('AccessPoint', 'enable');
-$template->accesspoint = $redis->hGetAll('AccessPoint');
+$templateData['enable'] = $redis->hGet('AccessPoint', 'enable');
+$templateData['accesspoint'] = $redis->hGetAll('AccessPoint');
 // seems double, but there are circumstances when this is required
-if (!isset($template->accesspoint['passphrase']) || !$template->accesspoint['passphrase'] || ($template->accesspoint['passphrase'] == 'RuneAudio')) {
+if (!isset($templateData['accesspoint']['passphrase']) || !$templateData['accesspoint']['passphrase'] || ($templateData['accesspoint']['passphrase'] == 'RuneAudio')) {
     // no paraphrase or it has the default value, NAT should be disabled
     if ($redis->hGet('AccessPoint', 'enable-NAT')) {
         // NAT is enabled, disable it
-        $template->accesspoint['enable-NAT'] = 0;
+        $templateData['accesspoint']['enable-NAT'] = 0;
         $redis->hSet('AccessPoint', 'enable-NAT', 0);
     }
 }
-$template->hostname = $redis->get('hostname');
+$templateData['hostname'] = $redis->get('hostname');
 $nics = json_decode($redis->Get('network_interfaces'), true);
-$template->wifiavailable = 0;
-$template->wififeatureAP = 0;
-$template->wififullfunction = 0;
+$templateData['wifiavailable'] = 0;
+$templateData['wififeatureAP'] = 0;
+$templateData['wififullfunction'] = 0;
 foreach ($nics as $nic) {
     if ($nic['technology'] == 'wifi') {
-        $template->wifiavailable = 1;
+        $templateData['wifiavailable'] = 1;
         if ($nic['apSupported']) {
-            $template->wififeatureAP = 1;
+            $templateData['wififeatureAP'] = 1;
         }
         if ($nic['apFull']) {
-            $template->wififullfunction = 1;
+            $templateData['wififullfunction'] = 1;
         }
     }
 }

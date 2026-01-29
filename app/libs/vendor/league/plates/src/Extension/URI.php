@@ -2,75 +2,112 @@
 
 namespace League\Plates\Extension;
 
+use League\Plates\Engine;
+use League\Plates\Template\Template;
+use LogicException;
+
+/**
+ * Extension that adds a number of URI checks.
+ */
 class URI implements ExtensionInterface
 {
-    public $engine;
+    /**
+     * Instance of the current template.
+     * @var Template
+     */
     public $template;
-    public $uri;
 
+    /**
+     * The request URI.
+     * @var string
+     */
+    protected $uri;
+
+    /**
+     * The request URI as an array.
+     * @var array
+     */
+    protected $parts;
+
+    /**
+     * Create new URI instance.
+     * @param string $uri
+     */
     public function __construct($uri)
     {
         $this->uri = $uri;
         $this->parts = explode('/', $this->uri);
     }
 
-    public function getFunctions()
+    /**
+     * Register extension functions.
+     * @param Engine $engine
+     * @return null
+     */
+    public function register(Engine $engine)
     {
-        return array(
-            'uri' => 'runUri'
-        );
+        $engine->registerFunction('uri', array($this, 'runUri'));
     }
 
+    /**
+     * Perform URI check.
+     * @param  null|integer|string $var1
+     * @param  mixed               $var2
+     * @param  mixed               $var3
+     * @param  mixed               $var4
+     * @return mixed
+     */
     public function runUri($var1 = null, $var2 = null, $var3 = null, $var4 = null)
     {
         if (is_null($var1)) {
             return $this->uri;
         }
 
-        if (is_numeric($var1) and is_null($var2) and is_null($var3) and is_null($var4)) {
-            return $this->parts[$var1];
+        if (is_numeric($var1) and is_null($var2)) {
+            return array_key_exists($var1, $this->parts) ? $this->parts[$var1] : null;
         }
 
-        if (is_numeric($var1) and is_string($var2) and is_null($var3) and is_null($var4)) {
-            return $this->parts[$var1] === $var2;
+        if (is_numeric($var1) and is_string($var2)) {
+            return $this->checkUriSegmentMatch($var1, $var2, $var3, $var4);
         }
 
-        if (is_numeric($var1) and is_string($var2) and is_string($var3) and is_null($var4)) {
-            if ($this->parts[$var1] === $var2) {
-                return $var3;
-            } else {
-                return false;
-            }
+        if (is_string($var1)) {
+            return $this->checkUriRegexMatch($var1, $var2, $var3);
         }
 
-        if (is_numeric($var1) and is_string($var2) and is_string($var3) and is_string($var4)) {
-            if ($this->parts[$var1] === $var2) {
-                return $var3;
-            } else {
-                return $var4;
-            }
+        throw new LogicException('Invalid use of the uri function.');
+    }
+
+    /**
+     * Perform a URI segment match.
+     * @param  integer $key
+     * @param  string  $string
+     * @param  mixed   $returnOnTrue
+     * @param  mixed   $returnOnFalse
+     * @return mixed
+     */
+    protected function checkUriSegmentMatch($key, $string, $returnOnTrue = null, $returnOnFalse = null)
+    {
+        if (array_key_exists($key, $this->parts) && $this->parts[$key] === $string) {
+            return is_null($returnOnTrue) ? true : $returnOnTrue;
         }
 
-        if (is_string($var1) and is_null($var2) and is_null($var3) and is_null($var4)) {
-            return preg_match('#^' . $var1 . '$#', $this->uri) === 1;
+        return is_null($returnOnFalse) ? false : $returnOnFalse;
+    }
+
+    /**
+     * Perform a regular express match.
+     * @param  string $regex
+     * @param  mixed  $returnOnTrue
+     * @param  mixed  $returnOnFalse
+     * @return mixed
+     */
+    protected function checkUriRegexMatch($regex, $returnOnTrue = null, $returnOnFalse = null)
+    {
+        if (preg_match('#^' . $regex . '$#', $this->uri) === 1) {
+            return is_null($returnOnTrue) ? true : $returnOnTrue;
         }
 
-        if (is_string($var1) and is_string($var2) and is_null($var3) and is_null($var4)) {
-            if (preg_match('#^' . $var1 . '$#', $this->uri) === 1) {
-                return $var2;
-            } else {
-                return false;
-            }
-        }
-
-        if (is_string($var1) and is_string($var2) and is_string($var3) and is_null($var4)) {
-            if (preg_match('#^' . $var1 . '$#', $this->uri) === 1) {
-                return $var2;
-            } else {
-                return $var3;
-            }
-        }
-
-        throw new \LogicException('Invalid use of the uri() method.');
+        return is_null($returnOnFalse) ? false : $returnOnFalse;
     }
 }

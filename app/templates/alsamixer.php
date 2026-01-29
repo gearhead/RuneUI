@@ -1,6 +1,6 @@
 <div class="container">
     <h1>ALSA Configuration</h1>
     <?php
-      print_r($this->alsa_controls);
+      print_r($alsa_controls);
     ?>
 </div>

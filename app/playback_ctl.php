@@ -37,59 +37,59 @@ $nowSeconds = microtime(true);
 // delay 2 second, so add 2 to the value
 $startAfterSeconds = $nowSeconds + 2;
 wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterSeconds));
-$template->activePlayer = $redis->get('activePlayer');
+$templateData['activePlayer'] = $redis->get('activePlayer');
 //
 // setup the display variables
 if ($redis->get('coverart') == 1) {
     if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
-        $template->coverart = 1;
-        $template->colspan = 4;
-        $template->volume['hide'] = 0;
+        $templateData['coverart'] = 1;
+        $templateData['colspan'] = 4;
+        $templateData['volume']['hide'] = 0;
     } else {
-        $template->coverart = 1;
-        $template->colspan = 6;
-        $template->volume['hide'] = 1;
+        $templateData['coverart'] = 1;
+        $templateData['colspan'] = 6;
+        $templateData['volume']['hide'] = 1;
     }
 } else {
     if ($redis->hGet('mpdconf', 'mixer_type') != 'hide') {
-        $template->coverart = 0;
-        $template->colspan = 6;
-        $template->volume['hide'] = 0;
+        $templateData['coverart'] = 0;
+        $templateData['colspan'] = 6;
+        $templateData['volume']['hide'] = 0;
     } else {
-        $template->coverart = 0;
-        $template->colspan = 12;
-        $template->volume['hide'] = 1;
+        $templateData['coverart'] = 0;
+        $templateData['colspan'] = 12;
+        $templateData['volume']['hide'] = 1;
     }
 }
 if (
-        ($redis->get('volume') && ($template->activePlayer == 'MPD')) ||
-        ($redis->hGet('bluetooth', 'local_volume_control') && ($template->activePlayer == 'Bluetooth'))
+        ($redis->get('volume') && ($templateData['activePlayer'] == 'MPD')) ||
+        ($redis->hGet('bluetooth', 'local_volume_control') && ($templateData['activePlayer'] == 'Bluetooth'))
         ) {
-    $template->volume['color'] = '#0095D8';
-    $template->volume['readonly'] = 'false';
-    $template->volume['disabled'] = 0;
-    $template->volume['divclass'] = '';
+    $templateData['volume']['color'] = '#0095D8';
+    $templateData['volume']['readonly'] = 'false';
+    $templateData['volume']['disabled'] = 0;
+    $templateData['volume']['divclass'] = '';
 } else {
     //$_volumeColor = '#002c40';
-    $template->volume['color'] = '#1A242F';
-    $template->volume['readonly'] = 'true';
-    $template->volume['disabled'] = 1;
-    $template->volume['divclass'] = 'nomixer';
+    $templateData['volume']['color'] = '#1A242F';
+    $templateData['volume']['readonly'] = 'true';
+    $templateData['volume']['disabled'] = 1;
+    $templateData['volume']['divclass'] = 'nomixer';
 }
 if (count(json_decode($redis->hGet('CD', 'status'), true)) > 0) {
-    $template->ejectOff = 0;
+    $templateData['ejectOff'] = 0;
 } else {
-    $template->ejectOff = 1;
+    $templateData['ejectOff'] = 1;
 }
-$template->UIorder = str_split($redis->get('UIorder'));
-$template->volume['dynamic'] = $redis->get('dynVolumeKnob');
-$template->dev = $redis->get('dev');
-$template->spotifyconnect = $redis->hGet('spotifyconnect', 'enable');
-$template->airplay = $redis->hGet('airplay', 'enable');
-$template->dlna = $redis->hGet('dlna', 'enable');
-$template->bluetooth = $redis->get('bluetooth_on');
-$template->localSStime = $redis->hGet('local_browser', 'localSStime');
-$template->remoteSStime = $redis->get('remoteSStime');
-$template->hostname = $redis->get('hostname');
-$template->pwd_protection = $redis->get('pwd_protection');
-$template->smallScreenSaver = $redis->hGet('local_browser', 'smallScreenSaver');
+$templateData['UIorder'] = str_split($redis->get('UIorder'));
+$templateData['volume']['dynamic'] = $redis->get('dynVolumeKnob');
+$templateData['dev'] = $redis->get('dev');
+$templateData['spotifyconnect'] = $redis->hGet('spotifyconnect', 'enable');
+$templateData['airplay'] = $redis->hGet('airplay', 'enable');
+$templateData['dlna'] = $redis->hGet('dlna', 'enable');
+$templateData['bluetooth'] = $redis->get('bluetooth_on');
+$templateData['localSStime'] = $redis->hGet('local_browser', 'localSStime');
+$templateData['remoteSStime'] = $redis->get('remoteSStime');
+$templateData['hostname'] = $redis->get('hostname');
+$templateData['pwd_protection'] = $redis->get('pwd_protection');
+$templateData['smallScreenSaver'] = $redis->hGet('local_browser', 'smallScreenSaver');

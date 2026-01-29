@@ -14,10 +14,10 @@
     <div class="boxed">
         <p>List of configured network mounts. Click an existing entry to edit it, or add a new one</p>
         <form id="mount-list" class="button-list" action="" method="post">
-            <?php if( !empty($this->mounts) ): ?>
+            <?php if( !empty($mounts) ): ?>
             <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="mountall" value="1" id="mountall"><i class="fa fa-refresh sx"></i> Retry mounting unmounted sources</button></p>
             <p><button class="btn btn-lg btn-primary btn-block" type="submit" name="remountall" value="1" id="remountall"><i class="fa fa-refresh sx"></i> Unmount and Remount all sources</button></p>
-            <?php foreach($this->mounts as $mount): ?>
+            <?php foreach($mounts as $mount): ?>
             <p><a href="/sources/edit/<?php echo $mount['id']; ?>" class="btn btn-lg btn-default btn-block"> <i class="fa <?php if ($mount['status'] == 1): ?> fa-check green <?php else: ?> fa-times red <?php endif ?> sx"></i> <?php echo $mount['name']; ?>&nbsp;&nbsp;&nbsp;&nbsp;<span>//<?php echo $mount['address']; ?>/<?php echo $mount['remotedir']; ?></span></a></p>
             <?php endforeach; endif; ?>
             <p><a href="/sources/add" class="btn btn-lg btn-primary btn-block" data-ajax="false"><i class="fa fa-plus sx"></i> Add new mount</a></p>
@@ -32,7 +32,7 @@
         If a drive is connected but not shown in the list, please check if <a href="/settings/#features-management">USB automount</a> is enabled
         and/or select <strong>REFRESH USB MOUNTS</strong></p>
         <div id="usb-mount-list" class="button-list">
-            <?php if( $this->usbmounts !== null ): foreach($this->usbmounts as $usbmount): ?>
+            <?php if( $usbmounts !== null ): foreach($usbmounts as $usbmount): ?>
                 <p><a class="btn btn-lg btn-default btn-block" href="#umount-modal" data-toggle="modal" data-mount="<?=$usbmount->device ?>"><i class="fa fa-check green sx"></i><?=$usbmount->device ?>&nbsp;&nbsp;&nbsp;&nbsp;<?=$usbmount->name ?>&nbsp;&nbsp;&nbsp;&nbsp;<?php if (!empty($usbmount->size)): ?><span>(size:&nbsp;<?=$usbmount->size ?>B,&nbsp&nbsp;<?=$usbmount->use ?>&nbsp;in use)</span><?php endif; ?></a></p>
             <?php endforeach; ?>
                 <form action="" method="post">
@@ -72,7 +72,7 @@
                 <label for="db_autorebuild" class="control-label col-sm-2">Auto Rebuild</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="db_autorebuild" name="db_autorebuild" type="checkbox" value="1"<?php if ((isset($this->db_autorebuild)) && ($this->db_autorebuild)): ?> checked="checked" <?php endif ?>>
+                        <input id="db_autorebuild" name="db_autorebuild" type="checkbox" value="1"<?php if ((isset($db_autorebuild)) && ($db_autorebuild)): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Auto rebuild the MPD library for USB devices on startup and when a USB device is plugged in.<br>

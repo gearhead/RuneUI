@@ -132,36 +132,36 @@ if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
 // collect system status
-$template->hwplatformid = $redis->get('hwplatformid');
-$template->realtime_volume = $redis->get('dynVolumeKnob');
-$template->mpd['start_volume'] = $redis->get('mpd_start_volume');
-$template->mpd['mpd_autoplay'] = $redis->get('mpd_autoplay');
-$template->mpd['globalrandom'] = $redis->hGet('globalrandom', 'enable');
-$template->mpd['random_album'] = $redis->hGet('globalrandom', 'random_album');
-$template->mpd['addrandom'] = $redis->hGet('globalrandom', 'addrandom');
-$template->mpd['minquelen'] = $redis->hGet('globalrandom', 'minquelen');
-$template->mpd['exclude'] = $redis->hGet('globalrandom', 'exclude');
-$template->hostname = $redis->get('hostname');
-$template->samplerate = $redis->hget('webstreaming', 'samplerate');
+$templateData['hwplatformid'] = $redis->get('hwplatformid');
+$templateData['realtime_volume'] = $redis->get('dynVolumeKnob');
+$templateData['mpd']['start_volume'] = $redis->get('mpd_start_volume');
+$templateData['mpd']['mpd_autoplay'] = $redis->get('mpd_autoplay');
+$templateData['mpd']['globalrandom'] = $redis->hGet('globalrandom', 'enable');
+$templateData['mpd']['random_album'] = $redis->hGet('globalrandom', 'random_album');
+$templateData['mpd']['addrandom'] = $redis->hGet('globalrandom', 'addrandom');
+$templateData['mpd']['minquelen'] = $redis->hGet('globalrandom', 'minquelen');
+$templateData['mpd']['exclude'] = $redis->hGet('globalrandom', 'exclude');
+$templateData['hostname'] = $redis->get('hostname');
+$templateData['samplerate'] = $redis->hget('webstreaming', 'samplerate');
 $crossfade = sysCmd('mpc crossfade')[0];
 if (!isset($crossfade) || ($crossfade === '')) {
-    $template->mpd['crossfade'] = $redis->hGet('mpdconf', 'crossfade');
+    $templateData['mpd']['crossfade'] = $redis->hGet('mpdconf', 'crossfade');
 } else {
     $crossfade = trim(preg_replace('/[^0-9]/', '', sysCmd('mpc crossfade')[0]));
-    $template->mpd['crossfade'] = $crossfade;
+    $templateData['mpd']['crossfade'] = $crossfade;
     $redis->hSet('mpdconf', 'crossfade', $crossfade);
 }
 unset($crossfade);
 $consume = sysCmd('mpc status | grep -i "consume:"')[0];
 if (!isset($consume) || ($consume === '')) {
-    $template->mpd['consume'] = $redis->hGet('mpdconf', 'consume');
+    $templateData['mpd']['consume'] = $redis->hGet('mpdconf', 'consume');
 } else {
     $consume = trim(preg_replace('/[^a-z0-9:]/', '', strtolower($consume)));
     if (strpos($consume, 'consume:off')) {
-        $template->mpd['consume'] = 0;
+        $templateData['mpd']['consume'] = 0;
         $redis->hSet('mpdconf', 'consume', 0);
     } else {
-        $template->mpd['consume'] = 1;
+        $templateData['mpd']['consume'] = 1;
         $redis->hSet('mpdconf', 'consume', 1);
     }
 }
@@ -169,29 +169,29 @@ unset($consume);
 $playlist = $redis->hGet('globalrandom', 'playlist');
 $audio_cards = array();
 if ($playlist != '') {
-    $template->ramdomsource = "Playlist '".$playlist."' is selected as random source";
+    $templateData['ramdomsource'] = "Playlist '".$playlist."' is selected as random source";
 } else {
-    $template->ramdomsource = 'Full MPD library is selected as random source';
+    $templateData['ramdomsource'] = 'Full MPD library is selected as random source';
 }
 unset($playlist);
 if ($redis->hGet('mpdconf', 'version') >= '0.21.00') {
-    $template->mpdv21 = true;
+    $templateData['mpdv21'] = true;
 }
 // check integrity of /etc/network/interfaces
 if(!hashCFG($redis, 'check_mpd')) {
-    $template->mpdconf = file_get_contents('/etc/mpd.conf');
+    $templateData['mpdconf'] = file_get_contents('/etc/mpd.conf');
     // set manual config template
-    $template->content = "mpd_manual";
+    $templateData['content'] = "mpd_manual";
 } else {
     $redis->hSet('mpdconf', 'webstreaming_encoder', $redis->hGet('webstreaming', 'encoder'));
-    $template->conf = $redis->hGetAll('mpdconf');
+    $templateData['conf'] = $redis->hGetAll('mpdconf');
     $i2smodule = $redis->get('i2smodule');
     // debug
     // echo $i2smodule."\n";
     $acards = $redis->hGetAll('acards');
     // debug
     // print_r($acards);
-    $template->count_cards = count($acards);
+    $templateData['count_cards'] = count($acards);
     foreach ($acards as $card => $data) {
         $acard_data = json_decode($data, true);
         // debug
@@ -226,16 +226,16 @@ if(!hashCFG($redis, 'check_mpd')) {
     osort($audio_cards, 'description', 0, 1);
     // debug
     // print_r($audio_cards);
-    $template->acards = $audio_cards;
+    $templateData['acards'] = $audio_cards;
     unset($i2smodule, $acards, $card, $data, $details);
-    $template->ao = $redis->get('ao');
-    $template->active_player = $redis->get('activePlayer');
-    $template->owntoneEnabled = 0;
+    $templateData['ao'] = $redis->get('ao');
+    $templateData['active_player'] = $redis->get('activePlayer');
+    $templateData['owntoneEnabled'] = 0;
     if ($redis->hGet('owntone', 'enable')) {
         if (wrk_systemd_unit($redis, 'is-active', 'owntone')) {
             // owntone is enabled and is running
-            $template->owntoneEnabled = 1;
+            $templateData['owntoneEnabled'] = 1;
         }
     }
-    $template->owntone['active'] = $redis->hGet('owntone', 'active');
+    $templateData['owntone']['active'] = $redis->hGet('owntone', 'active');
 }

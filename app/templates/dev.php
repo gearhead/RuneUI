@@ -8,7 +8,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Clear PHP OPcache</label>
                     <div class="col-sm-10">
-                        <a class="btn btn-default btn-lg btn-lg" type="submit" href="/clear" name="syscmd" id="syscmd-viewphpcache" target="_blank" <?php if((!isset($this->opcache)) || (!$this->opcache)): ?> disabled <?php endif ?>>clear OPcache</a>
+                        <a class="btn btn-default btn-lg btn-lg" type="submit" href="/clear" name="syscmd" id="syscmd-viewphpcache" target="_blank" <?php if((!isset($opcache)) || (!$opcache)): ?> disabled <?php endif ?>>clear OPcache</a>
                     </div>
                 </div>
                 <div class="form-group">
@@ -20,14 +20,14 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Restart PHP service</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg btn-lg" type="submit" name="syscmd" value="phprestart" id="syscmd-phprestart" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg btn-lg" type="submit" name="syscmd" value="phprestart" id="syscmd-phprestart" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                     </div>
                 </div>
             <div class="form-group">
                     <label class="col-sm-2 control-label">PHP OPcache (persistent cache)</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="opcache" name="opcache[enable]" type="checkbox" value="1"<?php if((isset($this->opcache)) && ($this->opcache)): ?> checked="checked" <?php endif ?>>
+                                <input id="opcache" name="opcache[enable]" type="checkbox" value="1"<?php if((isset($opcache)) && ($opcache)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Enable PHP OPcache persistence. This drastically speeds up page render, but you must manually clear cache (use above button) at any source code change. This is enabled by default in production environment</span>
@@ -48,22 +48,22 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">PlayerID</label>
                     <div class="col-sm-10">
-                        <input class="form-control input-lg" type="text" id="playerid" name="playerid" value="<?php echo $this->playerid; ?>" disabled autocomplete="off">
-                        <input class="form-control input-lg" type="text" id="hwplatformid" name="hwplatformid" value="<?php echo $this->hwplatformid; ?>" disabled autocomplete="off">
+                        <input class="form-control input-lg" type="text" id="playerid" name="playerid" value="<?php echo $playerid; ?>" disabled autocomplete="off">
+                        <input class="form-control input-lg" type="text" id="hwplatformid" name="hwplatformid" value="<?php echo $hwplatformid; ?>" disabled autocomplete="off">
                         <span class="help-block">Current detected HW fingerprint</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Git branch</label>
                     <div class="col-sm-10">
-                        <input class="form-control input-lg" type="text" id="gitbranch" name="gitbranch" value="<?php echo $this->gitbranch; ?>" disabled autocomplete="off">
+                        <input class="form-control input-lg" type="text" id="gitbranch" name="gitbranch" value="<?php echo $gitbranch; ?>" disabled autocomplete="off">
                         <span class="help-block">Current Git branch</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset the RuneAudio player</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="blankplayerid" id="syscmd-blankplayerid" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="blankplayerid" id="syscmd-blankplayerid" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Reset playerID and hwplatformID. The player will perform configuration initialisation routines during the next reboot.<br>
                         <i>This function can be used as an alternative to re-flashing your Micro-SD card if Rune stops working correctly. In many cases it will fix the problems.<br>
                         Always <strong>de-install</strong> Rern's Addons <strong>before</strong> choosing this option!<br>
@@ -74,7 +74,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Clear installation</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="clearimg" id="syscmd-clearimg" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="clearimg" id="syscmd-clearimg" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Clear command history, logs, reset image parameters to default settings.<br>
                         <i>NOTE: (Dev team function) Use this function prior to publication of a RuneOS image.<br>
                         WARNING: Automatic system shutdown and power-off after execution! Wait until it shuts down, it may take up to 5 minutes to complete!</i></span>
@@ -86,7 +86,7 @@
                     <label class="col-sm-2 control-label">Dev Mode</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="dev" name="mode[dev][enable]" type="checkbox" value="1"<?php if((isset($this->dev)) && ($this->dev)): ?> checked="checked" <?php endif ?>>
+                                <input id="dev" name="mode[dev][enable]" type="checkbox" value="1"<?php if((isset($dev)) && ($dev)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                             <span class="help-block">Enable <i>developer mode (Set ON, Save setting and then refresh the screen)</i>.<br>
@@ -100,7 +100,7 @@
                     <label class="col-sm-2 control-label">Debug</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="debug" name="mode[debug][enable]" type="checkbox" value="1"<?php if((isset($this->debug)) && ($this->debug)): ?> checked="checked" <?php endif ?>>
+                                <input id="debug" name="mode[debug][enable]" type="checkbox" value="1"<?php if((isset($debug)) && ($debug)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Activate debug data collection. (You will find all log files in <strong>/var/log/runeaudio/</strong> directory)</span>
@@ -109,7 +109,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Check FS permissions</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="syschmod" id="syscmd-mpdrestart" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="syschmod" id="syscmd-mpdrestart" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Check and restore the correct FS ownership and permissions in important system areas</span>
                     </div>
                 </div>
@@ -150,7 +150,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update RuneUI</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="gitpull" id="syscmd-gitpull" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="gitpull" id="syscmd-gitpull" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Download and install the latest updates<br>
                         A gitpull will effectively remove Rern's Addons, you will need to reinstall it after an update.<br>
                         An <strong>automatic reboot</strong> will be initiated after an update and Dev Mode will then be automatically switched OFF</span>
@@ -161,14 +161,14 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Restart MPD service</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="mpdrestart" id="syscmd-mpdrestart" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="mpdrestart" id="syscmd-mpdrestart" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">&nbsp;</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Restart Samba</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="sambarestart" id="syscmd-sambarestart" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="sambarestart" id="syscmd-sambarestart" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">If you change the Samba configuration files a restart is required to activate your changes</span>
                     </div>
                 </div>
@@ -178,7 +178,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset NET config</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="netconfreset" id="syscmd-netconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="netconfreset" id="syscmd-netconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This will reset the network configuration back to default values, an <strong>automatic shutdown and poweroff</strong> will follow.
                             You will need to disconnect and reconnect power to restart. <i>Dev mode will be switched off automatically</i></span>
                     </div>
@@ -186,28 +186,28 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset MPD config</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="mpdconfreset" id="syscmd-mpdconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="mpdconfreset" id="syscmd-mpdconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This will reset the mpd.conf file back to defaults and reinitialise MPD</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset AirPlay config</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="airplayconfreset" id="syscmd-airplayconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="airplayconfreset" id="syscmd-airplayconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This will reset the shairport-sync.conf file back to defaults and reinitialise AirPlay</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset MultiRoom config</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="multiroomconfreset" id="syscmd-multiconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="multiroomconfreset" id="syscmd-multiconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This will reset the owntone.conf file back to defaults and reinitialise MultiRoom</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Reset Samba config</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="sambaconfreset" id="syscmd-sambaconfreset" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="sambaconfreset" id="syscmd-sambaconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This will reset the smb-prod.conf and smb-dev.conf files back to defaults, remove any Samba usernames/passwords and reinitialise Samba</span>
                     </div>
                 </div>
@@ -231,7 +231,7 @@
                     <label class="col-sm-2 control-label">Underclocking</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="underclocking" name="mode[underclocking][enable]" type="checkbox" value="1"<?php if((isset($this->underclocking)) && ($this->underclocking)): ?> checked="checked" <?php endif ?>>
+                                <input id="underclocking" name="mode[underclocking][enable]" type="checkbox" value="1"<?php if((isset($underclocking)) && ($underclocking)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">These underclocking settings are switched <strong>OFF</strong> by default. They only have an effect on the Raspberry Pi models 3A+, 3B+ and B4.<br>
@@ -244,12 +244,12 @@
                         You need to restart RuneAudio to activate a changed setting</i></span>
                     </div>
                 </div>
-                <?php if ($this->hwmodel == '17') : ?>
+                <?php if ($hwmodel == '17') : ?>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Pi 5 force_turbo</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="pi5forceturbo" name="mode[pi5forceturbo][enable]" type="checkbox" value="1"<?php if((isset($this->pi5forceturbo)) && ($this->pi5forceturbo)): ?> checked="checked" <?php endif ?>>
+                                <input id="pi5forceturbo" name="mode[pi5forceturbo][enable]" type="checkbox" value="1"<?php if((isset($pi5forceturbo)) && ($pi5forceturbo)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">This setting is only relevant for the Pi 5 model.<br>
@@ -271,7 +271,7 @@
                     <label class="col-sm-2 control-label">Automatic Wi-Fi Optimisation</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($this->optwifionof)) && ($this->optwifionof)): ?> checked="checked" <?php endif ?>>
+                                <input id="optwifionof" name="mode[optwifionof][enable]" type="checkbox" value="1"<?php if((isset($optwifionof)) && ($optwifionof)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Automatic Wi-Fi Optimisation is set <strong>ON</strong> by default.
@@ -283,7 +283,7 @@
                     <label class="col-sm-2 control-label">IPv6 Connections</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="IPv6onoff" name="mode[IPv6onoff][enable]" type="checkbox" value="1"<?php if((isset($this->IPv6onoff)) && ($this->IPv6onoff)): ?> checked="checked" <?php endif ?>>
+                                <input id="IPv6onoff" name="mode[IPv6onoff][enable]" type="checkbox" value="1"<?php if((isset($IPv6onoff)) && ($IPv6onoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">IPv6 Connections is set <strong>ON</strong> by default.
@@ -303,7 +303,7 @@
                     <label class="col-sm-2 control-label">Enable/disable llmnrd</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="llmnrdonoff" name="mode[llmnrdonoff][enable]" type="checkbox" value="1"<?php if((isset($this->llmnrdonoff)) && ($this->llmnrdonoff)): ?> checked="checked" <?php endif ?>>
+                                <input id="llmnrdonoff" name="mode[llmnrdonoff][enable]" type="checkbox" value="1"<?php if((isset($llmnrdonoff)) && ($llmnrdonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">llmnrd is set <strong>ON</strong> by default. <i>Generally you should leave it switched on and it should always be left <strong>ON</strong> when you need to
@@ -314,7 +314,7 @@
                     <label class="col-sm-2 control-label">IPv6 llmnrd support</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="llmnrdipv6" name="mode[llmnrdipv6][enable]" type="checkbox" value="1"<?php if((isset($this->llmnrdipv6)) && ($this->llmnrdipv6)): ?> checked="checked" <?php endif ?>>
+                                <input id="llmnrdipv6" name="mode[llmnrdipv6][enable]" type="checkbox" value="1"<?php if((isset($llmnrdipv6)) && ($llmnrdipv6)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">IPv6 llmnrd support is set <strong>ON</strong> by default. <i>Generally you should leave it switched on. If llmnrd is logging many IPv6 messages then you could
@@ -329,7 +329,7 @@
                     <label class="col-sm-2 control-label">SoXr for MPD</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
-                            <input id="soxrmpdonoff" name="mode[soxrmpdonoff][enable]" type="checkbox" value="1"<?php if((isset($this->soxrmpdonoff)) && ($this->soxrmpdonoff)): ?> checked="checked" <?php endif ?>>
+                            <input id="soxrmpdonoff" name="mode[soxrmpdonoff][enable]" type="checkbox" value="1"<?php if((isset($soxrmpdonoff)) && ($soxrmpdonoff)): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">SoXr for MPD is set ON or OFF depending on processor type. <i>The MPD sample rate converter can not be switched off, it does nothing (and has no CPU overhead) unless sample rate conversion is required.
@@ -341,8 +341,8 @@
                     <label class="col-sm-2 control-label"> HTTPd Webstreaming encoder for MPD: Plugin(file encoding type)</label>
                     <div class="col-sm-10">
                         <select id="WSencoder" class="selectpicker" name="mode[WSencoder]" data-style="btn-default btn-lg">
-                            <option value="flac" <?php if($this->WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
-                            <option value="lame" <?php if($this->WSencoder === 'lame'): ?> selected <?php endif ?>> Lame encoder for MP3</option>
+                            <option value="flac" <?php if($WSencoder === 'flac'): ?> selected <?php endif ?>> Flac encoder for FLAC</option>
+                            <option value="lame" <?php if($WSencoder === 'lame'): ?> selected <?php endif ?>> Lame encoder for MP3</option>
                         </select>
                         <span class="help-block">Default is Lame (MP3) output which always works. <i>The alternative FLAC format is not supported by all browsers, nor is it supported on all devices.<br>
                             The FLAC encoder can support higher sample rates</i></span>
@@ -352,10 +352,10 @@
                     <label class="col-sm-2 control-label">HTTPd Webstreaming encoder for MPD: Sample rate</label>
                     <div class="col-sm-10">
                         <select id="WSsamplerate" class="selectpicker" name="mode[WSsamplerate]" data-style="btn-default btn-lg">
-                            <option value="44100" <?php if(($this->WSencoder === 'lame') || ($this->WSsamplerate === '44100')): ?> selected <?php endif ?>> 44100</option>
-                            <?php if ($this->WSencoder === 'flac'): ?>
-                            <option value="48000" <?php if($this->WSsamplerate === '48000'): ?> selected <?php endif ?>> 48000</option>
-                            <option value="96000" <?php if($this->WSsamplerate === '96000'): ?> selected <?php endif ?>> 96000</option>
+                            <option value="44100" <?php if(($WSencoder === 'lame') || ($WSsamplerate === '44100')): ?> selected <?php endif ?>> 44100</option>
+                            <?php if ($WSencoder === 'flac'): ?>
+                            <option value="48000" <?php if($WSsamplerate === '48000'): ?> selected <?php endif ?>> 48000</option>
+                            <option value="96000" <?php if($WSsamplerate === '96000'): ?> selected <?php endif ?>> 96000</option>
                             <?php endif; ?>
                         </select>
                         <span class="help-block">Default is 44100 (CD-quality) which should be fine in most cases. <i>Higher sample rates are valid for FLAC encoding, which could be
@@ -366,7 +366,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="port">Local Port</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="port" name="mode[conf][port]" value="<?=$this->conf['port'] ?>" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="text" id="port" name="mode[conf][port]" value="<?=$conf['port'] ?>" data-trigger="change">
                         <span class="help-block">This setting is the TCP port that local MPD daemon will use (default 6600).
                         <i>You should have a really good reason for changing this</i></span>
                     </div>
@@ -375,8 +375,8 @@
                     <label class="col-sm-2 control-label" for="daemon-user">Daemon user:group</label>
                     <div class="col-sm-10">
                         <select id="log-level" name="mode[conf][user]" class="selectpicker" data-style="btn-default btn-lg">
-                            <option value="mpd" <?php if($this->conf['user'] == 'mpd'): ?> selected <?php endif ?>>mpd:audio (default)</option>
-                            <option value="root" <?php if($this->conf['user'] == 'root'): ?> selected <?php endif ?>>root:root</option>
+                            <option value="mpd" <?php if($conf['user'] == 'mpd'): ?> selected <?php endif ?>>mpd:audio (default)</option>
+                            <option value="root" <?php if($conf['user'] == 'root'): ?> selected <?php endif ?>>root:root</option>
                         </select>
                         <span class="help-block">This specifies the system user:group that MPD will run as.
                         <i>Switching it to root:root may help when debugging NAS mount errors, normally this should not be required. <strong>Always switch it back to 'mpd:audio'</strong></i></span>
@@ -386,12 +386,12 @@
                     <label class="col-sm-2 control-label" for="log-level">Log Level</label>
                     <div class="col-sm-10">
                         <select id="log-level" name="mode[conf][log_level]" class="selectpicker" data-style="btn-default btn-lg">
-                            <option value="default" <?php if($this->conf['log_level'] == 'default'): ?> selected <?php endif ?>> default</option>
-                            <option value="error" <?php if($this->conf['log_level'] == 'error'): ?> selected <?php endif ?>> error</option>
-                            <option value="warning" <?php if($this->conf['log_level'] == 'warning'): ?> selected <?php endif ?>> warning</option>
-                            <option value="notice" <?php if($this->conf['log_level'] == 'notice'): ?> selected <?php endif ?>> notice</option>
-                            <option value="info" <?php if($this->conf['log_level'] == 'info'): ?> selected <?php endif ?>> info</option>
-                            <option value="verbose" <?php if($this->conf['log_level'] == 'verbose'): ?> selected <?php endif ?>> verbose</option>
+                            <option value="default" <?php if($conf['log_level'] == 'default'): ?> selected <?php endif ?>> default</option>
+                            <option value="error" <?php if($conf['log_level'] == 'error'): ?> selected <?php endif ?>> error</option>
+                            <option value="warning" <?php if($conf['log_level'] == 'warning'): ?> selected <?php endif ?>> warning</option>
+                            <option value="notice" <?php if($conf['log_level'] == 'notice'): ?> selected <?php endif ?>> notice</option>
+                            <option value="info" <?php if($conf['log_level'] == 'info'): ?> selected <?php endif ?>> info</option>
+                            <option value="verbose" <?php if($conf['log_level'] == 'verbose'): ?> selected <?php endif ?>> verbose</option>
                         </select>
                         <span class="help-block">This setting controls the type of information which is logged.
                         The "default" setting allows MPD to allocate its default setting, this currently translates to "notice" (V.0.24.5).<br>
@@ -402,8 +402,8 @@
                     <label class="col-sm-2 control-label" for="state_file_enable">State File</label>
                     <div class="col-sm-10">
                         <select id="state_file_enable" name="mode[conf][state_file_enable]" class="selectpicker" data-style="btn-default btn-lg">
-                            <option value="yes" <?php if(isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'yes')): ?> selected <?php endif ?>>enabled</option>
-                            <option value="no" <?php if(!isset($this->conf['state_file_enable']) && ($this->conf['state_file_enable'] == 'no')): ?> selected <?php endif ?>>disabled</option>
+                            <option value="yes" <?php if(isset($conf['state_file_enable']) && ($conf['state_file_enable'] == 'yes')): ?> selected <?php endif ?>>enabled</option>
+                            <option value="no" <?php if(!isset($conf['state_file_enable']) && ($conf['state_file_enable'] == 'no')): ?> selected <?php endif ?>>disabled</option>
                         </select>
                         <span class="help-block">This setting specifies if a state file is used.
                         If the state file is active, the state of MPD will be saved.
@@ -415,8 +415,8 @@
                     <label class="col-sm-2 control-label" for="ffmpeg">FFmpeg Decoder Plugin</label>
                     <div class="col-sm-10">
                         <select id="ffmpeg" name="mode[conf][ffmpeg]" class="selectpicker" data-style="btn-default btn-lg">
-                            <option value="yes" <?php if($this->conf['ffmpeg'] === 'yes'): ?> selected <?php endif ?>>enabled</option>
-                            <option value="no" <?php if($this->conf['ffmpeg'] === 'no'): ?> selected <?php endif ?>>disabled</option>
+                            <option value="yes" <?php if($conf['ffmpeg'] === 'yes'): ?> selected <?php endif ?>>enabled</option>
+                            <option value="no" <?php if($conf['ffmpeg'] === 'no'): ?> selected <?php endif ?>>disabled</option>
                         </select>
                         <span class="help-block">FFmpeg decoder plugin. FFmpeg is used to decode most of the audio (and video) codec's, default is enabled.
                         <i>Can't think of a good reason why this should be switched off</i></span>
@@ -425,7 +425,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="proxy_node">MPD Database Proxy Plugin: Node</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_node" name="mode[conf][proxy_node]" value="<?=$this->conf['proxy_node'] ?>" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_node" name="mode[conf][proxy_node]" value="<?=$conf['proxy_node'] ?>" data-trigger="change">
                         <span class="help-block">See the MPD Plugin <a href="#" onclick='window.open("https://mpd.readthedocs.io/en/latest/plugins.html#proxy", "MPD Documentation");return false;'>documentation</a>,
                             change only when you know what you are doing. It is set to the url or IP-address of the remote (master) MPD player.
                             Enabled when it has a value, disabled when empty</span>
@@ -434,7 +434,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="proxy_port">MPD Database Proxy Plugin: Port</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_port" name="mode[conf][proxy_port]" value="<?=$this->conf['proxy_port'] ?>" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="text" id="proxy_port" name="mode[conf][proxy_port]" value="<?=$conf['proxy_port'] ?>" data-trigger="change">
                         <span class="help-block">Only relevant when the 'MPD Database Proxy Plugin Node' is set, otherwise ignored.
                             Specifies the MPD TCP port on the remote (master) MPD player (default = 6600)</span>
                     </div>
@@ -457,7 +457,7 @@
                     <label class="col-sm-2 control-label" for="lyric_file">Search for Lyrics in Lyrics Files</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
-                            <input id="lyric_file" name="mode[lyrics][lyric_file]" type="checkbox" value="1"<?php if((isset($this->lyrics['lyric_file'])) && ($this->lyrics['lyric_file'])): ?> checked="checked" <?php endif ?>>
+                            <input id="lyric_file" name="mode[lyrics][lyric_file]" type="checkbox" value="1"<?php if((isset($lyrics['lyric_file'])) && ($lyrics['lyric_file'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">Lyrics files have the same name and location as the music files in your collection.
@@ -469,7 +469,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="lyric_tags">Search for Lyrics in Music Metadata Tags</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="lyric_tags" name="mode[lyrics][lyric_tags]" value="<?=$this->lyrics['lyric_tags'] ?>" data-trigger="change" placeholder="LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS">
+                        <input class="form-control osk-trigger input-lg" type="text" id="lyric_tags" name="mode[lyrics][lyric_tags]" value="<?=$lyrics['lyric_tags'] ?>" data-trigger="change" placeholder="LYRICS, SYLT, USLT, UNSYNCEDLYRICS, UNSYNCED LYRICS">
                         <span class="help-block">Specifies the music metadata tags in which to search for lyrics. The tag names are
                         separated by commas. A search for lyrics content will take place for the specified tag names plus these tags
                         names in lower case. The tags are searched in the order specified. Remove all the tags to disable. <i>There
@@ -481,7 +481,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="omit_lyrics">Omitted Genres for Lyrics</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" id="omit_lyrics" name="mode[lyrics][omit_lyrics]" value="<?=$this->lyrics['omit_lyrics'] ?>" data-trigger="change" placeholder="classical, baroque">
+                        <input class="form-control osk-trigger input-lg" type="text" id="omit_lyrics" name="mode[lyrics][omit_lyrics]" value="<?=$lyrics['omit_lyrics'] ?>" data-trigger="change" placeholder="classical, baroque">
                         <span class="help-block">Specifies the genres for which no internet lyrics search will take place. The
                         matching is case insensitive and the genre names are specified lower case, separated by commas. A partial
                         match, whereby the specified genre matches a part of the genre name of the song is also treated as a match
@@ -492,7 +492,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="match_percentage">Match Percentage for Internet Sourced Lyrics</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="number" id="match_percentage" name="mode[lyrics][match_percentage]" value="<?=$this->lyrics['match_percentage'] ?>" data-trigger="change" min="35" max="85" placeholder="50">
+                        <input class="form-control osk-trigger input-lg" type="number" id="match_percentage" name="mode[lyrics][match_percentage]" value="<?=$lyrics['match_percentage'] ?>" data-trigger="change" min="35" max="85" placeholder="50">
                         <span class="help-block">Specifies the percentage match which is used to determine whether the Internet search
                         for lyrics has been successful. A value of 50% is default, values between 45% and 75% are reasonable.
                         <i>The Internet lyrics search retrieves many false positives based on the search criteria, using this
@@ -509,7 +509,7 @@
                     <label class="col-sm-2 control-label">SoXr for AirPlay</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="soxrairplayonoff" name="mode[soxrairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->soxrairplayonoff)) && ($this->soxrairplayonoff)): ?> checked="checked" <?php endif ?>>
+                                <input id="soxrairplayonoff" name="mode[soxrairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($soxrairplayonoff)) && ($soxrairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">SoXr for AirPlay is set ON by default for most processors and OFF for the older slower devices.<br>
@@ -522,7 +522,7 @@
                     <label class="col-sm-2 control-label">AirPlay Meta-data</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="metadataairplayonoff" name="mode[metadataairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->metadataairplayonoff)) && ($this->metadataairplayonoff)): ?> checked="checked" <?php endif ?>>
+                                <input id="metadataairplayonoff" name="mode[metadataairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($metadataairplayonoff)) && ($metadataairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Meta-data for AirPlay is set ON or OFF depending on processor type.
@@ -534,7 +534,7 @@
                     <label class="col-sm-2 control-label">AirPlay Cover Art</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="artworkairplayonoff" name="mode[artworkairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($this->artworkairplayonoff)) && ($this->artworkairplayonoff)): ?> checked="checked" <?php endif ?>>
+                                <input id="artworkairplayonoff" name="mode[artworkairplayonoff][enable]" type="checkbox" value="1"<?php if((isset($artworkairplayonoff)) && ($artworkairplayonoff)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Cover Art for AirPlay is set ON or OFF depending on processor type.
@@ -546,20 +546,20 @@
                     <label class="col-sm-2 control-label" for="airplayof">AirPlay output format</label>
                     <div class="col-sm-10">
                         <select id="airplayof" class="selectpicker" name="mode[airplayof]" data-style="btn-default btn-lg">
-                            <option value="auto" <?php if($this->airplayof === 'auto'): ?> selected <?php endif ?>> Automatic</option>
-                            <option value="S16" <?php if($this->airplayof === 'S16'): ?> selected <?php endif ?>> S16</option>
-                            <option value="S16_LE" <?php if($this->airplayof === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
-                            <option value="S16_BE" <?php if($this->airplayof === 'S16_BE'): ?> selected <?php endif ?>> S16_BE</option>
-                            <option value="S24" <?php if($this->airplayof === 'S24'): ?> selected <?php endif ?>> S24</option>
-                            <option value="S24_LE" <?php if($this->airplayof === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
-                            <option value="S24_BE" <?php if($this->airplayof === 'S24_BE'): ?> selected <?php endif ?>> S24_BE</option>
-                            <option value="S32" <?php if($this->airplayof === 'S32'): ?> selected <?php endif ?>> S32</option>
-                            <option value="S32_LE" <?php if($this->airplayof === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
-                            <option value="S32_BE" <?php if($this->airplayof === 'S32_BE'): ?> selected <?php endif ?>> S32_BE</option>
-                            <option value="U8" <?php if($this->airplayof === 'U8'): ?> selected <?php endif ?>> U8</option>
-                            <option value="S8" <?php if($this->airplayof === 'S8'): ?> selected <?php endif ?>> S8</option>
-                            <option value="S24_3LE" <?php if($this->airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
-                            <option value="S24_3BE" <?php if($this->airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
+                            <option value="auto" <?php if($airplayof === 'auto'): ?> selected <?php endif ?>> Automatic</option>
+                            <option value="S16" <?php if($airplayof === 'S16'): ?> selected <?php endif ?>> S16</option>
+                            <option value="S16_LE" <?php if($airplayof === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
+                            <option value="S16_BE" <?php if($airplayof === 'S16_BE'): ?> selected <?php endif ?>> S16_BE</option>
+                            <option value="S24" <?php if($airplayof === 'S24'): ?> selected <?php endif ?>> S24</option>
+                            <option value="S24_LE" <?php if($airplayof === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
+                            <option value="S24_BE" <?php if($airplayof === 'S24_BE'): ?> selected <?php endif ?>> S24_BE</option>
+                            <option value="S32" <?php if($airplayof === 'S32'): ?> selected <?php endif ?>> S32</option>
+                            <option value="S32_LE" <?php if($airplayof === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
+                            <option value="S32_BE" <?php if($airplayof === 'S32_BE'): ?> selected <?php endif ?>> S32_BE</option>
+                            <option value="U8" <?php if($airplayof === 'U8'): ?> selected <?php endif ?>> U8</option>
+                            <option value="S8" <?php if($airplayof === 'S8'): ?> selected <?php endif ?>> S8</option>
+                            <option value="S24_3LE" <?php if($airplayof === 'S24_3LE'): ?> selected <?php endif ?>> S24_3LE</option>
+                            <option value="S24_3BE" <?php if($airplayof === 'S24_3BE'): ?> selected <?php endif ?>> S24_3BE</option>
                         </select>
                         <span class="help-block">The AirPlay output format is set to <strong>S16_LE</strong> by default.
                         In combination with 44.1kHz output rate this is the normal transmission mode for mobile AirPlay devices.
@@ -574,11 +574,11 @@
                     <label class="col-sm-2 control-label" for="airplayor">AirPlay output rate</label>
                     <div class="col-sm-10">
                         <select id="airplayor" class="selectpicker" name="mode[airplayor]" data-style="btn-default btn-lg">
-                            <option value="auto" <?php if($this->airplayor === 'auto'): ?> selected <?php endif ?>> Automatic</option>
-                            <option value="44100" <?php if($this->airplayor === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
-                            <option value="88200" <?php if($this->airplayor === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
-                            <option value="176400" <?php if($this->airplayor === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
-                            <option value="352800" <?php if($this->airplayor === '352800'): ?> selected <?php endif ?>> 352.8kHz</option>
+                            <option value="auto" <?php if($airplayor === 'auto'): ?> selected <?php endif ?>> Automatic</option>
+                            <option value="44100" <?php if($airplayor === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
+                            <option value="88200" <?php if($airplayor === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
+                            <option value="176400" <?php if($airplayor === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
+                            <option value="352800" <?php if($airplayor === '352800'): ?> selected <?php endif ?>> 352.8kHz</option>
                         </select>
                         <span class="help-block">The AirPlay output rate is set to <strong>44.1kHz</strong> by default.
                         In combination with S16_LE output format this is the normal transmission mode for mobile AirPlay devices.
@@ -597,7 +597,7 @@
                     <label class="col-sm-2 control-label">Metadata and Cover Art</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="SCmetadata_enabled" name="mode[SCmetadata_enabled][enable]" type="checkbox" value="1"<?php if((isset($this->SCmetadata_enabled)) && ($this->SCmetadata_enabled)): ?> checked="checked" <?php endif ?>>
+                                <input id="SCmetadata_enabled" name="mode[SCmetadata_enabled][enable]" type="checkbox" value="1"<?php if((isset($SCmetadata_enabled)) && ($SCmetadata_enabled)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Metadata and Cover Art for Spotify Connect is set ON or OFF depending on processor type.
@@ -612,7 +612,7 @@
                     <label class="col-sm-2 control-label">Fix for Bluetooth input volume control</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="fix_input_ba_volume_enabled" name="mode[fix_input_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($this->fix_input_ba_volume_enabled)) && ($this->fix_input_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
+                                <input id="fix_input_ba_volume_enabled" name="mode[fix_input_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($fix_input_ba_volume_enabled)) && ($fix_input_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">A Bluetooth input sometimes fails to set the volume to the correct level.
@@ -627,7 +627,7 @@
                     <label class="col-sm-2 control-label">Fix for Bluetooth output volume control</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="fix_output_ba_volume_enabled" name="mode[fix_output_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($this->fix_output_ba_volume_enabled)) && ($this->fix_output_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
+                                <input id="fix_output_ba_volume_enabled" name="mode[fix_output_ba_volume][enable]" type="checkbox" value="1"<?php if((isset($fix_output_ba_volume_enabled)) && ($fix_output_ba_volume_enabled)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">Sometimes Bluetooth fails to set the output volume level.
@@ -645,12 +645,12 @@
                     <label class="col-sm-2 control-label" for="MRorder">MultiRoom UI device and client order</label>
                     <div class="col-sm-10">
                         <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
-                            <option value="MLC" <?php if($this->MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
-                            <option value="MCL" <?php if($this->MRorder === 'MCL'): ?> selected <?php endif ?>> Master - Client - Local</option>
-                            <option value="LMC" <?php if($this->MRorder === 'LMC'): ?> selected <?php endif ?>> Local - Master - Client</option>
-                            <option value="LCM" <?php if($this->MRorder === 'LCM'): ?> selected <?php endif ?>> Local - Client - Master</option>
-                            <option value="CML" <?php if($this->MRorder === 'CML'): ?> selected <?php endif ?>> Client - Master - Local</option>
-                            <option value="CLM" <?php if($this->MRorder === 'CLM'): ?> selected <?php endif ?>> Client - Local - Master</option>
+                            <option value="MLC" <?php if($MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
+                            <option value="MCL" <?php if($MRorder === 'MCL'): ?> selected <?php endif ?>> Master - Client - Local</option>
+                            <option value="LMC" <?php if($MRorder === 'LMC'): ?> selected <?php endif ?>> Local - Master - Client</option>
+                            <option value="LCM" <?php if($MRorder === 'LCM'): ?> selected <?php endif ?>> Local - Client - Master</option>
+                            <option value="CML" <?php if($MRorder === 'CML'): ?> selected <?php endif ?>> Client - Master - Local</option>
+                            <option value="CLM" <?php if($MRorder === 'CLM'): ?> selected <?php endif ?>> Client - Local - Master</option>
                         </select>
                         <span class="help-block">In the Multi-Room UI,
                         the groups of settings in the screen are arranged in <strong>Master - Local - Client</strong> order by default.<br>
@@ -664,9 +664,9 @@
                     <label class="col-sm-2 control-label" for="MRformat">MultiRoom audio format</label>
                     <div class="col-sm-10">
                         <select id="MRformat" class="selectpicker" name="mode[MRformat]" data-style="btn-default btn-lg">
-                            <option value="S16_LE" <?php if($this->MRformat === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
-                            <option value="S24_LE" <?php if($this->MRformat === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
-                            <option value="S32_LE" <?php if($this->MRformat === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
+                            <option value="S16_LE" <?php if($MRformat === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
+                            <option value="S24_LE" <?php if($MRformat === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
+                            <option value="S32_LE" <?php if($MRformat === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
                         </select>
                         <span class="help-block">The default audio format for MultiRoom is S16_LE (signed 16-bit little-endian integer).
                         This is the only format supported.
@@ -681,9 +681,9 @@
                     <label class="col-sm-2 control-label" for="MRrate">MultiRoom audio sample rate</label>
                     <div class="col-sm-10">
                         <select id="MRrate" class="selectpicker" name="mode[MRrate]" data-style="btn-default btn-lg">
-                            <option value="44100" <?php if($this->MRrate === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
-                            <option value="88200" <?php if($this->MRrate === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
-                            <option value="176400" <?php if($this->MRrate === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
+                            <option value="44100" <?php if($MRrate === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
+                            <option value="88200" <?php if($MRrate === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
+                            <option value="176400" <?php if($MRrate === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
                         </select>
                         <span class="help-block">The default audio sample rate for MultiRoom is 44.1kHz (lossless CD quality).
                         This is the only format supported.
@@ -703,8 +703,8 @@
                     <label class="col-sm-2 control-label" for="alsa_rate_converter">ALSA rate converter (re&#8209;sampeler)</label>
                     <div class="col-sm-10">
                         <select id="alsa_rate_converter" class="selectpicker" name="mode[alsa_rate_converter]" data-style="btn-default btn-lg">
-                            <option value="speexrate_best" <?php if($this->alsa_rate_converter === 'speexrate_best'): ?> selected <?php endif ?>> speexrate_best</option>
-                            <option value="samplerate_best" <?php if($this->alsa_rate_converter === 'samplerate_best'): ?> selected <?php endif ?>> samplerate_best</option>
+                            <option value="speexrate_best" <?php if($alsa_rate_converter === 'speexrate_best'): ?> selected <?php endif ?>> speexrate_best</option>
+                            <option value="samplerate_best" <?php if($alsa_rate_converter === 'samplerate_best'): ?> selected <?php endif ?>> samplerate_best</option>
                         </select>
                         <span class="help-block">The default ALSA rate converter is 'samplerate_best'.
                         You can also use the alternative, 'speexrate_best'.<br>
@@ -722,7 +722,7 @@
                     <label class="col-sm-2 control-label">Player name in Menu</label>
                     <div class="col-sm-10">
                             <label class="switch-light well" onclick="">
-                                <input id="playernamemenu" name="mode[playernamemenu][enable]" type="checkbox" value="1"<?php if((isset($this->playernamemenu)) && ($this->playernamemenu)): ?> checked="checked" <?php endif ?>>
+                                <input id="playernamemenu" name="mode[playernamemenu][enable]" type="checkbox" value="1"<?php if((isset($playernamemenu)) && ($playernamemenu)): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                         <span class="help-block">With this option you can add your player name (hostname) before the word '<strong>Menu</strong>' at the top right of your UI.
@@ -734,12 +734,12 @@
                     <label class="col-sm-2 control-label" for="UIorder">UI object order</label>
                     <div class="col-sm-10">
                         <select id="UIorder" class="selectpicker" name="mode[UIorder]" data-style="btn-default btn-lg">
-                            <option value="TAV" <?php if($this->UIorder === 'TAV'): ?> selected <?php endif ?>> Time - Album - Volume</option>
-                            <option value="TVA" <?php if($this->UIorder === 'TVA'): ?> selected <?php endif ?>> Time - Volume - Album</option>
-                            <option value="AVT" <?php if($this->UIorder === 'AVT'): ?> selected <?php endif ?>> Album - Volume - Time</option>
-                            <option value="ATV" <?php if($this->UIorder === 'ATV'): ?> selected <?php endif ?>> Album - Time - Volume</option>
-                            <option value="VAT" <?php if($this->UIorder === 'VAT'): ?> selected <?php endif ?>> Volume - Album - Time</option>
-                            <option value="VTA" <?php if($this->UIorder === 'VTA'): ?> selected <?php endif ?>> Volume - Time - Album</option>
+                            <option value="TAV" <?php if($UIorder === 'TAV'): ?> selected <?php endif ?>> Time - Album - Volume</option>
+                            <option value="TVA" <?php if($UIorder === 'TVA'): ?> selected <?php endif ?>> Time - Volume - Album</option>
+                            <option value="AVT" <?php if($UIorder === 'AVT'): ?> selected <?php endif ?>> Album - Volume - Time</option>
+                            <option value="ATV" <?php if($UIorder === 'ATV'): ?> selected <?php endif ?>> Album - Time - Volume</option>
+                            <option value="VAT" <?php if($UIorder === 'VAT'): ?> selected <?php endif ?>> Volume - Album - Time</option>
+                            <option value="VTA" <?php if($UIorder === 'VTA'): ?> selected <?php endif ?>> Volume - Time - Album</option>
                         </select>
                         <span class="help-block">In the main UI, the main objects in the screen are arranged in <strong>Time - Album - Volume</strong> order by default.<br>
                         These objects may be reordered into any way which you prefer. This is particularly useful when using vertically orientated local browser screens
@@ -753,8 +753,8 @@
                     <label class="col-sm-2 control-label" for="bigArt">Art preferences</label>
                     <div class="col-sm-10">
                         <select id="bigArt" class="selectpicker" name="mode[bigArt]" data-style="btn-default btn-lg">
-                            <option value="album" <?php if($this->bigArt === 'album'): ?> selected <?php endif ?>> Large Album cover art</option>
-                            <option value="artist" <?php if($this->bigArt === 'artist'): ?> selected <?php endif ?>> Large Artist photo art</option>
+                            <option value="album" <?php if($bigArt === 'album'): ?> selected <?php endif ?>> Large Album cover art</option>
+                            <option value="artist" <?php if($bigArt === 'artist'): ?> selected <?php endif ?>> Large Artist photo art</option>
                         </select>
                         <span class="help-block">In the screen saver pages, the Album cover and Artist photo art are both displayed. By default the
                         Album cover has a large size and the Artist photo is small. You can swap the large and small images using this option.<br>
@@ -768,7 +768,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="artResizing">Local album art resizing</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="number" id="artResizing" name="mode[artResizing]" value="<?=$this->artResizing ?>" min="100" max="1000" placeholder="350" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" type="number" id="artResizing" name="mode[artResizing]" value="<?=$artResizing ?>" min="100" max="1000" placeholder="350" data-trigger="change">
                         <span class="help-block">In the main UI, the locally sourced album art is displayed with a maximum format of n pixels high and n pixels wide.
                         When the locally sourced album art is larger it will be reduced in size so that it fits into n by n pixels.
                         The image aspect ratio remains unchanged.
@@ -784,7 +784,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="artResizingOpts">Local album art resizing options</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" id="artResizingOpts" name="mode[artResizingOpts]" value="<?=$this->artResizingOpts ?>" placeholder="-strip -interlace Plane -quality 90" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" id="artResizingOpts" name="mode[artResizingOpts]" value="<?=$artResizingOpts ?>" placeholder="-strip -interlace Plane -quality 90" data-trigger="change">
                         <span class="help-block">The options used by ImageMagic to optimize the resized images, see the ImageMagick manual for details.
                         The default settings are '<strong>-strip -interlace Plane -quality 90</strong>', you can change these if required.<br>
                         <i>Note: The values of changed resizing options are not validated, please ensure that the new settings are tested</i></span>
@@ -793,7 +793,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="artMatchPercentage">Match Percentage for Internet Sourced Album Art</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="number" id="artMatchPercentage" name="mode[artMatchPercentage]" value="<?=$this->artMatchPercentage ?>" data-trigger="change" min="35" max="85" placeholder="55">
+                        <input class="form-control osk-trigger input-lg" type="number" id="artMatchPercentage" name="mode[artMatchPercentage]" value="<?=$artMatchPercentage ?>" data-trigger="change" min="35" max="85" placeholder="55">
                         <span class="help-block">Specifies the percentage match which is used to determine whether the Internet search
                         for album art has been successful. A value of 55% is default, values between 45% and 75% are reasonable.
                         <i>The Internet album art search retrieves many false positives based on the search criteria, by using this
@@ -806,7 +806,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="webradioRejectCount">Number of repeats to trigger reject Webradio metadata</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="number" id="webradioRejectCount" name="mode[webradioRejectCount]" value="<?=$this->webradioRejectCount ?>" data-trigger="change" min="-1" max="20" placeholder="8">
+                        <input class="form-control osk-trigger input-lg" type="number" id="webradioRejectCount" name="mode[webradioRejectCount]" value="<?=$webradioRejectCount ?>" data-trigger="change" min="-1" max="20" placeholder="8">
                         <span class="help-block">Specifies the number of repeats within an hour which will trigger rejecting Webradio metadata.
                         A value of 8 is default, values between 6 and 14 are reasonable, a value less then 5 will disable the feature.
                         <i>Some Webradio stations repeat a metadata string many times each hour, this often contains text advertising the Radio Station and has no relationship to the song being played.
@@ -820,8 +820,8 @@
                     <label class="col-sm-2 control-label" for="local_browser_windows">Windows environment choice</label>
                     <div class="col-sm-10">
                         <select id="local_browser_windows" class="selectpicker" name="mode[local_browser_windows]" data-style="btn-default btn-lg">
-                            <option value="xorg" <?php if($this->local_browser_windows === 'xorg'): ?> selected <?php endif ?>> Xorg</option>
-                            <option value="weston" <?php if($this->local_browser_windows === 'weston'): ?> selected <?php endif ?>> Weston</option>
+                            <option value="xorg" <?php if($local_browser_windows === 'xorg'): ?> selected <?php endif ?>> Xorg</option>
+                            <option value="weston" <?php if($local_browser_windows === 'weston'): ?> selected <?php endif ?>> Weston</option>
                         </select>
                         <span class="help-block">The default is <strong>Xorg Windows environment</strong>.
                         The Weston Windows environment is preferable as it is a more modern product, unfortunately it is less reliable than Xorg.<br>
@@ -834,8 +834,8 @@
                     <label class="col-sm-2 control-label" for="local_browser_browser">Browser choice</label>
                     <div class="col-sm-10">
                         <select id="local_browser_browser" class="selectpicker" name="mode[local_browser_browser]" data-style="btn-default btn-lg">
-                            <option value="chromium" <?php if($this->local_browser_browser === 'chromium'): ?> selected <?php endif ?>> Chromium</option>
-                            <option value="luakit" <?php if($this->local_browser_browser === 'luakit'): ?> selected <?php endif ?>> Luakit</option>
+                            <option value="chromium" <?php if($local_browser_browser === 'chromium'): ?> selected <?php endif ?>> Chromium</option>
+                            <option value="luakit" <?php if($local_browser_browser === 'luakit'): ?> selected <?php endif ?>> Luakit</option>
                         </select>
                         <span class="help-block">The default is the <strong>Chromium Local Browser</strong>.
                         The Luakit Local Browser is preferable as it is a more lightweight product, unfortunately it is less reliable than Chromium.<br>
@@ -857,7 +857,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Extend the Linux Partition</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="extendpartition" id="syscmd-extendpartition" <?php if((!isset($this->dev)) || (!$this->dev)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="extendpartition" id="syscmd-extendpartition" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">This RuneAudio image is designed to fit on a 8Gb Micro-SD card even though most SD-cards are now 16Gb or greater.
                         In most cases RuneAudio will work fine without extending the Linux Partition.
                         If you want to utilise the extra available space on the Micro-SD card you can use this option to extend the Linux Partition to its maximum size.
@@ -865,33 +865,33 @@
                     </div>
                 </div>
             </div>
-            <legend>ReplayGain tags<?php if(isset($this->replaygain) && $this->replaygain): ?> - running <i class="fa fa-refresh fa-spin"></i><?php endif ?></legend>
+            <legend>ReplayGain tags<?php if(isset($replaygain) && $replaygain): ?> - running <i class="fa fa-refresh fa-spin"></i><?php endif ?></legend>
             <div class="boxed-group">
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsFlac" id="syscmd-addRGtagsFlac" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsFlac" id="syscmd-updateRGtagsFlac" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to Flac files on your locally mounted USB-drives when these tags not present (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from Flac files</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsFlac" id="syscmd-delRGtagsFlac" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all Flac files</strong> on your locally mounted USB-drives (using metaflac)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Add ReplayGain tags to all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="addRGtagsAll" id="syscmd-addRGtagsAll" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
                         <strong>There are issues with several file types, loudgain cannot add tags to all files</strong></span>
                     </div>
@@ -900,7 +900,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Update ReplayGain tags for all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="updateRGtagsAll" id="syscmd-updateRGtagsAll" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be added to music files on your locally mounted USB-drives when these tags not present (using loudgain).
                         <strong>There are issues with several file types, it is likely that tags cannot be added and the added tags can not be 100% reversed</strong></span>
                     </div>
@@ -909,7 +909,7 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Remove ReplayGain tags from all music files (experimental, use with care)</label>
                     <div class="col-sm-10">
-                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if ((!isset($this->dev) || !$this->dev) || (isset($this->replaygain) && $this->replaygain)): ?> disabled <?php endif ?>>
+                        <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="delRGtagsAll" id="syscmd-delRGtagsAll" <?php if ((!isset($dev) || !$dev) || (isset($replaygain) && $replaygain)): ?> disabled <?php endif ?>>
                         <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
                         <strong>There are issues with several file types, loudgain cannot 100% remove/reverse the tags</strong></span>
                         <br>

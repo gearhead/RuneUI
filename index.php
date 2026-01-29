@@ -59,30 +59,83 @@ if (!is_localhost() && !isset($_SESSION["login"]) && $redis->get('pwd_protection
     die();
 }
 // plates: create new engine
+// plates: create new engine
 $engine = new \League\Plates\Engine('/srv/http/app/templates');
-// plates: load asset extension
-$engine->loadExtension(new \League\Plates\Extension\Asset('/srv/http/assets', true));
-// plates: load URI extension
-$engine->loadExtension(new \League\Plates\Extension\URI($_SERVER['REQUEST_URI']));
-// plates: create a new template
-$template = new \League\Plates\Template($engine);
+
+// Helper classes to replace removed extensions
+class UriHelper {
+    private $segments;
+    private $uri;
+    
+    public function __construct($uri) {
+        $this->uri = $uri;
+        $path = parse_url($uri, PHP_URL_PATH);
+        $this->segments = array_values(array_filter(explode('/',$path)));
+    }
+    
+    public function segment($index) {
+        $key = $index - 1;
+        return isset($this->segments[$key]) ? $this->segments[$key] : '';
+    }
+    
+    public function getUri() {
+        return $this->uri;
+    }
+}
+
+class AssetHelper {
+    private $path;
+    
+    public function __construct($path, $filenameMethod = false) {
+        $this->path = rtrim($path, '/'). '';
+    }
+    
+    public function url($file) {
+        $file = ltrim($file, '/'). '';
+        return $this->path . '/'. $file;
+    }
+}
+
+// Initialize helpers
+$uriHelper = new UriHelper($_SERVER['REQUEST_URI']);
+$assetHelper = new AssetHelper('/assets', true);
+
+// Register functions (replaces extensions)
+$engine->registerFunction('uri', function($index = null) use ($uriHelper) {
+    if ($index === null) {
+        return $uriHelper->getUri();
+    }
+    return $uriHelper->segment($index);
+});
+
+$engine->registerFunction('asset', function($file) use ($assetHelper) {
+    return $assetHelper->url($file);
+});
+
+// Initialize template data array (replaces $template object)
+$templateData = [];
+// Get URI segments for routing
+$segment1 = $uriHelper->segment(1);
+$segment2 = $uriHelper->segment(2);
+$segment3 = $uriHelper->segment(3);
+
 // set devmode
-$template->dev = $devmode;
+$templateData['dev'] = $devmode;
 // activePlayer
 $activePlayer = $redis->get('activePlayer');
 // TODO: rework needed
-$template->activePlayer = $activePlayer;
+$templateData['activePlayer'] = $activePlayer;
 // owntone menu visible
 if ($redis->hGet('owntone', 'active') && ($redis->hGet('owntone', 'role') == 'server')) {
-    $template->owntoneMenu = 1;
-    $template->owntoneMenuTab = 0;
+    $templateData['owntoneMenu'] = 1;
+    $templateData['owntoneMenuTab'] = 0;
 } else {
-    $template->owntoneMenu = 0;
-    $template->owntoneServer = $redis->hGet('owntone', 'server');
-    if ($template->owntoneServer && ($redis->hGet('owntone', 'role') == 'client')) {
-        $template->owntoneMenuTab = 1;
+    $templateData['owntoneMenu'] = 0;
+    $templateData['owntoneServer'] = $redis->hGet('owntone', 'server');
+    if ($templateData['owntoneServer'] && ($redis->hGet('owntone', 'role') == 'client')) {
+        $templateData['owntoneMenuTab'] = 1;
     } else {
-        $template->owntoneMenuTab = 0;
+        $templateData['owntoneMenuTab'] = 0;
     }
 }
 // allowed controllers
@@ -105,66 +158,71 @@ $controllers = array(
     'tun'
 );
 // check page
-if (in_array($template->uri(1), $controllers) OR empty($template->uri(1))) {
+if (in_array($segment1, $controllers) OR empty($segment1)) {
     // decode REQUEST_URL and assing section
-    if (!empty($template->uri(1)) && ($template->uri(1) !== 'playback')) {
+    if (!empty($segment1) && ($segment1 !== 'playback')) {
         // decode ACTION
-        if (!empty($template->uri(2))) {
-            $template->action = $template->uri(2);
+        if (!empty($segment2)) {
+            $templateData['action'] = $segment2;
             // assign SUB-TEMPLATE
-            if ($template->action === 'add') {
+            if ($templateData['action'] === 'add') {
                 $subtpl = 'edit';
             } else {
-                $subtpl = $template->action;
+                $subtpl = $templateData['action'];
             }
             // decode ARG
-            if(!empty($template->uri(3))) {
-                $template->arg = $template->uri(3);
+            if(!empty($segment3)) {
+                $templateData['arg'] = $segment3;
             }
             // assign TEMPLATE
-            $template->content = $template->uri(1).'_'.$subtpl;
+            $templateData['content'] = $segment1.'_'.$subtpl;
         } else {
             // assign TEMPLATE
-            $template->content = $template->uri(1);
-            $template->action = '';
-            $template->arg = '';
+            $templateData['content'] = $segment1;
+            $templateData['action'] = '';
+            $templateData['arg'] = '';
         }
-        $template->section = $template->uri(1);
+        $templateData['section'] = $segment1;
         // debug
         //runelog("index: section",$template->section);
         // debug
-        //runelog("index: selected controller(1)",APP.$template->uri(1));
+        //runelog("index: selected controller(1)",APP.$segment1);
         // load selected APP Controller
-        require_once(APP.$template->uri(1).'_ctl.php');
+        require_once(APP.$segment1.'_ctl.php');
         // register current controller in SESSION
-        if ($template->uri(1) !== 'coverart' && $template->uri(1) !== 'coverart2') {
-            $_SESSION['controller'] = $template->uri(1);
+        if ($segment1 !== 'coverart' && $segment1 !== 'coverart2') {
+            $_SESSION['controller'] = $segment1;
         }
     } else {
         // debug
         //runelog("index: selected controller(2)",'playback_ctl.php');
         // load playback APP Controller
         require_once(APP.'playback_ctl.php');
-        $template->section = 'index';
-        $template->content = 'playback';
+        $templateData['section'] = 'index';
+        $templateData['content'] = 'playback';
         // register current controller in SESSION
         $_SESSION['controller'] = 'playback';
     }
 } else {
-    $template->section = 'error';
-    $template->content = 'error';
+    $templateData['section'] = 'error';
+    $templateData['content'] = 'error';
     // register current controller in SESSION
     $_SESSION['controller'] = 'error';
 }
+// Get URI segments for routing
+$segment1 = $uriHelper->segment(1);
+$segment2 = $uriHelper->segment(2);
+$segment3 = $uriHelper->segment(3);
+
 // set devmode
-$template->dev = $devmode;
+$templateData['dev'] = $devmode;
 // plates: render layout (if you want to output direct, set $tplfile = 0 into controller)
 if (isset($tplfile)) {
     if ($tplfile !== 0) {
-        echo $template->render('default_lo');
+        echo $engine->render('default_lo', $templateData);
     }
 } else {
-    echo $template->render('default_lo');
+    echo $engine->render('default_lo', $templateData);
 }
 // close player backend connection
 if ($activePlayer === 'MPD') {

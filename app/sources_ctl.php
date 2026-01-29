@@ -68,8 +68,8 @@ if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
 // collect system status
-$template->db_autorebuild = $redis->get('usb_db_autorebuild');
-$template->hostname = $redis->get('hostname');
+$templateData['db_autorebuild'] = $redis->get('usb_db_autorebuild');
+$templateData['hostname'] = $redis->get('hostname');
 
 
 $source = netMounts($redis, 'read');
@@ -86,23 +86,23 @@ if($source !== true) {
         $mounts[]=$mp;
     }
 }
-$template->mounts = $mounts;
+$templateData['mounts'] = $mounts;
 $usbmounts = $redis->hGetAll('usbmounts');
 foreach ($usbmounts as $usbmount) {
-    $template->usbmounts[] = json_decode($usbmount);
+    $templateData['usbmounts'][] = json_decode($usbmount);
 }
-if (isset($template->action)) {
-    if (isset($template->arg)) {
+if (isset($templateData['action'])) {
+    if (isset($templateData['arg'])) {
         foreach ($source as $mp) {
             if ($mp['type'] == 'osx') {
                 $mp['type'] = 'cifs';
             }
-            if ($mp['id'] == $template->arg) {
-                $template->mount = $mp;
+            if ($mp['id'] == $templateData['arg']) {
+                $templateData['mount'] = $mp;
             }
         }
-        $template->title = 'Edit network mount';
+        $templateData['title'] = 'Edit network mount';
     } else {
-        $template->title = 'Add new network mount';
+        $templateData['title'] = 'Add new network mount';
     }
 }

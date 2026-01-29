@@ -1,6 +1,6 @@
 <head>
     <meta charset="utf-8">
-    <title><?=$this->hostname ?> - RuneUI</title>
+    <title><?=$hostname ?> - RuneUI</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -67,26 +67,26 @@
 -->
 <div id="menu-top">
     <div class="dropdown">
-        <!--- <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#"><?=$this->hostname ?> MENU <i class="fa fa-bars dx"></i></a>-->
+        <!--- <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#"><?=$hostname ?> MENU <i class="fa fa-bars dx"></i></a>-->
         <!--- <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#">MENU <i class="fa fa-bars dx"></i></a>-->
-        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" href="#"><?=$this->hostname ?> MENU <i class="fa fa-bars dx"></i></a> <!--- playernamemenu -->
+        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" href="#"><?=$hostname ?> MENU <i class="fa fa-bars dx"></i></a> <!--- playernamemenu -->
         <ul class="dropdown-menu" role="menu" aria-labelledby="menu-settings">
             <li class="<?=$this->uri(1, '', 'active')?>"><a href="/"><i class="fa fa-play"></i> Playback</a></li>
             <li class="<?=$this->uri(1, 'sources', 'active')?>"><a href="/sources/"><i class="fa fa-folder-open"></i> Sources</a></li>
             <li class="<?=$this->uri(1, 'mpd', 'active')?>"><a href="/mpd/"><i class="fa fa-cogs"></i> MPD</a></li>
             <li class="<?=$this->uri(1, 'settings', 'active')?>"><a href="/settings/"><i class="fa fa-wrench"></i> Settings</a></li>
             <li class="<?=$this->uri(1, 'network', 'active')?>"><a href="/network/"><i class="fa fa-sitemap"></i> Network</a></li>
-            <li class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$this->owntoneMenuTab): ?> hide<?php endif ?>"><a href="#" onclick='window.open("http://<?=$this->owntoneServer ?>/multiroom/", "MultiRoom");return false;'><i class="fa fa-sliders"></i> Multi-Room</a></li>
-            <li id="menu_multiroom" class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$this->owntoneMenu): ?> hide<?php endif ?>"><a href="/multiroom/"><i class="fa fa-network-wired"></i> Multi-Room</a></li>
+            <li class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$owntoneMenuTab): ?> hide<?php endif ?>"><a href="#" onclick='window.open("http://<?=$owntoneServer ?>/multiroom/", "MultiRoom");return false;'><i class="fa fa-sliders"></i> Multi-Room</a></li>
+            <li id="menu_multiroom" class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$owntoneMenu): ?> hide<?php endif ?>"><a href="/multiroom/"><i class="fa fa-network-wired"></i> Multi-Room</a></li>
             <?php if (is_localhost()): ?>
-                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "_self");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:8080", "_self");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
             <?php else: ?>
-                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:8080", "Mixer");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:8080", "Mixer");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
             <?php endif ?>
             <li class="<?=$this->uri(1, 'debug', 'active')?>"><a href="/debug/"><i class="fa fa-bug"></i> Debug</a></li>
             <li class="<?=$this->uri(1, 'credits', 'active')?>"><a href="/credits/"><i class="fa fa-trophy"></i> Credits</a></li>
             <li><a href="#poweroff-modal" data-toggle="modal"><i class="fa fa-power-off"></i> Turn off</a></li>
-            <?php if ((isset($this->pwd_protection)) && ($this->pwd_protection)):?>
+            <?php if ((isset($pwd_protection)) && ($pwd_protection)):?>
               <li><a href="/logout.php"><i class="fa fa-sign-out"></i> Logout</a></li>
             <?php endif ?>
         </ul>
@@ -96,7 +96,7 @@
         <button id="stop" class="btn btn-default btn-cmd" title="Stop" data-cmd="stop"><i class="fa fa-stop"></i></button>
         <button id="play" class="btn btn-default btn-cmd" title="Play/Pause" data-cmd="play"><i class="fa fa-play"></i></button>
         <button id="next" class="btn btn-default btn-cmd" title="Next" data-cmd="next"><i class="fa fa-step-forward"></i></button>
-        <button id="eject" class="btn btn-default<?php if ($this->ejectOff): ?> hide<?php endif ?>" title="Eject CD" data-cmd="eject"><i class="fa fa-eject"></i></button>
+        <button id="eject" class="btn btn-default<?php if ($ejectOff): ?> hide<?php endif ?>" title="Eject CD" data-cmd="eject"><i class="fa fa-eject"></i></button>
     </div>
     <a id="clock-display" class="home" href="/"><img src="<?=$this->asset('/img/logo.png')?>" class="logo" alt="RuneAudio"></a>
 </div>

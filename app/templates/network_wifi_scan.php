@@ -4,12 +4,12 @@
     <span class="help-block">Click on an entry to Add, Edit or Delete a Wi-Fi profile</span>
     <fieldset>
         <div id="wifiNetworks" class="boxed">
-            <?php if (!$this->wifi_on):?>
+            <?php if (!$wifi_on):?>
                 <p>Wi-Fi is switched <strong>OFF</strong></p>
             <?php endif; ?>
-            <?php if ($this->networksFound):?>
-                <?php foreach ($this->networks as $network): ?>
-                    <?php if (($network['technology'] === 'wifi') && ($network['nic'] === $this->arg)): ?>
+            <?php if ($networksFound):?>
+                <?php foreach ($networks as $network): ?>
+                    <?php if (($network['technology'] === 'wifi') && ($network['nic'] === $arg)): ?>
                         <p><a href="/network/wifi_edit/<?=$network['macAddress']?>_<?=$network['ssidHex']?>" class="btn btn-lg btn-default btn-block" title="Click to see the network properties">
                             <?php if (($network['online']) || ($network['ready'])):?><span class="fa fa-check green sx"></span><?php endif;?>
                             <span class="fa fa-rss fa-wifi<?php if ($network['configured']):?> green<?php endif;?> sx"></span>
@@ -47,12 +47,12 @@
                 <span><span>SHOW<i class="fa fa-chevron-down dx"></i></span><span>HIDE<i class="fa fa-chevron-up dx"></i></span></span><a class="btn btn-primary"></a>
             </label>
             <div id="wifiProfilesBox" class="hide">
-                <?php if ($this->storedProfilesFound):?>
+                <?php if ($storedProfilesFound):?>
                     <p>Add, Edit or Delete stored Wi-Fi profiles</p>
                     <div id="wifiStored">
-                    <?php foreach ($this->storedProfiles as $profile): ?>
+                    <?php foreach ($storedProfiles as $profile): ?>
                         <?php if ($profile['technology'] === 'wifi'): ?>
-                            <p><a href="/network/wifi_edit/<?=$this->macAddress?>_<?=$profile['ssidHex']?>" class="btn btn-lg btn-default btn-block" title="Click to see the network profile">
+                            <p><a href="/network/wifi_edit/<?=$macAddress?>_<?=$profile['ssidHex']?>" class="btn btn-lg btn-default btn-block" title="Click to see the network profile">
                                 <span class="fa <?php if ((isset($profile['online']) && $profile['online']) || (isset($profile['ready']) && $profile['ready'])):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>
                                 <span class="fa <?php if (isset($profile['security']) && ($profile['security'] === 'OPEN') || ($network['security'] === '')):?>fa-unlock<?php else:?>fa-lock<?php endif;?> sx"></span>
                                 <strong><?=$profile['ssid']?></strong>
@@ -66,7 +66,7 @@
                         <strong>No stored profiles found</strong>
                         </a></p>
                 <?php endif; ?>
-                    <p><a href="/network/wifi_edit/<?=$this->macAddress?>_" class="btn btn-primary btn-lg btn-block">
+                    <p><a href="/network/wifi_edit/<?=$macAddress?>_" class="btn btn-primary btn-lg btn-block">
                     <span><i class="fa fa-plus sx"></i>
                     <strong>Add new profile</strong>
                     </span></a></p>

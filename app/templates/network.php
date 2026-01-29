@@ -4,14 +4,14 @@
     <div class="boxed">
         <p>List of active network interfaces</p>
         <form id="network-interface-list" class="button-list" method="post">
-        <?php if ($this->processing): ?>
+        <?php if ($processing): ?>
             <p><i>...Still processing the network interfaces, try again in a few moments...</i></p>
         <?php else:?>
-            <?php foreach ($this->nics as $nic): ?>
+            <?php foreach ($nics as $nic): ?>
                 <?php if ($nic['technology'] === 'wifi'): ?>
-                    <p><a <?php if ($nic['nic'] != $this->virtNic): ?>href="/network/wifi_scan/<?=$nic['nic']?>"<?php else:?>href="/accesspoint"<?php endif;?> class="btn btn-lg btn-default btn-block">
+                    <p><a <?php if ($nic['nic'] != $virtNic): ?>href="/network/wifi_scan/<?=$nic['nic']?>"<?php else:?>href="/accesspoint"<?php endif;?> class="btn btn-lg btn-default btn-block">
                         <span class="fa <?php if ($nic['connected']):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>
-                        <strong><?=$nic['nic']?></strong>&nbsp;&nbsp;&nbsp; [<?php if ($nic['type']=='AP'):?>Access Point<?php if ($this->nat=='1'):?> with NAT<?php endif;?>: <?php endif;?><?php if ($nic['ssid']!=''):?><i><?=$nic['ssid']?></i> <?php endif;?><?=$nic['technology']?>]
+                        <strong><?=$nic['nic']?></strong>&nbsp;&nbsp;&nbsp; [<?php if ($nic['type']=='AP'):?>Access Point<?php if ($nat=='1'):?> with NAT<?php endif;?>: <?php endif;?><?php if ($nic['ssid']!=''):?><i><?=$nic['ssid']?></i> <?php endif;?><?=$nic['technology']?>]
                         [<?php if ($nic['connected']):?><?=$nic['ipv4Address']?><?php else:?>No IP assigned<?php endif;?>]
                     </a></p>
                 <?php else:?>
@@ -23,10 +23,10 @@
                 <?php endif;?>
             <?php endforeach; ?>
         <?php endif;?>
-        <?php if(isset($this->btenable) && $this->btenable): ?>
+        <?php if(isset($btenable) && $btenable): ?>
             <p><a href="/bluetooth" class="btn btn-lg btn-default btn-block">
-                <span class="fa <?php if ($this->btstring):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>
-                <strong>Bluetooth</strong>&nbsp;&nbsp;&nbsp; <?=$this->btstring?>
+                <span class="fa <?php if ($btstring):?>fa-check green<?php else:?>fa-times red<?php endif;?> sx"></span>
+                <strong>Bluetooth</strong>&nbsp;&nbsp;&nbsp; <?=$btstring?>
             </a></p>
         <?php endif ?>
         <span class="help-block">Click on an entry to configure the corresponding connection</span>
@@ -45,11 +45,11 @@
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input type="hidden" name="btenable" value="0">
-                        <input id="bluetooth" name="btenable" type="checkbox" value="1"<?php if((isset($this->btenable)) && ($this->btenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <input id="bluetooth" name="btenable" type="checkbox" value="1"<?php if((isset($btenable)) && ($btenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Enable/Disable Bluetooth.<br>
-                        <?php if(isset($this->btenable) && $this->btenable): ?>
+                        <?php if(isset($btenable) && $btenable): ?>
                         Click on <strong>BLUETOOTH</strong> for more information and to configure a Bluetooth connection.<br>
                         <?php endif ?>
                         <i>Notes: RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones).
@@ -61,17 +61,17 @@
         </form>
     </div>
     <br>
-    <?php if((isset($this->wifiswitch) && $this->wifiswitch) || (isset($this->allwifiswitch) && $this->allwifiswitch)): ?>
+    <?php if((isset($wifiswitch) && $wifiswitch) || (isset($allwifiswitch) && $allwifiswitch)): ?>
     <legend>Wi-Fi</legend>
     <div class="boxed">
-        <?php if(isset($this->wifiswitch) && $this->wifiswitch): ?>
+        <?php if(isset($wifiswitch) && $wifiswitch): ?>
         <form id='wifionoff' name='wifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">
                 <label for="wifi" class="control-label col-sm-2">On-board Wi-Fi</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input type="hidden" name="wifienable" value="0">
-                        <input id="wifi" name="wifienable" type="checkbox" value="1"<?php if((isset($this->wifienable)) && ($this->wifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <input id="wifi" name="wifienable" type="checkbox" value="1"<?php if((isset($wifienable)) && ($wifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Enable/Disable on-board Wi-Fi.<br>
@@ -83,14 +83,14 @@
             </div>
         </form>
         <?php endif ?>
-        <?php if(isset($this->allwifiswitch) && $this->allwifiswitch): ?>
+        <?php if(isset($allwifiswitch) && $allwifiswitch): ?>
         <form id='allwifionoff' name='allwifionoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="form-group">
                 <label for="allwifi" class="control-label col-sm-2">All Wi-Fi</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input type="hidden" name="allwifienable" value="0">
-                        <input id="allwifi" name="allwifienable" type="checkbox" value="1"<?php if((isset($this->allwifienable)) && ($this->allwifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <input id="allwifi" name="allwifienable" type="checkbox" value="1"<?php if((isset($allwifienable)) && ($allwifienable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Enable/Disable all Wi-Fi.<br>
@@ -103,7 +103,7 @@
     </div>
     <br>
     <?php endif ?>
-    <?php if((isset($this->apswitch)) && ($this->apswitch)): ?>
+    <?php if((isset($apswitch)) && ($apswitch)): ?>
     <legend>Access Point</legend>
     <div class="boxed">
         <form id='aponoff' name='aponoff' class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
@@ -112,7 +112,7 @@
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input type="hidden" name="apenable" value="0">
-                        <input id="accesspoint" name="apenable" type="checkbox" value="1"<?php if((isset($this->apenable)) && ($this->apenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
+                        <input id="accesspoint" name="apenable" type="checkbox" value="1"<?php if((isset($apenable)) && ($apenable)): ?> checked="checked" <?php endif ?> onchange='this.form.submit()'>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Enable/Disable starting a wireless AccessPoint on startup.<br>
@@ -125,7 +125,7 @@
             </div>
             <div class="form-group form-actions">
                 <div class="col-sm-offset-2 col-sm-10">
-                    <?php if(isset($this->apenable) && $this->apenable): ?>
+                    <?php if(isset($apenable) && $apenable): ?>
                     <button type="button" class="btn btn-lg btn-primary" onclick="location.href='/accesspoint'">AP Configuration</button>
                     <span class="help-block">Click on 'AP Configuration' for more information and to configure your device as an Access Point</span>
                     <?php endif ?>

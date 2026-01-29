@@ -53,8 +53,8 @@ foreach ($cards as $z => $card) {
         $data = sysCmd('/usr/bin/amixer -c '.$card.' sget "'.$value[1].'"');
         foreach ($data as $i => $entry) {
             if ($i != 0)
-                $template->alsa_controls[$card][$value[1]][split(": ", ltrim($entry))[0]] = str_getcsv(split(": ", ltrim($entry))[1], ' ', "'");
+                $templateData['alsa_controls'][$card][$value[1]][split(": ", ltrim($entry))[0]] = str_getcsv(split(": ", ltrim($entry))[1], ' ', "'");
         }
     }
 }
-// var_dump($template->alsa_controls);
+// var_dump($templateData['alsa_controls']);

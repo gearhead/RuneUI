@@ -139,95 +139,95 @@ if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
 
-$template->hostname = $redis->get('hostname');
-$template->enable = $redis->get('bluetooth_on');
+$templateData['hostname'] = $redis->get('hostname');
+$templateData['enable'] = $redis->get('bluetooth_on');
 // testing for an active Blutooth controller seems to give a false negative on its first try, repeat it max 3 times with a half second delay
-$template->bluetooth = false;
+$templateData['bluetooth'] = false;
 $cnt = 3;
-while (!$template->bluetooth && ($cnt-- > 0)) {
-    $template->bluetooth = sysCmd('timeout 5 bluetoothctl list | grep -ic "Controller " | xargs')[0];
-    if (!$template->bluetooth) {
+while (!$templateData['bluetooth'] && ($cnt-- > 0)) {
+    $templateData['bluetooth'] = sysCmd('timeout 5 bluetoothctl list | grep -ic "Controller " | xargs')[0];
+    if (!$templateData['bluetooth']) {
         // sleep half a second
         usleep(500000);
     }
 }
-$template->config = $redis->hgetall('bluetooth');
+$templateData['config'] = $redis->hgetall('bluetooth');
 // remove the next lines after the next build
-if (!isset($template->config['IO_toggle'])) {
+if (!isset($templateData['config']['IO_toggle'])) {
     $redis->hSet('bluetooth', 'IO_toggle', 'both');
-    $template->config['IO_toggle'] = 'both';
+    $templateData['config']['IO_toggle'] = 'both';
 }
-if (!isset($template->config['samplerate'])) {
+if (!isset($templateData['config']['samplerate'])) {
     $redis->hSet('bluetooth', 'samplerate', '44100');
-    $template->config['samplerate'] = '44100';
+    $templateData['config']['samplerate'] = '44100';
 }
-// if (!isset($template->config['native_volume_control'])) {
+// if (!isset($templateData['config']['native_volume_control'])) {
     // $redis->hSet('bluetooth', 'native_volume_control', 'a');
-    // $template->config['native_volume_control'] = 'a';
+    // $templateData['config']['native_volume_control'] = 'a';
 // }
-if (!isset($template->config['local_volume_control'])) {
+if (!isset($templateData['config']['local_volume_control'])) {
     $redis->hSet('bluetooth', 'local_volume_control', 0);
-    $template->config['local_volume_control'] = 0;
+    $templateData['config']['local_volume_control'] = 0;
 // temporary code, remove after the next release
-} else if (!is_numeric($template->config['local_volume_control'])) {
-    if ($template->config['local_volume_control'] == '') {
+} else if (!is_numeric($templateData['config']['local_volume_control'])) {
+    if ($templateData['config']['local_volume_control'] == '') {
         $redis->hSet('bluetooth', 'local_volume_control', 0);
-        $template->config['local_volume_control'] = 0;
+        $templateData['config']['local_volume_control'] = 0;
     } else {
         $redis->hSet('bluetooth', 'local_volume_control', 1);
-        $template->config['local_volume_control'] = 1;
+        $templateData['config']['local_volume_control'] = 1;
     }
 }
-if (!isset($template->config['remember_last_volume'])) {
+if (!isset($templateData['config']['remember_last_volume'])) {
     $redis->hSet('bluetooth', 'remember_last_volume', 0);
-    $template->config['remember_last_volume'] = 0;
+    $templateData['config']['remember_last_volume'] = 0;
 }
-if (!isset($template->config['def_volume_in'])) {
+if (!isset($templateData['config']['def_volume_in'])) {
     $redis->hSet('bluetooth', 'def_volume_in', -1);
-    $template->config['def_volume_in'] = -1;
+    $templateData['config']['def_volume_in'] = -1;
 }
-// if (!isset($template->config['def_volume_out'])) {
+// if (!isset($templateData['config']['def_volume_out'])) {
     // $redis->hSet('bluetooth', 'def_volume_out', -1);
-    // $template->config['def_volume_out'] = -1;
+    // $templateData['config']['def_volume_out'] = -1;
 // }
-if (!isset($template->config['aptX_HD_codec'])) {
+if (!isset($templateData['config']['aptX_HD_codec'])) {
     $redis->hSet('bluetooth', 'aptX_HD_codec', 0);
-    $template->config['aptX_HD_codec'] = 0;
+    $templateData['config']['aptX_HD_codec'] = 0;
 }
-if (!isset($template->config['FastStream_codec'])) {
+if (!isset($templateData['config']['FastStream_codec'])) {
     $redis->hSet('bluetooth', 'FastStream_codec', 0);
-    $template->config['FastStream_codec'] = 0;
+    $templateData['config']['FastStream_codec'] = 0;
 }
-if (!isset($template->config['LDAC_codec'])) {
+if (!isset($templateData['config']['LDAC_codec'])) {
     $redis->hSet('bluetooth', 'LDAC_codec', 0);
-    $template->config['LDAC_codec'] = 0;
+    $templateData['config']['LDAC_codec'] = 0;
 }
 // end remove
 $acards = $redis->hgetall('acards');
-$template->noOutput = '1';
+$templateData['noOutput'] = '1';
 foreach ($acards as $acard) {
     if (strpos(' '.strtolower($acard), 'hw')) {
         // no need to json decode the card, just test for the occurrence of 'hw'
         //  this will ignore bluetooth output
-        $template->noOutput = '0';
+        $templateData['noOutput'] = '0';
         break;
     }
 }
 unset($acards, $acard);
-$template->codecs = strtolower(trim(explode(':', sysCmd('bluealsad --help | grep -i a2dp-source:')[0], 2)[1]));
-$template->devices = wrk_btcfg($redis, 'status');
-$template->samplerate = wrk_btcfg($redis, 'status');
+$templateData['codecs'] = strtolower(trim(explode(':', sysCmd('bluealsad --help | grep -i a2dp-source:')[0], 2)[1]));
+$templateData['devices'] = wrk_btcfg($redis, 'status');
+$templateData['samplerate'] = wrk_btcfg($redis, 'status');
 // get the quality options, these are stored in files '/etc/default/bluealsa.<name>'
 //  name is not empty and is the name of the quality option
-if (isset($template->config['quality_options'])) {
-    $template->quality_options = json_decode($template->config['quality_options'], true);
+if (isset($templateData['config']['quality_options'])) {
+    $templateData['quality_options'] = json_decode($templateData['config']['quality_options'], true);
 } else {
-    $template->quality_options = array();
+    $templateData['quality_options'] = array();
 }
 $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
 if (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software')) {
-    $template->player_volume_control = 1;
+    $templateData['player_volume_control'] = 1;
 } else {
-    $template->player_volume_control = 0;
+    $templateData['player_volume_control'] = 0;
 }
 unset($player_volume_control);

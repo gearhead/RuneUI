@@ -349,55 +349,55 @@ if ($os == 'RPiOS') {
 } else {
     $codename = '';
 }
-$template->sysstate['kernel'] = $release.' '.$os.$codename.' '.$machine.' '.$bit;
-$template->sysstate['time'] = implode('\n', sysCmd('date'));
-$template->sysstate['uptime'] = date('d:H:i:s', strtok(file_get_contents('/proc/uptime'), ' ' ));
-$template->sysstate['HWplatform'] = $redis->get('hwplatform')." (".$redis->get('hwplatformid').")";
-$template->sysstate['HWmodel'] = implode('\n', sysCmd('cat /proc/device-tree/model'));
-$template->sysstate['playerID'] = $redis->get('playerid');
-$template->sysstate['runeOS'] = trim(sysCmd("cat /etc/motd | grep -i 'RuneOS:' | cut -d ':' -f 2")[0]);
-$template->sysstate['buildversion'] = $redis->get('buildversion')."-".$redis->get('patchlevel');
-$template->sysstate['release'] = $redis->get('release');
+$templateData['sysstate']['kernel'] = $release.' '.$os.$codename.' '.$machine.' '.$bit;
+$templateData['sysstate']['time'] = implode('\n', sysCmd('date'));
+$templateData['sysstate']['uptime'] = date('d:H:i:s', strtok(file_get_contents('/proc/uptime'), ' ' ));
+$templateData['sysstate']['HWplatform'] = $redis->get('hwplatform')." (".$redis->get('hwplatformid').")";
+$templateData['sysstate']['HWmodel'] = implode('\n', sysCmd('cat /proc/device-tree/model'));
+$templateData['sysstate']['playerID'] = $redis->get('playerid');
+$templateData['sysstate']['runeOS'] = trim(sysCmd("cat /etc/motd | grep -i 'RuneOS:' | cut -d ':' -f 2")[0]);
+$templateData['sysstate']['buildversion'] = $redis->get('buildversion')."-".$redis->get('patchlevel');
+$templateData['sysstate']['release'] = $redis->get('release');
 // the next line won't work, file protection issue with /opt/vc/bin/vcgencmd
-$template->sysstate['cpuTemp'] = trim(preg_replace('/[^0-9.]/', '', sysCmd('vcgencmd measure_temp | grep temp')[0]));
+$templateData['sysstate']['cpuTemp'] = trim(preg_replace('/[^0-9.]/', '', sysCmd('vcgencmd measure_temp | grep temp')[0]));
 // collect the rest of the UI variables
-$template->hostname = $redis->get('hostname');
-$template->ntpserver = $redis->get('ntpserver');
-$template->timezone = $redis->get('timezone');
-$template->orionprofile = $redis->get('orionprofile');
-$template->airplay = $redis->hGetAll('airplay');
-$template->dlna = $redis->hGetAll('dlna');
-$template->local_browser = $redis->hGetAll('local_browser');
-$template->remoteSStime = $redis->get('remoteSStime');
-$template->udevil = $redis->get('udevil');
-$template->coverart = $redis->get('coverart');
-$template->lastfm = $redis->hGetAll('lastfm');
-$template->proxy = $redis->hGetAll('proxy');
-$template->spotifyconnect = $redis->hGetAll('spotifyconnect');
-$template->owntone['enable'] = $redis->hGet('owntone', 'enable');
-$template->owntone['default_volume'] = $redis->hGet('owntone', 'default_volume');
-$template->owntone['multidevice'] = $redis->hGet('owntone', 'multidevice');
-$template->owntone['streaming'] = $redis->hGet('owntone', 'streaming');
-$template->samba = $redis->hGetAll('samba');
-$template->hwplatformid = $redis->get('hwplatformid');
-$template->i2smodule = $redis->get('i2smodule');
-$template->i2smodule_select = $redis->get('i2smodule_select');
+$templateData['hostname'] = $redis->get('hostname');
+$templateData['ntpserver'] = $redis->get('ntpserver');
+$templateData['timezone'] = $redis->get('timezone');
+$templateData['orionprofile'] = $redis->get('orionprofile');
+$templateData['airplay'] = $redis->hGetAll('airplay');
+$templateData['dlna'] = $redis->hGetAll('dlna');
+$templateData['local_browser'] = $redis->hGetAll('local_browser');
+$templateData['remoteSStime'] = $redis->get('remoteSStime');
+$templateData['udevil'] = $redis->get('udevil');
+$templateData['coverart'] = $redis->get('coverart');
+$templateData['lastfm'] = $redis->hGetAll('lastfm');
+$templateData['proxy'] = $redis->hGetAll('proxy');
+$templateData['spotifyconnect'] = $redis->hGetAll('spotifyconnect');
+$templateData['owntone']['enable'] = $redis->hGet('owntone', 'enable');
+$templateData['owntone']['default_volume'] = $redis->hGet('owntone', 'default_volume');
+$templateData['owntone']['multidevice'] = $redis->hGet('owntone', 'multidevice');
+$templateData['owntone']['streaming'] = $redis->hGet('owntone', 'streaming');
+$templateData['samba'] = $redis->hGetAll('samba');
+$templateData['hwplatformid'] = $redis->get('hwplatformid');
+$templateData['i2smodule'] = $redis->get('i2smodule');
+$templateData['i2smodule_select'] = $redis->get('i2smodule_select');
 if ($redis->get('ao')) {
-    $template->ao = 1;
+    $templateData['ao'] = 1;
 } else {
-    $template->ao = 0;
+    $templateData['ao'] = 0;
 }
-$template->hwinput = $redis->hGet('hw_input', 'enable');
-$template->cdinput = $redis->hGet('CD', 'enable');
-$template->cdautoplay = $redis->hGet('CD', 'autoplay');
+$templateData['hwinput'] = $redis->hGet('hw_input', 'enable');
+$templateData['cdinput'] = $redis->hGet('CD', 'enable');
+$templateData['cdautoplay'] = $redis->hGet('CD', 'autoplay');
 // the following code is for a manually edited <p1mountpoint>/config.txt containing a I2S-Settings dtoverlay value
-if ($template->i2smodule == 'none') {
+if ($templateData['i2smodule'] == 'none') {
     $retval = sysCmd("grep -v '#.*=' '".$redis->get('p1mountpoint')."/config.txt' | sed -n '/^#.[ ]*.RuneAudio I2S-Settings/,/^#/p' | grep '^dtoverlay' | cut -d '=' -f2")[0];
     if (isset($retval)) {
         $retval = trim($retval);
         if (($retval != 'none') && $retval) {
             $redis->set('i2smodule', $retval);
-            $template->i2smodule = $retval;
+            $templateData['i2smodule'] = $retval;
             // also determine a valid value of $redis->get('i2smodule_select')
             // first try to match a generic sound-card
             $retval1 = sysCmd("grep -i '".$retval."|Generic' '/srv/http/.config/i2s_table.txt' | head -n 1")[0];
@@ -405,7 +405,7 @@ if ($template->i2smodule == 'none') {
                 $retval1 = trim($retval1);
                 if ($retval1) {
                     $redis->set('i2smodule_select', $retval1);
-                    $template->i2smodule_select = $retval1;
+                    $templateData['i2smodule_select'] = $retval1;
                 } else {
                     // when no generic sound card matches, just get the first
                     $retval1 = sysCmd("grep -i '".$retval."|' '/srv/http/.config/i2s_table.txt' | head -n 1")[0];
@@ -413,12 +413,12 @@ if ($template->i2smodule == 'none') {
                         $retval1 = trim($retval1);
                         if ($retval1) {
                             $redis->set('i2smodule_select', $retval1);
-                            $template->i2smodule_select = $retval1;
+                            $templateData['i2smodule_select'] = $retval1;
                         } else {
                             // this should never happen
                             $retval1 = $retval.'|Unknown';
                             $redis->set('i2smodule_select', $retval1);
-                            $template->i2smodule_select = $retval1;
+                            $templateData['i2smodule_select'] = $retval1;
                         }
                     }
                 }
@@ -427,34 +427,34 @@ if ($template->i2smodule == 'none') {
     }
     unset($retval, $retval1);
 }
-$template->audio_on_off = $redis->get('audio_on_off');
-// $template->kernel = $redis->get('kernel');
-$template->kernel = trim(sysCmd('uname -sr')[0]).$bit;
+$templateData['audio_on_off'] = $redis->get('audio_on_off');
+// $templateData['kernel'] = $redis->get('kernel');
+$templateData['kernel'] = trim(sysCmd('uname -sr')[0]).$bit;
 // the next line prevents the kernel change routine from running
-$redis->set('kernel', $template->kernel);
+$redis->set('kernel', $templateData['kernel']);
 unset($bit);
-$template->pwd_protection = $redis->get('pwd_protection');
-$template->memory = $redis->get('memoryKb');
+$templateData['pwd_protection'] = $redis->get('pwd_protection');
+$templateData['memory'] = $redis->get('memoryKb');
 $cores = $redis->get('cores');
-$template->cores = $cores;
+$templateData['cores'] = $cores;
 // check if a local browser and owntone are supported, hardware must be multiprocessor
 if ($redis->get('cores') > 1) {
-    $template->local_browseronoff = true;
-    $template->local_owntoneonoff = true;
-    $template->local_cdripperonoff = true;
+    $templateData['local_browseronoff'] = true;
+    $templateData['local_owntoneonoff'] = true;
+    $templateData['local_cdripperonoff'] = true;
 } else {
-    $template->local_browseronoff = false;
-    $template->local_owntoneonoff = false;
-    $template->local_cdripperonoff = false;
+    $templateData['local_browseronoff'] = false;
+    $templateData['local_owntoneonoff'] = false;
+    $templateData['local_cdripperonoff'] = false;
 }
 // proces CD ripper information
 $stillMounted = false;
-if ($template->local_cdripperonoff) {
+if ($templateData['local_cdripperonoff']) {
     // check that a cd drive is present
-    $template->cdstoragedevices = array();
-    $template->cdstoragedevice = $redis->hGet('CDripper', 'cdstoragedevice');
-    $template->storagedevices = '<strong>Available devices and relevance</strong><br>';
-    $template->ripdirectory = '/'.trim($redis->hGet('CDripper', 'ripdir'), " \n\r\t\v\x00/");
+    $templateData['cdstoragedevices'] = array();
+    $templateData['cdstoragedevice'] = $redis->hGet('CDripper', 'cdstoragedevice');
+    $templateData['storagedevices'] = '<strong>Available devices and relevance</strong><br>';
+    $templateData['ripdirectory'] = '/'.trim($redis->hGet('CDripper', 'ripdir'), " \n\r\t\v\x00/");
     $cdPresent = sysCmd("ls -al /dev/cdrom 2>/dev/null | grep -ic '/dev/cdrom\s*->' | xargs")[0];
     if ($cdPresent) {
         // only process when a CD drive is present
@@ -470,9 +470,9 @@ if ($template->local_cdripperonoff) {
                 //  8 : Free space b (with trailing M)
                 // 11 : Mount
                 $freeSpace = preg_replace('/[^0-9\s]/', '', $deviceDetails[8]);
-                if (($freeSpace < 600) && ($deviceDetails[11].'/rips' == $template->cdstoragedevice)) {
+                if (($freeSpace < 600) && ($deviceDetails[11].'/rips' == $templateData['cdstoragedevice'])) {
                     $redis->hSet('CDripper', 'cdstoragedevice', 'None');
-                    $template->cdstoragedevice = 'None';
+                    $templateData['cdstoragedevice'] = 'None';
                 }
                 $readOnly = 0;
                 $noWrite = 0;
@@ -488,48 +488,48 @@ if ($template->local_cdripperonoff) {
                             sysCmd("rm /mnt/MPD/USB/sda1-usb-USB_SanDisk_3.2G/xxx1234567890xxx");
                         }
                     }
-                    $template->storagedevices .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
+                    $templateData['storagedevices'] .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
                     if ($freeSpace < 600) {
-                        $template->storagedevices .= '<strong>Insufficient free space</strong><br>';
+                        $templateData['storagedevices'] .= '<strong>Insufficient free space</strong><br>';
                     } else if ($readOnly) {
-                        $template->storagedevices .= '<strong>Read only mount</strong><br>';
+                        $templateData['storagedevices'] .= '<strong>Read only mount</strong><br>';
                     } else if ($noWrite) {
-                        $template->storagedevices .= '<strong>Read only network share</strong><br>';
-                    } else if ($deviceDetails[11] == $template->cdstoragedevice) {
-                        $template->storagedevices .= '<strong>Selected</strong><br>';
-                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $templateData['storagedevices'] .= '<strong>Read only network share</strong><br>';
+                    } else if ($deviceDetails[11] == $templateData['cdstoragedevice']) {
+                        $templateData['storagedevices'] .= '<strong>Selected</strong><br>';
+                        $templateData['cdstoragedevices'][] = $deviceDetails[11];
                         $stillMounted = true;
                     } else {
-                        $template->storagedevices .= '<strong>Device usable</strong><br>';
-                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $templateData['storagedevices'] .= '<strong>Device usable</strong><br>';
+                        $templateData['cdstoragedevices'][] = $deviceDetails[11];
                     }
                 } else {
                     // its a sd?? filesystem mount
-                    $template->storagedevices .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
+                    $templateData['storagedevices'] .= $deviceDetails[0].' on '.$deviceDetails[11].', capacity:'.$deviceDetails[6].'b, free:'.$deviceDetails[8].'b - ';
                     if ($freeSpace < 600) {
-                        $template->storagedevices .= '<strong>Insufficient free space</strong><br>';
-                    } else if ($deviceDetails[11] == $template->cdstoragedevice) {
-                        $template->storagedevices .= '<strong>Selected</strong><br>';
-                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $templateData['storagedevices'] .= '<strong>Insufficient free space</strong><br>';
+                    } else if ($deviceDetails[11] == $templateData['cdstoragedevice']) {
+                        $templateData['storagedevices'] .= '<strong>Selected</strong><br>';
+                        $templateData['cdstoragedevices'][] = $deviceDetails[11];
                         $stillMounted = true;
                     } else {
-                        $template->storagedevices .= '<strong>Device usable</strong><br>';
-                        $template->cdstoragedevices[] = $deviceDetails[11];
+                        $templateData['storagedevices'] .= '<strong>Device usable</strong><br>';
+                        $templateData['cdstoragedevices'][] = $deviceDetails[11];
                     }
                 }
             }
         } else {
-            $template->storagedevices = '<strong>No devices detected</strong><br>';
+            $templateData['storagedevices'] = '<strong>No devices detected</strong><br>';
         }
     } else {
-        $template->storagedevices = '<strong>No CD-ROM Connected</strong><br>';
+        $templateData['storagedevices'] = '<strong>No CD-ROM Connected</strong><br>';
     }
 } else {
     $redis->hSet('CDripper', 'enable', 0);
     $redis->hSet('CDripper', 'cdstoragedevice', 'None');
 }
-if (!isset($template->cdstoragedevices) || !count($template->cdstoragedevices) || !$stillMounted) {
+if (!isset($templateData['cdstoragedevices']) || !count($templateData['cdstoragedevices']) || !$stillMounted) {
     $redis->hSet('CDripper', 'cdstoragedevice', 'None');
 }
-$template->cdripper = $redis->hGet('CDripper', 'enable');
-$template->cdstoragedevice = $redis->hGet('CDripper', 'cdstoragedevice');
+$templateData['cdripper'] = $redis->hGet('CDripper', 'enable');
+$templateData['cdstoragedevice'] = $redis->hGet('CDripper', 'cdstoragedevice');

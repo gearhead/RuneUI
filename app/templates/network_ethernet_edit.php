@@ -1,22 +1,22 @@
 <div id="network-wifi-edit-container" class="container">
     <h1>Network interface</h1>
     <form class="form-horizontal" action="/network" method="post" data-parsley-validate>
-     <input type="hidden" name="profile[nic]" value="<?= htmlspecialchars($this->profile['nic']) ?>">
-     <input type="hidden" name="profile[macAddress]" value="<?= htmlspecialchars($this->profile['macAddress']) ?>">
+     <input type="hidden" name="profile[nic]" value="<?= htmlspecialchars($profile['nic']) ?>">
+     <input type="hidden" name="profile[macAddress]" value="<?= htmlspecialchars($profile['macAddress']) ?>">
         <legend>Wired Internet Interface</legend>
         <fieldset>
-            <table id="nic-details" class="info-table boxed" data-name="<? =$this->profile['macAddress']?>">
+            <table id="nic-details" class="info-table boxed" data-name="<? =$profile['macAddress']?>">
                 <tbody>
-                    <tr><th>Name:</th><td><strong><?php echo $this->profile['nic'];?></strong></td></tr>
-                    <tr><th>Type:</th><td><strong><?php if ($this->profile['technology'] === 'ethernet'):?>Wired Ethernet<?php else:?>Wi-Fi<?php endif;?></strong></td></tr>
-                    <?php if ($this->profile['connected']):?>
-                        <tr><th>Status:</th><td><strong><span class="fa fa-check green sx"></span>connected<?php if ($this->profile['configured']):?>, <span class="fa fa-wifi green sx"></span>configured<?php endif;?><?php if ($this->profile['autoconnect']):?>, <span class="fa fa-cogs green sx"></span>autoconnect<?php endif;?></strong></td></tr>
-                        <tr><th>Assigned IP:</th><td><strong><?php echo $this->profile['ipv4Address'].' ['.$this->profile['ipAssignment'].']';?></strong></td></tr>
-                        <tr><th>Speed:</th><td><strong><?php echo $this->profile['speed'];?></strong></td></tr>
+                    <tr><th>Name:</th><td><strong><?php echo $profile['nic'];?></strong></td></tr>
+                    <tr><th>Type:</th><td><strong><?php if ($profile['technology'] === 'ethernet'):?>Wired Ethernet<?php else:?>Wi-Fi<?php endif;?></strong></td></tr>
+                    <?php if ($profile['connected']):?>
+                        <tr><th>Status:</th><td><strong><span class="fa fa-check green sx"></span>connected<?php if ($profile['configured']):?>, <span class="fa fa-wifi green sx"></span>configured<?php endif;?><?php if ($profile['autoconnect']):?>, <span class="fa fa-cogs green sx"></span>autoconnect<?php endif;?></strong></td></tr>
+                        <tr><th>Assigned IP:</th><td><strong><?php echo $profile['ipv4Address'].' ['.$profile['ipAssignment'].']';?></strong></td></tr>
+                        <tr><th>Speed:</th><td><strong><?php echo $profile['speed'];?></strong></td></tr>
                     <?php else:?>
-                        <tr><th>Status:</th><td><strong><span class="fa fa-times red sx"></span>no network connected<?php if ($this->profile['configured']):?>, <span class="fa fa-wifi green sx"></span>configured<?php endif;?><?php if ($this->profile['autoconnect']):?>, <span class="fa fa-cogs green sx"></span>autoconnect<?php endif;?></strong></td></tr>
+                        <tr><th>Status:</th><td><strong><span class="fa fa-times red sx"></span>no network connected<?php if ($profile['configured']):?>, <span class="fa fa-wifi green sx"></span>configured<?php endif;?><?php if ($profile['autoconnect']):?>, <span class="fa fa-cogs green sx"></span>autoconnect<?php endif;?></strong></td></tr>
                     <?php endif;?>
-                    <tr><th>MAC address:</th><td><strong><?php echo join(":", str_split($this->profile['macAddress'], 2));?></strong></td></tr>
+                    <tr><th>MAC address:</th><td><strong><?php echo join(":", str_split($profile['macAddress'], 2));?></strong></td></tr>
                 </tbody>
             </table>
         </fieldset>
@@ -26,8 +26,8 @@
                 <label class="col-sm-2 control-label" for="profile[ipAssignment]">IP Assignment</label>
                 <div class="col-sm-10">
                     <select id="dhcp" name="profile[ipAssignment]" class="selectpicker" data-style="btn-default btn-lg">
-                        <option value="DHCP" <?php if ($this->profile['ipAssignment'] === 'DHCP'): ?> selected <?php endif; ?>>DHCP</option>
-                        <option value="Static" <?php if ($this->profile['ipAssignment'] === 'Static'): ?> selected <?php endif; ?>>Static</option>
+                        <option value="DHCP" <?php if ($profile['ipAssignment'] === 'DHCP'): ?> selected <?php endif; ?>>DHCP</option>
+                        <option value="Static" <?php if ($profile['ipAssignment'] === 'Static'): ?> selected <?php endif; ?>>Static</option>
                     </select>
                         <span class="help-block">Choose between DHCP and Static configuration.<br>
                             <i>DHCP IP Assignment normally works fine. You should only use Static IP Assignment if you know what you are doing</i></span>
@@ -36,53 +36,53 @@
             <div class="form-group hide">
                 <label class="col-sm-2 control-label" for="profile[nic]">Name</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[nic]" value="<?=$this->profile['nic']?>" placeholder="<?=$this->profile['nic']?> data-parsley-trigger="change">
+                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[nic]" value="<?=$profile['nic']?>" placeholder="<?=$profile['nic']?> data-parsley-trigger="change">
                 </div>
             </div>
             <div class="form-group hide">
                 <label class="col-sm-2 control-label" for="profile[macAddress]">MAC Address</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[macAddress]" value="<?=$this->profile['macAddress']?>" placeholder="<?=$this->profile['macAddress']?> data-parsley-trigger="change">
+                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[macAddress]" value="<?=$profile['macAddress']?>" placeholder="<?=$profile['macAddress']?> data-parsley-trigger="change">
                 </div>
             </div>
             <div class="form-group hide">
                 <label class="col-sm-2 control-label" for="profile[connmanString]">Comnnman String</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[connmanString]" value="<?=$this->profile['connmanString']?>" placeholder="<?=$this->profile['connmanString']?> data-parsley-trigger="change">
+                    <input class="form-control osk-trigger input-lg" type="text" id="nic" name="profile[connmanString]" value="<?=$profile['connmanString']?>" placeholder="<?=$profile['connmanString']?> data-parsley-trigger="change">
                 </div>
             </div>
-            <div id="network-manual-config"<?php if ($this->profile['ipAssignment'] === 'DHCP'):?> class="hide"<?php endif;?>>
+            <div id="network-manual-config"<?php if ($profile['ipAssignment'] === 'DHCP'):?> class="hide"<?php endif;?>>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="profile[ipv4Address]">IP Address</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.?" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ipv4Address" name="profile[ipv4Address]" value="<?=$this->profile['ipv4Address']?>" placeholder="<?=$this->profile['ipv4Address']?> data-parsley-trigger="change" required >
+                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.?" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ipv4Address" name="profile[ipv4Address]" value="<?=$profile['ipv4Address']?>" placeholder="<?=$profile['ipv4Address']?> data-parsley-trigger="change" required >
                         <span class="help-block">Manually set the IP address (required)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="profile[ipv4Mask]">Netmask</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" placeholder="255.255.255.0" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ipv4Mask" name="profile[ipv4Mask]" value="<?=$this->profile['ipv4Mask']?>" placeholder="<?=$this->profile['ipv4Mask']?>" data-parsley-trigger="change" required >
+                        <input class="form-control osk-trigger input-lg" type="text" placeholder="255.255.255.0" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="ipv4Mask" name="profile[ipv4Mask]" value="<?=$profile['ipv4Mask']?>" placeholder="<?=$profile['ipv4Mask']?>" data-parsley-trigger="change" required >
                         <span class="help-block">Manually set the network mask (required)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="profile[defaultGateway]">Gateway</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.1" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="defaultGateway" name="profile[defaultGateway]" value="<?=$this->profile['defaultGateway']?>" placeholder="<?=$this->profile['defaultGateway']?>" data-parsley-trigger="change" required >
+                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.1" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="defaultGateway" name="profile[defaultGateway]" value="<?=$profile['defaultGateway']?>" placeholder="<?=$profile['defaultGateway']?>" data-parsley-trigger="change" required >
                         <span class="help-block">Manually set the gateway (required)</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="profile[primaryDns]">Primary DNS</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.1" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="primaryDns" name="profile[primaryDns]" value="<?=$this->profile['primaryDns']?>" placeholder="<?=$this->profile['primaryDns']?>" data-parsley-trigger="change" >
+                        <input class="form-control osk-trigger input-lg" type="text" placeholder="192.168.?.1" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="primaryDns" name="profile[primaryDns]" value="<?=$profile['primaryDns']?>" placeholder="<?=$profile['primaryDns']?>" data-parsley-trigger="change" >
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label" for="profile[secondaryDns]">Secondary DNS</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="secondaryDns" name="profile[secondaryDns]" value="<?=$this->profile['secondaryDns']?>" placeholder="<?=$this->profile['secondaryDns']?>" data-parsley-trigger="change" />
+                        <input class="form-control osk-trigger input-lg" type="text" pattern="((^|\.)((25[0-5])|(2[0-4]\d)|(1\d\d)|([1-9]?\d))){4}$" id="secondaryDns" name="profile[secondaryDns]" value="<?=$profile['secondaryDns']?>" placeholder="<?=$profile['secondaryDns']?>" data-parsley-trigger="change" />
                             <span class="help-block">Manually set the primary and secondary DNS (optional)<br><br>
                                 <i>Notes: After setting a Static IP-Address your router may remember the old IP-Address and associate it to the player name
                                 until it's lease expires. So, the IP-Address may need to be used instead of the player name until the player is restarted.<br>
@@ -116,7 +116,7 @@
     <fieldset>
         <table id="nic-details" class="info-table boxed" data-name="<? =this->profile['nic']?>">
             <tbody>
-                <?php foreach ($this->profile as $element => $value):?>
+                <?php foreach ($profile as $element => $value):?>
                     <?php if ((strlen($value) != 0) && (!strpos('|manual|strengthStars|',$element))) :?>
                         <?php if ($value == '0') $value = 'false';?>
                         <?php if ($value == '1') $value = 'true';?>

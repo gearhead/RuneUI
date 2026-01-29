@@ -281,16 +281,16 @@
         }
     </script>
     <div>
-        <input id="Server" name="Server" type="hidden" value="<?=$this->server?>">
-        <input id="Multidevice" name="Multidevice" type="hidden" value="<?php if ($this->multidevice):?>1<?php else:?>0<?php endif;?>">
+        <input id="Server" name="Server" type="hidden" value="<?=$server?>">
+        <input id="Multidevice" name="Multidevice" type="hidden" value="<?php if ($multidevice):?>1<?php else:?>0<?php endif;?>">
     </div>
     <div class="boxed">
-        <p>Status: <strong><i><?=$this->status ?></i></strong><br></p>
-        <?php if ($this->owntoneStreaming): ?>
+        <p>Status: <strong><i><?=$status ?></i></strong><br></p>
+        <?php if ($owntoneStreaming): ?>
             <p>Unsynchronised music streaming for your browser in MP3 format at 44,1khz, 320kbps is available using the link:
-            <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$this->hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$this->hostname ?>.local:3689/stream.mp3</a></span></p>
+            <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$hostname ?>.local:3689/stream.mp3</a></span></p>
         <?php endif;?>
-        <div id="mr-refresh"<?php if (isset($this->controls) && count($this->controls)): ?> class="hide"<?php endif;?>>
+        <div id="mr-refresh"<?php if (isset($controls) && count($controls)): ?> class="hide"<?php endif;?>>
             <p><i>Note: The data below is more than 5 minutes old, settings could have been modified by another RuneAudio player or additional clients
             may have been detected and added, clicking on <strong>Refresh</strong> this will reload the latest data</i></p>
             <form id="debug-buttons" class="button-list" method="post">
@@ -303,19 +303,19 @@
             </script>
         </div>
     </div>
-    <?php if (isset($this->controls) && count($this->controls)): ?>
-        <?php foreach ($this->contolOrder as $classification) :?>
+    <?php if (isset($controls) && count($controls)): ?>
+        <?php foreach ($contolOrder as $classification) :?>
             <?php if ($classification == 'master') : ?>
                 <legend><?=ucfirst($classification)?> Volume</legend>
                 <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                     <button id="MuteButtonMaster" name="MuteButtonMaster" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg" value="1"
                     onclick="click_MuteButtonMaster()"
-                    ><?php if (!$this->master['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
+                    ><?php if (!$master['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
                     <div id="Connected" name="ConnectedMaster">
-                        <label id="VolumeLabelMaster" for="VolumeMaster" class="btn btn-primary btn-lg">Volume: <?=$this->master['volume']?>%</label>
+                        <label id="VolumeLabelMaster" for="VolumeMaster" class="btn btn-primary btn-lg">Volume: <?=$master['volume']?>%</label>
                         <div id="VolumeContainerMaster" name="VolumeContainerMaster" class="volume-slider-container">
                             <div class="volume-slider-fill" id="RangeFillMaster" name="RangeFillMaster"></div>
-                            <input id="VolumeMaster" name="VolumeMaster" type="range" class="volume-slider" min="0" max="100" list='tickmarks' value="<?=$this->master['volume']?>"
+                            <input id="VolumeMaster" name="VolumeMaster" type="range" class="volume-slider" min="0" max="100" list='tickmarks' value="<?=$master['volume']?>"
                             oninput="changeRange('VolumeMaster', 'RangeFillMaster')"
                             onchange="change_VolumeMaster()"
                             />
@@ -324,7 +324,7 @@
                             <p>0</p><p></p><p></p><p></p><p></p><p>50</p><p></p><p></p><p></p><p></p><p>100</p>
                         </div>
                     </div>
-                    <input id="MuteMaster" name="MuteMaster" type="hidden" value="<?=$this->master['mute']?>"
+                    <input id="MuteMaster" name="MuteMaster" type="hidden" value="<?=$master['mute']?>"
                     onchange="change_MuteMaster()"
                     />
                 </div>
@@ -342,16 +342,16 @@
                     document.onload = changeRange('VolumeMaster', 'RangeFillMaster');
                 </script>
             <?php else: $chromecast = false; ?>
-                <legend><?=ucfirst($classification)?> <?php if ($this->multidevice || ($classification  == 'client')): ?>Outputs & <?php endif;?>Volume</legend>
-                <?php if (isset($this->controls[$classification]) && count($this->controls[$classification])) :?>
-                    <?php foreach ($this->controls[$classification] as $l) :?>
+                <legend><?=ucfirst($classification)?> <?php if ($multidevice || ($classification  == 'client')): ?>Outputs & <?php endif;?>Volume</legend>
+                <?php if (isset($controls[$classification]) && count($controls[$classification])) :?>
+                    <?php foreach ($controls[$classification] as $l) :?>
                         <?php if ($l['type'] == 'AirPlay'): ?><strong><u>AirPlay: <?=$l['name']?></u></strong>
                         <?php elseif ($l['type'] == 'Chromecast'): $chromecast = true; ?><strong><u>Chromecast: <?=$l['name']?></u></strong>
                         <?php else: ?><strong><u><?=$l['name']?></u></strong>
                         <?php endif;?>
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
-                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
+                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
                             <div id="<?=$l['id']?>Connected" for="<?=$l['id']?>Connected"<?php if (!$l['selected']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumeLabel" for="<?=$l['id']?>Volume" class="btn btn-primary btn-lg">Volume: <?=$l['volume']?>%</label>
                                 <div id="<?=$l['id']?>VolumeContainer" name="<?=$l['id']?>VolumeContainer" class="volume-slider-container">
@@ -376,8 +376,8 @@
                             <input id="<?=$l['id']?>MuteCommand" name="<?=$l['id']?>MuteCommand" type="hidden" value="<?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?>">
                         </div>
                         <br>
-                        <div id="<?=$l['id']?>Presets" name="<?=$l['id']?>Presets" style="width:max(55%,500px); min-height:70px;" class="boxed<?php if (!$l['selected'] || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>">
-                            <button id="<?=$l['id']?>AutoconnectButton" name="<?=$l['id']?>AutoconnectButton" type="button" <?php if ($l['autoconnect']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (!$this->multidevice && ($l['type'] == 'ALSA')):?> hide<?php endif;?>" value="1"><?php if (!$l['autoconnect']): ?>Auto Connect<?php else:?>Manual Connect<?php endif;?></button>
+                        <div id="<?=$l['id']?>Presets" name="<?=$l['id']?>Presets" style="width:max(55%,500px); min-height:70px;" class="boxed<?php if (!$l['selected'] || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>">
+                            <button id="<?=$l['id']?>AutoconnectButton" name="<?=$l['id']?>AutoconnectButton" type="button" <?php if ($l['autoconnect']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (!$multidevice && ($l['type'] == 'ALSA')):?> hide<?php endif;?>" value="1"><?php if (!$l['autoconnect']): ?>Auto Connect<?php else:?>Manual Connect<?php endif;?></button>
                             <div id="<?=$l['id']?>PresetAutoconnect" name="<?=$l['id']?>PresetAutoconnect"<?php if (!$l['autoconnect']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumePresetLabel" for="<?=$l['id']?>VolumePreset" class="btn btn-primary btn-lg<?php if (!$l['autoconnect']): ?> hide<?php endif;?>">Preset Default Volume: <?=$l['volume_preset']?>%</label>
                                 <div id="<?=$l['id']?>VolumePresetContainer" name="<?=$l['id']?>VolumePresetContainer" class="volume-slider-container">
@@ -422,7 +422,7 @@
                     <?php endforeach; ?>
                     <?php if ($chromecast && ($classification == 'client')): ?>
                         <p>Note: Chromecast clients cannot be precisely synchronised with other outputs</p>
-                    <?php elseif (($classification == 'local') && $this->multidevice): ?>
+                    <?php elseif (($classification == 'local') && $multidevice): ?>
                         <p>Notes: Multiple local devices cannot all be precisely synchronised with other outputs.<br>
                             Local Bluetooth device synchronisation is particularly poor</p>
                     <?php endif;?>

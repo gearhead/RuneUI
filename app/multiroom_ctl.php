@@ -44,8 +44,8 @@ if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
 $availableOutputs = array();
-$template->multidevice = $redis->hGet('owntone', 'multidevice');
-if ($template->multidevice) {
+$templateData['multidevice'] = $redis->hGet('owntone', 'multidevice');
+if ($templateData['multidevice']) {
     $acards = $redis->hgetall('acards');
     foreach ($acards as $acard) {
         $availableOutputs[] = json_decode($acard, true)['description'];
@@ -53,21 +53,21 @@ if ($template->multidevice) {
     unset($acards, $acard);
 }
 $defaultVolume = $redis->hGet('owntone', 'default_volume');
-$template->controls = array();
+$templateData['controls'] = array();
 $controlOrder = $redis->hGet('owntone', 'MRorder');
 if ($controlOrder) {
-    $template->contolOrder = array();
+    $templateData['contolOrder'] = array();
     foreach (str_split($controlOrder) as $char) {
         if ($char == 'M') {
-            $template->contolOrder[] = 'master';
+            $templateData['contolOrder'][] = 'master';
         } else if ($char == 'L') {
-            $template->contolOrder[] = 'local';
+            $templateData['contolOrder'][] = 'local';
         } else if ($char == 'C') {
-            $template->contolOrder[] = 'client';
+            $templateData['contolOrder'][] = 'client';
         }
     }
 } else {
-    $template->contolOrder = array('master', 'local', 'client');
+    $templateData['contolOrder'] = array('master', 'local', 'client');
 }
 $outputNames = $redis->hKeys('owntone_outputs');
 if (isset($outputNames) && $outputNames ) {
@@ -87,53 +87,53 @@ if (isset($outputNames) && $outputNames ) {
             $output['type'] = explode(' ', $output['type'])[0];
             if ($output['type'] == 'ALSA') {
                 $classification = 'local';
-                if ($template->multidevice) {
+                if ($templateData['multidevice']) {
                     if ($output['selected']) {
-                        $template->controls[$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
                     } else if (in_array($output['name'], $availableOutputs)) {
-                        $template->controls[$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
                     } else {
                         continue;
                     }
                 } else {
                     if ($output['selected']) {
-                        $template->controls[$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
                     } else {
                         continue;
                     }
                 }
             } else {
                 $classification = 'client';
-                $template->controls[$classification][$outputName] = array_merge($preset, $output);
+                $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
             }
         }
     }
 }
-$template->master = json_decode($redis->hGet('owntone', 'master'), true);
-$template->server = $redis->hGet('owntone', 'server');
-$template->owntoneStreaming = $redis->hGet('owntone', 'streaming');
-$template->status = '';
+$templateData['master'] = json_decode($redis->hGet('owntone', 'master'), true);
+$templateData['server'] = $redis->hGet('owntone', 'server');
+$templateData['owntoneStreaming'] = $redis->hGet('owntone', 'streaming');
+$templateData['status'] = '';
 $serverHostname = $redis->hGet('owntone', 'server_hostname');
 if ($serverHostname) {
-    $template->status .= 'Server Hostname: '.$serverHostname;
+    $templateData['status'] .= 'Server Hostname: '.$serverHostname;
 }
 if ($redis->hGet('owntone', 'enable')) {
-    $template->status .= '; Server: Enabled';
+    $templateData['status'] .= '; Server: Enabled';
 } else {
-    $template->status .= '; Server: Disabled';
+    $templateData['status'] .= '; Server: Disabled';
 }
 if ($redis->hGet('owntone', 'active')) {
-    $template->status .= ', Active';
+    $templateData['status'] .= ', Active';
 } else {
-    $template->status .= ', Inactive';
+    $templateData['status'] .= ', Inactive';
 }
 $role = $redis->hGet('owntone', 'role');
 if ($role) {
-    $template->status .= '; Role: '.ucfirst($role);
+    $templateData['status'] .= '; Role: '.ucfirst($role);
 }
 $server_player = json_decode($redis->hGet('owntone', 'server_player'), true);
 if (isset($server_player['state']) && $server_player['state']) {
-    $template->status .= '; State: '.ucfirst($server_player['state']);
+    $templateData['status'] .= '; State: '.ucfirst($server_player['state']);
 }
 //
-$template->hostname = $redis->get('hostname');
+$templateData['hostname'] = $redis->get('hostname');

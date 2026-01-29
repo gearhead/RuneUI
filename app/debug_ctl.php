@@ -43,4 +43,4 @@ if (isset($_POST)) {
 if (isset($jobID)) {
     waitSyWrk($redis, $jobID);
 }
-$template->hostname = $redis->get('hostname');
+$templateData['hostname'] = $redis->get('hostname');

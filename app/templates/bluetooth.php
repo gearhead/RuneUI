@@ -1,6 +1,6 @@
 <div class="container">
     <h1>Bluetooth Configuration</h1>
-    <?php if(!$this->enable || !$this->bluetooth): ?>
+    <?php if(!$enable || !$bluetooth): ?>
         <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
             <div class="col-sm-offset-2 col-sm-10">
                 <h2>No Bluetooth adaptor detected</h2>
@@ -12,7 +12,7 @@
             </div>
         </form>
     <?php else: ?>
-        <?php if($this->config['IO_toggle'] == 'input'): ?>
+        <?php if($config['IO_toggle'] == 'input'): ?>
         <legend><i>Bluetooth Output - Disabled</i></legend>
         <div class="col-sm-offset-2 col-sm-10">
             <label class="control-label col-sm-2">&nbsp;</label>
@@ -31,7 +31,7 @@
                     when detected.<br>
                     Click on <strong>Refresh</strong> to refresh the list</span>
             </div>
-            <?php $outCnt = 0; foreach ($this->devices as $device) : ?>
+            <?php $outCnt = 0; foreach ($devices as $device) : ?>
                 <?php if (!$device['sink'] && $device['paired']) continue; else $outCnt++; // all unpaired or sinks will be shown ?>
                 <?php $outDev = '<div class="col-sm-offset-2 col-sm-10"></div>';
                 if ($device['connected']) {
@@ -82,12 +82,12 @@
         <?php endif ?>
         </div>
         <?php endif ?>
-        <?php if($this->config['IO_toggle'] == 'output'): ?>
+        <?php if($config['IO_toggle'] == 'output'): ?>
         <legend><i>Bluetooth Input - Disabled</i></legend>
         <div class="col-sm-offset-2 col-sm-10">
             <label class="control-label col-sm-2">&nbsp;</label>
         </div>
-        <?php elseif($this->noOutput): ?>
+        <?php elseif($noOutput): ?>
         <legend><i>Bluetooth Input - Disabled - No Output Devices</i></legend>
         <div class="col-sm-offset-2 col-sm-10">
             <label class="control-label col-sm-2">&nbsp;</label>
@@ -102,14 +102,14 @@
                 <span class="help-block">Click on <strong>Allow Input Connection</strong> to add a new Bluetooth input device,
                     then use your input device (e.g. your smart-phone) to initiate the Bluetooth pairing action.
                     This RuneAudio player will be displayed as a Bluetooth device with the name
-                    <strong><?=$this->hostname ?></strong>. Activating a Bluetooth Input Device will cause all Bluetooth Output Devices to be
+                    <strong><?=$hostname ?></strong>. Activating a Bluetooth Input Device will cause all Bluetooth Output Devices to be
                     disconnected and blocked.<br>
                     Reconnecting a registered Bluetooth input device is also initiated from the input device (e.g. your smart-phone),
                     a list of the registered Bluetooth input devices is shown below. There is no need to click on <strong>Connect Input</strong>
                     when reconnecting a registered Bluetooth input device.<br>
                     Click on <strong>Refresh</strong> to refresh the list</span>
             </div>
-            <?php $inCnt = 0; foreach ($this->devices as $device) : ?>
+            <?php $inCnt = 0; foreach ($devices as $device) : ?>
                 <?php if (!$device['source'] || !$device['paired']) continue; else $inCnt++; // all paired sources will be shown ?>
                 <?php $inDev = '<div class="col-sm-offset-2 col-sm-10"></div>';
                 if ($device['connected']) {
@@ -146,8 +146,8 @@
                 Click on <strong>Block</strong>/<strong>Unblock</strong> to prevent/allow reconnecting from the input device.<br>
                 Click on <strong>Forget</strong> to forget a device.<br>
                 <i>Notes: A new connection must be made within 2 minutes after clicking 'Allow Input Connection'.
-                After making a connection the music stream must start within <?=$this->config['timeout'] ?> seconds.
-                The Bluetooth player will terminate automatically <?=$this->config['timeout'] ?> seconds after pausing or stopping the Bluetooth music-stream.
+                After making a connection the music stream must start within <?=$config['timeout'] ?> seconds.
+                The Bluetooth player will terminate automatically <?=$config['timeout'] ?> seconds after pausing or stopping the Bluetooth music-stream.
                 Starting and restarting a music stream on a connected Bluetooth device will restart the Bluetooth player.
                 Reconnecting from the Bluetooth device is possible whenever the device is 'unblocked'.
                 Concurrent Bluetooth input and output is not possible</i></span>
@@ -164,9 +164,9 @@
                 <label class="control-label col-sm-2" for="bluetooth_IO_toggle">Bluetooth Input/Output On/Off</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_IO_toggle" class="selectpicker" name="bluetooth_IO_toggle" data-style="btn-default btn-lg">
-                        <option value="both" <?php if($this->config['IO_toggle'] == 'both'): ?> selected <?php endif ?>>Input and Output On</option>
-                        <option value="input" <?php if($this->config['IO_toggle'] == 'input'): ?> selected <?php endif ?>>Only Input On</option>
-                        <option value="output" <?php if($this->config['IO_toggle'] == 'output'): ?> selected <?php endif ?>>Only Output On</option>
+                        <option value="both" <?php if($config['IO_toggle'] == 'both'): ?> selected <?php endif ?>>Input and Output On</option>
+                        <option value="input" <?php if($config['IO_toggle'] == 'input'): ?> selected <?php endif ?>>Only Input On</option>
+                        <option value="output" <?php if($config['IO_toggle'] == 'output'): ?> selected <?php endif ?>>Only Output On</option>
                     </select>
                     <span class="help-block">If you never use Bluetooth Input or Bluetooth Output you can switch one or the other off.
                         This will avoid possible bandwidth problems when input and output are simultaneously connected.
@@ -178,8 +178,8 @@
                 <label class="control-label col-sm-2" for="bluetooth_samplerate">Bluetooth Input/Output Audio Sample Rate</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_samplerate" class="selectpicker" name="bluetooth_samplerate" data-style="btn-default btn-lg">
-                        <option value="44100" <?php if($this->config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>
-                        <option value="48000" <?php if($this->config['samplerate'] == '48000'): ?> selected <?php endif ?>>48,000Hz</option>
+                        <option value="44100" <?php if($config['samplerate'] == '44100'): ?> selected <?php endif ?>>44,100Hz</option>
+                        <option value="48000" <?php if($config['samplerate'] == '48000'): ?> selected <?php endif ?>>48,000Hz</option>
                     </select>
                     <span class="help-block">Choose the Bluetooth audio sample rate.<br>
                         Most Bluetooth devices support 44,100Hz and 48,000Hz sample rates, but some can only process 41,100Hz sampling. A 44,100Hz sampling should give
@@ -193,8 +193,8 @@
                 <label class="control-label col-sm-2" for="bluetooth_quality">Bluetooth Input/Output Audio Quality</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_quality" class="selectpicker" name="bluetooth_quality" data-style="btn-default btn-lg">
-                        <?php foreach ($this->quality_options as $qualOpt) : ?>
-                            <?php $qualDesc = ucwords(str_replace('_', ' ', $qualOpt)) ; if ($this->config['quality'] === $qualOpt): $selected = 'selected'; else: $selected = ''; endif;?>
+                        <?php foreach ($quality_options as $qualOpt) : ?>
+                            <?php $qualDesc = ucwords(str_replace('_', ' ', $qualOpt)) ; if ($config['quality'] === $qualOpt): $selected = 'selected'; else: $selected = ''; endif;?>
                             <option value="<?=$qualOpt ?>" <?=$selected ?>><?=$qualDesc ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -207,12 +207,12 @@
                         If this happens you should then use a lower quality, a profile for a specific codec or the Default configuration</i></span>
                 </div>
             </div>
-            <?php if (strpos(' '.$this->codecs, 'aptx-hd')) : ?>
+            <?php if (strpos(' '.$codecs, 'aptx-hd')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_aptX_HD_codec">Enable Bluetooth Input/Output 'aptX-HD' codec</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="bluetooth_aptX_HD_codec" name="bluetooth_aptX_HD_codec" type="checkbox" value="1"<?php if((isset($this->config['aptX_HD_codec'])) && ($this->config['aptX_HD_codec'])): ?> checked="checked" <?php endif ?>>
+                        <input id="bluetooth_aptX_HD_codec" name="bluetooth_aptX_HD_codec" type="checkbox" value="1"<?php if((isset($config['aptX_HD_codec'])) && ($config['aptX_HD_codec'])): ?> checked="checked" <?php endif ?>>
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle Bluetooth Input/Output <strong>aptX-HD</strong> codec.<br>
@@ -221,12 +221,12 @@
                 </div>
             </div>
             <?php endif ?>
-            <?php if (strpos(' '.$this->codecs, 'faststream')) : ?>
+            <?php if (strpos(' '.$codecs, 'faststream')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_FastStream_codec">Enable Bluetooth Input/Output 'FastStream' codec</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="bluetooth_FastStream_codec" name="bluetooth_FastStream_codec" type="checkbox" value="1"<?php if((isset($this->config['FastStream_codec'])) && ($this->config['FastStream_codec'])): ?> checked="checked" <?php endif ?>>
+                        <input id="bluetooth_FastStream_codec" name="bluetooth_FastStream_codec" type="checkbox" value="1"<?php if((isset($config['FastStream_codec'])) && ($config['FastStream_codec'])): ?> checked="checked" <?php endif ?>>
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle Bluetooth Input/Output <strong>FastStream</strong> codec.<br>
@@ -235,12 +235,12 @@
                 </div>
             </div>
             <?php endif ?>
-            <?php if (strpos(' '.$this->codecs, 'ldac')) : ?>
+            <?php if (strpos(' '.$codecs, 'ldac')) : ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_LDAC_codec">Enable Bluetooth Input 'LDAC' codec</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="bluetooth_LDAC_codec" name="bluetooth_LDAC_codec" type="checkbox" value="1"<?php if((isset($this->config['LDAC_codec'])) && ($this->config['LDAC_codec'])): ?> checked="checked" <?php endif ?>>
+                        <input id="bluetooth_LDAC_codec" name="bluetooth_LDAC_codec" type="checkbox" value="1"<?php if((isset($config['LDAC_codec'])) && ($config['LDAC_codec'])): ?> checked="checked" <?php endif ?>>
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle Bluetooth Input <strong>LDAC</strong> codec.<br>
@@ -251,14 +251,14 @@
             </div>
             <?php endif ?>
             <!--
-            <?php if (($this->config['IO_toggle'] != 'output')): ?>
+            <?php if (($config['IO_toggle'] != 'output')): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_native_volume_control">Bluetooth Native Volume Control</label>
                 <div class="col-sm-10">
                     <select id="bluetooth_native_volume_control" class="selectpicker" name="bluetooth_native_volume_control" data-style="btn-default btn-lg">
-                        <option value="a" <?php if($this->config['native_volume_control'] == 'a'): ?> selected <?php endif ?>>Automatic</option>
-                        <option value="1" <?php if($this->config['native_volume_control'] == '1'): ?> selected <?php endif ?>>On</option>
-                        <option value="0" <?php if($this->config['native_volume_control'] == '0'): ?> selected <?php endif ?>>Off</option>
+                        <option value="a" <?php if($config['native_volume_control'] == 'a'): ?> selected <?php endif ?>>Automatic</option>
+                        <option value="1" <?php if($config['native_volume_control'] == '1'): ?> selected <?php endif ?>>On</option>
+                        <option value="0" <?php if($config['native_volume_control'] == '0'): ?> selected <?php endif ?>>Off</option>
                     </select>
                     <span class="help-block">Set the operation mode of the output Native Volume Control for Bluetooth Input.
                         Native Volume Control is set to <strong>Automatic</strong> by default; this is the recommended setting.
@@ -272,12 +272,12 @@
             </div>
             <?php endif ?>
             -->
-            <?php if (($this->config['IO_toggle'] != 'output') && ($this->player_volume_control)): ?>
+            <?php if (($config['IO_toggle'] != 'output') && ($player_volume_control)): ?>
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_local_volume_control">Local Volume Control</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="bluetooth_local_volume_control" name="bluetooth_local_volume_control" type="checkbox" value="1"<?php if((isset($this->config['local_volume_control'])) && ($this->config['local_volume_control'])): ?> checked="checked" <?php endif ?>>
+                        <input id="bluetooth_local_volume_control" name="bluetooth_local_volume_control" type="checkbox" value="1"<?php if((isset($config['local_volume_control'])) && ($config['local_volume_control'])): ?> checked="checked" <?php endif ?>>
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle the Local Volume Control for Bluetooth Input.
@@ -291,7 +291,7 @@
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_def_volume_in">Default Volume Level For Bluetooth Input Device</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_def_volume_in" name="bluetooth_def_volume_in" value="<?php echo $this->config['def_volume_in']; ?>" min="-1" max="100" placeholder="-1" autocomplete="off">
+                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_def_volume_in" name="bluetooth_def_volume_in" value="<?php echo $config['def_volume_in']; ?>" min="-1" max="100" placeholder="-1" autocomplete="off">
                     <span class="help-block">Enter a value between <strong>0</strong>% and <strong>100</strong>% to set the initial volume
                     for a Bluetooth Input Device. Or set a value of <strong>-1</strong> to disable changing the start volume. When set Off,
                     Bluetooth remembers and uses the last volume level for each Input device. The default value is -1 (Off)</span>
@@ -301,7 +301,7 @@
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_def_volume_out">Default Volume Level For Bluetooth Output Device</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_def_volume_out" name="bluetooth_def_volume_out" value="<?php echo $this->config['def_volume_out']; ?>" min="-1" max="100" placeholder="-1" autocomplete="off">
+                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_def_volume_out" name="bluetooth_def_volume_out" value="<?php echo $config['def_volume_out']; ?>" min="-1" max="100" placeholder="-1" autocomplete="off">
                     <span class="help-block">Enter a value between <strong>0</strong>% and <strong>100</strong>% to set the initial volume for a Bluetooth Output Device.
                     Or set a value of <strong>-1</strong> to disable changing the start volume.
                     When set Off, Bluetooth remembers and uses the last volume level for each Output device. The default value is -1 (Off)</span>
@@ -311,7 +311,7 @@
                 <label class="control-label col-sm-2" for="bluetooth_remember_last_volume">Remember The Last Volune Level</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
-                        <input id="bluetooth_remember_last_volume" name="bluetooth_remember_last_volume" type="checkbox" value="1"<?php if((isset($this->config['remember_last_volume'])) && ($this->config['remember_last_volume'])): ?> checked="checked" <?php endif ?>>
+                        <input id="bluetooth_remember_last_volume" name="bluetooth_remember_last_volume" type="checkbox" value="1"<?php if((isset($config['remember_last_volume'])) && ($config['remember_last_volume'])): ?> checked="checked" <?php endif ?>>
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Remember and use the Last Volume Level for Bluetooth Input.<br>
@@ -326,7 +326,7 @@
             <div class="form-group">
                 <label class="control-label col-sm-2" for="bluetooth_timeout">Bluetooth Input Stream Time&#8209;out</label>
                 <div class="col-sm-10">
-                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_timeout" name="bluetooth_timeout" value="<?php echo $this->config['timeout']; ?>" min="15" max="120" placeholder="20" autocomplete="off">
+                    <input class="form-control osk-trigger input-lg" type="number" id="bluetooth_timeout" name="bluetooth_timeout" value="<?php echo $config['timeout']; ?>" min="15" max="120" placeholder="20" autocomplete="off">
                     <span class="help-block">Enter a value between <strong>15</strong> and <strong>120</strong>.
                     This is the number of seconds after which a stopped or paused Bluetooth input stream will be terminated.
                     The player then reverts to the previous playing mode</span>

@@ -32,7 +32,7 @@
  *
  */
 
-$template->buildversion = $redis->get('buildversion');
-$template->patchlevel = $redis->get('patchlevel');
-$template->release = $redis->get('release');
-$template->hostname = $redis->get('hostname');
+$templateData['buildversion'] = $redis->get('buildversion');
+$templateData['patchlevel'] = $redis->get('patchlevel');
+$templateData['release'] = $redis->get('release');
+$templateData['hostname'] = $redis->get('hostname');

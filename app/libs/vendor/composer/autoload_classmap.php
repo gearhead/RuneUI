@@ -9,6 +9,7 @@ return array(
     'AMFReader' => $vendorDir . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
     'AMFStream' => $vendorDir . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
     'AVCSequenceParameterSetReader' => $vendorDir . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
+    'AudioInfo' => $vendorDir . '/james-heinrich/getid3/getid3/audioinfo.class.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'Image_XMP' => $vendorDir . '/james-heinrich/getid3/getid3/module.tag.xmp.php',
     'getID3' => $vendorDir . '/james-heinrich/getid3/getid3/getid3.php',
