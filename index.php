@@ -101,16 +101,26 @@ $uriHelper = new UriHelper($_SERVER['REQUEST_URI']);
 $assetHelper = new AssetHelper('/assets', true);
 
 // Register functions (replaces extensions)
-$engine->registerFunction('uri', function($index = null) use ($uriHelper) {
-    if ($index === null) {
-        return $uriHelper->getUri();
+$engine->registerFunction('uri', function($index = null, $match = null, $output = null) use ($uriHelper) {
+    // If only index provided, return that segment
+    if ($match === null && $output === null) {
+        if ($index === null) {
+            return $uriHelper->getUri();
+        }
+        return $uriHelper->segment($index);
     }
-    return $uriHelper->segment($index);
+    // If 3 parameters: check if segment matches value, return output if true
+    $segment = $uriHelper->segment($index);
+    if ($segment === $match) {
+        return $output;
+    }
+    return '';
 });
 
 $engine->registerFunction('asset', function($file) use ($assetHelper) {
     return $assetHelper->url($file);
 });
+//
 
 // Initialize template data array (replaces $template object)
 $templateData = [];
