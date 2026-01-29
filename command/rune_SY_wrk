@@ -1649,23 +1649,23 @@ while (true) {
         if ($autoplay) {
             $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
             if (isset($actPlayerInfo['file'])) {
-                $uri = json_decode($redis->get('act_player_info'), true)['file'];
+                $uri = $actPlayerInfo['file'];
             } else {
                 $uri = get_current_song_from_statefile($redis, 'uri');
             }
             $accessible = false;
             $dontAutostart = false;
             if ($uri) {
-                if (substr($uri, 0, 4) == 'http') {
+                if ((substr($uri, 0, 5) == 'http:') || (substr($uri, 0, 6) == 'https:')) {
                     // its a webradio or network uri, just check that we have an active internet connection
                     $responce = sysCmd('wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1 ; echo $? | xargs')[0];
                     if ($responce == 0) {
                         $accessible = true;
                     }
-                } else if (substr($uri, 0, 4) == 'cdda') {
+                } else if (substr($uri, 0, 5) == 'cdda:') {
                     // its a CD, dont autostart
                     $dontAutostart = true;
-                } else if (substr($uri, 0, 4) == 'alsa') {
+                } else if (substr($uri, 0, 5) == 'alsa:') {
                     // its a hardware input, dont autostart
                     $dontAutostart = true;
                 } else {
