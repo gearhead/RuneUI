@@ -85,11 +85,11 @@ class UriHelper {
 
 class AssetHelper {
     private $path;
-    
+
     public function __construct($path, $filenameMethod = false) {
         $this->path = rtrim($path, '/'). '';
     }
-    
+
     public function url($file) {
         $file = ltrim($file, '/'). '';
         return $this->path . '/'. $file;
