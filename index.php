@@ -66,18 +66,18 @@ $engine = new \League\Plates\Engine('/srv/http/app/templates');
 class UriHelper {
     private $segments;
     private $uri;
-    
+
     public function __construct($uri) {
         $this->uri = $uri;
         $path = parse_url($uri, PHP_URL_PATH);
         $this->segments = array_values(array_filter(explode('/',$path)));
     }
-    
+
     public function segment($index) {
         $key = $index - 1;
         return isset($this->segments[$key]) ? $this->segments[$key] : '';
     }
-    
+
     public function getUri() {
         return $this->uri;
     }
