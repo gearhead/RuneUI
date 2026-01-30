@@ -92,16 +92,24 @@
             }
         }
         function click_ConnectButton(id) {
-            if ($('#'+id+'Selected').val() == '0') {
-                $('#'+id+'Selected').val('1');
-            } else {
-                $('#'+id+'Selected').val('0');
-            }
-            $('#'+id+'Volume').val($('#'+id+'VolumePreset').val());
-            wrk_change_Volume(id);
-            $('#'+id+'Selected').trigger('change');
-            $('#'+id+'ConnectButton').blur();
-            ajax_MRconnect(id);
+            // if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'RequiresAuth').val() == '1') && ($('#'+id+'PinInput').val() == '')) {
+                // new PNotify({
+                    // title: 'Multi-room',
+                    // text: 'PIN-Code required',
+                    // icon: 'fa fa-exclamation'
+                // });
+            // } else {
+                if ($('#'+id+'Selected').val() == '0') {
+                    $('#'+id+'Selected').val('1');
+                } else {
+                    $('#'+id+'Selected').val('0');
+                }
+                $('#'+id+'Volume').val($('#'+id+'VolumePreset').val());
+                wrk_change_Volume(id);
+                $('#'+id+'Selected').trigger('change');
+                $('#'+id+'ConnectButton').blur();
+                ajax_MRconnect(id);
+            // }
         }
         function change_Volume(id) {
             wrk_change_Volume(id);
@@ -351,7 +359,12 @@
                         <?php endif;?>
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
-                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
+                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
+                            <!--
+                            <?php if (($classification  == 'client') && (!$l['selected'] || $l['requires_auth'])): ?>
+                                &nbsp&nbspPIN&nbspCODE:&nbsp&nbsp<input id="<?=$l['id']?>PinInput" name="<?=$l['id']?>PinInput" value="<?=$l['requires_auth']?>" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
+                            <?php endif;?>
+                             -->
                             <div id="<?=$l['id']?>Connected" for="<?=$l['id']?>Connected"<?php if (!$l['selected']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumeLabel" for="<?=$l['id']?>Volume" class="btn btn-primary btn-lg">Volume: <?=$l['volume']?>%</label>
                                 <div id="<?=$l['id']?>VolumeContainer" name="<?=$l['id']?>VolumeContainer" class="volume-slider-container">
