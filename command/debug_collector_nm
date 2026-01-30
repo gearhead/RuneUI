@@ -439,24 +439,41 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     $output .= "###### Network, network profiles (connmanctl services) ######\n";
-#    $command = sysCmd('connmanctl services | grep "*"');
-    $command = sysCmd('/usr/bin/python3 /srv/http/command/conn.py | grep "*"');
+    $command = sysCmd('nmcli connection show --active | grep -v loopback');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($fp) {
         gzwrite($fp, $output);
         $output = '';
     }
-#    $command = sysCmd('connmanctl services | grep "*" | cut -b 26-');
-    $command = sysCmd('/usr/bin/python3 /srv/http/command/conn.py | grep "*" | cut -b 26-');
-    foreach ($command as $interface) {
-        $interface = trim($interface);
-        // clear the cache otherwise file_exists() returns incorrect values
-        clearstatcache(true, '/var/lib/connman/'.$interface.'/settings');
-        if (file_exists('/var/lib/connman/'.$interface.'/settings')) {
-            $output .= "# favourite connman profile ".$interface." #\n";
-            $output .= str_repeat('-',strlen($interface)+30)."\n";
-            $command = sysCmd('cat /var/lib/connman/'.$interface.'/settings | sed s/^Passphrase.*/Passphrase=***************/g');
+
+    // Get active connection UUIDs
+    $command = sysCmd('nmcli -t -f UUID connection show --active');
+    foreach ($command as $uuid) {
+        $uuid = trim($uuid);
+        if (empty($uuid)) continue;
+        
+        // Get connection name for this UUID
+        $nameCmd = sysCmd('nmcli -t -f GENERAL.NAME connection show '.$uuid);
+        if (!empty($nameCmd)) {
+            $connName = trim($nameCmd[0]);
+            // Strip the "GENERAL.NAME:" prefix if present
+            $connName = preg_replace('/^GENERAL\.NAME:/', '', $connName);
+        } else {
+            $connName = $uuid;
+        }
+        
+        // Skip loopback
+        if ($connName === 'lo') continue;
+        
+        // NetworkManager config files are in /etc/NetworkManager/system-connections/
+        $configFile = '/etc/NetworkManager/system-connections/'.$connName.'.nmconnection';
+        
+        clearstatcache(true, $configFile);
+        if (file_exists($configFile)) {
+            $output .= "# NetworkManager connection ".$connName." (".$uuid.") #\n";
+            $output .= str_repeat('-', strlen($connName) + strlen($uuid) + 5)."\n";
+            $command = sysCmd('sed -E "s/^(psk|password)=.*/\1=***************/gI" '.$configFile);
             $output .= implode("\n", $command)."\n\n";
             unset($command);
             if ($fp) {
@@ -465,7 +482,6 @@ function debug_data($redis, $fp=null)
             }
         }
     }
-    $output .= "\n";
     $output .= "###### Network, Wi-Fi status (iwconfig) ######\n";
     $command = sysCmd('iwconfig');
     $output .= implode("\n", $command)."\n\n";
