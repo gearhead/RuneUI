@@ -72,7 +72,7 @@ cat <<EOF >/srv/http/app/libs/composer.json
 
 EOF
 # remove the getid3 symlink (in old Rune versions the actual files are here)
-# rm -r /srv/http/app/libs/vendor/getid3
+rm /srv/http/app/libs/vendor/getid3
 # remove the historical composer files if they exist
 rm -r /srv/http/app/libs/vendor/Zend
 rm -r /srv/http/app/libs/vendor/ziegler
@@ -95,7 +95,7 @@ rm /srv/http/app/libs/composer.phar
 # copy the getID3 php files to the correct directory
 #cp /home/getID3/getid3/* /srv/http/app/libs/vendor/getid3
 # move the saved version of audioinfo.class.php from /home to the getid3 files directory that we moved
-mv /home/audioinfo.class.php /srv/http/app/libs/vendor/getid3/audioinfo.class.php
+mv /home/audioinfo.class.php /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # correct the ownership of the audioinfo.class.php file
 chown www-data:www-data /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
 # remove the downloaded getID3 files
