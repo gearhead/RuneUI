@@ -367,7 +367,7 @@ function debug_data($redis, $fp=null)
     unset($optArray, $optParam, $cores);
     $output .= "\n\n";
     $output .= "###### Kernel module snd_usb_audio settings ######\n";
-    $command = sysCmd('systool -v -m snd_usb_audio | grep -vi error');
+    $command = sysCmd('systool -v -m snd_usb_audio 2>/dev/null');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($redis->exists('getID3_error')) {
@@ -522,7 +522,7 @@ function debug_data($redis, $fp=null)
         $output = '';
     }
     $output .= "###### startup systemd (journal) messages (journalctl | grep -i -E 'start|stop|reached|error|warn|fatal|loaded|loading' | grep -i -v 'audit' | head -n 200) ######\n";
-    $command = sysCmd('journalctl | grep -i -E "start|stop|reached|error|warn|fatal|loaded|loading" | grep -i -v "audit" | head -n 200');
+    $command = sysCmd('journalctl 2>/dev/null | grep -i -E "start|stop|reached|error|warn|fatal|loaded|loading" 2>/dev/null | grep -i -v "audit" 2>/dev/null | head -n 200');
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($fp) {
