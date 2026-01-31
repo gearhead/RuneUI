@@ -36,13 +36,13 @@
 #
 # setup
 set +e # continue on errors
-#We do all of this in app/libs/
+# We do all of this in app/libs/
 cd /srv/http/app/libs
 # Note that the getid3 library is buried under the author name about 3 deep. The rest of the RuneUI files
 # expect it to be in vendor/getid3, so after copmposer updates it, we move the full getid3 directory up
 # make a copy of the file audioinfo.class.php, this is very important as it is not supplied in the getid3 composer component!
-cp /srv/http/app/libs/vendor/getid3/audioinfo.class.php /home/audioinfo.class.php
-#cp -n /srv/http/app/libs/vendor/getid3/audioinfo.class.php /home/audioinfo.class.php
+cp /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php /home/audioinfo.class.php
+# cp -n /srv/http/app/libs/vendor/getid3/audioinfo.class.php /home/audioinfo.class.php
 # download and install composer.phar in the directory /srv/http/app/libs/
 # these instructions are from here: https://getcomposer.org/download/
 php -r "unlink('composer-setup.php');"
@@ -77,7 +77,7 @@ rm /srv/http/app/libs/vendor/getid3
 rm -r /srv/http/app/libs/vendor/Zend
 rm -r /srv/http/app/libs/vendor/ziegler
 # make sure all the files are owned by www-data
-chown -R www-data:www-data /srv/http/libs
+chown -R www-data:www-data /srv/http/app/libs/
 # install/upgrade the composer components
 sudo -u www-data ./composer.phar --with-all-dependencies update
 # Create a sym link for getid3 where Rune expects them

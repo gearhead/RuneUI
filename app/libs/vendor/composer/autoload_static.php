@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618
+class ComposerStaticInit8b3590563a1f81863133bebebbe724e7
 {
     public static $files = array (
         '7b11c4dc42b3b3023073cb14e519683c' => __DIR__ . '/..' . '/ralouphie/getallheaders/src/getallheaders.php',
@@ -70,7 +70,6 @@ class ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618
         'AMFReader' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
         'AMFStream' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
         'AVCSequenceParameterSetReader' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.audio-video.flv.php',
-        'AudioInfo' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/audioinfo.class.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'Image_XMP' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/module.tag.xmp.php',
         'getID3' => __DIR__ . '/..' . '/james-heinrich/getid3/getid3/getid3.php',
@@ -164,9 +163,9 @@ class ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit9cb95090bf610fdc3c73b2bf1f6fb618::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit8b3590563a1f81863133bebebbe724e7::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit8b3590563a1f81863133bebebbe724e7::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit8b3590563a1f81863133bebebbe724e7::$classMap;
 
         }, null, ClassLoader::class);
     }
