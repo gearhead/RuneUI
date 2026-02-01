@@ -300,9 +300,6 @@ rm -rf "$dirName"
 rm -f /etc/systemd/system/macfix_*.service
 rm -f /etc/systemd/system/multi-user.target.wants/macfix_*.service
 #
-# remove a problem looping symlink in the vendor files if it exists (created erroneously in a previous version)
-rm -f /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/getid3
-#
 # update local git and clean up any stashes
 md5beforeThis=$( md5sum $0 | xargs | cut -f 1 -d " " )
 md5beforeRotate=$( md5sum /srv/http/command/raspi-rotate-install.sh | xargs | cut -f 1 -d " " )
@@ -622,7 +619,6 @@ for f in /etc/udev/rules.d/*.default ;  do
 done
 # make appropriate links
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
-ln -sfT /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
 #
 # set op logrotate
