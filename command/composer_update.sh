@@ -102,6 +102,9 @@ git clone -b master https://github.com/JamesHeinrich/getID3.git/ /home/getID3
 if [ -d "/srv/http/app/libs/vendor/getid3" ] ; then
     rm -r /srv/http/app/libs/vendor/getid3
 fi
+if [ -e "/srv/http/app/libs/vendor/getid3" ] ; then
+    rm -r /srv/http/app/libs/vendor/getid3
+fi
 mkdir /srv/http/app/libs/vendor/getid3
 mv /home/getID3/* /srv/http/app/libs/vendor/getid3
 mv /srv/http/app/libs/vendor/getid3/getid3/* /srv/http/app/libs/vendor/getid3
