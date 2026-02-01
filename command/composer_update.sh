@@ -38,69 +38,81 @@
 set +e # continue on errors
 # We do all of this in app/libs/
 cd /srv/http/app/libs
-# Note that the getid3 library is buried under the author name about 3 deep. The rest of the RuneUI files
-# expect it to be in vendor/getid3, so after copmposer updates it, we move the full getid3 directory up
-# make a copy of the file audioinfo.class.php, this is very important as it is not supplied in the getid3 composer component!
-cp /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php /home/audioinfo.class.php
-# cp -n /srv/http/app/libs/vendor/getid3/audioinfo.class.php /home/audioinfo.class.php
+# Note the getid3 composer files are cloned directly from git hub
+# make a copy of the file audioinfo.class.php, this is very important and it is not supplied in the getid3 composer component!
+#   there is a reserve copy in /srv/http/.config
+if [ -f "/srv/http/app/libs/vendor/getid3/audioinfo.class.php" ] ; then
+    cp /srv/http/app/libs/vendor/getid3/audioinfo.class.php /home/audioinfo.class.php
+else
+    cp /srv/http/.config/audioinfo.class.php /home/audioinfo.class.php
+fi
 # download and install composer.phar in the directory /srv/http/app/libs/
 # these instructions are from here: https://getcomposer.org/download/
-php -r "unlink('composer-setup.php');"
+if [ -f "composer-setup.php" ] ; then
+    rm composer-setup.php
+fi
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 # the sha384 checksum of the composer installer is stored here: https://composer.github.io/installer.sig
 php -r "if (hash_file('sha384', 'composer-setup.php') === file_get_contents('https://composer.github.io/installer.sig')) { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
-#rm /srv/http/app/libs/composer.phar
 php composer-setup.php --install-dir=/srv/http/app/libs
 php -r "unlink('composer-setup.php');"
-# make copies of the current composer files and delete them
+# make copies of the current composer files and delete the originals
 cd /srv/http/app/libs
-cp /srv/http/app/libs/composer.json /srv/http/app/libs/composer.json.save
-cp /srv/http/app/libs/composer.lock /srv/http/app/libs/composer.lock.save
-rm /srv/http/app/libs/composer.json /srv/http/app/libs/composer.lock
+mv /srv/http/app/libs/composer.json /srv/http/app/libs/composer.json.save
+mv /srv/http/app/libs/composer.lock /srv/http/app/libs/composer.lock.save
 # create the composer file which holds the target versions
-#
+#   allow all the packages to upgrade within the major version
 #
 cat <<EOF >/srv/http/app/libs/composer.json
 {
     "require": {
-        "league/plates": "3.6.*",
-        "evenement/evenement": "3.0.*",
-        "guzzlehttp/guzzle": "7.10.*",
-        "james-heinrich/getid3": "*.*.*"
+        "league/plates": "3.*.*",
+        "evenement/evenement": "3.*.*",
+        "guzzlehttp/guzzle": "7.*.*"
     }
 }
 
 EOF
-# remove the getid3 symlink (in old Rune versions the actual files are here)
-rm /srv/http/app/libs/vendor/getid3
 # remove the historical composer files if they exist
-rm -r /srv/http/app/libs/vendor/Zend
-rm -r /srv/http/app/libs/vendor/ziegler
+if [ -f "/srv/http/app/libs/vendor/Zend" ] ; then
+    rm -r /srv/http/app/libs/vendor/Zend
+fi
+if [ -f "/srv/http/app/libs/vendor/ziegler" ] ; then
+    rm -r /srv/http/app/libs/vendor/ziegler
+fi
 # make sure all the files are owned by www-data
 chown -R www-data:www-data /srv/http/app/libs/
 # install/upgrade the composer components
 sudo -u www-data ./composer.phar --with-all-dependencies update
-# Create a sym link for getid3 where Rune expects them
-ln -s /srv/http/app/libs/vendor/james-heinrich/getid3/getid3 /srv/http/app/libs/vendor/getid3
 # remove the composer setup script
-rm /home/composer-setup.php
+if [ -f "/home/composer-setup.php" ] ; then
+    rm /home/composer-setup.php
+fi
 # and remove the composer.phar file
-rm /srv/http/app/libs/composer.phar
-# we let composer update these for us
-# now download the latest version of getID3 from github
-#   composer installs the default version of getID3, the git hub master version has the latest bug fixes
-#rm -r /home/getID3
-#mkdir -p /home/getID3
-#git clone -b master https://github.com/JamesHeinrich/getID3.git/ /home/getID3
-# copy the getID3 php files to the correct directory
-#cp /home/getID3/getid3/* /srv/http/app/libs/vendor/getid3
-# move the saved version of audioinfo.class.php from /home to the getid3 files directory that we moved
-mv /home/audioinfo.class.php /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
+if [ -f "/srv/http/app/libs/composer.phar" ] ; then
+    rm /srv/http/app/libs/composer.phar
+fi
+# now download the latest version of getID3 from github, the git hub master version has the latest bug fixes
+if [ -d "/home/getID3" ] ; then
+    rm -r /home/getID3
+fi
+mkdir -p /home/getID3
+git clone -b master https://github.com/JamesHeinrich/getID3.git/ /home/getID3
+# move the getID3 php files to the correct directories
+if [ -d "/srv/http/app/libs/vendor/getid3" ] ; then
+    rm -r /srv/http/app/libs/vendor/getid3
+fi
+mkdir /srv/http/app/libs/vendor/getid3
+mv /home/getID3/* /srv/http/app/libs/vendor/getid3
+mv /srv/http/app/libs/vendor/getid3/getid3/* /srv/http/app/libs/vendor/getid3
+rmdir /srv/http/app/libs/vendor/getid3/getid3
+# move the saved version of audioinfo.class.php from /home to the getid3 files directory
+mv /home/audioinfo.class.php /srv/http/app/libs/vendor/getid3/audioinfo.class.php
 # correct the ownership of the audioinfo.class.php file
-chown www-data:www-data /srv/http/app/libs/vendor/james-heinrich/getid3/getid3/audioinfo.class.php
+chown www-data:www-data /srv/http/app/libs/vendor/getid3/audioinfo.class.php
 # remove the downloaded getID3 files
-#rm -r /home/getID3
+rm -r /home/getID3
 # make sure that all files are unix format and have the correct ownerships and protections
-/srv/http/command/convert_dos_files_to_unix_script.sh
+/srv/http/command/convert_dos_files_to_unix_script.sh > /dev/null 2>&1
 #---
 #End script
