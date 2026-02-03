@@ -645,19 +645,19 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRconnect':
             // Multi-room connect change
-            // params: command, id, name, selected
+            // params: command, id, name, selected, pin
             // command = 'Connect'
             // returns: id, selected, volume, mute
             // no break;
         case 'MRvolume':
             // Multi-room volume change
-            // params: command, id, name, volume
+            // params: command, id, name, volume, pin
             // command = 'Volume'
             // returns: id, selected, volume, mute
             // no break;
         case 'MRmute':
             // Multi-room mute change
-            // params: command, id, name, mute, volume
+            // params: command, id, name, mute, volume, pin
             // command = 'Mute' or 'Unmute'
             // returns: id, selected, volume, mute
             $params = json_decode($_GET['params'], true);
@@ -677,11 +677,27 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $preset['mute'] = 0;
                 $preset['autoconnect'] = false;
                 $preset['volume_preset'] = $defaultVolume;
+                $preset['pin'] = '';
                 $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+                if (!isset($preset['pin'])) {
+                    // pin is not set, add a null pin value
+                    $preset['pin'] = '';
+                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                }
             }
             // first set the redis outputs and presets to the expected new values and save them
+            if (isset($params['pin']) && $params['pin']) {
+                // pin is set
+                if (($params['pin'] != '******') && ($preset['pin'] != $params['pin'])) {
+                    // new pin code, save it
+                    $preset['pin'] = $params['pin'];
+                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                } else if (($params['pin'] == '******') && isset($preset['pin']) && $preset['pin'])
+                    // dummy pin supplied, use the stored pin
+                    $params['pin'] = $preset['pin'];
+            }
             if ((isset($params['command']) && ($params['command'] == 'Mute') && $preset['mute']) ||
                    (isset($params['command']) && ($params['command'] == 'Unmute') && !$preset['mute'])) {
                 // mute requested, already muted or unmute requested, already unmuted
@@ -839,6 +855,12 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 // normal processing to connect/disconnect or change the volume
                 $commandPut = '';
                 if (isset($params['selected']) || isset($params['volume'])) {
+                    // when the pin is set use it in the command
+                    if (isset($params['pin']) && $params['pin']) {
+                        $pinCommandPart = ', \"pin\": \"'.$params['pin'].'\"';
+                    } else {
+                        $pinCommandPart = '';
+                    }
                     // set up the command
                     $commandPut =
                         'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
@@ -848,7 +870,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         } else {
                             $action = 'false';
                         }
-                        $commandPut .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                        $commandPut .= '\"selected\": '.$action.$pinCommandPart.', \"volume\": '.$params['volume'].'}"';
                     } else if (isset($params['volume'])) {
                         $commandPut .= '\"volume\": '.$params['volume'].'}"';
                     } else if (isset($params['selected'])) {
@@ -867,7 +889,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             $params['volume'] = $preset['volume_preset'];
                         }
                         // connect/disconnect always setting the volume
-                        $commandPut .= '\"selected\": '.$action.', \"volume\": '.$params['volume'].'}"';
+                        $commandPut .= '\"selected\": '.$action.$pinCommandPart.', \"volume\": '.$params['volume'].'}"';
                     }
                     // run the command only when there is something to do
                     sysCmd($commandPut);
@@ -941,7 +963,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $redis->hDel('owntone_outputs', $params['name']);
                 }
                 if (isset($output['id'])) {
-                    // valid output, correct the return values if required
+                    // valid output
+                    // if the pin was used and connect is not successful remove the stored pin code
+                    if (isset($params['pin']) && $params['pin'] && isset($params['selected']) && $params['selected'] && isset($output['selected']) && !$output['selected']) {
+                        $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+                        if (!isset($preset['pin']) || $preset['pin']) {
+                            // pin is not set or has a value, set to null pin value
+                            $preset['pin'] = '';
+                            $params['pin'] = $preset['pin'];
+                            $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                        }
+                    }
+                    // correct the return values if required
                     if (!isset($params['selected']) || ($output['selected'] != $params['selected'])) {
                         $params['selected'] = $output['selected'];
                     }
@@ -966,11 +999,17 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             } else {
                 $params['selected'] = 0;
             }
+            // when the pin has a value return '******' to the UI
+            if (isset($params['pin']) && $params['pin']) {
+                // pin is set and has a value, set to dummy pin value
+                $params['pin'] = '*******';
+            }
             echo json_encode(array(
                 'id' => $params['id'],
                 'selected' => $params['selected'],
                 'volume' => $params['volume'],
-                'mute' => $params['mute']));
+                'mute' => $params['mute'],
+                'pin' => $params['pin']));
             unset($params, $defaultVolume, $preset, $output, $action, $volume, $localOutputName);
             break;
         case 'MRpreset':

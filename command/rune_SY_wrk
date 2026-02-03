@@ -750,7 +750,6 @@ while (true) {
                     sysCmd('/srv/http/db/redis_datastore_setup check');
                     sysCmd('/srv/http/db/redis_acards_details');
                     $redis->del('acards');
-                    wrk_playernamemenu($redis->get('playernamemenu'));
                     $redis->set('dev', 0);
                     wrk_systemd_unit($redis, 'daemon-reload');
                     // wrk_systemd_unit($redis, 'reload-or-restart', 'php-fpm');
@@ -1148,12 +1147,6 @@ while (true) {
                 $redis->hSet('airplay', 'alsa_output_rate', $job->args);
                 $redis->hDel('owntone', 'saved_airplay_rate');
                 wrk_shairport($redis, $redis->get('ao'), '', $jobID);
-                $redis->sRem('w_lock', $jobID);
-                break;
-            case 'playernamemenu':
-                wrk_playernamemenu($job->action);
-                $redis->set('playernamemenu', $job->action);
-                wrk_systemd_unit($redis, 'reload-or-restart', 'php-fpm');
                 $redis->sRem('w_lock', $jobID);
                 break;
             case 'netcfg':

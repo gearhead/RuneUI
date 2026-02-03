@@ -79,8 +79,13 @@ if (isset($outputNames) && $outputNames ) {
                 $preset['autoconnect'] = false;
                 $preset['mute'] = 0;
                 $preset['volume_preset'] = $defaultVolume;
+                $preset['pin'] = '';
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
+                if (!isset($preset['pin'])) {
+                    $preset['pin'] = '';
+                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                }
             }
             $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
             // truncate the output type up to the first space - 'AirPlay 1' becomes 'AirPlay'
@@ -105,6 +110,9 @@ if (isset($outputNames) && $outputNames ) {
             } else {
                 $classification = 'client';
                 $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
+            }
+            if (isset($templateData['controls'][$classification][$outputName]['pin']) && $templateData['controls'][$classification][$outputName]['pin']) {
+                $templateData['controls'][$classification][$outputName]['pin'] = '******';
             }
         }
     }

@@ -125,14 +125,6 @@ if (isset($_POST)) {
             // just set the redis variable to false, no further action required
             $redis->hGet('bluetooth', 'fix_output_ba_volume') && $redis->hSet('bluetooth', 'fix_output_ba_volume', 0);
         }
-        // ----- UI Player name Menu -----
-        if ((isset($_POST['mode']['playernamemenu']['enable'])) && ($_POST['mode']['playernamemenu']['enable'])) {
-            // create worker job (set on)
-            $redis->get('playernamemenu') || $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 1));
-        } else {
-            // create worker job (set off)
-            $redis->get('playernamemenu') && $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'playernamemenu', 'action' => 0));
-        }
         // ----- UI Object Order -----
         if ((isset($_POST['mode']['UIorder'])) && ($_POST['mode']['UIorder'])) {
             // value is set
@@ -471,7 +463,6 @@ $templateData['gitbranch'] = $redis->hGet('git', 'branch');
 $templateData['sambadevonoff'] = $redis->hGet('samba', 'devonoff');
 $templateData['sambaprodonoff'] = $redis->hGet('samba', 'prodonoff');
 $templateData['soxrmpdonoff'] = $redis->get('soxrmpdonoff');
-$templateData['playernamemenu'] = $redis->get('playernamemenu');
 $templateData['UIorder'] = $redis->get('UIorder');
 $templateData['MRorder'] = $redis->hGet('owntone', 'MRorder');
 $templateData['MRrate'] = $redis->hGet('owntone', 'rate');

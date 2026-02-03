@@ -429,7 +429,8 @@ while (true) {
                 unset($outputs, $clientname, $output, $value, $outputDetail);
             }
         }
-        // $clientIp now contains a list of currently connected runeaudio owntone clients capable of receiving metadata, it also contains the volume level for each client,
+        // $clientIp now contains a list of currently connected runeaudio owntone clients capable of receiving metadata,
+        //  it also contains the volume level for each client,
         //  it may also contain the IP address of each client
         // remove old render events from the queue
         while ($redis->lLen('owntone_render') > 5) {
@@ -499,6 +500,7 @@ while (true) {
                             }
                         }
                     }
+                    $now = microtime(true);
                     if ($decoded['state'] == 'play') {
                         if (isset($decoded['last_elapsed']) && isset($decoded['time_last_elapsed']) && isset($decoded['time'])
                                 && is_numeric($decoded['last_elapsed']) && is_numeric($decoded['time_last_elapsed']) && is_numeric($decoded['time'])
@@ -514,10 +516,13 @@ while (true) {
                             $owntoneLatency = intval($redis->hGet('owntone', 'latency'));
                             if ($decoded['elapsed'] <= $owntoneLatency) {
                                 // the elapsed time is less than $owntoneLatency seconds, sleep until this time has passed
-                                sleep(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                                $sleepTime = ceil(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                                sleep($sleepTime);
+                            } else {
+                                $sleepTime = 0;
                             }
-                            // subtract 3 seconds from the elapsed time
-                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency);
+                            // subtract the latency (default 3 seconds) from, and add the sleep time to, the elapsed time  
+                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency + $sleepTime);
                             if (isset($decoded['time']) && $decoded['time']) {
                                 $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
                             }
@@ -585,11 +590,16 @@ while (true) {
                             $owntoneLatency = intval($redis->hGet('owntone', 'latency'));
                             if ($decoded['elapsed'] <= $owntoneLatency) {
                                 // the elapsed time is less than $owntoneLatency seconds, sleep until this time has passed
-                                sleep(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                                $sleepTime = ceil(max(0, min($owntoneLatency, ceil($owntoneLatency - $decoded['elapsed']))));
+                                sleep($sleepTime);
+                            } else {
+                                $sleepTime = 0;
                             }
-                            // subtract 3 seconds from the elapsed time
-                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency);
-                            $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                            // subtract the latency (default 3 seconds delay) from, and add the sleep time to, the elapsed time  
+                            $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency + $sleepTime);
+                            if (isset($decoded['time']) && $decoded['time']) {
+                                $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
+                            }
                         }
                     } else {
                         // state is pause, ensure that the elapsed information is removed
@@ -611,8 +621,8 @@ while (true) {
                         }
                         // keep a list of clients which have had at least one render action
                         $renderedClients[$client['clientname']] = true;
-                        // sleep for 0.1 seconds
-                        usleep(100000);
+                        // sleep for 0.05 seconds
+                        usleep(50000);
                     }
                     // calculate the next re-render time
                     $renderDelay = min($renderDelayMax, ($renderDelay * $renderMultplier));
@@ -620,7 +630,7 @@ while (true) {
                 }
             }
         }
-        unset($clientIp, $newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded);
+        unset($clientIp, $newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded, $sleepTime);
         //
         // // this section posts the current song metadata to the owntone metadata fifo
         // //   this should work but does not

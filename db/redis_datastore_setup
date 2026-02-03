@@ -538,8 +538,6 @@ function redisDatastore($redis, $action) {
             $redis->hSet('local_browser', 'smallScreenSaver', 0);
             $redis->hSet('local_browser', 'windows', 'xorg');
             $redis->hSet('local_browser', 'zoomfactor', 1);
-            //
-            $redis->set('playernamemenu', 1);
             // avahi
             $redis->hSet('avahi', 'confchange', 0);
             $redis->hSet('avahi', 'ip_setup', 'a');
@@ -819,7 +817,6 @@ function redisDatastore($redis, $action) {
             $redis->hExists('local_browser', 'windows') || $redis->hSet('local_browser', 'windows', 'xorg');
             $redis->hExists('local_browser', 'zoomfactor') || $redis->hSet('local_browser', 'zoomfactor', 1);
             //
-            $redis->exists('playernamemenu') || $redis->set('playernamemenu', 1);
             $redis->exists('dynVolumeKnob') || $redis->set('dynVolumeKnob', 0);
             $redis->exists('cmediafix') || $redis->set('cmediafix', 0);
             $redis->exists('mpdconfchange') || $redis->set('mpdconfchange', 0);

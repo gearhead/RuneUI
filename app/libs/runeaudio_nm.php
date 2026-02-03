@@ -3607,26 +3607,6 @@ function wrk_cleanDistro()
     sysCmd('/srv/http/command/image_reset_script.sh');
 }
 
-function wrk_playernamemenu($action)
-{
-    if ($action) {
-        // on - player name and "Menu"
-        $newline = '        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#"><?=$this->hostname ?> MENU <i class="fa fa-bars dx"></i></a> <!--- playernamemenu -->';
-    } else {
-        // off - "Menu" (default)
-        $newline = '        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#">MENU <i class="fa fa-bars dx"></i></a> <!--- playernamemenu -->';
-    }
-    $file = '/srv/http/app/templates/header.php';
-    $newArray = wrk_replaceTextLine($file, '', '<!--- playernamemenu -->', $newline);
-    // Commit changes to /srv/http/app/templates/header.php
-    $fp = fopen($file, 'w');
-    fwrite($fp, implode("", $newArray));
-    fclose($fp);
-    unset($newArray);
-    sysCmd('chown www-data:www-data '.$file);
-    sysCmd('chmod 644 '.$file);
-}
-
 function wrk_audioOutput($redis, $action)
 {
     switch ($action) {
@@ -7534,87 +7514,6 @@ function ui_notifyError($redis, $title, $text, $type = null, $permanotice = null
         ui_render($redis, 'notify', json_encode($output));
     }
 }
-
-// function ui_notify_async($redis, $title, $text, $type = null, $permanotice = null)
-// {
-    // if (is_object($permanotice)) {
-        // $output = array('title' => $title, 'permanotice' => '', 'permaremove' => '');
-    // } else {
-        // if ($permanotice === 1) {
-            // $output = array('title' => $title, 'text' => $text, 'permanotice' => '');
-        // } else {
-            // $output = array('title' => $title, 'text' => $text);
-        // }
-    // }
-    // $output = json_encode($output);
-    // runelog('notify (async) JSON string: ', $output);
-    // if (!strpos(' '.$output,"'")) {
-        // sysCmdAsync($redis, '/srv/http/command/ui_notify.php \''.$output.'\'');
-    // } else {
-        // sysCmdAsync($redis, '/srv/http/command/ui_notify.php "'.$output.'"');
-    // }
-// }
-
-// function wrk_notify($redis, $action, $notification, $jobID = null)
-// {
-    // switch ($action) {
-        // case 'raw':
-            // // debug
-            // runelog('wrk_notify (raw)', $notification);
-            // break;
-        // case 'startjob':
-            // if (!empty($notification)) {
-                // if (is_object($notification)) {
-                    // $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'icon' => 'fa fa-cog fa-spin', 'permanotice' => $jobID));
-                    // // debug
-                    // runelog('wrk_notify (startjob) jobID='.$jobID, $notification);
-                // }
-                // if (wrk_notify_check($notification)) {
-                    // if (empty($redis->hGet('notifications', $jobID)) && empty($redis->hGet('notifications', 'permanotice_'.$jobID))) {
-                        // $redis->hSet('notifications', $jobID, $notification);
-                    // }
-                // }
-            // }
-            // break;
-        // case 'endjob':
-            // $notification = $redis->hGet('notifications', $jobID);
-            // if (!empty($notification)) {
-                // $notification = json_decode($notification);
-                // $notification = json_encode(array('title' => $notification->title, 'text' => '', 'permanotice' => $jobID, 'permaremove' => $jobID));
-                // // debug
-                // runelog('wrk_notify (endjob) jobID='.$jobID, $notification);
-                // $redis->hDel('notifications', $jobID);
-            // }
-            // break;
-        // case 'kernelswitch':
-            // // debug
-            // runelog('wrk_notify (kernelswitch) jobID='.$jobID, $notification);
-            // if (!empty($notification)) {
-                // $notification = json_encode(array('title' => $notification->title, 'text' => $notification->text, 'custom' => 'kernelswitch'));
-                // if (wrk_notify_check($notification)) {
-                    // // if (empty($redis->hGet('notifications', $jobID)) && empty($redis->hGet('notifications', 'permanotice_'.$jobID))) {
-                        // $redis->hSet('notifications', 'permanotice_kernelswitch', $notification);
-                    // // }
-                // }
-            // }
-            // break;
-    // }
-    // if (wrk_notify_check($notification)) ui_render($redis, 'notify', $notification);
-// }
-
-// function wrk_notify_check($notification)
-// {
-    // if (json_decode($notification) !== null) {
-        // $notification = json_decode($notification);
-        // if (isset($notification->title) && isset($notification->text)) {
-            // return true;
-        // } else {
-            // return false;
-        // }
-    // } else {
-        // return false;
-    // }
-// }
 
 // class ui_renderQueue
 // {
@@ -16893,37 +16792,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                 }
                 $redis->hSet('owntone', 'server_ip_address', $ipAddress);
-            // } else {
-                // $role = 'client';
-                // $redis->hSet('owntone', 'role', $role);
-                // // use avahi-browse to determine the server name
-                // //  if there are multiple owntone servers the first owntone server will be used
-                // $retval = sysCmd("avahi-browse -atrlkp | grep -i 'owntone' | grep -w '^='");
-                // if (isset($retval) && $retval && is_array($retval)) {
-                    // $retval = $retval[0];
-                // } else {
-                    // $retval = '';
-                // }
-                // if ($retval) {
-                    // $server = get_between_data($retval, ';local;', '.local');
-                    // if ($server) {
-                        // $server = $server.'.local';
-                        // $redis->hSet('owntone', 'server', $server);
-                        // $redis->hSet('owntone', 'server_hostname', $server);
-                    // }
-                    // $ipAddress = get_between_data($retval, '.local;', ';');
-                    // if ($ipAddress) {
-                        // // it is quicker to use the IP address for the client
-                        // $redis->hSet('owntone', 'server_ip_address', $ipAddress);
-                        // $redis->hSet('owntone', 'server', $server);
-                    // }
-                // } else {
-                    // $server = '';
-                    // $ipAddress = '';
-                    // $redis->hSet('owntone', 'server', $server);
-                    // $redis->hSet('owntone', 'server_hostname', $server);
-                    // $redis->hSet('owntone', 'server_ip_address', $ipAddress);
-                // }
             }
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $activePlayer = $redis->get('activePlayer');
@@ -17079,9 +16947,14 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $preset['autoconnect'] = false;
                                 $preset['mute'] = 0;
                                 $preset['volume_preset'] = $defaultVolume;
+                                $preset['pin'] = '';
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             } else {
                                 $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                                if (!isset($preset['pin'])) {
+                                    $preset['pin'] = '';
+                                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                                }
                             }
                         } else {
                             continue;
@@ -17240,7 +17113,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                         }
                         // check for an autoconnect or disconnect
-                        //  note: the preset volume is only set once when connecting
+                        //  note: the preset volume is only set once when connecting the first time
                         $commandPut = '';
                         if ($autoconnect) {
                             // set up the command
@@ -17248,14 +17121,20 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
-                            if ($autoconnect) {
-                                $commandPut .= ' \"selected\": true';
-                                $output['selected'] = true;
+                            //
+                            $commandPut .= ' \"selected\": true';
+                            $output['selected'] = true;
+                            //
+                            if (isset($preset['pin']) && $preset['pin']) {
+                                // pin code is set, use it
+                                $commandPut .= ', \"pin\": \"'.$preset['pin'].'\"';
                             }
+                            //
                             if ($setvolume) {
                                 $commandPut .= ', \"volume\": '.$volume;
                                 $output['volume'] = $volume;
                             }
+                            //
                             $commandPut .= ' }"';
                             // debug
                             // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
@@ -17267,16 +17146,21 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
-                            if ($disconnect) {
-                                $commandPut .= ' \"selected\": false';
-                                $output['selected'] = true;
+                            //
+                            $commandPut .= ' \"selected\": false';
+                            $output['selected'] = false;
+                            //
+                            if (isset($preset['pin']) && $preset['pin']) {
+                                // pin code is set, use it
+                                $commandPut .= ', \"pin\": \"'.$preset['pin'].'\"';
                             }
+                            //
                             if ($setvolume) {
                                 $commandPut .= ', \"volume\": '.$volume;
                                 $output['volume'] = $volume;
                             }
+                            //
                             $commandPut .= ' }"';
-                            $output['selected'] = false;
                             // debug
                             // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
                             // run the command

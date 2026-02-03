@@ -206,12 +206,6 @@ fi
 /srv/http/command/ui_notify.php 'Restore' 'Working, please wait...' 'simplemessage'
 # set up the player name in the UI
 set +e
-count=$( cat /srv/http/app/templates/header.php | grep -c '$this->hostname' )
-if [ $count -gt 2 ] ; then
-    redis-cli set playernamemenu '1'
-else
-    redis-cli set playernamemenu '0'
-fi
 # sev dev mode off
 redis-cli set dev '0'
 # set debug off

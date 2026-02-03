@@ -615,6 +615,11 @@ function setUIbuttons(activePlayer) {
         document.getElementById('volume').readOnly = true;
         if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
             // most UI knobs are only active for MPD
+            // jquery command will not work $('div#time-knob').css('pointer-events', 'none');
+            document.getElementById('time-knob').style.pointerEvents = "none";
+            $('#repeat').addClass('hide');
+            $('#random').addClass('hide');
+            $('#single').addClass('hide');
             if (GUI.local_volume_control === '0') {
                 // local volume control can be on for some streams, here disabled
                 $('#volume-knob').addClass('disabled');
@@ -641,9 +646,6 @@ function setUIbuttons(activePlayer) {
                 $('#volumemute').removeClass('disabled');
                 $('#volumeup').removeClass('disabled');
             }
-            $('#repeat').addClass('hide');
-            $('#random').addClass('hide');
-            $('#single').addClass('hide');
         } else {
             // MPD
             if (GUI.stream) {
@@ -683,6 +685,8 @@ function setUIbuttons(activePlayer) {
                 $('#volumemute').removeClass('disabled');
                 $('#volumeup').removeClass('disabled');
             }
+            // jquery command will not work $('div#time-knob').css('pointer-events', 'auto');
+            document.getElementById('time-knob').style.pointerEvents = "auto";
             $('#stop').removeClass('disabled');
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
@@ -2703,14 +2707,18 @@ if ($('#playback').length) {
         $('#time').knob({
             inline: false,
             change: function (value) {
-                if (GUI.state !== 'stop') {
-                    window.clearInterval(GUI.currentKnob);
-                } else {
-                    $('#time').val(0).trigger('change');
+                if (!$('#time-knob').hasClass('disabled')) {
+                    if (GUI.state !== 'stop') {
+                        window.clearInterval(GUI.currentKnob);
+                    } else {
+                        $('#time').val(0).trigger('change');
+                    }
                 }
             },
             release: function (value) {
-                onreleaseKnob(value);
+                if (!$('#time-knob').hasClass('disabled')) {
+                    onreleaseKnob(value);
+                }
             }
         });
 

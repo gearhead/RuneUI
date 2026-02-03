@@ -130,7 +130,7 @@ $segment2 = $uriHelper->segment(2);
 $segment3 = $uriHelper->segment(3);
 
 // set devmode
-$templateData['dev'] = $devmode;
+$templateData['dev'] = $redis->get('dev');
 // activePlayer
 $activePlayer = $redis->get('activePlayer');
 // TODO: rework needed
@@ -225,7 +225,7 @@ $segment2 = $uriHelper->segment(2);
 $segment3 = $uriHelper->segment(3);
 
 // set devmode
-$templateData['dev'] = $devmode;
+// $templateData['dev'] = $devmode;
 // plates: render layout (if you want to output direct, set $tplfile = 0 into controller)
 if (isset($tplfile)) {
     if ($tplfile !== 0) {

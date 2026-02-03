@@ -67,9 +67,7 @@
 -->
 <div id="menu-top">
     <div class="dropdown">
-        <!--- <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#"><?=$hostname ?> MENU <i class="fa fa-bars dx"></i></a>-->
-        <!--- <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" data-target="#" href="#">MENU <i class="fa fa-bars dx"></i></a>-->
-        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" href="#"><?=$hostname ?> MENU <i class="fa fa-bars dx"></i></a> <!--- playernamemenu -->
+        <a id="menu-settings" class="dropdown-toggle" role="button" data-toggle="dropdown" href="#"><?php if (isset($hostname) && ($hostname != 'RuneAudio')) echo $hostname ?> MENU <i class="fa fa-bars dx"></i></a>
         <ul class="dropdown-menu" role="menu" aria-labelledby="menu-settings">
             <li class="<?=$this->uri(1, '', 'active')?>"><a href="/"><i class="fa fa-play"></i> Playback</a></li>
             <li class="<?=$this->uri(1, 'sources', 'active')?>"><a href="/sources/"><i class="fa fa-folder-open"></i> Sources</a></li>
