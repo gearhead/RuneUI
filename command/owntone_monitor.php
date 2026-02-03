@@ -521,7 +521,7 @@ while (true) {
                             } else {
                                 $sleepTime = 0;
                             }
-                            // subtract the latency (default 3 seconds) from, and add the sleep time to, the elapsed time  
+                            // subtract the latency (default 3 seconds) from, and add the sleep time to, the elapsed time
                             $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency + $sleepTime);
                             if (isset($decoded['time']) && $decoded['time']) {
                                 $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
@@ -595,7 +595,7 @@ while (true) {
                             } else {
                                 $sleepTime = 0;
                             }
-                            // subtract the latency (default 3 seconds delay) from, and add the sleep time to, the elapsed time  
+                            // subtract the latency (default 3 seconds delay) from, and add the sleep time to, the elapsed time
                             $decoded['elapsed'] = max(0, $decoded['elapsed'] - $owntoneLatency + $sleepTime);
                             if (isset($decoded['time']) && $decoded['time']) {
                                 $decoded['song_percent'] = max(0, min(100, round(100 * $decoded['elapsed'] / $decoded['time'])));
