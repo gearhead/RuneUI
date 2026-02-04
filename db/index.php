@@ -681,6 +681,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+                // the next lines can be removed after the next release
                 if (!isset($preset['pin'])) {
                     // pin is not set, add a null pin value
                     $preset['pin'] = '';
@@ -888,9 +889,11 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             }
                             $params['volume'] = $preset['volume_preset'];
                         }
-                        // connect/disconnect always setting the volume
+                        // connect/disconnect will always set the volume
                         $commandPut .= '\"selected\": '.$action.$pinCommandPart.', \"volume\": '.$params['volume'].'}"';
                     }
+                    // debug
+                    // ui_notify($redis, 'Debug', $commandPut);
                     // run the command only when there is something to do
                     sysCmd($commandPut);
                 }
@@ -1002,7 +1005,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // when the pin has a value return '******' to the UI
             if (isset($params['pin']) && $params['pin']) {
                 // pin is set and has a value, set to dummy pin value
-                $params['pin'] = '*******';
+                $params['pin'] = '******';
             }
             echo json_encode(array(
                 'id' => $params['id'],

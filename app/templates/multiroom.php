@@ -62,12 +62,18 @@
                 $('#'+id+'VolumeLabel').addClass('hide');
                 $('#'+id+'Connected').addClass('hide');
                 $('#'+id+'Presets').addClass('hide');
+                if ($('#'+id+'RequiresAuth').val() == '1') {
+                    $('#'+id+'PinGroup').removeClass('hide');
+                } else {
+                    $('#'+id+'PinGroup').addClass('hide');
+                }
             } else {
                 $('#'+id+'ConnectButton').text('Disconnect');
                 $('#'+id+'ConnectButton').css({'float':'right'});
                 $('#'+id+'MuteButton').removeClass('hide');
                 $('#'+id+'VolumeLabel').removeClass('hide');
                 $('#'+id+'Connected').removeClass('hide');
+                $('#'+id+'PinGroup').addClass('hide');
                 if (($('#'+id+'Type').val() == 'ALSA') && ($('#Multidevice').val() == '0')) {
                     $('#'+id+'ConnectButton').addClass('hide');
                     $('#'+id+'Presets').addClass('hide');
@@ -366,9 +372,9 @@
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
                             <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
-                            <?php if (($classification  == 'client') && !$l['selected'] && $l['requires_auth']): ?>
+                            <div id="<?=$l['id']?>PinGroup" name="<?=$l['id']?>PinGroup"<?php if (($classification  != 'client') || $l['selected'] || !$l['requires_auth']): ?> class="hide"<?php endif;?> style="display: inline-block" >
                                 &nbsp&nbspPIN-CODE:&nbsp&nbsp<input id="<?=$l['id']?>Pin" name="<?=$l['id']?>Pin" value="<?=$l['pin']?>" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
-                            <?php endif;?>
+                            </div>
                             <div id="<?=$l['id']?>Connected" for="<?=$l['id']?>Connected"<?php if (!$l['selected']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumeLabel" for="<?=$l['id']?>Volume" class="btn btn-primary btn-lg">Volume: <?=$l['volume']?>%</label>
                                 <div id="<?=$l['id']?>VolumeContainer" name="<?=$l['id']?>VolumeContainer" class="volume-slider-container">
