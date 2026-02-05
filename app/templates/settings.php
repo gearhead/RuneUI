@@ -31,7 +31,7 @@
                 <div class="col-sm-10">
                     <select class="selectpicker" name="i2smodule_select" data-style="btn-default btn-lg">
                         <?php $i2smodules = file('.config/i2s_table.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES); foreach ($i2smodules as $i2smodule_item):?>
-                            <?php $modulename = substr($i2smodule_item, strpos($i2smodule, '|')+1); if ($i2smodule_select === $i2smodule_item): $selected = 'selected'; else: $selected = ''; endif;?>
+                            <?php $modulename = substr($i2smodule_item, strpos($i2smodule_item, '|')+1); if ($i2smodule_select === $i2smodule_item): $selected = 'selected'; else: $selected = ''; endif;?>
                             <option value="<?=$i2smodule_item ?>" <?=$selected ?>><?=$modulename ?></option>
                         <?php endforeach; ?>
                     </select>
