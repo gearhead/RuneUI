@@ -16951,6 +16951,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             } else {
                                 $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                                // the next lines can be removed after the next release
                                 if (!isset($preset['pin'])) {
                                     $preset['pin'] = '';
                                     $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
