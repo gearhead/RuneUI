@@ -26,8 +26,10 @@
  * along with RuneAudio; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
- *  file: app/debug_ctl.php
+ *  file: app/multiroom_ctl.php
  *  version: 1.3
+ *  coder: janui
+ *  date: April 2025
  *
  */
 // inspect POST
