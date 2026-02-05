@@ -39,23 +39,26 @@ set +e # continue on errors
 cd /home
 # only create on multiprocessor models and when multi-room is enabled
 cores=$( redis-cli get cores )
-if (( cores > 1 )) ; then
+if [[ $cores > 1 ]] ; then
     # remove any old format alsa config files, this test can be removed in a future version
-    if ( -f "/etc/alsa/conf.d/99_runeaudio_owntone.conf") ; then
-        rm /etc/alsa/conf.d/99_runeaudio_owntone.conf
+    if [ -f "/etc/alsa/conf.d/99_runeaudio_owntone.conf" ] ; then
+        rm "/etc/alsa/conf.d/99_runeaudio_owntone.conf"
     fi
     # refresh the config file if it does not exist
-    if ( ! -f "/etc/owntone.conf") ; then
-        cp /srv/http/app/confif/defaults/etc/owntone.conf /etc/owntone.conf
+    if [ ! -f "/etc/owntone.conf" ] ; then
+        cp "/srv/http/app/confif/defaults/etc/owntone.conf" "/etc/owntone.conf"
     fi
+    # always refresh the owntone tmpfiles config file, it gets modified below
+    cp "/srv/http/app/confif/defaults/etc/tmpfiles.d/owntone.conf" "/etc/tmpfiles.d/owntone.conf"
     # examine the owntone config file to determine the directories and user
-    owntone_dirs=$( grep -i '\s*directories\s*=\s*{\s*\"' /etc/owntone.conf | cut -d '{' -f 2 | cut -d '}' -f 1 | xargs | sed 's/\r$//' )
-    owntone_user=$( grep -i '\s*uid\s*=' /etc/owntone.conf | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
-    owntone_logfile=$( grep -i '\s*logfile\s*=' /etc/owntone.conf | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
-    # fix ownership and privilages for the ownttone log file
+    owntone_dirs=$( grep -i '\s*directories\s*=\s*{\s*\"' "/etc/owntone.conf" | cut -d '{' -f 2 | cut -d '}' -f 1 | xargs | sed 's/\r$//' )
+    owntone_user=$( grep -i '\s*uid\s*=' "/etc/owntone.conf" | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
+    owntone_logfile=$( grep -i '\s*logfile\s*=' "/etc/owntone.conf" | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
+    # fix ownership and privilages for the owntone log file
     if [ -f "$owntone_logfile" ] ; then
         chmod 666 "$owntone_logfile"
         chown $owntone_user:audio "$owntone_logfile"
+        chmod 666 "$owntone_logfile"
     fi
     # there can be multiple directories specified, create each one
     for x in $owntone_dirs ; do
@@ -81,34 +84,45 @@ if (( cores > 1 )) ; then
                 # echo $pipe
                 redis-cli hset owntone pipe_$pipe "$x/pipe_$pipe.fifo"
                 redis-cli hset owntone device_$pipe "owntone$pipe""fifo"
-                if [ ! -p $x/pipe_$pipe.fifo ]; then
-                    if [ -f $x/pipe_$pipe.fifo ]; then
-                        rm $x/pipe_$pipe.fifo
-                    fi
-                    # create the fifo data and metadata files with r/w for owner, group and public
-                    mkfifo -m 666 $x/pipe_$pipe.fifo
-                    mkfifo -m 666 $x/pipe_$pipe.fifo.metadata
-                    chown $owntone_user:audio $x/pipe_$pipe.fifo
-                    chown $owntone_user:audio $x/pipe_$pipe.fifo.metadata
-                    # the creation of the fifo data file above is too late for some systemd units, set up tmpfiles.d/owntone.conf to
-                    #   create the files at startup
-                    #   the lines of code above are still necessary, they will recreate an empty fifo file when owntone restarts
-                    sed -i "/pipe_$pipe.fifo/d" "/etc/tmpfiles.d/owntone.conf"
-                    echo "p $x/pipe_$pipe.fifo 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
-                    echo "p $x/pipe_$pipe.fifo.metadata 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
+                # empty or create the fifo files
+                # first the fifo pipe
+                if [ -p "$x/pipe_$pipe.fifo" ] ; then
+                    # pipe exists empty it
+                    dd if="$x/pipe_$pipe.fifo" iflag=nonblock of=/dev/null
+                else
+                    # delete the file and recreate the pipe and set its privileges
+                    rm -f "$x/pipe_$pipe.fifo"
+                    mkfifo -m 666 "$x/pipe_$pipe.fifo"
+                    chown $owntone_user:audio "$x/pipe_$pipe.fifo"
                 fi
-                if [ -f /etc/alsa/conf.d/99-runeaudio-owntone.conf ] ; then
-                    alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" /etc/alsa/conf.d/99-runeaudio-owntone.conf )
+                # then the metadata pipe
+                if [ -p "$x/pipe_$pipe.fifo.metadata" ] ; then
+                    # pipe exists empty it
+                    dd if="$x/pipe_$pipe.fifo.metadata" iflag=nonblock of=/dev/null
+                else
+                    # delete the file and recreate the pipe and set its privileges
+                    rm -f "$x/pipe_$pipe.fifo.metadata"
+                    mkfifo -m 666 "$x/pipe_$pipe.fifo.metadata"
+                    chown $owntone_user:audio "$x/pipe_$pipe.fifo.metadata"
+                fi
+                # the creation of the fifo data file above is too late for some systemd units, set up tmpfiles.d/owntone.conf to
+                #   create the files at startup
+                #   the lines of code above are still necessary, they will recreate an empty fifo files when owntone restarts
+                sed -i "/pipe_$pipe.fifo/d" "/etc/tmpfiles.d/owntone.conf"
+                echo "p $x/pipe_$pipe.fifo 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
+                echo "p $x/pipe_$pipe.fifo.metadata 666 $owntone_user audio -" >> "/etc/tmpfiles.d/owntone.conf"
+                if [ -f "/etc/alsa/conf.d/99-runeaudio-owntone.conf" ] ; then
+                    alsa_dev=$( grep -ic "pcm.owntone$pipe""fifo" "/etc/alsa/conf.d/99-runeaudio-owntone.conf" )
                 else
                     alsa_dev="0"
                 fi
                 # set up an alsa output for $pipe which writes to the $pipe pipe
                 if [ "$alsa_dev" == "0" ] ; then
-                    cat "/srv/http/.config/owntone$pipe""fifo.alsa" >> /etc/alsa/conf.d/99-runeaudio-owntone.conf
+                    cat "/srv/http/.config/owntone$pipe""fifo.alsa" >> "/etc/alsa/conf.d/99-runeaudio-owntone.conf"
                 fi
-                pipe_name=$( grep -ic "file.*$x/pipe_$pipe\.fifo.*\#.*$pipe.*owntone.*fifo" /etc/alsa/conf.d/99-runeaudio-owntone.conf )
+                pipe_name=$( grep -ic "file.*$x/pipe_$pipe\.fifo.*\#.*$pipe.*owntone.*fifo" "/etc/alsa/conf.d/99-runeaudio-owntone.conf" )
                 if [ "$pipe_name" == "0" ] ; then
-                    sed  -i "/file.*#.*$pipe.*owntone.*fifo/ c\    file \"$x/pipe_$pipe\.fifo\" \# the $pipe owntone fifo file name" /etc/alsa/conf.d/99-runeaudio-owntone.conf
+                    sed  -i "/file.*#.*$pipe.*owntone.*fifo/ c\    file \"$x/pipe_$pipe\.fifo\" \# the $pipe owntone fifo file name" "/etc/alsa/conf.d/99-runeaudio-owntone.conf"
                 fi
             done
         fi
@@ -118,14 +132,14 @@ if (( cores > 1 )) ; then
         # chmod -R 660 $x
     done
     rate=$( redis-cli hget owntone rate )
-    rate_cnt=$( grep -i 'rate.*# owntone rate' /etc/alsa/conf.d/99-runeaudio-owntone.conf | grep -ic $rate )
+    rate_cnt=$( grep -i 'rate.*# owntone rate' "/etc/alsa/conf.d/99-runeaudio-owntone.conf" | grep -ic $rate )
     if [ "$rate_cnt" != "4" ] ; then
-        sed -i "/rate.*# owntone rate/ s/rate.*# owntone rate.*/rate $rate # owntone rate/" /etc/alsa/conf.d/99-runeaudio-owntone.conf
+        sed -i "/rate.*# owntone rate/ s/rate.*# owntone rate.*/rate $rate # owntone rate/" "/etc/alsa/conf.d/99-runeaudio-owntone.conf"
     fi
     format=$( redis-cli hget owntone format )
-    format_cnt=$( grep -i 'format.*# owntone format' /etc/alsa/conf.d/99-runeaudio-owntone.conf | grep -ic $format )
+    format_cnt=$( grep -i 'format.*# owntone format' "/etc/alsa/conf.d/99-runeaudio-owntone.conf" | grep -ic $format )
     if [ "$format_cnt" != "4" ] ; then
-        sed -i "/format.*# owntone format/ s/format.*# owntone format.*/format $format # owntone format/" /etc/alsa/conf.d/99-runeaudio-owntone.conf
+        sed -i "/format.*# owntone format/ s/format.*# owntone format.*/format $format # owntone format/" "/etc/alsa/conf.d/99-runeaudio-owntone.conf"
     fi
     # tweak the output for mpd, this changes the use of the fifo pipe with rate conversion (S16_LE, 44.1kHz) to the fifo pipe without rate conversion
     #   the pipe without rate conversion has no plugins

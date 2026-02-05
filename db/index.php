@@ -893,7 +893,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $commandPut .= '\"selected\": '.$action.$pinCommandPart.', \"volume\": '.$params['volume'].'}"';
                     }
                     // debug
-                    // ui_notify($redis, 'Debug', $commandPut);
+                    ui_notify($redis, 'Debug', $commandPut);
                     // run the command only when there is something to do
                     sysCmd($commandPut);
                 }
@@ -984,11 +984,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     if (!isset($params['volume']) || ($output['volume'] != $params['volume'])) {
                         $params['volume'] = $output['volume'];
                     }
+                    $params['requires_auth'] = $output['requires_auth'];
                 } else {
                     // output has been deleted
                     $params['selected'] = false;
                     $params['volume'] = 0;
                     $params['mute'] = 0;
+                    $params['requires_auth'] = 0;
                     if (isset($preset['mute']) && $preset['mute']) {
                         // correct the muted info in redis presets
                         $preset['mute'] = 0;
@@ -1012,7 +1014,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'selected' => $params['selected'],
                 'volume' => $params['volume'],
                 'mute' => $params['mute'],
-                'pin' => $params['pin']));
+                'pin' => $params['pin'],
+                'requires_auth' => $params['requires_auth']));
             unset($params, $defaultVolume, $preset, $output, $action, $volume, $localOutputName);
             break;
         case 'MRpreset':

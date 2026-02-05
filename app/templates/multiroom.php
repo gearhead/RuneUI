@@ -248,6 +248,10 @@
             if ($('#'+ret.id+'Pin').val() != ret.pin) {
                 $('#'+ret.id+'Pin').val(ret.pin);
             }
+            if ($('#'+ret.id+'RequiresAuth').val() != ret.requires_auth) {
+                $('#'+ret.id+'RequiresAuth').val(ret.requires_auth);
+                $('#'+ret.id+'Selected').trigger('change');
+            }
             $('#'+ret.id+'MuteCommand').val(($('#'+ret.id+'Mute').val() == '0') ? 'Mute' : 'Unmute');
             document.getElementById(ret.id+"Volume").onchange = function() {
                 change_Volume(document.getElementById(ret.id+"ID").value);
