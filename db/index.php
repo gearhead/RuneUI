@@ -757,7 +757,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     if ($output['offset_ms'] != $params['offset_ms']) {
                         // offset change
                         if ($output['selected']) {
-                            // a restart is required to activate the offset 
+                            // a restart is required to activate the offset
                             if ($preset['pin_connect']) {
                                 // don’t try to automatically restart when a pin code was used for the connect
                                 ui_notify($redis, 'Multi-room', 'This output required a pin code to connect. Disconnect and re-connect manually to activate the offset');
