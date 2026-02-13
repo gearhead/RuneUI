@@ -3945,7 +3945,7 @@ if ($('#playback').length) {
             });
             // owntone activate/deactivate
             $('#owntoneactive').change(function(){
-                renderMSG([{'title': 'Switching MultiRoom', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
+                renderMSG([{'title': 'Switching Mult-iRoom', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
                 var checked = (($('#owntoneactive').is(':checked')) ? '1' : '0');
                 $.ajax({
                     type: 'GET',
@@ -3957,7 +3957,7 @@ if ($('#playback').length) {
                         } else {
                             $('#menu_multiroom').addClass('hide');
                         }
-                        renderMSG([{'title': 'MultiRoom', 'text': ((data === '1') ? 'Activated' : 'Deactivated')}]);
+                        renderMSG([{'title': 'Multi-Room', 'text': ((data === '1') ? 'Activated' : 'Deactivated')}]);
                     },
                     cache: false
                 });

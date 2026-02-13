@@ -4891,6 +4891,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 file_put_contents($mpdConfFileName, $output);
                 // update hash
                 $redis->set('mpdconfhash', $md5New);
+                // the sound cards have changed, if owntone is enabled, restart it to capture the changed sound cards
+                if ($redis->hGet('owntone', 'enable')) {
+                    wrk_owntone($redis, 'restart');
+                }
             }
             break;
         case 'update':
@@ -16220,7 +16224,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
 //  initialise, no $args
 //  mute, $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds (see below for x)
 //  muteasync, $args = '' or 'ummute', when 'unmute' the outputs which are muted will be unmuted after x seconds
-//  reset, $args = '' or 'full' when full redis owntone is reset
+//  reset, $args = '' or 'full' when the redis owntone.conf is reset to the distribution copy
+//  restart, no $args
 //  status, no $args
 //  switch_player, no $args
 //  switchao, no $args
@@ -16435,7 +16440,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $presetKeys = $redis->hKeys('owntone_presets');
             foreach ($presetKeys as $presetKey) {
                 $preset = json_decode($redis->hGet('owntone_presets', $presetKey), true);
-                if (!$preset['autoconnect']) {
+                if (!$preset['autoconnect'] && !$preset['offset_ms']) {
                     $redis->hDel('owntone_presets', $presetKey);
                     continue;
                 }
@@ -16454,6 +16459,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_hostname', '');
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server', '');
+            $redis->hSet('owntone', 'client_id', '');
             // set the airplay output rate to its original value
             $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
             $airplayRate = $redis->hGet('airplay', 'alsa_output_rate');
@@ -16526,6 +16532,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_hostname', '');
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server', '');
+            $redis->hSet('owntone', 'client_id', '');
             // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf" | xargs')[0];
@@ -16947,13 +16954,19 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $preset['autoconnect'] = false;
                                 $preset['mute'] = 0;
                                 $preset['volume_preset'] = $defaultVolume;
-                                $preset['pin'] = '';
+                                $preset['offset_ms'] = 0;
+                                $preset['pin_connect'] = false;
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             } else {
                                 $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                                if (!isset($preset['offset_ms'])) {
+                                    // offset is not set, add a null offset value
+                                    $preset['offset_ms'] = 0;
+                                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                                }
                                 // the next lines can be removed after the next release
-                                if (!isset($preset['pin'])) {
-                                    $preset['pin'] = '';
+                                if (!isset($preset['pin_connect'])) {
+                                    $preset['pin_connect'] = false;
                                     $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
                                 }
                             }
@@ -17117,6 +17130,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         //  note: the preset volume is only set once when connecting the first time
                         $commandPut = '';
                         if ($autoconnect) {
+                            // connect
                             // set up the command
                             $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
@@ -17126,9 +17140,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             $commandPut .= ' \"selected\": true';
                             $output['selected'] = true;
                             //
-                            if (isset($preset['pin']) && $preset['pin']) {
-                                // pin code is set, use it
-                                $commandPut .= ', \"pin\": \"'.$preset['pin'].'\"';
+                            if (isset($preset['offset_ms'])) {
+                                // offset is set, use it
+                                $commandPut .= ', \"offset_ms\": \"'.$preset['offset_ms'].'\"';
                             }
                             //
                             if ($setvolume) {
@@ -17142,6 +17156,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // run the command
                             sysCmd($commandPut);
                         } else if ($disconnect) {
+                            // disconnect
                             // set up the command
                             $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
@@ -17151,9 +17166,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             $commandPut .= ' \"selected\": false';
                             $output['selected'] = false;
                             //
-                            if (isset($preset['pin']) && $preset['pin']) {
-                                // pin code is set, use it
-                                $commandPut .= ', \"pin\": \"'.$preset['pin'].'\"';
+                            if (isset($preset['offset_ms'])) {
+                                // offset is set, use it
+                                $commandPut .= ', \"offset_ms\": \"'.$preset['offset_ms'].'\"';
+                                $output['volume'] = $preset['offset_ms'];
                             }
                             //
                             if ($setvolume) {
@@ -17166,6 +17182,41 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
                             // run the command
                             sysCmd($commandPut);
+                        } else if (!$output['selected']) {
+                            // adjust the unconnected volume and offset it required
+                            // set up the command
+                            $commandPut =
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                ' --data '.
+                                '"{';
+                            //
+                            $changed = false;
+                            if (isset($preset['offset_ms']) && ($preset['offset_ms'] != $output['offset_ms'])) {
+                                // preset offset differs from the current output value, use it
+                                $changed = true;
+                                $commandPut .= '\"offset_ms\": \"'.$preset['offset_ms'].'\"';
+                                $output['offset_ms'] = $preset['offset_ms'];
+                                if (isset($preset['volume_preset']) && ($preset['volume_preset'] != $output['volume'])) {
+                                    // preset volume differs from the current output value, use it
+                                    $commandPut .= ', \"volume\": '.$preset['volume_preset'];
+                                    $output['volume'] = $preset['volume_preset'];
+                                }
+                            } else {
+                                if (isset($preset['volume_preset']) && ($preset['volume_preset'] != $output['volume'])) {
+                                    // preset volume differs from the current output value, use it
+                                    $changed = true;
+                                    $commandPut .= '\"volume\": '.$preset['volume_preset'];
+                                    $output['volume'] = $preset['volume_preset'];
+                                }
+                            }
+                            //
+                            $commandPut .= ' }"';
+                            // debug
+                            // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
+                            // run the command if required
+                            if ($changed) {
+                                sysCmd($commandPut);
+                            }
                         }
                         // get the current output data
                         // set up the command
@@ -17256,10 +17307,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                         }
                         if (isset($output['selected']) && $output['selected']) {
+                            // connected
+                            $numberOutputs++;
                             if (isset($output['volume']) && is_numeric($output['volume'])) {
                                 // calculate the total volume and count the active outputs
                                 $totalOutputVolume += $output['volume'];
-                                $numberOutputs++;
                             }
                             if (isset($preset['mute']) && is_numeric($preset['mute'])) {
                                 // calculate the total volume including the muted volume
@@ -17271,10 +17323,16 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                             // add the selected output to the array $selectedOutputs
                             $selectedOutputs[$output['name']] = true;
+                        } else {
+                            // not connected, unset the pin connect flag for unconnected outputs
+                            if (!isset($preset['pin_connect']) || $preset['pin_connect']) {
+                                $preset['pin_connect'] = false;
+                                $redis->hSet('owntone_presets', $presetName, json_encode($preset));
+                            }
                         }
                     }
                 }
-                // correct any mute setting in the presets,  run only once after startup
+                // correct any mute and pin connect settings in the presets,  run only once after startup
                 //  this corrects the presets which currently have no active output
                 $presetNames = $redis->hKeys('owntone_presets');
                 if (is_firstTime($redis, 'MR_owntone_unmute')) {
@@ -17286,6 +17344,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
                         if (isset($preset['mute']) && ($preset['mute'] != 0)) {
                             $preset['mute'] = 0;
+                            $redis->hSet('owntone_presets', $presetName, json_encode($preset));
+                        }
+                        if (!isset($preset['pin_connect']) || $preset['pin_connect']) {
+                            $preset['pin_connect'] = false;
                             $redis->hSet('owntone_presets', $presetName, json_encode($preset));
                         }
                     }

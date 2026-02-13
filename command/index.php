@@ -85,7 +85,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             if ($redis->hGet('owntone', 'active')) {
                 if ($mpdSendResponse && strpos(' '.$response, 'OK')) {
                     if (strpos(' '.$_GET['cmd'], 'play') || strpos(' '.$_GET['cmd'], 'previous') || strpos(' '.$_GET['cmd'], 'next')) {
-                        ui_notify($redis, 'MultiRoom', 'There is a delay when using MultiRoom');
+                        ui_notify($redis, 'Multi-room', 'There is a delay when using Multi-room');
                     } else if (strpos(' '.$_GET['cmd'], 'stop') || strpos(' '.$_GET['cmd'], 'pause')) {
                         wrk_owntone($redis, 'muteasync', 'unmute');
                     }

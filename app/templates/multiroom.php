@@ -64,6 +64,11 @@
                 $('#'+id+'Presets').addClass('hide');
                 if ($('#'+id+'RequiresAuth').val() == '1') {
                     $('#'+id+'PinGroup').removeClass('hide');
+                    new PNotify({
+                        title: 'Multi-room',
+                        text: 'Enter PIN-Code and click connect to complete pairing',
+                        icon: 'fa fa-exclamation'
+                    });
                 } else {
                     $('#'+id+'PinGroup').addClass('hide');
                 }
@@ -76,6 +81,8 @@
                 $('#'+id+'PinGroup').addClass('hide');
                 if (($('#'+id+'Type').val() == 'ALSA') && ($('#Multidevice').val() == '0')) {
                     $('#'+id+'ConnectButton').addClass('hide');
+                    $('#'+id+'Presets').addClass('hide');
+                } else if ($('#PinConnect').val() == '1') {
                     $('#'+id+'Presets').addClass('hide');
                 } else {
                     $('#'+id+'Presets').removeClass('hide');
@@ -116,6 +123,24 @@
                 $('#'+id+'ConnectButton').blur();
                 ajax_MRconnect(id);
             }
+        }
+        function click_OffsetMsButton(id) {
+            $('#'+id+'OffsetMsButton').blur();
+            $('#'+id+'OffsetMsButton').prop('disabled', true);
+            ajax_MRvolume(id);
+        }
+        function change_OffsetMs(id) {
+            tmp = Math.min(Math.max(50 * Math.round($('#'+id+'OffsetMs').val() / 50), -2000), 2000);
+            if (parseInt(tmp) !== parseInt($('#'+id+'OffsetMs').val())) {
+                new PNotify({
+                    title: 'Multi-room',
+                    text: 'Invalid playback offset, valid range: -2000 to 2000 ms (-2 to +2 seconds) with 50 ms steps. Using '+tmp+' ms',
+                    icon: 'fa fa-exclamation'
+                });
+                $('#'+id+'OffsetMs').val(tmp);
+            }
+            $('#'+id+'OffsetMsButton').prop('disabled', false);
+            delete tmp;
         }
         function change_Volume(id) {
             wrk_change_Volume(id);
@@ -176,6 +201,7 @@
                 name : $('#'+id+'Name').val(),
                 selected : $('#'+id+'Selected').val(),
                 pin : $('#'+id+'Pin').val(),
+                offset_ms : $('#'+id+'OffsetMs').val(),
             };
             $.ajax({
                 type: 'GET',
@@ -197,6 +223,7 @@
                 name : $('#'+id+'Name').val(),
                 volume : $('#'+id+'Volume').val(),
                 pin : $('#'+id+'Pin').val(),
+                offset_ms : $('#'+id+'OffsetMs').val(),
             };
             $.ajax({
                 type: 'GET',
@@ -219,6 +246,7 @@
                 mute : $('#'+id+'Mute').val(),
                 volume : $('#'+id+'Volume').val(),
                 pin : $('#'+id+'Pin').val(),
+                offset_ms : $('#'+id+'OffsetMs').val(),
             };
             $.ajax({
                 type: 'GET',
@@ -245,13 +273,18 @@
             if ($('#'+ret.id+'Mute').val() != ret.mute) {
                 $('#'+ret.id+'Mute').val(ret.mute).trigger('change');
             }
-            if ($('#'+ret.id+'Pin').val() != ret.pin) {
-                $('#'+ret.id+'Pin').val(ret.pin);
+            if ($('#'+ret.id+'OffsetMs').val() != ret.offset_ms) {
+                $('#'+ret.id+'OffsetMs').val(ret.offset_ms);
             }
             if ($('#'+ret.id+'RequiresAuth').val() != ret.requires_auth) {
                 $('#'+ret.id+'RequiresAuth').val(ret.requires_auth);
                 $('#'+ret.id+'Selected').trigger('change');
             }
+            if ($('#'+ret.id+'PinConnect').val() != ret.pin_connect) {
+                $('#'+ret.id+'PinConnect').val(ret.pin_connect);
+                $('#'+ret.id+'Selected').trigger('change');
+            }
+            $('#'+ret.id+'Pin').val('');
             $('#'+ret.id+'MuteCommand').val(($('#'+ret.id+'Mute').val() == '0') ? 'Mute' : 'Unmute');
             document.getElementById(ret.id+"Volume").onchange = function() {
                 change_Volume(document.getElementById(ret.id+"ID").value);
@@ -377,7 +410,7 @@
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?></button>
                             <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?>Connect<?php else:?>Disconnect<?php endif;?></button>
                             <div id="<?=$l['id']?>PinGroup" name="<?=$l['id']?>PinGroup"<?php if (($classification  != 'client') || $l['selected'] || !$l['requires_auth']): ?> class="hide"<?php endif;?> style="display: inline-block" >
-                                &nbsp&nbspPIN-CODE:&nbsp&nbsp<input id="<?=$l['id']?>Pin" name="<?=$l['id']?>Pin" value="<?=$l['pin']?>" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
+                                &nbsp&nbspPIN-CODE:&nbsp&nbsp<input id="<?=$l['id']?>Pin" name="<?=$l['id']?>Pin" value="" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
                             </div>
                             <div id="<?=$l['id']?>Connected" for="<?=$l['id']?>Connected"<?php if (!$l['selected']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumeLabel" for="<?=$l['id']?>Volume" class="btn btn-primary btn-lg">Volume: <?=$l['volume']?>%</label>
@@ -389,6 +422,11 @@
                                 <div id="tickmarks">
                                     <p>0</p><p></p><p></p><p></p><p></p><p>50</p><p></p><p></p><p></p><p></p><p>100</p>
                                 </div>
+                                &nbsp&nbspPlayback offset in ms (positive value means delay):&nbsp
+                                <div id="<?=$l['id']?>OffsetMsGroup" name="<?=$l['id']?>OffsetMsGroup"style="display:inline; white-space: nowrap">
+                                    <input id="<?=$l['id']?>OffsetMs" name="<?=$l['id']?>OffsetMs" value="<?=$l['offset_ms']?>" class="form-control input-lg" style="display: inline; width: auto" size="5" type="number" min="-2000" max="2000" step="50">
+                                    &nbsp&nbsp<button id="<?=$l['id']?>OffsetMsButton" name="<?=$l['id']?>OffsetMsButton" type="button" class="btn btn-primary btn-lg" style="display:inline" disabled>Apply</button>
+                                </div>
                             </div>
                             <input id="<?=$l['id']?>Mute" name="<?=$l['id']?>Mute" type="hidden" value="<?=$l['mute']?>">
                             <input id="<?=$l['id']?>Selected" name="<?=$l['id']?>Selected" type="hidden" value="<?php if ($l['selected']):?>1<?php else:?>0<?php endif;?>">
@@ -396,6 +434,7 @@
                             <input id="<?=$l['id']?>HasPassword" name="<?=$l['id']?>HasPassword" type="hidden" value="<?php if ($l['has_password']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>RequiresAuth" name="<?=$l['id']?>RequiresAuth" type="hidden" value="<?php if ($l['requires_auth']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>NeedsAuthKey" name="<?=$l['id']?>NeedsAuthKey" type="hidden" value="<?php if ($l['needs_auth_key']):?>1<?php else:?>0<?php endif;?>">
+                            <input id="<?=$l['id']?>PinConnect" name="<?=$l['id']?>PinConnect" type="hidden" value="<?php if ($l['pin_connect']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>Classification" name="<?=$l['id']?>Classification" type="hidden" value="<?=$classification?>">
                             <input id="<?=$l['id']?>ID" name="<?=$l['id']?>ID" type="hidden" value="<?=$l['id']?>">
                             <input id="<?=$l['id']?>Name" name="<?=$l['id']?>Name" type="hidden" value="<?=$l['name']?>">
@@ -403,7 +442,7 @@
                             <input id="<?=$l['id']?>MuteCommand" name="<?=$l['id']?>MuteCommand" type="hidden" value="<?php if (!$l['mute']): ?>Mute<?php else:?>Unmute<?php endif;?>">
                         </div>
                         <br>
-                        <div id="<?=$l['id']?>Presets" name="<?=$l['id']?>Presets" style="width:max(55%,500px); min-height:70px;" class="boxed<?php if (!$l['selected'] || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>">
+                        <div id="<?=$l['id']?>Presets" name="<?=$l['id']?>Presets" style="width:max(55%,500px); min-height:70px;" class="boxed<?php if (!$l['selected'] || (!$multidevice && ($l['type'] == 'ALSA')) || $l['pin_connect']): ?> hide<?php endif;?>">
                             <button id="<?=$l['id']?>AutoconnectButton" name="<?=$l['id']?>AutoconnectButton" type="button" <?php if ($l['autoconnect']): ?>style="float:right;" <?php endif;?>class="btn btn-primary btn-lg<?php if (!$multidevice && ($l['type'] == 'ALSA')):?> hide<?php endif;?>" value="1"><?php if (!$l['autoconnect']): ?>Auto Connect<?php else:?>Manual Connect<?php endif;?></button>
                             <div id="<?=$l['id']?>PresetAutoconnect" name="<?=$l['id']?>PresetAutoconnect"<?php if (!$l['autoconnect']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumePresetLabel" for="<?=$l['id']?>VolumePreset" class="btn btn-primary btn-lg<?php if (!$l['autoconnect']): ?> hide<?php endif;?>">Preset Default Volume: <?=$l['volume_preset']?>%</label>
@@ -428,8 +467,14 @@
                             document.getElementById("<?=$l['id']?>ConnectButton").onclick = function() {
                                 click_ConnectButton(document.getElementById("<?=$l['id']?>ID").value);
                             };
+                            document.getElementById("<?=$l['id']?>OffsetMsButton").onclick = function() {
+                                click_OffsetMsButton(document.getElementById("<?=$l['id']?>ID").value);
+                            };
                             document.getElementById("<?=$l['id']?>AutoconnectButton").onclick = function() {
                                 click_AutoconnectButton(document.getElementById("<?=$l['id']?>ID").value);
+                            };
+                            document.getElementById("<?=$l['id']?>OffsetMs").onchange = function() {
+                                change_OffsetMs(document.getElementById("<?=$l['id']?>ID").value);
                             };
                             document.getElementById("<?=$l['id']?>Volume").onchange = function() {
                                 change_Volume(document.getElementById("<?=$l['id']?>ID").value);

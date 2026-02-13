@@ -198,10 +198,10 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Reset MultiRoom config</label>
+                    <label class="col-sm-2 control-label">Reset Multi-Room config</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="multiroomconfreset" id="syscmd-multiconfreset" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">This will reset the owntone.conf file back to defaults and reinitialise MultiRoom</span>
+                        <span class="help-block">This will reset the owntone.conf file back to defaults and reinitialise Multi-Room</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -639,10 +639,10 @@
                 </div>
                 -->
             </div>
-            <legend>MultiRoom - Advanced settings</legend>
+            <legend>Multi-Room - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="MRorder">MultiRoom UI device and client order</label>
+                    <label class="col-sm-2 control-label" for="MRorder">Multi-Room UI device and client order</label>
                     <div class="col-sm-10">
                         <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
                             <option value="MLC" <?php if($MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
@@ -661,37 +661,37 @@
                 </div>
                 <!--
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="MRformat">MultiRoom audio format</label>
+                    <label class="col-sm-2 control-label" for="MRformat">Multi-Room audio format</label>
                     <div class="col-sm-10">
                         <select id="MRformat" class="selectpicker" name="mode[MRformat]" data-style="btn-default btn-lg">
                             <option value="S16_LE" <?php if($MRformat === 'S16_LE'): ?> selected <?php endif ?>> S16_LE</option>
                             <option value="S24_LE" <?php if($MRformat === 'S24_LE'): ?> selected <?php endif ?>> S24_LE</option>
                             <option value="S32_LE" <?php if($MRformat === 'S32_LE'): ?> selected <?php endif ?>> S32_LE</option>
                         </select>
-                        <span class="help-block">The default audio format for MultiRoom is S16_LE (signed 16-bit little-endian integer).
+                        <span class="help-block">The default audio format for Multi-Room is S16_LE (signed 16-bit little-endian integer).
                         This is the only format supported.
                         If your music collection is primarily 32-bit high definition audio it can be set higher to S32_LE.
                         When 16-bit music is encoded to 24-bit this will generally be zero filled when the sample rate is unchanged rather than being re&#8209;sampled.
                         This adds little processing and network overhead.<br>
-                        <i>Notes: Most Apple devices do not support the S32_LE format.<br>MultiRoom processing will restart after changing this value,
+                        <i>Notes: Most Apple devices do not support the S32_LE format.<br>Multi-Room processing will restart after changing this value,
                         you may lose some of your current settings and it takes a while</i></span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="MRrate">MultiRoom audio sample rate</label>
+                    <label class="col-sm-2 control-label" for="MRrate">Multi-Room audio sample rate</label>
                     <div class="col-sm-10">
                         <select id="MRrate" class="selectpicker" name="mode[MRrate]" data-style="btn-default btn-lg">
                             <option value="44100" <?php if($MRrate === '44100'): ?> selected <?php endif ?>> 44.1kHz</option>
                             <option value="88200" <?php if($MRrate === '88200'): ?> selected <?php endif ?>> 88.2kHz</option>
                             <option value="176400" <?php if($MRrate === '176400'): ?> selected <?php endif ?>> 176.4kHz</option>
                         </select>
-                        <span class="help-block">The default audio sample rate for MultiRoom is 44.1kHz (lossless CD quality).
+                        <span class="help-block">The default audio sample rate for Multi-Room is 44.1kHz (lossless CD quality).
                         This is the only format supported.
                         If your music collection is primarily high definition audio a higher sample rate may improve the audio quality.
                         However, the re&#8209;sampling required to achieve the higher sample rate has a processing overhead and the re&#8209;sampling proces may actually reduce the total quality.<br>
                         <i>Notes: Most Apple devices do not support sample rates above 96kHz.<br>
-                        The audio format for MultiRoom is S16_LE (signed 16-bit little-endian integer), this is the only format supported.<br>
-                        MultiRoom processing will restart after changing this value,
+                        The audio format for Multi-Room is S16_LE (signed 16-bit little-endian integer), this is the only format supported.<br>
+                        Multi-Room processing will restart after changing this value,
                         you may lose some of your current settings and it takes a while</i></span>
                     </div>
                 </div>
@@ -926,18 +926,18 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">MultiRoom</label>
+                    <label class="col-sm-2 control-label">Multi-Room</label>
                     <div class="col-sm-10">
-                        <span class="help-block">MultiRoom is implemented using owntone.<br>
-                        MultiRoom generates synchronised streamed music playback for one local device and multiple AirPlay clients.
+                        <span class="help-block">Multi-Room is implemented using owntone.<br>
+                        Multi-Room generates synchronised streamed music playback for one local device and multiple AirPlay clients.
                         The AirPlay clients can include Apple, RuneAudio or Sonos devices.
                         The data transmission format is AirPlay with ALAC data-compression.<br>
-                        When using MultiRoom all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
+                        When using Multi-Room all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
                         When playing your music collection it will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
                         AirPlay input is also re-sampled to this rate by shairport&#8209;sync using the SoXr re&#8209;sampler.
                         Typically the input is S16_LE, 44.1kHz so no re&#8209;sampling will be applied.<br>
                         Bluetooth and Spotify Connect input is of a lossy quality, reconstituted to S16_LE, 44.1kHz.<br>
-                        In addition, MultiRoom can stream unsynchronised to Chromecast devices and the local network.
+                        In addition, Multi-Room can stream unsynchronised to Chromecast devices and the local network.
                         Multiple local devices can also be enabled.
                         Even though Chromecast is in theory unsynchronised, the local device synchronisation is very good.<br>
                         When the output rate is not supported by the output device (e.g. bluetooth output), it will be re&#8209;sampled by ALSA.

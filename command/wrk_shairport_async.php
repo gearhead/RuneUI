@@ -43,6 +43,9 @@ require_once('/srv/http/app/libs/openredis.php');
 sysCmd('echo "--------------- start: wrk_shairport_async.php ---------------" > /var/log/runeaudio/wrk_shairport_async.log');
 runelog('WORKER wrk_shairport_async.php STARTING...');
 
+if (is_firstTime($redis, 'wrk_wrk_shairport_async')) {
+    $redis->hSet('owntone', 'client_id', '');
+}
 wrk_shairport($redis);
 
 runelog('WORKER wrk_shairport_async.php END...');

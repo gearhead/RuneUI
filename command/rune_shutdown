@@ -93,7 +93,7 @@ declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor avahi-dae
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
 done
-# set Multiroom to inactive, don't change its enabled state
+# set Multi-Room to inactive, don't change its enabled state
 redis-cli hset owntone active 0
 # remove any registered local disk unmounts
 redis-cli del usbunmounts

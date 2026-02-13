@@ -81,17 +81,19 @@ if (isset($outputNames) && $outputNames ) {
                 $preset['autoconnect'] = false;
                 $preset['mute'] = 0;
                 $preset['volume_preset'] = $defaultVolume;
-                $preset['pin'] = '';
+                $preset['offset_ms'] = 0;
+                $preset['pin_connect'] = false;
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
-                // the next lines can be removed after the next release
-                if (!isset($preset['pin'])) {
-                    $preset['pin'] = '';
+                if (!isset($preset['offset_ms'])) {
+                    // offset is not set, add a null offset value
+                    $preset['offset_ms'] = 0;
                     $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
                 }
-                // when the pin has a value, set it to a dummy value for the UI
-                if ($preset['pin']) {
-                    $preset['pin'] = '******';
+                // the next lines can be removed after the next release
+                if (!isset($preset['pin_connect'])) {
+                    $preset['pin_connect'] = false;
+                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
                 }
             }
             $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);

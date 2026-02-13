@@ -276,6 +276,7 @@ function redisDatastore($redis, $action) {
             $redis->hDel('owntone', 'saved_airplay_format');
             $redis->hDel('owntone', 'saved_airplay_rate');
             $redis->hSet('owntone', 'active', '0');
+            $redis->hSet('owntone', 'client_id', '');
             $redis->hSet('owntone', 'deactivate_time', time());
             $redis->hSet('owntone', 'default_volume', '40');
             $redis->hSet('owntone', 'device_ap', '');
@@ -306,6 +307,7 @@ function redisDatastore($redis, $action) {
         case 'owntonecheck':
             // owntone - Multi-room
             $redis->hExists('owntone', 'active') || $redis->hSet('owntone', 'active', '0');
+            $redis->hExists('owntone', 'client_id') || $redis->hSet('owntone', 'client_id', '');
             $redis->hExists('owntone', 'deactivate_time') || $redis->hSet('owntone', 'deactivate_time', time());
             $redis->hExists('owntone', 'default_volume') || $redis->hSet('owntone', 'default_volume', '40');
             $redis->hExists('owntone', 'device_ap') || $redis->hSet('owntone', 'device_ap', '');

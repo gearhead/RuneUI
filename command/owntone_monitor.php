@@ -67,7 +67,7 @@ $actPlayerInfoSave = array();
     // $timeRTPOffset = 0;
 // }
 $serverHostname = $redis->hGet('owntone', 'server_hostname');
-$renderedClients = array();
+$renderedNodes = array();
 // cycle delay times, there are 3 counters, the whole routine is repeated every 3 seconds (including the processing time)
 //  a minimum 'sleep' of 1 second is always applied regardless of the processing time
 //
@@ -84,9 +84,9 @@ $delay3 = 20;
 // initial wait = 9 seconds
 $cnt3  = 3;
 //
-// this routine re-renders the last rendered UI information to the clients periodically
+// this routine re-renders the last rendered UI information to the nodes periodically
 //  at startup the re-render frequency is higher until the maximum re-render delay is exceeded
-//  the higher re-render frequency is also applied when a new client is detected
+//  the higher re-render frequency is also applied when a new node is detected
 // re-render delay multiplier, 2, means that the last render time is doubled for the next iteration
 $renderMultplier = 2;
 // render delay initial value, 3 seconds
@@ -325,113 +325,125 @@ while (true) {
         }
         unset($actPlayerInfo, $server, $serverPlayer, $serverHostname, $serverIpAddress, $commandPut);
         //
-        // this section post the current player information (redis cur_player_info) to each of the runeAudio owntone clients
-        //  this is not really what we want to do as Airplay clients will receive no metadata
+        // this section post the current player information (redis cur_player_info) to each of the runeAudio owntone nodes
+        //  this is not really what we want to do as Airplay nodes will receive no metadata
         // create a list of the runeaudio hostnames and ip addresses
         //
-        // first create a list of owntone runeaudio clients
-        $retval = sysCmd("avahi-browse -atrlkp 2>/dev/null | grep -i 'skin_name=RuneUI'");
+        // first create a list of owntone runeaudio nodes
+        $retval = sysCmd("avahi-browse -atrlkp 2>/dev/null | grep '^=' | grep -iE 'skin_name=RuneUI|airplay'");
         if (is_array($retval)) {
-            $clientIp = array();
+            $nodes = array();
             foreach ($retval as $avahi_line) {
                 // the avahi line contains a semicolon (;) delimited list
-                $avahiElement = explode(';', strtolower($avahi_line), 10);
+                $avahiElement = explode(';', $avahi_line, 10);
                 // the interesting elemens are:
                 //  1 - the nic (e.g. eth0)
                 //  2 - ip type (e.g. ipv4)
-                //  3 - string containing the real client name (ie runeaudio) it is preceded with '\091' and it followed by a '\093'
-                //  6 - clientname including poossible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
+                //  3 - string containing 'RuneAudio' for runeaudio nodes
+                //      string containing the AirPlay nodes name
+                //  4 - string containing '_http._tcp' for runeaudio nodes
+                //      string containing '_airplay' for AirPlay nodes
+                //  6 - hostname including poossible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
                 //  7 - IP address (e.g. 192.168.2.10)
                 //  9 - text information, space delimited, within quotes
+                //      Runeaudio node line
                 //      0 - "org.freedesktop.Avahi.cookie=<value>"
                 //      1 - "runeos_version=<value>"
                 //      2 - "skin_name=<value>"
                 //
-                // rendering to old versions of runeaudio wont work, just skip them
-                if (isset($avahiElement[9])) {
-                    $textInfo = explode(' ', $avahiElement[9]);
-                    foreach ($textInfo as $textInfoEntry) {
-                        list($textKey, $runeosVersion) = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
-                        if ($textKey == 'runeos_version') {
-                            $version = substr($runeosVersion, 0, 3);
-                            if ($version < '0.7') {
-                                // only version 0.7 and higher are supported, continue the 2nd outside loop
-                                continue 2;
+                // build up an array of relevant information, key is IP address, containing
+                //  IP address (ip),
+                //  Hostname
+                //  AirPlay name
+                //  RuneAudio Node - true of false
+                //  RuneAudio Version - '' when not a RuneAudio Node
+                //
+                if (isset($avahiElement[7])) {
+                    // IP address is set
+                    if (strpos(' '.$avahiElement[4], '_airplay')) {
+                        if (!isset($nodes[$avahiElement[7]]['airplay_name']) || !$nodes[$avahiElement[7]]['airplay_name'] ||
+                                (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
+                            // its a airplay node line, it is processed if airplay name is not set or
+                            //  a second record is present with an ethernet nic or an ipv4 connection
+                            //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
+                            $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
+                            $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                            $nodes[$avahiElement[7]]['airplay_name'] = $avahiElement[3];
+                            if (!isset($nodes[$avahiElement[7]]['runeaudio'])) {
+                                $nodes[$avahiElement[7]]['runeaudio'] = false;
+                            }
+                            if (!isset($nodes[$avahiElement[7]]['runeaudio_version'])) {
+                                $nodes[$avahiElement[7]]['runeaudio_version'] = '';
+                            }
+                        }
+                    } else if (strpos(' '.$avahiElement[3], 'RuneAudio')) {
+                        if (!isset($nodes[$avahiElement[7]]['runeaudio']) || !$nodes[$avahiElement[7]]['runeaudio'] ||
+                                (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
+                            // its a airplay node line, it is processed if airplay name is not set or
+                            //  a second record is present with an ethernet nic or an ipv4 connection
+                            //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
+                            $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
+                            $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                            $nodes[$avahiElement[7]]['runeaudio'] = true;
+                            if (isset($avahiElement[9])) {
+                                $textInfo = explode(' ', $avahiElement[9]);
+                                foreach ($textInfo as $textInfoEntry) {
+                                    list($textKey, $runeosVersion) = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
+                                    if ($textKey == 'runeos_version') {
+                                        $nodes[$avahiElement[7]]['runeaudio_version'] = substr($runeosVersion, 0, 3);
+                                    }
+                                }
+                            } else if (!isset($nodes[$avahiElement[7]]['runeaudio_version']) || !$nodes[$avahiElement[7]]['runeaudio_version']) {
+                                $nodes[$avahiElement[7]]['runeaudio_version'] = '';
+                            }
+                            if (!isset($nodes[$avahiElement[7]]['airplay_name'])) {
+                                $nodes[$avahiElement[7]]['airplay_name'] = '';
                             }
                         }
                     }
                 }
-                // remove the '.local' from the client name
-                //  there should never really be more than one '.' in the string, but if there is this will still work
-                $clientnameArray = explode('.', $avahiElement[6]);
-                array_pop($clientnameArray);
-                $clientname = implode('.', $clientnameArray);
-                // remove any suffixes from the client name
-                if (strpos(' '.$clientname, '-')) {
-                    // a suffix has a '-' followed by a number, so there is possibly a suffix present
-                    if (!strpos(' '.strtolower($avahiElement[3]), "\\091".strtolower($clientname)."\\093")) {
-                        // no match, looks like there is a suffix, remove the last '-' and anything following it
-                        $clientnameArray = explode('-', $clientname);
-                        $suffix = array_pop($clientnameArray);
-                        $clientnameNew = implode('-', $clientnameArray);
-                        if (strpos(' '.strtolower($avahiElement[3]), "\\091".strtolower($clientnameNew)."\\093") && is_numeric($suffix)) {
-                            // the new client name is valid, use it
-                            $clientname = $clientnameNew;
-                        }
+            }
+            // save the nodes array to redis using airplay name as key and build an array of node names for metadata
+            $runeaudioNodes = array();
+            foreach ($nodes as $node) {
+                if (isset($node['airplay_name']) && $node['airplay_name']) {
+                    // save the node to 'owntone_nodes'
+                    $redis->hSet('owntone_nodes', $node['airplay_name'], json_encode($node));
+                    if (isset($node['runeaudio']) && isset($node['runeaudio_version']) && $node['runeaudio'] && $node['runeaudio_version'] && ($node['runeaudio_version'] >= '0.7')) {
+                        // this is a runeaudio node with airplay and the UI version (0.7 or higher) is valid for metadata
+                        // build the array, indexed by airplay_name
+                        $runeaudioNodes[$node['airplay_name']] = $node;
                     }
-                }
-                if (!isset($clientIp[$clientname])) {
-                    $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
-                    continue;
-                }
-                // an eth? nic is preferable to a wlan? nic
-                // retrieve the existing client IP details
-                $storedclientIpDetails = json_decode($clientIp[$clientname], true);
-                if ((substr($avahiElement[1], 0, 4) == 'eth') && (substr($storedclientIpDetails['nic'], 0, 3) != 'eth')) {
-                    $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
-                    continue;
-                }
-                // an ipv4 connection is preferable to ipv6
-                if ((substr($avahiElement[2], 0, 4) == 'ipv4') && (substr($storedclientIpDetails['ip_type'], 0, 4) != 'ipv4')) {
-                    $clientIp[$clientname] = json_encode(array('clientname' => $clientname, 'ip_address' => $avahiElement[7], 'ip_type' => $avahiElement[2], 'nic' => $avahiElement[1]));
-                    continue;
                 }
             }
-            // $clientIp now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
-            //  it also contains the IP address of each node if available
-            unset($retval, $avahi_line, $avahiElement, $clientname, $clientnameArray, $clientnameNew, $suffix);
-            if (count($clientIp)) {
+            unset($retval, $avahi_line, $avahiElement, $textInfo, $nodes, $node);
+            // $runeaudioNodes now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
+            //  it also contains the IP address of each node
+            if (count($runeaudioNodes)) {
                 // there are other runeaudio nodes
-                $outputs = $redis->hGetall('owntone_outputs');
-                foreach ($outputs as $clientname => $output) {
-                    // the array has a key in mixed case, convert it to lower case
-                    $outputs[strtolower($clientname)] = $output;
-                    unset($outputs[$clientname]);
-                }
-                foreach ($clientIp as $clientname => $value) {
+                // get the outputs
+                $outputNames = $redis->hKeys('owntone_outputs');
+                foreach ($runeaudioNodes as $airplayName => $runeaudioNode) {
                     // work through the runeaudio node list
-                    if (!isset($outputs[$clientname])) {
-                        // its not an owntone client, delete it from the list
-                        unset($clientIp[$clientname]);
-                        continue;
+                    if (!in_array($airplayName, $outputNames)) {
+                        // the node is not listed as an output, remove from array
+                        unset($runeaudioNodes[$airplayName]);
                     }
-                    // its an owntone client, determine if it is connected
-                    $outputDetail = json_decode($outputs[$clientname], true);
-                    if (!$outputDetail['selected']) {
-                        // the output is not connected, delete it from the list
-                        unset($clientIp[$clientname]);
-                    } else {
-                        $clientIpDetail = json_decode($clientIp[$clientname], true);
-                        $clientIpDetail['volume'] = $outputDetail['volume'];
-                        $clientIp[$clientname] = json_encode($clientIpDetail);
+                    // get and decode the output
+                    $outputDecoded = json_decode($redis->hGet('owntone_outputs', $airplayName), true);
+                    if (!isset($outputDecoded['selected']) || !$outputDecoded['selected']) {
+                        // the output for the node is not active, remove from array
+                        unset($runeaudioNodes[$airplayName]);
                     }
+                    // store the current volume
+                    $runeaudioNodes[$airplayName]['volume'] = $outputDecoded['volume'];
                 }
-                unset($outputs, $clientname, $output, $value, $outputDetail);
             }
         }
-        // $clientIp now contains a list of currently connected runeaudio owntone clients capable of receiving metadata,
-        //  it also contains the volume level for each client,
-        //  it may also contain the IP address of each client
+        unset($outputNames, $airplayName, $runeaudioNode, $outputDecoded);
+        // $runeaudioNodes now contains a list of currently connected runeaudio owntone nodes capable of receiving metadata,
+        //  it also contains the volume level for each node,
+        //  it also contains the IP address of each node
         // remove old render events from the queue
         while ($redis->lLen('owntone_render') > 5) {
             // more than 5 render events in the queue, remove the oldest ones
@@ -440,8 +452,8 @@ while (true) {
         // process the render events
         $serverHostname = strtolower($redis->hGet('owntone', 'server_hostname'));
         $serverIpAddress = strtolower($redis->hGet('owntone', 'server_ip_address'));
-        if (($serverHostname || $serverIpAddress) && count($clientIp)) {
-            // we know this hostname or IP address and there are connected clients capable of receiving metadata to service
+        if (($serverHostname || $serverIpAddress) && count($runeaudioNodes)) {
+            // we know this hostname or IP address and there are connected nodes capable of receiving metadata to service
             if ($redis->lLen('owntone_render')) {
                 // there is something to process
                 while ($redis->lLen('owntone_render')) {
@@ -453,8 +465,8 @@ while (true) {
                     }
                     $decoded = json_decode($encoded, true);
                     // some modifications are required to the render array
-                    //  volume must be deleted, this is set by the client
-                    //  local_volume_control must be deleted, this is set by the client
+                    //  volume must be deleted, this is set by the node
+                    //  local_volume_control must be deleted, this is set by the node
                     //  owntone state stop is always pause
                     //  owntone actPlayer is always Airplay
                     //  owntone always operates at 44100:16:2
@@ -534,19 +546,18 @@ while (true) {
                     $lastOwntoneRender = json_encode($decoded);
                     // debug
                     // echo 'Encoded pipe:'.$lastOwntoneRender."\n";
-                    // now send the render information to each of the runeadio owntone clients
-                    foreach ($clientIp as $client) {
-                        $client = json_decode($client, true);
-                        if (isset($client['volume'])) {
-                            $decoded['volume'] = $client['volume'];
+                    // now send the render information to each of the runeadio owntone nodes
+                    foreach ($runeaudioNodes as $airplayName => $runeaudioNode) {
+                        if (isset($runeaudioNode['volume'])) {
+                            $decoded['volume'] = $runeaudioNode['volume'];
                         }
-                        if (isset($client['ip_address']) && $client['ip_address']) {
-                            curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
+                        if (isset($runeaudioNode['ip']) && $runeaudioNode['ip']) {
+                            curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
                         } else {
-                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
+                            curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
                         }
-                        // keep a list of clients which have had at least one render action
-                        $renderedClients[$client['clientname']] = true;
+                        // keep a list of nodes which have had at least one render action
+                        $renderedNodes[$airplayName] = true;
                         // sleep for 0.05 seconds
                         usleep(50000);
                     }
@@ -554,26 +565,26 @@ while (true) {
                 // recalulate the re-render time
                 $renderDelay = min($renderDelayMax, ($renderDelay * $renderMultplier));
                 $nextRenderTime = microtime(true) + $renderDelay;
-                unset ($encoded, $decoded, $imageUrls, $serverIpAddress, $serverHostname);
+                unset ($encoded, $decoded, $imageUrls, $serverIpAddress, $serverHostname, $airplayName, $runeaudioNode);
             } else if (isset($lastOwntoneRender)) {
                 // there is nothing to process in the redis fifo queue, but there is something to re-render
-                $newClient = false;
-                foreach ($clientIp as $client => $value) {
-                    if (!isset($renderedClients[$client])) {
-                        // new client has attached
-                        $newClient = true;
+                $newNode = false;
+                foreach ($runeaudioNodes as $airplayName => $runeaudioNode) {
+                    if (!isset($renderedNodes[$airplayName])) {
+                        // new node has attached
+                        $newNode = true;
                         // set the re-render delay to its initial value
                         $renderDelay = $renderDelayInitial;
                         break;
                     }
                 }
                 $now = microtime(true);
-                if ($newClient || ($nextRenderTime <= $now)) {
-                    // there is a new client or re-render time has expired
-                    foreach ($renderedClients as $renderedClientKey => $value) {
-                        if (!isset($clientIp[$renderedClientKey])) {
-                            // this client was connected, but not any more, remove it from the rendered client list
-                            unset($renderedClients[$renderedClientKey]);
+                if ($newNode || ($nextRenderTime <= $now)) {
+                    // there is a new node or re-render time has expired
+                    foreach ($renderedNodes as $airplayName => $value) {
+                        if (!isset($runeaudioNodes[$airplayName])) {
+                            // this node was valid, but not any more, remove it from the rendered node list
+                            unset($renderedNodes[$airplayName]);
                         }
                     }
                     // prepare the render message, the elapsed values must be recalculated or the elapsed and song percentage must be cleared
@@ -608,19 +619,18 @@ while (true) {
                     $lastOwntoneRender = json_encode($decoded);
                     // debug
                     // echo 'Encoded refr:'.json_encode($decoded)."\n";
-                    foreach ($clientIp as $client) {
-                        // render the last rendered information with updated elapsed information to each client
-                        $client = json_decode($client, true);
-                        if (isset($client['volume'])) {
-                            $decoded['volume'] = $client['volume'];
+                    foreach ($runeaudioNodes as $airplayName => $runeaudioNode) {
+                        // render the last rendered information with updated elapsed information to each node
+                        if (isset($runeaudioNode['volume'])) {
+                            $decoded['volume'] = $runeaudioNode['volume'];
                         }
-                        if (isset($client['ip_address']) && $client['ip_address']) {
-                            curlPost('http://'.$client['ip_address'].'/pub?id=playback', json_encode($decoded));
+                        if (isset($runeaudioNode['ip_address']) && $runeaudioNode['ip_address']) {
+                            curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
                         } else {
-                            curlPost('http://'.$client['clientname'].'.local/pub?id=playback', json_encode($decoded));
+                            curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
                         }
-                        // keep a list of clients which have had at least one render action
-                        $renderedClients[$client['clientname']] = true;
+                        // keep a list of nodes which have had at least one render action
+                        $renderedNodes[$airplayName] = true;
                         // sleep for 0.05 seconds
                         usleep(50000);
                     }
@@ -630,7 +640,7 @@ while (true) {
                 }
             }
         }
-        unset($clientIp, $newClient, $now, $client, $value, $renderedClientKey, $decoded, $encoded, $sleepTime);
+        unset($runeaudioNodes, $newNode, $now, $value, $decoded, $encoded, $sleepTime, $airplayName, $runeaudioNode);
         //
         // // this section posts the current song metadata to the owntone metadata fifo
         // //   this should work but does not

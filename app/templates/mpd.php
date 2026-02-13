@@ -49,14 +49,14 @@
                     </div>
                     <?php endif; ?>
                     <?php if ($owntoneEnabled): ?>
-                    <label class="col-sm-2 control-label" for="owntoneactive">Multiroom Activation</label>
+                    <label class="col-sm-2 control-label" for="owntoneactive">Multi-Room Activation</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
                             <input id="owntoneactive" name="conf[owntone][active]" type="checkbox" value="1"<?php if((isset($owntone['active'])) && ($owntone['active'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Activate/Deactivate MultiRoom.
-                        After activation, the MultiRoom menu will become available. This contains controls for connecting and disconnecting clients and devices and setting their volume levels.
+                        <span class="help-block">Activate/Deactivate Multi-Room.
+                        After activation, the Multi-Room menu will become available. This contains controls for connecting and disconnecting clients and devices and setting their volume levels.
                         <?php if ($active_player == 'MPD') : ?>
                         Switching takes place on the fly
                         <?php else : ?>
