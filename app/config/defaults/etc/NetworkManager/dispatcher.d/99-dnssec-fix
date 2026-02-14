@@ -1,0 +1,18 @@
+#!/bin/bash
+# Disable DNSSEC for network interfaces when they come up, but only if
+# global DNSSEC is disabled and the link has it enabled (bug workaround)
+
+if [ "$2" = "up" ]; then
+    # Check if global DNSSEC is disabled
+    global_dnssec=$(/usr/bin/resolvectl status | grep -A1 "^Global$" | grep "DNSSEC=" | awk '{print $2}')
+    
+    if [[ "$global_dnssec" == "DNSSEC=no/unsupported" ]]; then
+        # Global DNSSEC is disabled, check if this link has it enabled
+        link_dnssec=$(/usr/bin/resolvectl status "$1" | grep "DNSSEC=" | awk '{print $2}')
+        
+        if [[ "$link_dnssec" == "DNSSEC=yes/supported" ]]; then
+            # Link has DNSSEC enabled despite global disabled - fix it
+            /usr/bin/resolvectl dnssec "$1" no
+        fi
+    fi
+fi
