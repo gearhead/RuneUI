@@ -1,0 +1,49 @@
+#!/bin/bash
+# Handle DNSSEC on Pi without RTC: disable until time sync, then enable
+# Sets global setting and only fixes per-link if systemd bug is present
+
+if [ "$2" = "up" ]; then
+    # Disable DNSSEC globally (proper way)
+    /usr/bin/resolvectl dnssec "" no 2>/dev/null || true
+
+    # Check if per-link setting matches global (bug test)
+    sleep 0.5  # Give resolved time to configure the link
+    link_dnssec=$(/usr/bin/resolvectl status "$1" | grep "DNSSEC=" | head -1)
+
+    if [[ "$link_dnssec" == *"DNSSEC=yes"* ]]; then
+        # Bug present: link has DNSSEC enabled despite global disabled
+        /usr/bin/resolvectl dnssec "$1" no
+    fi
+
+    # In background: wait for time sync, then re-enable DNSSEC
+    (
+        # Wait up to 60 seconds for time sync
+        timeout=60
+        while [ $timeout -gt 0 ]; do
+            if timedatectl status | grep -q "System clock synchronized: yes"; then
+                # Time is synced, wait a moment for stability
+                sleep 2
+
+                # Enable DNSSEC globally (proper way)
+                /usr/bin/resolvectl dnssec "" yes 2>/dev/null || true
+
+                # Check if we need to fix per-link settings (bug present)
+                for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -v '^lo$'); do
+                    if ip link show "$iface" | grep -q "state UP"; then
+                        sleep 0.5
+                        link_dnssec=$(/usr/bin/resolvectl status "$iface" | grep "DNSSEC=" | head -1)
+
+                        if [[ "$link_dnssec" == *"DNSSEC=no"* ]]; then
+                            # Bug present: link still disabled despite global enabled
+                            /usr/bin/resolvectl dnssec "$iface" yes 2>/dev/null || true
+                        fi
+                    fi
+                done
+
+                break
+            fi
+            sleep 1
+            timeout=$((timeout - 1))
+        done
+    ) &
+fi
