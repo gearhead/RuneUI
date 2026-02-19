@@ -6,20 +6,20 @@ if [ "$2" = "up" ]; then
     # Get the global DNSSEC setting
     global_dnssec=$(/usr/bin/resolvectl status | grep "^Global$" -A 10 | grep "DNSSEC=" | head -1)
     global_mode=$(echo "$global_dnssec" | grep -o "DNSSEC=[^ ]*" | cut -d'=' -f2 | cut -d'/' -f1)
-    
+
     if [ -n "$global_mode" ]; then
         # Check if time is already synced
         time_synced=false
         if timedatectl status | grep -q "System clock synchronized: yes"; then
             time_synced=true
         fi
-        
+
         # If DNSSEC is enabled but time not synced, temporarily disable it
         if [ "$global_mode" = "yes" ] || [ "$global_mode" = "allow-downgrade" ]; then
             if [ "$time_synced" = "false" ]; then
                 # Temporarily disable for time sync
                 /usr/bin/resolvectl dnssec "$1" no 2>/dev/null
-                
+
                 # Background process: wait for time sync, then re-enable
                 (
                     timeout=60
@@ -38,7 +38,7 @@ if [ "$2" = "up" ]; then
                 sleep 0.5
                 link_dnssec=$(/usr/bin/resolvectl status "$1" | grep "DNSSEC=" | head -1)
                 link_mode=$(echo "$link_dnssec" | grep -o "DNSSEC=[^ ]*" | cut -d'=' -f2 | cut -d'/' -f1)
-                
+
                 if [ "$link_mode" != "$global_mode" ]; then
                     /usr/bin/resolvectl dnssec "$1" "$global_mode" 2>/dev/null
                 fi
@@ -48,7 +48,7 @@ if [ "$2" = "up" ]; then
             sleep 0.5
             link_dnssec=$(/usr/bin/resolvectl status "$1" | grep "DNSSEC=" | head -1)
             link_mode=$(echo "$link_dnssec" | grep -o "DNSSEC=[^ ]*" | cut -d'=' -f2 | cut -d'/' -f1)
-            
+
             if [ "$link_mode" != "$global_mode" ]; then
                 /usr/bin/resolvectl dnssec "$1" "$global_mode" 2>/dev/null
             fi
