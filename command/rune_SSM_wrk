@@ -650,10 +650,12 @@ while (true) {
                     case 'ssnc flsr':
                         // flush request > pause (RTP Frame number) - base 64 string
                         // argument is current play position
-                        runelog('rune_SSM_wrk: Flush request: ', $buf);
-                        if (isset($progress[0]) && isset($progress[2]) && ($buff > $progress[0]) && ($buff < $progress[2])) {
-                            $status['time_last_elapsed'] = microtime(true);
-                            $status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
+                        if (isset($buf)) {
+                            runelog('rune_SSM_wrk: Flush request: ', $buf);
+                            if (isset($progress[0]) && isset($progress[2]) && ($buf > $progress[0]) && ($buf < $progress[2])) {
+                                $status['time_last_elapsed'] = microtime(true);
+                                $status['last_elapsed'] = (trim($buf) - $progress[0]) / 44100;
+                            }
                         }
                         break;
                     case 'ssnc pfls':

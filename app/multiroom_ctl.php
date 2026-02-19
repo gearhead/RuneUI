@@ -82,18 +82,13 @@ if (isset($outputNames) && $outputNames ) {
                 $preset['mute'] = 0;
                 $preset['volume_preset'] = $defaultVolume;
                 $preset['offset_ms'] = 0;
-                $preset['pin_connect'] = false;
+                $redis->hSet('owntone_presets', $outputName, json_encode($preset));
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
                 if (!isset($preset['offset_ms'])) {
                     // offset is not set, add a null offset value
                     $preset['offset_ms'] = 0;
-                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
-                }
-                // the next lines can be removed after the next release
-                if (!isset($preset['pin_connect'])) {
-                    $preset['pin_connect'] = false;
-                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                    $redis->hSet('owntone_presets', $outputName, json_encode($preset));
                 }
             }
             $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
@@ -107,22 +102,22 @@ if (isset($outputNames) && $outputNames ) {
                 $classification = 'local';
                 if ($templateData['multidevice']) {
                     if ($output['selected']) {
-                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($output, $preset);
                     } else if (in_array($output['name'], $availableOutputs)) {
-                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($output, $preset);
                     } else {
                         continue;
                     }
                 } else {
                     if ($output['selected']) {
-                        $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
+                        $templateData['controls'][$classification][$outputName] = array_merge($output, $preset);
                     } else {
                         continue;
                     }
                 }
             } else {
                 $classification = 'client';
-                $templateData['controls'][$classification][$outputName] = array_merge($preset, $output);
+                $templateData['controls'][$classification][$outputName] = array_merge($output, $preset);
             }
         }
     }

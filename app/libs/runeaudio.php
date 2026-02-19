@@ -16910,18 +16910,12 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 $preset['mute'] = 0;
                                 $preset['volume_preset'] = $defaultVolume;
                                 $preset['offset_ms'] = 0;
-                                $preset['pin_connect'] = false;
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             } else {
                                 $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
                                 if (!isset($preset['offset_ms'])) {
                                     // offset is not set, add a null offset value
                                     $preset['offset_ms'] = 0;
-                                    $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
-                                }
-                                // the next lines can be removed after the next release
-                                if (!isset($preset['pin_connect'])) {
-                                    $preset['pin_connect'] = false;
                                     $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
                                 }
                             }
@@ -17086,7 +17080,31 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $commandPut = '';
                         if ($autoconnect) {
                             // connect
-                            // set up the command
+                            // when the volume is non-zero first send a disconnect to set the volume to zero then
+                            //  send the connect command with the correct volume
+                            if ($output['volume'] != 0) {
+                                // non-zero volume, send a disconnect with zero volume
+                                $commandPut =
+                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                    ' --data '.
+                                    '"{';
+                                //
+                                $commandPut .= ' \"selected\": false';
+                                //
+                                if (isset($preset['offset_ms']) && $preset['offset_ms'] != $output['offset_ms']) {
+                                    // offset is set and differs from the preset offset, change it
+                                    $commandPut .= ', \"offset_ms\": '.$preset['offset_ms'];
+                                }
+                                //
+                                $commandPut .= ', \"volume\": 0';
+                                //
+                                $commandPut .= ' }"';
+                                // debug
+                                // file_put_contents('/home/owntone_autoconnect.txt', $commandPut."\n", FILE_APPEND);
+                                // run the command
+                                sysCmd($commandPut);
+                            }
+                            // set up the real command
                             $commandPut =
                                 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
@@ -17095,9 +17113,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             $commandPut .= ' \"selected\": true';
                             $output['selected'] = true;
                             //
-                            if (isset($preset['offset_ms'])) {
+                            if (isset($preset['offset_ms']) && $preset['offset_ms'] != $output['offset_ms']) {
                                 // offset is set, use it
-                                $commandPut .= ', \"offset_ms\": \"'.$preset['offset_ms'].'\"';
+                                $commandPut .= ', \"offset_ms\": '.$preset['offset_ms'];
+                                $output['offset_ms'] = $preset['offset_ms'];
                             }
                             //
                             if ($setvolume) {
@@ -17123,14 +17142,12 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             //
                             if (isset($preset['offset_ms'])) {
                                 // offset is set, use it
-                                $commandPut .= ', \"offset_ms\": \"'.$preset['offset_ms'].'\"';
-                                $output['volume'] = $preset['offset_ms'];
+                                $commandPut .= ', \"offset_ms\": '.$preset['offset_ms'];
+                                $output['offset_ms'] = $preset['offset_ms'];
                             }
-                            //
-                            if ($setvolume) {
-                                $commandPut .= ', \"volume\": '.$volume;
-                                $output['volume'] = $volume;
-                            }
+                            // set volume to zero for unconnected outputs
+                            $commandPut .= ', \"volume\": 0';
+                            $output['volume'] = 0;
                             //
                             $commandPut .= ' }"';
                             // debug
@@ -17145,24 +17162,21 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 ' --data '.
                                 '"{';
                             //
+                            $commandPut .= ' \"selected\": false';
+                            $output['selected'] = false;
+                            //
                             $changed = false;
                             if (isset($preset['offset_ms']) && ($preset['offset_ms'] != $output['offset_ms'])) {
                                 // preset offset differs from the current output value, use it
                                 $changed = true;
-                                $commandPut .= '\"offset_ms\": \"'.$preset['offset_ms'].'\"';
+                                $commandPut .= ', \"offset_ms\": '.$preset['offset_ms'];
                                 $output['offset_ms'] = $preset['offset_ms'];
-                                if (isset($preset['volume_preset']) && ($preset['volume_preset'] != $output['volume'])) {
-                                    // preset volume differs from the current output value, use it
-                                    $commandPut .= ', \"volume\": '.$preset['volume_preset'];
-                                    $output['volume'] = $preset['volume_preset'];
-                                }
-                            } else {
-                                if (isset($preset['volume_preset']) && ($preset['volume_preset'] != $output['volume'])) {
-                                    // preset volume differs from the current output value, use it
-                                    $changed = true;
-                                    $commandPut .= '\"volume\": '.$preset['volume_preset'];
-                                    $output['volume'] = $preset['volume_preset'];
-                                }
+                            }
+                            if ($output['volume'] != 0) {
+                                // volume non-zero, set the volume of all unconnected outputs to zero
+                                $changed = true;
+                                $commandPut .= ', \"volume\": 0';
+                                $output['volume'] = 0;
                             }
                             //
                             $commandPut .= ' }"';
@@ -17278,16 +17292,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                             // add the selected output to the array $selectedOutputs
                             $selectedOutputs[$output['name']] = true;
-                        } else {
-                            // not connected, unset the pin connect flag for unconnected outputs
-                            if (!isset($preset['pin_connect']) || $preset['pin_connect']) {
-                                $preset['pin_connect'] = false;
-                                $redis->hSet('owntone_presets', $presetName, json_encode($preset));
-                            }
                         }
                     }
                 }
-                // correct any mute and pin connect settings in the presets,  run only once after startup
+                // correct any mute settings in the presets,  run only once after startup
                 //  this corrects the presets which currently have no active output
                 $presetNames = $redis->hKeys('owntone_presets');
                 if (is_firstTime($redis, 'MR_owntone_unmute')) {
@@ -17299,10 +17307,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
                         if (isset($preset['mute']) && ($preset['mute'] != 0)) {
                             $preset['mute'] = 0;
-                            $redis->hSet('owntone_presets', $presetName, json_encode($preset));
-                        }
-                        if (!isset($preset['pin_connect']) || $preset['pin_connect']) {
-                            $preset['pin_connect'] = false;
                             $redis->hSet('owntone_presets', $presetName, json_encode($preset));
                         }
                     }
@@ -18113,7 +18117,7 @@ function get_current_song_from_statefile($redis, $type='file')
         $statefileLine = trim($statefileLine);
         if (strpos(' '.$statefileLine, 'current: ') == 1) {
             list($dummy, $current) = explode(': ', $statefileLine, 2);
-            $current = trim(current);
+            $current = trim($current);
             if (is_numeric($current)) {
                 continue;
             } else {

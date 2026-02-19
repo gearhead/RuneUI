@@ -1390,7 +1390,7 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 // when the current player is airplay and this is an owntone client and we know the owntone server and this client id
                 //  just sent a disconnect request to the owntone server, shairport sync will then switch via the 'airplaytoggle' section of this script
-                if (($redis->get() == 'Airplay') && ($redis->hGet('owntone', 'role') == 'client')) {
+                if (($redis->get('activePlayer') == 'Airplay') && ($redis->hGet('owntone', 'role') == 'client')) {
                     // currently working as an owntone client
                     // determine if we know the the owntone server and our owntone client id
                     $owntoneServer  = $redis->hGet('owntone', 'server');
@@ -1398,7 +1398,7 @@ while (true) {
                     if ($owntoneServer && $myOwntoneID) {
                         // the owntone server and our owntone client id are known
                         // disconnect this node as owntone client
-                        sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{\"selected\": false}"');
+                        sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{ \"selected\": false }"');
                         break;
                     }
                 }

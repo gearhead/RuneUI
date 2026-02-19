@@ -553,11 +553,13 @@ while (true) {
                         }
                         if (isset($runeaudioNode['ip']) && $runeaudioNode['ip']) {
                             curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
-                        } else {
+                            // keep a list of nodes which have had at least one render action
+                            $renderedNodes[$airplayName] = true;
+                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']){
                             curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
+                            // keep a list of nodes which have had at least one render action
+                            $renderedNodes[$airplayName] = true;
                         }
-                        // keep a list of nodes which have had at least one render action
-                        $renderedNodes[$airplayName] = true;
                         // sleep for 0.05 seconds
                         usleep(50000);
                     }
@@ -626,11 +628,13 @@ while (true) {
                         }
                         if (isset($runeaudioNode['ip_address']) && $runeaudioNode['ip_address']) {
                             curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
-                        } else {
+                            // keep a list of nodes which have had at least one render action
+                            $renderedNodes[$airplayName] = true;
+                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']){
                             curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
+                            // keep a list of nodes which have had at least one render action
+                            $renderedNodes[$airplayName] = true;
                         }
-                        // keep a list of nodes which have had at least one render action
-                        $renderedNodes[$airplayName] = true;
                         // sleep for 0.05 seconds
                         usleep(50000);
                     }
