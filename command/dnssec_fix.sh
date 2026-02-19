@@ -32,22 +32,26 @@
 #  date: October 2020
 #
 # When systemd-resolved is running with DNSSEC switched on the nts time servers will not be accessable
-# at boot because time is incorrect. The incorrect time prevents systemd-resolved resoving the NTS URL's.
+# at boot because time is incorrect. The incorrect time prevents systemd-resolved resoving the NTS URL's
 #
-# The workaround is to let RuneAudio boot with DNSSEC switched off and after a timesync has taken place to
-# restart systemd-resolved with DNSSEC switched on. After restarting systemd-resolved the resolved
-# configuration file is modified to switch DNSSEC off for the next boot.
+# The workaround is to let RuneAudio boot with DNSSEC switched (globally) off and after a timesync has
+# taken place to switch DNSSEC on for each link. The resolved configuration file is modified to switch
+# DNSSEC off for the next boot. If for some reason DNSSEC is on and a timesync has not taken place DNSSEC
+# is switched off for each link
 #
-# first check that systemd-resolved is running, if not just exit (some other fix has been implemented)
+# DNSSEC will only be enabled when the redis variable network_dnssec has a value of 1
+#
+# first check that systemd-resolved is running, if not just exit (some other fix may have been implemented)
 resolved_active=$( systemctl is-active systemd-resolved.service )
 if [ "$resolved_active" != "active" ] ; then
     exit
 fi
 # check that a timesync has taken place, maybe there is no intenet connection
-timesync_yes=$( timedatectl show -a | grep -i NTPSynchronized | grep -ci yes )
-if [ "$timesync_yes" = "0" ] ; then
-    # not timesync'd
-    dnssec_yes=$( resolvectl dnssec | grep -i 'link' | grep -ci yes )
+timesync_yes=$( timedatectl show -a | grep -i NTPSynchronized | grep -ci yes | xargs )
+dnssec_enabled=$( redis-cli get network_dnssec | xargs )
+if [ "$timesync_yes" == "0" ] || [ "$dnssec_enabled" != "1" ] ; then
+    # not timesync'd or dnssec disabled
+    dnssec_yes=$( resolvectl dnssec | grep -i 'link' | grep -ci yes | xargs )
     if [ "$dnssec_yes" != "0" ] ; then
         # dnssec switched on, so switch it off
         dnssec_links=$( resolvectl dnssec | grep -i 'link' | grep -i yes | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs)
@@ -57,8 +61,8 @@ if [ "$timesync_yes" = "0" ] ; then
         done
     fi
 else
-    # timesync ok
-    dnssec_no=$( resolvectl dnssec | grep -i 'link' | grep -ci no )
+    # timesync ok and dnssec enabled
+    dnssec_no=$( resolvectl dnssec | grep -i 'link' | grep -ci no | xargs )
     if [ "$dnssec_no" != "0" ] ; then
         # dnssec switched off, so switch it on
         dnssec_links=$( resolvectl dnssec | grep -i 'link' | grep -i no | cut -d '(' -f 2 | cut -d ')' -f 1 | xargs )
@@ -66,10 +70,10 @@ else
         for link in "${dnssec_links_arr[@]}" ; do
             resolvectl dnssec $link on
         done
-        # make sure dnssec is off in the resolved config file for the next boot
-        dnssec_config_on =$( grep -ic '^[\s]*dnssec[\s]*\=[\s]*yes' /etc/systemd/resolved.conf )
-        if [ "$dnssec_config_on" != "0" ] ; then
-            sed -i '/^[\s]*DNSSEC=/c\DNSSEC=no' /etc/systemd/resolved.conf
-        fi
     fi
+fi
+# make sure dnssec is off in the resolved config file for the next boot
+dnssec_config_on=$( grep -ic '^[\s]*dnssec[\s]*\=[\s]*yes' /etc/systemd/resolved.conf | xargs )
+if [ "$dnssec_config_on" != "0" ] ; then
+    sed -i '/^[\s]*DNSSEC=/c\DNSSEC=no' /etc/systemd/resolved.conf
 fi
