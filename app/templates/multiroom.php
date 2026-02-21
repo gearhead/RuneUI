@@ -43,10 +43,40 @@
         }
         function click_VolumeMaster(change, name) {
             $('#'+name).blur();
-            new PNotify({
-                title: 'Multi-room',
-                text: 'Not yet implemented',
-                icon: 'fa fa-exclamation'
+            change = parseInt(change);
+            $.each($('[id$=ID]'), function(index, value){
+                // console.log($(value).val());
+                id = $(value).val();
+                if ($('#'+id+'Selected').val() == '1') {
+                    // connected
+                    vol = parseInt($('#'+id+'Volume').val());
+                    if (vol != '0') {
+                        // non-zero volume
+                        if (change > 0) {
+                            // change is set to increase volume, maximum value 100
+                            vol = Math.min(vol + change, 100);
+                        } else if (change < 0) {
+                            // change is set to reduce volume, minimum value is 1
+                            vol = Math.max(vol + change, 1);
+                        }
+                        $('#'+id+'Volume').val(vol.toString()).trigger('change');
+                    } else {
+                        // zero volume
+                        mute = parseInt($('#'+id+'Mute').val());
+                        if (mute != '0') {
+                            // volume is muted, change the stored muted value
+                            if (change > 0) {
+                                // change is set to increase muted volume, maximum value 100
+                                mute = Math.min(mute + change, 100);
+                            } else if (change < 0) {
+                                // change is set to reduce muted volume, minimum value is 1
+                                mute = Math.max(mute + change, 1);
+                            }
+                            $('#'+id+'Mute').val(mute.toString());
+                            ajax_MRpreset(id);
+                        }
+                    }
+                }
             });
         }
         function wrk_change_VolumeMaster() {
@@ -59,6 +89,26 @@
                 $('#MuteButtonMaster').addClass('hide');
             } else {
                 $('#MuteButtonMaster').removeClass('hide');
+            }
+        }
+        function wrk_recalculate_VolumeMaster() {
+            // recalculates the average volume
+            tot_vol = 0;
+            num_outputs = 0;
+            $.each($('[id$=ID]'), function(index, value){
+                // console.log($(value).val());
+                id = $(value).val();
+                if ($('#'+id+'Selected').val() == '1') {
+                    // connected
+                    tot_vol += parseInt($('#'+id+'Volume').val());
+                    tot_vol += parseInt($('#'+id+'Mute').val());
+                    num_outputs += 1;
+                }
+            });
+            if (num_outputs != 0) {
+                av_vol = Math.round(tot_vol / num_outputs);
+                $('#VolumeMaster').val(av_vol.toString());
+                wrk_change_VolumeMaster();
             }
         }
         // functions for local and client selection and volume change
@@ -212,6 +262,7 @@
             } else if ($('#'+id+'Selected').val() == '1') {
                 $('#'+id+'MuteButton').removeClass('hide');
             }
+            wrk_recalculate_VolumeMaster();
         }
         function wrk_change_VolumePreset(id) {
             $('#'+id+'VolumePresetLabel').text('Preset Default Volume: '+$('#'+id+'VolumePreset').val()+'%');
@@ -307,6 +358,7 @@
                 name : $('#'+id+'Name').val(),
                 autoconnect : $('#'+id+'Autoconnect').val(),
                 volume_preset : $('#'+id+'VolumePreset').val(),
+                mute : $('#'+id+'Mute').val(),
             };
             $.ajax({
                 type: 'GET',

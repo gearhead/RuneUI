@@ -1160,7 +1160,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRpreset':
             // Multi-room preset change
-            // params: id, name, autoconnect, volume_preset
+            // params: id, name, autoconnect, volume_preset, mute
             // returns: id, autoconnect, volume_preset, selected, volume, mute
             $params = json_decode($_GET['params'], true);
             // get the default volume
@@ -1197,6 +1197,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             $preset['volume_preset'] = $params['volume_preset'];
             if (!isset($preset['mute'])) {
                 $preset['mute'] = 0;
+            } else if (isset($params['mute'])) {
+                $preset['mute'] = $params['mute'];
             }
             // get and return redis current selected and volume values for the return values
             $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
