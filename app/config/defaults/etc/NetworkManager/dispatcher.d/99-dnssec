@@ -33,7 +33,7 @@
 #
 # The RPi doe snot have a real time clock and at bootup, the time may not be close enough to sync
 # When systemd-resolved is running with DNSSEC switched on the nts time servers will return an invalid
-# response when the certificate is chewcked and therefore not be available to sync time
+# response when the certificate is checked and therefore not be available to sync time
 # at boot because time is incorrect. The incorrect time prevents systemd-resolved resoving the NTS URL's
 #
 # The workaround is to let NetworkManager run a script as an interface comes up to check if DNSSEC is
