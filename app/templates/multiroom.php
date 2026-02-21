@@ -182,11 +182,12 @@
                 wrk_change_Volume(id);
                 $('#'+id+'Selected').trigger('change');
                 $('#'+id+'ConnectButton').blur();
-                if ($('#'+id+'Pin').val() == '') {
-                    ajax_MRconnect(id);
-                } else {
-                    ajax_MRpin(id);
-                }
+                ajax_MRconnect(id);
+                // if ($('#'+id+'Pin').val() == '') {
+                    // ajax_MRconnect(id);
+                // } else {
+                    // ajax_MRpin(id);
+                // }
             }
         }
         function click_OffsetMsButton(id) {
@@ -275,6 +276,7 @@
                 name : $('#'+id+'Name').val(),
                 selected : $('#'+id+'Selected').val(),
                 offset_ms : $('#'+id+'OffsetMs').val(),
+                pin : $('#'+id+'Pin').val(),
             };
             $.ajax({
                 type: 'GET',

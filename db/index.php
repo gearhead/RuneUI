@@ -645,7 +645,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRconnect':
             // Multi-room connect
-            // params: command, id, name, selected, offset_ms
+            // params: command, id, name, selected, offset_ms, pin
             // command = 'Connect'
             // returns: id, selected, volume, mute, requires_auth, offset_ms
             // no break;
@@ -910,8 +910,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         // connect/disconnect will always set the volume
                         $commandPut .= '\"selected\": '.$action.$offsetCommandPart.', \"volume\": '.$params['volume'].'}"';
                     }
-                    // debug
-                    ui_notify($redis, 'Debug', $commandPut);
                     // when an offset ms change is requested and the output is active first run the command with 'selected false' to switch the output off
                     //  when the real command is run the offset ms will be activated when the output is activated
                     if ($commandPut) {
@@ -939,8 +937,21 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                 }
                             }
                         }
+                        // debug
+                        ui_notify($redis, 'Debug', $commandPut);
                         // run the unmodified command
                         sysCmd($commandPut);
+                        // if the pin code is set send a pin command
+                        if (isset($params['pin']) && $params['pin']) {
+                            // parameter pin is set and has a value
+                            $commandPut =
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                            $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
+                            // debug
+                            ui_notify($redis, 'Debug', $commandPut);
+                            // run the pin command
+                            sysCmd($commandPut);
+                        }
                     }
                 }
                 // get the current settings of the output, update the redis outputs and set the return values
