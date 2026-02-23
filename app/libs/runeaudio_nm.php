@@ -5126,7 +5126,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         if ($owntoneLocalOutputName) {
                             $owntoneLocalOutputInfo = $redis->hGet('owntone_outputs', $owntoneLocalOutputName);
                             if ($owntoneLocalOutputInfo) {
-                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo);
+                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo, true);
                                 if (isset($owntoneLocalOutputInfo['volume']) && is_numeric($owntoneLocalOutputInfo['volume'])) {
                                     sysCmd('mpc volume '.$owntoneLocalOutputInfo['volume']);
                                 }
@@ -5143,7 +5143,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         if ($owntoneLocalOutputName) {
                             $owntoneLocalOutputInfo = $redis->hGet('owntone_outputs', $owntoneLocalOutputName);
                             if ($owntoneLocalOutputInfo) {
-                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo);
+                                $owntoneLocalOutputInfo = json_decode($owntoneLocalOutputInfo, true);
                                 if (isset($owntoneLocalOutputInfo['volume']) && is_numeric($owntoneLocalOutputInfo['volume'])) {
                                     sysCmd('mpc volume '.$owntoneLocalOutputInfo['volume']);
                                 }
