@@ -273,6 +273,7 @@ function redisDatastore($redis, $action) {
             // Owntone - Multi-room
             $redis->del('owntone_outputs');
             $redis->del('owntone_presets');
+            $redis->del('owntone_nodes');
             $redis->hDel('owntone', 'saved_airplay_format');
             $redis->hDel('owntone', 'saved_airplay_rate');
             $redis->hSet('owntone', 'active', '0');
@@ -303,6 +304,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hSet('owntone', 'streaming', '0');
             $redis->hSet('owntone', 'unmute_delay', '5');
+            $redis->hSet('owntone', 'use_current_volume', '1');
             break;
         case 'owntonecheck':
             // owntone - Multi-room
@@ -334,6 +336,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('owntone', 'server_queue') || $redis->hSet('owntone', 'server_queue', json_encode(array()));
             $redis->hExists('owntone', 'streaming') || $redis->hSet('owntone', 'streaming', '0');
             $redis->hExists('owntone', 'unmute_delay') || $redis->hSet('owntone', 'unmute_delay', '5');
+            $redis->hExists('owntone', 'use_current_volume') || $redis->hSet('owntone', 'use_current_volume', '1');
             break;
         case 'reset':
             $redis->set('i2smodule', 'none');

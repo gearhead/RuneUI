@@ -438,9 +438,23 @@
                         <label class="control-label col-sm-2" for="owntone_default_volume">Default Volume</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="number" id="owntone_default_volume" name="features[owntone][default_volume]" value="<?=$owntone['default_volume'] ?>" data-trigger="change" min="1" max="100" placeholder="40" />
-                            <span class="help-block">Set the default connect volume level for devices or clients, default value: <strong>40%</strong>.
-                            For the locally selected MPD output device this value will be ignored, it will be automatically connected using the current MPD volume level.
-                            The default can be overridden when configuring Multi-Room</span>
+                            <span class="help-block">Set the default volume level for local devices and clients, default value: <strong>40%</strong>.
+                            The default value will will sometimes be overridden when <strong>Use Current Volume Level</strong> is <strong>ON</strong>, see below for details.
+                            The default can also be overridden when configuring Multi-Room with auto-connect</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="use_current_volume" class="control-label col-sm-2">Use Current Volume Level</label>
+                        <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="use_current_volume" name="features[owntone][use_current_volume]" type="checkbox" value="1"<?php if((isset($owntone['use_current_volume'])) && ($owntone['use_current_volume'])): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                            <span class="help-block">When <strong>ON</strong> this setting overrides the <strong>Default Volume</strong> setting for RuneAudio devices.
+                            The volume level for the locally selected MPD output device and RuneAudio AirPlay clients will then be set to their respective current values.
+                            When applicable, this also overrides any auto-connect volume settings.
+                            This setting has no effect on non-RuneAudio clients.
+                            The default value is <strong>ON</strong></span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -450,12 +464,10 @@
                                 <input id="owntone_multidevice" name="features[owntone][multidevice]" type="checkbox" value="1"<?php if((isset($owntone['multidevice'])) && ($owntone['multidevice'])): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">This setting controls the ability to simultaneously activate and/or deactivate individual locally available output devices.
+                            <span class="help-block">This setting controls the ability to simultaneously activate and/or deactivate individual locally available output devices on the server.
                             The default value is <strong>OFF</strong>, meaning that only the locally selected MPD output device is available, this is normally what is required.
                             When <strong>ON</strong>, all locally available output devices may be individually activated and/or deactivated.<br>
-                            <i>Notes:<br>
-                            Music synchronisation across multiple local devices may not always be 100% correct.<br>
-                            Regardless of this setting, when the MPD output device is changed in the <a href="/mpd/">MPD menu, audio output section</a>,
+                            <i>Note: Regardless of this setting, when the MPD output device is changed in the <a href="/mpd/">MPD menu, audio output section</a>,
                             the Multi-Room local output device will also be switched</i></span>
                         </div>
                     </div>
@@ -469,7 +481,7 @@
                             <span class="help-block">Toggle local internet audio streaming support.
                             The default value is <strong>OFF</strong>.
                             Audio streaming is MP3 in format at 44,1khz, 320kbps.
-                            Web audio streaming is not fully synchronised, but provides a solution for streaming music to a mobile device or PC.
+                            Web audio streaming is not synchronised, but provides a solution for streaming music to a mobile device or PC.
                             When activated, steaming is available via the link:
                             <span style="white-space: nowrap"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:3689/stream.mp3", "Webstreaming");return false;'>http://<?=$hostname ?>.local:3689/stream.mp3</a></span>.<br>
                             <i>Note: Changing this setting will cause Multi-Room to restart, you may lose some Multi-Room settings</i></span>

@@ -16818,6 +16818,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $numberOutputs = 0;
             $unmuteMaster = false;
             $detectedOutputNames = array();
+            $useCurrentVolume = $redis->hGet('owntone', 'use_current_volume');
             if (isset($server) && $server && wrk_systemd_unit($redis, 'is-active', 'owntone') && ($role == 'server')) {
                 // role and the server name are known, the owntone job is running and the role is server
                 //
@@ -16976,14 +16977,14 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 // for multidevice connect once and don't disconnect
                                 //  always connect the active local device
                                 if (!$output['selected'] && ($output['name'] == $localOutputName) && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
-                                    // local device
+                                    // local MPD selected device and first time for this device
                                     $autoconnect = true;
                                     $setvolume = true;
-                                    if ($preset['autoconnect'] && isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
-                                        // output is autoconnect so use the preset volume when valid
+                                    if ($preset['autoconnect'] && isset($preset['volume_preset']) && is_numeric($preset['volume_preset']) && !$useCurrentVolume) {
+                                        // output is autoconnect and 'use_current_volune' is false so use the preset volume when valid
                                         $volume = $preset['volume_preset'];
-                                    } else if (isset($localVolume) && is_numeric($localVolume)) {
-                                        // output is not autoconnect so use the local volume when valid
+                                    } else if (isset($localVolume) && is_numeric($localVolume) && $useCurrentVolume) {
+                                        // output is not autoconnect and 'use_current_volume' is true, so use the local volume when valid
                                         $volume = $localVolume;
                                         if (!$preset['autoconnect']) {
                                             // not autoconnect so set the preset volume to the default volume
@@ -17002,7 +17003,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                         $preset['mute'] = 0;
                                     }
                                 } else if (!$output['selected'] && $preset['autoconnect'] && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
-                                    // autoconnect
+                                    // local device, autoconnect and first time for this device
                                     $autoconnect = true;
                                     $setvolume = true;
                                     if (isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
@@ -17050,11 +17051,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                     // this one is not connected and should be
                                     $autoconnect = true;
                                     $setvolume = true;
-                                    if (isset($localVolume) && is_numeric($localVolume)) {
-                                        // output is not autoconnect so use the local volume when valid
+                                    if (isset($localVolume) && is_numeric($localVolume) && $useCurrentVolume) {
+                                        // autoconnect is always false, 'use_currect_volume' is true, so use the local volume when valid
                                         $volume = $localVolume;
                                     } else {
-                                        // use the default volume when local volume is valid
+                                        // otherwise use the default volume
                                         $volume = $defaultVolume;
                                     }
                                     $preset['mute'] = 0;
@@ -17072,7 +17073,41 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                 // this one is not connected and should be
                                 $autoconnect = true;
                                 $setvolume = true;
-                                if (isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
+                                // determine if it is a RuneAudio client, if so, try to get the current volume level and use it
+                                unset($nodeInfo, $nodeValue);
+                                if ($useCurrentVolume && $redis->hExists('owntone_nodes', $output['name'])) {
+                                    // 'use_current_volume' is true and the node is listed, get its details
+                                    $node = json_decode($redis->hGet('owntone_nodes', $output['name']), true);
+                                    if (isset($node['runeaudio']) && $node['runeaudio']) {
+                                        // its a runeaudio node, get the volume
+                                        if (isset($node['ip']) && $node['ip']) {
+                                            // we have an ip address of the node
+                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$node['ip'].'/command/?cmd=status"');
+                                        } else if (isset($node['hostname']) && $node['hostname']) {
+                                            // we have a hostname address of the node
+                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 2 "http://'.$node['hostname'].'/command/?cmd=status"');
+                                        }
+                                        if (count($nodeInfoLines)) {
+                                            // we have received information from the node, determine the volume
+                                            foreach ($nodeInfoLines as $nodeInfoLine) {
+                                                list($nodeInfo, $nodeValue) = explode(': ', $nodeInfoLine, 2);
+                                                $nodeInfo = trim(strtolower($nodeInfo));
+                                                if (isset($nodeValue)) {
+                                                    $nodeValue = trim(strtolower($nodeValue));
+                                                }
+                                                if (($nodeInfo == 'volume') && isset($nodeValue) && is_numeric($nodeValue)) {
+                                                    // valid volume found
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                unset($node, $nodeInfoLines, $nodeInfoLine);
+                                if (isset($nodeInfo) && isset($nodeValue) && ($nodeInfo == 'volume') && is_numeric($nodeValue)) {
+                                    // use the current volume level of the node
+                                    $volume = $nodeValue;
+                                } else if (isset($preset['volume_preset']) && is_numeric($preset['volume_preset'])) {
                                     // use the preset volume if valid
                                     $volume = $preset['volume_preset'];
                                 } else {
@@ -17550,7 +17585,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             // user managed values which need a reset
             $restartValues = array('streaming', 'rate');
             // boolean user managed values which need to be checked for '' or null meaning 0
-            $booleanValues = array('multidevice', 'streaming');
+            $booleanValues = array('multidevice', 'streaming', 'use_current_volume');
             foreach ($booleanValues as $booleanValue) {
                 if (!isset($args[$booleanValue])) {
                     $args[$booleanValue] = '0';

@@ -671,6 +671,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             }
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
+            $useCurrentVolume = $redis->hGet('owntone', 'use_current_volume');
             if (!$redis->hExists('owntone_presets', $params['name'])) {
                 // the presets entry is missing, create it
                 $preset = array();
@@ -776,12 +777,51 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         }
                     }
                     $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
-                } else if (isset($params['selected']) && $output['selected'] != $params['selected']) {
+                }
+                if (isset($params['selected']) && $output['selected'] != $params['selected']) {
                     // connect/disconnect
                     $output['selected'] = $params['selected'];
                     if ($params['selected']) {
                         // connect, set the connect volume
-                        $output['volume'] = $preset['volume_preset'];
+                        // determine if it is a RuneAudio client, if so, try to get the current volume level and use it
+                        unset($nodeInfo, $nodeValue);
+                        if ($useCurrentVolume && $redis->hExists('owntone_nodes', $params['name'])) {
+                            // 'use_current_volume' is true and the node is listed, get its details
+                            $node = json_decode($redis->hGet('owntone_nodes', $params['name']), true);
+                            if (isset($node['runeaudio']) && $node['runeaudio']) {
+                                // its a runeaudio node, get the volume
+                                if (isset($node['ip']) && $node['ip']) {
+                                    // we have an ip address of the node
+                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$node['ip'].'/command/?cmd=status"');
+                                } else if (isset($node['hostname']) && $node['hostname']) {
+                                    // we have a hostname address of the node
+                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 2 "http://'.$node['hostname'].'/command/?cmd=status"');
+                                }
+                                if (count($nodeInfoLines)) {
+                                    // we have received information from the node, determine the volume
+                                    foreach ($nodeInfoLines as $nodeInfoLine) {
+                                        list($nodeInfo, $nodeValue) = explode(': ', $nodeInfoLine, 2);
+                                        $nodeInfo = trim(strtolower($nodeInfo));
+                                        if (isset($nodeValue)) {
+                                            $nodeValue = trim(strtolower($nodeValue));
+                                        }
+                                        if (($nodeInfo == 'volume') && isset($nodeValue) && is_numeric($nodeValue)) {
+                                            // valid volume found
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        unset($node, $nodeInfoLines, $nodeInfoLine);
+                        if (isset($nodeInfo) && isset($nodeValue) && ($nodeInfo == 'volume') && is_numeric($nodeValue)) {
+                            // use the current volume level of the node
+                            $volume = $nodeValue;
+                        } else {
+                            $volume = $preset['volume_preset'];
+                        }
+                        $output['volume'] = $volume;
+                        $params['volume'] = $volume;
                     }
                     $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                 }

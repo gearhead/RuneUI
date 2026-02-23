@@ -1392,13 +1392,24 @@ while (true) {
                 //  just sent a disconnect request to the owntone server, shairport sync will then switch via the 'airplaytoggle' section of this script
                 if (($redis->get('activePlayer') == 'Airplay') && ($redis->hGet('owntone', 'role') == 'client')) {
                     // currently working as an owntone client
-                    // determine if we know the the owntone server and our owntone client id
+                    // determine if we know the the owntone server, our owntone client id and our owntone client name
                     $owntoneServer  = $redis->hGet('owntone', 'server');
                     $myOwntoneID = $redis->hGet('owntone', 'client_id');
-                    if ($owntoneServer && $myOwntoneID) {
-                        // the owntone server and our owntone client id are known
-                        // disconnect this node as owntone client
-                        sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{ \"selected\": false }"');
+                    $myOwntoneName = $redis->hGet('airplay', 'name');
+                    if ($owntoneServer && $myOwntoneID && $myOwntoneName) {
+                        // the owntone server, our owntone client id and our owntone client name are known
+                        // disconnect this node as owntone client via the /db api, this will also update the redis entries for this output
+                        $params = rawurlencode(json_encode(array(
+                            "command" => 'Connect',
+                            "id" => $myOwntoneID,
+                            "name" => $myOwntoneName,
+                            "selected" => '0'
+                        )));
+                        // run the command asynchronously, immediately
+                        sysCmdAsync($redis, 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://'.$owntoneServer.'/db/?cmd=MRconnect&params='.$params.'"', 0);
+                        // don't disconnect via the owntone api, this leaves the redis entries unchanged and caused owntone metadata delivery to
+                        //  continue longer than it should
+                        // sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{ \"selected\": false }"');
                         break;
                     }
                 }

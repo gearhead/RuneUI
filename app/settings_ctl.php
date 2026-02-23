@@ -376,6 +376,7 @@ $templateData['proxy'] = $redis->hGetAll('proxy');
 $templateData['spotifyconnect'] = $redis->hGetAll('spotifyconnect');
 $templateData['owntone']['enable'] = $redis->hGet('owntone', 'enable');
 $templateData['owntone']['default_volume'] = $redis->hGet('owntone', 'default_volume');
+$templateData['owntone']['use_current_volume'] = $redis->hGet('owntone', 'use_current_volume');
 $templateData['owntone']['multidevice'] = $redis->hGet('owntone', 'multidevice');
 $templateData['owntone']['streaming'] = $redis->hGet('owntone', 'streaming');
 $templateData['samba'] = $redis->hGetAll('samba');
