@@ -1189,6 +1189,10 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 sysCmdAsync($redis, '/srv/http/command/check_connman_async.php');
                 break;
+            case 'network_dnssec':
+                $redis->sRem('w_lock', $jobID);
+                $savecpuFixdnssec = 0;
+                break;
             case 'btcfg':
                 // $job->action is always set, $job->args can also contain information
                 if (isset($job->args)) {
@@ -1881,7 +1885,8 @@ while (true) {
         sysCmdAsync($redis, '/srv/http/command/audiocard_tweaks.php');
     }
 
-    // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (+/-15 minutes)
+    // Check DNSSEC initially after 20 cycles (+/-10 seconds), then every +/-1800 cycles (+/-15 minutes),
+    //  it can also be triggered to run immediately when the routine 'network_dnssec' (see above) is executed.
     // There is an unresolved problem with systemd resolve in combination with systemd timesync. Systemd resolve
     //  will not resolve URL's with DNSSEC switched on when time has not been syncronised. This causes systemd timesync
     //  to fail becuse the timeserver URL's can not be resolved. This effectivly locks both timesync and resolve out.

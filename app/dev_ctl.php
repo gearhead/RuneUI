@@ -288,10 +288,12 @@ if (isset($_POST)) {
         if ((isset($_POST['mode']['dnssec']['enable'])) && ($_POST['mode']['dnssec']['enable'])) {
             if (!$redis->get('network_dnssec')) {
                 $redis->set('network_dnssec', 1);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'network_dnssec'));
             }
         } else {
             if ($redis->get('network_dnssec')) {
                 $redis->set('network_dnssec', 0);
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'network_dnssec'));
             }
         }
         // ----- llmnrd -----

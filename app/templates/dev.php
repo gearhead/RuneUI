@@ -314,9 +314,9 @@
                             For example web radios may fail to connect.<br>
                             <i>Notes:
                             DNSSEC is always switched off when the player is started.
-                            This allows the player to carry out a (NTP) time synchronisation, which would fail because DNSSEC requires an accurate time setting on communicating internet nodes.
-                            The time synchronisation is required since the Raspberry PI normally has no hardware real-time clock.
-                            DNSSEC will be enabled, if applicable, only after a successful time synchronisation</i></span>
+                            This allows the player to carry out a (NTP) time synchronisation, which would otherwise fail because DNSSEC requires an accurate time setting on communicating internet nodes.
+                            And the time synchronisation is required since the Raspberry PI normally has no hardware real-time clock.
+                            DNSSEC will be enabled, when <strong>ON</strong>, only after a successful time synchronisation has taken place</i></span>
                     </div>
                 </div>
                 <div class="form-group">
