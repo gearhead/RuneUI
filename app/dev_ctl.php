@@ -284,6 +284,16 @@ if (isset($_POST)) {
                 $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'network_ipv6'));
             }
         }
+        // ----- DNSSEC -----
+        if ((isset($_POST['mode']['dnssec']['enable'])) && ($_POST['mode']['dnssec']['enable'])) {
+            if (!$redis->get('network_dnssec')) {
+                $redis->set('network_dnssec', 1);
+            }
+        } else {
+            if ($redis->get('network_dnssec')) {
+                $redis->set('network_dnssec', 0);
+            }
+        }
         // ----- llmnrd -----
         $llmnrd = false;
         // ----- llmnrd on/off -----
@@ -477,6 +487,7 @@ $templateData['airplayof'] = $redis->hGet('airplay', 'alsa_output_format');
 $templateData['airplayor'] = $redis->hGet('airplay', 'alsa_output_rate');
 $templateData['optwifionof'] = $redis->get('network_autoOptimiseWifi');
 $templateData['IPv6onoff'] = $redis->get('network_ipv6');
+$templateData['dnssec'] = $redis->get('network_dnssec');
 $templateData['llmnrdonoff'] = $redis->get('llmnrdonoff');
 $templateData['llmnrdipv6'] = $redis->get('llmnrdipv6');
 $templateData['underclocking'] = $redis->get('underclocking');

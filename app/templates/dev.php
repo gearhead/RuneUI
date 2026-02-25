@@ -33,10 +33,10 @@
                         <span class="help-block">Enable PHP OPcache persistence. This drastically speeds up page render, but you must manually clear cache (use above button) at any source code change. This is enabled by default in production environment</span>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button class="btn btn-primary btn-lg" value="1" name="opcache[submit]" type="submit">Save settings</button>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="opcache[submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
                 </div>
             </div>
         </fieldset>
@@ -113,10 +113,10 @@
                         <span class="help-block">Check and restore the correct FS ownership and permissions in important system areas</span>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit">Save settings</button>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
                 </div>
             </div>
             <legend>Background WORKERS control</legend>
@@ -243,6 +243,11 @@
                         But this really depends on many factors like the case design, operation location, etc.<br>
                         You need to restart RuneAudio to activate a changed setting</i></span>
                     </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                        </div>
+                    </div>
                 </div>
                 <?php if ($hwmodel == '17') : ?>
                 <div class="form-group">
@@ -294,6 +299,29 @@
                             Regardless of the setting, the IPv6 stack is unaltered and activated.
                             IPv6 addresses will be processed normally, this switch only effects the connections which RuneAudio makes within your local network.<br>
                             You may temporarily lose network connectivity after changing this value, if so, wait a few seconds and retry</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">DNSSEC</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="dnssec" name="mode[dnssec][enable]" type="checkbox" value="1"<?php if((isset($dnssec)) && ($dnssec)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">DNSSEC is switched <strong>OFF</strong> by default.
+                            It can optionally switched <strong>ON</strong>.
+                            When <strong>ON</strong> enhanced internet security will be applied, but there is a possibility of connection errors.
+                            For example web radios may fail to connect.<br>
+                            <i>Notes:
+                            DNSSEC is always switched off when the player is started.
+                            This allows the player to carry out a (NTP) time synchronisation, which would fail because DNSSEC requires an accurate time setting on communicating internet nodes.
+                            The time synchronisation is required since the Raspberry PI normally has no hardware real-time clock.
+                            DNSSEC will be enabled, if applicable, only after a successful time synchronisation</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
             </div>
@@ -439,6 +467,11 @@
                             Specifies the MPD TCP port on the remote (master) MPD player (default = 6600)</span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
+                </div>
             </div>
             <legend>Lyrics - Advanced settings</legend>
             <div class="boxed-group">
@@ -500,6 +533,11 @@
                         or the song title used in the search is not 100% correct, for example words such as 'the', 'of', 'a',
                         'and', '&amp;', commas and other punctuation may be incorrect. So a 100% match is generally not what is
                         required</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
             </div>
@@ -590,6 +628,11 @@
                         Multi-room can support 44.1kHz or 88.2kHz processing, you can select the rate below.</i></span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
+                </div>
             </div>
             <legend>Spotify Connect - Advanced settings</legend>
             <div class="boxed-group">
@@ -603,6 +646,11 @@
                         <span class="help-block">Metadata and Cover Art for Spotify Connect is set ON or OFF depending on processor type.
                         When set on it imposes a CPU overhead when Spotify Connect is active. On less powerful processors it can fail to work properly.
                         You can can override the default setting here</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
             </div>
@@ -620,6 +668,11 @@
                         In the UI it appears correct, the actual volume level is shown in the mixer and it never reaches 100%.
                         Setting this fix ON resolves the problem. The default value is <strong>OFF</strong>.<br>
                         A reboot is required to activate a changed value</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
                 <!--
@@ -657,6 +710,11 @@
                         These objects may be reordered into any way which you prefer.
                         This can be useful when you have no local outputs and are only interested in client outputs,
                         or you never use the master volume controls<br></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
                 <!--
@@ -713,6 +771,11 @@
                         However, the ALSA rate converter is sometimes unavoidable and is the fallback when nothing else works, normally it does nothing.<br>
                         Speex is specifically designed for speech compression, while samplerate is a general purpose rate converter, both options are configured for best quality available
                         </span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>
                 </div>
             </div>
@@ -801,6 +864,11 @@
                         By counting the number of occurrences of each Webradio metadata string per hour these irrelevant messages can be identified and suppressed</i></span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
+                </div>
             </div>
             <legend>Local Browser - Advanced settings</legend>
             <div class="boxed-group">
@@ -830,10 +898,10 @@
                         <i>Note: When the Weston Windows environment is selected only the Luakit Local browser is valid</i></span>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit">Save settings</button>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
+                    </div>
                 </div>
             </div>
         </fieldset>
