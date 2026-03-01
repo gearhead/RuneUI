@@ -2,7 +2,7 @@
     <iframe
         id="alsamixer-frame"
         src="http://<?=$_SERVER['SERVER_ADDR'] ?>:83"
-        style="width:100%;border:none;background:#000;display:block;"
+        style="width:100%;height:calc(100vh - 86px);border:none;background:#000;display:block;margin-top:43px;"
         scrolling="auto">
     </iframe>
 </div>
