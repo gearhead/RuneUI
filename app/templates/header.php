@@ -77,9 +77,9 @@
             <li class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$owntoneMenuTab): ?> hide<?php endif ?>"><a href="#" onclick='window.open("http://<?=$owntoneServer ?>/multiroom/", "Multi-Room");return false;'><i class="fa fa-sliders"></i> Multi-Room</a></li>
             <li id="menu_multiroom" class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$owntoneMenu): ?> hide<?php endif ?>"><a href="/multiroom/"><i class="fa fa-network-wired"></i> Multi-Room</a></li>
             <?php if (is_localhost()): ?>
-                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:83", "_self");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+                <li class="<?=$this->uri(1, 'alsamixer', 'active')?>"><a href="/alsamixer/"><i class="fa fa-sliders"></i> Mixer</a></li>
             <?php else: ?>
-                <li class="<?=$this->uri(1, 'mixer', 'active')?>"><a href="#" onclick='window.open("http://<?=$hostname ?>.local:83", "Mixer");return false;'><i class="fa fa-sliders"></i> Mixer</a></li>
+                <li class="<?=$this->uri(1, 'alsamixer', 'active')?>"><a href="/alsamixer/"><i class="fa fa-sliders"></i> Mixer</a></li>
             <?php endif ?>
             <li class="<?=$this->uri(1, 'debug', 'active')?>"><a href="/debug/"><i class="fa fa-bug"></i> Debug</a></li>
             <li class="<?=$this->uri(1, 'credits', 'active')?>"><a href="/credits/"><i class="fa fa-trophy"></i> Credits</a></li>
