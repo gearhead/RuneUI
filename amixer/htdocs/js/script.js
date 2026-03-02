@@ -228,17 +228,24 @@ var changeVolume = function(id, i, value)
 
 var changeCard = function (id)
 {
-	sendRequest('PUT', 'card/' + id + '/');
+    sendRequest('PUT', 'card/' + id + '/');
 	document.getElementById('controls').innerHTML = '';
 	loadControls();
 
 	var cardSelects = document.getElementsByClassName('amixer-webui-cards');
+    
 	for (var i = 0; i < cardSelects.length; i++)
 	{
 		if (cardSelects[i].value != id) {
 			cardSelects[i].value = id;
 		}
 	}
+    setTimeout(() => {
+        // var iframe = document.getElementById('alsamixer-frame');
+        // iframe.src = iframe.src;
+        window.location.href = window.location.pathname + "?t=" + new Date().getTime();
+        //location.reload(true);
+    }, 10);
 };
 
 var loadCards = function ()
@@ -251,7 +258,7 @@ var loadCards = function ()
 			return;
 		}
 
-		var select = '<div class="mdl-textfield mdl-js-textfield"><select class="amixer-webui-cards mdl-textfield__input" onchange="changeCard(this.value)"><optgroup label="Sound card" class="mdl-cell--hide-desktop"></optgroup>';
+		var select = '<div id="card-select" name="card-select" class="mdl-textfield mdl-js-textfield"><select class="amixer-webui-cards mdl-textfield__input" onchange="changeCard(this.value)"><optgroup label="Sound card" class="mdl-cell--hide-desktop"></optgroup>';
 		for (var i in data) {
 			select += '<option value="' + i + '">' + data[i] + '</option>';
 		}
