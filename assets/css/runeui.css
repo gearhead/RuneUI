@@ -735,6 +735,10 @@ pre code {
     padding-left: 15px;
     padding-right: 15px
 }
+[id="alsamixer-page"] {
+    padding-left: 0px;
+    padding-right: 0px
+}
 .row {
     margin-left: -15px;
     margin-right: -15px

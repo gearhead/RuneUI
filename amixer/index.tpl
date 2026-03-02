@@ -39,16 +39,15 @@
     <meta name="theme-color" content="#009688">
 </head>
 
-<body class="loading">
+<body class="loading" style="border:0px;">
 
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 
-        <div class="mdl-layout__header mdl-layout__header--waterfall">
+        <div class="mdl-layout__header mdl-layout__header--waterfall" style="height:30px;">
             <header class="mdl-layout__header-row">
                 <div class="mdl-layout-title">
                     <h1>
-                        <a id="rune_logo" class="home" href="javascript:window.history.go(( window.name == 'Mixer') ? 0 : -1)"><img src="icons/logo.png" class="logo" alt="RuneAudio" title="Back/Refresh"></a><br>
-                        ALSA Mixer WebUI - {$hostname}
+                        ALSA Mixer WebUI
                     </h1>
                 </div>
                 <div class="mdl-layout-spacer"></div>
