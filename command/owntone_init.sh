@@ -146,7 +146,9 @@ if [[ $cores > 1 ]] ; then
     device_mpd=$( redis-cli hget owntone device_mpd )
     device_mpd="${device_mpd/fifo/FIFO}"
     redis-cli hset owntone device_mpd $device_mpd
-    # start owntone
+    # start owntone, first remove the old log, then reset the failed state, then start it
+    rm -f /var/log/runeaudio/owntone.log
+    systemctl reset-failed owntone
     systemctl start owntone
 fi
 } > /var/log/runeaudio/owntone_init.log 2>&1
