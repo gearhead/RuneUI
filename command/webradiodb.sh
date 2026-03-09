@@ -51,6 +51,9 @@ p1mountpoint=$( redis-cli get p1mountpoint )
 find "$p1mountpoint/webradios" -type f -name '*.pls' -exec mv -fn -- '{}' "$webradiodir/" \;
 # when the files already exist in $webradiodir the file will not be moved, the next line deletes what is left
 find "$p1mountpoint/webradios" -type f -name '*.pls' -exec rm -- '{}' \;
+# fix permissions on all pls files in webradiodir - files from DOS/FAT partitions (/boot, /boot/firmware)
+# will arrive as 755; normalise everything to 644
+find "$webradiodir" -maxdepth 1 -type f -name '*.pls' -exec chmod 644 -- '{}' \;
 # remove any empty directories from <p1mountpoint>/webradios
 #   nested directories could need several passes, this routine is run on each boot
 find "$p1mountpoint/webradios/" -type d -exec rmdir '{}' &> /dev/null \;
