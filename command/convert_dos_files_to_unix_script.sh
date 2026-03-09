@@ -302,5 +302,10 @@ find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -user www-data -exec c
 find /etc/xdg/luakit/ -maxdepth 1 -type f -name rc.lua \! -group www-data -exec chown www-data:www-data {} \;
 # customised apt command needs to be executable
 find /usr/local/bin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 {} \;
+# fix permissions on all pls files in webradiodir - files from DOS/FAT partitions (/boot, /boot/firmware)
+# will arrive as 755; normalise everything to 644
+find /mnt/MPD/Webradio -maxdepth 1 -type f -name '*.pls' \! -perm 644 -exec chmod 644 -- '{}' \;
+# make sure that the files in /etc/NetworkManager/dispatcher.d/ are executable
+find /etc/NetworkManager/dispatcher.d/ -maxdepth 1 -type f \! -executable -exec chmod +x -- '{}' \;
 #---
 #End script
