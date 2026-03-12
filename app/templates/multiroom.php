@@ -387,9 +387,12 @@
             if ((typeof ret.mute !== 'undefined') && ($('#'+ret.id+'Mute').val() != ret.mute)) {
                 $('#'+ret.id+'Mute').val(ret.mute).trigger('change');
             }
-            if ((typeof ret.offset_ms !== 'undefined') && ($('#'+ret.id+'OffsetMs').val() != ret.offset_ms)) {
-                $('#'+ret.id+'OffsetMs').val(ret.offset_ms);
-                $('#'+ret.id+'OffsetMsOrig').val(ret.offset_ms);
+            if (typeof ret.offset_ms !== 'undefined') {
+                if ($('#'+ret.id+'OffsetMs').val() != ret.offset_ms) {
+                    $('#'+ret.id+'OffsetMs').val(ret.offset_ms);
+                } else if ($('#'+ret.id+'OffsetMsOrig').val() != ret.offset_ms) {
+                    $('#'+ret.id+'OffsetMsOrig').val(ret.offset_ms);
+                }
             }
             if ((typeof ret.requires_auth !== 'undefined') && ($('#'+ret.id+'RequiresAuth').val() != ret.requires_auth)) {
                 $('#'+ret.id+'RequiresAuth').val(ret.requires_auth);
@@ -507,7 +510,7 @@
                         <?php endif;?>
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" title="Mute the output" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?> Mute<?php else:?> Unmute<?php endif;?></button>
-                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?> title="Connect the output" class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$this->multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?> Connect<?php else:?> Disconnect<?php endif;?></button>
+                            <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?> title="Connect the output" class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?> Connect<?php else:?> Disconnect<?php endif;?></button>
                             <div id="<?=$l['id']?>PinGroup" name="<?=$l['id']?>PinGroup"<?php if (($classification  != 'client') || $l['selected'] || !$l['requires_auth']): ?> class="hide"<?php endif;?> style="display: inline-block" >
                                 &nbsp&nbspPIN-CODE:&nbsp&nbsp<input id="<?=$l['id']?>Pin" name="<?=$l['id']?>Pin" value="" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
                             </div>
