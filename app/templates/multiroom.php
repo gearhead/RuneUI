@@ -390,7 +390,8 @@
             if (typeof ret.offset_ms !== 'undefined') {
                 if ($('#'+ret.id+'OffsetMs').val() != ret.offset_ms) {
                     $('#'+ret.id+'OffsetMs').val(ret.offset_ms);
-                } else if ($('#'+ret.id+'OffsetMsOrig').val() != ret.offset_ms) {
+                }
+                if ($('#'+ret.id+'OffsetMsOrig').val() != ret.offset_ms) {
                     $('#'+ret.id+'OffsetMsOrig').val(ret.offset_ms);
                 }
             }
