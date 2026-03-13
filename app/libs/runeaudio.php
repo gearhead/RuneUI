@@ -4277,9 +4277,14 @@ function wrk_audioOutput($redis, $action)
     return 'changed';
 }
 
-function wrk_i2smodule($redis, $args)
+function wrk_i2smodule($redis, $args = null, $jobID = null)
 {
+    $args = trim($args);
     $redis->set('i2smodule', $args);
+    if (isset($jobID) && $jobID) {
+        $redis->save();
+        $redis->sRem('w_lock', $jobID);
+    }
     if($redis->get('hwplatformid') === '01' || $redis->get('hwplatformid') === '08') {
         // RuneAudio enable/disable/change i2s audio output overlays
         if ($args == 'none') {
@@ -4302,12 +4307,27 @@ function wrk_i2smodule($redis, $args)
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
         fclose($fp);
+        // when the the pi booted with i2smodule = 'none', the dtoverlay can be dynamically activated, otherwise a reboot is required
+        //  i2smoduleDynamic is set to true when i2smodule = 'none' at boot-initialise
+        //  secondary changes cannot be made dynamically
+        if ($redis->get('i2smoduleDynamic')) {
+            // dynamic module switching is possible
+            if ($args != 'none') {
+                // activate the new dtoverlay module
+                sysCmd('dtoverlay '.$args);
+                // disable further dynamic changes
+                $redis->set('i2smoduleDynamic', false);
+                // inform the user of dynamic changes
+                ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to reboot');
+            }
+        } else {
+            ui_notify($redis, 'I&#178;S module', 'Reboot required to activate changes');
+        }
     } else {
         if (wrk_mpdPlaybackStatus($redis) === 'play') {
             //$mpd = openMpdSocket('/run/mpd/socket', 0);
             $mpd = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
             sendMpdCommand($mpd, 'kill');
-            closeMpdSocket($mpd);
         }
         switch ($args) {
             case 'none':

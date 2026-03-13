@@ -340,6 +340,7 @@ function redisDatastore($redis, $action) {
             break;
         case 'reset':
             $redis->set('i2smodule', 'none');
+            $redis->set('i2smoduleDynamic', true);
             $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->set('audio_on_off', 1);
             $redis->set('orionprofile', 'RuneAudio');
@@ -637,6 +638,13 @@ function redisDatastore($redis, $action) {
             break;
         case 'check':
             $redis->exists('i2smodule') || $redis->set('i2smodule', 'none');
+            if (!$redis->exists('i2smoduleDynamic')) {
+                if ($redis->get('i2smodule') == 'none') {
+                    $redis->set('i2smoduleDynamic', true);
+                } else {
+                    $redis->set('i2smoduleDynamic', false);
+                }
+            }
             $redis->exists('i2smodule_select') || $redis->set('i2smodule_select', 'none|I&#178;S disabled (default)');
             $redis->exists('orionprofile') || $redis->set('orionprofile', 'RuneAudio');
             $redis->exists('activePlayer') || $redis->set('activePlayer', 'MPD');

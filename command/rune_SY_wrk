@@ -186,6 +186,13 @@ if (!$noCdInDrive) {
     sysCmd('eject --cdrom');
 }
 
+// when i2smodule is 'none' on boot it can be changed dynamically
+if ($redis->get('i2smodule') == 'none') {
+    $redis->set('i2smoduleDynamic', true);
+} else {
+    $redis->set('i2smoduleDynamic', false);
+}
+
 if ($playerid_db === '') {
     // RUNEAUDIO FIRST RUN PROCESS --- //
     runelog('>>>>>>RUNEAUDIO FIRST RUN PROCESS ---');
@@ -787,12 +794,12 @@ while (true) {
                 break;
             case 'i2smodule':
                 if (isset($job->args) && trim($job->args)) {
-                    wrk_i2smodule($redis, trim($job->args));
-                    // check that MPD only has one output enabled and if not correct it
+                    wrk_i2smodule($redis, trim($job->args), $jobID);
                     $redis->sRem('w_lock', $jobID);
+                    // check that MPD only has one output enabled and if not correct it
                     sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                     // send notification
-                    ui_notify($redis, 'I&#178;S kernel module', 'Completed, set to '.$job->args);
+                    ui_notify($redis, 'I&#178;S module', 'Completed, set to '.$job->args);
                 }
                 break;
             case 'audio_on_off':
