@@ -71,7 +71,7 @@
         <ul class="dropdown-menu" role="menu" aria-labelledby="menu-settings">
             <li class="<?=$this->uri(1, '', 'active')?>"><a href="/"><i class="fa fa-play"></i> Playback</a></li>
             <li class="<?=$this->uri(1, 'sources', 'active')?>"><a href="/sources/"><i class="fa fa-folder-open"></i> Sources</a></li>
-            <li class="<?=$this->uri(1, 'mpd', 'active')?>"><a href="/mpd/"><i class="fa fa-cogs"></i> MPD</a></li>
+            <li class="<?=$this->uri(1, 'mpd', 'active')?>"><a href="/mpd/"><i class="fa fa-cogs"></i> Audio Output</a></li>
             <li class="<?=$this->uri(1, 'settings', 'active')?>"><a href="/settings/"><i class="fa fa-wrench"></i> Settings</a></li>
             <li class="<?=$this->uri(1, 'network', 'active')?>"><a href="/network/"><i class="fa fa-sitemap"></i> Network</a></li>
             <li class="<?=$this->uri(1, 'multiroom', 'active')?><?php if (!$owntoneMenuTab): ?> hide<?php endif ?>"><a href="#" onclick='window.open("http://<?=$owntoneServer ?>/multiroom/", "Multi-Room");return false;'><i class="fa fa-sliders"></i> Multi-Room</a></li>

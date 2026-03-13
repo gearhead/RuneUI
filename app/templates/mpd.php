@@ -1,6 +1,5 @@
 <div id='mpd-container' class="container">
-    <h1>MPD Configuration</h1>
-    <p>If you mess up with this configuration you can <a data-toggle="modal" href="#mpd-config-defaults">reset to default</a>.</p>
+    <h1>Audio Output Configuration</h1>
     <form class="form-horizontal" action="" method="post">
         <fieldset>
             <legend>Audio Output</legend>
@@ -56,7 +55,7 @@
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">Activate/Deactivate Multi-Room.
-                        After activation, the Multi-Room menu will become available. This contains controls for connecting and disconnecting clients and devices and setting their volume levels.
+                        After activation, the Multi-Room menu will become available. This contains controls for managing output devices and clients; including connecting, disconnecting, setting volume levels and adjusting synchronisation.
                         <?php if ($active_player == 'MPD') : ?>
                         Switching takes place on the fly
                         <?php else : ?>
@@ -74,7 +73,7 @@
             <legend>Volume Control</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="mixer-type">Volume control</label>
+                    <label class="col-sm-2 control-label" for="mixer-type">Volume Control</label>
                     <div class="col-sm-10">
                         <!--
                         <select id="mixer-type" name="conf[mixer_type]" class="selectpicker" data-style="btn-default btn-lg">
@@ -130,6 +129,8 @@
                 <button type="submit" class="btn btn-primary btn-lg" name="save" value="save">Save and apply</button>
             </div>
         </div>
+        <h2>MPD Configuration</h2>
+        <p>If you mess up with this configuration you can <a data-toggle="modal" href="#mpd-config-defaults">reset to default</a>.</p>
         <fieldset id="general-options">
             <legend>General Music Daemon Options</legend>
             <!--
@@ -296,7 +297,7 @@
         </div>
     </form>
     <form class="form-horizontal" action="" method="post" data-parsley-validate>
-        <legend>Crossfade, Autoplay, Consume and Global Random Play</legend>
+        <legend>Crossfade, Autoplay, Consume and Global Random Play Options</legend>
         <fieldset>
             <div class="form-group">
                 <label class="col-sm-2 control-label" for="crossfade">Crossfade</label>

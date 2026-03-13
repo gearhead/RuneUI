@@ -27,7 +27,7 @@
                 </div>
             -->
             <div class="form-group">
-                <label class="control-label col-sm-2" for="i2smodule_select">I&#178;S sound-cards</label>
+                <label class="control-label col-sm-2" for="i2smodule_select">I&#178;S Sound-Cards</label>
                 <div class="col-sm-10">
                     <select class="selectpicker" name="i2smodule_select" data-style="btn-default btn-lg">
                         <?php $i2smodules = file('.config/i2s_table.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES); foreach ($i2smodules as $i2smodule_item):?>
@@ -36,10 +36,11 @@
                         <?php endforeach; ?>
                     </select>
                     <input class="form-control input-lg" type="text" id="overlay" name="overlay" value="<?php echo $i2smodule; ?>" disabled autocomplete="off">
-                    <span class="help-block">Enable I&#178;S sound-card output by selecting one of the available drivers.<br>
-                    <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">MPD menu, audio output section</a>,
-                        where you will need to select the required output interface.<br>
-                    <i>After applying the settings for your hardware the 'best choice' overlay driver will be selected and displayed</i></span>
+                    <span class="help-block">Enable I&#178;S sound-card output by selecting the card type or one of the generic options.<br>
+                    <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>,
+                        where you can select the required output interface.<br>
+                    <i>After applying the settings for your sound-card the selected driver name will be displayed.<br>
+                    In some cases the sound-card will be activated dynamically, eliminating the need for a reboot</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -67,7 +68,7 @@
                 </div>
                 <label class="control-label col-sm-2" for="i2smodule">I&#178;S kernel modules</label>
                 <div class="col-sm-10">
-                    <span class="help-block">Enable I&#178;S output by editing /boot/boot.ini. Once set, the output interface will appear in the <a href="/mpd/">MPD configuration select menu</a>, and modules will also auto-load from the next reboot.</span>
+                    <span class="help-block">Enable I&#178;S output by editing /boot/boot.ini. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>, and modules will also auto-load from the next reboot.</span>
                 </div>
             </div>
             <?php endif;?>
@@ -87,7 +88,7 @@
                         <option value="none" <?php if($i2smodule === 'none'): ?> selected <?php endif ?>>I&#178;S disabled (default)</option>
                         <option value="odroidhifishield" <?php if($i2smodule === 'odroidhifishield'): ?> selected <?php endif ?>>ODROID HiFi Shield</option>
                     </select>
-                    <span class="help-block">Enable I&#178;S output selecting one of the available sets of modules, specific for each hardware. Once set, the output interface will appear in the <a href="/mpd/">MPD configuration select menu</a>, and modules will also auto-load from the next reboot</span>
+                    <span class="help-block">Enable I&#178;S output selecting one of the available sets of modules, specific for each hardware. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, MPD configuration section</a>, and modules will also auto-load from the next reboot</span>
                 </div>
             </div>
             <?php endif;?>
@@ -429,8 +430,8 @@
                             <input id="owntone" name="features[owntone][enable]" type="checkbox" value="1"<?php if((isset($owntone['enable'])) && ($owntone['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Toggle the capability of synchronised streaming of audio via AirPlay and Chromecast protocols using owntone.<br>
-                            After switching Multi-Room <strong>ON</strong> it can be activated/deactivated in the <a href="/mpd/">MPD menu, audio output section</a></span>
+                        <span class="help-block">Toggle the capability of Mult-Room synchronised streaming of audio via AirPlay and Chromecast protocols using owntone.<br>
+                            After switching Multi-Room <strong>ON</strong> it can be activated/deactivated with the <a href="/mpd/">Audio Output menu, Multi-Room Activation selector</a></span>
                     </div>
                 </div>
                 <div class="<?php if($owntone['enable'] != 1): ?>hide<?php endif ?>" id="owntoneDetails">
@@ -467,7 +468,7 @@
                             <span class="help-block">This setting controls the ability to simultaneously activate and/or deactivate individual locally available output devices on the server.
                             The default value is <strong>OFF</strong>, meaning that only the locally selected MPD output device is available, this is normally what is required.
                             When <strong>ON</strong>, all locally available output devices may be individually activated and/or deactivated.<br>
-                            <i>Note: Regardless of this setting, when the MPD output device is changed in the <a href="/mpd/">MPD menu, audio output section</a>,
+                            <i>Note: Regardless of this setting, when the MPD output device is changed in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>,
                             the Multi-Room local output device will also be switched</i></span>
                         </div>
                     </div>

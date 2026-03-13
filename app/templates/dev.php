@@ -797,7 +797,7 @@
                         or when a smart-phone is used as preferred remote control.<br>
                         <i>Notes: Regardless of this setting:<br>
                         - the Album object can be removed from the display using <a href="/settings/#features-management">Settings Menu (Display album cover)</a><br>
-                        - the Volume object can be removed from the display using <a href="/mpd/">MPD Menu (Volume Control)</a> when the volume control is switched off</i></span>
+                        - the Volume object can be removed from the display using <a href="/mpd/">Audio Output Menu, Volume Control selector</a> when the volume control is switched off</i></span>
                     </div>
                 </div>
                 <div class="form-group">

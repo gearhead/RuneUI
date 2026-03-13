@@ -72,7 +72,7 @@
                 A trusted output device should automatically connect when available.
                 More than one output device can be trusted.<br>
                 Click on <strong>Forget</strong> to forget a device.<br>
-                Use the Audio Output selector in the <a href="/mpd/">MPD menu</a> to use the connected device.<br>
+                Use the Audio Output Interface selector in the <a href="/mpd/">Audio Output menu</a> to use the connected device.<br>
                 <i>Notes: Detection of Bluetooth output devices will terminate 5 minutes after clicking 'Discover Output Devices'.
                 Switching off an active Bluetooth output device will cause RuneAudio to revert to the previously selected output device.
                 You should leave all detected Bluetooth devices in the list, untrust those which you do not want to use.
