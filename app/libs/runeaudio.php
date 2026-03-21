@@ -5858,21 +5858,43 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
             $redis->hSet('airplay', 'output_backend', 'alsa');
         }
     }
+    $shairportSyncMajorVersion = substr(sysCmd('shairport-sync -V | xargs')[0], 0, 1);
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
     runelog('wrk_shairport acard swdevice     : ', $acard['swdevice']);
-    // shairport-sync output device is specified without a subdevice if only one subdevice exists
-    // determining the number of sub devices is done by counting the number of alsa info file for the device
     // shairport-sync output device is always specified without a subdevice! Possible that this will need extra work for USB DAC's
+    // for shairport-sync V5 and higher the format is different, it is always specified as 'hw:', followed by the device name
     if ((substr($acard['swdevice'], 0, 3) == 'hw:') || (substr($acard['swdevice'], 0, 7) == 'plughw:')) {
-        $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+        // the format of  "$acard['swdevice']" is 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name, followed by ',DEV=', followed by the device number
+        // e.g.'hw:CARD=Headset,DEV=0', 'hw:CARD=b1,DEV=0', or 'plughw:CARD=Audio,DEV=0'
+        // these are found in the output of 'aplay -L'
+        if (is_numeric($shairportSyncMajorVersion) && ($shairportSyncMajorVersion > 4)) {
+            // required format 'hw:' followed by the card name
+            // e.g. e.g.'hw:Headset', 'hw:b1', or 'hw:Audio'
+            $redis->hSet('airplay', 'alsa_output_device', 'hw:'.get_between_data($acard['swdevice'], '=', ','));
+        } else {
+            // required format 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
+            // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
+            $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
+        }
     } else {
         $redis->hSet('airplay', 'alsa_output_device', trim($acard['swdevice']));
     }
     //
     if (isset($acard['swmixer_device']) && trim($acard['swmixer_device'])) {
-        $alsa_mixer_device = trim($acard['swmixer_device']);
+        // the format of  "$acard['swmixer_device']" is 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
+        // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
+        // these are found in the output of 'aplay -L', without the trailing specification
+        if (is_numeric($shairportSyncMajorVersion) && ($shairportSyncMajorVersion > 4)) {
+            // required format 'hw:' followed by the card name
+            // e.g. e.g.'hw:Headset', 'hw:b1', or 'hw:Audio'
+            $alsa_mixer_device = 'hw:'.get_between_data($acard['swmixer_device'], '=');
+        } else {
+            // required format 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
+            // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
+            $alsa_mixer_device = trim($acard['swmixer_device']);
+        }
     } else {
         $alsa_mixer_device = '';
     }
