@@ -999,7 +999,7 @@
                         <span class="help-block">Multi-Room is implemented using owntone.<br>
                         Multi-Room generates synchronised streamed music playback for one local device and multiple AirPlay clients.
                         The AirPlay clients can include Apple, RuneAudio or Sonos devices.
-                        The data transmission format is AirPlay with ALAC data-compression.<br>
+                        The data transmission format is AirPlay with ALAC data-compression when supported.<br>
                         When using Multi-Room all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
                         When playing your music collection it will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
                         AirPlay input is also re-sampled to this rate by shairport&#8209;sync using the SoXr re&#8209;sampler.

@@ -436,7 +436,6 @@ function redisDatastore($redis, $action) {
             $redis->hDel('airplay', 'metadataonoff');
             $redis->hDel('airplay', 'metadata_enabled');
             $redis->hDel('airplay', 'soxronoff');
-            $redis->hSet('airplay', 'alac_decoder', 'apple');
             $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
             $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hSet('airplay', 'alsa_output_device', 'default');
@@ -456,6 +455,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
             $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
             $redis->hSet('airplay', 'server_ip_number', '');
+            $redis->hSet('airplay', 'shairport_sync_device_format', '0');
             $redis->hSet('airplay', 'source_active_remote_token', '');
             $redis->hSet('airplay', 'source_ip_number', '');
             $redis->hSet('airplay', 'source_remote_control_port_number', '');
@@ -730,7 +730,6 @@ function redisDatastore($redis, $action) {
             // $redis->hExists('spotifyconnect', 'password') || $redis->hSet('spotifyconnect', 'password', '');
             // $redis->hExists('spotifyconnect', 'username') || $redis->hSet('spotifyconnect', 'username', '');
             // airplay
-            $redis->hExists('airplay', 'alac_decoder') || $redis->hSet('airplay', 'alac_decoder', 'apple');
             $redis->hExists('airplay', 'alsa_mixer_control') || $redis->hSet('airplay', 'alsa_mixer_control', 'PCM');
             $redis->hExists('airplay', 'alsa_mixer_device') || $redis->hSet('airplay', 'alsa_mixer_device', 'default');
             $redis->hExists('airplay', 'alsa_output_device') || $redis->hSet('airplay', 'alsa_output_device', 'default');
@@ -750,6 +749,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('airplay', 'run_this_before_play_begins') || $redis->hSet('airplay', 'run_this_before_play_begins', '/srv/http/command/airplay_toggle on');
             $redis->hExists('airplay', 'run_this_wait_for_completion') || $redis->hSet('airplay', 'run_this_wait_for_completion', 'yes');
             $redis->hExists('airplay', 'server_ip_number') || $redis->hSet('airplay', 'server_ip_number', '');
+            $redis->hExists('airplay', 'shairport_sync_device_format') || $redis->hSet('airplay', 'shairport_sync_device_format', '0');
             $redis->hExists('airplay', 'source_active_remote_token') || $redis->hSet('airplay', 'source_active_remote_token', '');
             $redis->hExists('airplay', 'source_ip_number') || $redis->hSet('airplay', 'source_ip_number', '');
             $redis->hExists('airplay', 'source_remote_control_port_number') || $redis->hSet('airplay', 'source_remote_control_port_number', '');

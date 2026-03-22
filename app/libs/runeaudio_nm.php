@@ -5773,7 +5773,7 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
             $redis->hSet('airplay', 'output_backend', 'alsa');
         }
     }
-    $shairportSyncMajorVersion = substr(sysCmd('shairport-sync -V | xargs')[0], 0, 1);
+    $shairportSyncDeviceFormat = $redis->hGet('airplay', 'shairport_sync_device_format');
     runelog('wrk_shairport acard sysname      : ', $acard['sysname']);
     runelog('wrk_shairport acard type         : ', $acard['type']);
     runelog('wrk_shairport acard device       : ', $acard['device']);
@@ -5784,11 +5784,12 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
         // the format of  "$acard['swdevice']" is 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name, followed by ',DEV=', followed by the device number
         // e.g.'hw:CARD=Headset,DEV=0', 'hw:CARD=b1,DEV=0', or 'plughw:CARD=Audio,DEV=0'
         // these are found in the output of 'aplay -L'
-        if (is_numeric($shairportSyncMajorVersion) && ($shairportSyncMajorVersion > 4)) {
+        if (is_numeric($shairportSyncDeviceFormat) && ($shairportSyncDeviceFormat == 1)) {
             // required format 'hw:' followed by the card name
             // e.g. e.g.'hw:Headset', 'hw:b1', or 'hw:Audio'
             $redis->hSet('airplay', 'alsa_output_device', 'hw:'.get_between_data($acard['swdevice'], '=', ','));
         } else {
+            // $shairportSyncDeviceFormat default value is 0
             // required format 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
             // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
             $redis->hSet('airplay', 'alsa_output_device', preg_split('/[\s,]+/', $acard['swdevice'])[0]);
@@ -5801,11 +5802,12 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
         // the format of  "$acard['swmixer_device']" is 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
         // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
         // these are found in the output of 'aplay -L', without the trailing specification
-        if (is_numeric($shairportSyncMajorVersion) && ($shairportSyncMajorVersion > 4)) {
+        if (is_numeric($shairportSyncDeviceFormat) && ($shairportSyncDeviceFormat == 1)) {
             // required format 'hw:' followed by the card name
             // e.g. e.g.'hw:Headset', 'hw:b1', or 'hw:Audio'
             $alsa_mixer_device = 'hw:'.get_between_data($acard['swmixer_device'], '=');
         } else {
+            // $shairportSyncDeviceFormat default value is 0
             // required format 'hw:' or 'plughw:' followed by 'CARD=', followed by the card name
             // e.g.'hw:CARD=Headset', 'hw:CARD=b1', or 'plughw:CARD=Audio'
             $alsa_mixer_device = trim($acard['swmixer_device']);
@@ -5881,7 +5883,8 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
     } else {
         $newArray = wrk_replaceTextLine('', $newArray, ' general_interpolation', 'interpolation="'.$airplay['interpolation'].'"; // general_interpolation');
     }
-    $newArray = wrk_replaceTextLine('', $newArray, ' general_alac_decoder', 'alac_decoder="'.$airplay['alac_decoder'].'"; // general_alac_decoder');
+    // alac_decoder now defaults to the build parameters, see: /etc/shairport-sync.conf
+    // $newArray = wrk_replaceTextLine('', $newArray, ' general_alac_decoder', 'alac_decoder="'.$airplay['alac_decoder'].'"; // general_alac_decoder');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_before_play_begins', 'run_this_before_play_begins="'.$airplay['run_this_before_play_begins'].'"; // run_this_before_play_begins');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_after_play_ends', 'run_this_after_play_ends="'.$airplay['run_this_after_play_ends'].'"; // run_this_after_play_ends');
     $newArray = wrk_replaceTextLine('', $newArray, ' run_this_wait_for_completion', 'wait_for_completion="'.$airplay['run_this_wait_for_completion'].'"; // run_this_wait_for_completion');
