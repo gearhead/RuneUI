@@ -206,14 +206,17 @@ while (true) {
             if (!isset($nodes[$owntoneNode['ip']])) {
                 // the ip address in the redis owntone_nodes hash is no longer valid, delete it
                 $redis->hDel('owntone_nodes', $key);
+                continue;
             }
             if ($nodes[$owntoneNode['ip']]['hostname'] != $owntoneNode['hostname']) {
                 // the hostname in the redis owntone_nodes hash is no longer valid, delete it
                 $redis->hDel('owntone_nodes', $key);
+                continue;
             }
             if ($nodes[$owntoneNode['ip']]['airplay_name'] != $owntoneNode['airplay_name']) {
                 // the airplay name in the redis owntone_nodes hash is no longer valid, delete it
                 $redis->hDel('owntone_nodes', $key);
+                continue;
             }
         }
         unset($retval, $avahi_line, $avahiElement, $textInfo, $nodes, $node, $key, $owntoneNode);
