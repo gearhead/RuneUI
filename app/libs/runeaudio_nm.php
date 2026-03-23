@@ -4455,11 +4455,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             // get the mpd configuration data
             $mpdcfg = $redis->hGetAll('mpdconf');
             // set mpd.conf file header
-            $output =  "###################################\n";
-            $output .= "#  Auto generated mpd.conf file   #\n";
-            $output .= "# please DO NOT edit it manually! #\n";
-            $output .= "#  Use RuneUI MPD config section  #\n";
-            $output .= "###################################\n";
+            $output =  "#################################################################\n";
+            $output .= "# Auto generated mpd.conf file, please DO NOT edit it manually! #\n";
+            $output .= "#     Use the RuneUI Audio Output MPD configuration section     #\n";
+            $output .= "#       And the RuneUI /dev MPD Advanced Settings section       #\n";
+            $output .= "#################################################################\n";
             $output .= "#\n";
             // --- log settings ---
             if (isset($mpdcfg['log_level']) && isset($mpdcfg['log_file']) && $mpdcfg['log_level'] && $mpdcfg['log_file']) {
