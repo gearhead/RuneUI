@@ -119,14 +119,14 @@ while (true) {
         foreach ($retval as $avahi_line) {
             // the avahi line contains a semicolon (;) delimited list
             $avahiElement = explode(';', $avahi_line, 10);
-            // the interesting elemens are:
+            // the interesting elements are:
             //  1 - the nic (e.g. eth0)
             //  2 - ip type (e.g. ipv4)
             //  3 - string containing 'RuneAudio' for runeaudio nodes
             //      string containing the AirPlay nodes name
             //  4 - string containing '_http._tcp' for runeaudio nodes
-            //      string containing '_airplay' for AirPlay nodes
-            //  6 - hostname including poossible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
+            //      string containing '_airplay._tcp' for AirPlay nodes
+            //  6 - hostname including possible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
             //  7 - IP address (e.g. 192.168.2.10)
             //  9 - text information, space delimited, within quotes
             //      Runeaudio node line
@@ -143,10 +143,10 @@ while (true) {
             //
             if (isset($avahiElement[7])) {
                 // IP address is set
-                if (strpos(' '.$avahiElement[4], '_airplay')) {
+                if (strpos(' '.$avahiElement[4], '_airplay._tcp')) {
                     if (!isset($nodes[$avahiElement[7]]['airplay_name']) || !$nodes[$avahiElement[7]]['airplay_name'] ||
                             (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
-                        // its a airplay node line, it is processed if airplay name is not set or
+                        // it is a airplay node line, it is processed if airplay name is not set or
                         //  a second record is present with an ethernet nic or an ipv4 connection
                         //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
                         $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
@@ -159,21 +159,22 @@ while (true) {
                             $nodes[$avahiElement[7]]['runeaudio_version'] = '';
                         }
                     }
-                } else if (strpos(' '.$avahiElement[3], 'RuneAudio')) {
+                } else if (strpos(' '.$avahiElement[4], '_http._tcp')) {
                     if (!isset($nodes[$avahiElement[7]]['runeaudio']) || !$nodes[$avahiElement[7]]['runeaudio'] ||
                             (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
-                        // its a airplay node line, it is processed if airplay name is not set or
+                        // it is a runeaudio node line, it is processed if runaudio name is not set or
                         //  a second record is present with an ethernet nic or an ipv4 connection
                         //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
                         $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
                         $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
                         $nodes[$avahiElement[7]]['runeaudio'] = true;
                         if (isset($avahiElement[9])) {
-                            $textInfo = explode(' ', $avahiElement[9]);
+                            $textInfo = explode('" "', $avahiElement[9]);
                             foreach ($textInfo as $textInfoEntry) {
                                 list($textKey, $runeosVersion) = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
                                 if ($textKey == 'runeos_version') {
                                     $nodes[$avahiElement[7]]['runeaudio_version'] = substr($runeosVersion, 0, 3);
+                                    break;
                                 }
                             }
                         } else if (!isset($nodes[$avahiElement[7]]['runeaudio_version']) || !$nodes[$avahiElement[7]]['runeaudio_version']) {
@@ -199,7 +200,23 @@ while (true) {
                 }
             }
         }
-        unset($retval, $avahi_line, $avahiElement, $textInfo, $nodes, $node);
+        // remove any invalid nodes from redis owntone_nodes
+        foreach ($redis->hGetall('owntone_nodes') as $key => $owntoneNode) {
+            $owntoneNode = json_decode($owntoneNode, true);
+            if (!isset($nodes[$owntoneNode['ip']])) {
+                // the ip address in the redis owntone_nodes hash is no longer valid, delete it
+                $redis->hDel('owntone_nodes', $key);
+            }
+            if ($nodes[$owntoneNode['ip']]['hostname'] != $owntoneNode['hostname']) {
+                // the hostname in the redis owntone_nodes hash is no longer valid, delete it
+                $redis->hDel('owntone_nodes', $key);
+            }
+            if ($nodes[$owntoneNode['ip']]['airplay_name'] != $owntoneNode['airplay_name']) {
+                // the airplay name in the redis owntone_nodes hash is no longer valid, delete it
+                $redis->hDel('owntone_nodes', $key);
+            }
+        }
+        unset($retval, $avahi_line, $avahiElement, $textInfo, $nodes, $node, $key, $owntoneNode);
         // $runeaudioNodes now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
         //  it also contains the IP address of each node
         if (count($runeaudioNodes)) {
