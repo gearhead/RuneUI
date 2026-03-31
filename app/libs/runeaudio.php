@@ -16440,7 +16440,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $presetKeys = $redis->hKeys('owntone_presets');
             foreach ($presetKeys as $presetKey) {
                 $preset = json_decode($redis->hGet('owntone_presets', $presetKey), true);
-                if (!$preset['autoconnect'] && !$preset['offset_ms']) {
+                if (!$preset['autoconnect'] && !$preset['offset_ms'] && !$preset['last_pin'] && !$preset['last_password']) {
                     $redis->hDel('owntone_presets', $presetKey);
                     continue;
                 }
@@ -16544,8 +16544,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (!$mpdRestarted) {
                 wrk_mpdconf($redis, 'forcerestart');
             }
-            $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
-            if ($retval == 'changed') {
+            $alsaCardChange = wrk_owntone($redis, 'conf_add_custom_info');
+            if (($alsaCardChange == 'changed') || ($airplayNodeChange == 'changed')) {
                 if ($redis->hGet('owntone', 'active')) {
                     wrk_owntone($redis, 'restart');
                 } else {
@@ -16601,7 +16601,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 unset($output);
             }
             break;
-        case 'conf_add_alsa_cards':
+        case 'conf_add_custom_info':
             // no $args
             if ($redis->hget('owntone', 'enable')) {
                 $acards = $redis->hGetall('acards');
@@ -16661,8 +16661,35 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                     unset($btDevices, $btDevice, $owntoneCard);
                 }
+                $presetNames = $redis->hKeys('owntone_presets');
+                if (count($presetNames)) {
+                    asort($presetNames, SORT_NATURAL|SORT_FLAG_CASE);
+                    foreach ($presetNames as $presetName) {
+                        $preset = json_decode($redis->hGet('owntone_presets', $presetName), true);
+                        if (isset($preset['last_password']) && $preset['last_password']) {
+                            // only Airplay entries contain a password, set it up if it is not defined
+                            $airplayPresent = sysCmd('grep -ic "^\s*airplay\s*\"'.$presetName.'\"\s*{" "/etc/owntone.conf" | xargs')[0];
+                            if ($airplayPresent) {
+                                // there is a password defined for an airplay node and there is an airplay entry for it in owntone.conf
+                                //  remove the entry
+                                sysCmd('sed -i "/^\s*airplay\s*\"'.$presetName.'\"\s*{/,/^\s*}/d" "'.$tmpFile.'"');
+                            }
+                            // append the airplay entry with the password
+                            $output = "#\n";
+                            $output .= "# airplay output for ".$presetName." with password ".$preset['last_password']."\n";
+                            $output .= 'airplay "'.$presetName.'" {'."\n";
+                            $output .= ' password = "'.$preset['last_password'].'"'."\n";
+                            $output .= "}\n";
+                            file_put_contents($tmpFile, $output, FILE_APPEND);
+                        }
+                    }
+                }
                 $streamingInConfig = sysCmd('grep -ic "^\s*streaming\s*{" "'.$tmpFile.'" | xargs')[0];
-                if ($redis->hGet('owntone', 'streaming') && !$streamingInConfig) {
+                $streaming = $redis->hGet('owntone', 'streaming');
+                if ($streaming) {
+                    if ($streamingInConfig) {
+                        sysCmd('sed -i "/^\s*streaming\s*{/,/^\s*}/d" "'.$tmpFile.'"');
+                    }
                     $output = "#\n";
                     $output .= "# web streaming in MP3 at 44100hz, 320bps\n";
                     $output .= "streaming {\n";
@@ -16670,8 +16697,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     $output .= " bit_rate = 320\n";
                     $output .= "}\n";
                     file_put_contents($tmpFile, $output, FILE_APPEND);
-                } else if (!$redis->hGet('owntone', 'streaming') && $streamingInConfig){
-                    sysCmd('sed -i "/^\s*streaming\s*{/,/^\s*}/d" "'.$tmpFile.'"');
                 }
                 if (md5_file($confFile) != md5_file($tmpFile)) {
                     copy($tmpFile, $confFile);
@@ -16952,17 +16977,31 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // get the preset info for this output
                             //  there should be a preset entry for each output, create a default if required
                             if (!$redis->hExists('owntone_presets', $output['name'])) {
-                                $preset['autoconnect'] = false;
+                                $preset = array();
                                 $preset['mute'] = 0;
+                                $preset['autoconnect'] = false;
                                 $preset['volume_preset'] = $defaultVolume;
                                 $preset['offset_ms'] = 0;
+                                $preset['last_pin'] = '';
+                                $preset['last_password'] = '';
                                 $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
                             } else {
                                 $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                                // the next line can be removed after the next release
                                 if (!isset($preset['offset_ms'])) {
                                     // offset is not set, add a null offset value
                                     $preset['offset_ms'] = 0;
                                     $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
+                                }
+                                if (!isset($preset['last_pin'])) {
+                                    // offset is not set, add a null offset value
+                                    $preset['last_pin'] = '';
+                                    $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                                }
+                                if (!isset($preset['last_password'])) {
+                                    // offset is not set, add a null offset value
+                                    $preset['last_password'] = '';
+                                    $redis->hSet('owntone_presets', $outputName, json_encode($preset));
                                 }
                             }
                         } else {

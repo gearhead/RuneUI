@@ -101,8 +101,8 @@ $nextRenderTime = microtime(true) + $renderDelay;
 $sleepUntilTime = microtime(true) + 3;
 // loop forever
 while (true) {
-    // 3 second sleep, always sleep for a minimum of 1 second
-    //  some of the actions below could take much longer than 3 seconds
+    // 5 second sleep, always sleep for a minimum of 1 second
+    //  some of the actions below could take much longer than 5 seconds
     $sleepTime = $sleepUntilTime - microtime(true);
     if ($sleepTime > 1) {
         $sleepTime = intval($sleepTime * 1000000);
@@ -110,93 +110,201 @@ while (true) {
     } else {
         sleep(1);
     }
-    $sleepUntilTime = microtime(true) + 3;
+    $sleepUntilTime = microtime(true) + 5;
     //
-    // first create a list of owntone runeaudio nodes
-    $retval = sysCmd("avahi-browse -atrlkp 2>/dev/null | grep '^=' | grep -iE 'skin_name=RuneUI|airplay'");
-    if (is_array($retval)) {
-        $nodes = array();
-        foreach ($retval as $avahi_line) {
-            // the avahi line contains a semicolon (;) delimited list
-            $avahiElement = explode(';', $avahi_line, 10);
-            // the interesting elements are:
-            //  1 - the nic (e.g. eth0)
-            //  2 - ip type (e.g. ipv4)
-            //  3 - string containing 'RuneAudio' for runeaudio nodes
-            //      string containing the AirPlay nodes name
-            //  4 - string containing '_http._tcp' for runeaudio nodes
-            //      string containing '_airplay._tcp' for AirPlay nodes
-            //  6 - hostname including possible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
-            //  7 - IP address (e.g. 192.168.2.10)
-            //  9 - text information, space delimited, within quotes
-            //      Runeaudio node line
-            //      0 - "org.freedesktop.Avahi.cookie=<value>"
-            //      1 - "runeos_version=<value>"
-            //      2 - "skin_name=<value>"
-            //
-            // build up an array of relevant information, key is IP address, containing
-            //  IP address (ip),
-            //  Hostname
-            //  AirPlay name
-            //  RuneAudio Node - true of false
-            //  RuneAudio Version - '' when not a RuneAudio Node
-            //
-            if (isset($avahiElement[7])) {
-                // IP address is set
-                if (strpos(' '.$avahiElement[4], '_airplay._tcp')) {
-                    if (!isset($nodes[$avahiElement[7]]['airplay_name']) || !$nodes[$avahiElement[7]]['airplay_name'] ||
-                            (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
-                        // it is a airplay node line, it is processed if airplay name is not set or
-                        //  a second record is present with an ethernet nic or an ipv4 connection
-                        //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
-                        $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
-                        $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
-                        $nodes[$avahiElement[7]]['airplay_name'] = $avahiElement[3];
-                        if (!isset($nodes[$avahiElement[7]]['runeaudio'])) {
-                            $nodes[$avahiElement[7]]['runeaudio'] = false;
-                        }
-                        if (!isset($nodes[$avahiElement[7]]['runeaudio_version'])) {
-                            $nodes[$avahiElement[7]]['runeaudio_version'] = '';
-                        }
-                    }
-                } else if (strpos(' '.$avahiElement[4], '_http._tcp')) {
-                    if (!isset($nodes[$avahiElement[7]]['runeaudio']) || !$nodes[$avahiElement[7]]['runeaudio'] ||
-                            (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
-                        // it is a runeaudio node line, it is processed if runaudio name is not set or
-                        //  a second record is present with an ethernet nic or an ipv4 connection
-                        //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
-                        $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
-                        $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
-                        $nodes[$avahiElement[7]]['runeaudio'] = true;
-                        if (isset($avahiElement[9])) {
-                            $textInfo = explode('" "', $avahiElement[9]);
-                            foreach ($textInfo as $textInfoEntry) {
-                                list($textKey, $runeosVersion) = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
-                                if ($textKey == 'runeos_version') {
-                                    $nodes[$avahiElement[7]]['runeaudio_version'] = substr($runeosVersion, 0, 3);
-                                    break;
-                                }
-                            }
-                        } else if (!isset($nodes[$avahiElement[7]]['runeaudio_version']) || !$nodes[$avahiElement[7]]['runeaudio_version']) {
-                            $nodes[$avahiElement[7]]['runeaudio_version'] = '';
-                        }
-                        if (!isset($nodes[$avahiElement[7]]['airplay_name'])) {
-                            $nodes[$avahiElement[7]]['airplay_name'] = '';
+    // create a list of owntone runeaudio nodes
+    $avahiBrowseInfo = array();
+    $avahiBrowseInfo = sysCmd("timeout 10 avahi-browse -atrlkp 2>/dev/null | grep '^=' | grep -iE '_http._tcp|_airplay._tcp|_raop._tcp|_googlecast._tcp' | grep -iE 'skin_name=RuneUI|airplay|raop|googlecast|MultiRoom Remote for'");
+    if (is_array($avahiBrowseInfo) && count($avahiBrowseInfo)) {
+        // determine which nodes which are connected to another owntone server
+        $connectedNodes = array();
+        $owntoneServers = array();
+        // search for all other owntone multiroom servers whih avahi-browse (nodes connected to this server are omitted)
+        foreach ($avahiBrowseInfo as $key => $avahiBrowseLine) {
+            if (stripos($avahiBrowseLine, 'Machine Name=MultiRoom Remote for') && strpos($avahiBrowseLine, '_http._tcp')) {
+                // this is the entry for the owntone remote control, so it is an owntone server
+                $avahiBrowseDetails = explode(';', $avahiBrowseLine, 10);
+                // array element 6 is the hostname and 7 is the ip address
+                $owntoneServers[$avahiBrowseDetails[6]] = $avahiBrowseDetails[7];
+                // remove the element from the array it is no longer required
+                unset($avahiBrowseInfo[$key]);
+            }
+        }
+        // walk through the servers and retrieve the owntone output information
+        foreach ($owntoneServers as $owntoneServerHostname => $owntoneServerIP) {
+            if (isset($owntoneServerIP) && $owntoneServerIP) {
+                // possible that no IP address is available, then use the hostname
+                //	ip address is much faster
+                $owntoneServerIP = $owntoneServerIP;
+                $owntoneServer = $owntoneServerIP;
+            } else {
+                $owntoneServerIP = '';
+                $owntoneServer = $owntoneServerHostname;
+            }
+            // determine if owntone is running on the host device name and get the device status
+            $commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
+            $outputs = sysCmd($commandGet);
+            if (isset($outputs[0])) {
+                // an array is returned
+                $outputs = json_decode($outputs[0], true);
+                if (isset($outputs['outputs'])) {
+                    // the outputs have been returned, loop through them
+                    foreach ($outputs['outputs'] as $output) {
+                        if ($output['selected']) {
+                            // this is connected to $owntoneServerHostname
+                            $connectedNodes[$output['name']] = $owntoneServerHostname;
                         }
                     }
                 }
             }
         }
-        // save the nodes array to redis using airplay name as key and build an array of node names for metadata
+        unset($owntoneAvahiServer, $owntoneServers, $owntoneServerHostname, $owntoneServerIP, $owntoneServer, $commandGet, $outputs);
+        $nodes = array();
+        foreach ($avahiBrowseInfo as $avahiBrowseLine) {
+            // the avahi line contains a semicolon (;) delimited list
+            $avahiElement = explode(';', $avahiBrowseLine, 10);
+            // the interesting elements are:
+            //  1 - the nic (e.g. eth0)
+            //  2 - ip type (e.g. ipv4)
+            //  3 - string containing 'RuneAudio' for runeaudio nodes
+            //      string containing the AirPlay nodes name (note: sometimes prefixed with the mac address)
+            //      sring containing 'Chromecast-.....' for chromecast nodes
+            //  4 - string containing '_http._tcp' for runeaudio nodes
+            //      string containing '_raop._tcp' for AirPlay 1 nodes
+            //      string containing '_airplay._tcp' for AirPlay 2 nodes
+            //      string containing '_googlecast._tcp' for chromecast nodes
+            //  6 - hostname including possible suffix (e.g. runeaudio-2.local which could mean runeaudio.local)
+            //  7 - IP address (e.g. 192.168.2.10)
+            //  9 - text information, space delimited, within quotes
+            //      Runeaudio node line contains several fields, including:
+            //      "runeos_version=<value>"
+            //      "skin_name=RuneUI"
+            //      Airplay node line can contain lots of information, including:
+            //      "pin=<value>" only compulsory when value has a true representation, value can be true, false, 1, 0, yes, no
+            //          when true the Airplay node requires a pin-code to connect
+            //      "pw=<value>" only compulsory when value has a true representation, value can be true, false, 1, 0, yes, no
+            //          when true the Airplay node requires a password to connect
+            //      Chromecast line should contain the following
+            //      "fn=<value>" where the <value> is the name of the chromecast connection
+            //
+            // build up an array of relevant information, key is IP address, containing
+            //      assumption here is that there is only one airplay receiver name per IP address
+            //  IP address (ip)
+            //  Hostname (hostname)
+            //  AirPlay name (airplay_name)
+            //  Its aRuneAudio Node (runeaudio) - true of false
+            //  RuneAudio Version (runeos_version) - format '0.0', '' when not a RuneAudio Node
+            //  Pin-code Required (pin) - true of false
+            //  Password Required (pw) - true of false
+            //
+            if (isset($avahiElement[7])) {
+                // IP address is set
+                if (!isset($nodes[$avahiElement[7]])) {
+                    // this ip address has not been processed, initialise the array
+                    // set runeaudio to false
+                    $nodes[$avahiElement[7]]['runeaudio'] = false;
+                    // set runeaudio_version to a null string
+                    $nodes[$avahiElement[7]]['runeaudio_version'] = '';
+                    // set airplay_name to a null string
+                    $nodes[$avahiElement[7]]['node_name'] = '';
+                    // set runeaudio_version to a null string
+                    $nodes[$avahiElement[7]]['runeaudio_version'] = '';
+                    // set pin to false
+                    $nodes[$avahiElement[7]]['pin'] = false;
+                    // set pw to false
+                    $nodes[$avahiElement[7]]['pw'] = false;
+                    // set the type to a null string
+                    $nodes[$avahiElement[7]]['type'] = '';
+                    // set the connected to server to a null string
+                    $nodes[$avahiElement[7]]['connected_to_server'] = '';
+                }
+                if (strpos(' '.$avahiElement[4], '_googlecast._tcp')) {
+                    // it's a chromecast line
+                    if (!$nodes[$avahiElement[7]]['node_name'] ||
+                            (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
+                        // it is processed if chromecast name is not set or a second record is present with an ethernet nic or an ipv4 connection
+                        //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
+                        $nodes[$avahiElement[7]]['type'] = 'Chromecast';
+                        $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
+                        $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                        $nodes[$avahiElement[7]]['node_name'] = '';
+                    }
+                } else if (strpos(' '.$avahiElement[4], '_raop._tcp') || strpos(' '.$avahiElement[4], '_airplay._tcp')) {
+                    // it's an airplay line
+                    //  notes: the code below will need changing if it is necessary to differentiate between AirPlay 1 and AirPlay 2
+                    //      e.g. one AirPlay version information has preference over the other
+                    if (!$nodes[$avahiElement[7]]['node_name'] ||
+                            (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
+                        // it is processed if airplay name is not set or a second record is present with an ethernet nic or an ipv4 connection
+                        //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
+                        if (substr($avahiElement[3], 12, 4) == '\064') {
+                            // airplay name prefixed with the mac address, format 'xxxxxxxxxxxx\064<airplay name>'
+                            //  it is usually an AirPlay 1 '_raop._tcp' line when an Airplay 2 line is present for the node
+                            $avahiElement[3] = substr($avahiElement[3], 16);
+                        }
+                        $nodes[$avahiElement[7]]['type'] = 'Airplay';
+                        $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
+                        $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                        $nodes[$avahiElement[7]]['node_name'] = $avahiElement[3];
+                    }
+                } else if (strpos(' '.$avahiElement[4], '_http._tcp')) {
+                    // it's a runeaudio line
+                    if (!$nodes[$avahiElement[7]]['runeaudio'] ||
+                            (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
+                        // it is processed if runaudio name is not set or a second record is present with an ethernet nic or an ipv4 connection
+                        //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
+                        $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
+                        $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                        $nodes[$avahiElement[7]]['runeaudio'] = true;
+                    }
+                }
+                if (isset($avahiElement[9])) {
+                    $textInfo = explode('" "', $avahiElement[9]);
+                    // search the text info for 'pw', 'pin' and 'runeos_version' info
+                    foreach ($textInfo as $textInfoEntry) {
+                        $textInfoParts = explode('=', trim($textInfoEntry, " \"\'\n\r\t\v\x00"), 2);
+                        if (count($textInfoParts) != 2) {
+                            // no value, continue
+                            continue;
+                        }
+                        if (($textInfoParts[0] == 'pin') || ($textInfoParts[0] == 'pw')) {
+                            // its a 'pw' or 'pin' entry
+                            // found only in the AirPlay 1 or AirPlay 2 lines
+                            if (!isset($nodes[$avahiElement[7]][$textInfoParts[0]]) || !$nodes[$avahiElement[7]][$textInfoParts[0]]) {
+                                // no value saved or the value is false, use the value
+                                // convert the text string to a boolean, any invalid value is false
+                                $nodes[$avahiElement[7]][$textInfoParts[0]] = filter_var($textInfoParts[1], FILTER_VALIDATE_BOOLEAN);
+                            }
+                            continue;
+                        }
+                        if ($textInfoParts[0] == 'runeos_version') {
+                            // found only in the runeaudio line
+                            $nodes[$avahiElement[7]]['runeaudio_version'] = substr($textInfoParts[1], 0, 3);
+                            continue;
+                        }
+                        if ($textInfoParts[0] == 'fn') {
+                            // found only in the chromecast line
+                            $nodes[$avahiElement[7]]['node_name'] = trim($textInfoParts[1]);
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        // save the nodes array to redis using 'node name' (airplay name or chromecast name) as key and build an array of node names for metadata transmission
         $runeaudioNodes = array();
         foreach ($nodes as $node) {
-            if (isset($node['airplay_name']) && $node['airplay_name']) {
-                // save the node to 'owntone_nodes'
-                $redis->hSet('owntone_nodes', $node['airplay_name'], json_encode($node));
+            if (isset($node['node_name']) && $node['node_name']) {
+                // node name is set, save the node to 'owntone_nodes'
+                if (isset($connectedNodes[$node['node_name']])) {
+                    // the node is present in the list of connected nodes, add the owntone server name
+                    $node['connected_to_server'] = $connectedNodes[$node['node_name']];
+                }
+                $redis->hSet('owntone_nodes', $node['node_name'], json_encode($node));
                 if (isset($node['runeaudio']) && isset($node['runeaudio_version']) && $node['runeaudio'] && $node['runeaudio_version'] && ($node['runeaudio_version'] >= '0.7')) {
-                    // this is a runeaudio node with airplay and the UI version (0.7 or higher) is valid for metadata
-                    // build the array, indexed by airplay_name
-                    $runeaudioNodes[$node['airplay_name']] = $node;
+                    // this is a runeaudio node with airplay and the UI version (0.7 or higher), this is valid for sending metadata, save it
+                    //  build the array, indexed by airplay_name
+                    $runeaudioNodes[$node['node_name']] = $node;
                 }
             }
         }
@@ -213,13 +321,13 @@ while (true) {
                 $redis->hDel('owntone_nodes', $key);
                 continue;
             }
-            if ($nodes[$owntoneNode['ip']]['airplay_name'] != $owntoneNode['airplay_name']) {
+            if ($nodes[$owntoneNode['ip']]['node_name'] != $owntoneNode['node_name']) {
                 // the airplay name in the redis owntone_nodes hash is no longer valid, delete it
                 $redis->hDel('owntone_nodes', $key);
                 continue;
             }
         }
-        unset($retval, $avahi_line, $avahiElement, $textInfo, $nodes, $node, $key, $owntoneNode);
+        unset($retval, $avahiBrowseLine, $avahiElement, $textInfo, $textInfoEntry, $textInfoParts, $nodes, $node, $key, $owntoneNode, $connectedNodes);
         // $runeaudioNodes now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
         //  it also contains the IP address of each node
         if (count($runeaudioNodes)) {
@@ -231,12 +339,14 @@ while (true) {
                 if (!in_array($airplayName, $outputNames)) {
                     // the node is not listed as an output, remove from array
                     unset($runeaudioNodes[$airplayName]);
+                    continue;
                 }
                 // get and decode the output
                 $outputDecoded = json_decode($redis->hGet('owntone_outputs', $airplayName), true);
                 if (!isset($outputDecoded['selected']) || !$outputDecoded['selected']) {
                     // the output for the node is not active, remove from array
                     unset($runeaudioNodes[$airplayName]);
+                    continue;
                 }
                 // store the current volume
                 $runeaudioNodes[$airplayName]['volume'] = $outputDecoded['volume'];
@@ -251,7 +361,7 @@ while (true) {
         if ($cnt1-- <= 0) {
             // this restarts mpd and owntone when owntone discovers new local output devices
             //  it should not happen very often as historically discovered local devices are cached and included
-            $retval = wrk_owntone($redis, 'conf_add_alsa_cards');
+            $retval = wrk_owntone($redis, 'conf_add_custom_info');
             if ($retval == 'changed') {
                 wrk_owntone($redis, 'restart');
             }

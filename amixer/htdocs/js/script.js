@@ -37,12 +37,12 @@ var getControl = function(array, name, iface)
 			break;
 		}
 	}
-	
+
 	if (control === undefined) {
 		control = {name : name, iface : iface};
 		array.push(control);
 	}
-	
+
 	return control;
 };
 
@@ -50,11 +50,11 @@ var getControls = function(data)
 {
 	//console.log(data);
 	var controls = [];
-	
+
 	for (var i in data) {
 		var el = data[i];
 		regexp = new RegExp(' (' + ["Source", "Switch", "Volume"].join('|') + ')$');
-		
+
 		if (regexp.test(el.name)) { // connect multiple controls to one group if they are logically linked
 			commonName = el.name.replace(regexp, "");
 			var control = getControl(controls, commonName, el.iface);
@@ -78,7 +78,7 @@ var getControls = function(data)
 			controls.push(control);
 		}
 	}
-	
+
 	//console.log(controls);
 	return controls;
 };
@@ -86,42 +86,42 @@ var getControls = function(data)
 var drawControls = function(controls)
 {
 	//console.log(controls);
-	
+
 	var el = document.getElementById('controls');
-	
+
 	controls.forEach(function(control, control_index)
 	{
 		//console.log(control);
 		if (control.iface === "MIXER") {
 			var html = '<div class="amixer-webui-control mdl-color--white mdl-shadow--2dp mdl-cell mdl-cell--6-col mdl-cell--8-col-tablet mdl-cell--4-col-phone mdl-grid control_' + control_index + ' ' + (control.switch !== undefined ? (control.switch.values[0] ? 'on' : 'off') : '') + '">';
 			html += '<div class="amixer-webui-control__title">';
-			
+
 			if (control.switch !== undefined) {
 				var i = 0;
 				html += '<label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="' + control.switch.id + '_' + i + '_toggle"><input type="checkbox" id="' + control.switch.id + '_' + i + '_toggle"' + (control.switch.values[0] === true ? ' checked' : '') + ' onclick="toggleControl(' + control.switch.id + ', ' + i + ', ' + control_index + ')" class="mdl-switch__input"><span class="mdl-switch__label">';
 			}
-			
+
 			html += '<h2 class="amixer-webui-control__title-text">' + control.name + '</h2>';
-			
+
 			if (control.switch !== undefined) {
 				html += '</span></label>';
 			}
-			
+
 			html += '<div class="mdl-layout-spacer"></div>';
 			html += '<div>';
-			
+
 			if (control.volume !== undefined && control.volume.values.length > 1) {
 				html += '<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="' + control.volume.id + '_lock"><input type="checkbox" id="' + control.volume.id + '_lock" class="mdl-checkbox__input" checked><span class="mdl-checkbox__label mdl-cell--hide-phone">Lock sliders</span></label>';
 			}
-			
+
 			html += "</div>";
 			html += "</div>";
-			
+
 			if (control.source !== undefined || control.volume !== undefined) {
 				//html += '<hr>';
 				html += '<div class="amixer-webui-control__actions">';
 			}
-			
+
 			if (control.source !== undefined) {
 				html += '<div class="enumerateList mdl-typography--text-center">';
 				for (var i in control.source.items) {
@@ -129,7 +129,7 @@ var drawControls = function(controls)
 				}
 				html += '</div>';
 			}
-			
+
 			if (control.volume !== undefined) {
 				for (var i in control.volume.values) {
 					html += '<div class="volumes">';
@@ -141,7 +141,7 @@ var drawControls = function(controls)
 					html += '</div>';
 				}
 			}
-			
+
 			if (control.source !== undefined || control.volume !== undefined) {
 				html += "</div>";
 			}
@@ -157,20 +157,20 @@ var drawControls = function(controls)
 var toggleControl = function(id, i, control_index)
 {
 	document.body.className += " loading";
-	
+
 	var checked = document.getElementById(id + '_' + i + '_toggle').checked;
 	//console.log("Turn " + (checked ? "on" : "off") + " control [id=" + id + ",index=" + i + "]");
-	
+
 	var control = document.getElementsByClassName('control_' + control_index)[0];
 	control.className = control.className.replace(/ (on|off)/, ' ' + (checked ? 'on' : 'off'));
-	
+
 	sendRequest('PUT', "control/" + id + "/" + (checked ? 1 : 0) + "/");
 };
 
 var changeSource = function(id, value)
 {
 	document.body.className += " loading";
-	
+
 	//console.log("Changed source [id=" + id + "] to value: " + value);
 	sendRequest('PUT', "source/" + id + "/" + value + "/");
 };
@@ -213,7 +213,7 @@ var changeVolume = function(id, i, value)
 		//console.log("Changed volume on channel " + i + " on control [id=" + id + "] to value: " + value);
 		document.getElementsByClassName(id + 'channel_desc')[0].innerHTML = Math.round(100 * value / document.getElementsByClassName(id + '_volume')[0].getAttribute('max'));
 	}
-	
+
 	var elements = document.getElementsByClassName(id + '_volume');
 	var volumes = [];
 	for (var i = 0; i < elements.length; i++) {
@@ -233,7 +233,7 @@ var changeCard = function (id)
 	loadControls();
 
 	var cardSelects = document.getElementsByClassName('amixer-webui-cards');
-    
+
 	for (var i = 0; i < cardSelects.length; i++)
 	{
 		if (cardSelects[i].value != id) {

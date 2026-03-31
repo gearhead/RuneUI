@@ -78,25 +78,40 @@ if (isset($outputNames) && $outputNames ) {
         foreach ($outputNames as $outputName) {
             if (!$redis->hExists('owntone_presets', $outputName)) {
                 $preset = array();
-                $preset['autoconnect'] = false;
                 $preset['mute'] = 0;
+                $preset['autoconnect'] = false;
                 $preset['volume_preset'] = $defaultVolume;
                 $preset['offset_ms'] = 0;
+                $preset['last_pin'] = '';
+                $preset['last_password'] = '';
                 $redis->hSet('owntone_presets', $outputName, json_encode($preset));
             } else {
                 $preset = json_decode($redis->hGet('owntone_presets', $outputName), true);
+                // the following lines can be removed after the next release
                 if (!isset($preset['offset_ms'])) {
                     // offset is not set, add a null offset value
                     $preset['offset_ms'] = 0;
                     $redis->hSet('owntone_presets', $outputName, json_encode($preset));
                 }
+                if (!isset($preset['last_pin'])) {
+                    // offset is not set, add a null offset value
+                    $preset['last_pin'] = '';
+                    $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                }
+                if (!isset($preset['last_password'])) {
+                    // offset is not set, add a null offset value
+                    $preset['last_password'] = '';
+                    $redis->hSet('owntone_presets', $outputName, json_encode($preset));
+                }
             }
+            // the following must be present in redis (see above), but should not be passed to the UI
+            unset($preset['last_pin'], $preset['last_password']);
             $output = json_decode($redis->hGet('owntone_outputs', $outputName), true);
             // debug
             // if (strtolower($outputName) == 'pi4') {
                 // $output['requires_auth'] = 1;
             // }
-            // truncate the output type up to the first space - 'AirPlay 1' becomes 'AirPlay'
+            // truncate the output type up to the first space - 'AirPlay 1' or 'AirPlay 2' becomes 'AirPlay'
             $output['type'] = explode(' ', $output['type'])[0];
             if ($output['type'] == 'ALSA') {
                 $classification = 'local';

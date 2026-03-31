@@ -18,10 +18,10 @@
         }
         function change_MuteMaster() {
             $('#MuteButtonMaster').html(($('#MuteMaster').val() == '0') ? ' Mute' : ' Unmute');
-            $('#MuteButtonMaster').attr({"title" : ($('#MuteMaster').val() == '0') ? 'Mute all outputs' : 'Unmute all outputs'});
+            $('#MuteButtonMaster').attr({'title' : ($('#MuteMaster').val() == '0') ? 'Mute all outputs' : 'Unmute all outputs'});
         }
         function click_MuteButtonMaster() {
-            document.getElementById("VolumeMaster").onchange = '';
+            document.getElementById('VolumeMaster').onchange = '';
             if ($('#MuteMaster').val() == '0') {
                 var masterVolume = $('#VolumeMaster').val();
                 $('[id$=MuteCommand]').val('Mute');
@@ -37,7 +37,7 @@
             }
             wrk_change_VolumeMaster();
             $('#MuteButtonMaster').blur();
-            document.getElementById("VolumeMaster").onchange = function() {
+            document.getElementById('VolumeMaster').onchange = function() {
                 change_VolumeMaster();
             };
         }
@@ -115,14 +115,14 @@
         function change_Selected(id) {
             if ($('#'+id+'Selected').val() == '0') {
                 $('#'+id+'ConnectButton').text(' Connect');
-                $('#'+id+'ConnectButton').attr({"title" : 'Connect the output'});
+                $('#'+id+'ConnectButton').attr({'title' : 'Connect the output'});
                 $('#'+id+'ConnectButton').css({'float':'left'});
                 $('#'+id+'ConnectButton').removeClass('hide');
                 $('#'+id+'MuteButton').addClass('hide');
                 $('#'+id+'VolumeLabel').addClass('hide');
                 $('#'+id+'Connected').addClass('hide');
                 $('#'+id+'Presets').addClass('hide');
-                if ($('#'+id+'RequiresAuth').val() == '1') {
+                if ($('#'+id+'RequiresPin').val() == '1') {
                     $('#'+id+'PinGroup').removeClass('hide');
                     new PNotify({
                         title: 'Multi-room',
@@ -132,14 +132,25 @@
                 } else {
                     $('#'+id+'PinGroup').addClass('hide');
                 }
+                if ($('#'+id+'RequiresPassword').val() == '1') {
+                    $('#'+id+'PasswordGroup').removeClass('hide');
+                    new PNotify({
+                        title: 'Multi-room',
+                        text: 'Enter Password and click connect to save the password',
+                        icon: 'fa fa-exclamation'
+                    });
+                } else {
+                    $('#'+id+'PasswordGroup').addClass('hide');
+                }
             } else {
                 $('#'+id+'ConnectButton').text(' Disconnect');
-                $('#'+id+'ConnectButton').attr({"title" : 'Disconnect the output'});
+                $('#'+id+'ConnectButton').attr({'title' : 'Disconnect the output'});
                 $('#'+id+'ConnectButton').css({'float':'right'});
                 $('#'+id+'MuteButton').removeClass('hide');
                 $('#'+id+'VolumeLabel').removeClass('hide');
                 $('#'+id+'Connected').removeClass('hide');
                 $('#'+id+'PinGroup').addClass('hide');
+                $('#'+id+'PasswordGroup').addClass('hide');
                 if (($('#'+id+'Type').val() == 'ALSA') && ($('#Multidevice').val() == '0')) {
                     $('#'+id+'ConnectButton').addClass('hide');
                     $('#'+id+'Presets').addClass('hide');
@@ -148,7 +159,7 @@
                     if ($('#'+id+'Autoconnect').val() == '0') {
                         $('#'+id+'ConnectButton').removeClass('hide');
                         $('#'+id+'AutoconnectButton').text(' Auto Connect');
-                        $('#'+id+'AutoconnectButton').attr({"title" : 'Switch on automatic connect for the output'});
+                        $('#'+id+'AutoconnectButton').attr({'title' : 'Switch on automatic connect for the output'});
                         $('#'+id+'AutoconnectButton').css({'float':'left'});
                         $('#'+id+'AutoconnectButton').removeClass('hide');
                         $('#'+id+'VolumePresetLabel').addClass('hide');
@@ -156,7 +167,7 @@
                     } else {
                         $('#'+id+'ConnectButton').addClass('hide');
                         $('#'+id+'AutoconnectButton').text(' Manual Connect');
-                        $('#'+id+'AutoconnectButton').attr({"title" : 'Switch off automatic connect for the output'});
+                        $('#'+id+'AutoconnectButton').attr({'title' : 'Switch off automatic connect for the output'});
                         $('#'+id+'AutoconnectButton').css({'float':'right'});
                         $('#'+id+'AutoconnectButton').removeClass('hide');
                         $('#'+id+'VolumePresetLabel').removeClass('hide');
@@ -166,10 +177,16 @@
             }
         }
         function click_ConnectButton(id) {
-            if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'RequiresAuth').val() == '1') && ($('#'+id+'Pin').val() == '')) {
+            if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'RequiresPin').val() == '1') && ($('#'+id+'Pin').val() == '')) {
                 new PNotify({
                     title: 'Multi-room',
                     text: 'PIN-Code required',
+                    icon: 'fa fa-exclamation'
+                });
+            } else if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'RequiresPassword').val() == '1') && ($('#'+id+'Password').val() == '')) {
+                new PNotify({
+                    title: 'Multi-room',
+                    text: 'Password required',
                     icon: 'fa fa-exclamation'
                 });
             } else {
@@ -180,20 +197,23 @@
                 }
                 $('#'+id+'Volume').val($('#'+id+'VolumePreset').val());
                 wrk_change_Volume(id);
+                document.getElementById(id+'ConnectButton').onclick = '';
                 $('#'+id+'Selected').trigger('change');
                 $('#'+id+'ConnectButton').blur();
-                ajax_MRconnect(id);
-                // if ($('#'+id+'Pin').val() == '') {
-                    // ajax_MRconnect(id);
-                // } else {
-                    // ajax_MRpin(id);
-                // }
+                // ajax_MRconnect(id);
+                if ($('#'+id+'Pin').val() != '') {
+                    ajax_MRpin(id);
+                } else if ($('#'+id+'Password').val() != '') {
+                    ajax_MRpassword(id);
+                } else {
+                    ajax_MRconnect(id);
+                }
             }
         }
         function click_OffsetMsButton(id) {
             $('#'+id+'OffsetMsButton').blur();
             $('#'+id+'OffsetMsButton').prop('disabled', true);
-            $('#'+id+'OffsetMsButton').attr({"title" : ''});
+            $('#'+id+'OffsetMsButton').attr({'title' : ''});
             ajax_MRvolume(id);
         }
         function change_OffsetMs(id) {
@@ -208,10 +228,10 @@
             }
             if ($('#'+id+'OffsetMs').val() != $('#'+id+'OffsetMsOrig').val()) {
                 $('#'+id+'OffsetMsButton').prop('disabled', false);
-                $('#'+id+'OffsetMsButton').attr({"title" : 'Change the output synchronisation, applying the change will disconnect and reconnect the output'});
+                $('#'+id+'OffsetMsButton').attr({'title' : 'Change the output synchronisation, applying the change will disconnect and reconnect the output'});
             } else {
                 $('#'+id+'OffsetMsButton').prop('disabled', true);
-                $('#'+id+'OffsetMsButton').attr({"title" : ''});
+                $('#'+id+'OffsetMsButton').attr({'title' : ''});
             }
             delete tmp;
         }
@@ -221,10 +241,10 @@
         }
         function change_Mute(id) {
             $('#'+id+'MuteButton').html(($('#'+id+'Mute').val() == '0') ? ' Mute' : ' Unmute');
-            $('#'+id+'MuteButton').attr({"title" : ($('#'+id+'Mute').val() == '0') ? 'Mute the output' : 'Unmute the output'});
+            $('#'+id+'MuteButton').attr({'title' : ($('#'+id+'Mute').val() == '0') ? 'Mute the output' : 'Unmute the output'});
         }
         function click_MuteButton(id) {
-            document.getElementById(id+"Volume").onchange = '';
+            document.getElementById(id+'Volume').onchange = '';
             if ($('#'+id+'Mute').val() == '0') {
                 $('#'+id+'Mute').val($('#'+id+'Volume').val()).trigger('change');
                 $('#'+id+'Volume').val('0');
@@ -242,13 +262,14 @@
             ajax_MRpreset(id);
         }
         function click_AutoconnectButton(id) {
-            document.getElementById(id+"Volume").onchange = '';
-            document.getElementById(id+"VolumePreset").onchange = '';
+            document.getElementById(id+'Volume').onchange = '';
+            document.getElementById(id+'VolumePreset').onchange = '';
             if ($('#'+id+'Autoconnect').val() == '0') {
                 $('#'+id+'Autoconnect').val('1').trigger('change');
             } else {
                 $('#'+id+'Autoconnect').val('0').trigger('change');
             }
+            document.getElementById(id+'AutoconnectButton').onclick = '';
             $('#'+id+'AutoconnectButton').blur();
             ajax_MRpreset(id);
         }
@@ -301,6 +322,26 @@
             $.ajax({
                 type: 'GET',
                 url: '/db/?cmd=MRpin&params='+JSON.stringify(params),
+                success: function(data){
+                    if (data.length > 4) {
+                        wrk_MRstate(data);
+                    } else {
+                        console.log('Error: MRconnect&params='+JSON.stringify(params));
+                    }
+                },
+                cache: false
+            });
+        }
+        function ajax_MRpassword(id) {
+            var params = {
+                command : 'Password',
+                id : id,
+                name : $('#'+id+'Name').val(),
+                password : $('#'+id+'Password').val(),
+            };
+            $.ajax({
+                type: 'GET',
+                url: '/db/?cmd=MRpassword&params='+JSON.stringify(params),
                 success: function(data){
                     if (data.length > 4) {
                         wrk_MRstate(data);
@@ -377,15 +418,20 @@
         }
         function wrk_MRstate(data) {
             var ret = JSON.parse(data);
+            $('#'+ret.id+'Pin').val('');
+            $('#'+ret.id+'Password').val('');
+            var selected_trigger_change = false;
             if ((typeof ret.selected !== 'undefined') && ($('#'+ret.id+'Selected').val() != ret.selected)) {
-                $('#'+ret.id+'Selected').val(ret.selected).trigger('change');
+                $('#'+ret.id+'Selected').val(ret.selected);
+                selected_trigger_change = true;
             }
             if ((typeof ret.volume !== 'undefined') && ($('#'+ret.id+'Volume').val() != ret.volume)) {
                 $('#'+ret.id+'Volume').val(ret.volume);
                 wrk_change_Volume(ret.id);
             }
             if ((typeof ret.mute !== 'undefined') && ($('#'+ret.id+'Mute').val() != ret.mute)) {
-                $('#'+ret.id+'Mute').val(ret.mute).trigger('change');
+                $('#'+ret.id+'Mute').val(ret.mute);
+                selected_trigger_change = true;
             }
             if (typeof ret.offset_ms !== 'undefined') {
                 if ($('#'+ret.id+'OffsetMs').val() != ret.offset_ms) {
@@ -397,7 +443,14 @@
             }
             if ((typeof ret.requires_auth !== 'undefined') && ($('#'+ret.id+'RequiresAuth').val() != ret.requires_auth)) {
                 $('#'+ret.id+'RequiresAuth').val(ret.requires_auth);
-                $('#'+ret.id+'Selected').trigger('change');
+            }
+            if ((typeof ret.requires_pin !== 'undefined') && ($('#'+ret.id+'RequiresPin').val() != ret.requires_pin)) {
+                $('#'+ret.id+'RequiresPin').val(ret.requires_pin);
+                selected_trigger_change = true;
+            }
+            if ((typeof ret.requires_password !== 'undefined') && ($('#'+ret.id+'RequiresPassword').val() != ret.requires_password)) {
+                $('#'+ret.id+'RequiresPassword').val(ret.requires_password);
+                selected_trigger_change = true;
             }
             if ((typeof ret.autoconnect !== 'undefined') && ($('#'+ret.id+'Autoconnect').val() != ret.autoconnect)) {
                 $('#'+ret.id+'Autoconnect').val(ret.autoconnect).trigger('change');
@@ -406,14 +459,22 @@
                 $('#'+ret.id+'VolumePreset').val(ret.volume_preset);
                 wrk_change_VolumePreset(ret.id);
             }
-            $('#'+ret.id+'Pin').val('');
             $('#'+ret.id+'MuteCommand').val(($('#'+ret.id+'Mute').val() == '0') ? ' Mute' : ' Unmute');
-            $('#'+ret.id+'Mute').attr({"title" : ($('#'+ret.id+'Mute').val() == '0') ? 'Mute the output' : 'Unmute the output'});
-            document.getElementById(ret.id+"Volume").onchange = function() {
-                change_Volume(document.getElementById(ret.id+"ID").value);
+            $('#'+ret.id+'Mute').attr({'title' : ($('#'+ret.id+'Mute').val() == '0') ? 'Mute the output' : 'Unmute the output'});
+            if (selected_trigger_change) {
+                $('#'+ret.id+'Selected').trigger('change');
+            }
+            document.getElementById(ret.id+'Volume').onchange = function() {
+                change_Volume(document.getElementById(ret.id+'ID').value);
             };
-            document.getElementById(ret.id+"VolumePreset").onchange = function() {
-                change_VolumePreset(document.getElementById(ret.id+"ID").value);
+            document.getElementById(ret.id+'VolumePreset').onchange = function() {
+                change_VolumePreset(document.getElementById(ret.id+'ID').value);
+            };
+            document.getElementById(ret.id+'ConnectButton').onclick = function() {
+                click_ConnectButton(document.getElementById(ret.id+'ID').value);
+            };
+            document.getElementById(ret.id+'AutoconnectButton').onclick = function() {
+                click_AutoconnectButton(document.getElementById(ret.id+'ID').value);
             };
         }
     </script>
@@ -438,7 +499,7 @@
             <script>
                 const mrRefreshTimeout = setTimeout(() => {
                   $('#mr-refresh').removeClass('hide');
-                }, "300000");
+                }, '300000');
             </script>
         </div>
     </div>
@@ -490,13 +551,13 @@
                 </div>
                 <br>
                 <script>
-                    // document.getElementById("VolumeMaster").onchange = function() {
+                    // document.getElementById('VolumeMaster').onchange = function() {
                         // change_VolumeMaster();
                     // };
-                    document.getElementById("MuteMaster").onchange = function() {
+                    document.getElementById('MuteMaster').onchange = function() {
                         change_MuteMaster();
                     };
-                    // document.getElementById("MuteButtonMaster").onclick = function() {
+                    // document.getElementById('MuteButtonMaster').onclick = function() {
                         // click_MuteButtonMaster();
                     // };
                     document.onload = changeRange('VolumeMaster', 'RangeFillMaster');
@@ -512,8 +573,11 @@
                         <div style="width:max(55%,500px); min-height:70px;" class="boxed">
                             <button id="<?=$l['id']?>MuteButton" name="<?=$l['id']?>MuteButton" type="button" style="float:right;margin-left:5px;" title="Mute the output" class="btn btn-primary btn-lg<?php if (!$l['selected']): ?> hide<?php endif;?> value="1"><?php if (!$l['mute']): ?> Mute<?php else:?> Unmute<?php endif;?></button>
                             <button id="<?=$l['id']?>ConnectButton" name="<?=$l['id']?>ConnectButton" type="button" <?php if ($l['selected']): ?>style="float:right;" <?php endif;?> title="Connect the output" class="btn btn-primary btn-lg<?php if (($l['selected'] && $l['autoconnect']) || (!$multidevice && ($l['type'] == 'ALSA'))): ?> hide<?php endif;?>" value="1"><?php if (!$l['selected']): ?> Connect<?php else:?> Disconnect<?php endif;?></button>
-                            <div id="<?=$l['id']?>PinGroup" name="<?=$l['id']?>PinGroup"<?php if (($classification  != 'client') || $l['selected'] || !$l['requires_auth']): ?> class="hide"<?php endif;?> style="display: inline-block" >
+                            <div id="<?=$l['id']?>PinGroup" name="<?=$l['id']?>PinGroup" class="hide" style="display: inline-block" >
                                 &nbsp&nbspPIN-CODE:&nbsp&nbsp<input id="<?=$l['id']?>Pin" name="<?=$l['id']?>Pin" value="" class="form-control input-lg" style="display: inline-block; width: auto" size="6" minlength="4" maxlength="6">
+                            </div>
+                            <div id="<?=$l['id']?>PasswordGroup" name="<?=$l['id']?>PasswordGroup" class="hide" style="display: inline-block" >
+                                &nbsp&nbspPassword:&nbsp&nbsp<input id="<?=$l['id']?>Password" name="<?=$l['id']?>Password" value="" class="form-control input-lg" style="display: inline-block; width: auto" size="10">
                             </div>
                             <div id="<?=$l['id']?>Connected" for="<?=$l['id']?>Connected"<?php if (!$l['selected']): ?> class="hide"<?php endif;?>>
                                 <label id="<?=$l['id']?>VolumeLabel" for="<?=$l['id']?>Volume" class="btn btn-primary btn-lg"> Volume: <?=$l['volume']?>%</label>
@@ -537,6 +601,8 @@
                             <input id="<?=$l['id']?>HasPassword" name="<?=$l['id']?>HasPassword" type="hidden" value="<?php if ($l['has_password']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>RequiresAuth" name="<?=$l['id']?>RequiresAuth" type="hidden" value="<?php if ($l['requires_auth']):?>1<?php else:?>0<?php endif;?>">
                             <input id="<?=$l['id']?>NeedsAuthKey" name="<?=$l['id']?>NeedsAuthKey" type="hidden" value="<?php if ($l['needs_auth_key']):?>1<?php else:?>0<?php endif;?>">
+                            <input id="<?=$l['id']?>RequiresPin" name="<?=$l['id']?>RequiresPin" type="hidden" value="0">
+                            <input id="<?=$l['id']?>RequiresPassword" name="<?=$l['id']?>RequiresPassword" type="hidden" value="0">
                             <input id="<?=$l['id']?>Classification" name="<?=$l['id']?>Classification" type="hidden" value="<?=$classification?>">
                             <input id="<?=$l['id']?>OffsetMsOrig" name="<?=$l['id']?>OffsetMsOrig" type="hidden" value="<?=$l['offset_ms']?>">
                             <input id="<?=$l['id']?>ID" name="<?=$l['id']?>ID" type="hidden" value="<?=$l['id']?>">
@@ -561,35 +627,35 @@
                         </div>
                         <br>
                         <script>
-                            document.getElementById("<?=$l['id']?>Selected").onchange = function() {
-                                change_Selected(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>Selected').onchange = function() {
+                                change_Selected(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>Autoconnect").onchange = function() {
-                                change_Selected(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>Autoconnect').onchange = function() {
+                                change_Selected(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>ConnectButton").onclick = function() {
-                                click_ConnectButton(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>ConnectButton').onclick = function() {
+                                click_ConnectButton(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>OffsetMsButton").onclick = function() {
-                                click_OffsetMsButton(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>OffsetMsButton').onclick = function() {
+                                click_OffsetMsButton(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>AutoconnectButton").onclick = function() {
-                                click_AutoconnectButton(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>AutoconnectButton').onclick = function() {
+                                click_AutoconnectButton(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>OffsetMs").onchange = function() {
-                                change_OffsetMs(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>OffsetMs').onchange = function() {
+                                change_OffsetMs(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>Volume").onchange = function() {
-                                change_Volume(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>Volume').onchange = function() {
+                                change_Volume(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>Mute").onchange = function() {
-                                change_Mute(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>Mute').onchange = function() {
+                                change_Mute(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>MuteButton").onclick = function() {
-                                click_MuteButton(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>MuteButton').onclick = function() {
+                                click_MuteButton(document.getElementById('<?=$l['id']?>ID').value);
                             };
-                            document.getElementById("<?=$l['id']?>VolumePreset").onchange = function() {
-                                change_VolumePreset(document.getElementById("<?=$l['id']?>ID").value);
+                            document.getElementById('<?=$l['id']?>VolumePreset').onchange = function() {
+                                change_VolumePreset(document.getElementById('<?=$l['id']?>ID').value);
                             };
                             document.onload = changeRange('<?=$l['id']?>Volume', '<?=$l['id']?>RangeFill');
                             document.onload = changeRange('<?=$l['id']?>VolumePreset', '<?=$l['id']?>PresetRangeFill');

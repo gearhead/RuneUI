@@ -917,8 +917,8 @@ while (true) {
                                     // no ip address for this one
                                     $owntoneServers[$descriptionArray[2].'.local'] = '';
                             }
-                            // search for all owntone multiroom servers whih avahi-browse
-                            $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp 2>/dev/null | grep -i 'multiroom' | grep -w '^=' | grep http | sed 's/^.*;local;// ; s/;3689.*$//'");
+                            // search for all other owntone multiroom servers with avahi-browse
+                            $owntoneAvahiServers = sysCmd("avahi-browse -atrklvp 2>/dev/null | grep -w '^=' | grep -i '_http._tcp' | grep -i 'Machine Name=MultiRoom Remote for' | sed 's/^.*;local;// ; s/;3689.*$//'");
                             foreach ($owntoneAvahiServers as $owntoneAvahiServer) {
                                 // each line contains the hostname and IP address delimited with a semicolon
                                 $retval = explode(';', $owntoneAvahiServer);
@@ -932,11 +932,9 @@ while (true) {
                                 if (isset($owntoneServerIP) && $owntoneServerIP) {
                                     // possible that no IP address is available, then use the hostname
                                     //	ip address is much faster
-                                    $owntoneServerHostname = $owntoneServerHostname;
                                     $owntoneServerIP = $owntoneServerIP;
                                     $owntoneServer = $owntoneServerIP;
                                 } else {
-                                    $owntoneServerHostname = $owntoneServerHostname;
                                     $owntoneServerIP = '';
                                     $owntoneServer = $owntoneServerHostname;
                                 }
