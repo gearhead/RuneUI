@@ -1022,7 +1022,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                 // check to see if it is AirPlay and if a password or pin is required
                                 if (stripos(' '.$output['type'], 'Airplay')) {
                                     // AirPlay
-                                    if ($action = 'true') {
+                                    if ($params['selected']) {
                                         // it was a connect action
                                         // check whether a pin or password is required
                                         $nodeInfo = $redis->hget('owntone_nodes', $output['name']);
@@ -1036,7 +1036,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                             // password required
                                             $params['requires_password'] = 1;
                                         }
-                                        $params['selected'] = 0;
+                                        $output['selected'] = 0;
                                     }
                                 }
                             }
@@ -1089,10 +1089,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         if (isset($output['volume']) && isset($commandPut) && $commandPut && ($output['volume'] != $params['volume'])) {
                             // volume is incorrectly set, run the PUT command again and attempt to retrieve the results
                             $putFailed = sysCmd($commandPut.' | grep -ic "400 Bad Request"');
-                            if ($putFailed) {
+                            if ($putFailed && !$output['']) {
                                 // the curl command returned '400 Bad Request'
                                 // just issue a error
-                                if ($action == 'true') {
+                                if ($params[select]) {
                                     ui_notifyError($redis, 'Multi-room', 'Connect failure, refresh the page and try again');
                                 } else {
                                     ui_notifyError($redis, 'Multi-room', 'Disconnect failure, refresh the page and try again');
@@ -1128,6 +1128,24 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                     if (isset($output['id']) && ($output['id'] == $params['id'])) {
                         // a valid result has been returned
+                        if ($params['selected'] && !$output['selected'] && $output['requires_auth']) {
+                            // it was a connect action, it is not connected (unsuccessful connect) and a pin-code is required
+                            $params['requires_pin'] = 1;
+                            // issue a disconnect request to terminate the previous connect request
+                            sysCmd(str_replace('\"selected\": true', '\"selected\": false', $commandPut));
+                            sleep(1);
+                            // reissue the connect request, this will fail but will initiate the pairing process
+                            sysCmd($commandPut);
+                        }
+                        if ($params['selected'] && !$output['selected'] && $output['has_password']) {
+                            // it was a connect action, it is not connected (unsuccessful connect) and a password is required
+                            $params['requires_password'] = 1;
+                            // // issue a disconnect request to terminate the previous connect request
+                            // sysCmd(str_replace('\"selected\": true', '\"selected\": false', $commandPut));
+                            // sleep(1);
+                            // // reissue the connect request, this will fail but will initiate the pairing process
+                            // sysCmd($commandPut);
+                        }
                         $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                     } else {
                         // invalid information returned, delete the output
@@ -1135,9 +1153,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                     if (isset($output['id'])) {
                         // valid output
-                        if (isset($params['selected']) && !$params['selected'] && !$output['selected']) {
-                            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
-                        }
+                        // if (isset($params['selected']) && !$params['selected'] && !$output['selected']) {
+                            // $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+                        // }
                         // correct the return values if required
                         if (!isset($params['selected']) || ($output['selected'] != $params['selected'])) {
                             $params['selected'] = $output['selected'];
