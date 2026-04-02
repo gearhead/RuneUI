@@ -245,6 +245,9 @@ rm -rf /var/lib/mpd/playlists/*
 rm -f /etc/sudoers.d/*
 rm -rf /home/*
 rm -rf /var/lib/bluetooth/*
+mkdir -p /mnt/MPD/LocalStorage
+mkdir -p /mnt/MPD/Webradio
+mkdir -p /var/lib/mpd/playlists
 #
 # remove core dumps
 rm /var/lib/systemd/coredump/*.zst
