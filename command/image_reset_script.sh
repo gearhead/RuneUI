@@ -107,7 +107,7 @@ rm -rf /var/lib/bluetooth/*
 # set up services and stop them
 # systemctl sometimes stops after an erroneous entry, use arrays to run through all entries individually
 declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent bluetoothctl_scan\
-    bootsplash bt_mon_switch bt_scan_output chronyd connman-wait-online cron cronie dhcpcd dnsmasq dphys-swapfile dundee\
+    bootsplash bt_mon_switch bt_scan_output chronyd connman-wait-online cron cronie dhcpcd dnsmasq dphys-swapfile dundee exim4\
     haveged hciuart hostapd llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdscribble nmb nmbd ntpd ofono owntone owntone_monitor\
     owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
@@ -124,10 +124,10 @@ declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-moni
     samba-ad-dc shairport-sync smartmontools smb smbd systemd-homed systemd-networkd systemd-timesyncd triggerhappy udevil\
     udisks2 upmpdcli upower uwsgi uwsgi-app@amixer-webui winbind winbindd wsdd)
 if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
-    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee haveged llmnrd ofono\
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee exim4 haveged llmnrd ofono\
         php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 else
-    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee getty@tty1\
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee exim4 getty@tty1\
         haveged llmnrd ofono php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 fi
 declare -a unmask_arr=(systemd-journald)
