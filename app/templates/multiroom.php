@@ -357,6 +357,7 @@
                 command : 'Volume',
                 id : id,
                 name : $('#'+id+'Name').val(),
+                selected : $('#'+id+'Selected').val(),
                 volume : $('#'+id+'Volume').val(),
                 offset_ms : $('#'+id+'OffsetMs').val(),
             };
@@ -378,6 +379,7 @@
                 command : $('#'+id+'MuteCommand').val(),
                 id : id,
                 name : $('#'+id+'Name').val(),
+                selected : $('#'+id+'Selected').val(),
                 mute : $('#'+id+'Mute').val(),
                 volume : $('#'+id+'Volume').val(),
                 offset_ms : $('#'+id+'OffsetMs').val(),
@@ -417,6 +419,14 @@
             });
         }
         function wrk_MRstate(data) {
+            // debug
+            // the following 'ui notify' will display any errors encountered when running the back end script /db/index.php
+            // uncomment to activate
+            // new PNotify({
+                // title: 'Debug',
+                // text: data.replace(/,/g, ", "),
+                // icon: 'fa fa-exclamation'
+            // });
             var ret = JSON.parse(data);
             $('#'+ret.id+'Pin').val('');
             $('#'+ret.id+'Password').val('');
@@ -443,6 +453,10 @@
             }
             if ((typeof ret.requires_auth !== 'undefined') && ($('#'+ret.id+'RequiresAuth').val() != ret.requires_auth)) {
                 $('#'+ret.id+'RequiresAuth').val(ret.requires_auth);
+            }
+            if ((typeof ret.has_password !== 'undefined') && ($('#'+ret.id+'HasPassword').val() != ret.has_password)) {
+                $('#'+ret.id+'HasPassword').val(ret.has_password);
+                selected_trigger_change = true;
             }
             if ((typeof ret.requires_pin !== 'undefined') && ($('#'+ret.id+'RequiresPin').val() != ret.requires_pin)) {
                 $('#'+ret.id+'RequiresPin').val(ret.requires_pin);

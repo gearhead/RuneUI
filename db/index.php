@@ -645,21 +645,21 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRconnect':
             // Multi-room connect
-            // params: command, id, name, selected, offset_ms, pin
+            // params: command, id, name, selected, offset_ms
             // command = 'Connect'
-            // returns: id, selected, volume, mute, requires_auth, requires_pin, requires_pasword, offset_ms
+            // returns: id, selected, volume, mute, requires_auth, has_password, requires_pin, requires_pasword, offset_ms
             // no break;
         case 'MRvolume':
             // Multi-room volume
-            // params: command, id, name, volume, offset_ms
+            // params: command, id, name, selected, volume, offset_ms
             // command = 'Volume'
-            // returns: id, selected, volume, mute, requires_auth, requires_pin, requires_pasword, offset_ms
+            // returns: id, selected, volume, mute, requires_auth, has_password, requires_pin, requires_pasword, offset_ms
             // no break;
         case 'MRmute':
             // Multi-room mute
-            // params: command, id, name, mute, volume, offset_ms
+            // params: command, id, name, selected, mute, volume, offset_ms
             // command = 'Mute' or 'Unmute'
-            // returns: id, selected, volume, mute, requires_auth, requires_pin, requires_pasword, offset_ms
+            // returns: id, selected, volume, mute, requires_auth, has_password, requires_pin, requires_pasword, offset_ms
             $params = json_decode($_GET['params'], true);
             if (isset($params['selected'])) {
                 // in php we use true and false as boolians, make sure that the variable type for $params['selected'] is a boolean
@@ -669,8 +669,11 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $params['selected'] = false;
                 }
             }
-            $params['requires_pin'] = 0;
-            $params['requires_password'] = 0;
+            // requires_auth, requires_pin, requires_password and has_password are never passed as a parameter, but always returned, set them to false
+            $params['requires_pin'] = false;
+            $params['requires_password'] = false;
+            $params['requires_auth'] = false;
+            $params['has_password'] = false;
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
             $useCurrentVolume = $redis->hGet('owntone', 'use_current_volume');
@@ -703,8 +706,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $redis->hSet('owntone_presets', $outputName, json_encode($preset));
                 }
             }
-            // requires_auth is never passed as a parameter, but always returned, set it to false
-            $params['requires_auth'] = false;
             // first set the redis outputs and presets to the expected new values and save them
             if (isset($params['offset_ms']) && is_numeric($params['offset_ms'])) {
                 // round the offset to the nearest 50, max 2000, min -2000
@@ -772,7 +773,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $output['volume'] = $params['volume'];
                     }
                     $localOutputName = $redis->hGet('owntone', 'local_output_name');
-                    if ($localOutputName && ($localOutputName == $output['name'])) {
+                    if ($localOutputName && ($localOutputName == $params['name'])) {
                         // this is the local output, mpd volume needs correcting
                         $automuteTimeEnd = floatval($redis->hGet('owntone', 'automute')) + intval($redis->hGet('owntone', 'unmute_delay'));
                         $now = microtime(true);
@@ -780,9 +781,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             // automute is active, change the mpd volume synchronously with a delay until after the automute expires,
                             //  no need to check its current mpd volume level
                             // first change the mute volume level, this will be ignored if it has already been applied
-                            $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+                            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
                             $preset['mute'] = $params['volume'];
-                            $redis->hSet('owntone_presets', $output['name'], json_encode($preset));
+                            $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
                             // now change the mpd volume
                             sysCmdAsync($redis, 'mpc volume '.$params['volume'], ceil($now - $automuteTimeEnd + 1));
                         } else {
@@ -919,7 +920,6 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         }
                     }
                 }
-                $output = json_decode($redis->hGet('owntone_outputs', $params['name']), true);
                 $node = json_decode($redis->hGet('owntone_nodes', $params['name']), true);
                 if (isset($node['connected_to_server']) && $node['connected_to_server'] && $params['selected']) {
                     // this node is already connected to another owntone server
@@ -982,7 +982,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                 if (strpos(' '.strtolower($output['type']), 'airplay')) {
                                     // airplay
                                     // determine if it will be reconnected after a delay
-                                    $owntoneNode = $redis->hGet('owntone_nodes', $output['name']);
+                                    $owntoneNode = $redis->hGet('owntone_nodes', $params['name']);
                                     if ($owntoneNode) {
                                         $owntoneNode = json_decode($owntoneNode, true);
                                     }
@@ -1014,29 +1014,31 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                 // there is no delay for local devices
                             }
                             // debug
-                            ui_notify($redis, 'Debug', $commandPut);
+                            // ui_notify($redis, 'Debug', $commandPut);
                             // run the unmodified command
                             $putFailed = sysCmd($commandPut.' 2>&1 | grep -ic "400 Bad Request" | xargs')[0];
                             if ($putFailed) {
                                 // the curl command returned '400 Bad Request'
                                 // check to see if it is AirPlay and if a password or pin is required
-                                if (stripos(' '.$output['type'], 'Airplay')) {
+                                if (stripos(' '.$output['type'], 'Airplay') == 1) {
                                     // AirPlay
                                     if ($params['selected']) {
                                         // it was a connect action
                                         // check whether a pin or password is required
-                                        $nodeInfo = $redis->hget('owntone_nodes', $output['name']);
+                                        $nodeInfo = $redis->hget('owntone_nodes', $params['name']);
                                         if ($nodeInfo) {
                                             $nodeInfo = json_decode($nodeInfo, true);
                                         }
                                         if (isset($nodeInfo['pin']) && $nodeInfo['pin']) {
                                             // pin required
-                                            $params['requires_pin'] = 1;
+                                            $params['requires_pin'] = true;
+                                            $params['selected'] = false;
                                         } else if (isset($nodeInfo['pw']) && $nodeInfo['pw']) {
                                             // password required
-                                            $params['requires_password'] = 1;
+                                            $params['requires_password'] = true;
+                                            $params['selected'] = false;
                                         }
-                                        $output['selected'] = 0;
+                                        $output['selected'] = false;
                                     }
                                 }
                             }
@@ -1089,10 +1091,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         if (isset($output['volume']) && isset($commandPut) && $commandPut && ($output['volume'] != $params['volume'])) {
                             // volume is incorrectly set, run the PUT command again and attempt to retrieve the results
                             $putFailed = sysCmd($commandPut.' | grep -ic "400 Bad Request"');
-                            if ($putFailed && !$output['']) {
-                                // the curl command returned '400 Bad Request'
-                                // just issue a error
-                                if ($params[select]) {
+                            if ($putFailed && (($params['command'] == 'Connect') || ($params['command'] == 'Disconnect'))) {
+                                // the curl command returned '400 Bad Request' and it is a connect or disconnect action
+                                // just issue a error and continue
+                                if ($params['selected']) {
                                     ui_notifyError($redis, 'Multi-room', 'Connect failure, refresh the page and try again');
                                 } else {
                                     ui_notifyError($redis, 'Multi-room', 'Disconnect failure, refresh the page and try again');
@@ -1102,7 +1104,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             if (isset($retval[0])) {
                                 // an array returned
                                 $output = json_decode($retval[0], true);
-                                if (!isset($output['id']) && ($output['id'] != $params['id'])) {
+                                if (!isset($output['id']) || ($output['id'] != $params['id'])) {
                                     // an invalid result has been returned, try again
                                     $retval = sysCmd($commandGet);
                                     if (isset($retval[0])) {
@@ -1130,16 +1132,17 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         // a valid result has been returned
                         if ($params['selected'] && !$output['selected'] && $output['requires_auth']) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a pin-code is required
-                            $params['requires_pin'] = 1;
+                            $params['requires_pin'] = true;
+                            $params['selected'] = false;
                             // issue a disconnect request to terminate the previous connect request
                             sysCmd(str_replace('\"selected\": true', '\"selected\": false', $commandPut));
                             sleep(1);
                             // reissue the connect request, this will fail but will initiate the pairing process
                             sysCmd($commandPut);
-                        }
-                        if ($params['selected'] && !$output['selected'] && $output['has_password']) {
+                        } else if ($params['selected'] && !$output['selected'] && $output['has_password']) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a password is required
-                            $params['requires_password'] = 1;
+                            $params['requires_password'] = true;
+                            $params['selected'] = false;
                             // // issue a disconnect request to terminate the previous connect request
                             // sysCmd(str_replace('\"selected\": true', '\"selected\": false', $commandPut));
                             // sleep(1);
@@ -1153,9 +1156,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                     if (isset($output['id'])) {
                         // valid output
-                        // if (isset($params['selected']) && !$params['selected'] && !$output['selected']) {
-                            // $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
-                        // }
+                        if (isset($params['selected']) && !$params['selected'] && !$output['selected']) {
+                            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
+                        }
                         // correct the return values if required
                         if (!isset($params['selected']) || ($output['selected'] != $params['selected'])) {
                             $params['selected'] = $output['selected'];
@@ -1164,14 +1167,16 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             $params['volume'] = $output['volume'];
                         }
                         $params['requires_auth'] = $output['requires_auth'];
+                        $params['has_password'] = $output['has_password'];
                     } else {
                         // output has been deleted
                         $params['selected'] = false;
                         $params['volume'] = 0;
                         $params['mute'] = 0;
-                        $params['requires_auth'] = 0;
-                        $params['requires_pin'] = 0;
-                        $params['requires_password'] = 0;
+                        $params['requires_auth'] = false;
+                        $params['requires_pin'] = false;
+                        $params['requires_password'] = false;
+                        $params['has_password'] = false;
                         if (isset($preset['mute']) && $preset['mute']) {
                             // correct the muted info in redis presets
                             $preset['mute'] = 0;
@@ -1180,16 +1185,32 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                 }
             }
-            // in javascript we use the 0 and 1 integers as boolians, so make sure $params['selected'] and $params['requires_auth'] are correctly set
+            // in javascript we use the 0 and 1 integers as booleans, so make sure the the following cariables are set correctly:
+            //  $params['selected'], $params['requires_pin'], $params['requires_password'], $params['requires_auth'] and $params['has_password'] set
             if ($params['selected']) {
                 $params['selected'] = 1;
             } else {
                 $params['selected'] = 0;
             }
+            if ($params['requires_pin']) {
+                $params['requires_pin'] = 1;
+            } else {
+                $params['requires_pin'] = 0;
+            }
+            if ($params['requires_password']) {
+                $params['requires_password'] = 1;
+            } else {
+                $params['requires_password'] = 0;
+            }
             if ($params['requires_auth']) {
                 $params['requires_auth'] = 1;
             } else {
                 $params['requires_auth'] = 0;
+            }
+            if ($params['has_password']) {
+                $params['has_password'] = 1;
+            } else {
+                $params['has_password'] = 0;
             }
             echo json_encode(array(
                 'id' => $params['id'],
@@ -1197,6 +1218,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'volume' => $params['volume'],
                 'mute' => $params['mute'],
                 'requires_auth' => $params['requires_auth'],
+                'has_password' => $params['has_password'],
                 'requires_pin' => $params['requires_pin'],
                 'requires_password' => $params['requires_password'],
                 'offset_ms' => $params['offset_ms']));
@@ -1216,7 +1238,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
                 $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
                 // debug
-                ui_notify($redis, 'Debug', $commandPut);
+                // ui_notify($redis, 'Debug', $commandPut);
                 sysCmd($commandPut);
             }
             // get the current settings of the output, update the redis outputs and set the return values
@@ -1247,7 +1269,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $output = array();
                 }
             }
-            $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
             if (isset($output['id']) && ($output['id'] == $params['id'])) {
                 // a valid result has been returned
                 // save the output info
@@ -1269,6 +1291,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $preset['mute'] = 0;
                 }
                 $params['requires_auth'] = $output['requires_auth'];
+                $params['has_password'] = $output['has_password'];
                 $params['offset_ms'] = $output['offset_ms'];
                 if ($output['selected']) {
                     $preset['last_pin'] = $params['pin'];
@@ -1282,14 +1305,21 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $params['mute'] = 0;
                 $preset['mute'] = 0;
                 $preset['last_pin'] = '';
-                $params['requires_auth'] = 0;
+                $params['requires_auth'] = false;
+                $preset['requires_auth'] = false;
+                $params['has_password'] = false;
+                $preset['has_password'] = false;
                 $params['offset_ms'] = $preset['offset_ms'];
                 // delete the output
                 $redis->hDel('owntone_outputs', $params['name']);
             }
+            if (!$params['selected']) {
+                ui_notifyError($redis, 'Multi-room', 'Pin-code connect failed. Try again, but be aware that pin-code authorisation is not supported for all devices!');
+            }
             // save the presets info
             $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
-            // in javascript we use the 0 and 1 integers as boolians, so make sure $params['selected'] and $params['requires_auth'] are correctly set
+            // in javascript we use the 0 and 1 integers as boolians, so make sure the following variables are set correctly:
+            //  $params['selected'], $params['requires_auth'] and $params['has_password']
             if ($params['selected']) {
                 $params['selected'] = 1;
             } else {
@@ -1300,12 +1330,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             } else {
                 $params['requires_auth'] = 0;
             }
+            if ($params['has_password']) {
+                $params['has_password'] = 1;
+            } else {
+                $params['has_password'] = 0;
+            }
             echo json_encode(array(
                 'id' => $params['id'],
                 'selected' => $params['selected'],
                 'volume' => $params['volume'],
                 'mute' => $params['mute'],
                 'requires_auth' => $params['requires_auth'],
+                'has_password' => $params['has_password'],
                 'requires_pin' => 0,
                 'requires_password' => 0,
                 'offset_ms' => $params['offset_ms']));
@@ -1356,7 +1392,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $output = array();
                 }
             }
-            $preset = json_decode($redis->hGet('owntone_presets', $output['name']), true);
+            $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
             if (isset($output['id']) && ($output['id'] == $params['id'])) {
                 // a valid result has been returned
                 // save the output info
@@ -1378,6 +1414,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     $preset['mute'] = 0;
                 }
                 $params['requires_auth'] = $output['requires_auth'];
+                $params['has_password'] = $output['has_password'];
                 $params['offset_ms'] = $output['offset_ms'];
                 $preset['last_password'] = $params['password'];
                 ui_notify($redis, 'Multi-room', 'A password has been saved, but it will only become active when Multi-room is disabled and re-enabled or the player has been restarted');
@@ -1388,14 +1425,17 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $params['mute'] = 0;
                 $preset['mute'] = 0;
                 $preset['last_pin'] = '';
-                $params['requires_auth'] = 0;
+                $params['requires_auth'] = false;
+                $preset['requires_auth'] = false;
+                $params['has_password'] = false;
+                $preset['has_password'] = false;
                 $params['offset_ms'] = $preset['offset_ms'];
                 // delete the output
                 $redis->hDel('owntone_outputs', $params['name']);
             }
             // save the presets info
             $redis->hSet('owntone_presets', $params['name'], json_encode($preset));
-            // in javascript we use the 0 and 1 integers as boolians, so make sure $params['selected'] and $params['requires_auth'] are correctly set
+            // in javascript we use the 0 and 1 integers as boolians, so make sure $params['selected'], $params['requires_auth'] and $params['has_password'] are correctly set
             if ($params['selected']) {
                 $params['selected'] = 1;
             } else {
@@ -1406,12 +1446,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             } else {
                 $params['requires_auth'] = 0;
             }
+            if ($params['has_password']) {
+                $params['has_password'] = 1;
+            } else {
+                $params['has_password'] = 0;
+            }
             echo json_encode(array(
                 'id' => $params['id'],
                 'selected' => $params['selected'],
                 'volume' => $params['volume'],
                 'mute' => $params['mute'],
                 'requires_auth' => $params['requires_auth'],
+                'has_password' => $params['has_password'],
                 'requires_pin' => 0,
                 'requires_password' => 0,
                 'offset_ms' => $params['offset_ms']));
@@ -1419,7 +1465,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             break;
         case 'MRpreset':
             // Multi-room preset change
-            // params: id, name, autoconnect, volume_preset, mute
+            // params: id, name, autoconnect, volume_preset, mute, requires_pin, requires_pasword
             // returns: id, autoconnect, volume_preset, selected, volume, mute
             $params = json_decode($_GET['params'], true);
             // get the default volume
@@ -1481,7 +1527,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'volume_preset' => $params['volume_preset'],
                 'selected' => $selected,
                 'volume' => $volume,
-                'mute' => $preset['mute']));
+                'requires_pin' => 0,
+                'requires_password' => 0,
+                'offset_ms' => $params['offset_ms']));
             unset($params, $preset, $output, $selected, $volume);
             break;
         case 'MRowntoneactive':
