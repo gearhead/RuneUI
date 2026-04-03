@@ -3110,6 +3110,11 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     if (!$redis->get('network_ipv6')) {
                         // ipv6 is off, set the nic accordingly
                         sysCmd('sysctl -w net.ipv6.conf.'.$networkInterface['nic'].'.disable_ipv6=1 > /dev/null');
+                        // we also need to set the /etc/NetworkManager/conf.d/98-ipv6_off.conf
+                        // to 
+                        //[connection]
+                        //ipv6.method=disabled
+                        // this ensures that all networks going forward do not get ipv6 addresses
                     }
                 }
             }
@@ -3209,7 +3214,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 if ($redis->get('network_ipv6')) {
                     shell_exec("nmcli connection modify $connName ipv6.method auto");
                 } else {
-                    shell_exec("nmcli connection modify $connName ipv6.method ignore");
+                    shell_exec("nmcli connection modify $connName ipv6.method disabled");
+                    shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
                 }
                 shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
                 shell_exec("nmcli connection up $connNameEsc");
@@ -3254,7 +3260,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 if ($redis->get('network_ipv6')) {
                     shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
                 } else {
-                    shell_exec("nmcli connection modify $connNameEsc ipv6.method ignore");
+                    shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
+                    shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
                 }
 
                 // Apply it
@@ -3303,7 +3310,8 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                         shell_exec("nmcli connection modify $connNameEsc ipv6.privacy prefer");
                     } else {
                         // Disable IPv6
-                        shell_exec("nmcli connection modify $connNameEsc ipv6.method ignore");
+                        shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
+                        shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
                     }
                 }
             unset($network_ipv6, $network_info, $network, $connName, $connNameEsc);
@@ -3535,7 +3543,8 @@ function connectWifi($redis, $args, $options = []) {
             if ($redis->get('network_ipv6')) {
                 shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
             } else {
-                shell_exec("nmcli connection modify $connNameEsc ipv6.method ignore");
+                shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
+                shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
             }
 
             // Bring up connection
