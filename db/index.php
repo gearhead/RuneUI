@@ -920,10 +920,20 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         }
                     }
                 }
-                $node = json_decode($redis->hGet('owntone_nodes', $params['name']), true);
-                if (isset($node['connected_to_server']) && $node['connected_to_server'] && $params['selected']) {
+                $node = $redis->hGet('owntone_nodes', $output['name']);
+                if (isset($node) && $node) {
+                    $node = json_decode($node, true);
+                }
+                if (!isset($node['hostname']) && $output['type'] != 'ALSA' && isset($params['selected']) && $params['selected']) {
+                    // the node table has not yet been initialised, it is a non-alsa output and the action is connect
+                    //  the initialised node table will always contain an entry for each non-alsa output
+                    ui_notify($redis, 'Multi-room', 'Connect failure, still initialising. Try again in a few seconds');
+                } else if (isset($node['connected_to_server']) && $node['connected_to_server'] && isset($params['selected']) && $params['selected']) {
                     // this node is already connected to another owntone server
-                    ui_notify($redis, 'Multi-room', 'Connect failure, '.$params['name'].' is already connected to the server '.$node['connected_to_server'].'. Disconnect it before attempting to connect');
+                    ui_notify($redis, 'Multi-room', 'Connect failure, output '.$params['name'].' is already connected to the Multi-room server '.$node['connected_to_server'].'.<br>Disconnect it before attempting to connect');
+                } else if (isset($node['is_active_owntone_server']) && $node['is_active_owntone_server']&& isset($params['selected'])  && $params['selected']) {
+                    // on the host of this node there is an active owntone server which has connected outputs
+                    ui_notify($redis, 'Multi-room', 'Connect failure, output '.$params['name'].' is on the active Multi-room server '.$node['hostname'].'.<br>It is not possible connect Multi-room servers in a chain.<br>Deactivate Multi-room on the player '.$node['hostname'].' before attempting to connect');
                 } else {
                     // normal processing to connect/disconnect or change the volume
                     $commandPut = '';

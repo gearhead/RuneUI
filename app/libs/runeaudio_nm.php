@@ -16291,6 +16291,18 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
         case 'activate':
             // no $args
             if ($redis->hGet('owntone', 'enable')) {
+                // remove the owntone outputs and other stored values
+                $redis->del('owntone_outputs');
+                $redis->del('owntone_nodes');
+                $redis->hSet('owntone', 'master', json_encode(array()));
+                $redis->hSet('owntone', 'server_config', json_encode(array()));
+                $redis->hSet('owntone', 'server_queue', json_encode(array()));
+                $redis->hSet('owntone', 'server_player', json_encode(array()));
+                $redis->hSet('owntone', 'role', '');
+                $redis->hSet('owntone', 'server_hostname', '');
+                $redis->hSet('owntone', 'server_ip_address', '');
+                $redis->hSet('owntone', 'server', '');
+                $redis->hSet('owntone', 'client_id', '');
                 // wait until owntone starts
                 $cnt = 20;
                 $owntoneRunning = false;
@@ -16461,29 +16473,46 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_owntone($redis, 'mute');
                 // get the server name
                 $server = $redis->hget('owntone', 'server');
-                if (isset($server) && $server) {
-                    // get the outputs actual information
+                if (!isset($server) || !$server) {
+                    $server = 'localhost';
+                }
+                // disconnect based on the redis information
+                foreach ($redis->hGetall('owntone_outputs') as $output) {
+                    $output = json_decode($output, true);
+                    if ($output['selected']) {
+                        // set up the command
+                        $commandPut =
+                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                            ' --data '.
+                            '"{\"selected\": false'.
+                            '}"';
+                        // run the command
+                        sysCmd($commandPut);
+                        // remove the output from redis
+                        $redis->hDel('owntone_outputs', $output['name']);
+                    }
+                }
+                // get the actual outputs information
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                if (!$retval || !is_array($retval)) {
                     $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
-                    if (!$retval || !is_array($retval)) {
-                        $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
-                    }
-                    if ($retval && is_array($retval)) {
-                        $retval = json_decode($retval[0], true);
-                    } else {
-                        $retval = array();
-                    }
-                    if (isset($retval['outputs'])) {
-                        foreach ($retval['outputs'] as $output) {
-                            if ($output['selected']) {
-                                // set up the command
-                                $commandPut =
-                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
-                                    ' --data '.
-                                    '"{\"selected\": false'.
-                                    '}"';
-                                // run the command
-                                sysCmd($commandPut);
-                            }
+                }
+                if ($retval && is_array($retval)) {
+                    $retval = json_decode($retval[0], true);
+                } else {
+                    $retval = array();
+                }
+                if (isset($retval['outputs'])) {
+                    foreach ($retval['outputs'] as $output) {
+                        if ($output['selected']) {
+                            // set up the command
+                            $commandPut =
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                ' --data '.
+                                '"{\"selected\": false'.
+                                '}"';
+                            // run the command
+                            sysCmd($commandPut);
                         }
                     }
                 }
@@ -16835,8 +16864,14 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_owntone($redis, 'disable');
             }
             if ($args == 'full') {
+                // clear everything except the presets
+                $presets = $redis->hGetall('owntone_presets');
                 sysCmd('/srv/http/db/redis_datastore_setup owntonereset');
                 unlink('/etc/owntone.conf');
+                foreach ($presets as $key => $preset) {
+                    $redis->hSet('owntone_presets', $key, $preset);
+                }
+                unset($presets, $key, $preset);
             } else {
                 sysCmd('/srv/http/db/redis_datastore_setup owntonecheck');
             }
@@ -16950,11 +16985,14 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // get and save the local audio output name
                 $localOutputName = json_decode($redis->hGet('acards', $redis->get('ao')), true)['description'];
                 $redis->hSet('owntone', 'local_output_name', $localOutputName);
-                //  any client which is up for which autoconnect is set will be connected
-                //  the default alsa output will be activated
-                //  the volume for local alsa will be set when activating
-                //  when a preset volume for non-alsa outputs is available it will be used when activating
-                //  preset entries will be generated with defaults for non-alsa outputs
+                // any client which is up and for which autoconnect is set will be connected
+                //  except when its non-alsa and it is already connected to an owntone server or owntone is active on the node of the output
+                //      outputs may not be connected to multiple owntone servers
+                //      it is not allowed choose an owntone server as output of an owntone server
+                // the default alsa output will be activated
+                // the volume for local alsa will be set when activating
+                // when a preset volume for non-alsa outputs is available it will be used when activating
+                // preset entries will be generated with defaults for non-alsa outputs
                 $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"';
                 $retval = sysCmd($commandGet);
                 if (isset($retval[0])) {
@@ -17161,17 +17199,25 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                         } else {
                             // non-alsa outputs are airplay or chromecast
-                            // do not automatically disconnect this type
-                            //  autoconnect only once
-                            if (!$output['selected'] && $preset['autoconnect'] && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
-                                // this one is not connected and should be
+                            //  do not automatically disconnect this type
+                            //  autoconnect only once, so that when it is disconnected via the UI it will stay disconnected
+                            // get the node information, it should be available for all non-alsa output devices
+                            //  if the node entry has not yet been determined, do not attempt connect, it will be connected next time round
+                            $node = $redis->hGet('owntone_nodes', $output['name']);
+                            if (isset($node) && $node) {
+                                $node = json_decode($node, true);
+                            }
+                            if (!$output['selected'] && $preset['autoconnect']
+                                    && (isset($node['connected_to_server']) && !$node['connected_to_server'])
+                                    && (isset($node['is_active_owntone_server']) && !$node['is_active_owntone_server'])
+                                    && is_firstTime($redis, 'MR_alsa_autoconnect_'.$output['id'])) {
+                                // this one is not connected and should be, and it is not an active owntone server and it is not connected to to another owntone server
                                 $autoconnect = true;
                                 $setvolume = true;
                                 // determine if it is a RuneAudio client, if so, try to get the current volume level and use it
                                 unset($nodeInfo, $nodeValue);
                                 if ($useCurrentVolume && $redis->hExists('owntone_nodes', $output['name'])) {
                                     // 'use_current_volume' is true and the node is listed, get its details
-                                    $node = json_decode($redis->hGet('owntone_nodes', $output['name']), true);
                                     if (isset($node['runeaudio']) && $node['runeaudio']) {
                                         // its a runeaudio node, get the volume
                                         if (isset($node['ip']) && $node['ip']) {

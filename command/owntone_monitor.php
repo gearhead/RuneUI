@@ -114,35 +114,31 @@ while (true) {
     //
     // create a list of owntone runeaudio nodes
     $avahiBrowseInfo = array();
+    // this gets a list of airplay sockets, nodes running owntone and nodes running runeaudio, excluding this node, only remote nodes are listed
     $avahiBrowseInfo = sysCmd("timeout 10 avahi-browse -atrlkp 2>/dev/null | grep '^=' | grep -iE '_http._tcp|_airplay._tcp|_raop._tcp|_googlecast._tcp' | grep -iE 'skin_name=RuneUI|airplay|raop|googlecast|MultiRoom Remote for'");
     if (is_array($avahiBrowseInfo) && count($avahiBrowseInfo)) {
         // determine which nodes which are connected to another owntone server
         $connectedNodes = array();
         $owntoneServers = array();
+        $activeOwntoneServers = array();
         // search for all other owntone multiroom servers whih avahi-browse (nodes connected to this server are omitted)
         foreach ($avahiBrowseInfo as $key => $avahiBrowseLine) {
             if (stripos($avahiBrowseLine, 'Machine Name=MultiRoom Remote for') && strpos($avahiBrowseLine, '_http._tcp')) {
                 // this is the entry for the owntone remote control, so it is an owntone server
                 $avahiBrowseDetails = explode(';', $avahiBrowseLine, 10);
                 // array element 6 is the hostname and 7 is the ip address
-                $owntoneServers[$avahiBrowseDetails[6]] = $avahiBrowseDetails[7];
+                if (isset($avahiBrowseDetails[7]) && $avahiBrowseDetails[7]) {
+                    // ip address is set, save it as an owntone server 
+                    $owntoneServers[$avahiBrowseDetails[7]] = $avahiBrowseDetails[6];
+                }
                 // remove the element from the array it is no longer required
                 unset($avahiBrowseInfo[$key]);
             }
         }
         // walk through the servers and retrieve the owntone output information
-        foreach ($owntoneServers as $owntoneServerHostname => $owntoneServerIP) {
-            if (isset($owntoneServerIP) && $owntoneServerIP) {
-                // possible that no IP address is available, then use the hostname
-                //	ip address is much faster
-                $owntoneServerIP = $owntoneServerIP;
-                $owntoneServer = $owntoneServerIP;
-            } else {
-                $owntoneServerIP = '';
-                $owntoneServer = $owntoneServerHostname;
-            }
+        foreach ($owntoneServers as $owntoneServerIP => $owntoneServerHostname) {
             // determine if owntone is running on the host device name and get the device status
-            $commandGet = 'curl -X GET -s --connect-timeout 10 -m 10 --retry 1 "http://'.$owntoneServer.':3689/api/outputs"';
+            $commandGet = 'curl -X GET -s --connect-timeout 20 -m 20 --retry 1 "http://'.$owntoneServerIP.':3689/api/outputs"';
             $outputs = sysCmd($commandGet);
             if (isset($outputs[0])) {
                 // an array is returned
@@ -151,14 +147,16 @@ while (true) {
                     // the outputs have been returned, loop through them
                     foreach ($outputs['outputs'] as $output) {
                         if ($output['selected']) {
-                            // this is connected to $owntoneServerHostname
+                            // this node is connected to $owntoneServerHostname
                             $connectedNodes[$output['name']] = $owntoneServerHostname;
+                            // $owntoneServerHostname is an active owntone server, save it indexed by its ip address
+                            $activeOwntoneServers[$owntoneServerIP] = $owntoneServerHostname;
                         }
                     }
                 }
             }
         }
-        unset($owntoneAvahiServer, $owntoneServers, $owntoneServerHostname, $owntoneServerIP, $owntoneServer, $commandGet, $outputs);
+        unset($owntoneAvahiServer, $owntoneServerHostname, $owntoneServerIP, $commandGet, $outputs);
         $nodes = array();
         foreach ($avahiBrowseInfo as $avahiBrowseLine) {
             // the avahi line contains a semicolon (;) delimited list
@@ -217,6 +215,10 @@ while (true) {
                     $nodes[$avahiElement[7]]['type'] = '';
                     // set the connected to server to a null string
                     $nodes[$avahiElement[7]]['connected_to_server'] = '';
+                    // set the is owntone server to false
+                    $nodes[$avahiElement[7]]['is_owntone_server'] = false;
+                    // set the is active owntone server to false
+                    $nodes[$avahiElement[7]]['is_active_owntone_server'] = false;
                 }
                 if (strpos(' '.$avahiElement[4], '_googlecast._tcp')) {
                     // it's a chromecast line
@@ -291,15 +293,31 @@ while (true) {
                 }
             }
         }
-        // save the nodes array to redis using 'node name' (airplay name or chromecast name) as key and build an array of node names for metadata transmission
+        // save the nodes array to redis using 'node name' (airplay name or chromecast name) as key and
+        //  also build an array of node names for metadata transmission
         $runeaudioNodes = array();
         foreach ($nodes as $node) {
             if (isset($node['node_name']) && $node['node_name']) {
-                // node name is set, save the node to 'owntone_nodes'
+                // node name is set, add the extra info
                 if (isset($connectedNodes[$node['node_name']])) {
                     // the node is present in the list of connected nodes, add the owntone server name
                     $node['connected_to_server'] = $connectedNodes[$node['node_name']];
+                } else {
+                    $node['connected_to_server'] = '';
                 }
+                if (isset($owntoneServers[$node['ip']])) {
+                    // on the host of this node an owntone server is enabled (it is running)
+                    $node['is_owntone_server'] = true;
+                } else {
+                    $node['is_owntone_server'] = false;
+                }
+                if (isset($activeOwntoneServers[$node['ip']])) {
+                    // on the host of this node an owntone server is active (it has connected outputs)
+                    $node['is_active_owntone_server'] = true;
+                } else {
+                    $node['is_active_owntone_server'] = false;
+                }
+                // save the node to 'owntone_nodes'
                 $redis->hSet('owntone_nodes', $node['node_name'], json_encode($node));
                 if (isset($node['runeaudio']) && isset($node['runeaudio_version']) && $node['runeaudio'] && $node['runeaudio_version'] && ($node['runeaudio_version'] >= '0.7')) {
                     // this is a runeaudio node with airplay and the UI version (0.7 or higher), this is valid for sending metadata, save it
@@ -328,6 +346,7 @@ while (true) {
             }
         }
         unset($retval, $avahiBrowseLine, $avahiElement, $textInfo, $textInfoEntry, $textInfoParts, $nodes, $node, $key, $owntoneNode, $connectedNodes);
+        unset($owntoneServers, $activeOwntoneServers);
         // $runeaudioNodes now contains a list of runeaudio nodes on the network capable of receiving metadata, excluding this node,
         //  it also contains the IP address of each node
         if (count($runeaudioNodes)) {
