@@ -38,6 +38,9 @@ $nowSeconds = microtime(true);
 $startAfterSeconds = $nowSeconds + 2;
 wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'ui_render', 'action' => 'seconds', 'args' => $startAfterSeconds));
 $templateData['activePlayer'] = $redis->get('activePlayer');
+// when this runs rune has just started or it is returning from a settings change, trigger redis to carry out an asynchronous database save
+//  this will ensure that settings changes will not be lost if rune is unplugged without shutting down
+$redis->bgSave();
 //
 // setup the display variables
 if ($redis->get('coverart') == 1) {
