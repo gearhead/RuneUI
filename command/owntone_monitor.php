@@ -128,7 +128,7 @@ while (true) {
                 $avahiBrowseDetails = explode(';', $avahiBrowseLine, 10);
                 // array element 6 is the hostname and 7 is the ip address
                 if (isset($avahiBrowseDetails[7]) && $avahiBrowseDetails[7]) {
-                    // ip address is set, save it as an owntone server 
+                    // ip address is set, save it as an owntone server
                     $owntoneServers[$avahiBrowseDetails[7]] = $avahiBrowseDetails[6];
                 }
                 // remove the element from the array it is no longer required
