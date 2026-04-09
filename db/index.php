@@ -1144,11 +1144,13 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a pin-code is required
                             $params['requires_pin'] = true;
                             $params['selected'] = false;
-                            // issue a disconnect request to terminate the previous connect request
+                            // issue a disconnect request to terminate the previous connect request, this will correctly set the volume and offset
                             sysCmd(str_replace('\"selected\": true', '\"selected\": false', $commandPut));
                             sleep(1);
-                            // reissue the connect request, this will fail but will initiate the pairing process
-                            sysCmd($commandPut);
+                            // reissue the connect request, but only the selected statement, this will fail but will initiate the pairing process
+                            $commandPutSelectTrue =
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": true}"';
+                            sysCmd($commandPutSelectTrue);
                         } else if ($params['selected'] && !$output['selected'] && $output['has_password']) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a password is required
                             $params['requires_password'] = true;
@@ -1250,6 +1252,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 // debug
                 // ui_notify($redis, 'Debug', $commandPut);
                 sysCmd($commandPut);
+                sleep(1);
             }
             // get the current settings of the output, update the redis outputs and set the return values
             $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
@@ -1277,6 +1280,44 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 } else {
                     // no array returned
                     $output = array();
+                }
+            }
+            if (isset($output['id']) && ($output['id'] == $params['id']) && !$output['selected']) {
+                // a valid result has been returned, but not connected, try to connect again
+                $commandPutSelectTrue =
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": true}"';
+                $commandPutSelectFalse =
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": false}"';
+                // sysCmd($commandPutSelectFalse);
+                sysCmd($commandPutSelectTrue);
+                sleep(1);
+                sysCmd($commandPut);
+                sleep(1);
+                $retval = sysCmd($commandGet);
+                if (isset($retval[0])) {
+                    // an array returned
+                    $output = json_decode($retval[0], true);
+                    if (!isset($output['id']) || ($output['id'] != $params['id'])) {
+                        // an invalid result has been returned, try again
+                        $retval = sysCmd($commandGet);
+                        if (isset($retval[0])) {
+                            // an array returned
+                            $output = json_decode($retval[0], true);
+                        } else {
+                            // no array returned
+                            $output = array();
+                        }
+                    }
+                } else {
+                    // no array returned
+                    $retval = sysCmd($commandGet);
+                    if (isset($retval[0])) {
+                        // an array returned
+                        $output = json_decode($retval[0], true);
+                    } else {
+                        // no array returned
+                        $output = array();
+                    }
                 }
             }
             $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
