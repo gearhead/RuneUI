@@ -61,7 +61,12 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     fi
     # check that the process exists by getting the pid and validate
     pid=""
-    pid=$( pgrep -x -w $process | xargs )
+    if (( ${#process} > 15 )) ; then
+        para="-f"
+    else
+        para="-x"
+    fi
+    pid=$( pgrep $para -w $process | xargs )
     if [ "$pid" == "" ] ; then
         # no pid
         continue
@@ -69,7 +74,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     # get the current nice value as an integer and validate (we can get more nice values returned)
     declare -i cur_nice=40
     declare -i n
-    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -x -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep $para -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
     for n in $cur_nice_arr ; do
         if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
             # invalid current nice value
@@ -98,15 +103,15 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     if [ $nice_val -lt 0 ] && [ $cur_nice -gt $nice_val ] ; then
         # required nice negative
         echo "$process "
-        renice $nice_val $( pgrep -x -w $process )
+        renice $nice_val $( pgrep $para -w $process )
     elif [ $nice_val -gt 0 ] && [ $cur_nice -lt $nice_val ] ; then
         # required nice positive
         echo "$process "
-        renice $nice_val $( pgrep -x -w $process )
+        renice $nice_val $( pgrep $para -w $process )
     elif [ $nice_val -eq 0 ] && [ $cur_nice -ne $nice_val ] ; then
         # required nice zero
         echo "$process "
-        renice $nice_val $( pgrep -x -w $process )
+        renice $nice_val $( pgrep $para -w $process )
     fi
 done < /srv/http/db/prio_nice.txt
 #
@@ -116,7 +121,7 @@ done < /srv/http/db/prio_nice.txt
 mpd_updating=$( mpc status | grep -ic 'updating db' | xargs )
 if [ "$mpd_updating" == "1" ] ; then
     echo "$process "
-    renice -1 $(pgrep -x -w mpd)
+    renice -1 $(pgrep $para -w mpd)
 fi
 }
 #
@@ -149,7 +154,13 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     fi
     # check that the process exists by getting the pid and validate
     pid=""
-    pid=$(  pgrep -x -w $process | xargs  )
+    if (( ${#process} > 15 )) ; then
+        para="-f"
+    else
+        para="-x"
+    fi
+    pid=""
+    pid=$(  pgrep $para -w $process | xargs  )
     if [ "$pid" == "" ] ; then
         # no pid
         continue
@@ -157,7 +168,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     # get the current nice value as an integer and validate (we can get more nice values returned)
     declare -i cur_nice=40
     declare -i n
-    cur_nice_arr=$( ps --no-headers -o nice $( pgrep -x -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
+    cur_nice_arr=$( ps --no-headers -o nice $( pgrep $para -w $process ) | sort -u | sed 's/[^0-9 -]*//g' | xargs )
     for n in $cur_nice_arr ; do
         if [ $n -lt -20 ] || [ $n -gt 20 ] ; then
             # invalid current nice value
@@ -177,7 +188,7 @@ while IFS="" read -r p || [ -n "$p" ] ; do
     if [ $cur_nice -ne $default_nice ] ; then
         # default nice and current nice differ
         echo "$process "
-        renice $default_nice $( pgrep -x -w $process )
+        renice $default_nice $( pgrep $para -w $process )
     fi
 done < /srv/http/db/prio_nice.txt
 }

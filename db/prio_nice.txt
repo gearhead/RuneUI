@@ -14,6 +14,8 @@ nmb -1 0
 nmbd -1 0
 owntone -3 0
 shairport-sync -4 0
+shairport-sync-ap1 -4 0
+shairport-sync-ap2 -4 0
 smb -1 0
 smbd -1 0
 spotifyd -4 0
