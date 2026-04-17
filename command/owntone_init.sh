@@ -146,7 +146,15 @@ if [[ $cores > 1 ]] ; then
     device_mpd=$( redis-cli hget owntone device_mpd )
     device_mpd="${device_mpd/fifo/FIFO}"
     redis-cli hset owntone device_mpd $device_mpd
-    # start owntone, first remove the old log, then reset the failed state, then start it
+    # start owntone
+    # first stop shairport-sync-ap2 and nqptp when the shairport-stnc config type is 'dual'
+    ss_conf=$( redis-cli hget airplay ss_conf )
+    if [ "$ss_conf" == "dual" ] ; then
+        # cont type is 'dual'
+        systemctl stop shairport-sync-ap2
+        systemctl stop nqptp
+    fi
+    # remove the old log, then reset the failed state, then start it
     rm -f /var/log/runeaudio/owntone.log
     systemctl reset-failed owntone
     systemctl start owntone

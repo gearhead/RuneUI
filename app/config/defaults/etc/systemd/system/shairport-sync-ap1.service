@@ -1,20 +1,15 @@
 [Unit]
-Description=Shairport Sync - AirPlay Audio Receiver
-After=sound.target
-Requires=avahi-daemon.service
-After=avahi-daemon.service
-Wants=network-online.target
-After=network.target network-online.target
-Requires=nqptp.service
+Description=Shairport Sync - AirPlay 1 Audio Receiver
+After=network.target avahi-daemon.service
 
 [Service]
 PermissionsStartOnly=true
-RuntimeDirectory=shairport-sync
-ExecStart=/usr/bin/shairport-sync
-User=shairport-sync
-Group=shairport-sync
+RuntimeDirectory=shairport-sync-ap1
+ExecStart=/usr/bin/shairport-sync-ap1
 Restart=always
 RestartSec=5
+User=shairport-sync
+Group=audio
 
 # allow shairport-sync to use real-time priority 50
 LimitRTPRIO=50
@@ -29,5 +24,4 @@ ProtectKernelModules=yes
 RestrictNamespaces=yes
 
 [Install]
-Also=nqptp.service
 WantedBy=multi-user.target

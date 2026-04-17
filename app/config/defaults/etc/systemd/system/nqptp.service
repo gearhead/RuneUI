@@ -1,0 +1,23 @@
+[Unit]
+Description=NQPTP -- Not Quite PTP
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+ExecStart=/usr/bin/nqptp
+DynamicUser=yes
+LimitRTPRIO=6
+# allow nqptp to to bind to the ptp ports
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+# disallow writing to /usr, /bin, /sbin, ...
+ProtectSystem=strict
+# more paranoid security settings
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+RestrictNamespaces=yes
+
+[Install]
+WantedBy=multi-user.target
