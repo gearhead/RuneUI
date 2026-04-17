@@ -18370,7 +18370,7 @@ function get_current_song_from_statefile($redis, $type='file')
 }
 
 // function to set up shairport-sync
-function wrk_setup_shairport_sync($redis) 
+function wrk_setup_shairport_sync($redis)
 // set up the shairport-sync configuration, there are two basic variations:
 //  when the binaries for shairport-sync and shairport-sync-ap1 are present: this is in principal a dual configuration
 //  when only the binary for shairport-sync is present: this is a single configuration
