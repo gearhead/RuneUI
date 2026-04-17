@@ -16336,7 +16336,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if ($redis->hGet('owntone', 'enable')) {
                 // remove the owntone outputs and other stored values
                 $redis->del('owntone_outputs');
-                $redis->del('owntone_nodes');
+                // $redis->del('owntone_nodes');
                 $redis->hSet('owntone', 'master', json_encode(array()));
                 $redis->hSet('owntone', 'server_config', json_encode(array()));
                 $redis->hSet('owntone', 'server_queue', json_encode(array()));
@@ -16420,7 +16420,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // remove the first time indicators for connecting owntone outputs
                 sysCmd('rm -f /tmp/MR_*.firsttime');
                 wrk_owntone($redis, 'status');
-                wrk_systemd_unit($redis, 'start', 'owntone_monitor');
+                // wrk_systemd_unit($redis, 'start', 'owntone_monitor');
                 sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
                 // save the current airplay output rate and set the airplay output rate to that of owntone
                 $airplaySavedRate = $redis->hGet('owntone', 'saved_airplay_rate');
@@ -16495,7 +16495,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // save the deactivation time
             $redis->hSet('owntone', 'deactivate_time', time());
-            wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+            // wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
             // remove the first time indicators for connecting owntone outputs
             sysCmd('rm -f /tmp/MR_*.firsttime');
             // switch player to MPD is required
@@ -16642,6 +16642,11 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // stop owntone
             wrk_systemd_unit($redis, 'stop', 'owntone');
+            wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
+            if ($redis->hGet('airplay', 'enable') && ($redis->hGet('airplay', 'ss_conf') == 'dual')) {
+                // restart shairport-sync-ap2 when relevant
+                wrk_systemd_unit($redis, 'start', 'shairport-sync-ap2');
+            }
             break;
         case 'enable':
             // no $args
@@ -16651,6 +16656,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             }
             // remove the owntone outputs and other stored values
             $redis->del('owntone_outputs');
+            $redis->del('owntone_nodes');
             $redis->hSet('owntone', 'master', json_encode(array()));
             $redis->hSet('owntone', 'server_config', json_encode(array()));
             $redis->hSet('owntone', 'server_queue', json_encode(array()));
@@ -16671,14 +16677,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             if (!$mpdRestarted) {
                 wrk_mpdconf($redis, 'forcerestart');
             }
-            $retval = wrk_owntone($redis, 'conf_add_custom_info');
-            if ($retval == 'changed') {
+            $alsaCardChange = wrk_owntone($redis, 'conf_add_custom_info');
+            if (($alsaCardChange == 'changed') || ($airplayNodeChange == 'changed')) {
                 if ($redis->hGet('owntone', 'active')) {
                     wrk_owntone($redis, 'restart');
                 } else {
                     wrk_systemd_unit($redis, 'restart', 'owntone');
                 }
             }
+            wrk_systemd_unit($redis, 'start', 'owntone_monitor');
             break;
         case 'conf_add_alsa_card':
             // $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device', 'file')
