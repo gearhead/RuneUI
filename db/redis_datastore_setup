@@ -231,17 +231,10 @@ function redisDatastore($redis, $action) {
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/getid3/module.tag.lyrics3.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/guzzle/src/functions_include.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/promises/src/functions_include.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/guzzlehttp/psr7/src/functions_include.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Engine.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Asset.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Batch.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/Escape.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/ExtensionInterface.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Extension/URI.php');
-            $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/league/plates/src/Template.php');
             $transaction->sAdd('php_opcache_prime', '/srv/http/app/libs/vendor/ralouphie/getallheaders/src/getallheaders.php');
             // Selected RuneAudio scripts
             $transaction->sAdd('php_opcache_prime', '/srv/http/db/index.php');
