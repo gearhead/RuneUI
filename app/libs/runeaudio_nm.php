@@ -16679,7 +16679,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_mpdconf($redis, 'forcerestart');
             }
             $alsaCardChange = wrk_owntone($redis, 'conf_add_custom_info');
-            if (($alsaCardChange == 'changed') || ($airplayNodeChange == 'changed')) {
+            if ($alsaCardChange == 'changed') {
                 if ($redis->hGet('owntone', 'active')) {
                     wrk_owntone($redis, 'restart');
                 } else {
