@@ -16687,6 +16687,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 }
             }
             wrk_systemd_unit($redis, 'start', 'owntone_monitor');
+            sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
             break;
         case 'conf_add_alsa_card':
             // $args = array of parameters ('card_name', 'nickname', 'mixer', 'mixer_device', 'file')
