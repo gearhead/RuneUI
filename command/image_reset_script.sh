@@ -110,16 +110,16 @@ declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor blueto
     bootsplash bt_mon_switch bt_scan_output chronyd connman-wait-online cron cronie dhcpcd dnsmasq dphys-swapfile dundee exim4\
     haveged hciuart hostapd llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdscribble nmb nmbd ntpd ofono owntone owntone_monitor\
     owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
-    plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
+    plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_MPDEM_wrk rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
     shairport-sync shairport-sync-ap1 shairport-sync-ap2 smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2\
     upmpdcli upower uwsgi winbind winbindd)
 declare -a enable_arr=(amixer-webui avahi-daemon cmd_async_queue connman dbus fix_ethx fix_usbdevices fix_wlanx iwd mpdversion nginx\
     redis rune_SY_wrk sshd systemd-journald systemd-resolved systemd-timesyncd udevil uwsgi-app@amixer-webui)
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
     bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dnsmasq\
-    dphys-swapfile dundee fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdversion nmb\
+    dphys-swapfile dundee fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdversion nginx nmb\
     nmbd ofono owntone owntone_monitor owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt\
-    plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_PL_wrk rune_shutdown\
+    plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_MPDEM_wrk rune_PL_wrk rune_shutdown\
     rune_SSM_wrk rune_SY_wrk samba-ad-dc shairport-sync shairport-sync-ap1 shairport-sync-ap2 smartmontools smb smbd systemd-homed systemd-networkd\
     systemd-timesyncd triggerhappy udevil udisks2 upmpdcli upower uwsgi uwsgi-app@amixer-webui winbind winbindd wsdd)
 if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
@@ -837,8 +837,14 @@ done
 #
 # for RPiOS we need to make sure the swapfile is switched off and uninstalled
 if [ "$os" == "RPiOS" ] ; then
+    # from buster
     dphys-swapfile swapoff
     dphys-swapfile uninstall
+    # from trixie
+    swapoff -a
+    systemctl mask swap.target
+    # since there is no swapfile also disable hibernate
+    systemctl mask hibernate.target hybrid-sleep.target suspend-then-hibernate.target systemd-hibernate-clear.service
 fi
 #
 # set up transparent cursor for Weston / Wayland / luakit
