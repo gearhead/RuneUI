@@ -3945,7 +3945,7 @@ if ($('#playback').length) {
             });
             // owntone activate/deactivate
             $('#owntoneactive').change(function(){
-                renderMSG([{'title': 'Switching Mult-iRoom', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
+                renderMSG([{'title': 'Switching Multi-room', 'text': 'Please wait for the config update...', 'icon': 'fa fa-cog fa-spin'}]);
                 var checked = (($('#owntoneactive').is(':checked')) ? '1' : '0');
                 $.ajax({
                     type: 'GET',

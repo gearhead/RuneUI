@@ -931,7 +931,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 } else if (isset($node['connected_to_server']) && $node['connected_to_server'] && isset($params['selected']) && $params['selected']) {
                     // this node is already connected to another owntone server
                     ui_notify($redis, 'Multi-room', 'Connect failure, output '.$params['name'].' is already connected to the Multi-room server '.$node['connected_to_server'].'.<br>Disconnect it before attempting to connect');
-                } else if (isset($node['is_active_owntone_server']) && $node['is_active_owntone_server']&& isset($params['selected'])  && $params['selected']) {
+                } else if (isset($node['is_active_owntone_server']) && $node['is_active_owntone_server'] && isset($params['selected']) && $params['selected']) {
                     // on the host of this node there is an active owntone server which has connected outputs
                     ui_notify($redis, 'Multi-room', 'Connect failure, output '.$params['name'].' is on the active Multi-room server '.$node['hostname'].'.<br>It is not possible connect Multi-room servers in a chain.<br>Deactivate Multi-room on the player '.$node['hostname'].' before attempting to connect');
                 } else {
