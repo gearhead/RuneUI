@@ -5771,12 +5771,7 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
             $redis->hSet('airplay', 'output_backend', 'pipe');
         } else {
             // stop shairport-sync
-            if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'stop', 'shairport-sync shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'stop', 'shairport-sync');
-            }
+            wrk_systemd_unit($redis, 'stop', 'shairport-sync');
             return 0;
         }
     } else {
@@ -5978,46 +5973,27 @@ function wrk_shairport($redis, $ao = null, $name = null, $jobID = null)
             runelog('Stop Airplay player');
             wrk_stopPlayer($redis);
         }
-        if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-            // also shairport-sync-ap2 when relevant
-            wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk shairport-sync-ap2');
-        } else {
-            wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
-        }
+        wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
         // update systemd
         wrk_systemd_unit($redis, 'daemon-reload');
         if ($airplay['enable']) {
             runelog('restart shairport-sync');
             wrk_systemd_unit($redis, 'enable_and_start', 'mosquitto');
-            if (($redis->hGet('airplay', 'ss_conf') == 'dual') && !$redis->hGet('owntone', 'enable')) {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
-            }
+            wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
         }
     } else {
         // nothing has changed, check that shairport-sync is running or stopped as required
         if ($airplay['enable']) {
             runelog('start shairport-sync');
             wrk_systemd_unit($redis, 'enable_and_start', 'mosquitto');
-            if (($redis->hGet('airplay', 'ss_conf') == 'dual') && !$redis->hGet('owntone', 'enable')) {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'start', 'shairport-sync shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'start', 'shairport-sync');
-            }
+            wrk_systemd_unit($redis, 'start', 'shairport-sync');
         } else {
             runelog('stop shairport-sync');
-            if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
-            }
+            wrk_systemd_unit($redis, 'stop', 'shairport-sync rune_SSM_wrk');
             wrk_systemd_unit($redis, 'disable_and_stop', 'mosquitto');
         }
     }
+    sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
     $redis->set('sssconfchange', 0);
     $redis->set('libaoconfchange', 0);
 }
@@ -6906,29 +6882,31 @@ function wrk_startPlayer($redis, $newPlayer)
     } elseif (($activePlayer === 'Airplay') && ($newPlayer != 'Airplay')) {
         // stop the Airplay metadata worker
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'airplaymetadata', 'action' => 'stop'));
-        // stop shairport-sync to drop any AirPlay connections
-        if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-            // also shairport-sync-ap2 when relevant
-            wrk_systemd_unit($redis, 'stop', 'shairport-sync shairport-sync-ap2');
-        } else {
-            wrk_systemd_unit($redis, 'stop', 'shairport-sync');
-        }
+        // make sure this client disconnects from the server
+        //  when this in not an owntone client restart shairport sync withot a delay
+        //  when this is an owntone client and the owntone server and our owntone client id are known do not stop or restart shairport sync
+        //      a disconnect has already been sent to the server
+        //  when this is an owntone client and the owntone server and our owntone client id are not known stop then restart shairport sync with a delay of 5 seconds
         if ($redis->hGet('owntone', 'role') == 'client') {
-            // currnetly working as an owntone client
-            //	restart shairport-sync asyncronously afer a delay (5 seconds), this ensures that owntone recognises that it has lost a connection
-            sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php', 5);
+            // currently working as an owntone client
+            // determine if we know the the owntone server and our owntone client id
+            $owntoneServer  = $redis->hGet('owntone', 'server');
+            $myOwntoneID = $redis->hGet('owntone', 'client_id');
+            if (!$owntoneServer || !$myOwntoneID) {
+                // stop shairport-sync to drop any AirPlay connections
+                wrk_systemd_unit($redis, 'stop', 'shairport-sync');
+                // restart shairport sync after 5 seconds to ensure that owntone detects that the client has disappeared
+                sysCmdAsync($redis, '/srv/http/command/wrk_shairport_async.php', 5);
+            }
+            // clear the owntone client information
             $redis->hSet('owntone', 'role', '');
             $redis->hSet('owntone', 'server_hostname', '');
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server', '');
+            $redis->hSet('owntone', 'client_id', '');
         } else {
-            // Apple devices detect an AirPLay disconnect directly, shairport-sync can be restarted immediately
-            if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'start', 'shairport-sync shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'start', 'shairport-sync');
-            }
+            // Apple devices detect an AirPlay disconnect directly, shairport-sync can be restarted immediately
+            wrk_systemd_unit($redis, 'restart', 'shairport-sync');
         }
     } elseif (($activePlayer === 'SpotifyConnect') && ($newPlayer != 'SpotifyConnect')) {
         // stop SpotifyConnect worker for SpotifyConnect
@@ -7293,14 +7271,9 @@ function wrk_changeHostname($redis, $newhostname)
     if ((trim($redis->hGet('airplay', 'name')) === $rhn) && ($newhostname != $rhn)) {
         $redis->hSet('airplay', 'name', $newhostname);
         wrk_shairport($redis, $redis->get('ao'), $newhostname);
-        if ($redis->hGet('airplay','enable') === '1') {
+        if ($redis->hGet('airplay','enable')) {
             runelog("service: airplay restart",'');
-            if (($redis->hGet('airplay', 'ss_conf') == 'dual') && !$redis->hGet('owntone', 'enable')) {
-                // also shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync shairport-sync-ap2');
-            } else {
-                wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
-            }
+            wrk_systemd_unit($redis, 'reload-or-restart', 'shairport-sync');
         }
     }
     // update spotifyconnect name
@@ -16641,11 +16614,39 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 wrk_owntone($redis, 'deactivate');
             }
             // stop owntone
-            wrk_systemd_unit($redis, 'stop', 'owntone');
-            wrk_systemd_unit($redis, 'stop', 'owntone_monitor');
-            if ($redis->hGet('airplay', 'enable') && ($redis->hGet('airplay', 'ss_conf') == 'dual')) {
-                // restart shairport-sync-ap2 when relevant
-                wrk_systemd_unit($redis, 'start', 'shairport-sync-ap2');
+            wrk_systemd_unit($redis, 'stop', 'owntone owntone_monitor');
+            // owntone is disabled the symlink shairport-sync.service must point to shairport-sync-ap2.service when the shairport-sync configuration is dual
+            if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
+                // its a dual shairport-sync configuration. it is possible that the symlink is correct, this happens when the override option is set
+                $filename = '/etc/systemd/system/shairport-sync.service';
+                clearstatcache(true, $filename);
+                $symlinkValue = readlink($filename);
+                $filename1 = '/etc/systemd/system/shairport-sync-ap2.service';
+                clearstatcache(true, $filename1);
+                if ($filename1 != $symlinkValue) {
+                    // the symlink is pointing to the wrong file
+                    if ($redis->get('activePlayer') == 'Airplay') {
+                        // Airplay is active, stop the stream and switch the playback engine to MPD
+                        sysCmd('/srv/http/command/airplay_toggle off');
+                    }
+                    wrk_systemd_unit($redis, 'stop', 'shairport-sync nqptp');
+                    // remove the systemd unit file for shairport-sync, normally a symlink
+                    if (file_exists($filename)) {
+                        unlink($filename);
+                    }
+                    // check that the shairport-sync-ap2.service file exists
+                    if (!file_exists($filename1)) {
+                        // no file, copy it from the distribution copy
+                        copy('/srv/http/app/config/defaults'.$filename1, $filename1);
+                    }
+                    // set up a symlink for the systemd unit file for shairport-sync.service pointing to the systemd unit shairport-sync-ap2.service
+                    symlink($filename1, $filename);
+                    wrk_systemd_unit($redis, 'daemon-reload');
+                    if ($redis->hGet('airplay', 'enable')) {
+                        wrk_systemd_unit($redis, 'start', 'shairport-sync');
+                        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+                    }
+                }
             }
             break;
         case 'enable':
@@ -18433,12 +18434,15 @@ function wrk_setup_shairport_sync($redis)
 //  when running on a multiprocessor: this is a dual configuration
 //  when running on a single processor: this is then a single configuration
 // the configurations are: single, dual
+// when it is a dual configuration the the shairport-sync and shairport-sync-ap1 versions are switched when owntone starts and stops
+//  when owntone is started the symlink shairport-sync.service must point to shairport-sync-ap1.service
+//  when owntone is stopped the symlink shairport-sync.service must point to shairport-sync-ap2.service
 {
-    $shairportSyncBinary = sysCmd('which shairport-sync');
-    $shairportSyncAp1Binary = sysCmd('which shairport-sync-ap1');
+    $shairportSyncBinary = trim(sysCmd('which shairport-sync')[0]);
+    $shairportSyncAp1Binary = trim(sysCmd('which shairport-sync-ap1')[0]);
     $filename = '/etc/systemd/system/shairport-sync.service';
     clearstatcache(true, $filename);
-    if (count($shairportSyncBinary) && count($shairportSyncAp1Binary)) {
+    if ($shairportSyncBinary && $shairportSyncAp1Binary) {
         // dual binaries present
         // remove the systemd unit file for shairport-sync
         if (file_exists($filename)) {
@@ -18459,27 +18463,34 @@ function wrk_setup_shairport_sync($redis)
             // set up a symlink for the systemd unit file for shairport-sync.service pointing to the systemd unit shairport-sync-ap2.service
             symlink($filename1, $filename);
         } else {
-            // multiprocessor - shairport-sync-ap1 will always be used, but shairport-sync will also be started when owntone is disabled
-            // 'dual' configuration using both shairport-sync-ap1.service and shairport-sync-ap2.service
+            // multiprocessor - shairport-sync-ap1 or  shairport-sync will be started depending on the enabled status of owntone
+            // 'dual' configuration using the shairport-sync-ap1.service or shairport-sync-ap2.service
             $redis->hSet('airplay', 'ss_conf', 'dual');
-            // check that the systemd unit file for shairport-sync-ap1 exists
-            $filename1 = '/etc/systemd/system/shairport-sync-ap1.service';
-            clearstatcache(true, $filename1);
-            if (!file_exists($filename1)) {
-                // no file, copy it from the distribution copy
-                copy('/srv/http/app/config/defaults'.$filename1, $filename1);
-            }
-            // set up a symlink for the systemd unit file for shairport-sync.service pointing to the systemd unit shairport-sync-ap1.service
-            symlink($filename1, $filename);
-            // also check that the systemd unit file for shairport-sync-ap2 exists
-            $filename1 = '/etc/systemd/system/shairport-sync-ap2.service';
-            clearstatcache(true, $filename1);
-            if (!file_exists($filename1)) {
-                // no file, copy it from the distribution copy
-                copy('/srv/http/app/config/defaults'.$filename1, $filename1);
+            if ($redis->hGet('owntone', 'enable')) {
+                // owntone is enabled the symlink shairport-sync.service points to shairport-sync-ap1.service
+                // check that the systemd unit file for shairport-sync-ap1 exists
+                $filename1 = '/etc/systemd/system/shairport-sync-ap1.service';
+                clearstatcache(true, $filename1);
+                if (!file_exists($filename1)) {
+                    // no file, copy it from the distribution copy
+                    copy('/srv/http/app/config/defaults'.$filename1, $filename1);
+                }
+                // set up a symlink for the systemd unit file for shairport-sync.service pointing to the systemd unit shairport-sync-ap1.service
+                symlink($filename1, $filename);
+            } else {
+                // owntone is disabled the symlink shairport-sync.service points to shairport-sync-ap2.service
+                // check that the systemd unit file for shairport-sync-ap2 exists
+                $filename1 = '/etc/systemd/system/shairport-sync-ap2.service';
+                clearstatcache(true, $filename1);
+                if (!file_exists($filename1)) {
+                    // no file, copy it from the distribution copy
+                    copy('/srv/http/app/config/defaults'.$filename1, $filename1);
+                }
+                // set up a symlink for the systemd unit file for shairport-sync.service pointing to the systemd unit shairport-sync-ap1.service
+                symlink($filename1, $filename);
             }
         }
-    } else if (count($shairportSyncBinary)) {
+    } else if ($shairportSyncBinary) {
         // single configuration - only shairport-sync will be used
         // 'single' configuration using shairport-sync.conf
         $redis->hSet('airplay', 'ss_conf', 'single');
@@ -18494,8 +18505,12 @@ function wrk_setup_shairport_sync($redis)
         }
     }
     // reload systemd and restart shairport-sync if it is running
+    wrk_systemd_unit($redis, 'stop', 'shairport-sync nqptp');
     wrk_systemd_unit($redis, 'daemon-reload');
-    wrk_systemd_unit($redis, 'restart_if_running', 'shairport-sync shairport-sync-ap2');
+    if ($redis->hGet('airplay', 'enable')) {
+        wrk_systemd_unit($redis, 'start', 'shairport-sync');
+        sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
+    }
     // get and save the current shairport-sync version
     $version = sysCmd('shairport-sync -V 2>/dev/null | xargs')[0];
     $redis->hSet('airplay', 'ss_version', $version);

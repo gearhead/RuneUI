@@ -7,7 +7,7 @@ BindsTo=nqptp.service
 [Service]
 PermissionsStartOnly=true
 RuntimeDirectory=shairport-sync
-ExecStart=/usr/bin/shairport-sync
+ExecStart=/usr/bin/shairport-sync -c /etc/shairport-sync.conf
 Restart=always
 RestartSec=5
 User=shairport-sync

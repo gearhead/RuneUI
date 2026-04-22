@@ -713,6 +713,30 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="col-sm-2 control-label">Override AirPlay 1 And Airplay 2 Switching</label>
+                    <div class="col-sm-10">
+                            <label class="switch-light well" onclick="">
+                                <input id="override_airplay_switching" name="mode[override_airplay_switching][enable]" type="checkbox" value="1"<?php if((isset($override_airplay_switching)) && ($override_airplay_switching)): ?> checked="checked" <?php endif ?>>
+                                <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
+                            </label>
+                        <span class="help-block">This setting is only relevant when Multi-room is enabled.
+                        The default is <strong>OFF</strong>.
+                        In essence, it allows a choice of which synchronisation timing protocol is used by the Multi-room AirPlay transmitter and
+                        the Airplay synchronisation receiver.
+                        There are two AirPlay synchronisation timing protocols, AirPlay PTP and AirPlay NTP.
+                        AirPlay PTP is the most recent and is preferable over AirPlay NTP.
+                        Unfortunately Multi-room and the Airplay receiver cannot both use AirPlay PTP simultaneously.
+                        As a solution, RuneAudio has the capability to use an AirPlay 1 receiver (using NTP) or an AirPlay 2 receiver (using PTP).<br>
+                        When switched <strong>OFF</strong> Multi-room will use AirPlay PTP for playback synchronisation.
+                        And AirPlay streaming to RuneAudio will use the AirPlay 1 protocol.
+                        This is advantageous for Multi-room AirPlay streaming to clients, but less so for AirPlay streaming to RuneAudio.<br>
+                        When switched <strong>ON</strong> Multi-room will use AirPlay NTP for playback synchronisation.
+                        And AirPlay streaming to RuneAudio will use the AirPlay 2 protocol.
+                        This is advantageous for AirPlay streaming to RuneAudio, but less so for Multi-room AirPlay streaming to clients.<br>
+                        <i>Note: Changing the value will restart Multi-room if it is running, you may lose some connect information</i></span>
+                    </div>
+                </div>
+                <div class="form-group">
                     <div class="col-sm-offset-2 col-sm-10">
                         <button class="btn btn-primary btn-lg" value="1" name="mode[debug][submit]" type="submit" style="margin-bottom: 10px;">Save settings</button>
                     </div>

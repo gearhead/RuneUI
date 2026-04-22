@@ -149,6 +149,28 @@ if (isset($_POST)) {
                 }
             }
         }
+        // ----- Override AirPlay 1 And Airplay 2 Switching -----
+        if ((isset($_POST['mode']['override_airplay_switching']['enable'])) && ($_POST['mode']['override_airplay_switching']['enable'])) {
+            // value is set and is true
+            if (!$redis->hGet('owntone', 'override_airplay_switching')) {
+                // saved value is false, change it to true
+                $redis->hSet('owntone', 'override_airplay_switching', 1);
+                if ($redis->hGet('owntone', 'enable')) {
+                    // owntone is running, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonerestart'));
+                }
+            }
+        } else {
+            // value is unset or false
+            if ($redis->hGet('owntone', 'override_airplay_switching')) {
+                // saved value is true, change it to false
+                $redis->hSet('owntone', 'override_airplay_switching', 0);
+                if ($redis->hGet('owntone', 'enable')) {
+                    // owntone is running, restart it
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonerestart'));
+                }
+            }
+        }
         // ----- Multi-room rate -----
         if ((isset($_POST['mode']['MRrate'])) && ($_POST['mode']['MRrate'])) {
             // value is set
@@ -479,6 +501,7 @@ $templateData['UIorder'] = $redis->get('UIorder');
 $templateData['MRorder'] = $redis->hGet('owntone', 'MRorder');
 $templateData['MRrate'] = $redis->hGet('owntone', 'rate');
 $templateData['MRformat'] = $redis->hGet('owntone', 'format');
+$templateData['override_airplay_switching'] = $redis->hGet('owntone', 'override_airplay_switching');
 $templateData['bigArt'] = $redis->get('remoteSSbigart');
 $templateData['soxrairplayonoff'] = $redis->hGet('airplay', 'soxronoff');
 $templateData['metadataairplayonoff'] = $redis->hGet('airplay', 'metadataonoff');

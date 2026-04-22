@@ -291,6 +291,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('owntone', 'local_output_name', '');
             $redis->hSet('owntone', 'MRorder', 'MLC');
             $redis->hSet('owntone', 'multidevice', '0');
+            $redis->hSet('owntone', 'override_airplay_switching', '0');
             $redis->hSet('owntone', 'pipe_ap', '');
             $redis->hSet('owntone', 'pipe_bt', '');
             $redis->hSet('owntone', 'pipe_mpd', '');
@@ -323,6 +324,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('owntone', 'local_output_name') || $redis->hSet('owntone', 'local_output_name', '');
             $redis->hExists('owntone', 'MRorder') || $redis->hSet('owntone', 'MRorder', 'MLC');
             $redis->hExists('owntone', 'multidevice') || $redis->hSet('owntone', 'multidevice', '0');
+            $redis->hExists('owntone', 'override_airplay_switching') || $redis->hSet('owntone', 'override_airplay_switching', '0');
             $redis->hExists('owntone', 'pipe_ap') || $redis->hSet('owntone', 'pipe_ap', '');
             $redis->hExists('owntone', 'pipe_bt') || $redis->hSet('owntone', 'pipe_bt', '');
             $redis->hExists('owntone', 'pipe_mpd') || $redis->hSet('owntone', 'pipe_mpd', '');

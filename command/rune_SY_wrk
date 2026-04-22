@@ -590,12 +590,7 @@ while (true) {
                     // stop shairport-sync
                     runelog('service: SHAIRPORT stop');
                     $redis->hSet('airplay', 'enable', 0);
-                    if ($redis->hGet('airplay', 'ss_conf') == 'dual') {
-                        // also shairport-sync-ap2 when relevant
-                        wrk_systemd_unit($redis, 'stop', 'shairport-sync shairport-sync-ap2');
-                    } else {
-                        wrk_systemd_unit($redis, 'stop', 'shairport-sync');
-                    }
+                    wrk_systemd_unit($redis, 'stop', 'shairport-sync');
                     if (isset($action) && $action) {
                         $action .= ' and disabled';
                     } else {
@@ -1866,10 +1861,6 @@ while (true) {
             } else {
                 // Airplay is not running so stop and restart it
                 wrk_systemd_unit($redis, 'daemon-reload_and_restart', 'shairport-sync', 'async');
-                // also shairport-sync-ap2 when relevant
-                if (($redis->hGet('airplay', 'ss_conf') == 'dual') && !$redis->hGet('owntone', 'enable')) {
-                    wrk_systemd_unit($redis, 'restart', 'shairport-sync-ap2', 'async');
-                }
             }
         }
     }

@@ -147,16 +147,32 @@ if [[ $cores > 1 ]] ; then
     device_mpd="${device_mpd/fifo/FIFO}"
     redis-cli hset owntone device_mpd $device_mpd
     # start owntone
-    # first stop shairport-sync-ap2 and nqptp when the shairport-stnc config type is 'dual'
+    # when the shairport-stnc config type is 'dual' and the switching override is not set stop shairport-sync and nqptp, then
+    #   switch to ap1 and restart shairport-sync
     ss_conf=$( redis-cli hget airplay ss_conf )
-    if [ "$ss_conf" == "dual" ] ; then
-        # cont type is 'dual'
-        systemctl stop shairport-sync-ap2
+    ot_ss_switch_override=$( redis-cli hget owntone override_airplay_switching )
+    if [ "$ss_conf" == "dual" ] && [ "$ot_ss_switch_override" != "1" ]; then
+        # config type is 'dual' and override is not set, switch the shairport-sync service
+        active_player=$( redis-cli get activePlayer )
+        if [ "$active_player" == "Airplay" ] ; then
+            # Airplay is active, stop the stream and switch the playback engine to MPD
+            /srv/http/command/airplay_toggle off
+        fi
+        systemctl stop shairport-sync
         systemctl stop nqptp
+        if [ -f "/etc/systemd/system/shairport-sync.service" ] ; then
+            rm /etc/systemd/system/shairport-sync.service
+        fi
+        ln -s /etc/systemd/system/shairport-sync-ap1.service /etc/systemd/system/shairport-sync.service
+        systemctl daemon-reload
+        airplay_enable=$( redis-cli hget airplay enable )
+        if [ "$airplay_enable" == "1" ] ; then
+            systemctl start shairport-sync
+        fi
     fi
     # remove the old log, then reset the failed state, then start it
     rm -f /var/log/runeaudio/owntone.log
-    systemctl reset-failed owntone
+    systemctl -q is-failed owntone && systemctl reset-failed owntone
     systemctl start owntone
 fi
 } > /var/log/runeaudio/owntone_init.log 2>&1

@@ -5,7 +5,7 @@ After=network.target avahi-daemon.service
 [Service]
 PermissionsStartOnly=true
 RuntimeDirectory=shairport-sync-ap1
-ExecStart=/usr/bin/shairport-sync-ap1
+ExecStart=/usr/bin/shairport-sync-ap1 -c /etc/shairport-sync.conf
 Restart=always
 RestartSec=5
 User=shairport-sync
