@@ -885,6 +885,17 @@
             </div>
         </fieldset>
     </form>
+    <form enctype="multipart/form-data" class="form-horizontal" id="advanced_settings"">
+        <fieldset>
+            <legend>Advanced Settings</legend>
+            <div class="form-group">
+                <label class="control-label col-sm-2">Advanced Settings</label>
+                <div class="col-sm-10">
+                    <button type="button" class="btn btn-lg btn-primary" onclick="location.href='/dev'">Advanced Settings</button>
+                </div>
+            </div>
+        </fieldset>
+    </form>
 </div>
 <div id="modal-sysinfo" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modal-sysinfo-label" aria-hidden="true">
     <div class="modal-dialog">

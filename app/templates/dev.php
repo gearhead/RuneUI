@@ -1,10 +1,10 @@
 <div class="container">
-    <h1>Development settings</h1>
+    <h1>Advanced Settings</h1>
     <form class="form-horizontal" action="" method="post" role="form" data-parsley-validate>
         <fieldset>
             <legend>PHP backend control</legend>
             <div class="boxed-group">
-                <p>Just some handy "tools" for PHP backend management</p>
+                <p>&nbsp;Just some handy "tools" for PHP backend management, primarily for debugging</p>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Clear PHP OPcache</label>
                     <div class="col-sm-10">
@@ -66,7 +66,6 @@
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="blankplayerid" id="syscmd-blankplayerid" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Reset playerID and hwplatformID. The player will perform configuration initialisation routines during the next reboot.<br>
                         <i>This function can be used as an alternative to re-flashing your Micro-SD card if Rune stops working correctly. In many cases it will fix the problems.<br>
-                        Always <strong>de-install</strong> Rern's Addons <strong>before</strong> choosing this option!<br>
                         You will <strong>lose most of your settings</strong> after choosing this option!</i><br>
                         </span>
                     </div>
@@ -75,8 +74,8 @@
                     <label class="col-sm-2 control-label">Clear installation</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="clearimg" id="syscmd-clearimg" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">Clear command history, logs, reset image parameters to default settings.<br>
-                        <i>NOTE: (Dev team function) Use this function prior to publication of a RuneOS image.<br>
+                        <span class="help-block">Clear command history, logs, reset image parameters to default settings. Akin to '<i>Restore to factory settings</i>'.<br>
+                        <i>NOTE: Typically used prior to publication of a RuneOS image, use with caution!<br>
                         WARNING: Automatic system shutdown and power-off after execution! Wait until it shuts down, it may take up to 5 minutes to complete!</i></span>
                     </div>
                 </div>
@@ -90,10 +89,12 @@
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
                             <span class="help-block">Enable <i>developer mode (Set ON, Save setting and then refresh the screen)</i>.<br>
-                            When developer mode is ON:<br>
+                            When developer mode is <strong>ON</strong>:<br>
                             - Many functions on this page are switched ON<br>
                             - Samba is switched on in read/write mode (default is without password control)<br>
-                            - JavaScript uses the runeaudio.js insted of runeaudio.min.js which is normally used</span>
+                            - JavaScript uses the runeaudio.js instead of runeaudio.min.js which is normally used<br>
+                            - Some functions will fail to work correctly!<br>
+                            <strong>Don't forget to switch Dev Mode OFF!</strong></span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -107,10 +108,10 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">Check FS permissions</label>
+                    <label class="col-sm-2 control-label">Check File System permissions</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="syschmod" id="syscmd-mpdrestart" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">Check and restore the correct FS ownership and permissions in important system areas</span>
+                        <span class="help-block">Checks and restores the correct File System ownership and permissions in important system areas</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -130,9 +131,16 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label">RuneAudio PLayback worker (rune_PL_wrk)</label>
+                    <label class="col-sm-2 control-label">RuneAudio Playback worker (rune_PL_wrk)</label>
                     <div class="col-sm-10">
                         <button class="btn btn-default btn-lg" value="rune_PL_wrk" name="syscmd[wrkrestart]" type="submit">Restart rune_PL_wrk</button>
+                        <span class="help-block">&nbsp;</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">RuneAudio MPD Extra Meta-data decoder worker (rune_MPDEM_wrk)</label>
+                    <div class="col-sm-10">
+                        <button class="btn btn-default btn-lg" value="rune_MPDEM_wrk" name="syscmd[wrkrestart]" type="submit">Restart rune_MPDEM_wrk</button>
                         <span class="help-block">&nbsp;</span>
                     </div>
                 </div>
@@ -140,6 +148,13 @@
                     <label class="col-sm-2 control-label">RuneAudio Shairport-Sync Meta-data decoder worker (rune_SSM_wrk)</label>
                     <div class="col-sm-10">
                         <button class="btn btn-default btn-lg" value="rune_SSM_wrk" name="syscmd[wrkrestart]" type="submit">Restart rune_SSM_wrk</button>
+                        <span class="help-block">&nbsp;</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">RuneAudio Spotify Connect Meta-data decoder worker (rune_SDM_wrk)</label>
+                    <div class="col-sm-10">
+                        <button class="btn btn-default btn-lg" value="rune_SDM_wrk" name="syscmd[wrkrestart]" type="submit">Restart rune_SDM_wrk</button>
                         <span class="help-block">&nbsp;</span>
                     </div>
                 </div>
@@ -152,7 +167,6 @@
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="gitpull" id="syscmd-gitpull" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Download and install the latest updates<br>
-                        A gitpull will effectively remove Rern's Addons, you will need to reinstall it after an update.<br>
                         An <strong>automatic reboot</strong> will be initiated after an update and Dev Mode will then be automatically switched OFF</span>
                     </div>
                 </div>
@@ -695,7 +709,7 @@
             <legend>Multi-Room - Advanced settings</legend>
             <div class="boxed-group">
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="MRorder">Multi-Room UI device and client order</label>
+                    <label class="col-sm-2 control-label" for="MRorder">Multi-Room UI Device And Client Order</label>
                     <div class="col-sm-10">
                         <select id="MRorder" class="selectpicker" name="mode[MRorder]" data-style="btn-default btn-lg">
                             <option value="MLC" <?php if($MRorder === 'MLC'): ?> selected <?php endif ?>> Master - Local - Client</option>
@@ -993,13 +1007,14 @@
                         <span class="help-block">ReplayGain meta-data tags will be removed from <strong>all music files</strong> on your locally mounted USB-drives (using loudgain).
                         <strong>There are issues with several file types, loudgain cannot 100% remove/reverse the tags</strong></span>
                         <br>
+                        <strong>This function is considered experimental, there are risks in using it!</strong><br>
                         MPD can read ReplayGain tags and will adjust the audio volume based on their settings. Adding ReplayGain meta-data tags should not change the the audio quality or modify the audio part of your files in any way, the process just adds/removes meta-data tags.
                         Please note that some audio file formats do not support ReplayGain tags, for details see: <a href="https://en.wikipedia.org/wiki/ReplayGain" target="_blank">https://en.wikipedia.org/wiki/ReplayGain</a><br>
                         Check that the MPD <a href="/mpd/#general-options">ReplayGain</a> option is enabled for ReplayGain playback.<br>
                         The programs <a href="https://man.archlinux.org/man/extra/flac/metaflac.1.en" target="_blank">metaflac</a> and <a href="https://github.com/Moonbase59/loudgain" target="_blank">loudgain</a> use different algorithms to calculate ReplayGain settings, the results will differ.<br>
                         Only one job may be run at any time and these actions take a long time to complete. The running indicator shows that a job is running, refresh the page to refresh the indicator.<br>
                         <strong>You should have a backup of your music before running these options.</strong><br>
-                        The program metaflac for flac files appears to be very reliable, loudgain has various problems.<br>
+                        The program metaflac for flac files appears to be reliable, loudgain has various problems.<br>
                         <i>Indicative performance, average time for adding tags: Pi1B: 2 to 3 albums/hour, Pi4B: 40 to 70 albums/hour. Much depends on the speed of the storage and how it is connected</i></span>
                     </div>
                 </div>
@@ -1021,20 +1036,22 @@
                     <label class="col-sm-2 control-label">Multi-Room</label>
                     <div class="col-sm-10">
                         <span class="help-block">Multi-Room is implemented using owntone.<br>
-                        Multi-Room generates synchronised streamed music playback for one local device and multiple AirPlay clients.
-                        The AirPlay clients can include Apple, RuneAudio or Sonos devices.
-                        The data transmission format is AirPlay with ALAC data-compression when supported.<br>
+                        Multi-Room generates synchronised streamed music playback for local devices and multiple AirPlay clients.
+                        The AirPlay clients can include Apple, RuneAudio, Sonos devices and many others.
+                        The data transmission format is AirPlay.<br>
                         When using Multi-Room all music is re&#8209;sampled to S16_LE, 44.1kHz, no other rates or formats are supported by owntone.<br>
                         When playing your music collection it will be re&#8209;sampled to this rate by MPD using the SoXr re&#8209;sampler at the highest quality.<br>
                         AirPlay input is also re-sampled to this rate by shairport&#8209;sync using the SoXr re&#8209;sampler.
                         Typically the input is S16_LE, 44.1kHz so no re&#8209;sampling will be applied.<br>
                         Bluetooth and Spotify Connect input is of a lossy quality, reconstituted to S16_LE, 44.1kHz.<br>
-                        In addition, Multi-Room can stream unsynchronised to Chromecast devices and the local network.
-                        Multiple local devices can also be enabled.
-                        Even though Chromecast is in theory unsynchronised, the local device synchronisation is very good.<br>
-                        When the output rate is not supported by the output device (e.g. bluetooth output), it will be re&#8209;sampled by ALSA.
+                        In addition, Multi-Room can stream to Chromecast devices and the local network.
+                        Even though Chromecast is in theory unsynchronised, the device synchronisation is very good.<br>
+                        Synchronisation latency (playback offset) can be tweaked in the Multi-room UI,
+                        this is available for local devices, AirPlay and Chromecast clients.<br>
+                        While most output devices will support the default audio format and sample rate,
+                        when the output rate is not supported by the output device (e.g. bluetooth output), it will be re&#8209;sampled by ALSA.
                         ALSA re&#8209;sampling is poor compared to SoXr. The ALSA re&#8209;sampling processing can be tweaked using the settings above.
-                        Most output devices will support the default audio format and sample rate.</span>
+                        </span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1043,7 +1060,8 @@
                         <span class="help-block">Only applicable when you have a hard-disk drive attached to RuneAudio:<br>
                         Hard disk health-check monitoring will automatically be carried out using 'smartmontools'.<br>
                         Normally you will not notice that this is taking place. In the debug listing there is a status report.<br>
-                        Real-time monitoring is carried out when the player is active. If something starts to go amiss with your hard-disk drive you will alerted every 1,5 minutes via the UI</span>
+                        Real-time monitoring is carried out when the player is active.
+                        If something starts to go amiss with your hard-disk drive you will alerted every 1,5 minutes via the UI</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1094,17 +1112,17 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">Bulk Import of Webradio's</label>
                     <div class="col-sm-10">
-                        <span class="help-block">If you would like to add all your currenly defined webradio's, these are the steps.<br>
-                        1. On your current RuneAudio installation use one of the two methods below to save your current webradio files:<br>
+                        <span class="help-block">If you would like to add all your currently defined webradio's, these are the steps.<br>
+                        1. On your current RuneAudio installation use one of the two methods below to save your current Webradio files:<br>
                         &nbsp;A. Using Linux CLI login:<br>
                         &nbsp;&nbsp;a. Log into your RuneAudio player with SSH (see the forum for details)<br>
                         &nbsp;&nbsp;b. Download/copy all the files contained in the directory /mnt/MPD/Webradio to your PC<br>
                         &nbsp;B. Using Samba:<br>
-                        &nbsp;&nbsp;a. Within RuneAudio switch Samba <strong>On</strong> in the settings menu (read/write access should normally be <strong>Off</strong><br>
+                        &nbsp;&nbsp;a. Within RuneAudio switch Samba <strong>ON</strong> in the settings menu (read/write access should normally be <strong>OFF</strong>)<br>
                         &nbsp;&nbsp;b. On you PC connect to a network drive with the specification '\\RuneAudio\MusicStoreWebradio' for Windows or '//RuneAudio/MusicStoreWebradio' for MAC<br>
                         &nbsp;&nbsp;c. Copy the files from the network drive to your PC<br>
                         &nbsp;&nbsp;d. Disconnect the network drive<br>
-                        &nbsp;&nbsp;e. Switch Samba read/write access <strong>Off</strong> (If you dont need samba switch it <strong>Off</strong> as well)<br>
+                        &nbsp;&nbsp;e. Switch Samba read/write access <strong>OFF</strong> (If you dont need samba switch it <strong>OFF</strong> as well)<br>
                         2. Shut down your new RuneAudio<br>
                         3. Remove the Micro-SD card and plug it into your PC<br>
                         4. On windows you will get all sorts of requests to reformat unreadable disks, answer <strong>No</strong> to all these requests<br>
