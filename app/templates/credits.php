@@ -5,17 +5,11 @@
             <div class="alert alert-info">
                 Release version: <strong id="release-version"><?=$release ?></strong> (<a href="https://www.runeaudio.com/forum/runeaudio-0-6-beta-for-most-raspberry-pi-models-t7585.html" target="_blank">build: <?=$buildversion ?>-<?=$patchlevel ?></a>)
             </div>
-            <h2>RuneAudio team</h2><h3>Version 0.6</h3>
+            <h2>RuneAudio team</h2><h3>Version 0.5 to 0.7</h3>
             <div class="alert alert-info">
                 <a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS</span><br>
                 <a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI</span><br>
-                <span class="help-block"><i>A special thanks to our test team: Stephane, gargonia, englishtim &amp; tml3nr</i></span><br>
-            </div>
-            <h2>RuneAudio team</h2><h3>Version 0.5</h3>
-            <div class="alert alert-info">
-                <a href="https://github.com/gearhead" target="_blank" rel="nofollow"><strong>Gearhead</strong></a>  <span class="help-block">- RuneOS - Full kernel and package upgrade, kernel patch for alsa 384kHz audio support and Chromium local browser</span><br>
-                <a href="https://github.com/janui" target="_blank" rel="nofollow"><strong>janui</strong></a> <span class="help-block">- RuneUI - Shairport sync with metadata, random play and autostart rework, Samba optimisation and 101 bugfixes</span><br>
-                <span class="help-block"><i>A special thanks to our test team: englishtim, ianhaynes, nic, R101, Stephane, tml3nr, PhilHill, thisisjay, jlynton, popov, s.k., klassikmann &amp; Colin</i></span><br>
+                <span class="help-block"><i>A special thanks to our test team: Colin, englishtim, gargonia, ianhaynes, jlynton, klassikmann, nic, PhilHill, popov, R101, s.k., Stephane, thisisjay &amp; tml3nr</i></span><br>
             </div>
             <h3>Version 0.4</h3>
             <div class="alert alert-info">
@@ -70,6 +64,13 @@
     <p><strong>Copyright (C) 2013-2014 RuneAudio Team</strong> <span class="help-block">- Andrea Coiutti &amp; Simone De Gregori &amp; Carmelo San Giovanni</span><br>
     <strong>RuneUI</strong> <span class="help-block">- copyright (C) 2013-2014 – Andrea Coiutti (aka ACX) &amp; Simone De Gregori (aka Orion)</span><br>
     <strong>RuneOS</strong>    <span class="help-block">- copyright (C) 2013-2014 – Simone De Gregori (aka Orion) &amp; Carmelo San Giovanni (aka Um3ggh1U)</span></p>
+    <h2>Trademarks™  &amp;  Registered® Trademarks</h2>
+    <div id="license" class="alert alert-info">
+        <p>All product and company name references in RuneAudio are trademarks™ or registered® trademarks of their respective holders.
+        Use of them does not imply any affiliation with or endorsement by them.
+        These include:<br>
+        Apple®, Spotify®, Sonos®, AirPlay®, ALAC®, iTunes®, Spotify Premium®, Spotify Connect®, Chomecast®, Bluetooth®</p>
+    </div>
     <h2>RuneAudio Credits</h2>
     <p><i>In alphabetical order, historical credits for all versions included</i></p>
     <p><strong>Alac</strong> by <a href="https://github.com/TimothyGu" target="_blank" rel="nofollow">Timothy Gu</a><br><a href="https://github.com/TimothyGu" target="_blank" rel="nofollow">https://github.com/TimothyGu</a></p>
@@ -87,6 +88,7 @@
     <p><strong>Bootstrap-select</strong> by <a href="https://github.com/caseyjhol" target="_blank" rel="nofollow">caseyjhol</a><br><a href="https://silviomoreto.github.io/bootstrap-select/" target="_blank" rel="nofollow">http://silviomoreto.github.io/bootstrap-select</a></p>
     <p><strong>BruteFIR</strong> a software convolution engine by <a href="https://torger.se/anders/brutefir.html" target="_blank" rel="nofollow">Anders Torger</a><br><a href="https://torger.se/anders/brutefir.html" target="_blank" rel="nofollow">https://torger.se/anders/brutefir.html</a></p>
     <p><strong>ChartLyrics</strong> song lyrics service by <a href="http://chartlyrics.com" target="_blank" rel="nofollow">ChartLyrics</a><br><a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a></p>
+    <p><strong>Chromium</strong> web browser by <a href="https://www.chromium.org/Home/" target="_blank" rel="nofollow">The Chromium Project</a><br><a href="https://www.chromium.org/Home/" target="_blank" rel="nofollow">https://www.chromium.org/Home/</a></p>
     <p><strong>Connman</strong> by <a href="https://web.archive.org/web/20210224075615/https://01.org/connman" target="_blank" rel="nofollow">Daniel Wagner, Jussi Laakkonen &amp; Marcel Holtmann</a><br><a href="https://web.archive.org/web/20210224075615/https://01.org/connman" target="_blank" rel="nofollow">https://web.archive.org/web/20210224075615/https://01.org/connman</a></p>
     <p><strong>(cs)spinner</strong> by <a href="https://github.com/jh3y" target="_blank" rel="nofollow">jhey tompkins</a><br><a href="https://github.com/jh3y/whirl" target="_blank" rel="nofollow">https://github.com/jh3y/whirl</a></p>
     <p><strong>CSS Toggle Switch</strong> by <a href="https://ghinda.net/" target="_blank" rel="nofollow">Ionuț Colceriu</a><br><a href="https://github.com/ghinda/css-toggle-switch" target="_blank" rel="nofollow">https://github.com/ghinda/css-toggle-switch</a></p>
@@ -110,6 +112,8 @@
     <p><strong>Lato-Fonts</strong> by <a href="http://www.lukaszdziedzic.eu/" target="_blank" rel="nofollow">Lukasz Dziedzic</a><br><a href="https://www.latofonts.com/lato-free-fonts/" target="_blank" rel="nofollow">https://www.latofonts.com/lato-free-fonts</a></p>
     <p><strong>Libupnpp</strong> by <a href="https://github.com/kleymenus" target="_blank" rel="nofollow">Alexander Kleymenov</a><br><a href="https://github.com/kleymenus" target="_blank" rel="nofollow">https://github.com/kleymenus</a></p>
     <p><strong>loudgain</strong> ReplayGain analyser &amp; tagger by <a href="https://github.com/Moonbase59" target="_blank" rel="nofollow">Matthias C. Hormann</a><br><a href="https://github.com/Moonbase59/loudgain" target="_blank" rel="nofollow">https://github.com/Moonbase59/loudgain</a></p>
+    <p><strong>luakit</strong> web browser framework based on the WebKit web content engine and the GTK+ toolkit by <a href="https://luakit.github.io/" target="_blank" rel="nofollow">the luakit team</a><br><a href="https://luakit.github.io/" target="_blank" rel="nofollow">https://luakit.github.io/</a></p>
+    <p><strong>owntone</strong> DAAP/DACP (iTunes), RSP and MPD server by  <a href="https://github.com/ejurgensen" target="_blank" rel="nofollow">ejurgensen</a><br><a href="https://github.com/owntone/owntone-server" target="_blank" rel="nofollow">https://github.com/owntone/owntone-server</a></p>
     <p><strong>makeitpersonal</strong> song lyrics service by <a href="https://github.com/febuiles" target="_blank" rel="nofollow">Federico Builes</a><br><a href="https://github.com/febuiles/makeitpersonal" target="_blank" rel="nofollow">https://github.com/febuiles/makeitpersonal</a> &amp; <a href="https://makeitpersonal.co/" target="_blank" rel="nofollow">https://makeitpersonal.co/</a></p>
     <p><strong>matchbox-window-manager-2</strong> by <a href="https://git.yoctoproject.org/cgit/cgit.cgi/matchbox-window-manager-2/" target="_blank" rel="nofollow">Matthew, Petr Cvek, Joe Steeve, Ross Burton, Richard Purdie &amp; Tomas Frydrych</a><br><a href="https://git.yoctoproject.org/cgit/cgit.cgi/matchbox-window-manager-2/" target="_blank" rel="nofollow">https://git.yoctoproject.org/cgit/cgit.cgi/matchbox-window-manager-2/</a></p>
     <p><strong>MPC</strong> a minimalist command line interface to MPD Daemon by <a href="https://www.musicpd.org/" target="_blank" rel="nofollow">Max Kellermann, Warren Dukes, Avuton Olrich  &amp; others</a><br><a href="https://www.musicpd.org/clients/mpc/" target="_blank" rel="nofollow">https://www.musicpd.org/clients/mpc/</a></p>
@@ -128,6 +132,7 @@
     <p><strong>Pi-Bluetooth</strong><br><a href="https://aur.archlinux.org/pi-bluetooth.git" target="_blank" rel="nofollow">https://aur.archlinux.org/pi-bluetooth.git</a></p>
     <p><strong>ply-image</strong> png file loader by <a href="https://gitlab.freedesktop.org/plymouth" target="_blank" rel="nofollow">Kristian Høgsberg, Ray Strode &amp; Peter Jones</a><br><a href="https://gitlab.freedesktop.org/plymouth" target="_blank" rel="nofollow">https://gitlab.freedesktop.org/plymouth</a></p>
     <p><strong>PNotify</strong> by <a href="https://sciactive.com" target="_blank" rel="nofollow">Hunter Perrin &amp; SciActive</a><br><a href="https://sciactive.com/pnotify/" target="_blank" rel="nofollow">http://sciactive.com/pnotify</a></p>
+    <p><strong>Raspberry Pi OS (RPIOS)</strong> a Debian Linux based operating system for Raspberry Pi singe board computers by <a href="https://investors.raspberrypi.com/" target="_blank" rel="nofollow">Raspberry Pi Holdings plc</a><br><a title="Redis" href="https://www.raspberrypi.com/software/operating-systems/" target="_blank" rel="nofollow">https://www.raspberrypi.com/software/operating-systems/</a></p>
     <p><strong>raspi-rotate</strong> A convenient helper to set a Raspberry's touchscreen orientation by <a href="https://github.com/colinleroy" target="_blank" rel="nofollow">Colin Leroy-Mira</a><br><a href="https://github.com/colinleroy/raspi-rotate" target="_blank" rel="nofollow">https://github.com/colinleroy/raspi-rotate</a></p>
     <p><strong>Redis</strong> advanced key-value store by <a href="https://twitter.com/antirez" target="_blank" rel="nofollow">Salvatore Sanfilippo</a> &amp; <a href="https://twitter.com/pnoordhuis" target="_blank" rel="nofollow">Pieter Noordhuis<br></a><a title="Redis" href="https://redis.io" target="_blank" rel="nofollow">https://redis.io</a></p>
     <p><strong>Rern's Addons</strong> by <a href="https://github.com/rern" target="_blank" rel="nofollow">Rern</a><br><a href="https://github.com/rern" target="_blank" rel="nofollow">https://github.com/rern</a></p>
@@ -136,7 +141,7 @@
     <p><strong>Shairport-sync</strong> by <a href="https://github.com/mikebrady" target="_blank" rel="nofollow">Mike Brady</a><br><a href="https://github.com/mikebrady/shairport-sync" target="_blank" rel="nofollow">https://github.com/mikebrady/shairport-sync</a></p>
     <p><strong>Shairport</strong> by <a href="https://github.com/abrasive" target="_blank" rel="nofollow">James &#8220;abrasive&#8221; Laird</a><br><a href="https://github.com/abrasive/shairport" target="_blank" rel="nofollow">https://github.com/abrasive/shairport</a></p>
     <p><strong>Spop</strong> by <a href="https://github.com/Schnouki" target="_blank" rel="nofollow">Thomas Jost</a><br><a href="https://github.com/Schnouki/spop" target="_blank" rel="nofollow">https://github.com/Schnouki/spop</a></p>
-    <p><strong>Spotify</strong> by <i class="fa fa-spotify-green"></i> <a href="https://www.spotify.com/premium/" target="_blank" rel="nofollow">Spotify</a><br><a href="https://www.spotify.com/premium/" target="_blank" rel="nofollow">https://www.spotify.com</a></p>
+    <p><strong>Spotify</strong> and <strong>Spotify Connect</strong> by <i class="fa fa-spotify-green"></i> <a href="https://www.spotify.com/premium/" target="_blank" rel="nofollow">Spotify</a><br><a href="https://www.spotify.com/premium/" target="_blank" rel="nofollow">https://www.spotify.com</a></p>
     <p><strong>Spotifyd</strong> by <a href="https://github.com/Spotifyd" target="_blank" rel="nofollow">Spotifyd</a><br><a href="https://github.com/Spotifyd/spotifyd" target="_blank" rel="nofollow">https://github.com/Spotifyd/spotifyd</a></p>
     <p><strong>systemd-gpio</strong> A systemd basied GPIO switch actuator utility by <a href="https://github.com/ali1234" target="_blank" rel="nofollow">Alistair Buxton</a><br><a href="https://github.com/ali1234/systemd-gpio" target="_blank" rel="nofollow">https://github.com/ali1234/systemd-gpio</a></p>
     <p><strong>tag-flac-with-rg.sh &amp; tfwrg.sh</strong> metaflac RelayGain scripts by <a href="https://www.bobulous.org.uk/index.html" target="_blank" rel="nofollow">Bobulous</a><br><a href="https://www.bobulous.org.uk/misc/Replay-Gain-in-Linux.html" target="_blank" rel="nofollow">https://www.bobulous.org.uk/misc/Replay-Gain-in-Linux.html</a></p>
@@ -148,6 +153,7 @@
     <p><strong>UglifyJS</strong> JavaScript compressor/minifier by <a href="https://lisperator.net/" target="_blank" rel="nofollow">lisperator.net</a><br><a href="https://lisperator.net/uglifyjs/" target="_blank" rel="nofollow">https://lisperator.net/uglifyjs/</a></p>
     <p><strong>Underclocking options</strong>, CRAAP&#8482; settings for the Raspberry Pi models 3A+, 3B+ &amp; B4 by <a href="http://www.archimago.blogspot.com/" target="_blank" rel="nofollow">Archimago</a><br><a href="http://www.archimago.blogspot.com/2018/11/musings-raspberry-pi-3-b-touch.html" target="_blank" rel="nofollow">Raspberry Pi A3+ &amp; B3+</a> &amp; <a href="http://www.archimago.blogspot.com/2020/10/musingshow-to-raspberry-pi-4-touch.html" target="_blank" rel="nofollow">Raspberry Pi B4</a></p>
     <p><strong>Upmpdcli</strong> by <a href="https://www.lesbonscomptes.com/upmpdcli/index.html" target="_blank" rel="nofollow">lesbonscomptes.com</a> &amp; Jean-Francois Dockes<br><a href="https://www.lesbonscomptes.com/upmpdcli/index.html" target="_blank" rel="nofollow">https://www.lesbonscomptes.com/upmpdcli/index.html</a></p>
+    <p><strong>Western</strong> a Wayland-compositor (lichtgewicht display-server, windowmanager en compositor in one) by <a href="https://wayland.freedesktop.org/" target="_blank" rel="nofollow">Wayland</a><br><a href="https://wayland.pages.freedesktop.org/weston/" target="_blank" rel="nofollow">https://wayland.pages.freedesktop.org/weston/</a></p>
     <p><strong>WikipediA</strong> open source images (&amp; everything else...)<br><a href="https://www.wikipedia.org/" target="_blank" rel="nofollow">https://www.wikipedia.org/</a></p>
     <p><strong>Wiringpi</strong> A GPIO access library by <a href="http://wiringpi.com/contact/" target="_blank" rel="nofollow">drogon</a><br><a href="http://wiringpi.com/" target="_blank" rel="nofollow">http://wiringpi.com/</a></p>
     <p><strong>ZeroClipboard</strong> by <a href="https://github.com/zeroclipboard" target="_blank" rel="nofollow">ZeroClipboard</a><br><a href="http://zeroclipboard.org/" target="_blank" rel="nofollow">http://zeroclipboard.org/</a></p>
