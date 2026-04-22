@@ -924,7 +924,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (isset($node) && $node) {
                     $node = json_decode($node, true);
                 }
-                if (!isset($node['hostname']) && $output['type'] != 'ALSA' && isset($params['selected']) && $params['selected']) {
+                if (!isset($node['node_name']) && isset($output['type']) && ($output['type'] != 'ALSA') && isset($params['selected']) && $params['selected'] && isset($output['selected']) && !$$output['selected']) {
                     // the node table has not yet been initialised, it is a non-alsa output and the action is connect
                     //  the initialised node table will always contain an entry for each non-alsa output
                     ui_notify($redis, 'Multi-room', 'Connect failure, still initialising. Try again in a few seconds');
