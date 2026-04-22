@@ -66,7 +66,8 @@ if [[ "$enablesplash" != "0" ]] ; then
     fi
 fi
 echo "Stop MPD, services and unmount shares..."
-# stop mpd & related jobs
+# stop mpd & related jobs, the order is important
+mpc stop
 declare -a stop_arr=(ashuffle upmpdcli mpdscribble mpd)
 for i in "${stop_arr[@]}" ; do
    systemctl stop "$i"
@@ -85,6 +86,9 @@ fi
 #   stopping these process will terminate this routine
 redis-cli del cmd_queue
 redis-cli del cmd_queue_encoding
+# and also remove entries in the UI queue
+redis-cli del w_queue
+redis-cli del w_queue_fifo
 # stop most of the systemd units which can be stopped, the order is important
 declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
