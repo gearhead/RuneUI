@@ -3681,7 +3681,7 @@ function wrk_checkMountUsb($mount)
 function wrk_cleanDistro()
 {
     runelog('function CLEAN DISTRO invoked!!!','');
-    sysCmd('/srv/http/command/image_reset_script.sh');
+    sysCmd('nohup /srv/http/command/image_reset_script.sh > /dev/null 2>&1 &');
 }
 
 function wrk_audioOutput($redis, $action)
