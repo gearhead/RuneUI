@@ -294,11 +294,12 @@
             var params = {
                 command : 'Connect',
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 selected : $('#'+id+'Selected').val(),
                 offset_ms : $('#'+id+'OffsetMs').val(),
-                pin : $('#'+id+'Pin').val(),
             };
+            // debug, uncomment the folowing to see what is being passed to /db/index
+            // console.table(params);
             $.ajax({
                 type: 'GET',
                 url: '/db/?cmd=MRconnect&params='+JSON.stringify(params),
@@ -316,7 +317,7 @@
             var params = {
                 command : 'Pin',
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 pin : $('#'+id+'Pin').val(),
             };
             $.ajax({
@@ -336,7 +337,7 @@
             var params = {
                 command : 'Password',
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 password : $('#'+id+'Password').val(),
             };
             $.ajax({
@@ -356,7 +357,7 @@
             var params = {
                 command : 'Volume',
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 selected : $('#'+id+'Selected').val(),
                 volume : $('#'+id+'Volume').val(),
                 offset_ms : $('#'+id+'OffsetMs').val(),
@@ -378,7 +379,7 @@
             var params = {
                 command : $('#'+id+'MuteCommand').val(),
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 selected : $('#'+id+'Selected').val(),
                 mute : $('#'+id+'Mute').val(),
                 volume : $('#'+id+'Volume').val(),
@@ -400,7 +401,7 @@
         function ajax_MRpreset(id) {
             var params = {
                 id : id,
-                name : $('#'+id+'Name').val(),
+                name : encodeURIComponent($('#'+id+'Name').val()),
                 autoconnect : $('#'+id+'Autoconnect').val(),
                 volume_preset : $('#'+id+'VolumePreset').val(),
                 mute : $('#'+id+'Mute').val(),
@@ -678,7 +679,7 @@
                 <?php else :?>
                     <p>No outputs of this type available!
                     <?php if ($classification == 'client'): ?>
-                        <br>RuneAudio Multi-room clients must must have <strong>Airplay enabled</strong>. Apple Airplay devices and Chromecast devices should be detected automatically
+                        <br>RuneAudio Multi-room clients must must have <strong>Airplay enabled</strong>. Apple AirPlay devices and Chromecast devices should be detected automatically
                         <br></p>
                     <?php endif;?>
                 <?php endif;?>

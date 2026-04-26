@@ -17003,6 +17003,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 }
                 if (isset($retval['outputs']) && count($retval['outputs'])) {
                     foreach ($retval['outputs'] as $output) {
+                        // reformat the AirPlay name
+                        $output['name'] = format_airplay_name_from_owntone($output['name']);
                         // eliminate the local airplay name from the output and remove an stored values for this output
                         if ($output['name'] == $redis->hGet('airplay', 'name')) {
                             if ($redis->hExists('owntone_outputs', $output['name'])) {
@@ -17048,6 +17050,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             continue;
                         }
                         if (isset($output['name']) && $output['name']) {
+                            // a valid result has been returned
+                            // reformat the AirPlay name
+                            $output['name'] = format_airplay_name_from_owntone($output['name']);
                             // save the output
                             $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
                             // save the detected names
@@ -17464,6 +17469,8 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
                             // valid output returned
                             $output = $retval;
+                            // reformat the AirPlay name
+                            $output['name'] = format_airplay_name_from_owntone($output['name']);
                             // save the output when required
                             $redis->hSet('owntone_outputs', $output['name'], json_encode($output));
                         } else {
@@ -17559,144 +17566,6 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
         case 'switchao':
             // 'status' will correct any output
             //  'status' is running in a 1.5 second loop in the systemd owntone_monitor unit when owntone is activated
-            break;
-            // // no $args
-            // // only relevant for the server when local output is enabled
-            // $multidevice = $redis->hGet('onetone', 'multidevice');
-            // if ($multidevice) {
-                // // do nothing when multidevice is set
-                // break;
-            // }
-            // // mpd and owntone must be running
-            // if (!wrk_systemd_unit($redis, 'is-active', 'mpd') || !wrk_systemd_unit($redis, 'is-active', 'owntone')) {
-                // // do nothing when mpd or owntone is not running
-                // break;
-            // }
-            // $defaultVolume = $redis->hGet('owntone', 'default_volume');
-            // $role = $redis->hGet('owntone', 'role');
-            // if ($role == 'server') {
-                // // server, get its name
-                // $server = $redis->hGet('owntone', 'server');
-                // // determine the local audio output
-                // $ao = $redis->get('ao');
-                // if ($ao) {
-                    // $acard = json_decode($redis->hGet('acards', $ao), true);
-                    // if (isset($acard['description']) && $acard['description']) {
-                        // $localOutput = $acard['description'];
-                    // } else {
-                        // $localOutput = '';
-                    // }
-                // } else {
-                    // $localOutput = '';
-                // }
-                // if ($localOutput && $server) {
-                    // // local output is set
-                    // // get the owntone presets
-                    // $presetInitial = $redis->hget('owntone', 'output_presets');
-                    // $preset = json_decode($presetInitial, true);
-                    // // get the local volume level
-                    // $actPlayerInfo = json_decode($redis->get('act_player_info'), true);
-                    // if (isset($actPlayerInfo['volume']) && is_numeric($actPlayerInfo['volume'])) {
-                        // $localVolume = $actPlayerInfo['volume'];
-                    // } else {
-                        // $retval = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                        // if (isset($retval) && is_numeric($retval)) {
-                            // $localVolume = $retval;
-                        // } else if (isset($preset[$localOutput]['volume_preset']) && is_numeric($preset[$localOutput]['volume_preset'])) {
-                            // $localVolume = $preset[$localOutput]['volume_preset'];
-                        // } else {
-                            // $localVolume = $defaultVolume;
-                        // }
-                    // }
-                    // unset($actPlayerInfo, $retval);
-                    // // get the outputs
-                    // $retval = sysCmd('curl -X GET -s "http://'.$server.':3689/api/outputs"');
-                    // if (isset($retval[0]) && $retval[0]) {
-                        // $retval = json_decode($retval[0], true);
-                        // if (isset($retval['outputs']) && count($retval['outputs'])) {
-                            // // loop through the outputs, only ALSA outputs are relevant
-                            // $output = array();
-                            // foreach ($retval['outputs'] as $output) {
-                                // $outputUpdated = false;
-                                // if ($output['type'] != 'ALSA') {
-                                    // continue;
-                                // }
-                                // // ALSA output
-                                // if ($output['selected'] && ($output['name'] != $localOutput)) {
-                                    // // output is selected when it should not be
-                                    // $output['selected'] = false;
-                                    // $preset['autoconnect'] = false;
-                                    // $preset['volume_preset'] = $defaultVolume;
-                                    // if (!isset($preset['mute'])) {
-                                        // $preset[$output['name']]['mute'] = 0;
-                                    // }
-                                    // // set up the command
-                                    // $command =
-                                        // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
-                                        // ' --data '.
-                                        // '"{\"selected\": false'.
-                                        // '}"';
-                                    // // run the command
-                                    // sysCmd($command);
-                                    // $outputUpdated = true;
-                                // } else if (!$output['selected'] && ($output['name'] == $localOutput)) {
-                                    // // output is not selected when it should be
-                                    // $output['selected'] = true;
-                                    // $preset[$output['name']]['autoconnect'] = false;
-                                    // $preset[$output['name']]['volume_preset'] = $localVolume;
-                                    // if (!isset($preset[$output['name']]['mute']) || $localVolume) {
-                                        // $preset[$output['name']]['mute'] = 0;
-                                    // }
-                                    // // determine the volume
-                                    // if (isset($volume) && $volume) {
-                                        // $volume = ', \"volume\": '.$localVolume;
-                                    // } else if (isset($preset[$output['name']]['volume_preset']) && $preset[$output['name']]['volume_preset']) {
-                                        // $volume = ', \"volume\": '.$preset[$output['name']]['volume_preset'];
-                                    // } else {
-                                        // $volume = '';
-                                    // }
-                                    // // set up the command
-                                    // $command =
-                                        // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
-                                        // ' --data '.
-                                        // '"{\"selected\": true'.
-                                        // $volume.
-                                        // '}"';
-                                    // // run the command
-                                    // sysCmd($command);
-                                    // $outputUpdated = true;
-                                // }
-                                // // get the updated data if required
-                                // if ($outputUpdated) {
-                                    // // set up the command
-                                    // $command =
-                                        // 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
-                                    // // run the command
-                                    // $retval = sysCmd($command);
-                                    // if (isset($retval[0])) {
-                                        // $retval = json_decode($retval[0], true);
-                                        // if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
-                                            // $output[$output['name']] = $retval;
-                                        // }
-                                    // }
-                                // }
-                            // }
-                            // // save the outputs and presets if required
-                            // $outputInitial = $redis->hGet('owntone', 'outputs');
-                            // $outputInitialDecoded = json_decode($outputInitial, true);
-                            // $outputDecoded = array_merge($outputInitialDecoded, $output);
-                            // $outputEncoded = json_encode($outputDecoded);
-                            // if ($outputInitial != $outputEncoded) {
-                                // $redis->hSet('owntone', 'outputs', $outputEncoded);
-                            // }
-                            // $presetEncoded = json_encode($preset);
-                            // if ($presetInitial != $presetEncoded) {
-                                // $redis->hSet('owntone', 'output_presets', $presetEncoded);
-                            // }
-                        // }
-                    // }
-                // }
-            // }
             break;
         case 'switch_player':
             // no $args
@@ -18448,6 +18317,56 @@ function wrk_setup_shairport_sync($redis)
     // get and save the current shairport-sync version
     $version = sysCmd('shairport-sync -V 2>/dev/null | xargs')[0];
     $redis->hSet('airplay', 'ss_version', $version);
+}
+
+function format_airplay_name_from_avahi($airplayName)
+// this function formats the AirPlay name in the same way as format_airplay_name_from_owntone()
+//  this ensures that redis keys using this name will match
+{
+    if ((substr($airplayName, 12, 4) == '\064') && (strlen(trim($airplayName)) > 16) && (preg_match_all('/[A-Z0-9]/', substr($airplayName, 0, 12)) == 12)) {
+        // airplay name prefixed with some sort of 12 character hex code followed by \064 (an @ character), format 'xxxxxxxxxxxx\064<airplay name>'
+        //  it is usually an AirPlay 1 '_raop._tcp' line when an Airplay 2 line is present for the node
+        // we test for '\064' in the 12th position and, in an attempt to be 100% correct,
+        //  the trimmed total string length is greater than 16 and
+        //  the first 12 characters (before the '\064') are uppercase A to Z or numbers 0 to 9
+        $airplayName = substr($airplayName, 16);
+    }
+    // avahi returns special characters in the airplay node name as encoded ascii in the form '/xxx'
+    //  owntone converts these to normal characters, we do the same here
+    // replace backslash (it is escaped as a double backslash) with an underscore
+    $airplayName = str_replace("\\\\", '_', $airplayName);
+    // replace all non-breaking spaces with a space in the Airplay node name (Apple TV, for example, uses these as default!)
+    $airplayName = str_replace('\194\160', ' ', $airplayName);
+    // convert any remaining embedded ascii characters in the form '\032', '\064', '\xxx', etc. in the Airplay node name to their acsii character equivalent
+    $airplayName = preg_replace_callback('/\\\\\\d{3}/', function($matches) {
+        // matches a '\' followed by 3 numbers, avahi always uses a 3 digit decimal code
+        if (($matches[0] < '\032') && ($matches[0] == '\127') && ($matches[0] > '\256')) {
+            // eliminate control characters, backspace and values higher than 255
+            return '';
+        } else {
+            return chr(intval(substr($matches[0], 1, 3)));
+        }
+    }, $airplayName);
+    // any remaining single backslash is an escape for the letter following it, remove all the single backslashes
+    $airplayName = str_replace("\\", '', $airplayName);
+    // in the unlikely event that the Airplay node contains a backslash, open or close curly brackets, single quotes and double quotes replace each with an underscore
+    //  these characters cause problems in processing and as redis hash indexes
+    $airplayName = str_replace(array('{', '}', "'", '"'), '_', $airplayName);
+    return trim($airplayName);
+}
+
+function format_airplay_name_from_owntone($airplayName)
+// this function formats the AirPlay name in the same way as format_airplay_name_from_avahi()
+//  this ensures that redis keys using this name will match
+{
+    // in the unlikely event that the Airplay node contains a backslash, open or close curly brackets, single quotes and double quotes replace each with an underscore
+    //  these characters cause problems in processing and as redis hash indexes
+    $airplayName = str_replace(array("\\", '{', '}', "'", '"'), '_', $airplayName);
+    // in the Airplay name replace each non-breaking space with a space
+    $airplayName = str_replace("\xc2\xa0", ' ', $airplayName);
+    // remove control characters, delete and values over 256
+    $airplayName = preg_replace('/[\x00-\x1F\x7F]/', '', $airplayName);
+    return trim($airplayName);
 }
 
 /*

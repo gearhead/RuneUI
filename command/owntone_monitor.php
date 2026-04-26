@@ -166,7 +166,7 @@ while (true) {
                 //  1 - the nic (e.g. eth0)
                 //  2 - ip type (e.g. ipv4)
                 //  3 - string containing 'RuneAudio' for runeaudio nodes
-                //      string containing the AirPlay nodes name (note: sometimes prefixed with the mac address)
+                //      string containing the AirPlay nodes name (note: sometimes prefixed with a hex string)
                 //      sring containing 'Chromecast-.....' for chromecast nodes
                 //  4 - string containing '_http._tcp' for runeaudio nodes
                 //      string containing '_raop._tcp' for AirPlay 1 nodes
@@ -240,14 +240,11 @@ while (true) {
                                 (strpos(' '.strtolower($avahiElement[1]), 'eth') == 1) || (strpos(' '.strtolower($avahiElement[2]), 'ipv4') == 1)) {
                             // it is processed if airplay name is not set or a second record is present with an ethernet nic or an ipv4 connection
                             //  (wired is preferable to wi-fi and ipv4 preferable to ipv6)
-                            if (substr($avahiElement[3], 12, 4) == '\064') {
-                                // airplay name prefixed with the mac address, format 'xxxxxxxxxxxx\064<airplay name>'
-                                //  it is usually an AirPlay 1 '_raop._tcp' line when an Airplay 2 line is present for the node
-                                $avahiElement[3] = substr($avahiElement[3], 16);
-                            }
+                            $avahiElement[3] = format_airplay_name_from_avahi($avahiElement[3]);
                             $nodes[$avahiElement[7]]['type'] = 'Airplay';
                             $nodes[$avahiElement[7]]['ip'] = $avahiElement[7];
                             $nodes[$avahiElement[7]]['hostname'] = $avahiElement[6];
+                            // the airplay name needs to be reformatted
                             $nodes[$avahiElement[7]]['node_name'] = $avahiElement[3];
                         }
                     } else if (strpos(' '.$avahiElement[4], '_http._tcp')) {
@@ -384,7 +381,11 @@ while (true) {
             //  it should not happen very often as historically discovered local devices are cached and included
             $retval = wrk_owntone($redis, 'conf_add_custom_info');
             if ($retval == 'changed') {
-                wrk_owntone($redis, 'restart');
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonerestart'));
+                if (isset($jobID)) {
+                    waitSyWrk($redis, $jobID);
+                }
+                // wrk_owntone($redis, 'restart');
             }
             $cnt1 = $delay1 + rand(0, 2);
         } else if ($cnt2-- <= 0) {
@@ -394,7 +395,11 @@ while (true) {
             $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
             $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
             if ($mpdError && $owntoneRunning && $mpdRunning) {
-                wrk_owntone($redis, 'reset');
+                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonereset'));
+                if (isset($jobID)) {
+                    waitSyWrk($redis, $jobID);
+                }
+                // wrk_owntone($redis, 'reset');
             } else {
                 wrk_owntone($redis, 'status');
             }
@@ -479,8 +484,10 @@ while (true) {
                                 }
                             }
                             if (isset($retval['id']) && ($localOutput['id'] == $retval['id'])) {
+                                // save the output
                                 $localOutput = $retval;
-                                // save the output when required
+                                // reformat the AirPlay name
+                                $localOutput['name'] = format_airplay_name_from_owntone($localOutput['name']);
                                 $redis->hSet('owntone_outputs', $localOutput['name'], json_encode($localOutput));
                             }
                             // check for mute
