@@ -146,6 +146,9 @@ if [[ $cores > 1 ]] ; then
     device_mpd=$( redis-cli hget owntone device_mpd )
     device_mpd="${device_mpd/fifo/FIFO}"
     redis-cli hset owntone device_mpd $device_mpd
+    #
+    # force alsa to reload all card profiles (should not be required, but loading the pcms dose not seem to work consistantly)
+    alsactl kill rescan
     # start owntone
     # when the shairport-stnc config type is 'dual' and the switching override is not set stop shairport-sync and nqptp, then
     #   switch to ap1 and restart shairport-sync
