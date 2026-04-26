@@ -395,11 +395,17 @@ while (true) {
             $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
             $mpdRunning = wrk_systemd_unit($redis, 'is-active', 'mpd');
             if ($mpdError && $owntoneRunning && $mpdRunning) {
-                $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonereset'));
-                if (isset($jobID)) {
-                    waitSyWrk($redis, $jobID);
+                sysCmd('mpc clearerror');
+                $mpdError = sysCmd('mpc status 2>&1 | grep -ic error | xargs')[0];
+                if ($mpdError) {
+                    $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'owntonereset'));
+                    if (isset($jobID)) {
+                        waitSyWrk($redis, $jobID);
+                    }
+                    // wrk_owntone($redis, 'reset');
+                } else {
+                    wrk_owntone($redis, 'status');
                 }
-                // wrk_owntone($redis, 'reset');
             } else {
                 wrk_owntone($redis, 'status');
             }

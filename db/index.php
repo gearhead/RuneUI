@@ -661,6 +661,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // command = 'Mute' or 'Unmute'
             // returns: id, selected, volume, mute, requires_auth, has_password, requires_pin, requires_pasword, offset_ms
             $params = json_decode($_GET['params'], true);
+            $params['name'] = rawurldecode($params['name']);
             if (isset($params['selected'])) {
                 // in php we use true and false as boolians, make sure that the variable type for $params['selected'] is a boolean
                 if ($params['selected']) {
@@ -914,6 +915,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         }
                         // check that the command has returned valid data
                         if (isset($retval['id']) && ($output['id'] == $retval['id'])) {
+                            // a valid result has been returned
+                            // reformat the AirPlay name
+                            $retval['name'] = format_airplay_name_from_owntone($retval['name']);
                             if (isset($retval['volume']) && is_numeric($retval['volume']) && ($outputs[$output['name']] != $retval)) {
                                 $redis->hSet('owntone_outputs', $outputName, json_encode($retval));
                             }
@@ -1140,6 +1144,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     }
                     if (isset($output['id']) && ($output['id'] == $params['id'])) {
                         // a valid result has been returned
+                        // reformat the AirPlay name
+                        $output['name'] = format_airplay_name_from_owntone($output['name']);
                         if ($params['selected'] && !$output['selected'] && $output['requires_auth']) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a pin-code is required
                             $params['requires_pin'] = true;
@@ -1242,6 +1248,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // command = 'Pin'
             // returns: id, selected, volume, mute, requires_auth, requires_pin, requires_pasword, offset_ms
             $params = json_decode($_GET['params'], true);
+            $params['name'] = rawurldecode($params['name']);
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
             if (isset($params['pin']) && $params['pin']) {
@@ -1323,6 +1330,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
             if (isset($output['id']) && ($output['id'] == $params['id'])) {
                 // a valid result has been returned
+                // reformat the AirPlay name
+                $output['name'] = format_airplay_name_from_owntone($output['name']);
                 // save the output info
                 $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                 // correct the return values if required
@@ -1404,6 +1413,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // command = 'Password'
             // returns: id, selected, volume, mute, requires_auth, requires_pin, requires_pasword, offset_ms
             $params = json_decode($_GET['params'], true);
+            $params['name'] = rawurldecode($params['name']);
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
             // if (isset($params['password']) && $params['password']) {
@@ -1446,6 +1456,8 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             $preset = json_decode($redis->hGet('owntone_presets', $params['name']), true);
             if (isset($output['id']) && ($output['id'] == $params['id'])) {
                 // a valid result has been returned
+                // reformat the AirPlay name
+                $output['name'] = format_airplay_name_from_owntone($output['name']);
                 // save the output info
                 $redis->hSet('owntone_outputs', $params['name'], json_encode($output));
                 // correct the return values if required
@@ -1519,6 +1531,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // params: id, name, autoconnect, volume_preset, mute, requires_pin, requires_pasword
             // returns: id, autoconnect, volume_preset, selected, volume, mute
             $params = json_decode($_GET['params'], true);
+            $params['name'] = rawurldecode($params['name']);
             // get the default volume
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             // Bluetooth can only have one autoconnect device
