@@ -16703,6 +16703,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     foreach ($acards as $acard) {
                         $acard_decoded = array();
                         $acard_decoded = json_decode($acard, true);
+                        if (substr($acard_decoded['swdevice'], 0, 9) == 'bluealsa:') {
+                            // omit Bluetooth cards, these are added below
+                            continue;
+                        }
                         $owntoneCard = array();
                         $owntoneCard['card_name'] = $acard_decoded['swdevice'];
                         $owntoneCard['nickname'] = $acard_decoded['description'];
@@ -16722,8 +16726,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     foreach ($btDevices as $btDevice) {
                         $owntoneCard = array();
                         $owntoneCard['card_name'] = "bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp";
-                        $owntoneCard['nickname'] = 'Bluetooth: '.$btDevice['name'];
+                        $owntoneCard['nickname'] = 'Bluetooth: '.$btDevice['name'].' ('.$btDevice['icon'].')';
                         $owntoneCard['mixer'] = '';
+                        // $owntoneCard['mixer'] = $btDevice['name'].' A2DP';
                         $owntoneCard['mixer_device'] = '';
                         $owntoneCard['file'] = $tmpFile;
                         wrk_owntone($redis, 'conf_add_alsa_card', $owntoneCard,);

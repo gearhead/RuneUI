@@ -1592,8 +1592,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 'selected' => $selected,
                 'volume' => $volume,
                 'requires_pin' => 0,
-                'requires_password' => 0,
-                'offset_ms' => $params['offset_ms']));
+                'requires_password' => 0));
             unset($params, $preset, $output, $selected, $volume);
             break;
         case 'MRowntoneactive':

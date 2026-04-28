@@ -189,6 +189,12 @@
                     text: 'Password required',
                     icon: 'fa fa-exclamation'
                 });
+            } else if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'Name').val().substring(0, 11) == 'Bluetooth: ')) {
+                new PNotify({
+                    title: 'Multi-room',
+                    text: 'Bluetooth connect not supported at the moment',
+                    icon: 'fa fa-exclamation'
+                });
             } else {
                 if ($('#'+id+'Selected').val() == '0') {
                     $('#'+id+'Selected').val('1');
@@ -476,9 +482,6 @@
             }
             $('#'+ret.id+'MuteCommand').val(($('#'+ret.id+'Mute').val() == '0') ? ' Mute' : ' Unmute');
             $('#'+ret.id+'Mute').attr({'title' : ($('#'+ret.id+'Mute').val() == '0') ? 'Mute the output' : 'Unmute the output'});
-            if (selected_trigger_change) {
-                $('#'+ret.id+'Selected').trigger('change');
-            }
             document.getElementById(ret.id+'Volume').onchange = function() {
                 change_Volume(document.getElementById(ret.id+'ID').value);
             };
@@ -491,6 +494,9 @@
             document.getElementById(ret.id+'AutoconnectButton').onclick = function() {
                 click_AutoconnectButton(document.getElementById(ret.id+'ID').value);
             };
+            if (selected_trigger_change) {
+                $('#'+ret.id+'Selected').trigger('change');
+            }
         }
     </script>
     <div>
