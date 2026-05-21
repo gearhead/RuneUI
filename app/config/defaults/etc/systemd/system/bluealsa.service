@@ -21,6 +21,7 @@ User=bluealsa
 EnvironmentFile=-/etc/default/bluealsa
 ExecStart=/usr/bin/bluealsad $OPTIONS
 Restart=on-failure
+RestartSec=5s
 
 # Sandboxing
 AmbientCapabilities=CAP_NET_RAW
