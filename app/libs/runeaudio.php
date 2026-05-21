@@ -4498,18 +4498,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $mpdversion = sysCmd("grep -i 'Music Player Daemon' /srv/http/.config/mpdversion.txt | cut -f4 -d' ' | xargs")[0];
             $redis->hSet('mpdconf', 'version', $mpdversion);
             // if MPD has been built with SoXr support use it
-            // it was introduced in v0.19 but is difficult to detect, search for soxr in the binary
-            // for v0.20 and higher SoXr is reported in the --version list if it was included in the build
-            if ($mpdversion >= '0.20.00') {
-                // MPD version is higher than 0.20
-                $count = sysCmd('grep -ic "soxr" /srv/http/.config/mpdversion.txt | xargs')[0];
-            } elseif ($mpdversion >= '0.19.00') {
-                // MPD version is higher than 0.19 but lower than 0.20
-                $count = sysCmd('grep -hc "soxr" /usr/bin/mpd | xargs')[0];
-            } else {
-                // MPD version is lower than 0.19
-                $count = 0;
-            }
+            $count = sysCmd('grep -ic "soxr" /srv/http/.config/mpdversion.txt | xargs')[0];
             if ($count > 0) {
                 // SoXr has been built with MPD, so use it
                 $redis->hSet('mpdconf', 'soxr', 'very high');
@@ -13244,7 +13233,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
 //  quality_options, auto_volume
 // the function returns true or false, except when $action = status, in which case an array containing all bluetooth device statuses is returned
 // $param optionally contains a the MAC-address of the device, where:
-//  $param is valid for: pair, cancel-pairing, connect, disconnect, output_connect, trust, untrust
+//  $param is valid for: pair, connect, disconnect, trust, untrust
 //  $param is compulsory for: pair, connect
 //  when $param is not supplied all devices will be processed
 //  $jobID is always optional, is only relevant for some actions, when supplied the ID will be released quicker
