@@ -1283,8 +1283,8 @@ while (true) {
                                                 case 'Status':
                                                     if ($value == 'playing') {
                                                         $state = 'play';
-                                                    // } if ($value == 'paused') {
-                                                        // $state = 'pause';
+                                                    } if ($value == 'paused') {
+                                                        $state = 'pause';
                                                     } else {
                                                         $state = 'stop';
                                                     }
