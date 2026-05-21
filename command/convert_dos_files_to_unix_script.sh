@@ -266,12 +266,25 @@ find /srv/http/ \! -user www-data -exec chown www-data:www-data {} \;
 find /srv/http/ \! -group www-data -exec chown www-data:www-data {} \;
 find /srv/http/ -type f \! -perm 644 -exec chmod 644 {} \;
 find /srv/http/ -type d \! -perm 755 -exec chmod 755 {} \;
+# now change the ownership of the distribution system default files in /srv/http/app/config/defaults to user/group root:root
+# exceptions are files in /srv/http/app/config/defaults/srv/* which are left as user/group www-data:www-data
+find /srv/http/app/config/defaults -maxdepth 1 -type f \! -user root -exec chown root:root {} \;
+find /srv/http/app/config/defaults -maxdepth 1 -type f \! -group root -exec chown root:root {} \;
+find /srv/http/app/config/defaults \! -path "/srv/http/app/config/defaults/srv/*" \! -path "/srv/http/app/config/defaults/srv" \! -user root -exec chown root:root {} \;
+find /srv/http/app/config/defaults \! -path "/srv/http/app/config/defaults/srv/*" \! -path "/srv/http/app/config/defaults/srv" \! -group root -exec chown root:root {} \;
+# change the permissions of all *.conf files in /etc/...
 find /etc -type f -name *.conf \! -perm 644 -exec chmod 644 {} \;
+# change the permissions of all *.service files in /etc/systemd/system
 find /etc/systemd/system -type f -name *.service \! -perm 644 -exec chmod 644 {} \;
+# change the permissions of all files in /etc/nginx/html/
 find /etc/nginx/html/ -type f \! -perm 644 -exec chmod 644 {} \;
+# change the permissions of the directory /run
 find / -maxdepth 1 -type d -name run \! -perm 777 -exec chmod 777 {} \;
+# make all files in /srv/http/command/ executable
 find /srv/http/command/ -type f \! -perm 755 -exec chmod 755 {} \;
+# make non *.txt files in /srv/http/db/ executable
 find /srv/http/db/ -type f \! -name "audio_allowed_formats_table*.txt" \! -perm 755 -exec chmod 755 {} \;
+# make audio control txt files read only
 find /srv/http/db/ -type f -name "audio_allowed_formats_table*.txt" \! -perm 444 -exec chmod 444 {} \;
 find /srv/http/.config/ -type f -name i2s_table*.txt \! -perm 444 -exec chmod 444 {} \;
 # remount art cache
@@ -306,6 +319,10 @@ find /usr/local/bin/ -maxdepth 1 -type f -name apt \! -perm 755 -exec chmod 755 
 # will arrive as 755; normalise everything to 644
 find /mnt/MPD/Webradio -maxdepth 1 -type f -name '*.pls' \! -perm 644 -exec chmod 644 -- '{}' \;
 # make sure that the files in /etc/NetworkManager/dispatcher.d/ are executable
-find /etc/NetworkManager/dispatcher.d/ -maxdepth 1 -type f \! -perm 755 -exec chmod 755 -- '{}' \;
+find /etc/NetworkManager/dispatcher.d/  \! -perm 755 -exec chmod 755 -- '{}' \;
+# make sure the file contents of /etc/default have owner/group root:root, writeable by root and readable by all
+find /etc/default -maxdepth 1 -type f \! -user root -exec chown root:root {} \;
+find /etc/default -maxdepth 1 -type f \! -group root -exec chown root:root {} \;
+find /etc/default -maxdepth 1 -type f \! -perm 644 -exec chmod 644 {} \;
 #---
 #End script
