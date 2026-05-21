@@ -13341,7 +13341,6 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 $retval = false;
                 break;
             }
-            // wrk_btcfg($redis, 'trust', $param);
             wrk_btcfg($redis, 'pair', $param);
             sysCmd('timeout 5 bluetoothctl connect '.$param);
             wrk_btcfg($redis, 'trust', $param);
