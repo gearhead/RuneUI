@@ -112,7 +112,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                             $x = sysCmd('mpc volume '.$value);
                         }
                     }
-                    
+
                     $response = implode('\n', $x);
                     unset($x);
                     break;

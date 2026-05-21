@@ -288,7 +288,7 @@
                         The default value is <strong>ON</strong>, you can change it if this causes problems.<br>
                         <i>Note: Depending on the Bluetooth source device, it may be unaware of volume level changes made by the RuneAudio player.
                         This could result in unpredictable large changes of volume when both source and player volume controls are used in succession</i></span>
-                        
+
                 </div>
             </div>
             <div class="form-group">
