@@ -5180,7 +5180,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         ui_notify($redis, 'Audio output switched', "Multi-room active");
                     }
                 } else {
-                    if ($interface_label) {
+                    if ($interface_label && !in_array($args, $enabledOutputs)) {
                         ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
                     }
                 }
