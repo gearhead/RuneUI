@@ -74,7 +74,8 @@
                 Click on <strong>Forget</strong> to forget a device.<br>
                 Use the Audio Output Interface selector in the <a href="/mpd/">Audio Output menu</a> to use the connected device.<br>
                 <i>Notes: Detection of Bluetooth output devices will terminate 5 minutes after clicking 'Discover Output Devices'.
-                Switching off an active Bluetooth output device will cause RuneAudio to revert to the previously selected output device.
+                It will also automatically terminate when a Bluetooth output device is selected in the <a href="/mpd/">Audio Output Menu, Audio Output selector</a>.
+                Switching off or disconnecting an active Bluetooth output device will cause RuneAudio to revert to the previously selected output device.
                 You should leave all detected Bluetooth devices in the list, untrust those which you do not want to use.
                 Clicking 'Discover Output Devices' will terminate and disconnect any active Bluetooth Input Device.
                 Concurrent Bluetooth input and output is not possible. All Bluetooth Output Devices are disconnected and automatically become blocked

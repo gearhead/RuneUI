@@ -5008,6 +5008,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                             $mpdNullenable = true;
                             // start Bluetooth
                             $startBluetooth = true;
+                            // stop the bluetooth discovery service
+                            //  this is done because the discovery service causes very poor audio quality
+                            wrk_systemd_unit($redis, 'stop', 'bluetoothctl_scan');
                         } else if ((strpos(' '.strtolower($acard['swdevice']), 'vc4') && strpos(' '.strtolower($acard['swdevice']), 'hdmi')) ||
                                 (isset($acard['description']) && (substr($acard['description'], 0, 4) == 'USB:'))) {
                             // its a vc4 hdmi or USB output, enable the null output device
@@ -13305,6 +13308,12 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
 //  when $param is not supplied all devices will be processed
 //  $jobID is always optional, is only relevant for some actions, when supplied the ID will be released quicker
 {
+    // stop bluetooth discovery when certain actions are carried out
+    //  this improves the responsiveness and reliability of the action
+    $stopDiscoveryActions = array('connect', 'disconnect', 'untrust');
+    if (in_array($action, $stopDiscoveryActions)) {
+        wrk_systemd_unit($redis, 'stop', 'bluetoothctl_scan');
+    }
     $retval = true;
     switch ($action) {
         case 'enable':
@@ -14248,6 +14257,10 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             }
             unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control);
             break;
+    }
+    // restart bluetooth discovery if relevant
+    if (in_array($action, $stopDiscoveryActions) && wrk_systemd_unit($redis, 'is-active', 'bt_scan_output')) {
+        wrk_systemd_unit($redis, 'start', 'bluetoothctl_scan');
     }
     return $retval;
 }
