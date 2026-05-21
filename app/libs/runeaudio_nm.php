@@ -4931,6 +4931,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $owntoneRunning = wrk_systemd_unit($redis, 'is-active', 'owntone');
             $argsOutputSelected = false;
             $owntoneOutputSelected = false;
+            $ownttoneSwitched = false;
             // switch audio output to $args
             if (isset($args)) {
                 $args = trim($args);
@@ -4984,7 +4985,6 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->set('ao_default', $args);
                 }
                 // switch interface
-                $ownttoneSwitched = false;
                 $outputs = sysCmd('mpc outputs');
                 if (isset($outputs) && is_array($outputs) && count($outputs)) {
                     foreach ($outputs as $output) {
@@ -5085,6 +5085,11 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             } else {
                 $interface_label = $args;
             }
+            // switch to MPD if it is not active
+            if ($redis->get('activePlayer') != 'MPD') {
+                ui_notify($redis, 'Playback source switched to:', 'MPD');
+                wrk_stopPlayer($redis);
+            }
             // notify UI
             if ($ownttoneSwitched) {
                 if ($owntoneActive) {
@@ -5100,15 +5105,19 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         ui_notify($redis, 'Audio output switched', "Multi-room deactivated");
                     }
                 }
-            // } else if ($interface_label && !$argsOutputSelected) {
-                // ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
-            } else if ($interface_label && ($args != $oldMpdout)) {
-                ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
-            }
-            if ($redis->get('activePlayer') != 'MPD') {
-                ui_notify($redis, 'Playback source switched to:', 'MPD');
-                wrk_stopPlayer($redis);
+            } else {
+                if ($owntoneActive) {
+                    if ($interface_label) {
+                        ui_notify($redis, 'Audio output switched', "Multi-room active, current active local output:\n".$interface_label);
+                    } else {
+                        ui_notify($redis, 'Audio output switched', "Multi-room active");
+                    }
+                } else {
                     if ($interface_label && !in_array($args, $enabledOutputs)) {
+                        ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
+                    }
+                }
+            }
             if ($playState == 'play') {
                 sysCmd('mpc play');
             }
