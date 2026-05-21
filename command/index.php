@@ -99,6 +99,7 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             if (isset($value)) {
                 $value = trim($value);
             }
+            $btMessage = array();
             switch ($command) {
                 case 'setvol':
                     $pcms = wrk_btcfg($redis, 'auto_volume');
@@ -111,11 +112,32 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                             $x = sysCmd('mpc volume '.$value);
                         }
                     }
+                    
                     $response = implode('\n', $x);
                     unset($x);
                     break;
+                case 'previous':
+                    $btMessage = sysCmd('bluetoothctl player.previous');
+                    break;
+                case 'next':
+                    $btMessage = sysCmd('bluetoothctl player.next');
+                    break;
+                case 'pause':
+                    $btMessage = sysCmd('bluetoothctl player.pause');
+                    break;
+                case 'stop':
+                    $btMessage = sysCmd('bluetoothctl player.stop');
+                    break;
+                case 'play':
+                    $btMessage = sysCmd('bluetoothctl player.play');
+                    break;
                 default:
                     break;
+            }
+            if (count($btMessage)) {
+                foreach ($btMessage as $btMessage_line) {
+                    ui_notify($redis, 'Bluetooth', $btMessage_line);
+                }
             }
         }
     }

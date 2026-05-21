@@ -573,14 +573,25 @@ function setUIbuttons(activePlayer) {
     // console.log('GUI.consume:', GUI.consume);
     // console.log('GUI.json.consume:', GUI.json.consume);
     // this is the menus section header buttons
-    if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect') || (activePlayer === 'Bluetooth')) {
+    if ((activePlayer === 'Airplay') || (activePlayer === 'SpotifyConnect')) {
         // most UI knobs are only active for MPD
         $('#stop').addClass('disabled');
         $('#play').addClass('disabled');
         $('#next').addClass('hide');
         $('#previous').addClass('hide');
+    } else if (activePlayer === 'Bluetooth') {
+        // Bluetooth stop, play, previous and next are valid
+        $('#stop').removeClass('disabled');
+        $('#play').removeClass('disabled');
+        if (GUI.state == 'stop') {
+            $('#next').addClass('hide');
+            $('#previous').addClass('hide');
+        } else {
+            $('#next').removeClass('hide');
+            $('#previous').removeClass('hide');
+        }
     } else {
-        // MPD, stop and play valid
+        // MPD, stop, play, previous and next are valid, previous invalid when consume is on, CD eject may also be valid
         $('#stop').removeClass('disabled');
         $('#play').removeClass('disabled');
         if (GUI.state == 'stop') {
