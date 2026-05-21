@@ -5032,6 +5032,13 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     $redis->sRem('w_lock', $jobID);
                 }
             }
+            // get the currently enabled outputs
+            $enabledOutputs = sysCmd('mpc outputs | grep "is enabled"');
+            foreach ($enabledOutputs as &$enabledOutput) {
+                $enabledOutput = get_between_data($enabledOutput, '(', ')');
+            }
+            // get the current play state
+            $playState = json_decode($redis->get('act_player_info'), true)['state'];
             // debug
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
@@ -5124,15 +5131,14 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                     // sysCmdAsync($redis, '/srv/http/command/check_MPD_outputs_async.php');
                 }
             }
-            if ($startBluetooth && sysCmd('mpc status | grep -ic "\[playing\]"')[0]) {
+            if ($startBluetooth && ($playState == 'play')) {
                 // // set the initial volume for the bluetooth device
                 // $btVolume = $redis->hGet('bluetooth', 'def_volume_out');
                 // if ($btVolume != -1) {
                     // sysCmd('mpc volume '.$btVolume);
                 // }
                 // bluealsa needs a pause and play to successfully switch when already playing
-                sysCmd('mpc pause');
-                sysCmd('mpc play');
+                sysCmd('mpc pause ; sleep 1 ; mpc play');
             }
             if ($redis->get('activePlayer') === 'Bluetooth') {
                 wrk_btcfg($redis, 'auto_volume');
@@ -5178,6 +5184,9 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         ui_notify($redis, 'Audio output switched', "Current active output:\n".$interface_label);
                     }
                 }
+            }
+            if ($playState == 'play') {
+                sysCmd('mpc play');
             }
             break;
         case 'refresh':
