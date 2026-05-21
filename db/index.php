@@ -1251,16 +1251,18 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             $params['name'] = rawurldecode($params['name']);
             $defaultVolume = $redis->hGet('owntone', 'default_volume');
             $server = $redis->hGet('owntone', 'server');
-            if (isset($params['pin']) && $params['pin']) {
-                // its a pin transaction, no other parameters are valid
-                $commandPut =
-                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
-                $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
-                // debug
-                // ui_notify($redis, 'Debug', $commandPut);
-                sysCmd($commandPut);
-                sleep(1);
-            }
+            // its a pin transaction, no other parameters are valid
+            $commandPut =
+                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+            $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
+            // debug
+            // ui_notify($redis, 'Debug', $commandPut);
+            sysCmd($commandPut);
+            sleep(2);
+            // attempt to set the volume
+            $commandPutVolume =
+                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
+            sysCmd($commandPutVolume);
             // get the current settings of the output, update the redis outputs and set the return values
             $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
             $retval = sysCmd($commandGet);
@@ -1292,14 +1294,16 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if (isset($output['id']) && ($output['id'] == $params['id']) && !$output['selected']) {
                 // a valid result has been returned, but not connected, try to connect again
                 $commandPutSelectTrue =
-                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": true}"';
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
                 $commandPutSelectFalse =
-                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": false}"';
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": false }"';
                 // sysCmd($commandPutSelectFalse);
                 sysCmd($commandPutSelectTrue);
-                sleep(1);
+                sleep(2);
                 sysCmd($commandPut);
-                sleep(1);
+                sleep(2);
+                // attempt to set the volume
+                sysCmd($commandPutVolume);
                 $retval = sysCmd($commandGet);
                 if (isset($retval[0])) {
                     // an array returned
