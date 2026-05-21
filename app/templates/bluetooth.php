@@ -282,11 +282,13 @@
                         <span><span>Off</span><span>On</span></span><a class="btn btn-primary"></a>
                     </label>
                     <span class="help-block">Toggle the Local Volume Control for Bluetooth Input.
-                        Normally, when Bluetooth Input is used, the volume control on the RuneAudio player is disabled and the volume is
-                        controlled by Bluetooth Input Device. By switching On the Local Volume Control the volume can be controlled by
-                        both the RuneAudio player and the input device. The default value is Off, this is the recommended setting.<br>
-                        <i>Note: The Bluetooth Input Device is unaware of volume changes made by the RuneAudio player. This may result
-                        in unpredictable large changes of volume when both source and player volume controls are used in succession</i></span>
+                        When Bluetooth Input is used, the volume control on Bluetooth source device can be used.
+                        The volume level can also be set by the RuneAudio player.
+                        By switching <strong>OFF</strong> the Local Volume Control the volume can then only be controlled by the Bluetooth source device.
+                        The default value is <strong>ON</strong>, you can change it if this causes problems.<br>
+                        <i>Note: Depending on the Bluetooth source device, it may be unaware of volume level changes made by the RuneAudio player.
+                        This could result in unpredictable large changes of volume when both source and player volume controls are used in succession</i></span>
+                        
                 </div>
             </div>
             <div class="form-group">
