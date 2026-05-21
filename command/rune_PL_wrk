@@ -1245,6 +1245,10 @@ while (true) {
                                     $playerInfoLine = trim(preg_replace('|\s+|', ' ', $playerInfoLine));
                                     list($element, $value) = explode(':', $playerInfoLine, 2);
                                     if (isset($element) && isset($value)) {
+                                        if (strpos(' '.$element, '.')) {
+                                            // element has a prefix (usually 'Track'), remove it
+                                            $element = explode('.', $element, 2)[1];
+                                        }
                                         $element = trim($element);
                                         $value = trim($value);
                                         if ($element && $value) {
@@ -1339,12 +1343,18 @@ while (true) {
                                         $status['currentsong'] = $title;
                                         if (isset($repeat)) {
                                             $status['repeat'] = $repeat;
+                                        } else {
+                                            $status['repeat'] = 0;
                                         }
                                         if (isset($single)) {
                                             $status['single'] = $single;
+                                        } else {
+                                            $status['single'] = 0;
                                         }
                                         if (isset($random)) {
                                             $status['random'] = $random;
+                                        } else {
+                                            $status['random'] = 0;
                                         }
                                         if (isset($duration)) {
                                             $status['duration'] = $duration;
