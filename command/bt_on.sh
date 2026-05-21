@@ -84,13 +84,36 @@ if [ "$sel_controler" != "" ] ; then
     timeout 5 bluetoothctl select $sel_controler
 fi
 systemctl start bluealsa
-count=3
-timeout 5 bluealsactl list-services
-until [ $? -eq 0 ] || (( count-- <= 0 )); do
-    # loop for 3 times to allow the bluealsa service to start and initialise
-    # echo $count
-    # echo $?
+sleep 2
+start_error=$( systemctl status bluealsa | grep -ic 'GDBus.Error:org.bluez.Error.AlreadyExists: Already Exists' | xargs )
+if [ "$start_error" != "0" ] ; then
+    systemctl restart bluealsa
     sleep 2
+fi
+count1=3
+count2=3
+timeout 5 bluealsactl list-services
+until [ $? -eq 0 ] || (( count1-- <= 0 )); do
+    until [ $? -eq 0 ] || (( count2-- <= 0 )); do
+        # loop for 3 times to allow the bluealsa service to start and initialise
+        # echo $count2
+        # echo $?
+        sleep 2
+        timeout 5 bluealsactl list-services
+    done
+    # loop for 3 times to restart the bluealsa service if it fails to initialise correctly
+    # echo $count1
+    # echo $?
+    if [ $? -ne 0 ] ; then
+        systemctl restart bluealsa
+        sleep 2
+    else
+        start_error=$( systemctl status bluealsa | grep -ic 'GDBus.Error:org.bluez.Error.AlreadyExists: Already Exists' | xargs )
+        if [ "$start_error" != "0" ] ; then
+            systemctl restart bluealsa
+            sleep 2
+        fi
+    fi
     timeout 5 bluealsactl list-services
 done
 systemctl start bluealsa-aplay
