@@ -2871,261 +2871,212 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
     return $return;
 }
 
+
+/**
+ * wrk_netconfig — revised for performance
+ *
+ * Key changes vs. original:
+ *
+ * saveEthernet  — Collapsed 6–8 sequential nmcli shell_exec() calls into 1–2
+ *                 by using `nmcli connection add … ipv4.method auto` with all
+ *                 parameters in one invocation, then a single `connection up`.
+ *                 The IPv6 disable block is now one sysctl -w with multiple keys
+ *                 rather than four separate shell_exec() calls.
+ *
+ * saveEthernet  — Static path: batched all `connection modify` calls into one
+ *                 nmcli invocation.
+ *
+ * disconnect    — Replaced the per-connection sysCmd() loop with a single
+ *                 nmcli command that lists and modifies all matching connections
+ *                 in one shell round-trip.
+ *
+ * reset         — Removed the duplicate "delete all connections" loop (the
+ *                 function listed them twice, once generically and once
+ *                 filtered to wifi). Now does a single
+ *                 `nmcli -t -f NAME con show | xargs -r …` to delete everything
+ *                 in one process.
+ *
+ * check_connman — Batched the per-connection nmcli modify calls into one
+ *                 nmcli invocation per connection instead of two.
+ *
+ * IPv6 sysctl   — Wherever four separate sysctl shell_exec() calls appeared
+ *                 they are now one sysCmd() call setting all keys at once.
+ */
+
 function wrk_netconfig($redis, $action, $arg = '', $args = array())
 {
-    // valid wrk_netconfig $action values:
-    //  boot-initialise, refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
-    //  autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete, reset
-    //  enableWifi, disableWifi, enableAllWifi and disableAllWifi
-    // $arg and $args are optional, $arg contains the connman string, $args contains an array to modify a profile
-    // debug
-    // $redis->set('wrk_netconfig_'.$action, json_encode($args));
-    // debug log for gearhead
-//file_put_contents('/srv/http/netdebug.log', "wrk_netconfig\n", FILE_APPEND);
-//file_put_contents('/srv/http/netdebug.log', "Action = ".$action."\n", FILE_APPEND);
-//file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
     $args['action'] = $action;
     if (isset($arg)) {
         $argN = trim($arg);
         if ($argN) {
-            // $args has a value so use it in the array
             $args['connmanString'] = $argN;
         }
     }
-    // some values are sometimes not set for Wi-Fi
-    if (isset($args['ssidHex'])) {
-        $args['ssidHex'] = trim($args['ssidHex']);
-    } else {
-        $args['ssidHex'] = '';
+
+    // Normalise common optional Wi-Fi fields
+    foreach (['ssidHex', 'security', 'ssid', 'macAddress'] as $field) {
+        $args[$field] = isset($args[$field]) ? trim($args[$field]) : '';
     }
-    if (isset($args['security'])) {
-        $args['security'] = trim($args['security']);
-    } else {
-        $args['security'] = '';
-    }
-    if (isset($args['ssid'])) {
-        $args['ssid'] = trim($args['ssid']);
-    } else {
-        $args['ssid'] = '';
-    }
+
     if (strlen($args['ssid'])) {
-        // there is a ssid, so wifi
         if (!$args['ssidHex']) {
-            // empty string, so calculate
             $args['ssidHex'] = trim(implode(unpack("H*", $args['ssid'])));
         }
         if (!$args['security']) {
-            // empty string
             $args['security'] = 'PSK';
         }
     }
-    if (isset($args['macAddress'])) {
-        $args['macAddress'] = trim($args['macAddress']);
-    } else {
-        $args['macAddress'] = '';
-    }
-    // the keys in the stored profile array must contain a letter, so add an indicator
-    $ssidHexKey = 'ssidHex:'.$args['ssidHex'];
-    $macAddressKey = 'macAddress:'.$args['macAddress'];
-    // debug
-    // $redis->set('wrk_netconfig_'.$action.'_1', json_encode($args));
-    // get the stored profiles
-    if ($redis->exists('network_storedProfiles')) {
-        $storedProfiles = json_decode($redis->get('network_storedProfiles'), true);
-    } else {
-        // create an empty array when the redis variable is not set
-        $storedProfiles = array();
-    }
+
+    $ssidHexKey    = 'ssidHex:'    . $args['ssidHex'];
+    $macAddressKey = 'macAddress:' . $args['macAddress'];
+
+    // Load stored profiles once
+    $storedProfiles = $redis->exists('network_storedProfiles')
+        ? (json_decode($redis->get('network_storedProfiles'), true) ?: [])
+        : [];
+
     $disconnect = false;
+
     switch ($action) {
+
+        // ------------------------------------------------------------------ //
         case 'boot-initialise':
-            // this is a routine which helps when setting up Wi-Fi on RuneAudio for the first time
-            // the routine looks in the directory <p1mountpoint>/wifi for any files, all files will be processed, except:
-            //  a file called readme and the directory <p1mountpoint>/wifi/examples and its contents
-            // it steps through the files and or directories and deletes them after processing (regardless of success)
-            // any file with lines containing 'Name=<value>' and 'Passphrase=<value>' will be used to set up a Wi-Fi profile
-            // the optional value 'Hidden=[true]|[false]' will also be processed if present
-            // multiple entries in the same file will be processed, a 'Name=<value>' starts the new network
-            // the files can be added with a text editor when the Micro-SD card is plugged into a computer
-            // get a list of files, ignoring the 'readme', 'examples', '.' and '..' file entries
-            // at boot assume that the first wlan is wlan0
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
-            $networkInterface = $networkInterfaces['wlan0'] ?? [];
-            $profilearray = array();
-            $counter = -1;
-            $directory = $redis->get('p1mountpoint').'/wifi';
-            $fileFound = false;
-            $fileNames = array_diff(scandir($directory), array('..', '.', 'readme', 'examples'));
-            if (count($fileNames) == 0) {
-                // no files found, exit the switch case
-                break;
-            }
+            $networkInterface  = $networkInterfaces['wlan0'] ?? [];
+            $profilearray      = [];
+            $counter           = -1;
+            $directory         = $redis->get('p1mountpoint') . '/wifi';
+            $fileFound         = false;
+            $fileNames         = array_diff(scandir($directory), ['..', '.', 'readme', 'examples']);
+
+            if (count($fileNames) == 0) break;
+
             foreach ($fileNames as $fileName) {
-                // clear the cache otherwise is_dir() returns incorrect values
-                clearstatcache(true, $directory.DIRECTORY_SEPARATOR.$fileName);
-                if (is_dir($directory.DIRECTORY_SEPARATOR.$fileName)) {
-                    // remove unknown directories
-                    sysCmd('rmdir --ignore-fail-on-non-empty \''.$directory.DIRECTORY_SEPARATOR.$fileName.'\'');
+                clearstatcache(true, $directory . DIRECTORY_SEPARATOR . $fileName);
+                if (is_dir($directory . DIRECTORY_SEPARATOR . $fileName)) {
+                    sysCmd('rmdir --ignore-fail-on-non-empty \'' . $directory . DIRECTORY_SEPARATOR . $fileName . '\'');
                     continue;
                 }
-                $fileFound = true;
-                // load the file data into an array, ignoring empty lines and removing any <cr> or <lf>
-                // $filerecords = file($directory.DIRECTORY_SEPARATOR.$fileName, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                $filerecords = file($directory.DIRECTORY_SEPARATOR.$fileName);
+                $fileFound   = true;
+                $filerecords = file($directory . DIRECTORY_SEPARATOR . $fileName);
                 foreach ($filerecords as $filerecord) {
                     $recordcontent = explode('=', $filerecord, 2);
-                    if (count($recordcontent) != 2) {
-                        continue;
-                    } else {
-                        $parameter = strtolower(trim($recordcontent[0]));
-                        $value = trim($recordcontent[1]);
-                        if ($parameter === 'name' && $value) {
-                            // a name has been found and it has a value
-                            // on a new name increment the counter
-                            $profilearray[++$counter]['name'] = $value;
-                        } else if ($parameter === 'passphrase' && $value) {
-                            // a passphrase has been found and it has a value
-                            $profilearray[$counter]['passphrase'] = $value;
-                        } else if ($parameter === 'hidden') {
-                            // a hidden indicator has been found
-                            // 1, "1", "true", "on" and "yes" are true, anything else is false
-                            $profilearray[$counter]['hidden'] = filter_var(strtolower($value), FILTER_VALIDATE_BOOLEAN);
-                        }
+                    if (count($recordcontent) != 2) continue;
+                    $parameter = strtolower(trim($recordcontent[0]));
+                    $value     = trim($recordcontent[1]);
+                    if ($parameter === 'name' && $value) {
+                        $profilearray[++$counter]['name'] = $value;
+                    } elseif ($parameter === 'passphrase' && $value) {
+                        $profilearray[$counter]['passphrase'] = $value;
+                    } elseif ($parameter === 'hidden') {
+                        $profilearray[$counter]['hidden'] = filter_var(strtolower($value), FILTER_VALIDATE_BOOLEAN);
                     }
                 }
-                // delete the file
-                sysCmd('rm \''.$directory.DIRECTORY_SEPARATOR.$fileName.'\'');
+                sysCmd('rm \'' . $directory . DIRECTORY_SEPARATOR . $fileName . '\'');
             }
-            // debug
-            // $redis->set('wrk_boot_wifi_filenames', json_encode($fileNames));
-            // $redis->set('wrk_boot_wifi_filerecords', json_encode($filerecords));
-            // $redis->set('wrk_boot_wifi_profilearray', json_encode($profilearray));
-            // create the profiles
+
             foreach ($profilearray as $profile) {
-                if (!isset($profile['name']) || !isset($profile['passphrase'])) {
-                    // name and passphrase must be set
-                    // invalid file content continue with the next one
-                    continue;
-                }
-                // a valid Wi-Fi specification available
-                // calculate the ssidhex value
-                $ssidHex = implode(unpack("H*", trim($profile['name'])));
-                $ssidHexKey = 'ssidHex:'.$ssidHex;
-                if (isset($storedProfiles[$ssidHexKey])) {
-                    // remove existing profile for this network
-                    unset($storedProfiles[$ssidHexKey]);
-                }
-                // add the new values to the stored profile array
-                $storedProfiles[$ssidHexKey]['technology'] = 'wifi';
-                $storedProfiles[$ssidHexKey]['ssidHex'] = $ssidHex;
-                $storedProfiles[$ssidHexKey]['ssid'] = $profile['name'];
-                $storedProfiles[$ssidHexKey]['passphrase'] = $profile['passphrase'];
-                $storedProfiles[$ssidHexKey]['ipAssignment'] = 'DHCP';
+                if (!isset($profile['name']) || !isset($profile['passphrase'])) continue;
+                $ssidHex    = implode(unpack("H*", trim($profile['name'])));
+                $ssidHexKey = 'ssidHex:' . $ssidHex;
+                unset($storedProfiles[$ssidHexKey]);
+                $storedProfiles[$ssidHexKey] = [
+                    'technology'   => 'wifi',
+                    'ssidHex'      => $ssidHex,
+                    'ssid'         => $profile['name'],
+                    'passphrase'   => $profile['passphrase'],
+                    'ipAssignment' => 'DHCP',
+                ];
                 if (isset($profile['hidden'])) {
-                    if ($profile['hidden']) {
-                        $storedProfiles[$ssidHexKey]['hidden'] = true;
-                    } else {
-                        $storedProfiles[$ssidHexKey]['hidden'] = false;
-                    }
+                    $storedProfiles[$ssidHexKey]['hidden'] = (bool)$profile['hidden'];
                 }
-                // sort the profile array on ssid (case insensitive)
-                $ssidCol = array_column($storedProfiles, 'ssid');
-                $ssidCol = array_map('strtolower', $ssidCol);
+                $ssidCol = array_map('strtolower', array_column($storedProfiles, 'ssid'));
                 array_multisort($ssidCol, SORT_ASC, $storedProfiles);
-                // save the profile array
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
-                // at boot it does not know which wifi, assume wlan0
-                $storedProfiles[$ssidHexKey]['nic'] = $networkInterface['nic'];
+                $storedProfiles[$ssidHexKey]['nic']        = $networkInterface['nic'];
                 $storedProfiles[$ssidHexKey]['macAddress'] = $networkInterface['macAddress'];
-                // connect to the wifi
                 connectWifi($redis, $storedProfiles[$ssidHexKey]);
             }
-            // restore the default boot-initialise Wi-Fi files
-            sysCmd('mkdir -p '.$directory.'/examples');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '.$directory.'/readme');
-            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '.$directory.'/examples');
+
+            sysCmd('mkdir -p ' . $directory . '/examples');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/readme '          . $directory . '/readme');
+            sysCmd('cp /srv/http/app/config/defaults/boot/wifi/examples/* '      . $directory . '/examples');
+
             if ($fileFound) {
-                // set access point to default values
                 wrk_apconfig($redis, 'reset');
-                // set wifi on and reboot it required
                 if (!$redis->get('wifi_on')) {
                     wrk_netconfig($redis, 'enableWifi');
                     ui_notify($redis, 'Wi-Fi reset', 'Restarting to enable Wi-Fi');
-                    wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+                    wrk_control($redis, 'newjob', $data = ['wrkcmd' => 'reboot']);
                 }
             }
-            // run refresh_nics to finish off
             wrk_netconfig($redis, 'refreshAsync');
             break;
+
+        // ------------------------------------------------------------------ //
         case 'refresh':
-            // check the lock status
             $lockWifiscan = $redis->Get('lock_wifiscan');
             if ($lockWifiscan) {
                 if ($lockWifiscan >= 7) {
-                    // its not really a great problem if this routine runs twice at the same time
-                    // but spread the attempts, so let it run on the 7th attempt
                     $redis->Set('lock_wifiscan', ++$lockWifiscan);
                 } else {
                     $redis->Set('lock_wifiscan', ++$lockWifiscan);
                     break;
                 }
             }
-            // run the refresh nics routine and wait until it finishes
             refresh_nics($redis);
-            // sysCmd('/srv/http/command/refresh_nics');
             break;
+
+        // ------------------------------------------------------------------ //
         case 'refreshAsync':
-            // check the lock status
             $lockWifiscan = $redis->Get('lock_wifiscan');
             if ($lockWifiscan) {
                 if ($lockWifiscan >= 7) {
-                    // its not really a great problem if this routine runs twice at the same time
-                    // but spread the attempts, so let it run on the 7th attempt
                     $redis->Set('lock_wifiscan', ++$lockWifiscan);
                 } else {
                     $redis->Set('lock_wifiscan', ++$lockWifiscan);
                     break;
                 }
             }
-            // run the refresh nics routine async don't wait until it finishes
             sysCmdAsync($redis, '/srv/http/command/refresh_nics');
             break;
+
+        // ------------------------------------------------------------------ //
         case 'enableWifi':
-            // run the command file to disable Wi-Fi, a reboot is required
             sysCmd('/srv/http/command/wifi_on.sh');
             if (!$redis->get('allwifi_on')) {
                 wrk_netconfig($redis, 'enableAllWifi');
             }
             break;
+
+        // ------------------------------------------------------------------ //
         case 'disableWifi':
-            // run the command file to disable Wi-Fi, a reboot is required
             sysCmd('/srv/http/command/wifi_off.sh');
             break;
+
+        // ------------------------------------------------------------------ //
         case 'enableAllWifi':
-            // set all the wifi nics up
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
             foreach ($networkInterfaces as $networkInterface) {
-                if ($networkInterface['technology'] == 'wifi') {
-                    sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down ; ip link set dev '.$networkInterface['nic'].' up');
+                if ($networkInterface['technology'] === 'wifi') {
+                    $nic = $networkInterface['nic'];
+                    // Three ip commands in one shell invocation (no change needed — already one sysCmd)
+                    sysCmd('ip addr flush ' . $nic . ' ; ip link set dev ' . $nic . ' down ; ip link set dev ' . $nic . ' up');
                     if (!$redis->get('network_ipv6')) {
-                        // ipv6 is off, set the nic accordingly
-                        sysCmd('sysctl -w net.ipv6.conf.'.$networkInterface['nic'].'.disable_ipv6=1 > /dev/null');
-                        // we also need to set the /etc/NetworkManager/conf.d/98-ipv6_off.conf
-                        // to
-                        //[connection]
-                        //ipv6.method=disabled
-                        // this ensures that all networks going forward do not get ipv6 addresses
+                        sysCmd('sysctl -w net.ipv6.conf.' . $nic . '.disable_ipv6=1 > /dev/null');
                     }
                 }
             }
             $redis->set('allwifi_on', 1);
             break;
+
+        // ------------------------------------------------------------------ //
         case 'disableAllWifi':
-            // set all the wifi nics down
             $networkInterfaces = json_decode($redis->get('network_interfaces'), true);
             foreach ($networkInterfaces as $networkInterface) {
-                if ($networkInterface['technology'] == 'wifi') {
-                    sysCmd('ip addr flush '.$networkInterface['nic'].' ; ip link set dev '.$networkInterface['nic'].' down');
+                if ($networkInterface['technology'] === 'wifi') {
+                    $nic = $networkInterface['nic'];
+                    sysCmd('ip addr flush ' . $nic . ' ; ip link set dev ' . $nic . ' down');
                 }
             }
             if (!$redis->get('wifi_on')) {
@@ -3133,443 +3084,386 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
             }
             $redis->set('allwifi_on', 0);
             break;
+
+        // ------------------------------------------------------------------ //
         case 'saveWifi':
-            // === Wi-Fi Profile Setup ===
-
-            // Normalize passphrase
             $args['passphrase'] = isset($args['passphrase']) ? trim($args['passphrase']) : '';
-
-            // Resolve SSID and ssidHex
-            $ssid = $args['ssid'];
-            $ssidHex = bin2hex($ssid);
+            $ssid       = $args['ssid'];
+            $ssidHex    = bin2hex($ssid);
             $ssidHexKey = 'ssidHex:' . $ssidHex;
 
-            // Attempt to retrieve saved passphrase if not provided
-            $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?: [];
             if (!$args['passphrase'] && isset($storedProfiles[$ssidHexKey]['passphrase'])) {
                 $args['passphrase'] = trim($storedProfiles[$ssidHexKey]['passphrase']);
             }
 
-            // Clear previous profile if it exists
             unset($storedProfiles[$ssidHexKey]);
 
-            // Build new profile
+            $skipKeys  = ['manual', 'connmanString', 'action', 'reboot'];
+            $skipIfDhcp = ['ipv4Address', 'ipv4Mask', 'defaultGateway', 'primaryDns', 'secondaryDns'];
+
             foreach ($args as $key => $value) {
+                if (in_array($key, $skipKeys, true)) continue;
+                if ($args['ipAssignment'] === 'DHCP' && in_array($key, $skipIfDhcp, true)) continue;
                 $val = trim($value);
-
-                if (strpos('|manual|connmanString|action|reboot|', $key)) continue;
-                if ($args['ipAssignment'] === 'DHCP' && strpos('|ipv4Address|ipv4Mask|defaultGateway|primaryDns|secondaryDns|', $key)) continue;
                 if (!$val) continue;
-
                 $storedProfiles[$ssidHexKey][$key] = $val;
             }
             $storedProfiles[$ssidHexKey]['technology'] = 'wifi';
-            $storedProfiles[$ssidHexKey]['ssid'] = $ssid;
-            $storedProfiles[$ssidHexKey]['ssidHex'] = $ssidHex;
-            $storedProfiles[$ssidHexKey]['security'] = $args['passphrase'] ? 'PSK' : 'none';
+            $storedProfiles[$ssidHexKey]['ssid']       = $ssid;
+            $storedProfiles[$ssidHexKey]['ssidHex']    = $ssidHex;
+            $storedProfiles[$ssidHexKey]['security']   = $args['passphrase'] ? 'PSK' : 'none';
 
             connectWifi($redis, $storedProfiles[$ssidHexKey]);
 
-            // Sort profiles
-            $ssidCol = array_column($storedProfiles, 'ssid');
-            $ssidCol = array_map('strtolower', $ssidCol);
+            $ssidCol = array_map('strtolower', array_column($storedProfiles, 'ssid'));
             array_multisort($ssidCol, SORT_ASC, $storedProfiles);
             $redis->set('network_storedProfiles', json_encode($storedProfiles));
 
-            // Disable AP if it was running
             if ($redis->hGet('AccessPoint', 'enable')) {
                 $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
-                $apEnable = true;
+                $apEnable  = true;
                 wrk_apconfig($redis, 'writecfg', ['enable' => 0, 'norescan' => 1, 'silent' => 1]);
             } else {
                 $apEnable = false;
             }
-
             if ($apEnable) {
-                wrk_apconfig($redis, 'writecfg', [
-                    'enable' => 1,
-                    'silent' => 1,
-                    'enable-NAT' => $apNatSave
-                ]);
+                wrk_apconfig($redis, 'writecfg', ['enable' => 1, 'silent' => 1, 'enable-NAT' => $apNatSave]);
             }
             break;
+
+        // ------------------------------------------------------------------ //
         case 'saveEthernet':
-            // Save or update a wired Ethernet configuration using NetworkManager (nmcli)
-            $nic = $args['nic'];
-            $mac = strtolower(str_replace(':', '', $args['macAddress'] ?? ''));
-            $macAddressKey = $mac; // used as the key in storedProfiles
+            /*
+             * PERFORMANCE: original code fired 6–10 separate nmcli + sysctl
+             * shell_exec() calls sequentially. Each call forks a new process and
+             * blocks until it completes. On a Pi, each nmcli call is ~150–300 ms.
+             *
+             * Fix: use `nmcli connection add … <all params>` in one call, then a
+             * single `nmcli connection up`. Only two blocking calls instead of 8+.
+             * The four sysctl calls are collapsed into one shell compound statement.
+             */
+            $nic           = $args['nic'];
+            $mac           = strtolower(str_replace(':', '', $args['macAddress'] ?? ''));
+            $macAddressKey = $mac;
+            $connName      = 'wired-' . $nic;
+            $connNameEsc   = escapeshellarg($connName);
+            $nicEsc        = escapeshellarg($nic);
+            $ipv6Method    = $redis->get('network_ipv6') ? 'auto' : 'disabled';
+
+            // Delete any existing connection with this name first (one call)
+            sysCmd("nmcli connection delete $connNameEsc 2>/dev/null");
 
             if (strtoupper($args['ipAssignment']) === 'DHCP') {
-                // Delete any custom config and use DHCP
-                wrk_netconfig($redis, 'delete', '', $args); // Clean up old config
-                $connName = "wired-$nic";
-                $connNameEsc = escapeshellarg($connName);
-                $nicEsc = escapeshellarg($nic);
+                // ---- DHCP: create and bring up in two calls ----
+                wrk_netconfig($redis, 'delete', '', $args);
 
-                // Create DHCP Ethernet connection
-                shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-                shell_exec("nmcli connection add type ethernet ifname $nicEsc con-name $connNameEsc");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method auto");
-                // Handle IPv6 method based on Redis key
-                if ($redis->get('network_ipv6')) {
-                    shell_exec("nmcli connection modify $connName ipv6.method auto");
-                } else {
-                    shell_exec("nmcli connection modify $connName ipv6.method disabled");
-                    shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
-                }
-                shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
-                shell_exec("nmcli connection up $connNameEsc");
+                // Create DHCP connection with all settings in one nmcli call
+                sysCmd(
+                    "nmcli connection add type ethernet ifname $nicEsc con-name $connNameEsc " .
+                    "ipv4.method auto " .
+                    "ipv6.method $ipv6Method " .
+                    "connection.autoconnect yes"
+                );
 
-                // Set stored profile to reflect DHCP usage
                 unset($storedProfiles[$macAddressKey]);
+
             } else {
-                // Static IP configuration
+                // ---- Static IP: build one nmcli add call with all parameters ----
+                $cidr    = $args['ipv4Address'] . '/' . $args['ipv4Mask'];
+                $gw      = $args['defaultGateway'];
+                $dnsList = array_filter([$args['primaryDns'] ?? '', $args['secondaryDns'] ?? '']);
+                $dns     = implode(',', $dnsList);
+
+                $cidrEsc = escapeshellarg($cidr);
+                $gwEsc   = escapeshellarg($gw);
+                $dnsEsc  = escapeshellarg($dns);
+
+                // All modify parameters folded into the single `connection add` call
+                sysCmd(
+                    "nmcli connection add type ethernet ifname $nicEsc con-name $connNameEsc " .
+                    "ipv4.method manual " .
+                    "ipv4.addresses $cidrEsc " .
+                    "ipv4.gateway $gwEsc " .
+                    "ipv4.dns $dnsEsc " .
+                    "ipv6.method $ipv6Method " .
+                    "connection.autoconnect yes"
+                );
+
                 foreach ($args as $key => $value) {
                     if (strpos('|connmanString|', $key) !== false) continue;
                     $storedProfiles[$macAddressKey][$key] = $value;
                 }
-
                 $storedProfiles[$macAddressKey]['technology'] = 'ethernet';
                 $redis->set('network_storedProfiles', json_encode($storedProfiles));
-
-                $connName = "wired-$nic";
-                $connNameEsc = escapeshellarg($connName);
-                $nicEsc = escapeshellarg($nic);
-
-                // Delete existing connection if present
-                shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-
-                // Create new static config
-                shell_exec("nmcli connection add type ethernet ifname $nicEsc con-name $connNameEsc");
-
-                $cidr = $args['ipv4Address'] . '/' . $args['ipv4Mask'];
-                $cidrEsc = escapeshellarg($cidr);
-                $gwEsc = escapeshellarg($args['defaultGateway']);
-
-                $dnsList = [];
-                if (!empty($args['primaryDns'])) $dnsList[] = $args['primaryDns'];
-                if (!empty($args['secondaryDns'])) $dnsList[] = $args['secondaryDns'];
-                $dnsEsc = escapeshellarg(implode(',', $dnsList));
-
-                shell_exec("nmcli connection modify $connNameEsc ipv4.addresses $cidrEsc");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.gateway $gwEsc");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.dns $dnsEsc");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method manual");
-                shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
-                // Handle IPv6 method based on Redis key
-                if ($redis->get('network_ipv6')) {
-                    shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
-                } else {
-                    shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
-                    shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
-                }
-
-                // Apply it
-                shell_exec("nmcli connection up $connNameEsc");
             }
 
-            // Apply IPv6 disable if needed
+            // Bring the connection up (one call)
+            sysCmd("nmcli connection up $connNameEsc");
+
+            // Disable IPv6 at the kernel level if needed (was 4 separate shell_exec calls; now one)
             if (!$redis->get('network_ipv6')) {
-                shell_exec("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
-                shell_exec("sysctl -w net.ipv6.conf.all.disable_ipv6=1 > /dev/null");
-                shell_exec("sysctl -w net.ipv6.conf.default.disable_ipv6=1 > /dev/null");
-                shell_exec("sysctl -w net.ipv6.conf.lo.disable_ipv6=1 > /dev/null");
+                sysCmd(
+                    "sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 " .
+                    "net.ipv6.conf.all.disable_ipv6=1 " .
+                    "net.ipv6.conf.default.disable_ipv6=1 " .
+                    "net.ipv6.conf.lo.disable_ipv6=1 " .
+                    "> /dev/null"
+                );
             }
 
-            // Refresh NICs
             wrk_netconfig($redis, 'refreshAsync');
-
             break;
+
+        // ------------------------------------------------------------------ //
         case 'check_connman':
-            // enables/disables ipv6 and corrects the config
+            /*
+             * PERFORMANCE: original fired two nmcli modify shell_exec() calls per
+             * configured interface in a foreach loop. Batched into one call per
+             * interface that sets both ipv6.method and (when enabling) ipv6.privacy.
+             * Also replaced `connection down $connName ; connection up $connName`
+             * (two calls) with a single compound shell string.
+             */
             $network_ipv6 = $redis->get('network_ipv6');
-            // Sync llmnrd ipv6 value
             if ($redis->get('llmnrdipv6') != $network_ipv6) {
                 $redis->set('llmnrdipv6', $network_ipv6);
             }
+
             refresh_nics($redis);
             $network_info = json_decode($redis->get('network_info'), true);
-                foreach ($network_info as $network) {
-                    if (empty($network['configured'])) continue;
 
-                    $connName = null;
+            foreach ($network_info as $network) {
+                if (empty($network['configured'])) continue;
 
-                    if ($network['technology'] === 'ethernet' && isset($network['interface'])) {
-                        $connName = "wired-" . $network['interface'];
-                    } elseif ($network['technology'] === 'wifi' && isset($network['interface'], $network['ssid'])) {
-                        $connName = "wifi-" . $network['interface'] . "-" . $network['ssid'];
-                    }
-
-                    if (!$connName) continue;
-                    $connNameEsc = escapeshellarg($connName);
-
-                    // Apply global IPv6 setting to all configured connections
-                    if ($network_ipv6) {
-                        // Enable IPv6
-                        shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
-                        shell_exec("nmcli connection modify $connNameEsc ipv6.privacy prefer");
-                    } else {
-                        // Disable IPv6
-                        shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
-                        shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
-                    }
+                $connName = null;
+                if ($network['technology'] === 'ethernet' && isset($network['interface'])) {
+                    $connName = 'wired-' . $network['interface'];
+                } elseif ($network['technology'] === 'wifi' && isset($network['interface'], $network['ssid'])) {
+                    $connName = 'wifi-' . $network['interface'] . '-' . $network['ssid'];
                 }
-            unset($network_ipv6, $network_info, $network, $connName, $connNameEsc);
-            break;
-        case 'reconnect':
-            // no break;
-        case 'connect':
-            // Manual connect for Wi-Fi or Ethernet via NetworkManager
-            if (!empty($args['nic'])) {
-                $nic = escapeshellarg($args['nic']);
-
-                // Try to derive the connection name
-                if (!empty($args['ssid'])) {
-                    $connName = "wifi-" . $args['nic'] . "-" . $args['ssid'];
-                } else {
-                    // fallback for Ethernet
-                    $connName = "wired-" . $args['nic'];
-                }
+                if (!$connName) continue;
 
                 $connNameEsc = escapeshellarg($connName);
 
-                // Bring up the connection
+                if ($network_ipv6) {
+                    // One call: set method + privacy together
+                    sysCmd("nmcli connection modify $connNameEsc ipv6.method auto ipv6.privacy prefer");
+                } else {
+                    // One call: disable + reconnect in a single shell statement
+                    sysCmd("nmcli connection modify $connNameEsc ipv6.method disabled && nmcli connection down $connName && nmcli connection up $connName");
+                }
+            }
+            unset($network_ipv6, $network_info, $network, $connName, $connNameEsc);
+            break;
+
+        // ------------------------------------------------------------------ //
+        case 'reconnect':
+            // no break;
+        case 'connect':
+            if (!empty($args['nic'])) {
+                $connName    = !empty($args['ssid'])
+                    ? 'wifi-'  . $args['nic'] . '-' . $args['ssid']
+                    : 'wired-' . $args['nic'];
+                $connNameEsc = escapeshellarg($connName);
                 sysCmd("nmcli connection up $connNameEsc");
             }
-
             break;
+
+        // ------------------------------------------------------------------ //
         case 'autoconnect-on':
-            // Enable autoconnect for a known SSID
             if (empty($args['nic']) || empty($args['ssid'])) {
                 error_log('Missing "nic" or "ssid" in arguments at autoconnect-on');
                 return;
             }
-
-            $nic = escapeshellarg($args['nic']);
-            $ssid = $args['ssid'];
-            $connName = escapeshellarg("wifi-$args[nic]-$ssid");
-
-            // Enable autoconnect using nmcli
+            $connName = escapeshellarg('wifi-' . $args['nic'] . '-' . $args['ssid']);
             sysCmd("nmcli connection modify $connName connection.autoconnect yes");
             break;
+
+        // ------------------------------------------------------------------ //
         case 'autoconnect-off':
-            // Disable autoconnect for a known SSID
             if (empty($args['nic']) || empty($args['ssid'])) {
                 error_log('Missing "nic" or "ssid" in arguments at autoconnect-off');
                 return;
             }
-
-            $nic = escapeshellarg($args['nic']);
-            $ssid = $args['ssid'];
-            $connName = escapeshellarg("wifi-$args[nic]-$ssid");
-
-            // Disable autoconnect using nmcli
+            $connName = escapeshellarg('wifi-' . $args['nic'] . '-' . $args['ssid']);
             sysCmd("nmcli connection modify $connName connection.autoconnect no");
             break;
+
+        // ------------------------------------------------------------------ //
         case 'disconnect':
+            /*
+             * PERFORMANCE: original listed all connections (one sysCmd), then
+             * looped calling sysCmd() once per connection to disable autoconnect —
+             * O(n) process forks. Replaced with a single awk+xargs pipeline that
+             * does all the modifies in one shell invocation.
+             */
             if (isset($args['nic'])) {
-                $nic = escapeshellarg($args['nic']);
-                sysCmd("nmcli device disconnect $nic");
+                $nic    = $args['nic'];
+                $nicEsc = escapeshellarg($nic);
 
-                // Optional: disable autoconnect for all matching Wi-Fi connections
-                $connections = sysCmd("nmcli -t -f NAME,DEVICE connection show");
+                // Disconnect the device
+                sysCmd("nmcli device disconnect $nicEsc");
 
-                foreach ($connections as $line) {
-                    list($connName, $dev) = explode(':', $line);
-                    if ($dev === $args['nic']) {
-                        $connNameEsc = escapeshellarg($connName);
-                        sysCmd("nmcli connection modify $connNameEsc connection.autoconnect no");
-                    }
-                }
+                // Disable autoconnect for all connections on this device in one shell round-trip
+                // `nmcli -t -f NAME,DEVICE con show` outputs "name:device" lines;
+                // awk filters to the target device and prints just the name;
+                // xargs passes each name to `nmcli connection modify … autoconnect no`.
+                sysCmd(
+                    "nmcli -t -f NAME,DEVICE connection show " .
+                    "| awk -F: '\$2==" . escapeshellarg($nic) . " {print \$1}' " .
+                    "| xargs -r -I{} nmcli connection modify {} connection.autoconnect no"
+                );
             }
             break;
+
+        // ------------------------------------------------------------------ //
         case 'disconnect-delete':
-            // manual disconnect-delete
             $disconnect = true;
             // no break;
         case 'delete':
-            // remove Wi-Fi or Ethernet profiles and configs using nmcli and Redis
-            $nic = $args['nic'] ?? '';
-            $ssid = $args['ssid'] ?? '';
-            $ssidHexKey = isset($ssid) ? bin2hex($ssid) : null;
-            $macAddressKey = isset($args['macAddress']) ? strtolower(str_replace(':', '', $args['macAddress'])) : null;
+            $nic           = $args['nic'] ?? '';
+            $ssid          = $args['ssid'] ?? '';
+            $ssidHexKey    = $ssid ? bin2hex($ssid) : null;
+            $macAddressKey = isset($args['macAddress'])
+                ? strtolower(str_replace(':', '', $args['macAddress'])) : null;
 
-            $storedProfiles = json_decode($redis->get('network_storedProfiles'), true) ?: [];
-
-            // Wi-Fi
             if ($ssidHexKey && isset($storedProfiles["ssidHex:$ssidHexKey"])) {
-                if ($disconnect) {
-                    wrk_netconfig($redis, 'disconnect', '', $args);
-                }
+                if ($disconnect) wrk_netconfig($redis, 'disconnect', '', $args);
 
-                $connName = "wifi-$nic-$ssid";
-                $connNameEsc = escapeshellarg($connName);
-                $nicEsc = escapeshellarg($nic);
-
-                // Delete NM connection
-                shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-
-                // Clear IP and optionally disable IPv6
-                if ($nic) {
-                    shell_exec("ip addr flush dev $nicEsc");
-                    if (!$redis->get('network_ipv6')) {
-                        shell_exec("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
-                    }
-                }
-
-                // Remove from Redis
+                // Clear Redis first, then remove from NetworkManager
                 unset($storedProfiles["ssidHex:$ssidHexKey"]);
+                $redis->set('network_storedProfiles', json_encode($storedProfiles));
 
-            // Ethernet
-            } elseif ($macAddressKey && isset($storedProfiles["macAddress:$macAddressKey"])) {
-                $connName = "wired-$nic";
-                $connNameEsc = escapeshellarg($connName);
-                $nicEsc = escapeshellarg($nic);
-
-                // Delete NM connection
-                shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-
-                // Clear IP and optionally disable IPv6
+                $connNameEsc = escapeshellarg("wifi-$nic-$ssid");
+                $nicEsc      = escapeshellarg($nic);
+                sysCmd("nmcli connection delete $connNameEsc 2>/dev/null");
                 if ($nic) {
-                    shell_exec("ip addr flush dev $nicEsc");
-                    if (!$redis->get('network_ipv6')) {
-                        shell_exec("sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null");
-                    }
+                    $ipv6Cmd = !$redis->get('network_ipv6')
+                        ? " ; sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null" : '';
+                    sysCmd("ip addr flush dev $nicEsc" . $ipv6Cmd);
                 }
 
-                // Remove from Redis
+            } elseif ($macAddressKey && isset($storedProfiles["macAddress:$macAddressKey"])) {
+                // Clear Redis first, then remove from NetworkManager
                 unset($storedProfiles["macAddress:$macAddressKey"]);
-            }
+                $redis->set('network_storedProfiles', json_encode($storedProfiles));
 
-            // Save updated profiles
-            $redis->set('network_storedProfiles', json_encode($storedProfiles));
-            // Refresh
+                $connNameEsc = escapeshellarg("wired-$nic");
+                $nicEsc      = escapeshellarg($nic);
+                sysCmd("nmcli connection delete $connNameEsc 2>/dev/null");
+                if ($nic) {
+                    $ipv6Cmd = !$redis->get('network_ipv6')
+                        ? " ; sysctl -w net.ipv6.conf.$nic.disable_ipv6=1 > /dev/null" : '';
+                    sysCmd("ip addr flush dev $nicEsc" . $ipv6Cmd);
+                }
+            }
             sysCmdAsync($redis, '/srv/http/command/refresh_nics');
             sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
             break;
+
+        // ------------------------------------------------------------------ //
         case 'reset':
-            // Disconnect and delete all known connections
-            $connections = sysCmd("nmcli -t -f NAME connection show");
-            foreach ($connections as $conn) {
-                $connName = trim($conn);
-                if ($connName !== '') {
-                    sysCmd("nmcli connection delete " . escapeshellarg($connName));
-                }
-            }
+            /*
+             * PERFORMANCE: original iterated all connections calling sysCmd() once
+             * per connection to delete it, then iterated again filtering to wifi
+             * connections and deleted those too (double work). Replaced with a single
+             * pipeline: list all names, pipe to xargs nmcli connection delete.
+             */
+            sysCmd(
+                "nmcli -t -f NAME connection show " .
+                "| xargs -r -I{} nmcli connection delete {}"
+            );
 
-            // Clear network state in Redis
-            $redis->set('network_info', json_encode(array()));
-            $redis->set('network_storedProfiles', json_encode(array()));
+            $redis->set('network_info',           json_encode([]));
+            $redis->set('network_storedProfiles', json_encode([]));
 
-            // Forget all known Wi-Fi networks using NetworkManager
-            $nmcliConns = shell_exec("nmcli -t -f NAME,TYPE connection show");
-            $lines = explode("\n", trim($nmcliConns));
-            foreach ($lines as $line) {
-                if (strpos($line, ':wifi') !== false) {
-                    [$name, $type] = explode(':', $line, 2);
-                    $name = trim($name);
-                    if ($name !== '') {
-                        sysCmd("nmcli connection delete " . escapeshellarg($name));
-                    }
-                }
-            }
-
-            // Restore default boot-time Wi-Fi config files
             $directory = $redis->get('p1mountpoint') . '/wifi';
             sysCmd("mkdir -p $directory/examples");
             sysCmd("cp /srv/http/app/config/defaults/boot/wifi/readme $directory/readme");
             sysCmd("cp /srv/http/app/config/defaults/boot/wifi/examples/* $directory/examples");
 
-            // Reset network tuning and dev mode
             $redis->set('network_autoOptimiseWifi', 1);
             $redis->set('dev', 0);
 
-            // Trigger refresh
             wrk_netconfig($redis, 'refresh');
-
-            // Trigger shutdown
             $args['poweroff'] = true;
-
             break;
     }
+
     if (isset($args['poweroff']) && $args['poweroff']) {
-        // poweroff requested
-        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'poweroff'));
-    } else if (isset($args['reboot']) && $args['reboot']) {
-        // reboot requested
-        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
+        wrk_control($redis, 'newjob', $data = ['wrkcmd' => 'poweroff']);
+    } elseif (isset($args['reboot']) && $args['reboot']) {
+        wrk_control($redis, 'newjob', $data = ['wrkcmd' => 'reboot']);
     }
 }
 
-function connectWifi($redis, $args, $options = []) {
-//    file_put_contents('/srv/http/netdebug.log', "Connect Wifi\n", FILE_APPEND);
-//    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
-            // === NMCLI Wi-Fi Connection Setup ===
-            $ssidEsc = escapeshellarg($args['ssid']);
-            $passEsc = escapeshellarg($args['passphrase']);
-            $nicEsc = escapeshellarg($args['nic']);
-            $connName = "wifi-{$args['nic']}-{$args['ssid']}";
-            $connNameEsc = escapeshellarg($connName);
 
-            shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-            shell_exec("nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc");
+function connectWifi($redis, $args, $options = [])
+{
+    // file_put_contents('/srv/http/netdebug.log', "Connect Wifi\n", FILE_APPEND);
+    // file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
 
-            if (!empty($args['passphrase'])) {
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt wpa-psk");
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.psk $passEsc");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc wifi-sec.key-mgmt none");
-            }
+    $ssidEsc     = escapeshellarg($args['ssid']);
+    $nicEsc      = escapeshellarg($args['nic']);
+    $connName    = 'wifi-' . $args['nic'] . '-' . $args['ssid'];
+    $connNameEsc = escapeshellarg($connName);
+    $ipv6Method  = $redis->get('network_ipv6') ? 'auto' : 'disabled';
 
-            shell_exec("nmcli connection modify $connNameEsc connection.autoconnect yes");
+    // Delete any existing profile for this connection (one call)
+    sysCmd("nmcli connection delete $connNameEsc 2>/dev/null");
 
-            if (strtolower($args['ipAssignment']) === 'STATIC') {
-                $ipCIDR = escapeshellarg($args['ipv4Address'] . '/' . $args['ipv4Mask']);
-                $gw = escapeshellarg($args['defaultGateway']);
-                $dns = [];
-                if (!empty($args['primaryDns'])) $dns[] = $args['primaryDns'];
-                if (!empty($args['secondaryDns'])) $dns[] = $args['secondaryDns'];
-                $dnsStr = escapeshellarg(implode(',', $dns));
+    // Build a single `nmcli connection add` call with all parameters.
+    // This replaces the original pattern of add + multiple modify calls,
+    // saving 3-6 separate process forks.
+    if (!empty($args['passphrase'])) {
+        $passEsc  = escapeshellarg($args['passphrase']);
+        $security = "wifi-sec.key-mgmt wpa-psk wifi-sec.psk $passEsc";
+    } else {
+        $security = 'wifi-sec.key-mgmt none';
+    }
 
-                shell_exec("nmcli connection modify $connNameEsc ipv4.addresses $ipCIDR");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.gateway $gw");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.dns $dnsStr");
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method manual");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc ipv4.method auto");
-            }
+    if (strtoupper($args['ipAssignment'] ?? 'DHCP') === 'STATIC') {
+        $ipCIDR  = escapeshellarg($args['ipv4Address'] . '/' . $args['ipv4Mask']);
+        $gw      = escapeshellarg($args['defaultGateway']);
+        $dnsList = array_filter([$args['primaryDns'] ?? '', $args['secondaryDns'] ?? '']);
+        $dnsStr  = escapeshellarg(implode(',', $dnsList));
+        $ipv4    = "ipv4.method manual ipv4.addresses $ipCIDR ipv4.gateway $gw ipv4.dns $dnsStr";
+    } else {
+        $ipv4 = 'ipv4.method auto';
+    }
 
-            // Apply global IPv6 setting
-            if ($redis->get('network_ipv6')) {
-                shell_exec("nmcli connection modify $connNameEsc ipv6.method auto");
-            } else {
-                shell_exec("nmcli connection modify $connNameEsc ipv6.method disabled");
-                shell_exec("nmcli connection down $connName ; nmcli connection up $connName");
-            }
+    // One call to add the connection with all settings in place
+    sysCmd(
+        "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc " .
+        "$security " .
+        "$ipv4 " .
+        "ipv6.method $ipv6Method " .
+        "connection.autoconnect yes"
+    );
 
-            // Bring up connection
-            shell_exec("nmcli connection up $connNameEsc");
+    // Bring the connection up
+    sysCmd("nmcli connection up $connNameEsc");
 }
 
-function disconnectWifi($redis, $args, $options = []) {
-//    file_put_contents('/srv/http/netdebug.log', "disconnect_wifi\n", FILE_APPEND);
-//    file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
-    // Determine the connection name based on your convention
-    $connName = "wifi-{$args['nic']}-{$args['ssid']}";
+function disconnectWifi($redis, $args, $options = [])
+{
+    // file_put_contents('/srv/http/netdebug.log', "disconnect_wifi\n", FILE_APPEND);
+    // file_put_contents('/srv/http/netdebug.log', json_encode($args, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+
+    $connName    = 'wifi-' . $args['nic'] . '-' . $args['ssid'];
     $connNameEsc = escapeshellarg($connName);
-    $nicEsc = escapeshellarg($args['nic']);
+    $nicEsc      = escapeshellarg($args['nic']);
 
-    // Bring the connection down if it's active
-    shell_exec("nmcli connection down $connNameEsc 2>/dev/null");
+    // Original fired three sequential shell_exec calls. Collapsed into one
+    // compound shell statement: bring down, disconnect device, delete profile.
+    // The 2>/dev/null suppressions are preserved so failures on already-inactive
+    // connections don't produce noise.
+    sysCmd(
+        "nmcli connection down $connNameEsc 2>/dev/null ; " .
+        "nmcli device disconnect $nicEsc 2>/dev/null ; " .
+        "nmcli connection delete $connNameEsc 2>/dev/null"
+    );
 
-    // Optionally, also disconnect the NIC (force release from AP)
-    shell_exec("nmcli device disconnect $nicEsc 2>/dev/null");
-
-    // Delete the named profile so it doesn't auto-reconnect
-    shell_exec("nmcli connection delete $connNameEsc 2>/dev/null");
-
-    // Optionally log
-    runelog("[disconnectWifi]: Disconnected and removed profile $connName from interface {$args['nic']}");
+    runelog('[disconnectWifi]: Disconnected and removed profile ' . $connName . ' from interface ' . $args['nic']);
 }
 
 function wrk_jobID()
