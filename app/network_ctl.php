@@ -38,7 +38,12 @@ if (isset($_POST)) {
     //    refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
     //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
     if (isset($_POST['refresh'])) {
-        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refresh'));
+// pull from redis first and refresh in the background kg    
+//        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refresh'));
+        wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refreshAsync'));
+        $redis->setex('network_refreshing', 60, 1);
+        header('Location: /network');
+        exit;
     }
     if (isset($_POST['profile']['action'])) {
         // debug
@@ -86,7 +91,8 @@ $templateData['nics'] = json_decode($redis->get('network_interfaces'), true);
 // retrieve the networks
 $networks = json_decode($redis->get('network_info'), true);
 // start an asynchronous job to refresh the network & nic info, don't wait wait for completion
-wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refreshAsync'));
+// removed unconditional refresh wait kg
+// wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refreshAsync'));
 //
 if ($templateData['action'] === 'wifi_scan') {
     //
@@ -369,16 +375,31 @@ if ($templateData['action'] === 'wifi_scan') {
         $templateData['apswitch'] = 0;
     }
     // is processing? this enables/disables the visibility of the nics in the UI
+// revised to speed this up kg    
+//    if ($apUp || $redis->hGet('AccessPoint', 'interface')) {
+//        // access point is up so always show the nics in the UI
+//        $templateData['processing'] = 0;
+//    } else if (!$wired && !$wifiConnected) {
+//        // nothing is connected, but this routine cannot run unless a nic is connected, so it is processing
+//        $templateData['processing'] = 1;
+//    } else {
+//        // when the lock_wifiscan is set it is processing
+//        $templateData['processing'] = $redis->Get('lock_wifiscan');
+//    }
     if ($apUp || $redis->hGet('AccessPoint', 'interface')) {
-        // access point is up so always show the nics in the UI
+        $templateData['processing'] = 0;
+    } else if ($redis->exists('network_refreshing') && $redis->Get('lock_wifiscan')) {
+        $templateData['processing'] = 1;
+    } else if ($redis->exists('network_refreshing') && !$redis->Get('lock_wifiscan')) {
+        $redis->del('network_refreshing');
         $templateData['processing'] = 0;
     } else if (!$wired && !$wifiConnected) {
-        // nothing is connected, but this routine cannot run unless a nic is connected, so it is processing
         $templateData['processing'] = 1;
     } else {
-        // when the lock_wifiscan is set it is processing
         $templateData['processing'] = $redis->Get('lock_wifiscan');
     }
+    $templateData['refreshing'] = (bool) $templateData['processing'];
+    
     unset($networks, $storedProfiles, $btDevices, $wired, $wifi, $interface, $wlanNic);
     // only the contents of $templateData['nics'] is used
 }
