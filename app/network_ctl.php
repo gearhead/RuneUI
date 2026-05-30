@@ -38,7 +38,7 @@ if (isset($_POST)) {
     //    refresh, refreshAsync, saveWifi, saveEthernet, reconnect, connect,
     //    autoconnect-on, autoconnect-off, disconnect, disconnect-delete, delete & reset
     if (isset($_POST['refresh'])) {
-// pull from redis first and refresh in the background kg    
+// pull from redis first and refresh in the background kg
 //        $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refresh'));
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'netcfg', 'action' => 'refreshAsync'));
         $redis->setex('network_refreshing', 60, 1);
@@ -375,7 +375,7 @@ if ($templateData['action'] === 'wifi_scan') {
         $templateData['apswitch'] = 0;
     }
     // is processing? this enables/disables the visibility of the nics in the UI
-// revised to speed this up kg    
+// revised to speed this up kg
 //    if ($apUp || $redis->hGet('AccessPoint', 'interface')) {
 //        // access point is up so always show the nics in the UI
 //        $templateData['processing'] = 0;
@@ -399,7 +399,7 @@ if ($templateData['action'] === 'wifi_scan') {
         $templateData['processing'] = $redis->Get('lock_wifiscan');
     }
     $templateData['refreshing'] = (bool) $templateData['processing'];
-    
+
     unset($networks, $storedProfiles, $btDevices, $wired, $wifi, $interface, $wlanNic);
     // only the contents of $templateData['nics'] is used
 }

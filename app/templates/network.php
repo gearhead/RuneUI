@@ -2,7 +2,7 @@
     <?php if (isset($refreshing) && $refreshing): ?>
     <meta http-equiv="refresh" content="3;url=/network">
     <?php endif ?>
-    
+
     <h1>Network configuration</h1>
     <legend>Network Interfaces</legend>
     <div class="boxed">
@@ -38,7 +38,7 @@
         <p>If your interface is connected but does not show, then try to refresh the list forcing the detect</p>
         <form id="network-refresh" method="post">
             <button class="btn btn-lg btn-primary" name="refresh" value="1" id="refresh"<?php if (isset($refreshing) && $refreshing): ?> disabled<?php endif; ?>><i class="fa fa-refresh sx"></i><?php if (isset($refreshing) && $refreshing): ?>Refreshing...<?php else: ?>Refresh interfaces<?php endif; ?></button>
-            
+
         </form>
     </div>
     <br>
