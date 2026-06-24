@@ -807,7 +807,10 @@
                         RuneAudio is constructed to avoid using the ALSA rate converter (re&#8209;sampler),
                         if re-sampling is required the superior SoXr re-sampler is used whenever possible.
                         However, the ALSA rate converter is sometimes unavoidable and is the fallback when nothing else works, normally it does nothing.<br>
-                        Speex is specifically designed for speech compression, while samplerate is a general purpose rate converter, both options are configured for best quality available
+                        Speex is specifically designed for speech compression, it has somewhat lower quality than the general purpose rate converter samplerate.
+                        However, speex is much more efficient and has lower latency.
+                        If you encounter unexplained audio stuttering it is worth trying speex.
+                        Both options are configured for their best available quality
                         </span>
                     </div>
                 </div>
