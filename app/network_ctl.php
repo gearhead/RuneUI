@@ -323,17 +323,17 @@ if ($templateData['action'] === 'wifi_scan') {
 //            break;
 //        }
 //    }
-	$btDevices = json_decode($redis->get('network_bt_status'), true) ?: array();
-	foreach ($btDevices as $btDevice) {
-	    if ($btDevice['source'] && $btDevice['connected']) {
-	        $templateData['btstring'] = '[Input: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
-	        break;
-	    }
-	    if ($btDevice['sink'] && $btDevice['connected']) {
-	        $templateData['btstring'] = '[Output: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
-	        break;
-	    }
-	}
+    $btDevices = json_decode($redis->get('network_bt_status'), true) ?: array();
+    foreach ($btDevices as $btDevice) {
+        if ($btDevice['source'] && $btDevice['connected']) {
+            $templateData['btstring'] = '[Input: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
+            break;
+        }
+        if ($btDevice['sink'] && $btDevice['connected']) {
+            $templateData['btstring'] = '[Output: '.$btDevice['name'].'] ['.ucwords($btDevice['icon']).': '.$btDevice['device'].']';
+            break;
+        }
+    }
     $wired = 0;
     $wifi = 0;
     $wifiConnected = 0;
