@@ -4358,7 +4358,7 @@ function wrk_audioOutput($redis, $action, $data=null)
             // a pcm is only required for soundcards
             //  note: it is possible that usb soundcards may also need a pcm software volume control
             if (!isset($data['description']) || (!stripos(' '.$data['description'], 'Soundcard: ') && !stripos(' '.$data['description'], 'USB: '))) {
-                // no description or its not a soundcard 
+                // no description or its not a soundcard
                 return;
             }
             // get the information we need for processing
@@ -4555,7 +4555,7 @@ function wrk_i2smodule($redis, $args = null, $jobID = null)
         // when the the pi booted with i2smodule = 'none', the dtoverlay can be dynamically activated, otherwise a reboot is required
         //  i2smoduleDynamic is set to true when i2smodule = 'none' at boot-initialise
         //  secondary changes cannot be made dynamically
-        // also when the card name changes but the overlay remains the same a dynamic change is possible (only a name change) 
+        // also when the card name changes but the overlay remains the same a dynamic change is possible (only a name change)
         if ($redis->get('i2smoduleDynamic')) {
             // dynamic module switching is possible
             if ($args != 'none') {

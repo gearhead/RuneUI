@@ -2378,7 +2378,7 @@ function showbiosummary() {
     // this is a pain. no matter what, resizing of the modal (making smaller) only happens after a close and reopen
     // $('#artist-bio-ss').html(GUI.artist_bio_summary);
     // $('#artist-bio-overlay').html(GUI.artist_bio_summary);
-    // set up a trigger for the event when the modal is fully closed, purpose: reopen it 
+    // set up a trigger for the event when the modal is fully closed, purpose: reopen it
     $('#songinfo-modal').on('hidden.bs.modal', function () {
         $('#songinfo-modal').modal().focus();
         // deactivate the trigger for this event
