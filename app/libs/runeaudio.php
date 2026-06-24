@@ -8794,7 +8794,7 @@ function metadataStringClean($string, $type = '')
 
 // function to refresh the nics and network database arrays
 function refresh_nics($redis)
-// This function returns an array of nics (and false on error)
+// This function returns an array of nics (or false on error)
 // three arrays are saved in redis:
 //   'network_interfaces' containing the nics
 //   'translate_mac_nic' containing a translation table mac-address to nic-name
