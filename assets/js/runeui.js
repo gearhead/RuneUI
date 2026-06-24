@@ -1184,6 +1184,7 @@ function updateGUI() {
             $('#currentartist').html(GUI.currentartist);
             $('#currentartist-ss').html(GUI.currentartist);
             $('#currentartist-sss').html(GUI.currentartist);
+            $('#artist-overlay').html('<i>Artist: '+GUI.currentartist+'</i>');
         }
         //
         // console.log('GUI.json.currentsong = ', GUI.json.currentsong);
@@ -1213,6 +1214,7 @@ function updateGUI() {
             $('#currentsong').html(GUI.currentsong);
             $('#currentsong-ss').html(GUI.currentsong);
             $('#currentsong-sss').html(GUI.currentsong);
+            $('#lyric-overlay').html('<i>Lyric: '+GUI.currentsong+'</i>');
         }
         //
         // console.log('GUI.json.currentalbum = ', GUI.json.currentalbum);
@@ -2337,6 +2339,53 @@ function libraryHome(text) {
     } else {
         $('#eject').addClass('hide');
     }
+}
+
+// Show biocontent info in the info modial ('more' clickable link)
+function showbiocontent(filename) {
+    // console.log('biocontent filename', filename);
+    $.ajax({
+        type: 'GET',
+        url: '/db/?cmd=biocontent&params='+encodeURIComponent(filename),
+        success: function(data){
+            // console.log('biocontent data', data);
+            // renderMSG([{'title': 'Debug', 'text': data}]);
+            if (data.length > 4) {
+                // data is json encoded and url-encoded
+                var ret = JSON.parse(data);
+                ret.biocontent = decodeURIComponent(ret.biocontent);
+                $('#artist-bio-ss').html(ret.biocontent);
+                $('#artist-bio-overlay').html(ret.biocontent);
+                // refresh the modal
+                $('#artist-bio-overlay').css('height', 'auto');
+                $('#songinfo-modal-content').css('height', 'auto');
+                $('#songinfo-modal').css('height', 'auto');
+                $('#songinfo-modal').modal('handleUpdate').focus();
+                // put the summery bio back in the modal on close modal
+                $('#songinfo-modal').on('hide.bs.modal', function () {
+                    $('#artist-bio-ss').html(GUI.artist_bio_summary);
+                    $('#artist-bio-overlay').html(GUI.artist_bio_summary);
+                });
+            } else {
+                console.log('biocontent data', 'return data too short');
+            }
+        },
+        cache: false
+    });
+}
+// Show biosummary info in the info modial ('less' clickable link)
+function showbiosummary() {
+    // this is a pain. no matter what, resizing of the modal (making smaller) only happens after a close and reopen
+    // $('#artist-bio-ss').html(GUI.artist_bio_summary);
+    // $('#artist-bio-overlay').html(GUI.artist_bio_summary);
+    // set up a trigger for the event when the modal is fully closed, purpose: reopen it 
+    $('#songinfo-modal').on('hidden.bs.modal', function () {
+        $('#songinfo-modal').modal().focus();
+        // deactivate the trigger for this event
+        $("#songinfo-modal").off("hidden.bs.modal");
+    });
+    // close the modal
+    $('#songinfo-modal').modal('hide');
 }
 
 // Display the modal screen

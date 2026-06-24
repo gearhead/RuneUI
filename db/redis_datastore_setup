@@ -554,6 +554,7 @@ function redisDatastore($redis, $action) {
             $redis->hSet('dirble', 'baseurl', 'http://api.dirble.com/v1/');
             $redis->hSet('discogs', 'token', 'KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI');
             $redis->hSet('fanarttv', 'token', '90fa4838789ea346c5e9cff6715f6e9b');
+            $redis->hSet('geniuscom', 'token', 'EsaybsMXZv82CKsdEEmAd9Va_ybKHXaxlkxSMd0KhCDVzvIeVimqEJSqbdz9t8-H');
             // internal config hash control
             // $redis->set('mpdconfhash', '');
             // $redis->set('netconfhash', '');
@@ -844,6 +845,7 @@ function redisDatastore($redis, $action) {
             $redis->hExists('dirble', 'apikey') || $redis->hSet('dirble', 'apikey', '134aabbce2878ce0dbfdb23fb3b46265eded085b');
             $redis->hExists('discogs', 'token') || $redis->hSet('discogs','token', 'KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI');
             $redis->hExists('fanarttv', 'token') || $redis->hSet('fanarttv', 'token', '90fa4838789ea346c5e9cff6715f6e9b');
+            $redis->hExists('geniuscom', 'token') || $redis->hSet('geniuscom', 'token', 'EsaybsMXZv82CKsdEEmAd9Va_ybKHXaxlkxSMd0KhCDVzvIeVimqEJSqbdz9t8-H');
             // internal config hash control
             $redis->exists('mpdconfhash') || $redis->set('mpdconfhash', '12eed229f02c52816ed997cbce4b9f32');
             $redis->hExists('netconfhash', 'eth0') || $redis->hSet('netconfhash', 'eth0', '643f8967af551f683b3cfd493950c550');

@@ -485,7 +485,7 @@
     </div>
 </div>
 <div id="songinfo-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="songinfo-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
+    <div id="songinfo-modal-content" class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
                 <button id="songinfo-close-x" type="button" class="close" data-dismiss="modal" aria-hidden="false">&times;</button>

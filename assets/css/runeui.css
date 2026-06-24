@@ -3427,6 +3427,7 @@ button.close {
     display: none;
     overflow: hidden;
     position: fixed;
+    height: auto !important;
     top: 0;
     right: 0;
     bottom: 0;
@@ -3462,6 +3463,7 @@ button.close {
 }
 .modal-content {
     position: relative;
+    height: auto !important;
     background-color: #10161c;
     border: 1px solid #2b3c4e;
     border: 1px solid #34495e;

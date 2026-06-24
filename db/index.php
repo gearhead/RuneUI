@@ -1618,6 +1618,23 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             echo $redis->hGet('owntone', 'active');
             unset($params, $jobID);
             break;
+        case 'biocontent':
+            // get and return the full biocontent to the UI, this is contained in the cached artist file
+            // the parameter is the the file name of the cached artist file, this is html encoded
+            $params = $_GET['params'];
+            if (isset($params) && $params) {
+                $fileName = rawurldecode($params);
+                clearstatcache(true, $fileName);
+                if (file_exists($fileName)) {
+                    $infoCache = json_decode(trim(file_get_contents($fileName)), true);
+                    if (isset($infoCache['artist_bio_content']) && $infoCache['artist_bio_content']) {
+                       echo json_encode(array('biocontent' => rawurldecode($infoCache['artist_bio_content'])));
+                       break;
+                    }
+                }
+            }
+            echo 'XX';
+            break;
     }
 } else {
   echo 'MPD DB INTERFACE<br>';

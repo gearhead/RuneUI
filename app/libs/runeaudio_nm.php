@@ -10350,13 +10350,13 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         $redis->hSet('cleancache', '30lowerdate_artist', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
-        // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted') are
+        // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted' or 'We don't have lyrics for this song') are
         //  deleted after 30 days
         // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
         //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
         sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
         //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted' ".$cleanLowerDir."/*.song &> /dev/null");
+        $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted|We don't have lyrics for this song' ".$cleanLowerDir."/*.song &> /dev/null");
         //  remove the exclude file
         unlink('/tmp/exclude.filelist');
         // delete the files
@@ -10989,9 +10989,10 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     $makeitpersonalUp = $redis->hGet('service', 'makeitpersonal');
     if (!$makeitpersonalUp) {
         // makeitpersonal is down
-        $retval = 'Lyrics service unavailable<br>';
+        $retval = 'Lyrics service unavailable.';
         $found = false;
     } else {
+        $retval = '';
         // no authorisation token required
         // url format: https://makeitpersonal.co/lyrics?artist=annie+lennox&title=little+bird
         $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
@@ -11039,17 +11040,28 @@ function get_lyrics($redis, $searchArtist, $searchSong)
             $retval = '';
             $found = false;
         } else {
+            // replace <br> and malformed <br>'s with <br>
+            //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
+            $retval = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $retval));
+            // strip away remaining formatting blocks or link pointers, excluding <br>
+            $retval = trim(strip_tags($retval, '<br>'));
+            // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
+            $repArray   = array("\r\n", "\n", "\r");
+            $retval = trim(str_replace($repArray, '<br>', $retval));
+            // replace whitespace with a single space
+            $retval = trim(preg_replace('!\s+!u', ' ', $retval));
             while (substr($retval, 0, 4) == '<br>') {
-                // remove leading empty lines
+                // remove leading empty line
                 $retval = trim(substr($retval, 4));
+            }
+            while (substr($retval, -4) == '<br>') {
+                // remove trailing empty line
+                $retval = trim(substr($retval, 0, -4));
             }
             if (!$retval) {
                 // nothing returned, it should always return something, disable makeitpersonal
                 $redis->hSet('service', 'makeitpersonal', 0);
                 // this will be reset each 15 minutes, providing that the makeitpersonal site is up
-                $retval = '';
-                $found = false;
-            } else if (strpos(' '.strtolower($retval), "sorry, we don't have lyrics for this song yet")) {
                 $retval = '';
                 $found = false;
             } else {
@@ -11059,9 +11071,23 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     }
     if ($found) {
         $return = array();
-        $return['song_lyrics'] = $retval;
         $return['success'] = $found;
         $return['service'] = 'makeitpersonal';
+        if (isset($rank)) {
+            $return['rank'] = $rank;
+        }
+        if (isset($covertArtUrl)) {
+            $return['covertArtUrl'] = $covertArtUrl;
+        }
+        if (isset($artistArtUrl)) {
+            $return['artistArtUrl'] = $artistArtUrl;
+        }
+        if (isset($retval)) {
+            $return['song_lyrics'] = $retval;
+        }
+        if (isset($syncedLyrics) && $syncedLyrics) {
+            $return['synced_lyrics'] = $syncedLyrics;
+        }
         return $return;
     }
     //
@@ -11070,9 +11096,10 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     $chartlyricsUp = $redis->hGet('service', 'chartlyrics');
     if (!$chartlyricsUp) {
         // chartlyrics is down
-        $retval = 'Lyrics service unavailable<br>';
+        $retval = 'Lyrics service unavailable.';
         $found = false;
     } else {
+        $retval = '';
         // no authorisation token required
         // url format: : http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=abba&song=Lay%20All%20Your%20Love%20on%20Me
         $url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist='.urlClean($searchArtist).'&song='.urlClean($searchSong);
@@ -11104,9 +11131,23 @@ function get_lyrics($redis, $searchArtist, $searchSong)
             $retval = '';
             $found = false;
         } else {
+            // replace <br> and malformed <br>'s with <br>
+            //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
+            $retval = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $retval));
+            // strip away remaining formatting blocks or link pointers, excluding <br>
+            $retval = trim(strip_tags($retval, '<br>'));
+            // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
+            $repArray   = array("\r\n", "\n", "\r");
+            $retval = trim(str_replace($repArray, '<br>', $retval));
+            // replace whitespace with a single space
+            $retval = trim(preg_replace('!\s+!u', ' ', $retval));
             while (substr($retval, 0, 4) == '<br>') {
-                // remove leading empty lines
+                // remove leading empty line
                 $retval = trim(substr($retval, 4));
+            }
+            while (substr($retval, -4) == '<br>') {
+                // remove trailing empty line
+                $retval = trim(substr($retval, 0, -4));
             }
             $found = true;
             if (!$retval) {
@@ -11131,10 +11172,300 @@ function get_lyrics($redis, $searchArtist, $searchSong)
             }
         }
     }
-    if (!$found) {
-        $retval = 'Sorry, We don\'t have lyrics for this song yet. '.
-        'Add them to <a href="https://lyrics.wikia.com" target="_blank" rel="nofollow">www.lyrics.wikia.com</a> '.
-        'or <a href="http://chartlyrics.com" target="_blank" rel="nofollow">www.chartlyrics.com</a><br>';
+    if ($found) {
+        $return = array();
+        $return['success'] = $found;
+        $return['service'] = 'chartlyrics';
+        if (isset($rank)) {
+            $return['rank'] = $rank;
+        }
+        if (isset($covertArtUrl)) {
+            $return['covertArtUrl'] = $covertArtUrl;
+        }
+        if (isset($retval)) {
+            $return['song_lyrics'] = $retval;
+        }
+        if (isset($syncedLyrics) && $syncedLyrics) {
+            $return['synced_lyrics'] = $syncedLyrics;
+        }
+        return $return;
+    }
+    // lrclibnet
+    $lrclibnetUp = $redis->hGet('service', 'lrclibnet');
+    if (!$lrclibnetUp) {
+        // lrclibnet is down
+        $retval = 'Lyrics service unavailable.';
+        $found = false;
+    } else {
+        $retval = '';
+        // no authorisation token required, user agent in the header should point to the github runeaudio site
+        // url format: https://lrclib.net/api/get?artist_name=annie+lennox&track_name=little+bird
+        // test command: curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "https://lrclib.net/api/get?artist_name=annie+lennox&track_name=little+bird"'
+        $url = 'https://lrclib.net/api/get?artist_name='.urlClean($searchArtist).'&track_name='.urlClean($searchSong);
+        $lrclibnetUpUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui)';
+        // $proxy = $redis->hGetall('proxy');
+        // using a proxy is possible but not implemented
+        $retval = sysCmd('curl -A "'.$lrclibnetUpUserAgent.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        if (!$retval) {
+            // retval is an empty string
+            $retval = '';
+            // lrclibnet should always return a value, something wrong so disable it
+            //  lrclibnet will reset itsself after 15 minutes
+            $redis->hSet('service', 'lrclibnet', 0);
+            $found = false;
+        } else if (strpos(strtolower(' '.$retval), 'failed to deserialize query string')) {
+            // 'failed to deserialize query string' returned, error condition, but not fatal
+            // the artist and/or song parameters are probably too long
+            $retval = '';
+            $found = false;
+        } else if (strpos(strtolower(' '.$retval), 'failed to find specified track')) {
+            // 'failed to find specified track' returned
+            $retval = '';
+            $found = false;
+        } else {
+            $details = json_decode($retval, true);
+            $retval = '';
+            if ($details['instrumental']) {
+                $retval = 'Instrumental.';
+                $syncedLyrics = 'Instrumental.\n[00:10.00] ';
+            } else {
+                $retval = $details['plainLyrics'];
+                $syncedLyrics = $details['syncedLyrics'];
+            }
+            // replace <br> and malformed <br>'s with <br>
+            //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
+            $retval = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $retval));
+            // strip away remaining formatting blocks or link pointers, excluding <br>
+            $retval = trim(strip_tags($retval, '<br>'));
+            // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
+            $repArray   = array("\r\n", "\n", "\r");
+            $retval = trim(str_replace($repArray, '<br>', $retval));
+            // replace whitespace with a single space
+            $retval = trim(preg_replace('!\s+!u', ' ', $retval));
+            while (substr($retval, 0, 4) == '<br>') {
+                // remove leading empty lines
+                $retval = trim(substr($retval, 4));
+            }
+            while (substr($retval, -4) == '<br>') {
+                // remove trailing empty lines
+                $retval = trim(substr($retval, 0, -4));
+            }
+            if (!$retval) {
+                // empty
+                $retval = '';
+                $found = false;
+            } else {
+                $found = true;
+            }
+        }
+    }
+    if ($found) {
+        $return = array();
+        $return['success'] = $found;
+        $return['service'] = 'lrclibnet';
+        if (isset($rank)) {
+            $return['rank'] = $rank;
+        }
+        if (isset($covertArtUrl)) {
+            $return['covertArtUrl'] = $covertArtUrl;
+        }
+        if (isset($artistArtUrl)) {
+            $return['artistArtUrl'] = $artistArtUrl;
+        }
+        if (isset($retval)) {
+            $return['song_lyrics'] = $retval;
+        }
+        if (isset($syncedLyrics) && $syncedLyrics) {
+            $return['synced_lyrics'] = $syncedLyrics;
+        }
+        return $return;
+    }
+    // geniuscom
+    $match_percentage = $redis->hGet('lyrics', 'match_percentage');
+    $geniuscomUp = $redis->hGet('service', 'geniuscom');
+    $geniuscomToken = $redis->hGet('geniuscom', 'token');
+    if (!$geniuscomUp || !$geniuscomToken) {
+        // geniuscom is down or the token is not defined
+        $retval = 'Lyrics service unavailable.';
+        $found = false;
+    } else {
+        $retval = '';
+        // authorisation token required, genius.com search returns a series of matches, best one first
+        // merge artist and song into a single query string
+        $query = urlClean($searchArtist.' '.$searchSong);
+        $geniuscomHeader = 'Authorization: Bearer '.$geniuscomToken;
+        // debug
+        // echo "Searching Genius API for: \"" . $query . "\"...\n";
+        // query the Genius API search endpoint
+        // example curl -H "Authorization: Bearer EsaybsMXZv82CKsdEEmAd9Va_ybKHXaxlkxSMd0KhCDVzvIeVimqEJSqbdz9t8-H" -X GET -s --connect-timeout 10 -m 20 --retry 1 "https://api.genius.com/search?q=annie%20lennox%20little%20bird"
+        $url = "https://api.genius.com/search?q=".$query;
+        // $proxy = $redis->hGetall('proxy');
+        // using a proxy is possible but not implemented
+        $retval = sysCmd('curl -H "'.$geniuscomHeader.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
+        // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        if (!$retval) {
+            // retval is an empty string
+            $retval = '';
+            // geniuscom should always return a value, something wrong so disable it
+            //  geniuscom will reset itsself after 15 minutes
+            $redis->hSet('service', 'geniuscom', 0);
+            $found = false;
+        } else {
+            $details = json_decode($retval, true);
+            $retval = '';
+            if (!isset($details['meta']['status']) || ($details['meta']['status'] != 200)) {
+                // something wrong with the server if status not set or 200 not returned, disable it
+                $redis->hSet('service', 'geniuscom', 0);
+                $found = false;
+            } else if (!isset($details['response']['hits']) || (count($details['response']['hits']) == 0)) {
+                // no information returned, not fatal
+                $found = false;
+            } else {
+                foreach ($details['response']['hits'] as $key => $detail) {
+                    $song = $detail['result']['title'];
+                    $artist = $detail['result']['primary_artist_names'];
+                    // we get a lot of false positive matches from genius.com
+                    // check that at least $match_percentage (default = 50%) of words in the search artist name occur in the returned
+                    //  artist name, and visa versa, and also in the search and returned song title and visa versa
+                    $matched = count_word_occurancies($searchArtist, $artist);
+                    $rank = $matched;
+                    if ($matched < $match_percentage) {
+                        unset($details['response']['hits'][$key]);
+                        continue;
+                    }
+                    $matched = count_word_occurancies($artist, $searchArtist);
+                    $rank += $matched;
+                    if ($matched < $match_percentage) {
+                        unset($details['response']['hits'][$key]);
+                        continue;
+                    }
+                    $matched = count_word_occurancies($searchSong, $song);
+                    $rank += $matched;
+                    if ($matched < $match_percentage) {
+                        unset($details['response']['hits'][$key]);
+                        continue;
+                    }
+                    $matched = count_word_occurancies($song, $searchSong);
+                    $rank += $matched;
+                    if ($matched < $match_percentage) {
+                        unset($details['response']['hits'][$key]);
+                        continue;
+                    }
+                    $goodHits[$key] = $rank;
+                    $found = true;
+                }
+                if ($found) {
+                    // sort the good hits in ascending rank order
+                    asort($goodHits);
+                    // get the key of the last array entry
+                    $key = array_key_last($goodHits);
+                    $detail = $details['response']['hits'][$key];
+                    // save some details
+                    $rank = $goodHits[$key];
+                    $covertArtUrl = $detail['result']['header_image_url'];
+                    $artistArtUrl = $detail['result']['primary_artist']['image_url'];
+                    $lyricsUrl = $detail['result']['url'];
+                    unset($retval, $details, $detail);
+                    // now get the lyrics page
+                    // example: curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "https://genius.com/Annie-lennox-little-bird-lyrics"
+                    $retval = implode('',sysCmd('curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$lyricsUrl.'"'));
+                    // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
+                    $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+                    if ($retval) {
+                        // something returned, use document object model processing to extract the lyrics
+                        // Suppress malformed HTML markup warnings commonly produced by tracking scripts inside web layouts
+                        libxml_use_internal_errors(true);
+                        $dom = new DOMDocument();
+                        $dom->loadHTML($retval, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+                        libxml_clear_errors();
+                        //
+                        // UseXPath to find the specific div containing 'data-exclude-from-selection="true"'
+                        $xpath = new DOMXPath($dom);
+                        $targetDiv = $xpath->query('//div[@data-exclude-from-selection="true"]')->item(0);
+                        //
+                        // delete the div(s) everything within the div(s)
+                        if ($targetDiv) {
+                            $targetDiv->parentNode->removeChild($targetDiv);
+                        }
+                        // now select the div's containing 'data-lyrics-container="true"' to the array $containers
+                        $containers = $xpath->query('//div[@data-lyrics-container="true"]');
+                        $retval = '';
+                        if ($containers->length) {
+                            // lyrics containers found
+                            // Loop through the matched lyric fragments, parse line feeds, and clean up HTML elements
+                            foreach ($containers as $container) {
+                                $innerHTML = "";
+                                foreach ($container->childNodes as $child) {
+                                    $innerHTML .= $dom->saveHTML($child);
+                                }
+                                //
+                                // replace <br> and malformed <br>'s with <br>'
+                                //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
+                                $lyrics = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $innerHTML));
+                                // strip away remaining formatting blocks or link pointers, excluding <br>
+                                $lyrics = trim(strip_tags($lyrics, '<br>'));
+                                // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
+                                $repArray   = array("\r\n", "\n", "\r");
+                                $lyrics = trim(str_replace($repArray, '<br>', $lyrics));
+                                // replace whitespace with a single space
+                                $lyrics = trim(preg_replace('!\s+!u', ' ', $lyrics));
+                                $retval .= $lyrics . "<br>";
+                            }
+                            while (substr($retval, 0, 4) == '<br>') {
+                                // remove leading empty lines
+                                $retval = trim(substr($retval, 4));
+                            }
+                            while (substr($retval, -4) == '<br>') {
+                                // remove trailing empty lines
+                                $retval = trim(substr($retval, 0, -4));
+                            }
+                            if (!$retval) {
+                                // empty
+                                $retval = '';
+                                $found = false;
+                            } else {
+                                $found = true;
+                            }
+                        } else {
+                            // no lyrics containers found
+                            $retval = '';
+                            $found = false;
+                        }
+                    } else {
+                        // nothing returned from the lyrics url
+                        $retval = '';
+                        $found = false;
+                    }
+                }
+            }
+        }
+    }
+    if ($found) {
+        $return = array();
+        $return['success'] = $found;
+        $return['service'] = 'geniuscom';
+        if (isset($rank)) {
+            $return['rank'] = $rank;
+        }
+        if (isset($covertArtUrl)) {
+            $return['covertArtUrl'] = $covertArtUrl;
+        }
+        if (isset($artistArtUrl)) {
+            $return['artistArtUrl'] = $artistArtUrl;
+        }
+        if (isset($retval)) {
+            $return['song_lyrics'] = $retval;
+        }
+        if (isset($syncedLyrics) && $syncedLyrics) {
+            $return['synced_lyrics'] = $syncedLyrics;
+        }
+        return $return;
+    }
+    if (!$retval) {
+        $retval = 'Sorry, We don\'t have lyrics for this song yet.';
     }
     //
     $return = array();
@@ -11144,11 +11475,14 @@ function get_lyrics($redis, $searchArtist, $searchSong)
     if (isset($covertArtUrl)) {
         $return['covertArtUrl'] = $covertArtUrl;
     }
+    if (isset($artistArtUrl)) {
+        $return['artistArtUrl'] = $artistArtUrl;
+    }
     if (isset($retval)) {
         $return['song_lyrics'] = $retval;
     }
     $return['success'] = $found;
-    $return['service'] = 'chartlyrics';
+    $return['service'] = '';
     return $return;
 }
 
@@ -11245,6 +11579,10 @@ function get_songInfo($redis, $info = array())
 // this function specifically retrieves and sets:
 //  the http-formatted song lyrics (song_lyrics),
 //  the name of the file containing the cached song information (song_filename)
+//  optional saved fields which are returned by some lyrics services can include:
+//      synchronised lyrics (synced_lyrics),
+//      album cover art url (lyrics_covertArtUrl),
+//      artist art url (lyrics_artistArtUrl)
 // the function sets any empty values for which information is not available
 // a cache file of artist information is always created, and if this exists it will be used instead of retrieving the information from internet
 // the function will return 'unknown' values when nothing van be found
@@ -11255,7 +11593,8 @@ function get_songInfo($redis, $info = array())
         return 0;
     }
     $toSetInfoFields = array('song_lyrics', 'song_filename');
-    $toCacheInfoFields = array_merge(array('artist', 'albumartist', 'artist_mbid', 'song', 'song_mbid'), $toSetInfoFields);
+    $toSetOptionalFields = array('synced_lyrics', 'lyrics_covertArtUrl', 'lyrics_artistArtUrl');
+    $toCacheInfoFields = array_merge(array('artist', 'albumartist', 'artist_mbid', 'song', 'song_mbid'), $toSetInfoFields, $toSetOptionalFields);
     // check all the required elements exist in $info
     $info = setup_metadata_array($info);
     // when all the information which needs to be set is already set just save the cache
@@ -11280,8 +11619,12 @@ function get_songInfo($redis, $info = array())
         file_put_contents($fileName , json_encode($infoCache)."\n");
         return $info;
     }
+    foreach (array_merge($toSetInfoFields, $toSetOptionalFields) as $initField) {
+        if (!isset($info[$initField])) {
+            $info[$initField] = '';
+        }
+    }
     if (!isset($info['song_filename']) || !$info['song_filename']) {
-        $info['song_filename'] = '';
         if (isset($info['artist']) && isset($info['song']) && $info['artist'] && $info['song']) {
             $info['song_filename'] = format_artist_song_file_name($info['artist'], $info['song']);
         }
@@ -11297,6 +11640,19 @@ function get_songInfo($redis, $info = array())
                 foreach ($infoCache as $key => $value) {
                     if (trim($value) != '') {
                         $info[$key] = trim($value);
+                    }
+                }
+                // process the optional fields
+                if (isset($info['lyrics_covertArtUrl']) && $info['lyrics_covertArtUrl']) {
+                    if (isset($info['album_arturl_medium']) && strpos(' '.$info['album_arturl_medium'], 'none.png')) {
+                        $info['album_arturl_large'] = $retval['covertArtUrl'];
+                        $info['album_arturl_medium'] = $retval['covertArtUrl'];
+                        $info['album_arturl_small'] = $retval['covertArtUrl'];
+                    }
+                }
+                if (isset($info['lyrics_artistArtUrl']) && $info['lyrics_artistArtUrl']) {
+                    if (isset($info['artist_arturl']) && strpos(' '.$info['artist_arturl'], 'none.png')) {
+                        $info['artist_arturl'] = $retval['covertArtUrl'];
                     }
                 }
                 return $info;
@@ -11362,7 +11718,7 @@ function get_songInfo($redis, $info = array())
             clearstatcache(true, $fileName);
             $fileExists = file_exists($fileName);
             if (!$fileExists && $owntoneServer) {
-                // no local file found and owntone is active as client, use wget spider to determine if th file exists on the owntone server
+                // no local file found and owntone is active as client, use wget spider to determine if the file exists on the owntone server
                 $fileNameRemote = 'http://'.$owntoneServer.get_between_data($fileName, 'srv/http');
                 $notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
                 if (!$notFound) {
@@ -11385,7 +11741,7 @@ function get_songInfo($redis, $info = array())
         }
     }
     //
-    // lyrics are sourced from makeitpersonal or chartlyrics using artist name and song name as key
+    // lyrics are sourced from various services using artist name and song name as key
     if (!$info['song_lyrics']) {
         foreach ($searchArtists as $searchArtist) {
             foreach ($searchSongs as $searchSong) {
@@ -11397,8 +11753,33 @@ function get_songInfo($redis, $info = array())
                          $service = 'makeitpersonal.co';
                     } else if ($retval['service'] == 'chartlyrics') {
                          $service = 'chartlyrics.com';
+                    } else if ($retval['service'] == 'lrclibnet') {
+                         $service = 'lrclib.net';
+                    } else if ($retval['service'] == 'geniuscom') {
+                         $service = 'genius.com';
                     }
                     $info['song_lyrics'] .= '<br><br><i>Lyrics provided by <a href="http://'.$service.'" target="_blank" rel="nofollow">www.'.$service.'</a></i>';
+                    if (isset($retval['synced_lyrics']) && $retval['synced_lyrics']) {
+                        $info['synced_lyrics'] = $retval['synced_lyrics'];
+                    }
+                    if (isset($retval['covertArtUrl']) && $retval['covertArtUrl']) {
+                        $info['lyrics_covertArtUrl'] = $retval['covertArtUrl'];
+                        if (isset($info['album_arturl_large']) && strpos(' '.$info['album_arturl_large'], 'none.png')) {
+                            $info['album_arturl_large'] = $retval['covertArtUrl'];
+                        }
+                        if (isset($info['album_arturl_medium']) && strpos(' '.$info['album_arturl_medium'], 'none.png')) {
+                            $info['album_arturl_medium'] = $retval['covertArtUrl'];
+                        }
+                        if (isset($info['album_arturl_small']) && strpos(' '.$info['album_arturl_small'], 'none.png')) {
+                            $info['album_arturl_small'] = $retval['covertArtUrl'];
+                        }
+                    }
+                    if (isset($retval['artistArtUrl']) && $retval['artistArtUrl']) {
+                        $info['lyrics_artistArtUrl'] = $retval['artistArtUrl'];
+                        if (isset($info['artist_arturl']) && strpos(' '.$info['artist_arturl'], 'none.png')) {
+                            $info['artist_arturl'] = $retval['covertArtUrl'];
+                        }
+                    }
                     // break both loops
                     break 2;
                 }
@@ -11803,8 +12184,8 @@ function get_artistInfo($redis, $info = array())
     if (!$info['artist'] && !$info['albumartist']) {
         // no artist name is set, just return the default values, cache cannot be set
         $info['artist_arturl'] = $artUrl.'/none.png';
-        $info['artist_bio_summary'] = $info['artist'].' - Sorry, no details available.';
-        $info['artist_bio_content'] = $info['artist'].' - Sorry, no details available.';
+        $info['artist_bio_summary'] = 'Sorry, no details available.';
+        $info['artist_bio_content'] = 'Sorry, no details available.';
         $info['artist_similar'] = '<br>';
         return $info;
     } else if (!$info['artist']) {
@@ -11912,21 +12293,43 @@ function get_artistInfo($redis, $info = array())
             }
         }
         if ($retval) {
+            $wikipediaLink = '';
+            // if there is only a link in the 'artist_bio_summary' or 'artist_bio_summary' empty the fields
+            if ((trim(substr($retval['artist']['bio']['summary'], 0, 8)) == '<a href=') || (trim(substr($retval['artist']['bio']['content'], 0, 8)) == '<a href=')) {
+                $retval['artist']['bio']['summary'] = '';
+                $retval['artist']['bio']['content'] = '';
+            }
+            if ($useAlbumArtist && $info['albumartist'] && !strpos(' '.strtolower($info['albumartist']), 'various')) {
+                $info['artist_filename'] = format_artist_file_name($info['albumartist']);
+                $wikipediaLink = wrk_get_wikipedia_artist_link($redis, $info['albumartist']);
+            } else if ($info['artist']) {
+                $info['artist_filename'] = format_artist_file_name($info['artist']);
+                $wikipediaLink = wrk_get_wikipedia_artist_link($redis, $info['artist']);
+            }
             if (!$info['artist_mbid'] && isset($retval['artist']['mbid']) && trim($retval['artist']['mbid']) ) {
                 $info['artist_mbid'] = trim($retval['artist']['mbid']);
             }
-            if ($useAlbumArtist && $info['albumartist']) {
-                $bioArtist = $info['albumartist'].' - ';
-            } else if ($info['artist']) {
-                $bioArtist = $info['artist'].' - ';
-            } else {
-                $bioArtist = '';
-            }
             if (!$info['artist_bio_summary'] && isset($retval['artist']['bio']['summary']) && trim($retval['artist']['bio']['summary'])) {
-                $info['artist_bio_summary'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['summary']))));
+                $info['artist_bio_summary'] = trim(str_ireplace('">Read more on last.fm', '/+wiki" target="lastfm" rel="nofollow">Visit the artist wiki on last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['summary']))));
+                if ($info['artist_filename']) {
+                    $fileName = $artDir.'/'.$info['artist_filename'].'.artist';
+                    $info['artist_bio_summary'] = trim(str_ireplace(' <a href="https://www.last.fm/music', '<br>(<i>summary biography from last.fm <a href="javascript:"javascript:void(0);" onclick="showbiocontent(\''.$fileName.'\');">more</i></a>) <br><a href="https://www.last.fm/music', $info['artist_bio_summary']));
+                } else {
+                    $info['artist_bio_summary'] = trim(str_ireplace(' <a href="https://www.last.fm/music', ' <br></a> <a href="https://www.last.fm/music', $info['artist_bio_summary']));
+                }
             }
             if (!$info['artist_bio_content'] && isset($retval['artist']['bio']['content']) && trim($retval['artist']['bio']['content'])) {
-                $info['artist_bio_content'] = $bioArtist.trim(str_replace('">Read more on Last.fm', '/+wiki" target="_blank" rel="nofollow">Read more on Last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['content']))));
+                $info['artist_bio_content'] = trim(str_ireplace('">Read more on last.fm', '/+wiki" target="lastfm rel="nofollow">Visit the artist wiki on last.fm', preg_replace('/[\t\n\r\s]+/u',' ',stripcslashes($retval['artist']['bio']['content']))));
+                if (strpos(' '.$info['artist_bio_content'], '. <a href="https://www.last.fm/music')) {
+                    $info['artist_bio_content'] = trim(str_ireplace('. <a href="https://www.last.fm/music', '. (<i>biography from last.fm <a href="javascript:"javascript:void(0);" onclick="showbiosummary();">less</a></i>) <br><a href="https://www.last.fm/music', $info['artist_bio_content']));
+                } else {
+                    $info['artist_bio_content'] = trim(str_ireplace(' <a href="https://www.last.fm/music', ' (<i>biography from last.fm <a href="javascript:"javascript:void(0);" onclick="showbiosummary();">less</a></i>) <br><a href="https://www.last.fm/music', $info['artist_bio_content']));
+                }
+                $info['artist_bio_content'] = trim(str_ireplace('. User-contributed text', '<br><i>User-contributed text', $info['artist_bio_content']), ". \n\r\t\v\x00").'</i>';
+            }
+            if ($wikipediaLink) {
+                $info['artist_bio_summary'] = trim(str_ireplace('<a href="https://www.last.fm/music', $wikipediaLink.' - <a href="https://www.last.fm/music', $info['artist_bio_summary']));
+                $info['artist_bio_content'] = trim(str_ireplace('<a href="https://www.last.fm/music', $wikipediaLink.' - <a href="https://www.last.fm/music', $info['artist_bio_content']));
             }
             if (!$info['artist_similar'] && isset($retval['artist']['similar']['artist'][0]['name'])) {
                 // similar artist name summary is set
@@ -11979,11 +12382,29 @@ function get_artistInfo($redis, $info = array())
             }
         }
     }
-    if (!$info['artist_bio_summary']) {
-        $info['artist_bio_summary'] = $info['artist'].' - Sorry, no details available.';
-    }
-    if (!$info['artist_bio_content']) {
-        $info['artist_bio_content'] = $info['artist'].' - Sorry, no details available.';
+    if (!$info['artist_bio_summary'] || !$info['artist_bio_content'] ||
+            ($info['artist_bio_summary'] == 'Sorry, no details available from Last.fm.') ||
+            ($info['artist_bio_content'] == 'Sorry, no details available from Last.fm.')) {
+        // bio empty
+        $info['artist_bio_summary'] = 'Sorry, no details available from Last.fm.';
+        $info['artist_bio_content'] = 'Sorry, no details available from Last.fm.';
+        $lastFmLink = '';
+        $wikipediaLink = '';
+        if ($useAlbumArtist && $info['albumartist'] && !strpos(' '.strtolower($info['albumartist']), 'various')) {
+            $lastFmLink = '<a href=\"https://www.last.fm/music/'.rawurlencode($info['albumartist']).'/+wiki\" target=\"lastfm\" rel=\"nofollow\">Create artist wiki on last.fm</a>';
+            $wikipediaLink = wrk_get_wikipedia_artist_link($redis, $info['albumartist']);
+        } else if ($info['artist']) {
+            $lastFmLink = '<a href=\"https://www.last.fm/music/'.rawurlencode($info['artist']).'/+wiki\" target=\"lastfm\" rel=\"nofollow\">Create artist wiki on last.fm</a>';
+            $wikipediaLink = wrk_get_wikipedia_artist_link($redis, $info['artist']);
+        }
+        if ($wikipediaLink) {
+                $info['artist_bio_summary'] .= '<br>'.$wikipediaLink;
+                $info['artist_bio_content'] .= '<br>'.$wikipediaLink;
+        }
+        if ($lastFmLink) {
+                $info['artist_bio_summary'] .= '<br>'.$lastFmLink;
+                $info['artist_bio_content'] .= '<br>'.$lastFmLink;
+        }
     }
     if (!$info['artist_similar']) {
         $info['artist_similar'] = '<br>';
@@ -12231,6 +12652,76 @@ function wrk_get_webradio_art($redis, $radiostring)
         }
     }
     return $info;
+}
+
+// function to retrieve a wikipedia url for an artist name
+function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read more on Wikipedia', $target='WikipediA', $rel='nofollow')
+// a search will be carried out using $artist using the wikipedia rest api
+// the optional $text parameter is the clickable text in the returned http link, default 'Read more on Wikipedia'
+// the optional parameters $target (default 'WikipediA') and $rel (default 'nofollow'), can be used to modify the way the clicked link reacts
+// the function returns a string containing a clickable http tag '<a href="[wikipedia_url]" target="[target]" rel="[rel]">[clickable_text]</a>'
+//  example of the return string '<a href="http://www.wikipedia.org/wiki/Annie_Lennox" target="WikipediA" rel="nofollow">Read more on Wikipedia</a>'
+// when no wikipedia link can be found false is returned
+// the function first searches for the wikipedia link with a postfix before searching for a non-postfixed link, the postfixes (in priority order) are:
+//  '(band)', '(singer)', '(musician)', '(composer)'
+// curl format defined by wikipedia
+//  curl "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie+lennox&limit=20"
+{
+    // validate the $artist search argument
+    if (isset($artist) && $artist) {
+        // make the artist lower case, replacing whitespace with a single space and trimming leading and trailing spaces
+        $artist = strtolower(trim(preg_replace('|[\s+\s]|', ' ', $artist)));
+        if (!$artist) {
+            // if the artist search string is now empty just return false
+            return false;
+        }
+    } else {
+        // artist is empty, return false
+        return false;
+    }
+    $link = false;
+    // set up the wikipedia search url, we use the english search
+    $searchUrl = 'https://en.wikipedia.org/w/rest.php/v1/search/page?q='.rawurlencode($artist).'&limit=20';
+    // use curl to post the search url with a http GET
+    // e.g. curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie%20lennox&limit=20"
+    $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "'.$searchUrl.'"')[0];
+    if (isset($retval) && $retval && json_validate($retval)) {
+        // a string has been returned which which contains json encoding
+        $retval = json_decode($retval, true);
+        if (isset($retval['pages']) && count($retval['pages'])) {
+            // the json decode is successful and there are search results
+            foreach ($retval['pages'] as $key => &$page) {
+                // work through the $retval array making the title lower case, replacing whitespace with a single space and trimming leading and trailing spaces
+                //  we do this once, now. otherwise it will be done on each iteration of postfixes in the double loop below
+                $page['title'] = strtolower(trim(preg_replace('|[\s+\s]|', ' ', $page['title'])));
+                if (!strpos(' '.$page['title'], $artist)) {
+                    // artist not found in the title, remove the array element, this should reduce the search time
+                    unset($retval['pages'][$key]);
+                }
+            }
+            // set up the postfixes, each is lower case has a leading space except the last which is an empty string
+            $wikipediaPostfixes = array(" (band)", " (singer)", " (musician)", " (composer)", "");
+            foreach ($wikipediaPostfixes as $wikipediaPostfix) {
+                // work through the postfix Array
+                // add the postfix to the artist
+                $search = $artist.$wikipediaPostfix;
+                foreach ($retval['pages'] as $page) {
+                    // work through each wikipedia page
+                    if ($page['title'] == $search) {
+                        // a match on title, save the key (url)
+                        $keyUrl = $page['key'];
+                        // break both loops
+                        break 2;
+                    }
+                }
+            }
+            if (isset($keyUrl) && $keyUrl) {
+                // a match, build the http link, we use the english wikipedia
+                $link = '<a href="https://en.wikipedia.org/wiki/'.$keyUrl.'" target="'.$target.'" rel="'.$rel.'">'.$clickableText.'</a>';
+            }
+        }
+    }
+    return $link;
 }
 
 // // function which returns the artist image url artist information, the song lyrics and the album image URL as an array for a MPD song

@@ -211,6 +211,8 @@ if [ "$up_cnt" == "0" ] ; then
     redis-cli hset service makeitpersonal 0
     redis-cli hset service chartlyrics 0
     redis-cli hset service azlyrics 0
+    redis-cli hset service lrclibnet 0
+    redis-cli hset service geniuscom 0
     redis-cli hset service musicbrainz 0
     redis-cli hset service coverartarchiveorg 0
     redis-cli hset service wikipedia 0
@@ -223,7 +225,7 @@ fi
 #
 # internet
 # determine if we can see google.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 www.google.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # internet connection is available
     redis-cli hset service internet 1
@@ -236,6 +238,8 @@ else
     redis-cli hset service lastfm 0
     redis-cli hset service makeitpersonal 0
     redis-cli hset service chartlyrics 0
+    redis-cli hset service lrclibnet 0
+    redis-cli hset service geniuscom 0
     redis-cli hset service azlyrics 0
     redis-cli hset service musicbrainz 0
     redis-cli hset service coverartarchiveorg 0
@@ -270,22 +274,53 @@ fi
 wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://makeitpersonal.co/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # website is up
-    # lyrics should be available
+    # makeitpersonal should be available
     redis-cli hset service makeitpersonal 1
 else
-    # lyrics is not available
+    # makeitpersonal is not available
     redis-cli hset service makeitpersonal 0
 fi
 # chartlyrics lyrics
-# determine if we can see : api.chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://api.chartlyrics.com > /dev/null 2>&1
+# determine if we can see : chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://chartlyrics.com > /dev/null 2>&1
 if [ $? -eq 0 ]; then
-    # website is up
-    # lyrics should be available
-    redis-cli hset service chartlyrics 1
+    # website homepage is up
+    # determine if we can see : api.chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
+    wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://api.chartlyrics.com > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        # api website is also up
+        # chartlyrics should be available
+        redis-cli hset service chartlyrics 1
+    else
+        # chartlyrics is not available
+        redis-cli hset service chartlyrics 0
+    fi
 else
-    # lyrics is not available
+    # chartlyrics is not available
     redis-cli hset service chartlyrics 0
+fi
+# lrclib.net lyrics
+# determine if we can see : lrclib.net, this command will give up after +/-20 seconds (= timeout x tries)
+wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://lrclib.net > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # website homepage is up
+    # lrclib.net lyrics should be available
+    redis-cli hset service lrclibnet 1
+else
+    # lrclib.net lyrics is not available
+    redis-cli hset service lrclibnet 0
+fi
+# genius.com lyrics
+# determine if we can see : api.genius.com/search, this command will give up after +/-20 seconds (= timeout x tries), it need a header for authorisation
+token=$( redis-cli hget geniuscom token )
+wget --force-html --spider --header="Authorization: Bearer $token" --connect-timeout=1 --timeout=10 --tries=2 "https://api.genius.com/search" > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # website homepage is up
+    # genius.com lyrics should be available
+    redis-cli hset service geniuscom 1
+else
+    # genius.com lyrics is not available
+    redis-cli hset service geniuscom 0
 fi
 # # azlyrics
 # # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x tries)
