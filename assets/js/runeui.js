@@ -3727,7 +3727,7 @@ if ($('#playback').length) {
                 }
             });
 
-            // show/hide Last.fm auth details
+            // show/hide last.fm auth details
             $('#scrobbling-lastfm').change(function(){
                 if ($(this).prop('checked')) {
                     $('#lastfmAuth').removeClass('hide');

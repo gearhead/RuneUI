@@ -8018,7 +8018,7 @@ function ui_lastFM_coverart($redis, $artist, $album, $lastfmApikey, $proxy)
     }
 }
 
-// populate queue with similiar tracks suggested by Last.fm
+// populate queue with similiar tracks suggested by last.fm
 function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
 {
     if (!$redis->hGet('service', 'lastfm')) {
@@ -8028,7 +8028,7 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
     runelog('similar lastfm track', $track);
     runelog('similar lastfm name', $proxy);
     runelog('similar lastfm lastfm_api', $lastfm_api);
-    // This makes the call to Last.fm. The limit parameter can be adjusted to the number of tracks you want returned.
+    // This makes the call to last.fm. The limit parameter can be adjusted to the number of tracks you want returned.
     // [TODO] adjustable amount of tracks in settings screen
     $url = "https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&limit=1000&api_key=".$lastfmApikey."&artist=".urlClean($artist)."&track=".urlClean($track)."&format=json";
     runelog('similar lastfm query URL', $url);

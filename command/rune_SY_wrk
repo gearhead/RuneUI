@@ -870,7 +870,7 @@ while (true) {
                 $redis->sRem('w_lock', $jobID);
                 if (isset($action) && $action) {
                     // send notfy to UI
-                    ui_notify($redis, 'Last.FM scrobbling', $action);
+                    ui_notify($redis, 'last.fm scrobbling', $action);
                 }
                 unset($file, $newArray, $fp, $action);
                 break;

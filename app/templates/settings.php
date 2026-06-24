@@ -748,7 +748,7 @@
                             <input id="scrobbling-lastfm" name="features[lastfm][enable]" type="checkbox" value="1"<?php if((isset($lastfm['enable'])) && ($lastfm['enable'])): ?> checked="checked" <?php endif ?>>
                             <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                         </label>
-                        <span class="help-block">Send to Last.fm information about the music you are listening to (requires a Last.fm account)</span>
+                        <span class="help-block">Send to last.fm information about the music you are listening to (requires a last.fm account)</span>
                     </div>
                 </div>
                 <div class="<?php if((!isset($lastfm['enable'])) || (!$lastfm['enable'])): ?>hide<?php endif ?>" id="lastfmAuth">
@@ -756,14 +756,14 @@
                         <label class="control-label col-sm-2" for="lastfm-usr">Username</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="text" id="lastfm_user" name="features[lastfm][user]" value="<?php echo $lastfm['user']; ?>" data-trigger="change" placeholder="user" autocomplete="off">
-                            <span class="help-block">Insert your Last.fm <i>username</i></span>
+                            <span class="help-block">Insert your last.fm <i>username</i></span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="control-label col-sm-2" for="lastfm-pasw">Password</label>
                         <div class="col-sm-10">
                             <input class="form-control osk-trigger input-lg" type="password" id="lastfm_pass" name="features[lastfm][pass]" value="<?php echo $lastfm['pass']; ?>" placeholder="pass" autocomplete="off">
-                            <span class="help-block">Insert your Last.fm <i>password</i> (case sensitive)<br>
+                            <span class="help-block">Insert your last.fm <i>password</i> (case sensitive)<br>
                             <i>Note: Your password is stored as plain text, RuneAudio should only be used in your private network!</i></span>
                         </div>
                     </div>
