@@ -187,10 +187,13 @@ if (!$noCdInDrive) {
 }
 
 // when i2smodule is 'none' on boot it can be changed dynamically
-if ($redis->get('i2smodule') == 'none') {
-    $redis->set('i2smoduleDynamic', true);
-} else {
-    $redis->set('i2smoduleDynamic', false);
+if (is_firstTime($redis, 'i2s_module_state')) {
+    if ($redis->get('i2smodule') == 'none') {
+        $redis->set('i2smoduleDynamic', true);
+    } else {
+        $redis->set('i2smoduleDynamic', false);
+    }
+    $redis->set('i2smoduleReboot', false);
 }
 
 if ($playerid_db === '') {

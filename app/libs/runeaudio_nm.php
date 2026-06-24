@@ -4105,8 +4105,8 @@ function wrk_audioOutput($redis, $action)
 
 function wrk_i2smodule($redis, $args = null, $jobID = null)
 {
-    $oldI2smodule = trim($redis->get('i2smodule'));
     $args = trim($args);
+    $oldOverlayName = $redis->get('i2smodule');
     $redis->set('i2smodule', $args);
     if (isset($jobID) && $jobID) {
         $redis->save();
@@ -4130,13 +4130,14 @@ function wrk_i2smodule($redis, $args = null, $jobID = null)
             // otherwise comment out the line
             $newArray = wrk_replaceTextLine('', $newArray, 'force_eeprom_read=', '#force_eeprom_read=0');
         }
-        // Commit changes to config.txt
+        // commit changes to config.txt
         $fp = fopen($file, 'w');
         $return = fwrite($fp, implode("", $newArray));
         fclose($fp);
         // when the the pi booted with i2smodule = 'none', the dtoverlay can be dynamically activated, otherwise a reboot is required
         //  i2smoduleDynamic is set to true when i2smodule = 'none' at boot-initialise
         //  secondary changes cannot be made dynamically
+        // also when the card name changes but the overlay remains the same a dynamic change is possible (only a name change) 
         if ($redis->get('i2smoduleDynamic')) {
             // dynamic module switching is possible
             if ($args != 'none') {
@@ -4147,8 +4148,11 @@ function wrk_i2smodule($redis, $args = null, $jobID = null)
                 // inform the user of dynamic changes
                 ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to reboot');
             }
+        } else if (!$redis->get('i2smoduleReboot') && ($oldOverlayName == $args)) {
+            ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to reboot');
         } else {
             ui_notify($redis, 'I&#178;S module', 'Reboot required to activate changes');
+            $redis->set('i2smoduleReboot', true);
         }
     } else {
         if (wrk_mpdPlaybackStatus($redis) === 'play') {
