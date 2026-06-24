@@ -4869,7 +4869,22 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                 $enabledOutput = get_between_data($enabledOutput, '(', ')');
             }
             // get the current play state
-            $playState = json_decode($redis->get('act_player_info'), true)['state'];
+            $playState = $redis->get('act_player_info');
+            if (isset($playState) && $playState) {
+                $playState = json_decode($playState, true);
+                if (isset($playState['state']) && $playState['state']) {
+                    $playState = $playState['state'];
+                } else {
+                    unset($playState);
+                }
+            } else {
+                unset($playState);
+            }
+            if (!isset($playState) && is_playing($redis)) {
+                $playState = 'play';
+            } else {
+                $playState = 'unknown';
+            }
             // debug
             runelog('switchao (switch AO) from:', $oldMpdout);
             runelog('switchao (switch AO) to  :', $args);
@@ -13577,9 +13592,10 @@ function set_alsa_default_card($redis, $cardName = null)
             sysCmd('echo defaults.ctl.card '.$cardNumber." >> '".$alsaFileName."'");
         }
     }
-    // when owntone is enabled the output card is different, the mixer continues to point at the real card
+    // when owntone is enabled the output card is different, the mixer is disabled with no volume control
     if ($redis->hGet('owntone', 'active')) {
         $acard['device'] = $redis->hGet('owntone', 'device_bt');
+        $mixerInfo = ' --volume=none';
     }
     // also configure bluealsa to point at the default card
     sysCmd('echo "OPTIONS=\"--pcm='.$acard['device'].$mixerInfo.'\"" > "'.$bluealsaFileName.'"');

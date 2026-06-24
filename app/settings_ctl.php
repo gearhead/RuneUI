@@ -84,10 +84,10 @@ if (isset($_POST)) {
         }
 
         // autoswitch optimized kernel profile for BerryNOS mini DAC
-        if (isset($_POST['i2smodule'])) {
-            if ($_POST['i2smodule'] === 'berrynosmini') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'orionprofile', 'args' => 'OrionV3_berrynosmini'));
+        if (isset($i2smodule)) {
+            if ($i2smodule === 'berrynosmini') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'orionprofile', 'args' => 'OrionV3_berrynosmini'));
             // autoswitch optimized kernel profile for IQaudIO Pi-DAC
-            if ($_POST['i2smodule'] === 'iqaudiopidac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'orionprofile', 'args' => 'OrionV3_iqaudio'));
+            if ($i2smodule === 'iqaudiopidac') $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'orionprofile', 'args' => 'OrionV3_iqaudio'));
         }
 
     // audio-on-off

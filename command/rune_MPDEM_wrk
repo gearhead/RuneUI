@@ -420,7 +420,7 @@ while (true)  {
                     && $song['album'] && $song['artist']) {
                 $imagename = md5($song['album'].$song['artist']);
             } else if (isset($song['uri']) && $song['uri']) {
-                $datafile = md5($song['uri']);
+                $imagename = md5($song['uri']);
             } else {
                 // no song info, just exit
                 exit;

@@ -189,12 +189,12 @@
                     text: 'Password required',
                     icon: 'fa fa-exclamation'
                 });
-            } else if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'Name').val().substring(0, 11) == 'Bluetooth: ')) {
-                new PNotify({
-                    title: 'Multi-room',
-                    text: 'Bluetooth connect not supported at the moment',
-                    icon: 'fa fa-exclamation'
-                });
+            // } else if (($('#'+id+'Selected').val() == '0') && ($('#'+id+'Name').val().substring(0, 11) == 'Bluetooth: ')) {
+                // new PNotify({
+                    // title: 'Multi-room',
+                    // text: 'Bluetooth connect not supported at the moment',
+                    // icon: 'fa fa-exclamation'
+                // });
             } else {
                 if ($('#'+id+'Selected').val() == '0') {
                     $('#'+id+'Selected').val('1');
