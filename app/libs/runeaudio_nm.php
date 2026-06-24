@@ -3510,7 +3510,7 @@ function wrk_cleanDistro()
     sysCmd('nohup /srv/http/command/image_reset_script.sh > /dev/null 2>&1 &');
 }
 
-function wrk_audioOutput($redis, $action)
+function wrk_audioOutput($redis, $action, $data=null)
 {
     switch ($action) {
         case 'refresh':
@@ -3560,6 +3560,13 @@ function wrk_audioOutput($redis, $action)
             $acards = array();
             // reformat the output of the card list
             $cardChange = false;
+            $soundcardName = explode('|',$redis->get('i2smodule_select'));
+            if (isset($soundcardName[1])) {
+                $soundcardName = $soundcardName[1];
+            } else {
+                // this should never happen
+                $soundcardName = 'xxx';
+            }
             if (is_array($cardlist)) {
                 foreach ($cardlist as $card) {
                     $cardNr=trim(get_between_data($card, 'card', ':'));
@@ -3579,7 +3586,20 @@ function wrk_audioOutput($redis, $action)
                                 $cardDet = array();
                                 $cardDet = json_decode($redis->hget('acards', $acards[$cardNr]['sysname']), true);
                                 if (get_between_data($cardDet['device'], ':', ',') != $cardNr) {
+                                    // card number changed
                                     $cardChange = true;
+                                } else if (strpos(' '.$cardDet['description'], 'Soundcard: ') && !stripos(' '.$cardDet['description'], $soundcardName)) {
+                                    // the soundcard description has changed, could be the same overlay and card number, but still needs processing
+                                    $cardChange = true;
+                                } else if (strpos(' '.$cardDet['description'], 'Soundcard: ') && !isset($cardDet['mixer_device'])) {
+                                    // soundcard, no mixer (hardware volume control), check the existence of a pcm file for this device
+                                    $pcmName = 'softvol_'.get_between_data($cardDet['swdevice'], '=', ',');
+                                    $pcmFileName = '/etc/alsa/conf.d/99-runeaudio_'.$pcmName.'.conf';
+                                    clearstatcache(true, $pcmFileName);
+                                    if (!file_exists($pcmFileName)) {
+                                        // no pcm file, process the cards
+                                        $cardChange = true;
+                                    }
                                 }
                             }
                         }
@@ -3857,15 +3877,20 @@ function wrk_audioOutput($redis, $action)
                 }
                 // when a mixer control is specified check its validity
                 if (isset($details['mixer_control']) && $details['mixer_control']) {
-                    // mixer control is specified, check that it is valid
-                    $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -ic "'.$details['mixer_control'].'"');
-                    if(isset($retval) && is_array($retval) && $retval[0]) {
-                        // it is valid, do nothing
-                    } else {
-                        // not found, unset the value
+                    if ($details['mixer_control'] == 'ALSAsoftvol') {
+                        // the ALSA soft volume control mixer name is always omitted from processing
                         unset($details['mixer_control']);
+                    } else {
+                        // mixer control is specified, check that it is valid
+                        $retval = sysCmd('amixer scontrols -c '.$card['number'].' | grep -ic "'.$details['mixer_control'].'"');
+                        if(isset($retval) && is_array($retval) && $retval[0]) {
+                            // it is valid, do nothing
+                        } else {
+                            // not found, unset the value
+                            unset($details['mixer_control']);
+                        }
+                        unset($retval);
                     }
-                    unset($retval);
                 }
                 // when the mixer control name is not defined, sometimes it can be derived (this value is always used when available)
                 if (!isset($details['mixer_control']) || !$details['mixer_control']) {
@@ -3883,6 +3908,11 @@ function wrk_audioOutput($redis, $action)
                             $pvolumeFound = false;
                             $limitsFound = false;
                             $singleLimitsFound = false;
+                        }
+                        if (isset($mixerControl) && $mixerControl == 'ALSAsoftvol') {
+                            // the ALSA soft volume control mixer name is always omitted from processing
+                            unset($mixerControl);
+                            continue;
                         }
                         if (strpos($retlineTest, 'pvolume ')) {
                             $pvolumeFound = true;
@@ -3931,9 +3961,9 @@ function wrk_audioOutput($redis, $action)
                     // add allowed formats to the card options
                     $hwplatformid = $redis->get('hwplatformid');
                     if ($hwplatformid == '08') {
-                        $details['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        $details['allowed_formats'] = "192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*";
                     } else {
-                        $details['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                        $details['allowed_formats'] = "96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*";
                     }
                 }
                 if (isset($details['sysname']) && $details['sysname']) {
@@ -3989,6 +4019,15 @@ function wrk_audioOutput($redis, $action)
                                 if (isset($sub_int_details['route_cmd'])) $sub_int_details['route_cmd'] = str_replace("*CARDID*", $card['number'], $sub_int_details['route_cmd']);
                                 // debug
                                 runelog('::::::sub interface record array:::::: ',json_encode($sub_int_details));
+                                if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                                    // no mixer
+                                    //  create an alsa software volume control pcm for this card, it is not registered in acards
+                                    //  the software volume control pcm may also include an alsa resampler to force the bit width to 24 or 32 bits
+                                    //      this is only used by owntone
+                                    //          the trigger for using it is when 'mixer_control' is missing
+                                    //          ouptput bit rate is always 44.1khz, this is supported by all audio cards, so resampling only changes the bit width.
+                                    wrk_audioOutput($redis, 'alsa_software_volume_control', $data);
+                                }
                                 $redis->hSet('acards', $card['sysname'].'_'.$sub_int_details['id'], json_encode($sub_int_details));
                             }
                         }
@@ -4003,7 +4042,22 @@ function wrk_audioOutput($redis, $action)
                     // test if there is an option for mpd.conf set
                     // for example ODROID C1 needs "card_option":"buffer_time\t\"0\""
                     if (isset($details['card_option']) && $details['card_option']) {
+                        // replace whitespace with a single space
                         $data['card_option'] = $details['card_option'];
+                        $cardOption = preg_replace('/\s+/', ' ', $data['card_option']);
+                        if (strpos(' '.$cardOption, "allowed_formats \"")) {
+                            // $data['card_option'] contains an allowed formats, remove it and add it to $data['allowed_formats']
+                            $data['allowed_formats'] = trim(get_between_data("allowed_formats \"", "\""));
+                            $data['card_option'] = rtrim(preg_replace('/\s*allowed_formats\s+".*?"/', '', $data['card_option']));
+                        }
+                        if (strpos(' '.$cardOption, "format \"")) {
+                            // $data['card_option'] contains a format, remove it and add it to $data['allowed_formats']
+                            $data['allowed_formats'] = trim(get_between_data("format \"", "\""));
+                            $data['card_option'] = rtrim(preg_replace('/\s*format\s+".*?"/', '', $data['card_option']));
+                        }
+                        if (!$data['card_option']) {
+                            unset ($data['card_option']);
+                        }
                     }
                     // if we have determined a swcardname use it
 
@@ -4042,6 +4096,15 @@ function wrk_audioOutput($redis, $action)
                     //$data['system'] = trim($card['sysdesc']);
                     // debug
                     // runelog('::::::acard record array::::::', $data);
+                    if (!isset($details['mixer_control']) || !$details['mixer_control']) {
+                        // no mixer
+                        //  create an alsa software volume control pcm for this card, it is not registered in acards
+                        //  the software volume control pcm may also include an alsa resampler to force the bit width to 24 or 32 bits
+                        //      this is only used by owntone
+                        //          the trigger for using it is when 'mixer_control' is missing
+                        //          ouptput bit rate is always 44.1khz, this is supported by all audio cards, so resampling only changes the bit width.
+                        wrk_audioOutput($redis, 'alsa_software_volume_control', $data);
+                    }
                     $redis->hSet('acards', $card['sysname'], json_encode($data));
                 }
                 // acards loop
@@ -4087,9 +4150,9 @@ function wrk_audioOutput($redis, $action)
                         // add allowed formats to the card options
                         $hwplatformid = $redis->get('hwplatformid');
                         if ($hwplatformid == '08') {
-                            $acardHDMIvc4['card_option'] = "allowed_formats \"192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                            $acardHDMIvc4['allowed_formats'] = "192000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 96000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*";
                         } else {
-                            $acardHDMIvc4['card_option'] = "allowed_formats \"96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*\"";
+                            $acardHDMIvc4['allowed_formats'] = "96000:24:* 44100:24:* 48000:24:* 32000:24:* 88200:24:* 176400:24:* 192000:24:* 96000:16:* 44100:16:* 48000:16:* 32000:16:* 88200:16:* 176400:16:* 192000:16:*";
                         }
                         $redis->hSet('acards', $acardHDMIvc4['sysname'], json_encode($acardHDMIvc4));
                     }
@@ -4098,9 +4161,190 @@ function wrk_audioOutput($redis, $action)
             //
             // $redis->save();
             $redis->bgSave();
+            return 'changed';
+            break;
+        case 'alsa_software_volume_control':
+            // add a alsa pcm containing a software volume control and possibly a resampeler to force output to 24bit or 32bit width
+            // the pcm will only be used by owntone which always outputs 44.1khz samplerate, 16bit width
+            // on single processor device this routine does nothing, as owntone is not supported on these players
+            if ($redis->get('cores') < '4') {
+                // single processor player
+                return;
+            }
+            // validate $data
+            if (!isset($data) || !is_array($data) || (count($data) == 0)) {
+                // $data invalid
+                return;
+            }
+            // when $data['mixer_control'] is set and has a value no pcm software volume control is required
+            if (isset($data['mixer_control']) && $data['mixer_control']) {
+                // no pcm software volume control
+                return;
+            }
+            // a pcm is only required for soundcards
+            //  note: it is possible that usb soundcards may also need a pcm software volume control
+            if (!isset($data['description']) || (!stripos(' '.$data['description'], 'Soundcard: ') && !stripos(' '.$data['description'], 'USB: '))) {
+                // no description or its not a soundcard 
+                return;
+            }
+            // get the information we need for processing
+            $pcmName = 'softvol_'.get_between_data($data['swdevice'], '=', ',');
+            $pcmFileName = '/etc/alsa/conf.d/99-runeaudio_'.$pcmName.'.conf';
+            $cardNumber = get_between_data($data['device'], ':', ',');
+            if (!$pcmName || !strlen($cardNumber) || !is_numeric($cardNumber)) {
+                // cannot determine the pcm name or card number, cant do anything, just return
+                return;
+            }
+            // when the pcm file name already exists and it is not a soundcard do nothing
+            //  when it is a soundcard it it always recreated
+            clearstatcache(true, $pcmFileName);
+            if (file_exists($pcmFileName) && !stripos(' '.$data['description'], 'Soundcard: ')) {
+                // file exists and it is not a soundcard, just return
+                return;
+            }
+            // there is a pcm required, now determine if it requires a resampler
+            $pcmResampleBitWidth = false;
+            $pcmResampleRate = false;
+            // when $data['allowed_formats'] is unset or empty no resampler  is required in the pcm
+            if (!isset($data['allowed_formats']) || !$data['allowed_formats']) {
+                // allowed formats is empty, no restrictions, no resampler Required
+                $pcmResampleBitWidth = false;
+                $pcmResampleRate = false;
+            } else if (strpos(' '.$data['allowed_formats'], '*:16:') || strpos(' '.$data['allowed_formats'], '44100:16:')) {
+                // any rate at 16 bit valid or 44.1khz at 16 bit valid, no resampler required
+                $pcmResampleBitWidth = false;
+                $pcmResampleRate = false;
+            } else if (strpos(' '.$data['allowed_formats'], '*:24:') || strpos(' '.$data['allowed_formats'], '44100:24:')) {
+                // any rate at 24 bit valid or 44.1khz at 24 bit valid, bit width resampler required
+                $pcmResampleBitWidth = '24';
+                $pcmResampleRate = false;
+            } else if (strpos(' '.$data['allowed_formats'], '*:32:') || strpos(' '.$data['allowed_formats'], '44100:32:')) {
+                // any rate at 32 bit valid or 44.1khz at 32 bit valid, bit width resampler required
+                $pcmResampleBitWidth = '32';
+                $pcmResampleRate = false;
+            } else if (strpos(' '.$data['allowed_formats'], ':16:') && preg_match_all('/(?<=^|\s)[0-9]{5,}:16:/m',$data['allowed_formats'], $matches, PREG_PATTERN_ORDER)) {
+                // 16bit is valid but not at 44.1khz, there is a valid rate (5 or more numeric characters long), use the first one, rate resampler required
+                $pcmResampleRate = get_between_data($matches[0][0], '', ':');
+                $pcmResampleBitWidth = false;
+            } else if (strpos(' '.$data['allowed_formats'], ':24:') && preg_match_all('/(?<=^|\s)[0-9]{5,}:24:/m',$data['allowed_formats'], $matches, PREG_PATTERN_ORDER)) {
+                // 24bit is valid but not at 44.1khz, there is a valid rate (5 or more numeric characters long), use the first one, rate and bit width resampler required
+                $pcmResampleRate = get_between_data($matches[0][0], '', ':');
+                $pcmResampleBitWidth = '24';
+            } else if (strpos(' '.$data['allowed_formats'], ':32:') && preg_match_all('/(?<=^|\s)[0-9]{5,}:32:/m',$data['allowed_formats'], $matches, PREG_PATTERN_ORDER)) {
+                // 32bit is valid but not at 44.1khz, there is a valid rate (more then 4 numeric characters long), use the first one, rate and bit width resampler required
+                $pcmResampleRate = get_between_data($matches[0][0], '', ':');
+                $pcmResampleBitWidth = '32';
+            } else if (preg_match_all('/(?<=^|\s)[0-9]{5,}:[0-9]{2,}:/m',$data['allowed_formats'], $matches, PREG_PATTERN_ORDER)) {
+                // we should never get here, but if we do use the first full allowed formats definition for a rate and bit width resampeler
+                $pcmResampleRate = get_between_data($matches[0][0], '', ':');
+                $pcmResampleBitWidth = get_between_data($matches[0][0], ':', ':');
+            }
+            if ($pcmResampleRate || $pcmResampleBitWidth) {
+                // resampler required in the pcm volume control
+                // example pcm format:
+                //  pcm.softvol_x {
+                //   type plug
+                //   slave {
+                //    pcm {
+                //     type softvol
+                //     slave {
+                //      pcm "hw:0"
+                //      format "S24_LE"
+                //      rate 44100
+                //     }
+                //     control.name "ALSAsoftvol"
+                //     control.card 0
+                //     resolution 256
+                //    }
+                //    format "S24_LE"
+                //    rate 48000
+                //   }
+                //  }
+                //  ctl.softvol_x {
+                //   type hw
+                //   card 0
+                //  }
+                $output = "# pcm software volume control with resampler for card: ".$data['device']."\n";
+                $output .= "# pcm name (device): '".$pcmName."', mixer name (volume control): 'ALSAsoftvol'\n";
+                $output .= "# soundcard overlay: '".str_replace('|', "', soundcard name: '", $redis->get('i2smodule_select'))."'\n";
+                if ($pcmResampleBitWidth) {
+                    $output .= "# card requires bit width: '".$pcmResampleBitWidth."bit'\n";
+                }
+                if ($pcmResampleRate) {
+                    $output .= "# card requires sample rate: '".$pcmResampleRate."hz'\n";
+                }
+                $output .= "pcm.".$pcmName." {\n";
+                $output .= " type plug\n";
+                $output .= " slave {\n";
+                $output .= "  pcm {\n";
+                $output .= "   type softvol\n";
+                $output .= "   slave {\n";
+                $output .= "    pcm \"hw:".$cardNumber."\"\n";
+                if ($pcmResampleBitWidth) {
+                    $output .= "    format \"S".$pcmResampleBitWidth."_LE\"\n";
+                }
+                if ($pcmResampleRate) {
+                    $output .= "    rate ".pcmResampleRate."\n";
+                }
+                $output .= "   }\n";
+                $output .= "   control.name \"ALSAsoftvol\"\n";
+                $output .= "   control.card ".$cardNumber."\n";
+                $output .= "   resolution 256\n";
+                $output .= "  }\n";
+                if ($pcmResampleBitWidth) {
+                    $output .= "  format \"S".$pcmResampleBitWidth."_LE\"\n";
+                }
+                if ($pcmResampleRate) {
+                    $output .= "  rate ".pcmResampleRate."\n";
+                }
+                $output .= " }\n";
+                $output .= "}\n";
+                $output .= "ctl.softvol_x {\n";
+                $output .= " type hw\n";
+                $output .= " card ".$cardNumber."\n";
+                $output .= "}\n";
+            } else {
+                // no resampler required in the pcm volume control
+                // example pcm format:
+                // pcm.softvol_x {
+                //  type softvol
+                //  slave {
+                //   pcm "hw:0"
+                //  }
+                //  control.name "ALSAsoftvol"
+                //  control.card 0
+                //  resolution 256
+                // }
+                // ctl.softvol_x {
+                //  type hw
+                //  card 0
+                // }
+                $output = "# pcm software volume control for card: ".$data['device']."\n";
+                $output .= "# pcm name (device): '".$pcmName."', mixer name (volume control): 'ALSAsoftvol'\n";
+                $output .= "# soundcard overlay: '".str_replace('|', "', soundcard name: '", $redis->get('i2smodule_select'))."'\n";
+                $output .= "pcm.".$pcmName." {\n";
+                $output .= " type softvol\n";
+                $output .= " slave {\n";
+                $output .= "  pcm \"hw:".$cardNumber."\"\n";
+                $output .= " }\n";
+                $output .= " control.name \"ALSAsoftvol\"\n";
+                $output .= " control.card ".$cardNumber."\n";
+                $output .= " resolution 256\n";
+                $output .= "}\n";
+                $output .= "ctl.softvol_x {\n";
+                $output .= " type hw\n";
+                $output .= " card ".$cardNumber."\n";
+                $output .= "}\n";
+            }
+            // write the output to the pcm file
+            file_put_contents($pcmFileName, $output);
+            // alsa needs to be reloaded to read the pcm file
+            sysCmd('alsactl kill rescan');
+            // some audio output needs to be written to the pcm in order to make the software volume control visible
+            //  we send silence (zeros) to the pcm for one second
+            sysCmd('aplay -v -D "'.$pcmName.'" /dev/zero --duration=1');
             break;
     }
-    return 'changed';
 }
 
 function wrk_i2smodule($redis, $args = null, $jobID = null)
@@ -4314,6 +4558,10 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
                         $redis->del($acard_store);
                     }
                 }
+                // remove any ALSAsoftvol volume controls for hardware cards without a volume control
+                //  this is required because alsa can give cards different numbers on each boot, the card number is embedded in the pcm definition
+                // remove the softvol pcm definitions, reload alsa, clean controls and store the current cards in cache
+                sysCmd('rm /etc/alsa/conf.d/99-runeaudio_softvol_*.conf >/dev/null 2>&1 ; alsactl kill rescan ; alsactl clean ; alsactl store');
             }
             unset($acard_stores, $acard_store, $acards, $acard);
             break;
