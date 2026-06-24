@@ -14046,11 +14046,22 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             break;
         case 'clear':
             // remove all cached Bluetooth information
+            if (wrk_systemd_unit($redis, 'is-active', 'bluetooth')) {
+                // bluetooth running, stop it
+                $startBluetooth = true;
+                wrk_systemd_unit($redis, 'stop', 'bluetooth');
+            } else {
+                $startBluetooth = false;
+            }
             wrk_btcfg($redis, 'remove_bt_acards');
             wrk_btcfg($redis, 'correct_bt_ao');
             sysCmd('rm -r /var/lib/bluetooth/*');
+            sysCmd('rm /etc/alsa/conf.d/99-bluealsaDEV*a2dp.conf');
             $redis->del('bluetooth_status');
             wrk_btcfg($redis, 'reset');
+            if ($startBluetooth) {
+                wrk_systemd_unit($redis, 'start', 'bluetooth');
+            }
             break;
         case 'input_connect':
             // allows RuneAudio to be detectable as a Bluetooth device and allow a pair and connect from an input (source) device
@@ -14075,7 +14086,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 break;
             }
             sysCmd('timeout 5 bluetoothctl pairable on');
-            sysCmd('timeout 5 bluetoothctl pair '.$param);
+            sysCmd('timeout 10 bluetoothctl pair '.$param);
             sysCmd('timeout 5 bluetoothctl pairable off');
             break;
         case 'unpair':
@@ -14102,12 +14113,33 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 break;
             }
             wrk_btcfg($redis, 'pair', $param);
+            // sleep(5);
+            // wrk_btcfg($redis, 'trust', $param);
             sysCmd('timeout 5 bluetoothctl connect '.$param);
             wrk_btcfg($redis, 'trust', $param);
             if (!$redis->sIsMember('bluetooth_connects', $param)) {
                 wrk_systemd_unit($redis, 'reload-or-restart', 'bluetooth bluealsa bluealsa-aplay');
                 $redis->sAdd('bluetooth_connects', $param);
                 sysCmd('timeout 5 bluetoothctl connect '.$param);
+            }
+            // when owntone is active set the output to software volume control with a volume of 0%
+            // when owntone is inactive set the output to software volume control with a volume of 100%
+            //  software volume control is deactivated when owntone is deactivated
+            //  already connected bluetooth outputs are set to software volume control when owntone is activated
+            if (strpos(' '.$param, '/sink')) {
+                // its an output pcm
+                if ($redis-hGet('owntone', 'active')) {
+                    // owntone active
+                    sysCmd('bluealsactl soft-volume '.$pcm.' on');
+                    sysCmd('bluealsactl volume '.$pcm.' 0');
+                } else {
+                    // owntone inactive
+                    $softVol = sysCmd('( bluealsactl info '.$pcm.' ) | grep -ic "SoftVolume:\s*true" | xargs')[0];
+                    if ($softVol) {
+                        sysCmd('bluealsactl volume '.$pcm.' 127');
+                        sysCmd('bluealsactl soft-volume '.$pcm.' off');
+                    }
+                }
             }
             break;
         case 'disconnect':
@@ -14255,7 +14287,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                     wrk_btcfg($redis, 'disconnect', $param);
                 }
                 sysCmd('timeout 5 bluetoothctl remove '.$param);
-                sysCmd('find /var/lib/bluetooth/ -name *'.$param.'* -exec rm -rf {} \;');
+                sysCmd('find /var/lib/bluetooth -name *'.$param.'* -exec rm -rf {} \;');
                 $deviceArray = json_decode($redis->get('bluetooth_status'), true);
                 if (isset($deviceArray[$param])) {
                     unset($deviceArray[$param]);
@@ -14471,6 +14503,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                                                     // $btCard['mixer_device'] = 'bluealsa:'.$deviceArray[$pcmsDevice]['device'];
                                                     // $btCard['mixer_control'] = $deviceArray[$pcmsDevice]['name'].' - A2DP ';
                                                     //
+                                                    $btCard['allowed_formats'] = $redis->hGet('bluetooth', 'samplerate').':16:2';
                                                     $btCard['extlabel'] = $deviceArray[$pcmsDevice]['name'];
                                                     $btCard['sysname'] = $deviceArray[$pcmsDevice]['name'];
                                                     $btCard['type'] = 'alsa';
@@ -14492,6 +14525,7 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
             }
             wrk_btcfg($redis, 'correct_bt_ao');
             $redis->set('bluetooth_status', json_encode($deviceArray));
+            $redis->set('network_bt_status', json_encode($deviceArray));  // added kg to speed up network page
             $retval = $deviceArray;
             break;
         case 'status_async':
@@ -16387,7 +16421,7 @@ function set_realtek_allowed_formats($redis)
         return;
     }
     // usb audio valid rates information is retrieved with the following line
-    $capabilities = sysCmd('grep -iE "rates:|channels:|bits:|playback:|capture:" $( grep -Ril "'.$ao.'" /proc/asound/card*/stream* )');
+    $capabilities = sysCmd('timeout 5 grep -iE "rates:|channels:|bits:|playback:|capture:" $( grep -Ril "'.$ao.'" /proc/asound/card*/stream* )');
     // use the following line from the cli for testing:
     //  grep -iE "rates:|channels:|bits:|playback:|capture:" $( grep -Ril "$( redis-cli get ao )" /proc/asound/card*/stream* )
     // the output can contain playback and capture sections, we only use the playback section
@@ -17093,6 +17127,13 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 if (isset($jobID) && $jobID) {
                     $redis->sRem('w_lock', $jobID);
                 }
+                // change any Bluetooth outputs to use a software volume control and set it to 0%
+                $pcms = sysCmd('timeout 5 bluealsactl list-pcms | grep -i "/sink"');
+                foreach ($pcms as $pcm) {
+                    sysCmd('bluealsactl soft-volume '.$pcm.' on');
+                    sysCmd('bluealsactl volume '.$pcm.' 0');
+
+                }
                 // remove the first time indicators for connecting owntone outputs
                 sysCmd('rm -f /tmp/MR_*.firsttime');
                 wrk_owntone($redis, 'status');
@@ -17252,6 +17293,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     $redis->hSet('owntone_presets', $presetKey, json_encode($preset));
                 }
             }
+            // change any Bluetooth outputs to use a hardware volume control and set it to 100%
+            $pcms = sysCmd('timeout 5 bluealsactl list-pcms | grep -i "/sink"');
+            foreach ($pcms as $pcm) {
+                $softVol = sysCmd('( bluealsactl info '.$pcm.' ) | grep -ic "SoftVolume:\s*true" | xargs')[0];
+                if ($softVol) {
+                    sysCmd('bluealsactl volume '.$pcm.' 127');
+                    sysCmd('bluealsactl soft-volume '.$pcm.' off');
+                }
+            }
             // remove the owntone outputs and other stored values
             $redis->del('owntone_outputs');
             $redis->hSet('owntone', 'master', json_encode(array()));
@@ -17370,6 +17420,15 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
             $redis->hSet('owntone', 'server_ip_address', '');
             $redis->hSet('owntone', 'server', '');
             $redis->hSet('owntone', 'client_id', '');
+            // change any Bluetooth outputs to use a hardware volume control and set it to 100%
+            $pcms = sysCmd('timeout 5 bluealsactl list-pcms | grep -i "/sink"');
+            foreach ($pcms as $pcm) {
+                $softVol = sysCmd('( bluealsactl info '.$pcm.' ) | grep -ic "SoftVolume:\s*true" | xargs')[0];
+                if ($softVol) {
+                    sysCmd('bluealsactl volume '.$pcm.' 127');
+                    sysCmd('bluealsactl soft-volume '.$pcm.' off');
+                }
+            }
             // initialise owntone alsa and fifo channels, also starts owntone
             wrk_owntone($redis, 'initialise');
             $mpdOwntoneOutput = sysCmd('grep -ic owntone "/etc/mpd.conf" | xargs')[0];
@@ -17486,24 +17545,86 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         if (isset($acard_decoded['swmixer_device']) && $acard_decoded['swmixer_device']) {
                             $owntoneCard['mixer_device'] = $acard_decoded['swmixer_device'];
                         }
+                        if (!isset($owntoneCard['mixer']) || !isset($owntoneCard['mixer_device'])) {
+                            // need to use the software volume control pcm
+                            //  see the the pcm, /etc/alsa/conf.d/99-runeaudio_softvol_*.conf
+                            $owntoneCard['card_name'] = 'softvol_'.get_between_data($acard_decoded['swdevice'], 'CARD=', ',DEV=');
+                            // the mixer points to the software card name without the device
+                            //  test with amixer -D <software_card_name_excl_device>
+                            $owntoneCard['mixer_device'] = get_between_data($acard_decoded['swdevice'], '',',DEV=');
+                            $owntoneCard['mixer'] = 'ALSAsoftvol';
+                        }
                         $owntoneCard['file'] = $tmpFile;
                         wrk_owntone($redis, 'conf_add_alsa_card', $owntoneCard);
                     }
                     unset($acards, $acard, $acard_decoded, $owntoneCard);
                 }
                 if (count($btDevices)) {
+                    $alsaChanged = false;
                     ksort($btDevices, SORT_NATURAL|SORT_FLAG_CASE);
                     foreach ($btDevices as $btDevice) {
+                        // setup owntone.conf
                         $owntoneCard = array();
-                        $owntoneCard['card_name'] = "bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp";
+                        $owntoneCard['card_name'] = preg_replace('/[^A-Za-z0-9-._ ]/', '', "bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp");
                         $owntoneCard['nickname'] = 'Bluetooth: '.$btDevice['name'].' ('.$btDevice['icon'].')';
-                        $owntoneCard['mixer'] = '';
+                        // $owntoneCard['mixer'] = '';
                         // $owntoneCard['mixer'] = $btDevice['name'].' A2DP';
-                        $owntoneCard['mixer_device'] = '';
+                        $owntoneCard['mixer'] = 'A2DP';
+                        // $owntoneCard['mixer_device'] = '';
+                        $owntoneCard['mixer_device'] = $owntoneCard['card_name'];
                         $owntoneCard['file'] = $tmpFile;
                         wrk_owntone($redis, 'conf_add_alsa_card', $owntoneCard,);
+                        // setup the bluealsa alsa files for owntone
+                        $bluealsaAlsaFileName = '/etc/alsa/conf.d/99-'.$owntoneCard['card_name'].'.conf';
+                        clearstatcache(true, $bluealsaAlsaFileName);
+                        if (!file_exists($bluealsaAlsaFileName)) {
+                            // file not present, create it
+                            //  this is an example of the format of the file '/etc/alsa/conf.d/99-bluealsaDEV79729C11E4C1PROFILEa2dp.conf':
+                            // # Virtual PCM mapping to the Bluetooth device 79:72:9C:11:E4:C1 - Bluetooth: BRAINZ Speaker S30 (audio-headset)
+                            // pcm.bluealsaDEV79729C11E4C1PROFILEa2dp {
+                            //  type plug
+                            //  slave.pcm {
+                            //   type bluealsa
+                            //   device "79:72:9C:11:E4:C1"
+                            //   profile "a2dp"
+                            //  }
+                            //  hint {
+                            //   show on
+                            //   description "bluealsa:DEV=79:72:9C:11:E4:C1,PROFILE=a2dp - Bluetooth: BRAINZ Speaker S30 (audio-headset)"
+                            //  }
+                            // }
+                            // # CTL-definitie voor de volumeregeling
+                            // ctl.bluealsaDEV79729C11E4C1PROFILEa2dp {
+                            //  type bluealsa
+                            // }
+                            //
+                            $output = "# Virtual PCM mapping to the Bluetooth device ".$btDevice['device']." - ".$owntoneCard['nickname']."\n";
+                            $output .= "pcm.".$owntoneCard['card_name']." {\n";
+                            $output .= " type plug\n";
+                            $output .= " slave.pcm {\n";
+                            $output .= "  type bluealsa\n";
+                            $output .= "  device \"".$btDevice['device']."\"\n";
+                            $output .= "  profile \"a2dp\"\n";
+                            $output .= " }\n";
+                            $output .= " hint {\n";
+                            $output .= "  show on\n";
+                            $output .= "  description \"bluealsa:DEV=".$btDevice['device'].",PROFILE=a2dp - ".$owntoneCard['nickname']."\"\n";
+                            $output .= " }\n";
+                            $output .= "}\n";
+                            $output .= "# CTL-definition for the volume control\n";
+                            $output .= "ctl.".$owntoneCard['card_name']." {\n";
+                            $output .= " type bluealsa\n";
+                            $output .= " device \"".$btDevice['device']."\"\n";
+                            $output .= "}\n";
+                            file_put_contents($bluealsaAlsaFileName, $output);
+                            $alsaChanged = true;
+                        }
                     }
-                    unset($btDevices, $btDevice, $owntoneCard);
+                    if ($alsaChanged) {
+                        // force alsa to reload all card profiles (should not be required, but loading the pcm's does not seem to work consistantly)
+                        sysCmd('alsactl kill rescan');
+                    }
+                    unset($btDevices, $btDevice, $owntoneCard, $bluealsaAlsaFileName, $output, $alsaChanged);
                 }
                 $presetNames = $redis->hKeys('owntone_presets');
                 if (count($presetNames)) {
