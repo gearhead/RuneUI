@@ -12007,15 +12007,15 @@ function get_songInfo($redis, $info = array())
                 }
                 // process the optional fields
                 if (isset($info['lyrics_covertArtUrl']) && $info['lyrics_covertArtUrl']) {
-                    if (isset($info['album_arturl_medium']) && strpos(' '.$info['album_arturl_medium'], 'none.png')) {
-                        $info['album_arturl_large'] = $retval['covertArtUrl'];
-                        $info['album_arturl_medium'] = $retval['covertArtUrl'];
-                        $info['album_arturl_small'] = $retval['covertArtUrl'];
+                    if (!isset($info['album_arturl_medium']) || !$info['album_arturl_medium'] || strpos(' '.$info['album_arturl_medium'], 'none.png')) {
+                        $info['album_arturl_large'] = $info['lyrics_covertArtUrl'];
+                        $info['album_arturl_medium'] = $info['lyrics_covertArtUrl'];
+                        $info['album_arturl_small'] = $info['lyrics_covertArtUrl'];
                     }
                 }
                 if (isset($info['lyrics_artistArtUrl']) && $info['lyrics_artistArtUrl']) {
-                    if (isset($info['artist_arturl']) && strpos(' '.$info['artist_arturl'], 'none.png')) {
-                        $info['artist_arturl'] = $retval['covertArtUrl'];
+                    if (!isset($info['artist_arturl']) || !$info['artist_arturl'] || strpos(' '.$info['artist_arturl'], 'none.png')) {
+                        $info['artist_arturl'] = $info['lyrics_artistArtUrl'];
                     }
                 }
                 return $info;
@@ -12127,20 +12127,20 @@ function get_songInfo($redis, $info = array())
                     }
                     if (isset($retval['covertArtUrl']) && $retval['covertArtUrl']) {
                         $info['lyrics_covertArtUrl'] = $retval['covertArtUrl'];
-                        if (isset($info['album_arturl_large']) && strpos(' '.$info['album_arturl_large'], 'none.png')) {
+                        if (!isset($info['album_arturl_large']) || !$info['album_arturl_large'] || strpos(' '.$info['album_arturl_large'], 'none.png')) {
                             $info['album_arturl_large'] = $retval['covertArtUrl'];
                         }
-                        if (isset($info['album_arturl_medium']) && strpos(' '.$info['album_arturl_medium'], 'none.png')) {
+                        if (!isset($info['album_arturl_medium']) || !$info['album_arturl_medium'] || strpos(' '.$info['album_arturl_medium'], 'none.png')) {
                             $info['album_arturl_medium'] = $retval['covertArtUrl'];
                         }
-                        if (isset($info['album_arturl_small']) && strpos(' '.$info['album_arturl_small'], 'none.png')) {
+                        if (!isset($info['album_arturl_small']) || !$info['album_arturl_small'] || strpos(' '.$info['album_arturl_small'], 'none.png')) {
                             $info['album_arturl_small'] = $retval['covertArtUrl'];
                         }
                     }
                     if (isset($retval['artistArtUrl']) && $retval['artistArtUrl']) {
                         $info['lyrics_artistArtUrl'] = $retval['artistArtUrl'];
-                        if (isset($info['artist_arturl']) && strpos(' '.$info['artist_arturl'], 'none.png')) {
-                            $info['artist_arturl'] = $retval['covertArtUrl'];
+                        if (!isset($info['artist_arturl']) || !$info['artist_arturl'] || strpos(' '.$info['artist_arturl'], 'none.png')) {
+                            $info['artist_arturl'] = $retval['artistArtUrl'];
                         }
                     }
                     // break both loops
