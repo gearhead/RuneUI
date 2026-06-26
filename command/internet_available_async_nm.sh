@@ -247,9 +247,9 @@ else
     redis-cli hset service lastfm 0
     redis-cli hset service makeitpersonal 0
     redis-cli hset service chartlyrics 0
+    redis-cli hset service azlyrics 0
     redis-cli hset service lrclibnet 0
     redis-cli hset service geniuscom 0
-    redis-cli hset service azlyrics 0
     redis-cli hset service musicbrainz 0
     redis-cli hset service coverartarchiveorg 0
     redis-cli hset service wikipedia 0
