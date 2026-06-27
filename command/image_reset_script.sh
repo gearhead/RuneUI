@@ -459,23 +459,28 @@ redis-cli set passworddate "$passworddate"
 #   first the user www-data, this has a specific default account
 usercnt=$( grep -c "^www-data:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
-#   remove the user www-data if it exists
-    userdel -r "www-data"
+#   remove the user www-data if it exists, but dont use the -r option - this will delete files owned by www-data
+    userdel "www-data"
 fi
 # create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
 useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 usermod -L -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
-#   remove the http user if it exists, http was previously the webserver user, superseded by www-data
+# remove the http user if it exists, http was previously the webserver user, superseded by www-data
+#   but dont use the -r option - this will delete files owned by http
 usercnt=$( grep -c "^http:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
     userdel "http"
 fi
 #   now the rest of the users, these are used by systemd
+# redis needs to be stopped and restarted
+redis-cli save
+systemctl stop redis
 declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "^_$i:" "/etc/passwd" )
     if [ "$usercnt" == "1" ] ; then
-        userdel -r "_$i"
+        # dont use the -r option - this will delete files owned by _$i
+        userdel "_$i"
     fi
     usercnt=$( grep -c "^$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
@@ -485,6 +490,8 @@ for i in "${createusers[@]}" ; do
     # ensure these users are locked, with default directory /dev/null and pointing to the shell /usr/bin/nologin
     usermod -L -d /dev/null -s /usr/bin/nologin "$i"
 done
+# restart redis
+systemctl start redis
 #
 # make sure that audio-specific users are member of the audio group
 declare -a audiousers=(www-data mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
@@ -587,15 +594,46 @@ systemctl start connman
 # the following commands should also be run after a system update or any package updates
 rm -f /etc/samba/*.conf
 #rm -f /etc/netctl/*
-# copy default settings and services
-cp -RTv /srv/http/app/config/defaults/etc/. /etc
-cp -RTv /srv/http/app/config/defaults/usr/. /usr
-cp -RTv /srv/http/app/config/defaults/var/. /var
-# copy config files for xbindkeys, luakit, chromium, etc.
-cp -RTv /srv/http/app/config/defaults/srv/. /srv
-# copy a standard config.txt & cmdline.txt
-#   note: for RPiOS Bookworm these files have a different location and these will be replaced by symlinks, see below
-cp -RTv /srv/http/app/config/defaults/boot/. /boot
+# copy default settings, services, configuration files, etc.
+# create an array containing the files which need to be copied
+# first the config files which will be copied to /etc/...
+mapfile -d '' files < <(find /srv/http/app/config/defaults/etc/ -type f -print0)
+# now append the file names which will be copied to /usr/...
+mapfile -d '' -O "${#files[@]}" files < <(find /srv/http/app/config/defaults/usr/ -type f -print0)
+# now append the file names which will be copied to /var/...
+mapfile -d '' -O "${#files[@]}" files < <(find /srv/http/app/config/defaults/var/ -type f -print0)
+# now append the file names which will be copied to /srv/...
+mapfile -d '' -O "${#files[@]}" files < <(find /srv/http/app/config/defaults/srv/ -type f -print0)
+# now append the file names which will be copied to /boot/...
+#   see below where the relevant files are moved to /firmware/boot
+mapfile -d '' -O "${#files[@]}" files < <(find /srv/http/app/config/defaults/boot/ -type f -print0)
+# now proces the list creating directories as required
+#   the copy works like this cp /srv/http/app/config/defaults/etc/examplefile.txt /etc/examplefile.txt
+#   or  cp /srv/http/app/config/defaults/etc/exampledirectory/examplefile.txt /etc/exampledirectory/examplefile.txt
+for file in "${files[@]}"; do
+    # extract the target path and file name, that is, from the 6th '/' including the '/'
+    target="/${file#/*/*/*/*/*/}"
+    # determine the target directory
+    targetdir="${target%/*}"
+    # echo $targetdir
+    if [ ! -d "$targetdir" ]; then
+        # directory does not exist, create it
+        # echo "mkdir -p \"$targetdir\""
+        mkdir -p "$targetdir"
+    fi
+    # copy the file
+    # echo "cp \"$file\" \"$target\""
+    cp "$file" "$target"
+done
+unset files
+#cp -RTv /srv/http/app/config/defaults/etc/. /etc
+#cp -RTv /srv/http/app/config/defaults/usr/. /usr
+#cp -RTv /srv/http/app/config/defaults/var/. /var
+## copy config files for xbindkeys, luakit, chromium, etc.
+#cp -RTv /srv/http/app/config/defaults/srv/. /srv
+## copy a standard config.txt & cmdline.txt
+##   note: for RPiOS Bookworm these files have a different location and these will be replaced by symlinks, see below
+#cp -RTv /srv/http/app/config/defaults/boot/. /boot
 # first-time boot version of cmdline.txt is different
 cp -f /boot/cmdline.txt.firstboot /boot/cmdline.txt
 # generate a default mpd --version file
@@ -642,7 +680,25 @@ elif [ $pythonPlugin -ne 1 ] && [ $python3Plugin -eq 1 ] ; then
 fi
 # for RPiOS Bookworm the first partition is mounted as /boot/firmware in all other cases it is /boot
 if [ "$p1mountpoint" != "/boot" ] ; then
-    cp -RTv /srv/http/app/config/defaults/boot/. $p1mountpoint
+    mapfile -d '' files < <(find /srv/http/app/config/defaults/boot/ -type f -print0)
+    for file in "${files[@]}"; do
+        # extract the target path (excluding '/boot') and file name, that is, from the 7th '/' including the first '/'
+        #   add this to the p1mountpoint
+        target="$p1mountpoint/${file#/*/*/*/*/*/*/}"
+        # determine the target directory
+        targetdir="${target%/*}"
+        # echo $targetdir
+        if [ ! -d "$targetdir" ]; then
+            # directory does not exist, create it
+            # echo "mkdir -p \"$targetdir\""
+            mkdir -p "$targetdir"
+        fi
+        # copy the file
+        # echo "cp \"$file\" \"$target\""
+        cp "$file" "$target"
+    done
+    unset files
+    # cp -RTv /srv/http/app/config/defaults/boot/. $p1mountpoint
     cp -f /boot/firmware/cmdline.txt.firstboot $p1mountpoint/cmdline.txt
     if [ "$p1mountpoint" != "/boot/firmware/firmware" ] ; then
         rm -r /boot/firmware/firmware
