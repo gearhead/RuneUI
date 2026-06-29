@@ -13025,8 +13025,10 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
 // the function returns a string containing a clickable http tag '<a href="[wikipedia_url]" target="[target]" rel="[rel]">[clickable_text]</a>'
 //  example of the return string '<a href="http://www.wikipedia.org/wiki/Annie_Lennox" target="WikipediA" rel="nofollow">Read more on Wikipedia</a>'
 // when no wikipedia link can be found false is returned
-// the function first searches for the wikipedia link with a postfix before searching for a non-postfixed link, the postfixes (in priority order) are:
-//  '(band)', '(singer)', '(musician)', '(composer)'
+// the function first searches for the wikipedia title with a postfix before searching for a non-postfixed link, the postfixes (in priority order) are:
+//  (band), (singer), (musician), (composer), (songwriter), (record producer), (dj), (artist)
+// a validation of a match is made using the wikipedia description where one of the following terms must be present:
+//   band, singer, musician, composer, songwriter, record producer, dj, artist
 // curl format defined by wikipedia
 //  curl "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie+lennox&limit=20"
 {
@@ -13038,6 +13040,8 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
             // if the artist search string is now empty just return false
             return false;
         }
+        // replace '&' with 'and'
+        $artist = str_replace('&', 'and', $artist);
     } else {
         // artist is empty, return false
         return false;
@@ -13057,13 +13061,17 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
                 // work through the $retval array making the title lower case, replacing whitespace with a single space and trimming leading and trailing spaces
                 //  we do this once, now. otherwise it will be done on each iteration of postfixes in the double loop below
                 $page['title'] = strtolower(trim(preg_replace('|[\s+\s]|', ' ', $page['title'])));
+                // replace '&' with 'and'
+                $page['title'] = str_replace('&', 'and', $page['title']);
                 if (!strpos(' '.$page['title'], $artist)) {
                     // artist not found in the title, remove the array element, this should reduce the search time
                     unset($retval['pages'][$key]);
                 }
             }
             // set up the postfixes, each is lower case has a leading space except the last which is an empty string
-            $wikipediaPostfixes = array(" (band)", " (singer)", " (musician)", " (composer)", "");
+            //  if the page exists for a artist plus postfix, that is a candidate match
+            $wikipediaPostfixes = array(" (band)", " (singer)", " (musician)", " (composer)", " (songwriter)", " (record producer)", " (dj)", " (artist)", "");
+            $wikipediaKeyTerms = array("band", "singer", "musician", "composer", "songwriter", "record producer", "dj", "artist");
             foreach ($wikipediaPostfixes as $wikipediaPostfix) {
                 // work through the postfix Array
                 // add the postfix to the artist
@@ -13073,10 +13081,25 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
                     if ($page['title'] == $search) {
                         // a match on title, save the key (url)
                         $keyUrl = $page['key'];
+                        $matchDescription = $page['description'];
                         // break both loops
                         break 2;
                     }
                 }
+            }
+            // double validate the candidate match, a key term must be present in the description
+            $found = false;
+            if (isset($keyUrl) && $keyUrl && isset($matchDescription) && $matchDescription) {
+                foreach ($wikipediaKeyTerms as $wikipediaKeyTerm) {
+                    $found = preg_match('/(?:^|[^A-Za-z0-9])(?i)'.$wikipediaKeyTerm.'(?-i)(?:[^A-Za-z0-9]|$)/', $matchDescription);
+                    if ($found) {
+                        // match found break the loop
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                unset($matchDescription, $keyUrl);
             }
             if (isset($keyUrl) && $keyUrl) {
                 // a match, build the http link, we use the english wikipedia
