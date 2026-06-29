@@ -478,7 +478,7 @@ if [ "$usercnt" != "0" ] ; then
     userdel "http"
 fi
 #   now the rest of the users, these are used by systemd
-# redis and needs to be stopped before the changes and restarted after
+# redis and avahi-daemon need to be stopped before the changes and redis restarted after
 redis-cli save
 systemctl stop redis avahi-daemon
 declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone avahi)
@@ -511,8 +511,8 @@ for i in "${createusers[@]}" ; do
     # if there are any files or directories without an owner or a group, change them to '$i:$i'
     find / \( -nouser -o -nogroup \) -exec chown $i:$i {} +
 done
-# restart redis and avahi
-systemctl start redis avahi-daemon
+# restart redis, dont restart avahi
+systemctl start redis
 #
 # make sure that audio-specific users are member of the audio group
 declare -a audiousers=(www-data mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
