@@ -459,23 +459,29 @@ redis-cli set passworddate "$passworddate"
 #   first the user www-data, this has a specific default account
 usercnt=$( grep -c "^www-data:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
-#   remove the user www-data if it exists, but dont use the -r option - this will delete files owned by www-data
-    userdel "www-data"
+    # modify the user www-data user with no password, locked, pointing to the shell /usr/bin/nologin, primary group 'www-data'
+    usermod -L -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin -g "www-data" "www-data"
+else
+    # create the www-data user with no password, locked, pointing to the shell /usr/bin/nologin, primary group 'www-data'
+    useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
 fi
-# create the www-data user with no password, locked and pointing to the shell /usr/bin/nologin
-useradd -U -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
-usermod -L -c "www-data webserver user" -d /srv/http -s /usr/bin/nologin "www-data"
+# if there are any files without an owner or a group, change them to 'www-data:www-data'
+find / -type f \( -nouser -o -nogroup \) -exec chown www-data:www-data {} +
+# if there are any directories without an owner or a group, change them to 'root:root'
+find / -type d \( -nouser -o -nogroup \) -exec chown root:root {} +
 # remove the http user if it exists, http was previously the webserver user, superseded by www-data
 #   but dont use the -r option - this will delete files owned by http
 usercnt=$( grep -c "^http:" "/etc/passwd" )
 if [ "$usercnt" != "0" ] ; then
+    # if there are any files with owner or group 'http', change them to 'www-data:www-data'
+    find / -type f \( -user http -o -group http \) -exec chown www-data:www-data {} +
     userdel "http"
 fi
 #   now the rest of the users, these are used by systemd
-# redis needs to be stopped and restarted
+# redis and needs to be stopped before the changes and restarted after
 redis-cli save
-systemctl stop redis
-declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone)
+systemctl stop redis avahi-daemon
+declare -a createusers=(mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble lirc udevil redis owntone avahi)
 for i in "${createusers[@]}" ; do
     usercnt=$( grep -c "^_$i:" "/etc/passwd" )
     if [ "$usercnt" == "1" ] ; then
@@ -484,14 +490,29 @@ for i in "${createusers[@]}" ; do
     fi
     usercnt=$( grep -c "^$i:" "/etc/passwd" )
     if [ "$usercnt" == "0" ] ; then
-        # create the accounts with no password
+        # create the accounts with no password, locked, with default directory /dev/null, pointing to the shell /usr/bin/nologin, primary group the same as the user
         useradd -U -c "$i systemd user" -d /dev/null -s /usr/bin/nologin "$i"
+    else
+        # check that the group for the username
+        if ( ! getent group "$i" > /dev/null 2>&1 ) ; then
+            # non existing user group create a group
+            groupadd "$i"
+        fi
+        # attempt to make the gid the same as the uid
+        # get the uid
+        user_uid=$( id -u "$i" )
+        if ( ! getent group "$user_uid" > /dev/null 2>&1 ) ; then
+            there is no group with a gid the same as the uid, modify give group  a gid the same as the uid
+            groupmod -g "$user_uid" "$i"
+        fi
+        # ensure these users are locked, with default directory /dev/null, pointing to the shell /usr/bin/nologin, primary group the same as the user
+        usermod -L -c "$i systemd user" -d /dev/null -s /usr/bin/nologin -g "$i" "$i"
     fi
-    # ensure these users are locked, with default directory /dev/null and pointing to the shell /usr/bin/nologin
-    usermod -L -d /dev/null -s /usr/bin/nologin "$i"
+    # if there are any files or directories without an owner or a group, change them to '$i:$i'
+    find / \( -nouser -o -nogroup \) -exec chown $i:$i {} +
 done
-# restart redis
-systemctl start redis
+# restart redis and avahi
+systemctl start redis avahi-daemon
 #
 # make sure that audio-specific users are member of the audio group
 declare -a audiousers=(www-data mpd spotifyd shairport-sync upmpdcli bluealsa mpdscribble owntone)
@@ -507,6 +528,9 @@ declare -a devusers=(udevil)
 declare -a devgroups=(audio disk floppy optical storage)
 for i in "${devusers[@]}" ; do
     for j in "${devgroups[@]}" ; do
+        if ( ! getent group "$j" > /dev/null 2>&1 ) ; then
+            groupadd "$j"
+        fi
         devusercnt=$( groups "$i" | grep -c "$j" )
         if [ "$devusercnt" == "0" ] ; then
             usermod -a -G "$j" "$i"
@@ -533,6 +557,8 @@ for i in "${homeusers[@]}" ; do
     if [ "$shellnologin" == "1" ] ; then
         # lock the user account to prevent logins and change the shell
         # the user directory is made in the tmpfs /var/run directory, the directory has the name of the user
+        # create the directory if required
+        mkdir -p "/var/run/$i" "$i"
         usermod -L -d "/var/run/$i" "$i"
     fi
 done
