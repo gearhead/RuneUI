@@ -13098,7 +13098,7 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
                     }
                 }
             }
-            if (!found) {
+            if (!$found) {
                 unset($matchDescription, $keyUrl);
             }
             if (isset($keyUrl) && $keyUrl) {
