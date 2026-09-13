@@ -46,10 +46,10 @@ if [[ $cores > 1 ]] ; then
     fi
     # refresh the config file if it does not exist
     if [ ! -f "/etc/owntone.conf" ] ; then
-        cp "/srv/http/app/confif/defaults/etc/owntone.conf" "/etc/owntone.conf"
+        cp "/srv/http/app/config/defaults/etc/owntone.conf" "/etc/owntone.conf"
     fi
     # always refresh the owntone tmpfiles config file, it gets modified below
-    cp "/srv/http/app/confif/defaults/etc/tmpfiles.d/owntone.conf" "/etc/tmpfiles.d/owntone.conf"
+    cp "/srv/http/app/config/defaults/etc/tmpfiles.d/owntone.conf" "/etc/tmpfiles.d/owntone.conf"
     # examine the owntone config file to determine the directories and user
     owntone_dirs=$( grep -i '\s*directories\s*=\s*{\s*\"' "/etc/owntone.conf" | cut -d '{' -f 2 | cut -d '}' -f 1 | xargs | sed 's/\r$//' )
     owntone_user=$( grep -i '\s*uid\s*=' "/etc/owntone.conf" | cut -d '=' -f 2 | xargs | sed 's/\r$//' )
