@@ -213,7 +213,7 @@ if (isset($_POST)) {
         // ----- Local album art resizing -----
         if ((isset($_POST['mode']['artResizing'])) && ($_POST['mode']['artResizing'])) {
             // value is set
-            $magick_resize = $_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].'\>';
+            $magick_resize = "'".$_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].">'";
             if ($redis->hGet('magick', 'resize') != $magick_resize) {
                 // value has changed, save it
                 $redis->hSet('magick', 'resize', $magick_resize);
@@ -524,9 +524,7 @@ $templateData['lyrics'] = $redis->hGetAll('lyrics');
 $templateData['artResizingOpts'] = trim($redis->hGet('magick', 'opts'));
 $templateData['artMatchPercentage'] = $redis->get('albumart_match_percentage');
 $templateData['webradioRejectCount'] = $redis->get('webradio_reject_count');
-$magick_resize = trim($redis->hGet('magick', 'resize'));
-$templateData['artResizing'] = substr($magick_resize, 0, strpos($magick_resize, 'x'));
-unset($magick_resize);
+$templateData['artResizing'] = preg_replace('/[^0-9]/', '', get_between_data($redis->hGet('magick', 'resize'), '', 'x'));
 $templateData['fix_input_ba_volume_enabled'] = $redis->hGet('bluetooth', 'fix_input_ba_volume');
 $templateData['fix_output_ba_volume_enabled'] = $redis->hGet('bluetooth', 'fix_output_ba_volume');
 $templateData['local_browser_browser'] = $redis->hGet('local_browser', 'browser');

@@ -208,14 +208,14 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="profile[reboot]">Reboot</label>
+                    <label class="col-sm-2 control-label" for="profile[reboot]">Restart RuneAudio</label>
                     <div class="col-sm-10">
                         <label class="switch-light well" onclick="">
                             <input id="reboot" name="profile[reboot]" type="checkbox" value="1">
                                 <span><span>NO</span><span>YES</span></span><a class="btn btn-primary"></a>
                         </label>
                         <span class="help-block">If you experience problems, set this to <strong>YES</strong><br>
-                        <i>A Reboot is sometimes required to activate the profile after saving</i>
+                        <i>A RuneAudio restart is sometimes required to activate the profile after saving</i>
                         </span>
                     </div>
                 </div>

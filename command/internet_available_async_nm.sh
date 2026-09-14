@@ -234,7 +234,7 @@ fi
 #
 # internet
 # determine if we can see google.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 www.google.com/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 www.google.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # internet connection is available
     redis-cli hset service internet 1
@@ -260,7 +260,7 @@ else
 fi
 # dirble
 # determine if we can see dirble.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://www.dirble.com/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 --max-redirect=0 https://www.dirble.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # dirble is available
     redis-cli hset service dirble 1
@@ -270,7 +270,7 @@ else
 fi
 # last.fm
 # determine if we can see ws.audioscrobbler.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://ws.audioscrobbler.com/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://ws.audioscrobbler.com/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # last.fm is available
     redis-cli hset service lastfm 1
@@ -280,7 +280,7 @@ else
 fi
 # makeitpersonal lyrics
 # determine if we can see makeitpersonal.co/, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://makeitpersonal.co/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://makeitpersonal.co/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # website is up
     # makeitpersonal should be available
@@ -291,11 +291,11 @@ else
 fi
 # chartlyrics lyrics
 # determine if we can see : chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://chartlyrics.com > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 http://chartlyrics.com > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # website homepage is up
     # determine if we can see : api.chartlyrics.com, this command will give up after +/-20 seconds (= timeout x tries)
-    wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://api.chartlyrics.com > /dev/null 2>&1
+    wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 http://api.chartlyrics.com > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         # api website is also up
         # chartlyrics should be available
@@ -310,7 +310,7 @@ else
 fi
 # lrclib.net lyrics
 # determine if we can see : lrclib.net, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 http://lrclib.net > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 http://lrclib.net > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # website homepage is up
     # lrclib.net lyrics should be available
@@ -322,7 +322,7 @@ fi
 # genius.com lyrics
 # determine if we can see : api.genius.com/search, this command will give up after +/-20 seconds (= timeout x tries), it need a header for authorisation
 token=$( redis-cli hget geniuscom token )
-wget --force-html --spider --header="Authorization: Bearer $token" --connect-timeout=1 --timeout=10 --tries=2 "https://api.genius.com/search" > /dev/null 2>&1
+wget --force-html --spider --header="Authorization: Bearer $token" --connect-timeout=5 --timeout=10 --tries=2 "https://api.genius.com/search" > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # website homepage is up
     # genius.com lyrics should be available
@@ -333,7 +333,7 @@ else
 fi
 # # azlyrics
 # # determine if we can see search.azlyrics.com/search.php, this command will give up after +/-20 seconds (= timeout x tries)
-# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
+# wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 --max-redirect=0 https://search.azlyrics.com/search.php > /dev/null 2>&1
 # if [ $? -eq 0 ]; then
     # # azlyrics is available
     # redis-cli hset service azlyrics 1
@@ -343,7 +343,7 @@ fi
 # fi
 # musicbrainz
 # determine if we can see musicbrainz.org/ws/2/, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://musicbrainz.org/ws/2/ > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://musicbrainz.org/ws/2/ > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # musicbrainz is available
     redis-cli hset service musicbrainz 1
@@ -353,7 +353,7 @@ else
 fi
 # coverartarchive.org
 # determine if we can see coverartarchive.org, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://coverartarchive.org > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://coverartarchive.org > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # coverartarchive.org is available
     redis-cli hset service coverartarchiveorg 1
@@ -361,22 +361,22 @@ else
     # coverartarchive.org is not available
     redis-cli hset service coverartarchiveorg 0
 fi
-# # wikipedia
-# # determine if we can see upload.wikimedia.org, this command will give up after +/-20 seconds (= timeout x tries)
-# wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://upload.wikimedia.org > /dev/null 2>&1
-# if [ $? -eq 0 ]; then
-    # # wikipedia is available
-    # redis-cli hset service wikipedia 1
-# else
-    # # wikipedia is not available
-    # redis-cli hset service wikipedia 0
-# fi
+# wikipedia
+# determine if we can see upload.wikimedia.org, this command will give up after +/-20 seconds (= timeout x tries)
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://upload.wikimedia.org > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # wikipedia is available
+    redis-cli hset service wikipedia 1
+else
+    # wikipedia is not available
+    redis-cli hset service wikipedia 0
+fi
 # discogs
 # determine if we can see www.discogs.com, this command will give up after +/-20 seconds (= timeout x tries)
 up=$( redis-cli hget service discogs )
 if [ "$up" == "0" ] ; then
     # discogs was down
-    wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 --header="User-Agent: Mozilla/5.0 (Windows NT 5.1; rv:23.0) Gecko/20100101 Firefox/23.0" --header="Accept-Language: en-US,en;q=0.5" --header="Referer: www.discogs.com" www.discogs.com > /dev/null 2>&1
+    wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 --header="User-Agent: Mozilla/5.0 (Windows NT 5.1; rv:23.0) Gecko/20100101 Firefox/23.0" --header="Accept-Language: en-US,en;q=0.5" --header="Referer: www.discogs.com" www.discogs.com > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         # discogs is available
         redis-cli hset service discogs 1
@@ -387,7 +387,7 @@ if [ "$up" == "0" ] ; then
 fi
 # fanart.tv
 # determine if we can see webservice.fanart.tv, this command will give up after +/-20 seconds (= timeout x tries)
-wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://webservice.fanart.tv > /dev/null 2>&1
+wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://webservice.fanart.tv > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     # fanart.tv is available
     redis-cli hset service fanarttv 1
@@ -397,7 +397,7 @@ else
 fi
 # jamendo
 # determine if the warning message on the jamendo website has been removed, currently the stream links provided do not work
-count=$( curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://developer.jamendo.com/v3.0/radios/stream" | grep -ic "WARNING: The stream link returned is not more working, and it could be never fixed" )
+count=$( curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://developer.jamendo.com/v3.0/radios/stream" | grep -ic "WARNING: The stream link returned is not more working, and it could be never fixed" )
 if [ $count -eq 0 ]; then
     # the warning has gone so assume that jamendo is available
     redis-cli hset service jamendo 1

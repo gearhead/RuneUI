@@ -186,6 +186,10 @@ export DISPLAY=:0
 xset dpms force off
 #
 # unmount the local an network devices
+umount -R /mnt/MPD/NAS/*
+umount -R /mnt/MPD/USB/*
+umount -Rl /mnt/MPD/NAS/*
+umount -Rl /mnt/MPD/USB/*
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
@@ -556,10 +560,10 @@ for i in "${homeusers[@]}" ; do
     shellnologin=$( grep -i "^$i" /etc/passwd | grep -ic '/dev/null' )
     if [ "$shellnologin" == "1" ] ; then
         # lock the user account to prevent logins and change the shell
-        # the user directory is made in the tmpfs /var/run directory, the directory has the name of the user
+        # the user directory is made in the tmpfs /run directory, the directory has the name of the user
         # create the directory if required
-        mkdir -p "/var/run/$i" "$i"
-        usermod -L -d "/var/run/$i" "$i"
+        mkdir -p "/run/$i" "$i"
+        usermod -L -d "/run/$i" "$i"
     fi
 done
 # #
@@ -1137,8 +1141,12 @@ if [ "$partitions" == "3" ] ; then
             # on creation we reserved 34 free sectors at the end of the disk, so this is the cache partition
             # unmount the overlay
             umount overlay_art_cache
+            umount -l overlay_art_cache
+            umount -f overlay_art_cache
             # unmount the partition
             umount /dev/mmcblk0p3
+            umount -l /dev/mmcblk0p3
+            umount -f /dev/mmcblk0p3
             # remove the mount point
             rmdir /home/cache
             # first change the partition type to 0 (zero = undefined/empty)
@@ -1169,6 +1177,8 @@ sync
 # http-tmp > /srv/http/tmp
 rm -r /srv/http/tmp/*
 umount http-tmp
+umount -l http-tmp
+umount -f http-tmp
 rm -r /srv/http/tmp
 mkdir /srv/http/tmp
 chown www-data:www-data /srv/http/tmp
@@ -1178,6 +1188,8 @@ mount http-tmp
 # rune-logs > /var/log/runeaudio (after shutting down redis! without remount)
 rm -r /var/log/runeaudio/*
 umount rune-logs
+umount -l rune-logs
+umount -f rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
 chown root:root /var/log/runeaudio
@@ -1185,6 +1197,8 @@ chmod 777 /var/log/runeaudio
 # logs > /var/log
 rm -r /var/log/*
 umount logs
+umount -l logs
+umount -f logs
 rm -r /var/log
 mkdir /var/log
 chown root:root /var/log
@@ -1193,6 +1207,8 @@ mount logs
 # rune-logs > /var/log/runeaudio (again after logs, with remount)
 rm -r /var/log/runeaudio/*
 umount rune-logs
+umount -l rune-logs
+umount -f rune-logs
 rm -r /var/log/runeaudio
 mkdir /var/log/runeaudio
 chown root:root /var/log/runeaudio
@@ -1201,6 +1217,8 @@ mount rune-logs
 # http-tmp > /var/log/runeaudio (again after logs, with remount)
 rm -r /srv/http/tmp/*
 umount http-tmp
+umount -l http-tmp
+umount -f http-tmp
 rm -r /srv/http/tmp
 mkdir /srv/http/tmp
 chown root:root /srv/http/tmp

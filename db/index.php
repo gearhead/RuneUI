@@ -166,14 +166,14 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     // Get the last track and try to use LastFM to populate a similar playlist
                     list($artist, $title) = explode(' - ', sysCmd('/bin/mpc playlist | tail -1')[0], 2);
                     $proxy = $redis->hGetall('proxy');
-                    $lastfm_apikey = $redis->get('lastfm_apikey');
-                    if (ui_lastFM_similar($redis, trim($artist), trim($title), $lastfm_apikey, $proxy)) {
+                    $lastfmApikey = $redis->get('lastfm', 'apikey');
+                    if (ui_lastFM_similar($redis, trim($artist), trim($title), $lastfmApikey, $proxy)) {
                         ui_notify($redis, 'Added similar tracks', 'As listed by last.fm');
                     } else {
                         ui_notifyError($redis, 'Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
                     }
                 }
-                unset($artist, $title, $proxy, $lastfm_apikey);
+                unset($artist, $title, $proxy, $lastfmApikey);
             }
             break;
         case 'lastfmaddreplaceplay':
@@ -193,15 +193,15 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         $status['currentalbum'] = $curTrack[0]['Album'];
                         $status['fileext'] = parseFileStr($curTrack[0]['file'], '.');
                         $proxy = $redis->hGetall('proxy');
-                        $lastfm_apikey = $redis->get('lastfm_apikey');
-                        if (ui_lastFM_similar($redis, $status['currentartist'], $status['currentsong'], $lastfm_apikey, $proxy)) {
+                        $lastfmApikey = $redis->hget('lastfm', 'apikey');
+                        if (ui_lastFM_similar($redis, $status['currentartist'], $status['currentsong'], $lastfmApikey, $proxy)) {
                             ui_notify($redis, 'Added similar tracks', 'As listed by last.fm');
                         } else {
                             ui_notifyError($redis, 'Error', 'No similar tracks, or last.fm not available to provide similar tracks information');
                         }
                     }
                 }
-                unset($curTrack, $status, $proxy, $lastfm_apikey);
+                unset($curTrack, $status, $proxy, $lastfmApikey);
             }
             break;
         case 'update':
@@ -808,10 +808,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                                 // its a runeaudio node, get the volume
                                 if (isset($node['ip']) && $node['ip']) {
                                     // we have an ip address of the node
-                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$node['ip'].'/command/?cmd=status"');
+                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$node['ip'].'/command/?cmd=status"');
                                 } else if (isset($node['hostname']) && $node['hostname']) {
                                     // we have a hostname address of the node
-                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 2 "http://'.$node['hostname'].'/command/?cmd=status"');
+                                    $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "http://'.$node['hostname'].'/command/?cmd=status"');
                                 }
                                 if (count($nodeInfoLines)) {
                                     // we have received information from the node, determine the volume
@@ -883,10 +883,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                         }
                         // set up the disconnect command, run it and get the modified data
                         $commandPut =
-                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'" --data "{\"selected\": false, \"volume\": '.$volume.'}"';
+                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'" --data "{\"selected\": false, \"volume\": '.$volume.'}"';
                         sysCmd($commandPut);
                         // get the changed values
-                        $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                        $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                         $retval = sysCmd($commandGet);
                         if (isset($retval[0])) {
                             // an array returned
@@ -955,7 +955,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                     if (isset($params['selected']) || isset($params['volume'])) {
                         // set up the command
                         $commandPut =
-                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
                         if (isset($params['selected']) && isset($params['volume'])) {
                             if ($params['selected']) {
                                 $action = 'true';
@@ -1060,7 +1060,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             // if (isset($params['pin']) && $params['pin']) {
                                 // // parameter pin is set and has a value
                                 // $commandPut =
-                                    // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                                    // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
                                 // $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
                                 // // debug
                                 // ui_notify($redis, 'Debug', $commandPut);
@@ -1073,7 +1073,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 if (!$params['requires_pin'] && !$params['requires_password']) {
                     // normal processing when no pin or password required
                     // get the current settings of the output, update the redis outputs and set the return values
-                    $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
+                    $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
                     $retval = sysCmd($commandGet);
                     if (isset($retval[0])) {
                         // an array returned
@@ -1155,7 +1155,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                             sleep(1);
                             // reissue the connect request, but only the selected statement, this will fail but will initiate the pairing process
                             $commandPutSelectTrue =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": true}"';
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{\"selected\": true}"';
                             sysCmd($commandPutSelectTrue);
                         } else if ($params['selected'] && !$output['selected'] && $output['has_password']) {
                             // it was a connect action, it is not connected (unsuccessful connect) and a password is required
@@ -1253,7 +1253,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             $server = $redis->hGet('owntone', 'server');
             // its a pin transaction, no other parameters are valid
             $commandPut =
-                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
             $commandPut .= ' \"pin\": \"'.$params['pin'].'\" }"';
             // debug
             // ui_notify($redis, 'Debug', $commandPut);
@@ -1261,10 +1261,10 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             sleep(2);
             // attempt to set the volume
             $commandPutVolume =
-                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
+                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
             sysCmd($commandPutVolume);
             // get the current settings of the output, update the redis outputs and set the return values
-            $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
+            $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
             $retval = sysCmd($commandGet);
             if (isset($retval[0])) {
                 // an array returned
@@ -1294,9 +1294,9 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             if (isset($output['id']) && ($output['id'] == $params['id']) && !$output['selected']) {
                 // a valid result has been returned, but not connected, try to connect again
                 $commandPutSelectTrue =
-                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": true, \"volume\": '.$defaultVolume.' }"';
                 $commandPutSelectFalse =
-                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": false }"';
+                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{ \"selected\": false }"';
                 // sysCmd($commandPutSelectFalse);
                 sysCmd($commandPutSelectTrue);
                 sleep(2);
@@ -1423,14 +1423,14 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
             // if (isset($params['password']) && $params['password']) {
                 // // its a password transaction, no other parameters are valid
                 // $commandPut =
-                    // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
+                    // 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'" --data "{';
                 // $commandPut .= ' \"password\": \"'.$params['password'].'\" }"';
                 // // debug
                 // ui_notify($redis, 'Debug', $commandPut);
                 // sysCmd($commandPut);
             // }
             // get the current settings of the output, update the redis outputs and set the return values
-            $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
+            $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$params['id'].'"';
             $retval = sysCmd($commandGet);
             if (isset($retval[0])) {
                 // an array returned
@@ -1484,7 +1484,7 @@ if (isset($_GET['cmd']) && !empty($_GET['cmd'])) {
                 $params['has_password'] = $output['has_password'];
                 $params['offset_ms'] = $output['offset_ms'];
                 $preset['last_password'] = $params['password'];
-                ui_notify($redis, 'Multi-room', 'A password has been saved, but it will only become active when Multi-room is disabled and re-enabled or the player has been restarted');
+                ui_notify($redis, 'Multi-room', 'A password has been saved, but it will only become active when Multi-room is disabled and re-enabled or RuneAudio is restarted');
             } else {
                 // invalid information returned
                 $params['selected'] = false;

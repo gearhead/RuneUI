@@ -64,7 +64,7 @@
                     <label class="col-sm-2 control-label">Reset the RuneAudio player</label>
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="blankplayerid" id="syscmd-blankplayerid" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
-                        <span class="help-block">Reset playerID and hwplatformID. The player will perform configuration initialisation routines during the next reboot.<br>
+                        <span class="help-block">Reset playerID and hwplatformID. The player will perform configuration initialisation routines during the next RuneAudio restart.<br>
                         <i>This function can be used as an alternative to re-flashing your Micro-SD card if Rune stops working correctly. In many cases it will fix the problems.<br>
                         You will <strong>lose most of your settings</strong> after choosing this option!</i><br>
                         </span>
@@ -167,7 +167,7 @@
                     <div class="col-sm-10">
                         <input class="btn btn-default btn-lg" type="submit" name="syscmd" value="gitpull" id="syscmd-gitpull" <?php if((!isset($dev)) || (!$dev)): ?> disabled <?php endif ?>>
                         <span class="help-block">Download and install the latest updates<br>
-                        An <strong>automatic reboot</strong> will be initiated after an update and Dev Mode will then be automatically switched OFF</span>
+                        An <strong>automatic RuneAudio restart</strong> will be initiated after an update and Dev Mode will then be automatically switched OFF</span>
                     </div>
                 </div>
             </div>
@@ -681,7 +681,7 @@
                         The most common symptom is that volume cannot be set to 100% from the Bluetooth input device.
                         In the UI it appears correct, the actual volume level is shown in the mixer and it never reaches 100%.
                         Setting this fix ON resolves the problem. The default value is <strong>OFF</strong>.<br>
-                        A reboot is required to activate a changed value</span>
+                        A RuneAudio restart is required to activate a changed value</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -852,7 +852,7 @@
                         Album cover has a large size and the Artist photo is small. You can swap the large and small images using this option.<br>
                         This also changes the main UI <i class="btn btn-default fa fa-info"></i> 'song info' display which contains the resulting
                         small image.<br>
-                        <i>Notes: Some cached information will not change until after a reboot. This setting has no effect on the main UI Album object,
+                        <i>Notes: Some cached information will not change until after a RuneAudio restart. This setting has no effect on the main UI Album object,
                         here Album cover art is always used. When no Artist photo art can be found, the Album cover art will always be used for both
                         large and small images</i></span>
                     </div>
@@ -923,7 +923,7 @@
                         <span class="help-block">The default is <strong>Xorg Windows environment</strong>.
                         The Weston Windows environment is preferable as it is a more modern product, unfortunately it is less reliable than Xorg.<br>
                         <i>Notes: When the Weston Windows environment is selected the Luakit Local browser will automatically be selected.<br>
-                        Weston requires that the vc4 hardware graphics driver is switched on, which requires a reboot to activate.
+                        Weston requires that the vc4 hardware graphics driver is switched on, which requires a RuneAudio restart to activate.
                         The vc4 hardware graphics driver reduces the maximum HDMI audio sample-rate to 48khz on the 64bit image.
                         With xorg the maximum HDMI audio sample-rateis 192khz.
                         On the 32bit image the vc4 hardware graphics driver disables HDMI audio</i></span>

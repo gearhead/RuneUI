@@ -259,7 +259,14 @@ locale -a
 # art cache needs to be cleaned and dismounted first
 /srv/http/command/clean_music_metadata_async.php
 sync
+# dismount sometimes fails with 'device busy', so we dismount in 3 steps,
+#   when overlay_art_cache has been successfully dismounted the subsequent umount commands do nothing as overlay_art_cache is no longer mounted
+# normal dismount first
 umount overlay_art_cache
+# now a lazy dismount, overlay_art_cache and its mount point will disappear, but still be available for command/jobs still running (the jobs which cause 'device busy')
+umount -l overlay_art_cache 2>/dev/null
+# lastly a forced dismount
+umount -f overlay_art_cache 2>/dev/null
 sync
 # now change the permissions of the UI files
 find /srv/http/ \! -user www-data -exec chown www-data:www-data {} \;
@@ -291,6 +298,8 @@ find /srv/http/.config/ -type f -name i2s_table*.txt \! -perm 444 -exec chmod 44
 set +x # echo no commands to cli
 sync
 /srv/http/command/create_work_dirs.sh
+sync
+# now change the permissions of the Linux files
 set -x # echo all commands to cli
 find /srv/http/app/config/ -maxdepth 1 -type f -name config.php \! -perm 755 -exec chmod 755 {} \;
 find /etc/X11/xinit/ -maxdepth 1 -type f \! -perm 755 -exec chmod 755 {} \;

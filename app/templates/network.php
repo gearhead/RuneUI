@@ -60,7 +60,7 @@
                         <i>Notes: RuneAudio supports Bluetooth as a source (e.g. a smart-phone) and as a playback device (e.g. Bluetooth speakers or headphones).
                         The default setting is ON when on-board Bluetooth is available.
                         If you do not intend to use Bluetooth, you should <strong>switch it off.</strong>
-                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
+                        RuneAudio must be <strong>restarted</strong> to activate a changed setting!</i></span>
                 </div>
             </div>
         </form>
@@ -83,7 +83,7 @@
                         <i>Notes: The default setting is ON when on-board Wi-Fi is available.
                         If you do not intend to use Wi-Fi, you should <strong>switch it off.</strong>
                         External Wi-Fi dongles are unaffected by this setting and will continue to work when present.
-                        A <strong>reboot</strong> is required to activate a changed setting!</i></span>
+                        RuneAudio must be <strong>restarted</strong> to activate a changed setting!</i></span>
                 </div>
             </div>
         </form>

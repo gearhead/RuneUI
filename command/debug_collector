@@ -111,33 +111,33 @@ function debug_data($redis, $fp=null)
         if ($throttled[3]) {
             $output .= "** Currently temperature limit reached!!\n";
         } else if ($throttled[19]) {
-            $output .= "*  Temperature limit reached since last reboot!\n";
+            $output .= "*  Temperature limit reached since startup!\n";
         } else {
-            $output .= "   No temperature limit reached since last reboot\n";
+            $output .= "   No temperature limit reached since startup\n";
         }
         $output .= "Throttling status:\t";
         if ($throttled[2]) {
             $output .= "** Currently throttled!!\n";
         } else if ($throttled[18]) {
-            $output .= "*  Throttling has occurred since last reboot!\n";
+            $output .= "*  Throttling has occurred since startup!\n";
         } else {
-            $output .= "   No throttling has occurred since last reboot\n";
+            $output .= "   No throttling has occurred since startup\n";
         }
         $output .= "ARM frequency status:\t";
         if ($throttled[1]) {
             $output .= "** Currently arm frequency capped!!\n";
         } else if ($throttled[17]) {
-            $output .= "*  Arm frequency capping has occurred since last reboot!\n";
+            $output .= "*  Arm frequency capping has occurred since startup!\n";
         } else {
-            $output .= "   No arm frequency capping has occurred since last reboot\n";
+            $output .= "   No arm frequency capping has occurred since startup\n";
         }
         $output .= "Under-voltage status:\t";
         if ($throttled[0]) {
             $output .= "** Currently under-voltage!!\n";
         } else if ($throttled[16]) {
-            $output .= "*  Under-voltage has occurred since last reboot!\n";
+            $output .= "*  Under-voltage has occurred since startup!\n";
         } else {
-            $output .= "   No under-voltage has occurred since last reboot\n";
+            $output .= "   No under-voltage has occurred since startup\n";
         }
     }
     $output .= "\n\n";
@@ -201,30 +201,46 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    // clear the cache otherwise file_exists() returns incorrect values
     if (sysCmd('command -v parted')[0]) {
         // parted is installed
         $output .= "###### Filesystem mounts - partitions (parted -ls) ######\n";
         $command = sysCmd("parted -ls | grep -v '^$' | sed -E ':a;N;$!ba;s/\\nModel/\\n\\nModel/g' ");
-        $output .= implode("\n", $command)."\n\n\n";
+        $output .= implode("\n", $command)."\n\n";
         unset($command);
         if ($fp) {
             gzwrite($fp, $output);
             $output = '';
         }
     }
+    if (sysCmd('command -v lsblk')[0]) {
+        // lsblk is installed
+        $output .= "###### Filesystem mounts - block devices (lsblk -o NAME,FSTYPE,MOUNTPOINT,SIZE,FSUSED,FSUSE%,LABEL,UUID,PARTUUID) ######\n";
+        $command = sysCmd("lsblk -o NAME,FSTYPE,MOUNTPOINT,SIZE,FSUSED,FSUSE%,LABEL,UUID,PARTUUID");
+        $output .= implode("\n", $command)."\n\n";
+        unset($command);
+        if ($fp) {
+            gzwrite($fp, $output);
+            $output = '';
+        }
+    }
+    $output .= "\n";
     if (sysCmd('command -v smartctl')[0]) {
         // smartctl is installed
+        $drive_list = array();
         $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
+        $drive_list = array_unique(array_merge($drive_list, sysCmd('mount | grep "^/dev/sd.. " | cut -d " " -f 1')));
+        asort($drive_list);
         if (!empty($drive_list)) {
             foreach($drive_list as $drive) {
                 $drive = trim($drive);
                 if ($drive != "") {
-                    $drive = "smartctl ".$drive." | grep -E 'Model:|Capacity:|-health self-|SMART support is'";
-                    $output .= "###### Hard Disk Drive - SMART Health Check (".$drive.") ######\n";
-                    $command = sysCmd($drive);
-                    $output .= implode("\n", $command)."\n\n";
-                    unset($command);
+                    $drive = "smartctl -a ".$drive." | grep -E 'Model:|Vendor:|Product:|Capacity:|-health self-|SMART support is:|SMART Health Status:'";
+                    $command = implode("\n", sysCmd($drive))."\n\n";
+                    if (strpos(' '.$command, 'SMART ')) {
+                        $output .= "###### HDD/SSD - SMART Health Check (".$drive.") ######\n";
+                        $output .= $command;
+                    }
+                    unset($command, $drive);
                 }
             }
             unset($drive);
@@ -367,8 +383,13 @@ function debug_data($redis, $fp=null)
     unset($optArray, $optParam, $cores);
     $output .= "\n\n";
     $output .= "###### Kernel module snd_usb_audio settings ######\n";
-    $command = sysCmd('systool -v -m snd_usb_audio 2>/dev/null');
-    $output .= implode("\n", $command)."\n\n";
+    $snd_usb_audioLoaded = sysCmd('lsmod | grep -ic "^snd_usb_audio\b" | xargs')[0];
+    if ($snd_usb_audioLoaded) {
+        $command = sysCmd('systool -v -m snd_usb_audio 2>/dev/null');
+        $output .= implode("\n", $command)."\n\n";
+    } else {
+        $output .= "Kernel module 'snd_usb_audio' not loaded\n\n\n";
+    }
     unset($command);
     if ($redis->exists('getID3_error')) {
         $output .= "###### getID3 file processing error (redis-cli get getID3_error) ######\n";

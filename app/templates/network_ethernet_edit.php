@@ -88,13 +88,13 @@
                                 until it's lease expires. So, the IP-Address may need to be used instead of the player name until the player is restarted.<br>
                                 You may need to reserve the Static IP-Address in your router configuration to avoid IP-address conflict problems.<br>
                                 After changing between DHCP and Static IP assignment it may be necessary to unplug your network cable for a couple of seconds
-                                then reconnect it in order to activate the changes, the reboot option below avoids this and is generally more reliable. Don't forget
+                                then reconnect it in order to activate the changes, the restart RundeAudio option below avoids this and is generally more reliable. Don't forget
                                 that after changing the IP-Address you then need to connect using the new address</i></span><br>
                     </div>
                 </div>
             </div>
             <div class="form-group">
-                <label class="col-sm-2 control-label" for="profile[reboot]">Reboot</label>
+                <label class="col-sm-2 control-label" for="profile[reboot]">Restart RuneAudio</label>
                 <div class="col-sm-10">
                     <label class="switch-light well" onclick="">
                         <input id="reboot" name="profile[reboot]" type="checkbox" value="1">

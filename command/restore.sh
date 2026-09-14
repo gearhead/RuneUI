@@ -97,7 +97,7 @@ if [ "$redis_pid" == "" ] ; then
     # regenerate webradios
     /srv/http/command/webradiodb.sh
     rm -f /home/config.txt.diff
-    /srv/http/command/ui_notify.php 'Restore' 'Restarting, please wait...' 'simplemessage'
+    /srv/http/command/ui_notify.php 'Restore' 'Restarting RuneAudio now, please wait...' 'simplemessage'
     sleep 3
     /srv/http/command/rune_shutdown reboot
     reboot
@@ -217,7 +217,7 @@ redis-cli del acards
 /srv/http/command/ui_notify.php 'Restore' 'Working, almost done...' 'simplemessage'
 # generate Wi-Fi profile files in <p1mountpoint>/wifi for the restored Wi-Fi profiles in redis
 /srv/http/command/restore_wifi_profiles.php
-/srv/http/command/ui_notify.php 'Restore' 'Finished, restarting now, please wait...' 'simplemessage'
+/srv/http/command/ui_notify.php 'Restore' 'Finished, Restarting RuneAudio now, please wait...' 'simplemessage'
 # run the shutdown script and reboot
 sleep 3
 /srv/http/command/rune_shutdown reboot

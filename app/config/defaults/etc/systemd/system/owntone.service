@@ -45,5 +45,8 @@ ProtectControlGroups=yes
 ProtectKernelModules=yes
 RestrictNamespaces=yes
 
+# keep the run time directory and its contents, the fifo files and databases are stored there
+RuntimeDirectoryPreserve=yes
+
 [Install]
 WantedBy=multi-user.target

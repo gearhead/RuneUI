@@ -755,7 +755,7 @@ while (true) {
                 }
                 if ($gitupdated) {
                     ui_notify($redis, 'Git pull', $retval);
-                    ui_notify($redis, 'Update RuneUI', 'Updated, preparing reboot, please wait...');
+                    ui_notify($redis, 'Update RuneUI', 'Updated, preparing restart, please wait...');
                     wrk_sysAcl();
                     sysCmd('/srv/http/db/redis_datastore_setup check');
                     sysCmd('/srv/http/db/redis_acards_details');
@@ -763,7 +763,7 @@ while (true) {
                     $redis->set('dev', 0);
                     wrk_systemd_unit($redis, 'daemon-reload');
                     // wrk_systemd_unit($redis, 'reload-or-restart', 'php-fpm');
-                    ui_notify($redis, 'Update RuneUI', 'Rebooting, restart may take longer than normal due to post update processing!');
+                    ui_notify($redis, 'Update RuneUI', 'Restarting RuneAudio now, restart may take longer than normal due to post update processing!');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     if ($player_stopped) {
@@ -828,7 +828,7 @@ while (true) {
                         $redis->set('i2smodule', 'none');
                         $redis->set('orionprofile', 'OrionV2');
                     }
-                    ui_notify($redis, 'Linux Kernel switch', 'Completed, rebooting now...');
+                    ui_notify($redis, 'Linux Kernel switch', 'Completed, restarting RuneAudio now...');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 } else {
                     ui_notify($redis, 'Linux Kernel switch', 'Failed');
@@ -1055,7 +1055,7 @@ while (true) {
                 // $retval = sysCmd('grep -hi -E "installed|please" /home/rern/Rern_Addons.log');
                 // ui_notify($redis, "Rern's Addons", trim(preg_replace('/[^A-Za-z0-9 ]/', '', implode('\n', $retval))));
                 // sleep(3);
-                // ui_notify($redis, "Rern's Addons", 'You may need to reboot...');
+                // ui_notify($redis, "Rern's Addons", 'You may need to restart RuneAudio...');
                 // sleep(3);
                 // unset($retval);
                 // $redis->hSet('addons', 'update', '0');
@@ -1078,7 +1078,7 @@ while (true) {
                 // sysCmd('rm -f /usr/local/bin/uninstall_enha.sh');
                 // $redis->del('addons');
                 // $redis->del('addo');
-                // ui_notify($redis, "Remove Rern's Addons", 'You may need to reboot...');
+                // ui_notify($redis, "Remove Rern's Addons", 'You may need to restart RuneAudio...');
                 // sleep(3);
                 // $redis->hSet('addons', 'update', '0');
                 // $redis->hSet('addons', 'font', '20170901');
@@ -1266,7 +1266,7 @@ while (true) {
                 // save the playback status
                 wrk_mpdPlaybackStatus($redis);
                 // send notfy to UI
-                ui_notify($redis, 'Reboot', 'system reboot in progress...');
+                ui_notify($redis, 'Restart', 'RuneAudio restart in progress...');
                 // run the shutdown script, close redis  with a buffer flush and reboot
                 sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
                 break;
@@ -1420,10 +1420,10 @@ while (true) {
                             "selected" => '0'
                         )));
                         // run the command asynchronously, immediately
-                        sysCmdAsync($redis, 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://'.$owntoneServer.'/db/?cmd=MRconnect&params='.$params.'"', 0);
+                        sysCmdAsync($redis, 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 -g "http://'.$owntoneServer.'/db/?cmd=MRconnect&params='.$params.'"', 0);
                         // don't disconnect via the owntone api, this leaves the redis entries unchanged and caused owntone metadata delivery to
                         //  continue longer than it should
-                        // sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{ \"selected\": false }"');
+                        // sysCmd('curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$owntoneServer.':3689/api/outputs/'.$myOwntoneID.'" --data "{ \"selected\": false }"');
                         break;
                     }
                 }
@@ -1690,7 +1690,7 @@ while (true) {
             if ($uri) {
                 if ((substr($uri, 0, 5) == 'http:') || (substr($uri, 0, 6) == 'https:')) {
                     // its a webradio or network uri, just check that we have an active internet connection
-                    $responce = sysCmd('wget --force-html --spider --connect-timeout=1 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1 ; echo $? | xargs')[0];
+                    $responce = sysCmd('wget --force-html --spider --connect-timeout=5 --timeout=10 --tries=2 https://www.google.com/ > /dev/null 2>&1 ; echo $? | xargs')[0];
                     if ($responce == 0) {
                         $accessible = true;
                     }

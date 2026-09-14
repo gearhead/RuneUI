@@ -23,7 +23,7 @@
                         <option value="linux-rune-rpi_3.6.11-18-ARCH+" <?php if($kernel === 'linux-rune-rpi_3.6.11-18-ARCH+'): ?> selected <?php endif ?>>Linux kernel 3.6.11-18&nbsp;&nbsp;&nbsp;ARCH+&nbsp;[RuneAudio v0.1-beta/v0.2-beta]</option>
                         <option value="linux-rune-rpi_3.12.13-rt21_wosa" <?php if($kernel === 'linux-rune-rpi_3.12.13-rt21_wosa'): ?> selected <?php endif ?>>Linux kernel 3.12.13-rt&nbsp;&nbsp;&nbsp;RUNE-RT&nbsp;[Wolfson Audio Card]</option>
                     </select>
-                    <span class="help-block">Switch Linux Kernel version (REBOOT REQUIRED). <strong>Linux kernel 3.12.26-1</strong> is the default kernel in the current release, <strong>Linux kernel 3.12.19-2</strong> is the kernel used in RuneAudio v0.3-alpha, <strong>Linux kernel 3.6.11-18</strong> is the kernel used in RuneAudio v0.1-beta/v0.2-beta (it has no support for I&#178;S), <strong>Linux kernel 3.12.13-rt</strong> is an EXPERIMENTAL kernel (not suitable for all configurations), it is optimized for <strong>Wolfson Audio Card</strong> support and it is the default option for that type of soundcard</span>
+                    <span class="help-block">Switch Linux Kernel version (a RuneAudio restart is required). <strong>Linux kernel 3.12.26-1</strong> is the default kernel in the current release, <strong>Linux kernel 3.12.19-2</strong> is the kernel used in RuneAudio v0.3-alpha, <strong>Linux kernel 3.6.11-18</strong> is the kernel used in RuneAudio v0.1-beta/v0.2-beta (it has no support for I&#178;S), <strong>Linux kernel 3.12.13-rt</strong> is an EXPERIMENTAL kernel (not suitable for all configurations), it is optimized for <strong>Wolfson Audio Card</strong> support and it is the default option for that type of soundcard</span>
                 </div>
             -->
             <div class="form-group">
@@ -37,10 +37,10 @@
                     </select>
                     <input class="form-control input-lg" type="text" id="overlay" name="overlay" value="<?php echo $i2smodule; ?>" disabled autocomplete="off">
                     <span class="help-block">Enable I&#178;S sound-card output by selecting the card type or one of the generic options.<br>
-                    <strong>After rebooting</strong> the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>,
+                    <strong>After restarting RuneAudio</strong> the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>,
                         where you can select the required output interface.<br>
                     <i>After applying the settings for your sound-card the selected driver name will be displayed.<br>
-                    In some cases the sound-card will be activated dynamically, eliminating the need for a reboot</i></span>
+                    In some cases the sound-card will be activated dynamically, eliminating the need for a RuneAudio restart</i></span>
                 </div>
             </div>
             <div class="form-group">
@@ -50,7 +50,7 @@
                         <input name="audio_on_off" type="checkbox" value="1"<?php if((isset($audio_on_off)) && ($audio_on_off)): ?> checked="checked" <?php endif ?>>
                         <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                     </label>
-                    <span class="help-block">Set "ON" to enable or "OFF" to disable the on-board ALSA audio interface(s). <i><strong>Reboot</strong> to activate.<br>
+                    <span class="help-block">Set "ON" to enable or "OFF" to disable the on-board ALSA audio interface(s). <i><strong>Restart RuneAuudio</strong> to activate.<br>
                         HDMI connections are automatically detected when connected at startup and USB DACS are automatically detected when plugged in.<br>
                         It is advised to only connect sound-cards, HDMI devices and USB DAC's when RuneAudio is powered off</i></span>
                 </div>
@@ -68,7 +68,7 @@
                 </div>
                 <label class="control-label col-sm-2" for="i2smodule">I&#178;S kernel modules</label>
                 <div class="col-sm-10">
-                    <span class="help-block">Enable I&#178;S output by editing /boot/boot.ini. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>, and modules will also auto-load from the next reboot.</span>
+                    <span class="help-block">Enable I&#178;S output by editing /boot/boot.ini. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, Audio Output Interface selector</a>, and modules will also auto-load from the next restart.</span>
                 </div>
             </div>
             <?php endif;?>
@@ -88,7 +88,7 @@
                         <option value="none" <?php if($i2smodule === 'none'): ?> selected <?php endif ?>>I&#178;S disabled (default)</option>
                         <option value="odroidhifishield" <?php if($i2smodule === 'odroidhifishield'): ?> selected <?php endif ?>>ODROID HiFi Shield</option>
                     </select>
-                    <span class="help-block">Enable I&#178;S output selecting one of the available sets of modules, specific for each hardware. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, MPD configuration section</a>, and modules will also auto-load from the next reboot</span>
+                    <span class="help-block">Enable I&#178;S output selecting one of the available sets of modules, specific for each hardware. Once set, the output interface will appear in the <a href="/mpd/">Audio Output menu, MPD configuration section</a>, and modules will also auto-load from the next restart</span>
                 </div>
             </div>
             <?php endif;?>
@@ -677,7 +677,7 @@
                                 <input id="overscan" name="features[local_browser][overscan]" type="checkbox" value="1"<?php if((isset($local_browser['overscan'])) && ($local_browser['overscan'])): ?> checked="checked" <?php endif ?>>
                                 <span><span>OFF</span><span>ON</span></span><a class="btn btn-primary"></a>
                             </label>
-                            <span class="help-block">Overscan is the black border around the active display area. This can be switched OFF for most LCD and HDMI displays. A <strong>reboot is required</strong> to activate the setting</span>
+                            <span class="help-block">Overscan is the black border around the active display area. This can be switched OFF for most LCD and HDMI displays. RuneAudio needs to be <strong>restarted</strong> to activate the setting</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -876,7 +876,7 @@
                         </span>
                         <span id="backup-file"></span>
                         <span class="help-block">Restore a previously exported backup. This process takes quite a while, please be patient.<br>
-                        <strong>The system will reboot</strong> after restoring the backup. Wait until the reboot completes!!<br>
+                        <strong>RuneAudio will restart</strong> after restoring the backup. Please wait until the restart completes!!<br>
                         <i><strong>Tip:</strong> Make a new backup after checking and correcting each restore and after updating/upgrading to a new version.
                         Otherwise information concerning new features may be missing in the backup. <strong>Warning:</strong> Manually edited files will not be backed up or restored</i></span>
                     </p>

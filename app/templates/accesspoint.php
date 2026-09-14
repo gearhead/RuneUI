@@ -10,7 +10,7 @@
         &nbsp;<br>
         <div class="col-sm-offset-2 col-sm-10">
             <h2>Your Wi-Fi dongle is not capable to be used as AccessPoint!</h2>
-            <span class="help-block">A reboot may be required to activate the dongle</span>
+            <span class="help-block">A RuneAudio restart may be required to activate the dongle</span>
             <a href="/network" class="btn btn-default btn-lg">Cancel</a>
         </div>
     <?php else : ?>
@@ -115,14 +115,14 @@
                             <input class="sx" type="checkbox" name="settings[restart]" value="1"> Restart Access Point (after saving settings)
                         </label>
                         <label>
-                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Reboot (after saving settings)
+                            <input class="sx" type="checkbox" name="settings[reboot]" value="1"> Restart RuneAudio (after saving settings)
                         </label>
                         <span class="help-block">Changes to the Access Point configuration will be activated immediately after saving, this may involve an automatic Access Point restart.
                         So, if you are connected via the Access Point you will lose your connection after saving changes and you will need to reconnect with the new settings.<br>
                         Switching the Access Point ON or OFF will also be acted on immediately. Don't switch it OFF before you have your Wi-Fi network has been successfully configured.<br>
                         After setting up a a Wi-Fi network configuration restarting the Access Point will switch the Access Point OFF and attempt to use the new network configuration settings.
                         If the Wi-Fi network configuration fails to connect the access point will restart.<br>
-                        <i>Notes: A reboot should not be necessary.<br>
+                        <i>Notes: A RuneAudio restart should not be necessary.<br>
                         If you use RuneAudio in a Wi-Fi only configuration, it is recommended to leave the Access Point enabled.
                         It will start only when the configured network fails, this then provides access to RuneAudio to reconfigure your network settings.<br>
                         Disable the Access Point if you do not need it. Or, if you leave it enabled, please change your Access Point Password (Passphrase)!

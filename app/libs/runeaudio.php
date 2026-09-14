@@ -2155,7 +2155,7 @@ function wrk_localBrowser($redis, $action, $args = null, $jobID = null)
                 if ($windowsNew == 'weston') {
                     // enable all vc4 overlays
                     sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/^\s*#\s*//' '".$filename."'");
-                    ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'. A reboot is required to activate!', '', 1);
+                    ui_notify($redis, 'Local Browser', 'Widows environment changed to '.$windowsNew.'. Restart RuneAudio to activate!', '', 1);
                 } else if ($windowsNew == 'xorg') {
                     // disable all vc4 overlays
                     sysCmd("sed -i '/dtoverlay=vc4-kms-v3d/s/^\s*dtoverlay=vc4-kms-v3d/#dtoverlay=vc4-kms-v3d/' '".$filename."'");
@@ -2834,13 +2834,13 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
     if (isset($args['reboot']) && $args['reboot']) {
         // reboot requested from the UI
         runelog('**** AP reboot requested ****', $args);
-        ui_notify($redis, 'AccessPoint', 'Reboot requested');
+        ui_notify($redis, 'AccessPoint', 'RuneAudio restart requested');
         $return = 'reboot';
     } else if (isset($args['restart']) && $args['restart']) {
         // a restart has been requested from the UI or automatically determined
         runelog('**** AP restart requested ****', $args);
-        ui_notify($redis, 'AccessPoint', 'restarting the Access Point');
-        ui_notify($redis, 'AccessPoint', 'the changed configuration will be activated, you may need to reconnect', '', 1);
+        ui_notify($redis, 'AccessPoint', 'Restarting the Access Point');
+        ui_notify($redis, 'AccessPoint', 'The changed configuration will be activated, you may need to reconnect', '', 1);
         // nat will automatically be disabled when the AP is stopped, save its current value
         $apNatSave = $redis->hGet('AccessPoint', 'enable-NAT');
         // stop the access point, by disabling it
@@ -3060,7 +3060,7 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 // set wifi on and reboot it required
                 if (!$redis->get('wifi_on')) {
                     wrk_netconfig($redis, 'enableWifi');
-                    ui_notify($redis, 'Wi-Fi reset', 'Restarting to enable Wi-Fi');
+                    ui_notify($redis, 'Wi-Fi reset', 'Restarting RuneAudio now to enable Wi-Fi');
                     wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'reboot'));
                 }
             }
@@ -4011,7 +4011,7 @@ function wrk_audioOutput($redis, $action, $data=null)
                 if (!isset($details['description']) || !$details['description']) {
                     if (isset($details['extlabel']) && $details['extlabel']) {
                         $details['description'] = 'X: '.$details['extlabel'];
-                    } else if (isset($details['sysname']) && $details['sysname']){
+                    } else if (isset($details['sysname']) && $details['sysname']) {
                         // no idea what this card is, use its system description
                         $details['description'] = 'X: '.$card['sysname'];
                     } else {
@@ -4564,12 +4564,12 @@ function wrk_i2smodule($redis, $args = null, $jobID = null)
                 // disable further dynamic changes
                 $redis->set('i2smoduleDynamic', false);
                 // inform the user of dynamic changes
-                ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to reboot');
+                ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to restart');
             }
         } else if (!$redis->get('i2smoduleReboot') && ($oldOverlayName == $args)) {
-            ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to reboot');
+            ui_notify($redis, 'I&#178;S module', 'Changes applied dynamically, no need to restart');
         } else {
-            ui_notify($redis, 'I&#178;S module', 'Reboot required to activate changes');
+            ui_notify($redis, 'I&#178;S module', 'Restart RuneAudio to activate changes');
             $redis->set('i2smoduleReboot', true);
         }
     } else {
@@ -7268,7 +7268,7 @@ function wrk_startPlayer($redis, $newPlayer)
             $redis->set('mpd_playback_laststate', 'play');
         }
         ui_render($redis, 'playback', "{\"currentartist\":\"Spotify Connect\",\"currentsong\":\"Switching\",\"currentalbum\":\"-----\",\"artwork\":\"\",\"genre\":\"\",\"comment\":\"\",\"volume\":\"0\",\"state\":\"stop\"}");
-        sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+        sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
     } elseif (($activePlayer === 'Bluetooth') && ($newPlayer != 'Bluetooth')) {
         wrk_btcfg($redis, 'reset');
         wrk_btcfg($redis, 'disconnect_sources');
@@ -7300,7 +7300,7 @@ function wrk_startPlayer($redis, $newPlayer)
         wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'spotifyconnectmetadata', 'action' => 'stop'));
     }
     usleep(500000);
-    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
     // set process priority
     sysCmdAsync($redis, '/srv/http/command/rune_prio nice');
 }
@@ -8418,45 +8418,80 @@ function ui_libraryHome($redis, $clientUUID = null)
     ui_render($redis, 'library', $jsonHome);
 }
 
-function ui_lastFM_coverart($redis, $artist, $album, $lastfmApikey, $proxy)
+function ui_lastFM_coverart($redis, $artist, $album, $song=null)
 {
-    if (!$redis->hGet('service', 'lastfm')) {
-        return false;
+    if (!$artist || !$album) {
+        return array();
     }
-    if (!empty($album)) {
-        $url = "https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=".$lastfmApikey."&artist=".urlClean($artist)."&album=".urlClean($album)."&format=json";
-        unset($artist);
-    } else {
-        $url = "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&api_key=".$lastfmApikey."&artist=".urlClean($artist)."&format=json";
-        $artist = 1;
-    }
+    $lastfmApikey = $redis->hGet('lastfm', 'apikey');
+    // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist=annie%20lennox&album=diva&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=5&autocorrect=1"
+    $url = "https://ws.audioscrobbler.com/2.0/?method=album.getinfo&autocorrect=1&api_key=".$lastfmApikey."&artist=".urlClean($artist)."&album=".urlClean($album)."&format=json";
     // debug
     //echo $url;
-    $output = json_decode(curlGet($url, $proxy), true);
+    $retval = get_lastFm($redis, $url);
     // debug
-    runelog('coverart lastfm query URL', $url);
+    // runelog('coverart lastfm query URL', $url);
     // debug++
     // echo "<pre>";
-    // print_r($output);
+    // print_r($retval);
     // echo "</pre>";
-
-    // key [3] == extralarge last.fm image
-    // key [4] == mega last.fm image
-    if (!empty($album)) {
-        if (isset($output['album']['image'][3]['#text'])) {
-            runelog('coverart lastfm query album URL:', $output['album']['image'][3]['#text']);
-            return $output['album']['image'][3]['#text'];
-        } else {
-            runelog('coverart lastfm query album URL:', '<no-output>');
-        }
-    } else {
-        if (isset($output['artist']['image'][3]['#text'])) {
-            runelog('coverart lastfm query artist URL:', $output['artist']['image'][3]['#text']);
-            return $output['artist']['image'][3]['#text'];
-        } else {
-            runelog('coverart lastfm query artist URL:', '<no-output>');
+    //
+    // album art is rarely supplied by last.fm, but when it is supplied it is accurate
+    //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
+    //  four images are supplied by last.fm: small, medium, large and extralarge
+    //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
+    // image key [2] == large last.fm image
+    // image key [3] == extralarge last.fm image
+    $info = array();
+    if (isset($retval['album']['mbid']) && $retval['album']['mbid']) {
+        $info['album_mbid'] = $retval['album']['mbid'];
+    }
+    if (isset($retval['album']['image'][2]['#text']) && $retval['album']['image'][2]['#text'] && !stripos(' '.$retval['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+        // album art info is valid, use it
+        $info['album_arturl_small'] = trim($retval['album']['image'][2]['#text']);
+    }
+    if (isset($retval['album']['image'][3]['#text']) && $retval['album']['image'][3]['#text'] && !stripos(' '.$retval['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+        // album art info is valid, use it
+        $info['album_arturl_medium'] = trim($retval['album']['image'][3]['#text']);
+        $info['album_arturl_large'] = trim($retval['album']['image'][3]['#text']);
+    }
+    if (isset($retval['album']['wiki']['summary']) && $retval['album']['wiki']['summary']) {
+        $info['album_wiki_summary'] = $retval['album']['wiki']['summary'];
+    }
+    if (isset($retval['album']['wiki']['content']) && $retval['album']['wiki']['content']) {
+        $info['album_wiki_content'] = $retval['album']['wiki']['content'];
+    }
+    if ($song && (!isset($info['album_arturl_large']) || !$info['album_arturl_large'])) {
+        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=track.getinfo&album=diva&artist=annie%20lennox&track=why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1&autocorrect=1"
+        $url = 'https://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist='.urlClean($artist).'&album='.urlClean($album).'&track='.urlClean($song).'&api_key='.$lastfmApikey.'&format=json&limit=1&autocorrect=1';
+        // sleep for 0.5 second before calling last.fm again
+        usleep(500000);
+        $retval = get_lastFm($redis, $url);
+        if (isset($retval['track']['album']['title']) && $retval['track']['album']['title']) {
+            if (isset($retval['track']['mbid']) && $retval['track']['mbid']) {
+                $info['song_mbid'] = $retval['track']['mbid'];
+            }
+            if (isset($retval['track']['artist']['mbid']) && $retval['track']['artist']['mbid']) {
+                $info['artist_mbid'] = $retval['track']['artist']['mbid'];
+            }
+            if (isset($retval['track']['album']['image'][2]['#text']) && $retval['track']['album']['image'][2]['#text'] && !stripos(' '.$retval['track']['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                // album art info is valid, use it
+                $info['album_arturl_small'] = trim($retval['track']['album']['image'][2]['#text']);
+            }
+            if (isset($retval['track']['album']['image'][3]['#text']) && $retval['track']['album']['image'][3]['#text'] && !stripos(' '.$retval['track']['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                // album art info is valid, use it
+                $info['album_arturl_medium'] = trim($retval['track']['album']['image'][3]['#text']);
+                $info['album_arturl_large'] = trim($retval['track']['album']['image'][3]['#text']);
+            }
+            if (isset($retval['track']['wiki']['summary']) && $retval['track']['wiki']['summary']) {
+                $info['song_wiki_summary'] = $retval['track']['wiki']['summary'];
+            }
+            if (isset($retval['track']['wiki']['content']) && $retval['track']['wiki']['content']) {
+                $info['song_wiki_content'] = $retval['track']['wiki']['content'];
+            }
         }
     }
+    return $info;
 }
 
 // populate queue with similiar tracks suggested by last.fm
@@ -8478,8 +8513,9 @@ function ui_lastFM_similar($redis, $artist, $track, $lastfmApikey, $proxy)
     // This call does not work
     //$output = json_decode(curlGet($url, $proxy), true);
     // But these 2 lines do
-    $content = file_get_contents($url);
-    $output = json_decode($content, true);
+    $output = get_lastFm($redis, $url);
+    // $content = file_get_contents($url);
+    // $output = json_decode($content, true);
     // debug
     // debug++
     // echo "<pre>";
@@ -8681,10 +8717,10 @@ function ui_update($redis, $sock = null, $clientUUID = null)
         $owntoneServerIpAddress = $redis->hGet('owntone', 'server_ip_address');
         if ($owntoneServerIpAddress) {
             // we have a server ip address, send a refresh request
-            sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$owntoneServerIpAddress.'/command/?cmd=renderui"');
+            sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$owntoneServerIpAddress.'/command/?cmd=renderui"');
         } else if ($owntoneServerHostname) {
             // we have a hostname, send a refresh request
-            sysCmd('curl -X GET -s --connect-timeout 2 -m 10 --retry 2 "http://'.$owntoneServerHostname.'.local/command/?cmd=renderui"');
+            sysCmd('curl -X GET -s --connect-timeout 2 -m 10 --retry 1 "http://'.$owntoneServerHostname.'.local/command/?cmd=renderui"');
         }
     } else {
         // this is not an owntone client
@@ -8930,7 +8966,7 @@ function urlClean($string)
 //
 {
     $string = squashCharacters($string);
-    $string = urlencode($string);
+    $string = rawurlencode($string);
     return $string;
 }
 
@@ -10684,10 +10720,10 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         $redis->hSet('cleancache', '90lowerdate', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '60lowerdate_jpg')) {
-        // the following command removes all *.jpg files from the lower directory which are older than 30 days
+        // the following command removes all *.jpg files from the lower directory which are older than 60 days
         // the strategy is that we have used them for 2 months, but their source information may now have changed
-        // these files are large
-        sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +30 -exec rm {} \;");
+        // these files can be large
+        sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +60 -exec rm {} \;");
         $redis->hSet('cleancache', '60lowerdate_jpg', $today);
         $cleaned = true;
     } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
@@ -10797,7 +10833,7 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
                     if ($magick_resize) {
                         sysCmd("convert -resize ".$magick_resize." ".$magick_opts." '".$file."' '".$file."'");
                     } else {
-                        sysCmd("convert -resize 350x350\> ".$magick_opts." '".$file."' '".$file."'");
+                        sysCmd('convert -resize \'350x350>\' '.$magick_opts." '".$file."' '".$file."'");
                     }
                     $cleaned = true;
                     // get the modified image height and width
@@ -11162,7 +11198,7 @@ function is_radioUrl($redis, $url)
     // $redis->del('webradios_redirected');
     // $radios = $redis->hGetall('webradios');
     // foreach ($radios as $radioName => $radioUrl) {
-        // $radioUrlRedirected = sysCmd('curl -X GET -L -s -I --connect-timeout 2 -m 5 --retry 2 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
+        // $radioUrlRedirected = sysCmd('curl -X GET -L -s -I --connect-timeout 5 -m 10 --retry 1 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
         // if (isset($radioUrlRedirected) && $radioUrlRedirected && $radioUrlRedirected != $radioUrl) {
             // $redis->hSet('webradios_redirected', $radioName, $radioUrlRedirected);
         // }
@@ -11185,7 +11221,7 @@ function get_lastFm($redis, $url)
 //    $retval = json_decode(curlGet($url, $proxy), true);
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"');
+    $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
     if (isset($retval[0])) {
         $retval = json_decode($retval[0], true);
     } else {
@@ -11214,7 +11250,7 @@ function get_musicBrainz($redis, $url)
 // no authorisation token is required in the $url parameter
 {
     $musicbrainzUp = $redis->hGet('service', 'musicbrainz');
-    $MusicBrainzUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui)';
+    $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
     // $proxy = $redis->hGetall('proxy');
     // proxy currently not implemented
     if (!$musicbrainzUp) {
@@ -11230,7 +11266,7 @@ function get_musicBrainz($redis, $url)
             // // ignore any errors, we check the returned value for errors
             // 'ignore_errors' => '1',
             // // set up the user agent ! this is very important !
-            // 'user_agent' => $MusicBrainzUserAgent
+            // 'user_agent' => $runeAudioUserAgent
         // )
     // );
     // proxy is something like this - untested
@@ -11244,28 +11280,74 @@ function get_musicBrainz($redis, $url)
     // }
     // $context  = stream_context_create($opts);
     // $retval = json_decode(file_get_contents($url, false, $context), true);
-    $retval = json_decode(sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 --user-agent "'.$MusicBrainzUserAgent.'" "'.$url.'"')[0], true);
-    if (isset($retval['error'])) {
-        // error response, some are ok, I cannot fine a full list, so it is trial and error
-        if (strpos(strtolower(' '.$retval['error']),'do not match')) {
-            // no match error, return false, don't disable musicbrainz
-            return 0;
-        } else if (strpos(strtolower(' '.$retval['error']),'try again later')) {
-            // server busy error, return false, don't disable musicbrainz, sleep an extra 2 seconds
-            sleep(2);
-            return 0;
+    $cnt = 2;
+    $retval = '0';
+    while (($cnt-- > 0) && !$retval) {
+        // Note: curl with retry = 0, since this is in a loop which will try twice
+        $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 15 --retry 0 --user-agent "'.$runeAudioUserAgent.'" "'.$url.'"');
+        if (isset($retval[0]) && $retval[0]) {
+            $retval = json_decode($retval[0], true);
         } else {
-            // unknown error response, save the details and disable musicbrainz
+            // nothing returned, musicbrains is probably too busy or offline, save the details and disable musicbrainz
             $redis->hSet('musicbrainz', 'url', $url);
-            $redis->hSet('musicbrainz', 'error', $retval['error']);
-            $redis->hSet('musicbrainz', 'retval', json_encode($retval));
+            $redis->hSet('musicbrainz', 'error', 'No response from Musicbrainz');
+            $redis->hSet('musicbrainz', 'retval', '');
             $redis->hSet('service', 'musicbrainz', 0);
             // this will be reset each 15 minutes (so after 7,5 minutes on average), if the musicbrainz site is up
+            // zero the busy count
+            $redis->hSet('musicbrainz', 'busy_count', '0');
             return 0;
         }
-    } else if (!is_array($retval)) {
-        // response is not an array, probably timed out, this is OK most of the time (see note above about false matches), don't disable musicbrainz
-        return 0;
+        if (isset($retval['error'])) {
+            // error response, some are ok, (full list is unknown, so it is trial and error)
+            if (strpos(strtolower(' '.$retval['error']),'do not match')) {
+                // no match error, return false, don't disable musicbrainz
+                // zero the busy count
+                $redis->hSet('musicbrainz', 'busy_count', '0');
+                return 0;
+            } else if (strpos(strtolower(' '.$retval['error']),'try again later')) {
+                // server busy error, try again unless the loop has expired, don't disable musicbrainz unless it fails 10 times consecutively, sleep 2 seconds before retrying
+                sleep(2);
+                $busyCount = $redis->hGet('musicbrainz', 'busy_count');
+                if (!is_numeric($busyCount)) {
+                    $busyCount = 0;
+                }
+                if ($busyCount > 9) {
+                    // disable musicbrainz after consecutively failing 10 times
+                    $redis->hSet('musicbrainz', 'url', $url);
+                    $redis->hSet('musicbrainz', 'error', $retval['error']);
+                    $redis->hSet('musicbrainz', 'retval', '');
+                    $redis->hSet('service', 'musicbrainz', 0);
+                    // this will be reset each 15 minutes (so after 7,5 minutes on average), if the musicbrainz site is up
+                    // zero the busy count
+                    $redis->hSet('musicbrainz', 'busy_count', '0');
+                    return 0;
+                } else {
+                    // increment the busy count
+                    $busyCount += 1;
+                    $redis->hSet('musicbrainz', 'busy_count', $busyCount);
+                    $retval = '0';
+                }
+            } else {
+                // unknown error response, save the details and disable musicbrainz
+                $redis->hSet('musicbrainz', 'url', $url);
+                $redis->hSet('musicbrainz', 'error', $retval['error']);
+                $redis->hSet('musicbrainz', 'retval', json_encode($retval));
+                $redis->hSet('service', 'musicbrainz', 0);
+                // this will be reset each 15 minutes (so after 7,5 minutes on average), if the musicbrainz site is up
+                // zero the busy count
+                $redis->hSet('musicbrainz', 'busy_count', '0');
+                return 0;
+            }
+        } else if (!is_array($retval)) {
+            // response is not an array, probably timed out, this is OK most of the time (see note above about false matches), don't disable musicbrainz
+            // dont zero the busy count
+            return 0;
+        } else {
+            // no error
+            // zero the busy count
+            $redis->hSet('musicbrainz', 'busy_count', '0');
+        }
     }
     return $retval;
 }
@@ -11282,16 +11364,17 @@ function get_fanartTv($redis, $url)
         // fanart.tv is down
         return 0;
     }
-    $opts = array('http' =>
-        array(
-            // timeout in seconds
-            // 5 seconds is a little on the high side, 2 or 3 is probably better.
-            // but this part of the code is attempted only when fanart.tv is up, so it should not be a problem
-            'timeout' => 5,
-            // ignore any errors, we check the returned value for errors
-            'ignore_errors' => '1'
-        )
-    );
+    $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
+    // $opts = array('http' =>
+        // array(
+            // // timeout in seconds
+            // // 5 seconds is a little on the high side, 2 or 3 is probably better.
+            // // but this part of the code is attempted only when fanart.tv is up, so it should not be a problem
+            // 'timeout' => 5,
+            // // ignore any errors, we check the returned value for errors
+            // 'ignore_errors' => '1'
+        // )
+    // );
     // proxy is something like this - untested
     // if (isset($proxy['enable']) && $proxy['enable']) {
         // if (isset($proxy['host']) && $proxy['host']) {
@@ -11301,13 +11384,23 @@ function get_fanartTv($redis, $url)
             // }
         // }
     // }
-    $context  = stream_context_create($opts);
-    $retval = json_decode(file_get_contents($url, false, $context), true);
+    // $context  = stream_context_create($opts);
+    // $retval = json_decode(file_get_contents($url, false, $context), true);
     // json_decode returns null when it cannot decode the string
-    if (isset($retval['status']) && $retval['status'] === 'error') {
-        // an error has been returned, valid response but no results
-        return 0;
-    } else if (!is_array($retval)) {
+    $retval = sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 --user-agent="'.$runeAudioUserAgent.'" -O - "'.$url.'"');
+    if (isset($retval) && is_array($retval)) {
+        $retval = json_decode(trim(implode(' ',$retval)), true);
+        if (!isset($retval) || !is_array($retval)) {
+            // unexpected response, disable fanarttv
+            $redis->hSet('service', 'fanarttv', 0);
+            // this will be reset each 15 minutes, if the fanarttv site is up
+            return 0;
+        } else if (isset($retval['status']) && $retval['status'] === 'error') {
+            // an error has been returned, valid response but no results
+            return 0;
+        }
+    } else {
+        // nothing has been returned
         // unexpected response, disable fanarttv
         $redis->hSet('service', 'fanarttv', 0);
         // this will be reset each 15 minutes, if the fanarttv site is up
@@ -11326,13 +11419,36 @@ function get_discogs($redis, $url)
         // discogs is down
         return 0;
     }
+    $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -X GET -s -f --connect-timeout 3 -m 7 --retry 2 "'.$url.'"')[0], true);
-    if (!isset($retval['pagination']['items'])) {
-        // unexpected response, disable discogs, items should always be set
+    $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 15 --retry 1 --user-agent "'.$runeAudioUserAgent.'" "'.$url.'"');
+    if (isset($retval[0]) && $retval[0]) {
+        $retval = json_decode($retval[0], true);
+    } else {
+        // nothing returned, musicbrains is probably too busy or offline, save the details and disable musicbrainz
+        $redis->hSet('discogs', 'url', $url);
+        $redis->hSet('discogs', 'error', 'No response from discogs');
+        $redis->hSet('discogs', 'retval', '');
         $redis->hSet('service', 'discogs', 0);
-        // this will be reset each 15 minutes, if the discogs site is up
+        // this will be reset each 15 minutes (so after 7,5 minutes on average), if the discogs site is up
+        return 0;
+    }
+    if (stripos(' '.$url, 'api.discogs.com/masters') || stripos(' '.$url, 'api.discogs.com/releases')) {
+        // its a master or release request, it has no pagination entry in the response
+        if (isset($retval['id']) && $retval['id']) {
+            // id is present, its a valid response
+            return $retval;
+        } else {
+            return 0;
+        }
+    } else if (!isset($retval['pagination']['items'])) {
+        // unexpected response, disable discogs, items should always be set
+        $redis->hSet('discogs', 'url', $url);
+        $redis->hSet('discogs', 'error', 'Retval pagination items not set');
+        $redis->hSet('discogs', 'retval', '');
+        $redis->hSet('service', 'discogs', 0);
+        // this will be reset each 15 minutes (so after 7,5 minutes on average), if the discogs site is up
         return 0;
     } else if (!$retval['pagination']['items']) {
         // a zero number of items has been returned, valid response but no results
@@ -11361,7 +11477,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'https://makeitpersonal.co/lyrics?artist='.urlClean($searchArtist).'&title='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -11468,7 +11584,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist='.urlClean($searchArtist).'&song='.urlClean($searchSong);
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -X GET -s --connect-timeout 3 -m 7 --retry 1 "'.$url.'"');
+        $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
@@ -11565,10 +11681,10 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         // url format: https://lrclib.net/api/get?artist_name=annie+lennox&track_name=little+bird
         // test command: curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "https://lrclib.net/api/get?artist_name=annie+lennox&track_name=little+bird"'
         $url = 'https://lrclib.net/api/get?artist_name='.urlClean($searchArtist).'&track_name='.urlClean($searchSong);
-        $lrclibnetUpUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui)';
+        $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
         // $proxy = $redis->hGetall('proxy');
         // using a proxy is possible but not implemented
-        $retval = sysCmd('curl -A "'.$lrclibnetUpUserAgent.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
+        $retval = sysCmd('curl -A "'.$runeAudioUserAgent.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
         $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
         if (!$retval) {
@@ -11590,37 +11706,44 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         } else {
             $details = json_decode($retval, true);
             $retval = '';
-            if ($details['instrumental']) {
-                $retval = 'Instrumental.';
-                $syncedLyrics = 'Instrumental.\n[00:10.00] ';
+            if (isset($details['id']) && $details['id']) {
+                // id is present and is filled, assume the rest is ok
+                if ($details['instrumental']) {
+                    $retval = 'Instrumental.';
+                    $syncedLyrics = 'Instrumental.\n[00:10.00] ';
+                } else {
+                    $retval = $details['plainLyrics'];
+                    $syncedLyrics = $details['syncedLyrics'];
+                }
+                // replace <br> and malformed <br>'s with <br>
+                //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
+                $retval = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $retval));
+                // strip away remaining formatting blocks or link pointers, excluding <br>
+                $retval = trim(strip_tags($retval, '<br>'));
+                // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
+                $repArray   = array("\r\n", "\n", "\r");
+                $retval = trim(str_replace($repArray, '<br>', $retval));
+                // replace whitespace with a single space
+                $retval = trim(preg_replace('!\s+!u', ' ', $retval));
+                while (substr($retval, 0, 4) == '<br>') {
+                    // remove leading empty lines
+                    $retval = trim(substr($retval, 4));
+                }
+                while (substr($retval, -4) == '<br>') {
+                    // remove trailing empty lines
+                    $retval = trim(substr($retval, 0, -4));
+                }
+                if (!$retval) {
+                    // empty
+                    $retval = '';
+                    $found = false;
+                } else {
+                    $found = true;
+                }
             } else {
-                $retval = $details['plainLyrics'];
-                $syncedLyrics = $details['syncedLyrics'];
-            }
-            // replace <br> and malformed <br>'s with <br>
-            //  includes <br>, <br/>, and <br />, upper, lower or mixed case, including leading and trailing spaces
-            $retval = trim(preg_replace('!(\s*<br\s*/?>\s*)!iu', '<br>', $retval));
-            // strip away remaining formatting blocks or link pointers, excluding <br>
-            $retval = trim(strip_tags($retval, '<br>'));
-            // replace end of line ('\r\n', '\r', '\n' in this order) with <br>
-            $repArray   = array("\r\n", "\n", "\r");
-            $retval = trim(str_replace($repArray, '<br>', $retval));
-            // replace whitespace with a single space
-            $retval = trim(preg_replace('!\s+!u', ' ', $retval));
-            while (substr($retval, 0, 4) == '<br>') {
-                // remove leading empty lines
-                $retval = trim(substr($retval, 4));
-            }
-            while (substr($retval, -4) == '<br>') {
-                // remove trailing empty lines
-                $retval = trim(substr($retval, 0, -4));
-            }
-            if (!$retval) {
-                // empty
+                // some other error condition has occurred
                 $retval = '';
                 $found = false;
-            } else {
-                $found = true;
             }
         }
     }
@@ -11855,25 +11978,25 @@ function get_coverartarchiveorg($redis, $url)
 // the $url parameter must contain the authorisation token
 {
     $coverartarchiveorgUp = $redis->hGet('service', 'coverartarchiveorg');
-    $MusicBrainzUserAgent = 'RuneAudio/'.$redis->hGet('git', 'branch').'.'.$redis->get('buildversion').' ( https://www.runeaudio.com/forum/member857.html )';
     if (!$coverartarchiveorgUp) {
         // coverartarchiveorg is down
         return 0;
     }
+    $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $opts = array('http' =>
-        array(
-            // timeout in seconds
-            // 5 seconds is a little on the high side, 2 or 3 is probably better.
-            // but this part of the code is attempted only when musicbrainz is up, so it should not be a problem
-            'timeout' => 5,
-            // ignore any errors, we check the returned value for errors
-            'ignore_errors' => '1',
-            // set up the user agent ! this is important !
-            'user_agent' => $MusicBrainzUserAgent
-        )
-    );
+    // $opts = array('http' =>
+        // array(
+            // // timeout in seconds
+            // // 5 seconds is a little on the high side, 2 or 3 is probably better.
+            // // but this part of the code is attempted only when musicbrainz is up, so it should not be a problem
+            // 'timeout' => 5,
+            // // ignore any errors, we check the returned value for errors
+            // 'ignore_errors' => '1',
+            // // set up the user agent ! this is important !
+            // 'user_agent' => $runeAudioUserAgent
+        // )
+    // );
     // proxy is something like this - untested
     // if (isset($proxy['enable']) && $proxy['enable']) {
         // if (isset($proxy['host']) && $proxy['host']) {
@@ -11883,12 +12006,29 @@ function get_coverartarchiveorg($redis, $url)
             // }
         // }
     // }
-    $context  = stream_context_create($opts);
-    $retval = json_decode(file_get_contents($url, false, $context), true);
+    // $context  = stream_context_create($opts);
+    // $retval = json_decode(file_get_contents($url, false, $context), true);
     // json_decode returns null when it cannot decode the string
-    if (!$retval || !is_array($retval)) {
-        // nothing has been returned
+    // curl -X GET -s -L --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" -H "Accept: application/json" https://coverartarchive.org/release/4f830140-f35d-4ad0-b43a-8d38d57de407/
+    $retval = sysCmd('curl -X GET -s -L --connect-timeout 5 -m 10 --retry 1 --user-agent "'.$runeAudioUserAgent.'" -H "Accept: application/json" "'.$url.'"');
+    if (!$retval) {
+        // nothing returned, assume coverartarchive is down, swict the service off, it will resume after max 15 mins, 7,5 mins on average
+        $redis->hSet('service', 'coverartarchiveorg', 0);
         return 0;
+    } else {
+        $retval = trim(implode(' ', $retval));
+        if (stripos(' '.$retval, '<title>400 Bad Request</title>')) {
+            // misformatted/invalid request
+            return 0;
+        } else if (stripos(' '.$retval, '<title>404 Not Found</title>')) {
+            // not found
+            return 0;
+        }
+        $retval = json_decode($retval, true);
+        if (!isset($retval['images']) || !count($retval['images'])) {
+            // no images returned
+            return 0;
+        }
     }
     return $retval;
 }
@@ -11904,10 +12044,10 @@ function setup_metadata_array($metadataArray = array())
         return 0;
     }
     // these are the elements in the array, check that they exist in $info
-    $infoElements = array('webradiostring', 'webradiostring_filename', 'artist', 'albumartist', 'artist_mbid', 'artist_arturl',
-         'artist_bio_summary', 'artist_bio_content', 'artist_similar', 'artist_filename', 'song', 'song_mbid',
-         'song_lyrics', 'song_filename', 'album', 'album_mbid', 'album_arturl_large', 'album_arturl_medium', 'album_arturl_small',
-         'album_filename');
+    $infoElements = array('webradiostring', 'webradiostring_filename',
+        'artist', 'albumartist', 'artist_mbid', 'artist_arturl', 'artist_bio_summary', 'artist_bio_content', 'artist_similar', 'artist_filename',
+        'song', 'song_mbid', 'song_lyrics', 'song_filename', 'song_wiki_summary', 'song_wiki_content',
+        'album', 'album_mbid', 'album_arturl_large', 'album_arturl_medium', 'album_arturl_small', 'album_filename', 'album_wiki_summary', 'album_wiki_content', 'year', 'single');
     foreach ($infoElements as $infoElement) {
         if (!isset($metadataArray[$infoElement])) {
             $metadataArray[$infoElement] = '';
@@ -11956,7 +12096,7 @@ function get_songInfo($redis, $info = array())
         return 0;
     }
     $toSetInfoFields = array('song_lyrics', 'song_filename');
-    $toSetOptionalFields = array('synced_lyrics', 'lyrics_covertArtUrl', 'lyrics_artistArtUrl');
+    $toSetOptionalFields = array('synced_lyrics', 'lyrics_covertArtUrl', 'lyrics_artistArtUrl', 'song_wiki_summary', 'song_wiki_content');
     $toCacheInfoFields = array_merge(array('artist', 'albumartist', 'artist_mbid', 'song', 'song_mbid'), $toSetInfoFields, $toSetOptionalFields);
     // check all the required elements exist in $info
     $info = setup_metadata_array($info);
@@ -11992,7 +12132,7 @@ function get_songInfo($redis, $info = array())
             $info['song_filename'] = format_artist_song_file_name($info['artist'], $info['song']);
         }
     }
-    if ($info['song_filename']){
+    if ($info['song_filename']) {
         $fileName = $artDir.'/'.$info['song_filename'].'.song';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
@@ -12083,10 +12223,10 @@ function get_songInfo($redis, $info = array())
             if (!$fileExists && $owntoneServer) {
                 // no local file found and owntone is active as client, use wget spider to determine if the file exists on the owntone server
                 $fileNameRemote = 'http://'.$owntoneServer.get_between_data($fileName, 'srv/http');
-                $notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
+                $notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
                 if (!$notFound) {
                     // file found on the owntone server, copy it to the local file name
-                    sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
+                    sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
                     // just to be sure, recheck that the file exists
                     clearstatcache(true, $fileName);
                     $fileExists = file_exists($fileName);
@@ -12185,6 +12325,9 @@ function get_albumInfo($redis, $info = array())
 //  album (album),
 //  album musicbrainz-id (album_mbid),
 //  the url's of large medium and small album cover art (album_arturl_large, album_arturl_medium, and album_arturl_small),
+//  a summary and full description of the album (album_wiki_summary and album_wiki_content),
+//  the album publication year (year),
+//  a single indicator, when set this is not an album, but a (maxi-)single (single),
 //  cache file names for song and album (artist_filename, song_filename and album_filename)
 // this function specifically retrieves and sets:
 //  the url's of large medium and small album cover art (album_arturl_large, album_arturl_medium, and album_arturl_small),
@@ -12199,7 +12342,8 @@ function get_albumInfo($redis, $info = array())
         return 0;
     }
     $toSetInfoFields = array('album_arturl_large', 'album_arturl_medium', 'album_arturl_small', 'album_filename');
-    $toCacheInfoFields = array_merge(array('artist', 'albumartist', 'artist_mbid', 'album', 'album_mbid'), $toSetInfoFields);
+    $toSetOptionalFields = array('album_wiki_summary', 'album_wiki_content', 'year', 'single');
+    $toCacheInfoFields = array_merge(array('artist', 'albumartist', 'artist_mbid', 'album', 'album_mbid'), $toSetInfoFields, $toSetOptionalFields);
     // check all the required elements exist in $info
     $info = setup_metadata_array($info);
     // when all the information which needs to be set is already set just save the cache
@@ -12231,7 +12375,7 @@ function get_albumInfo($redis, $info = array())
             $info['album_filename'] = format_artist_album_file_name($info['artist'], $info['album']);
         }
     }
-    if ($info['album_filename']){
+    if ($info['album_filename']) {
         $fileName = $artDir.'/'.$info['album_filename'].'.album';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
@@ -12322,16 +12466,8 @@ function get_albumInfo($redis, $info = array())
     //
     // try once to retrieve the album art url from last.fm, it only occasionally returns a useful
     //  value, mostly it returns an image of a star, but when it returns something it is accurate
-    $lastfmApikey = $redis->hGet('lastfm', 'apikey');
-    $proxy = $redis->hGetall('proxy');
     if (!$info['album_arturl_large']) {
-        $cover_url = ui_lastFM_coverart($redis, $searchArtists[0], $searchAlbums[0], $lastfmApikey, $proxy);
-        if (isset($cover_url) && $cover_url && !strpos(' '.strtolower($cover_url), '2a96cbd8b46e442fc41c2b86b821562f')) {
-            // not a star image so use it
-            $info['album_arturl_small'] = $cover_url;
-            $info['album_arturl_medium'] = $cover_url;
-            $info['album_arturl_large'] = $cover_url;
-        }
+        $info = array_merge($info, ui_lastFM_coverart($redis, $searchArtists[0], $searchAlbums[0]), ($info['song'] ?? ''));
     }
     //
     // album art is normally sourced from coverartarchive.org using album_mbid as key
@@ -12375,8 +12511,8 @@ function get_albumInfo($redis, $info = array())
         }
         if ($info['album_mbid']) {
             // album mbid set, get the album art url's from coverartarchive.org
-            // url format: http://archive.org/download/mbid-96964bbe-81f0-3d3a-8ec9-9e10362e089a/index.json
-            $url = 'http://archive.org/download/mbid-'.$info['album_mbid'].'/index.json';
+            // curl -X GET -s -L --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" -H "Accept: application/json" https://coverartarchive.org/release/4f830140-f35d-4ad0-b43a-8d38d57de407/
+            $url = 'https://coverartarchive.org/release/'.$info['album_mbid'].'/';
             $retval = get_coverartarchiveorg($redis, $url);
             if ($retval) {
                 // album art found
@@ -12405,7 +12541,7 @@ function get_albumInfo($redis, $info = array())
         }
         if (!$info['album_arturl_large'] && $info['album'] && $info['albumartist']) {
             // still nothing found try discogs
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
             $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
             $retval = get_discogs($redis, $url);
             if ($retval) {
@@ -12413,7 +12549,7 @@ function get_albumInfo($redis, $info = array())
                 $match_percentage = $redis->get('albumart_match_percentage');
                 if (isset($retval['results'][0]['title']) &&
                         (strlen(trim($retval['results'][0]['title'])) >= 5) &&
-                        (count_word_occurancies(trim($info['albumartist']).' '.trim($info['album']), trim($retval['results'][0]['title'])) >= $match_percentage) &&
+                        (count_word_occurancies(trim($info['albumartist']).' - '.trim($info['album']), trim($retval['results'][0]['title'])) >= $match_percentage) &&
                         (count_word_occurancies(trim($retval['results'][0]['title']), trim($info['albumartist']).' - '.trim($info['album'])) >= $match_percentage)) {
                     if (isset($retval['results'][0]['cover_image']) && $retval['results'][0]['cover_image']) {
                         // album art is filled, use it and save the details
@@ -12526,7 +12662,7 @@ function get_artistInfo($redis, $info = array())
             $info['artist_filename'] = format_artist_file_name($info['artist']);
         }
     }
-    if ($info['artist_filename']){
+    if ($info['artist_filename']) {
         $fileName = $artDir.'/'.$info['artist_filename'].'.artist';
         clearstatcache(true, $fileName);
         if (file_exists($fileName)) {
@@ -12600,10 +12736,10 @@ function get_artistInfo($redis, $info = array())
         if (!$fileExists && $owntoneServer) {
             // no local file found and owntone is active ac client, use wget spider to determine if th file exists on the owntone server
             $fileNameRemote = 'http://'.$owntoneServer.get_between_data($fileName, 'srv/http');
-            $notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
+            $notFound = sysCmd('wget --force-html --spider --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'" 2>&1 | grep -icE "response.*400|length.*unspecified" | xargs')[0];
             if (!$notFound) {
                 // file found on the owntone server, copy it to the local file name
-                sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -i "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
+                sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
                 // just to be sure, recheck that the file exists
                 clearstatcache(true, $fileName);
                 $fileExists = file_exists($fileName);
@@ -12627,14 +12763,14 @@ function get_artistInfo($redis, $info = array())
     $lastfmApikey = $redis->hGet('lastfm', 'apikey');
     $fanarttvToken = $redis->hGet('fanarttv', 'token');
     // use last.fm to retrieve the artist biography and similar artist list, this will also return the artist_mbid
-    // when last.fm returns nothing use musicbrainz to determing the artist_mbid
+    // when last.fm returns nothing use musicbrainz to determine the artist_mbid
     // use fanart.tv to determine the arist_arturl (indexed by the artist_mbid)
     if (!$info['artist_bio_summary'] || !$info['artist_bio_content'] || !$info['artist_similar']) {
         // one or more required data fields is empty
         if ($info['artist_mbid']) {
             // mbid is set so use it to retreve last.fm data
-            // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-            // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // use the command: curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=$mbid&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+            // e.g.: curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid=3e30aebd-0557-4cfd-8fb9-3945afa5d72b&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
             $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&mbid='.$info['artist_mbid'].'&api_key='.$lastfmApikey.'&format=json&limit=1';
             $retval = get_lastFm($redis, $url);
         } else {
@@ -12643,8 +12779,8 @@ function get_artistInfo($redis, $info = array())
         if (!$retval) {
             // error returned, retrieve the info using artist name
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
-                // e.g.: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // use the command: curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=$artist&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
+                // e.g.: curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist=annie+lennox&api_key=ba8ad00468a50732a3860832eaed0882&format=json"
                 $url = 'https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&autocorrect=1&artist='.urlClean($searchArtist).'&api_key='.$lastfmApikey.'&format=json&limit=1';
                 $retval = get_lastFm($redis, $url);
                 if ($retval) {
@@ -12716,7 +12852,7 @@ function get_artistInfo($redis, $info = array())
         if (!$info['artist_mbid']) {
             // try to get the musicbrainz id from musicbrainz
             foreach ($searchArtists as $searchArtist) {
-                // use the command: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
+                // use the command: curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
                 $url = 'https://musicbrainz.org/ws/2/artist/?query='.urlClean($searchArtist).'&limit=1&fmt=json';
                 $retval = get_musicBrainz($redis, $url);
                 if ($retval) {
@@ -12733,7 +12869,7 @@ function get_artistInfo($redis, $info = array())
         }
         if ($info['artist_mbid']) {
             // mbid is set so we can try to get the art url from fanart.tv
-            // call: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 2 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
+            // call: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 1 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
             // e.g.: http://webservice.fanart.tv/v3/music/<mbid>?api_key=<token>
             $url = 'http://webservice.fanart.tv/v3/music/'.$info['artist_mbid'].'?api_key='.$fanarttvToken;
             $retval = get_fanartTv($redis, $url);
@@ -12794,12 +12930,1506 @@ function get_artistInfo($redis, $info = array())
     return $info;
 }
 
+// function return artist, albumartist, song, single indicator, album, year, album art (large, medium & small) url from discogs from a webradio string or a given artist and song or album and song
+function wrk_get_discogs_info($redis, $info)
+// this function returns the oldest reference to the song by the artist, however album is preferred over a single for the 3 oldest excluding compilations and re-issues
+// $info is an array containing at least ['webradiostring'] or ['webradiostring_clean'], when ['webradiostring'] and ['webradiostring_clean'] are omitted ['artist'] and ['song'] or ['album'] and ['song'] must be present
+//  it could also contain any number of other array entries
+//  this function returns all supplied $info plus it will correct or set any elements discovered within this function
+// the format of the radiostring is unknown, it could be 'artist - song' or 'song - artist'
+// returned fields: ['artist'], ['albumartist'], ['song'], ['single'], ['album'], ['year'], ['album_arturl_large'], ['album_arturl_medium'], ['album_arturl_small']
+//  the field album contains the name of the single when the entry single is true
+//  year, single indicator and album art (large, medium & small) are optional and returned when available
+//  when all fields are present and set (except single indicator and year) processing is skipped
+{
+    if (!isset($info) || !is_array($info)) {
+        // $info is not an array, return an empty array
+        return array();
+    }
+    if (isset($info['artist']) && $info['artist'] &&
+            isset($info['song']) && $info['song'] &&
+            isset($info['album']) && $info['album'] &&
+            isset($info['album_arturl_large']) && $info['album_arturl_large'] &&
+            isset($info['album_arturl_medium']) && $info['album_arturl_medium'] &&
+            isset($info['album_arturl_small']) && $info['album_arturl_small']) {
+        // all fields filled, just return an empty array
+        return array();
+    }
+    if (((!isset($info['webradiostring']) || !$info['webradiostring']) &&
+            (!isset($info['webradiostring_clean']) || !$info['webradiostring_clean'])) &&
+            (!isset($info['song']) || !$info['song']) &&
+            ((!isset($info['artist']) || !$info['artist']) ||
+            (!isset($info['artist']) || !$info['artist']))) {
+        // no radiostring, and no song and artist and no song and album, cannot process the request, return an empty array
+        return array();
+    }
+    $discogsToken = $redis->hGet('discogs', 'token');
+    if ((!isset($info['song']) || !$info['song']) || ((!isset($info['artist']) || !$info['artist']) && (!isset($info['album']) || !$info['album']))) {
+        // song or artist and/or album need to be determined from the radiostring (when song and artist or song and album are available we don't use the radiostring, see below)
+        // set up an array of the radiostring names
+        $radiostrings = array('webradiostring', 'webradiostring_clean');
+        // check that the radiostrings exist
+        foreach ($radiostrings as $radiostring) {
+            if (!isset($info[$radiostring])) {
+                $info[$radiostring] = '';
+            }
+        }
+        $scoreA = 999;
+        $scoreAA = 999;
+        $albumScore = 999;
+        $albumartistScore = 999;
+        // loop for each radiostring
+        foreach ($radiostrings as $radiostring) {
+            if (!$info[$radiostring]) {
+                // a rediostring is empty, skip it
+                continue;
+            }
+            // first get the best master match of song and albumartist for the given radio string, exclude unofficial releases and reissues
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox+-unofficial+-reissue&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=10&page=1&format=album|single&type=master"
+            $url = 'https://api.discogs.com/database/search?q='.urlClean($info[$radiostring]).'+-unofficial+-reissue&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
+            $retval = get_discogs($redis, $url);
+            if (isset($retval['results']) && count($retval['results'])) {
+                foreach ($retval['results'] as $result) {
+                    list($albumartist, $album) = explode(' - ', trim(preg_replace('![\s]+!u', ' ', $result['title'])), 2);
+                    if (isset($albumartist)) {
+                        // trim the album artist and remove a single trailing asterisk ('*') providing it is not preceded by a space
+                        //  in discogs the trailing asterisk means that an alternative name has been matched, but it is still a match
+                        //  typically when 'The Cure' is searched and matched using 'Cure' an asterisk will be included
+                        $albumartist = preg_replace('/(?<! )\*(?:\s*)$/', '', trim($albumartist));
+                    } else {
+                        // no albumartist found, continue
+                        continue;
+                    }
+                    if (isset($album)) {
+                        $album = trim($album);
+                    } else {
+                        // no album found, continue
+                       continue;
+                    }
+                    if (isset($info['album']) && $info['album']) {
+                        // album name is available as a parameter
+                        // compare the strings
+                        $scoreA = levenshtein(strtolower($album), strtolower($info['album']));
+                        if ($albumScore < $scoreA) {
+                            // score is greater than the previous (low scores are better)
+                            continue;
+                        }
+                    }
+                    // default singe indicator is false
+                    $single = 0;
+                    // default type is album
+                    $type = 3;
+                    if (stripos(' '.$albumartist, 'various') == 1) {
+                        $albumartist = 'Various Artists';
+                        // type is compilation
+                        $type = 1;
+                    } else if (isset($info['artist']) && $info['artist']) {
+                        // artist name is available as a parameter
+                        // compare the strings
+                        $scoreAA = levenshtein(strtolower($albumartist), strtolower($info['artist']));
+                        if ($albumartistScore < $scoreAA) {
+                            // score is greater than the previous (low scores are better)
+                            continue;
+                        }
+                    } else {
+                        $betterMatch = false;
+                        foreach ($radiostrings as $radiostring) {
+                            if ($info[$radiostring]) {
+                                foreach (explode(' - ', $info[$radiostring]) as $radiostringPart) {
+                                    $score = levenshtein(strtolower($albumartist), strtolower($radiostringPart));
+                                    if ($score <= $scoreAA) {
+                                        $betterMatch = true;
+                                        $scoreAA = $score;
+                                    }
+                                }
+                            }
+                        }
+                        if (!$betterMatch) {
+                            continue;
+                        }
+                    }
+                    if (($type == 3) && isset($result['format']) && count($result['format'])) {
+                        foreach ($result['format'] as $format) {
+                            if (stripos(' '.$format, 'single')) {
+                                // could be maxi-single or single
+                                // type is single
+                                $type = 2;
+                                $single = 1;
+                                break;
+                            } else if ((stripos(' '.$format, 'vhs') == 1) || (stripos(' '.$format, 'pal') == 1)) {
+                                // its a dvd
+                                $type = 0;
+                                break;
+                            }
+                        }
+                    }
+                    if (isset($result['year']) && (strlen($result['year']) >= 4)) {
+                        $year = substr($result['year'], 0, 4);
+                    } else {
+                        continue;
+                    }
+                    if ($scoreAA > 4) {
+                        // mismatches like 'Day and Night' vs 'Day & Night' should be acceptable, 'and' vs '&' results in a score of 3
+                        // maximum 4 is acceptable
+                        continue;
+                    }
+                    if (!isset($lastYear) || !isset($lastType) || !isset($lastSingle) || !isset($lastAlbumartist) || !isset($lastAlbum) || !isset($LastMasterId) ||
+                            (($albumScore > $scoreA) && ($albumartistScore >= $scoreAA)) ||
+                            (($albumScore >= $scoreA) && ($albumartistScore > $scoreAA)) ||
+                            (($albumScore == $scoreA) &&
+                            ($albumartistScore == $scoreAA) &&
+                            ($lastYear >= $year) &&
+                            ($lastType <= $type))) {
+                        // a lastXxx field unset, or a more preferable type, or the year is the same or younger and the type is the same and the string length of album artist is the same or greater
+                        //  longer album artist sting length means a better match with the radiostring
+                        //  we are interested in the album with a more preferable type or an older year when the artist name is not shorter
+                        $lastType = $type;
+                        $lastSingle = $single;
+                        $lastAlbumartist = $albumartist;
+                        $lastAlbum = $album;
+                        $lastMasterId = $result['master_id'];
+                        $lastYear = $year;
+                        $albumScore = $scoreA;
+                        $albumartistScore = $scoreAA;
+                    }
+                }
+            }
+        }
+        // debug
+        if ($albumScore == 999) {
+            unset($albumScore);
+        }
+        if ($albumartistScore == 999) {
+            unset($albumartistScore);
+        }
+        echo "Debug - discogs1 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".$info['song'].", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
+    } else {
+        // at this point $info['song'] is present
+        if (isset($info['album']) && $info['album'] && isset($info['artist']) && $info['artist']) {
+            // get the master id for the artist & album & song, exclude unofficial releases and reissues
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&artist='annie%20lennox'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+            $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title=\''.urlClean($info['album']).'\'&track=\''.urlClean($info['song']).'\'&artist=\''.urlClean($info['artist']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
+            $retval = get_discogs($redis, $url);
+        }
+        if (!isset($retval['results']) || !count($retval['results'])) {
+            if (isset($info['album']) && $info['album']) {
+                // get the master id for the artist & album, exclude unofficial releases and reissues
+                // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+                $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title=\''.urlClean($info['album']).'\'&track=\''.urlClean($info['song']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
+                $retval = get_discogs($redis, $url);
+            }
+        }
+        if (!isset($retval['results']) || !count($retval['results'])) {
+            if (isset($info['artist']) && $info['artist']) {
+                // get the master id for the artist & song, exclude unofficial releases and reissues
+                // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&artist='annie%20lennox'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+                $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&artist=\''.urlClean($info['artist']).'\'&track=\''.urlClean($info['song']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
+                $retval = get_discogs($redis, $url);
+            }
+        }
+        $scoreA = 999;
+        $scoreAA = 999;
+        $albumScore = 999;
+        $albumartistScore = 999;
+        if (isset($retval['results']) && count($retval['results'])) {
+            foreach ($retval['results'] as $result) {
+                list($albumartist, $album) = explode(' - ', trim(preg_replace('![\s]+!u', ' ', $result['title'])), 2);
+                if (isset($albumartist)) {
+                    // trim the album artist and remove a single trailing asterisk ('*') providing it is not preceded by a space
+                    //  in discogs the trailing asterisk means that an alternative name has been matched, but it is still a match
+                    //  typically when 'The Cure' is searched and matched using 'Cure' an asterisk will be included
+                    $albumartist = $albumartist = preg_replace('/(?<! )\*(?:\s*)$/', '', trim($albumartist));
+                } else {
+                    // no albumartist found, continue
+                    continue;
+                }
+                if (isset($album)) {
+                    $album = trim($album);
+                } else {
+                    // no album found, continue
+                   continue;
+                }
+                if (isset($info['album']) && $info['album']) {
+                    // album name is available as a parameter
+                    // compare the strings
+                    $scoreA = levenshtein(strtolower($album), strtolower($info['album']));
+                    if ($albumScore < $scoreA) {
+                        // score is greater than the previous (low scores are better)
+                        continue;
+                    }
+                }
+                // default singe indicator is false
+                $single = 0;
+                // default type is album
+                $type = 3;
+                if (stripos(' '.$albumartist, 'various') == 1) {
+                    $albumartist = 'Various Artists';
+                    // type is compilation
+                    $type = 1;
+                } else if (isset($info['artist']) && $info['artist']) {
+                    // artist name is available as a parameter
+                    // compare the strings
+                    $scoreAA = levenshtein(strtolower($albumartist), strtolower($info['artist']));
+                    if ($albumartistScore < $scoreAA) {
+                        // score is greater than the previous (low scores are better)
+                        continue;
+                    }
+                } else {
+                    $betterMatch = false;
+                    foreach ($radiostrings as $radiostring) {
+                        if ($info[$radiostring]) {
+                            foreach (explode(' - ', $info[$radiostring]) as $radiostringPart) {
+                                $score = levenshtein(strtolower($albumartist), strtolower($radiostringPart));
+                                if ($score <= $scoreAA) {
+                                    $betterMatch = true;
+                                    $scoreAA = $score;
+                                }
+                            }
+                        }
+                    }
+                    if (!$betterMatch) {
+                        continue;
+                    }
+                }
+                if (($type == 3) && isset($result['format']) && count($result['format'])) {
+                    foreach ($result['format'] as $format) {
+                        if (stripos(' '.$format, 'single')) {
+                            // could be maxi-single or single
+                            // type is single
+                            $type = 2;
+                            $single = 1;
+                            break;
+                        } else if ((stripos(' '.$format, 'vhs') == 1) || (stripos(' '.$format, 'pal') == 1)) {
+                            // its a dvd
+                            $type = 0;
+                            break;
+                        }
+                    }
+                }
+                if (isset($result['year']) && (strlen($result['year']) >= 4)) {
+                    $year = substr($result['year'], 0, 4);
+                } else {
+                    continue;
+                }
+                if ($scoreAA > 4) {
+                    // mismatches like 'Day and Night' vs 'Day & Night' should be acceptable, 'and' vs '&' results in a score of 3
+                    // maximum 4 is acceptable
+                    continue;
+                }
+                if (!isset($lastYear) || !isset($lastType) || !isset($lastSingle) || !isset($lastAlbumartist) || !isset($lastAlbum) || !isset($LastMasterId) ||
+                        (($albumScore > $scoreA) && ($albumartistScore >= $scoreAA)) ||
+                        (($albumScore >= $scoreA) && ($albumartistScore > $scoreAA)) ||
+                        (($albumScore == $scoreA) &&
+                        ($albumartistScore == $scoreAA) &&
+                        ($lastYear >= $year) &&
+                        ($lastType <= $type))) {
+                    // a lastXxx field unset, or a more preferable type, or the year is the same or younger and the type is the same and the string length of album artist is the same or greater
+                    //  longer album artist sting length means a better match with the radiostring
+                    //  we are interested in the album with a more preferable type or an older year when the artist name is not shorter
+                    $lastType = $type;
+                    $lastSingle = $single;
+                    $lastAlbumartist = $albumartist;
+                    $lastAlbum = $album;
+                    $lastMasterId = $result['master_id'];
+                    $lastYear = $year;
+                    $albumScore = $scoreA;
+                    $albumartistScore = $scoreAA;
+                }
+            }
+        }
+        // debug
+        if ($albumScore == 999) {
+            unset($albumScore);
+        }
+        if ($albumartistScore == 999) {
+            unset($albumartistScore);
+        }
+        echo "Debug - discogs2 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".$info['song'].", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
+    }
+    unset ($retval, $result, $year, $albumartist, $album, $single, $type, $score, $scoreA, $scoreAA, $albumScore, $albumartistScore);
+    if (isset($lastAlbumartist) && isset($lastAlbum) && ($lastAlbumartist != 'Various Artists')) {
+        // album artist and album are available
+        $info['albumartist'] = $lastAlbumartist;
+        $info['album'] = $lastAlbum;
+        $info['year'] = $lastYear;
+        $info['single'] = $lastSingle;
+    }
+    if (!isset($lastMasterId)) {
+        // we don't have a master id so cannot determine the song or album art, return the information which we have
+        if (!isset($info['artist']) && !$info['artist'] && isset($lastAlbumartist) && $lastAlbumartist && ($lastAlbumartist != 'Various Artists')) {
+            $info['artist'] = $lastAlbumartist;
+        }
+        return $info;
+    }
+    unset($lastAlbumartist, $lastAlbum, $lastYear, $lastSingle);
+    // debug
+    echo "Debug - discogs3 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".$info['albumartist'].", album: ".$info['album'].", song: ".$info['song']."\n";
+    // now get the master entry for the master id
+    //  one or none will be returned
+    // note: the discogs token is not used for a master (or release) retrieval
+    // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/masters/33599"
+    $url = 'https://api.discogs.com/masters/'.$lastMasterId;
+    // sleep for 0.5 seconds before calling discogs again
+    usleep(500000);
+    $retval = get_discogs($redis, $url);
+    if (isset($retval['tracklist']) && count($retval['tracklist'])) {
+        // something found
+        $artist = '';
+        $song = '';
+        $bestScore = 999;
+        $score = 999;
+        foreach ($retval['tracklist'] as $track) {
+            if (!isset($track['title']) || !$track['title']) {
+                // track name not set, continue
+                continue;
+            }
+            if (($lastType == 1)) {
+                if (isset($track['artists']) && count($track['artists'])) {
+                    // this is for compilations
+                    foreach ($track['artists'] as $trackArtist) {
+                        if (isset($trackArtist['name']) && $trackArtist['name']) {
+                            if (isset($info['artist']) && isset($info['song']) && $info['artist'] && $info['song']) {
+                                // artist and song set in the parameters
+                                $score = levenshtein(strtolower($info['artist'].$info['song']), strtolower($trackArtist['name'].$track['title']));
+                                if ($score < $bestScore) {
+                                    // a better score has been found
+                                    $bestScore = $score;
+                                    $artist = $trackArtist['name'];
+                                    $song = $track['title'];
+                                    if ($bestScore == 0) {
+                                        // perfect match found, no need to search more tracks
+                                        break 2;
+                                    }
+                                }
+                            } else {
+                                // determine the best artist & song match, the webradiostring is '<artist> - <song>' or '<song> - <artist>'
+                                foreach ($radiostrings as $radiostring) {
+                                    if (!$info[$radiostring]) {
+                                        // webradio string not set
+                                        continue;
+                                    }
+                                    $score1 = levenshtein(strtolower($info[$radiostring]), strtolower($trackArtist['name'].' - '.$track['title']));
+                                    $score2 = levenshtein(strtolower($info[$radiostring]), strtolower($track['title'].' - '.$trackArtist['name']));
+                                    // use the best score (lowest value)
+                                    $score = min($score1, $score2);
+                                    if ($score < $bestScore) {
+                                        // a better score has been found
+                                        $bestScore = $score;
+                                        $artist = $trackArtist['name'];
+                                        $song = $track['title'];
+                                        if ($bestScore == 0) {
+                                            // perfect match found, no need to search more tracks
+                                            break 2;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // this is for non-compilations
+                if (!isset($retval['artists'][0]['name']) || !$retval['artists'][0]['name']) {
+                    // cant process anything, just return the known values
+                    return $info;
+                }
+                if (isset($info['artist']) && isset($info['song']) && $info['artist'] && $info['song']) {
+                    // artist and song set in the parameters
+                    $score = levenshtein(strtolower($info['artist'].$info['song']), strtolower($retval['artists'][0]['name'].$track['title']));
+                } else {
+                    // determine the best artist & song match, the webradiostring is '<artist> - <song>' or '<song> - <artist>'
+                    foreach ($radiostrings as $radiostring) {
+                        if (!$info[$radiostring]) {
+                            // webradio string not set
+                            continue;
+                        }
+                        $radiostringLc = strtolower($info[$radiostring]);
+                        $artistSongLc = strtolower($retval['artists'][0]['name'].' - '.$track['title']);
+                        $songArtistLc = strtolower($track['title'].' - '.$retval['artists'][0]['name']);
+                        // check the word match search vs results and results vs search
+                        if (count_word_occurancies($radiostringLc, $artistSongLc) < 50) {
+                            // need to have at least a 50% word match, continue
+                            continue;
+                        }
+                        if (count_word_occurancies($artistSongLc, $radiostringLc) < 50) {
+                            // need to have at least a 50% word match, continue
+                            continue;
+                        }
+                        $score1 = levenshtein($radiostringLc, $artistSongLc);
+                        $score2 = levenshtein($radiostringLc, $songArtistLc);
+                        $score = min($score1, $score2);
+                        if ($score < $bestScore) {
+                            // a better score has been found
+                            $bestScore = $score;
+                            $artist = $retval['artists'][0]['name'];
+                            $song = $track['title'];
+                            if ($bestScore == 0) {
+                                // perfect match found, no need to search more tracks
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if ($bestScore > 7) {
+            // best scores over 7 are rejected, return an empty array
+            return array();
+        }
+        $info['artist'] = $artist;
+        if (isset($retval['artists'][0]['name']) && $retval['artists'][0]['name'] && (stripos(' '.$retval['artists'][0]['name'], 'various') == 1)) {
+            // various artists
+            $info['albumartist'] = 'Various Artists';
+        } else {
+            $info['albumartist'] = $artist;
+        }
+        $info['song'] = $song;
+        if (isset($retval['title']) && $retval['title']) {
+            $info['album'] = $retval['title'];
+        }
+        foreach ($retval['images'] as $images) {
+            // use the first set of images which have values
+            if (isset($images['resource_url']) && isset($images['uri150']) && $images['resource_url'] && $images['uri150']) {
+                $info['album_arturl_large'] = $images['resource_url'];
+                $info['album_arturl_medium'] = $images['resource_url'];
+                $info['album_arturl_small'] = $images['uri150'];
+                break;
+            }
+        }
+    }
+    // debug
+    if (isset($bestScore) && ($bestScore == 999)) {
+        unset($bestScore);
+    }
+    echo "Debug - discogs4 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".$info['albumartist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".$bestScore."\n";
+    unset($retval, $track, $trackArtist, $images, $artist, $albumartist, $song, $score, $bestScore);
+    // return any set values
+    return $info;
+}
+
+// function return artist, albumartist, song, single indicator, album, year. musicbrainz album id, album art (large, medium & small) url from musicbrainz from a webradio string or a given artist and song or album and song
+function wrk_get_musicbrainz_info($redis, $info)
+// this function returns the oldest reference to the song by the artist, however album is preferred over a single which is prefert over compilations
+// $info is an array containing at least ['webradiostring'] or ['webradiostring_clean'], when ['webradiostring'] and ['webradiostring_clean'] are omitted ['artist'] and ['song'] or ['album'] and ['song'] must be present
+//  it could also contain any number of other array entries
+//  this function returns all supplied $info plus it will correct or set any elements discovered within this function
+// the format of the radiostring is unknown, it could be 'artist - song' or 'song - artist'
+// returned fields: ['artist'], ['albumartist'], ['song'], ['single'], ['album'], ['year'], ['album_arturl_large'], ['album_arturl_medium'], ['album_arturl_small']
+//  the field album contains the name of the single when the entry single is true
+//  year, single indicator and album art (large, medium & small) are optional and returned when available
+//  when all fields are present and set (except single indicator and year) processing is skipped
+{
+    if (!isset($info) || !is_array($info)) {
+        // $info is not an array, return an empty array
+        return array();
+    }
+    if (isset($info['artist']) && $info['artist'] &&
+            isset($info['song']) && $info['song'] &&
+            isset($info['album']) && $info['album'] &&
+            isset($info['album_arturl_large']) && $info['album_arturl_large'] &&
+            isset($info['album_arturl_medium']) && $info['album_arturl_medium'] &&
+            isset($info['album_arturl_small']) && $info['album_arturl_small']) {
+        // all fields filled, just return an empty array
+        return array();
+    }
+    if (((!isset($info['webradiostring']) || !$info['webradiostring']) &&
+            (!isset($info['webradiostring_clean']) || !$info['webradiostring_clean'])) &&
+            (!isset($info['song']) || !$info['song']) &&
+            ((!isset($info['artist']) || !$info['artist']) ||
+            (!isset($info['artist']) || !$info['artist']))) {
+        // no radiostring, and no song and artist and no song and album, cannot process the request, return an empty array
+        return array();
+    }
+    $musicbrainzCalled = false;
+    if ((!isset($info['song']) || !$info['song']) || (!isset($info['artist']) || !$info['artist']) && (!isset($info['album']) || !$info['album'])) {
+        // song or artist and/or album need to be determined from the radiostring (when song and artist or song and album are available we don't use the radiostring, see below)
+        $radiostrings = array('webradiostring', 'webradiostring_clean');
+        // check that the radiostrings exist
+        foreach ($radiostrings as $radiostring) {
+            if (!isset($info[$radiostring])) {
+                $info[$radiostring] = '';
+            }
+        }
+        // loop for each radiostring
+        foreach ($radiostrings as $radiostring) {
+            if (!$info[$radiostring]) {
+                // radiostring empty, get the next one
+                continue;
+            }
+            // first get the best recording match of song and artist for the given radio string, exclude reissues and compilations
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/recording/?query=annie%20lennox%20why&limit=100&inc=releases+artists+tags&fmt=json"
+            $url = 'https://musicbrainz.org/ws/2/recording/?query='.urlClean($info[$radiostring]).'&limit=100&inc=releases+artists+tags&fmt=json';
+            $retval = get_musicbrainz($redis, $url);
+            $musicbrainzCalled = true;
+            $score = 999;
+            $bestScore = 999;
+            if (isset($retval['recordings']) && count($retval['recordings'])) {
+                // its difficult to determine the artist and song from a search string using musicbrainz, this could return errors
+                //  there appear to be bugs in the api which always returns more information than requested when advanced selections are made
+                // retrieve 100 recordings and all releases for each recording and in relevant recordings the song is specified in the media track
+                // the intention is to determine the artist, song and album
+                //  eliminate recordings where the artist credit name does not occur in the radiostring (or not matching artist parameter if present)
+                //  eliminate recordings where the title does not occur in the radiostring (or not matching song parameter if present)
+                //  eliminate releases where the release title does not match the album parameter when the album parameter is present
+                //  eliminate releases where the status is not 'Official'
+                //  eliminate releases where the release-group primary-type is not 'Album' or 'Single'
+                //  eliminate compilation releases when when a single or album release has already been found
+                //  eliminate single releases when an album release has already been found
+                //  eliminate releases where the artist credit name does not occur in the radiostring, except when the artist credit name is 'various artists'
+                //  eliminate releases where there is no media track title reference
+                //  eliminate releases where the media track title does not occur in the radiostring
+                //  for resulting selections save the artist, song, album, single indicator and the year when not set
+                //  when the year is younger save the year, album and single indicator
+                //  when the string length of artist or song is longer, and the other is not shorter (a better match) save the artist and song
+                if (isset($info['song']) && $info['song']) {
+                    $songLc = strtolower($info['artist']);
+                } else {
+                    unset($songLc);
+                }
+                if (isset($info['artist']) && $info['artist']) {
+                    $artistLc = strtolower($info['artist']);
+                } else {
+                    unset($artistLc);
+                }
+                if (isset($info['album']) && $info['album']) {
+                    $albumLc = strtolower($info['album']);
+                } else {
+                    unset($albumLc);
+                }
+                foreach ($retval['recordings'] as $recording) {
+                    if (!stripos(' '.$info['webradiostring'], $recording['title']) &&
+                            !stripos(' '.$info['webradiostring_clean'], $recording['title']) &&
+                            (isset($songLc) && (strtolower($recording['title']) != $songLc))) {
+                        continue;
+                    }
+                    $ok = false;
+                    foreach ($recording['artist-credit'] as $recordingArtistCredit) {
+                        if (isset($recordingArtistCredit['artist']['name']) && $recordingArtistCredit['artist']['name']) {
+                            if (stripos(' '.$info['webradiostring'], $recordingArtistCredit['artist']['name']) || stripos(' '.$info['webradiostring_clean'], $recordingArtistCredit['artist']['name'])) {
+                                // this matches the full artist name against the radiostring
+                                $ok = true;
+                                break;
+                            } else if (isset($artistLc) && (strtolower($recordingArtistCredit['artist']['name']) == $artistLc)) {
+                                // this matches the full artist name against an artist name in the parameters
+                                $ok = true;
+                                break;
+                            }
+                        }
+                        if (isset($recordingArtistCredit['artist']['name']) && $recordingArtistCredit['artist']['name']) {
+                            if (stripos(' '.$info['webradiostring'], $recordingArtistCredit['artist']['name']) || stripos(' '.$info['webradiostring_clean'], $recordingArtistCredit['artist']['name'])) {
+                                // this matches the full artist name against the radiostring
+                                $ok = true;
+                                break;
+                            } else if (isset($artistLc) && (strtolower($recordingArtistCredit['artist']['name']) == $artistLc)) {
+                                // this matches the full artist name against an artist name in the parameters
+                                $ok = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!$ok) {
+                        // not found, try matching against the truncated sort name
+                        foreach ($recording['artist-credit'] as $recordingArtistCredit) {
+                            if (isset($recordingArtistCredit['artist']['sort-name']) && $recordingArtistCredit['artist']['sort-name'] && strpos(' '.$recordingArtistCredit['artist']['sort-name'], ',')) {
+                                // how this works:
+                                //  full name = 'The Beatles', sort name = 'Beatles, The', we use 'Beatles' to match
+                                //  full name = 'Annie Lennox', sort name = 'Lennox, Annie', we use 'Lennox' to match
+                                $sortNameTrunc = strtok($recordingArtistCredit['artist']['sort-name'], ',');
+                                if (stripos(' '.$info['webradiostring'], $sortNameTrunc) || stripos(' '.$info['webradiostring_clean'], $sortNameTrunc)) {
+                                    // this matches the artist sort name until the first comma against the radiostring
+                                    $ok = true;
+                                    break;
+                                } else if (isset($artistLc) && (strtolower($sortNameTrunc) == $artistLc)) {
+                                    // this matches the artist sort name until the first comma against an artist name in the parameters
+                                    $ok = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!$ok) {
+                        continue;
+                    }
+                    if (!isset($recording['releases']) || !count($recording['releases'])) {
+                        continue;
+                    }
+                    foreach ($recording['releases'] as $release) {
+                        if (!isset($release['date']) || !$release['date'] || (strlen($release['date']) < 4)) {
+                            continue;
+                        }
+                        if (isset($albumLc) && (strtolower($release['title']) != $albumLc)) {
+                            continue;
+                        }
+                        if (isset($release['status']) && (strtolower($release['status']) != 'official')) {
+                            continue;
+                        }
+                        // default type is album, type: 3
+                        $type = 3;
+                        if (isset($release['release-group']['primary-type'])) {
+                            $primTypeLc = strtolower($release['release-group']['primary-type']);
+                            if ($primTypeLc == 'single') {
+                                // single, type = 2
+                                $type = 2;
+                            } else if ($primTypeLc == 'album') {
+                                // album, type = 3
+                                if (isset($release['release-group']['secondary-types'])) {
+                                    foreach ($release['release-group']['secondary-types'] as $secondaryType) {
+                                        if (strtolower($secondaryType) == 'compilation') {
+                                            // compilation, type = 1
+                                            $type = 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                        $ok = false;
+                        if (isset($release['artist-credit'])) {
+                            foreach ($release['artist-credit'] as $releaseArtistCredit) {
+                                if (isset($releaseArtistCredit['name']) && $releaseArtistCredit['name']) {
+                                    $creditNameLc = strtolower($releaseArtistCredit['name']);
+                                    if (($creditNameLc == 'various artists')) {
+                                        $ok = true;
+                                        break;
+                                    } else if (isset($artistLc) && ($creditNameLc == $artistLc)) {
+                                        $ok = true;
+                                        break;
+                                    } else if (stripos(' '.$info['webradiostring'], $releaseArtistCredit['name'])) {
+                                        $ok = true;
+                                        break;
+                                    } else if (stripos(' '.$info['webradiostring_clean'], $releaseArtistCredit['name'])) {
+                                        $ok = true;
+                                        break;
+                                    }
+                                }
+                                if (isset($releaseArtistCredit['artist']['name']) && $releaseArtistCredit['artist']['name']) {
+                                    $creditNameLc = strtolower($releaseArtistCredit['artist']['name']);
+                                    if (($creditNameLc == 'various artists')) {
+                                        $ok = true;
+                                        break;
+                                    } else if (isset($artistLc) && ($creditNameLc == $artistLc)) {
+                                        $ok = true;
+                                        break;
+                                    } else if (stripos(' '.$info['webradiostring'], $releaseArtistCredit['artist']['name'])) {
+                                        $ok = true;
+                                        break;
+                                    } else if (stripos(' '.$info['webradiostring_clean'], $releaseArtistCredit['artist']['name'])) {
+                                        $ok = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$ok) {
+                                // not found, try matching against the truncated sort name
+                                foreach ($release['artist-credit'] as $releaseArtistCredit) {
+                                    if (isset($releaseArtistCredit['artist']['sort-name']) && $releaseArtistCredit['artist']['sort-name'] && strpos(' '.$releaseArtistCredit['artist']['sort-name'], ',')) {
+                                        $creditSortNameTrunc = strtok($releaseArtistCredit['artist']['sort-name'], ',');
+                                        if (isset($artistLc) && (strtolower($creditSortNameTrunc) == $artistLc)) {
+                                            $ok = true;
+                                            break;
+                                        } else if (stripos(' '.$info['webradiostring'], $creditSortNameTrunc)) {
+                                            $ok = true;
+                                            break;
+                                        } else if (stripos(' '.$info['webradiostring_clean'], $creditSortNameTrunc)) {
+                                            $ok = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!$ok) {
+                            continue;
+                        }
+                        $ok = false;
+                        if (isset($release['media']) && count($release['media'])) {
+                            foreach ($release['media'] as $media) {
+                                if (isset($media['format']) && stripos(' '.$media['format'], 'dvd') == 1) {
+                                    // its a dvd, type = 0
+                                    $type = 0;
+                                }
+                                if (isset($media['track']) && count($media['track'])) {
+                                    foreach ($media['track'] as $track) {
+                                        if (isset($track['title']) && $track['title']) {
+                                            if (stripos(' '.$info['webradiostring'], $track['title'])) {
+                                                $ok = true;
+                                                $BestScore = 0;
+                                                break;
+                                            } else if (stripos(' '.$info['webradiostring_clean'], $track['title'])) {
+                                                $ok = true;
+                                                $BestScore = 0;
+                                                break;
+                                            } else if (isset($songLc) && (strtolower($track['title']) == $songLc)) {
+                                                $ok = true;
+                                                $BestScore = 0;
+                                                break;
+                                            } else {
+                                                foreach ($radiostrings as $radiostring) {
+                                                    if (!$info[$radiostring]) {
+                                                        // webradio string not set
+                                                        continue;
+                                                    }
+                                                    $radiostringLc = strtolower($info[$radiostring]);
+                                                    $artistSongLc = strtolower($recordingArtistCredit['artist']['name'].' - '.$track['title']);
+                                                    $songArtistLc = strtolower($track['title'].' - '.$recordingArtistCredit['artist']['name']);
+                                                    // check the word match search vs results and results vs search
+                                                    if (count_word_occurancies($radiostringLc, $artistSongLc) < 50) {
+                                                        // need to have at least a 50% word match, continue
+                                                        continue;
+                                                    }
+                                                    if (count_word_occurancies($artistSongLc, $radiostringLc) < 50) {
+                                                        // need to have at least a 50% word match, continue
+                                                        continue;
+                                                    }
+                                                    $score1 = levenshtein($radiostringLc, $artistSongLc);
+                                                    $score2 = levenshtein($radiostringLc, $songArtistLc);
+                                                    $score = min($score1, $score2);
+                                                    if ($score <= $bestScore) {
+                                                        // a better or equal score has been found
+                                                        $bestScore = $score;
+                                                        if ($bestScore == 0) {
+                                                            // perfect match found, no need to search more tracks
+                                                            $song = $track['title'];
+                                                            $ok = true;
+                                                            break 2;
+                                                        }
+                                                        if ($score > 7) {
+                                                            // the match score needs to be 7 or less
+                                                            continue;
+                                                        } else {
+                                                            $ok = true;
+                                                        }
+                                                    } else {
+                                                        continue;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!$ok) {
+                            continue;
+                        }
+                        if ($recording['title'] != $track['title']) {
+                            continue;
+                        }
+                        if (isset($lastType) && $lastType && ($lastType > $type)) {
+                            // we prefer an album above a single above a compilation above a dvd, we have a better type
+                            continue;
+                        } else if (isset($lastType) && $lastType && ($lastType < $type)) {
+                            // we are processing a new release type, any saved year, album, artist and related variables are invalid
+                            unset($album, $artist, $year, $single, $releaseId, $releaseGroupId, $artistId);
+                            // also reset the best match score
+                            $bestScore = $score;
+                        }
+                        if (!isset($artist) || !$artist) {
+                            $artist = $recordingArtistCredit['artist']['name'];
+                            $artistId = $recordingArtistCredit['artist']['id'] ?? '';
+                        }
+                        if (!isset($albumartist) || !$albumartist) {
+                            $albumartist = $recordingArtistCredit['artist']['name'];
+                        }
+                        if (!isset($album) || !$album) {
+                            $album = $release['title'];
+                            $releaseId = $release['id'] ?? '';
+                            $releaseGroupId = $release['release-group']['id'] ?? '';
+                            $year = substr($release['date'], 0, 4);
+                            $lastType = $type;
+                            if ($type == 2) {
+                                $single = 1;
+                            } else {
+                                $single = 0;
+                            }
+                        }
+                        if (!isset($song) || !$song) {
+                            $song = $recording['title'];
+                            $songId = $recording['id'] ?? '';
+                        }
+                        if (!isset($year) || !$year) {
+                            $year = substr($release['date'], 0, 4);
+                        }
+                        if (substr($release['date'], 0, 4) < $year) {
+                            $album = $release['title'];
+                            $releaseId = $release['id'] ?? '';
+                            $releaseGroupId = $release['release-group']['id'] ?? '';
+                            $year = substr($release['date'], 0, 4);
+                            $lastType = $type;
+                            if ($type == 2) {
+                                $single = 1;
+                            } else {
+                                $single = 0;
+                            }
+                        }
+                        $songSl = strlen($song);
+                        $recTitleSl = strlen($recording['title']);
+                        $artistSl = strlen($artist);
+                        $artCreditSl = strlen($recordingArtistCredit['name']);
+                        if (($songSl < $recTitleSl) && ($artistSl <= $artCreditSl) ||
+                                ($artistSl < $artCreditSl) && ($songSl <= $recTitleSl)) {
+                            $song = $recording['title'];
+                            $songId = $recording['id'] ?? '';
+                            $artist = $recordingArtistCredit['artist']['name'];
+                            $artistId = $recordingArtistCredit['artist']['id'] ?? '';
+                            $albumartist = $recordingArtistCredit['artist']['name'];
+                            $album = $release['title'];
+                            $releaseId = $release['id'] ?? '';
+                            $releaseGroupId = $release['release-group']['id'] ?? '';
+                            $year = substr($release['date'], 0, 4);
+                            $lastType = $type;
+                            if ($type == 2) {
+                                $single = 1;
+                            } else {
+                                $single = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        unset($retval, $recording, $release, $secondaryType, $artistCredit, $media);
+        If (isset($artist) && $artist) {
+            $info['artist'] = $artist;
+            if (isset($artistId) && $artistId) {
+                $info[ 'artist_mbid'] = $artistId;
+            }
+        }
+        If (isset($albumartist) && $albumartist) {
+            $info['albumartist'] = $albumartist;
+        }
+        If (isset($song) && $song) {
+            $info['song'] = $song;
+            if (isset($songId) && $songId) {
+                $info['song_mbid'] = $songId;
+            }
+        }
+        If (isset($album) && $album) {
+            $info['album'] = $album;
+            $info['year'] = $year;
+            $info['single'] = $single;
+            if (isset($releaseId) && $releaseId) {
+                $info['album_mbid'] = $releaseId;
+            }
+        }
+        // debug
+        if (isset($bestScore) && ($bestScore == 999)) {
+            unset($bestScore);
+        }
+        echo "Debug - musicbrainz1 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
+    }
+    // when the release id has been determined all other fields are also set
+    // release id is required to search for album art
+    if (!isset($releaseId) || !$releaseId) {
+        // release is has not been determined
+        // to progress further the song name is required plus the album or artist name
+        if (!isset($info['song']) || !$info['song']) {
+            return $info;
+        } else {
+            if ((!isset($info['artist']) || !$info['artist']) && (!isset($info['album']) || !$info['album'])) {
+                // not enough information available to process using muzicbrainz, return with any set fields
+                return $info;
+            }
+        }
+        // enough information to process further
+        $query = '';
+        if (isset($info['artist']) && $info['artist']) {
+            $artist = trim($info['artist']);
+            $query .= "artist:'".$artist."'";
+        }
+        if (isset($info['song']) && $info['song']) {
+            $song = trim($info['song']);
+            if ($query) {
+                $query .= " AND recording:'".$song."'";
+            } else {
+                $query .= "recording:'".$song."'";
+            }
+        }
+        if (isset($info['album']) && $info['album']) {
+            $album = trim($info['album']);
+            if ($query) {
+                $query .= " AND release:'".$album."'";
+            } else {
+                $query .= "release:'".$album."'";
+            }
+        }
+        // try to determine the the information using a query song + artist or song + album or song + artist + album
+        //  missing artist, album, song, single indicator, year, musicbrainz artist id, musicbrainz recording id, musicbrainz release id and/or musicbrainz song id are also determined
+        // first get the best recording match of song and artist for the given radio string, exclude reissues and compilations
+        // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/recording/?query=recording%3A%22why%22+AND+release%3A%22diva%3A&limit=100&inc=releases+artists+tags&fmt=json"
+        // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/recording/?query=recording%3A%22why%22+AND+release%3A%annie%22lennox%3A&limit=100&inc=releases+artists+tags&fmt=json"
+        // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/recording/?query=recording%3A%22why%22+AND+release%3A%annie%22lennox%3A+AND+release%3A%22diva%3A&&limit=100&inc=releases+artists+tags&fmt=json"
+        $url = 'https://musicbrainz.org/ws/2/recording/?query='.urlClean($query).'&limit=100&inc=releases+artists+tags&fmt=json';
+        if ($musicbrainzCalled) {
+            // sleep for 0.5 seconds before calling musicbrainz again
+            usleep(500000);
+        }
+        $retval = get_musicbrainz($redis, $url);
+        $musicbrainzCalled = true;
+        if (isset($retval['recordings']) && count($retval['recordings'])) {
+            // its difficult to determine the artist and song from a search string using musicbrainz, this could return errors
+            //  there appear to be bugs in the api which always returns more information than requested when advanced selections are made
+            // retrieve 100 recordings and all releases for each recording and in relevant recordings the song is specified in the media track
+            // the intention is to determine the artist, song and album
+            //  eliminate recordings where the artist credit name does not match the artist parameter if present
+            //  eliminate recordings where the title does not match the song parameter if present
+            //  eliminate releases where the release title does not match the album parameter if present
+            //  eliminate releases where the status is not 'Official'
+            //  eliminate releases where the release-group primary-type is not 'Album' or 'Single'
+            //  eliminate compilation releases when when a single or album release has already been found
+            //  eliminate single releases when an album release has already been found
+            //  eliminate releases where the artist credit name does not match the artist parameter if present, except when the artist credit name is 'various artists'
+            //  eliminate releases where there is no media track title reference
+            //  eliminate releases where the media track title does not match the song parameter if present
+            //  for resulting selections save the artist, song, album, single indicator, year and the mbid's when not set
+            //  when the year is younger save the artist, song, album, single indicator, year and the mbid's
+            if (isset($song)) {
+                $songLc = strtolower($song);
+            } else {
+                unset($songLc);
+            }
+            if (isset($artist)) {
+                $artistLc = strtolower($artist);
+            } else {
+                unset($artistLc);
+            }
+            if (isset($album)) {
+                $albumLc = strtolower($album);
+            } else {
+                unset($albumLc);
+            }
+            foreach ($retval['recordings'] as $recording) {
+                if (isset($info['song']) && $info['song'] && (strtolower($recording['title']) != strtolower($info['song']))) {
+                    continue;
+                }
+                $ok = false;
+                foreach ($recording['artist-credit'] as $recordingArtistCredit) {
+                    if (isset($artistLc) && (strtolower($recordingArtistCredit['artist']['name']) == $artistLc)) {
+                        $ok = true;
+                        break;
+                    }
+                }
+                if (!$ok) {
+                    continue;
+                }
+                if (!isset($recording['releases']) || !count($recording['releases'])) {
+                    continue;
+                }
+                foreach ($recording['releases'] as $release) {
+                    if (isset($albumLc) && $info['album'] && (strtolower($release['title']) != $albumLc)) {
+                        continue;
+                    }
+                    if (isset($release['status']) && (strtolower($release['status']) != 'official')) {
+                        continue;
+                    }
+                    if (isset($release['release-group']['primary-type'])) {
+                        $primTypeLc = strtolower($release['release-group']['primary-type']);
+                        if ($primTypeLc == 'single') {
+                            // single, type = 2
+                            $type = 2;
+                        } else if ($primTypeLc == 'album') {
+                            // album, type = 3
+                            $type = 3;
+                            if (isset($release['release-group']['secondary-types'])) {
+                                foreach ($release['release-group']['secondary-types'] as $secondaryType) {
+                                    if (strtolower($secondaryType) == 'compilation') {
+                                        // compilation, type = 1
+                                        $type = 1;
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                    $ok = false;
+                    if (isset($release['artist-credit'])) {
+                        foreach ($release['artist-credit'] as $releaseArtistCredit) {
+                            if (isset($artistCredit['name'])) {
+                                $creditNameLc = strtolower($releaseArtistCredit['name']);
+                                if (($creditNameLc == 'various artists')) {
+                                    $ok = true;
+                                    break;
+                                } else if (isset($artistLc) && $info['artist'] && ($creditNameLc == $artistLc)) {
+                                    $ok = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!$ok) {
+                        continue;
+                    }
+                    $ok = false;
+                    foreach ($release['media'] as $media) {
+                        if (isset($media['format']) && stripos(' '.$media['format'], 'dvd') == 1) {
+                            // its a dvd, type = 0
+                            $type = 0;
+                        }
+                        foreach ($media['track'] as $track) {
+                            if (isset($track['title'])) {
+                                if (isset($songLc) && (strtolower($track['title']) == $songLc)) {
+                                    $ok = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!$ok) {
+                        continue;
+                    }
+                    if ($recording['title'] != $track['title']) {
+                        continue;
+                    }
+                    if (isset($lastType) && $lastType && ($lastType > $type)) {
+                        // we prefer an album above a single above a compilation above a dvd, we have a better type
+                        continue;
+                    } else if (isset($lastType) && $lastType && ($lastType < $type)) {
+                        // we are processing a new release type, any saved year, album, artist and related variables are invalid
+                        unset($album, $artist, $year, $single, $releaseId, $releaseGroupId, $artistId);
+                    }
+                    if (!isset($artist) || !$artist) {
+                        $artist = $recordingArtistCredit['artist']['name'];
+                        $artistId = $recordingArtistCredit['artist']['id'] ?? '';
+                    }
+                    if (!isset($albumartist) || !$albumartist) {
+                        $albumartist = $recordingArtistCredit['artist']['name'];
+                    }
+                    if (!isset($album) || !$album) {
+                        $album = $release['title'];
+                        $releaseId = $release['id'] ?? '';
+                        $releaseGroupId = $release['release-group']['id'] ?? '';
+                        $year = substr($release['date'], 0, 4);
+                        $lastType = $type;
+                        if ($type == 2) {
+                            $single = 1;
+                        } else {
+                            $single = 0;
+                        }
+                    }
+                    if (!isset($song) || !$song) {
+                        $song = $recording['title'];
+                        $songId = $recording['id'] ?? '';
+                    }
+                    if (!isset($year) || !$year) {
+                        $year = substr($release['date'], 0, 4);
+                    }
+                    if (substr($release['date'], 0, 4) < $year) {
+                        $album = $release['title'];
+                        $releaseId = $release['id'] ?? '';
+                        $releaseGroupId = $release['release-group']['id'] ?? '';
+                        $year = substr($release['date'], 0, 4);
+                        $lastType = $type;
+                        if ($type == 2) {
+                            $single = 1;
+                        } else {
+                            $single = 0;
+                        }
+                    }
+                    $songSl = strlen($song);
+                    $recTitleSl = strlen($recording['title']);
+                    $artistSl = strlen($artist);
+                    $artCreditSl = strlen($recordingArtistCredit['name']);
+                    if (($songSl < $recTitleSl) && ($artistSl <= $artCreditSl) ||
+                            ($artistSl < $artCreditSl) && ($songSl <= $recTitleSl)) {
+                        $song = $recording['title'];
+                        $songId = $recording['id'] ?? '';
+                        $artist = $recordingArtistCredit['artist']['name'];
+                        $artistId = $recordingArtistCredit['artist']['id'] ?? '';
+                        $albumartist = $recordingArtistCredit['artist']['name'];
+                        $album = $release['title'];
+                        $releaseId = $release['id'] ?? '';
+                        $releaseGroupId = $release['release-group']['id'] ?? '';
+                        $year = substr($release['date'], 0, 4);
+                        $lastType = $type;
+                        if ($type == 2) {
+                            $single = 1;
+                        } else {
+                            $single = 0;
+                        }
+                    }
+                }
+            }
+            unset($retval, $recording, $release, $secondaryType, $artistCredit, $media);
+            If (isset($artist) && $artist) {
+                $info['artist'] = $artist;
+                if (isset($artistId) && $artistId) {
+                    $info[ 'artist_mbid'] = $artistId;
+                }
+            }
+            If (isset($albumartist) && $albumartist) {
+                $info['albumartist'] = $albumartist;
+            }
+            If (isset($song) && $song) {
+                $info['song'] = $song;
+                if (isset($songId) && $songId) {
+                    $info['song_mbid'] = $songId;
+                }
+            }
+            If (isset($album) && $album) {
+                $info['album'] = $album;
+                if (isset($year) && $year) {
+                    $info['year'] = $year;
+                }
+                if (isset($single) && $single) {
+                    $info['single'] = $single;
+                }
+                if (isset($releaseId) && $releaseId) {
+                    $info['album_mbid'] = $releaseId;
+                }
+            }
+        }
+        // debug
+        if (isset($bestScore) && ($bestScore == 999)) {
+            unset($bestScore);
+        }
+        echo "Debug - musicbrainz2 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".($bestScore ?? '')."\n";
+    }
+    // now determine the musicbrainz album art (large, medium & small) url
+    //  the musicbrainz artist id, musicbrainz recording id, musicbrainz release id and musicbrainz song id are also determined
+    if (!isset($info['album_arturl_small']) || !$info['album_arturl_small'] ||
+            !isset($info['album_arturl_medium']) || !$info['album_arturl_medium'] ||
+            !isset($info['album_arturl_large']) || !$info['album_arturl_large']) {
+        if (isset($releaseId) && $releaseId) {
+            // try to get the album art using release ID
+            // curl -X GET -s -L --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" -H "Accept: application/json" https://coverartarchive.org/release/4f830140-f35d-4ad0-b43a-8d38d57de407/
+            $url = 'https://coverartarchive.org/release/'.$releaseId.'/';
+            $retval = get_coverartarchiveorg($redis, $url);
+            if (!isset($retval['images']) || !count($retval['images'])) {
+                if (isset($releaseGroupId) && $releaseGroupId) {
+                    // try again with the release-group ID
+                    // curl -X GET -s -L --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" -H "Accept: application/json" https://coverartarchive.org/release/4f830140-f35d-4ad0-b43a-8d38d57de407/
+                    $url = 'https://coverartarchive.org/release-group/'.$releaseGroupId.'/';
+                    // sleep for 0.5 seconds before calling coverartarchive again
+                    usleep(500000);
+                    $retval = get_coverartarchiveorg($redis, $url);
+                }
+            }
+            if (isset($retval['images']) && count($retval['images'])) {
+                $info['album_bmid'] = $releaseId;
+                foreach ($retval['images'] as $image) {
+                    if (isset($image['types']) && count($image['types'])) {
+                        foreach ($image['types'] as $imageType) {
+                            $imageTypeLc = strtolower($imageType);
+                            if ($imageTypeLc == 'front') {
+                                // image type front
+                                $largeImageFront = $image['thumbnails']['large'] ?? '';
+                                $smallImageFront = $image['thumbnails']['small'] ?? '';
+                                if ($largeImageFront) {
+                                    // we have a value break 2 loops
+                                    break 2;
+                                }
+                            }
+                            if ((!isset($largeImageNone) || !$largeImageNone) && ($imageTypeLc == '')) {
+                                // as a backup when there is no front image save the first unspecified image type
+                                $largeImageNone = $image['thumbnails']['large'] ?? '';
+                                $smallImageNone = $image['thumbnails']['small'] ?? '';
+                            }
+                            if ((!isset($largeImageMedium) || !$largeImageMedium) && ($imageTypeLc == 'medium')) {
+                                // as a backup when there is no front image save the first medium (an image of the CD or vinyl disk)
+                                $largeImageMedium = $image['thumbnails']['large'] ?? '';
+                                $smallImageMedium = $image['thumbnails']['small'] ?? '';
+                            }
+                        }
+                    }
+                }
+                if (isset($largeImageFront) && $largeImageFront) {
+                    $info['album_arturl_large'] = $largeImageFront;
+                    if (isset($smallImageFront) && $smallImageFront) {
+                        $info['album_arturl_medium'] = $smallImageFront;
+                        $info['album_arturl_small'] = $smallImageFront;
+                    } else {
+                        $info['album_arturl_medium'] = $largeImageFront;
+                        $info['album_arturl_small'] = $largeImageFront;
+                    }
+                } else if (isset($largeImageNone) && $largeImageNone) {
+                    $info['album_arturl_large'] = $largeImageNone;
+                    if (isset($smallImageNone) && $smallImageNone) {
+                        $info['album_arturl_medium'] = $smallImageNone;
+                        $info['album_arturl_small'] = $smallImageNone;
+                    } else {
+                        $info['album_arturl_medium'] = $largeImageNone;
+                        $info['album_arturl_small'] = $largeImageNone;
+                    }
+                } else if (isset($largeImageMedium) && $largeImageMedium) {
+                    $info['album_arturl_large'] = $largeImageMedium;
+                    if (isset($smallImageMedium) && $smallImageMedium) {
+                        $info['album_arturl_medium'] = $smallImageMedium;
+                        $info['album_arturl_small'] = $smallImageMedium;
+                    } else {
+                        $info['album_arturl_medium'] = $largeImageMedium;
+                        $info['album_arturl_small'] = $largeImageMedium;
+                    }
+                }
+            }
+        }
+        if (isset($bestScore) && ($bestScore == 999)) {
+            unset($bestScore);
+        }
+        echo "Debug - musicbrainz3 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".($bestScore ?? '')."\n";
+    }
+    return $info;
+}
+
+// function return artist, albumartist, song, album, album art (large, medium & small) url from last.fm from a webradio string or a given artist and song or album and song
+function wrk_get_lastfm_info($redis, $info)
+// this function returns the best reference to the song by the artist, however album is preferred over a single (compilations and dvd's cannot be detected)
+// $info is an array containing at least ['webradiostring'] or ['webradiostring_clean'], when ['webradiostring'] and ['webradiostring_clean'] are omitted ['artist'] and ['song'] or ['album'] and ['song'] must be present
+//  it could also contain any number of other array entries
+//  this function returns all supplied $info plus it will correct or set any elements discovered within this function
+// the format of the radiostring is unknown, it could be 'artist - song' or 'song - artist'
+// returned fields: ['artist'], ['albumartist'], ['song'], ['album'], ['album_arturl_large'], ['album_arturl_medium'], ['album_arturl_small']
+//  the field album contains the name of the single when the entry single is true
+//  album art (large, medium & small) are optional and returned when available
+{
+    if (!isset($info) || !is_array($info)) {
+        // $info is not an array, return an empty array
+        return array();
+    }
+    if (isset($info['artist']) && $info['artist'] &&
+            isset($info['song']) && $info['song'] &&
+            isset($info['album']) && $info['album'] &&
+            isset($info['album_arturl_large']) && $info['album_arturl_large'] &&
+            isset($info['album_arturl_medium']) && $info['album_arturl_medium'] &&
+            isset($info['album_arturl_small']) && $info['album_arturl_small']) {
+        // all fields filled, just return an empty array
+        return array();
+    }
+    if (((!isset($info['webradiostring']) || !$info['webradiostring']) &&
+            (!isset($info['webradiostring_clean']) || !$info['webradiostring_clean'])) &&
+            (!isset($info['song']) || !$info['song']) &&
+            ((!isset($info['artist']) || !$info['artist']) ||
+            (!isset($info['artist']) || !$info['artist']))) {
+        // no radiostring, and no song and artist and no song and album, cannot process the request, return an empty array
+        return array();
+    }
+    $lastfmCalled = false;
+    $lastfmApikey = $redis->hGet('lastfm', 'apikey');
+    if (!isset($info['artist']) || !$info['artist'] ||
+            !isset($info['song']) || !$info['song']) {
+        // set up an array of the radiostring names
+        $radiostrings = array('webradiostring', 'webradiostring_clean');
+        // check that the radiostrings exist
+        foreach ($radiostrings as $radiostring) {
+            if (!isset($info[$radiostring])) {
+                $info[$radiostring] = '';
+            }
+        }
+        $webradiostringLc = strtolower($info['webradiostring']);
+        $webradiostringCleanLc = strtolower($info['webradiostring_clean']);
+        // loop for each radiostring
+        foreach ($radiostrings as $radiostring) {
+            if (!$info[$radiostring]) {
+                // a rediostring is empty, skip it
+                continue;
+            }
+            // this is the command to split the radiostring into artist and song from last.fm
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20-%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=10&autocorrect=1"
+            // we retrieve 5 entries, the first one is generally the best fit
+            $url = 'https://ws.audioscrobbler.com/2.0/?method=track.search&track='.urlClean($info[$radiostring]).'&api_key='.$lastfmApikey.'&format=json&limit=10&autocorrect=1';
+            if ($lastfmCalled) {
+                // sleep for 0.5 second before calling last.fm again
+                usleep(500000);
+            }
+            $retval = get_lastFm($redis, $url);
+            $lastfmCalled = true;
+            if (isset($retval['results']['trackmatches']['track']) && count($retval['results']['trackmatches']['track'])) {
+                foreach ($retval['results']['trackmatches']['track'] as $track) {
+                    $song = '';
+                    $artist = '';
+                    if (isset($track['name']) && $track['name']) {
+                        $song = trim($track['name']);
+                    }
+                    if (isset($track['artist']) && $track['artist']) {
+                        $artist = trim($track['artist']);
+                    }
+                    // validate artist and song name, reject when
+                    //  song or artist are empty,
+                    //  the word '<unknown>' appears in song or artist name
+                    //  the song name and artist name are the same
+                    // since we use the 'autocorrect=1' flag in the search string we cannot validate the artist or song name against the radiostring
+                    //  autocorrect=1 option can improve the search string with validated song and artist which may not appear in the radiostring
+                    if (!$song || !$artist ||
+                            stripos(' '.$song, '<unknown>') ||
+                            stripos(' '.$artist, '<unknown>') ||
+                            (strtolower($song) == strtolower($artist))
+                            ) {
+                        // invalid track information
+                        continue;
+                    }
+                    // sometimes the artist name is included as a prefix to the song name
+                    //  strip the the artist name plus a ' - ' (space, hyphen, space) from the song name and trim the result
+                    $song = trim(str_ireplace($info['artist'].' -', '', $song));
+                    if (!$song) {
+                        // invalid song name
+                        continue;
+                    }
+                    // now try to determine the quality of the match
+                    //  the radiostring cold be artist plus song or song plus artist, test both
+                    //  a lower levenshtein score means a better match
+                    $artistSong = strtolower($artist.' - '.$song);
+                    $songArtist = strtolower($song.' - '.$artist);
+                    $artistSongScore = levenshtein($artistSong, $webradiostringLc);
+                    $artistSongCleanScore = levenshtein($artistSong, $webradiostringCleanLc);
+                    $songArtistScore = levenshtein($songArtist, $webradiostringLc);
+                    $songArtistCleanScore = levenshtein($songArtist, $webradiostringCleanLc);
+                    $score = min($artistSongScore, $artistSongCleanScore, $songArtistScore, $songArtistCleanScore);
+                    if (!isset($bestScore)) {
+                        $bestScore = $score;
+                    }
+                    if ($score > $bestScore) {
+                        // a worse score has been determined, get the next one
+                        continue;
+                    }
+                    if ($score > 8) {
+                        // a score greater than 8 is not good enough
+                        continue;
+                    }
+                    if ($score > (strlen($info['webradiostring']) / 5)) {
+                        // the score must be less than or equal to a fifth of the radiostring length
+                        continue;
+                    }
+                    $bestScore = $score;
+                    $info['song'] = $song;
+                    $info['artist'] = $artist;
+                    $info['albumartist'] = $artist;
+                    if (isset($track['mbid']) && $track['mbid']) {
+                        $info['song_mbid'] = trim($track['mbid']);
+                    }
+                    // album art is rarely supplied by last.fm, but when it is supplied it is accurate
+                    //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
+                    //  four images are supplied by last.fm: small, medium, large and extralarge
+                    //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
+                    if (isset($track['image'][1]['#text']) && $track['image'][1]['#text'] && !stripos(' '.$track['image'][1]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                        // album art info is valid, use it
+                        $info['album_arturl_small'] = trim($track['image'][1]['#text']);
+                    }
+                    if (isset($track['image'][3]['#text']) && $track['image'][3]['#text'] && !stripos(' '.$track['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                        // album art info is valid, use it
+                        $info['album_arturl_medium'] = trim($track['image'][3]['#text']);
+                        $info['album_arturl_large'] = trim($track['image'][3]['#text']);
+                    }
+                    if ($bestScore == 0) {
+                        // this match is 100%, break both loops
+                        break 2;
+                    }
+                }
+            }
+        }
+        // debug
+        if (isset($bestScore) && ($bestScore == 999)) {
+            unset($bestScore);
+        }
+        echo "Debug - lastfm - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", song: ".$info['song'].", score: ".($bestScore ?? $score ?? '')."\n";
+    }
+    if (!isset($info['album']) || !$info['album'] ||
+            !isset($info['album_arturl_small']) || !$info['album_arturl_small'] ||
+            !isset($info['album_arturl_medium']) || !$info['album_arturl_medium'] ||
+            !isset($info['album_arturl_large']) || !$info['album_arturl_large']) {
+        if (isset($info['artist']) && $info['artist'] && isset($info['song']) && $info['song']) {
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist=annie%20lennox&track=why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1&autocorrect=1"
+            $url = 'https://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist='.urlClean($info['artist']).'&track='.urlClean($info['song']).'&api_key='.$lastfmApikey.'&format=json&limit=1&autocorrect=1';
+            if ($lastfmCalled) {
+                // sleep for 0.5 second before calling last.fm again
+                usleep(500000);
+            }
+            $retval = get_lastFm($redis, $url);
+            $lastfmCalled = true;
+            if (isset($retval['track']['album']['title']) && $retval['track']['album']['title']) {
+                if (isset($retval['track']['mbid']) && $retval['track']['mbid']) {
+                    $info['song_mbid'] = $retval['track']['mbid'];
+                }
+                if (isset($retval['track']['artist']['mbid']) && $retval['track']['artist']['mbid']) {
+                    $info['artist_mbid'] = $retval['track']['artist']['mbid'];
+                }
+                if (isset($retval['track']['album']['artist']) && $retval['track']['album']['artist']) {
+                    $info['albumartist'] = $retval['track']['album']['artist'];
+                }
+                if (isset($retval['track']['album']['title']) && $retval['track']['album']['title']) {
+                    $info['album'] = $retval['track']['album']['title'];
+                }
+                // album art is rarely supplied by last.fm, but when it is supplied it is accurate
+                //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
+                //  four images are supplied by last.fm: small, medium, large and extralarge
+                //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
+                if (isset($retval['track']['album']['image'][2]['#text']) && $retval['track']['album']['image'][2]['#text'] && !stripos(' '.$retval['track']['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                    // album art info is valid, use it
+                    $info['album_arturl_small'] = trim($retval['track']['album']['image'][2]['#text']);
+                }
+                if (isset($retval['track']['album']['image'][3]['#text']) && $retval['track']['album']['image'][3]['#text'] && !stripos(' '.$retval['track']['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                    // album art info is valid, use it
+                    $info['album_arturl_medium'] = trim($retval['track']['album']['image'][3]['#text']);
+                    $info['album_arturl_large'] = trim($retval['track']['album']['image'][3]['#text']);
+                }
+                if (isset($retval['track']['wiki']['summary']) && $retval['track']['wiki']['summary']) {
+                    $info['song_wiki_summary'] = $retval['track']['wiki']['summary'];
+                }
+                if (isset($retval['track']['wiki']['content']) && $retval['track']['wiki']['content']) {
+                    $info['song_wiki_content'] = $retval['track']['wiki']['content'];
+                }
+            }
+        }
+    }
+    if (!isset($info['album_arturl_small']) || !$info['album_arturl_small'] ||
+            !isset($info['album_arturl_medium']) || !$info['album_arturl_medium'] ||
+            !isset($info['album_arturl_large']) || !$info['album_arturl_large']) {
+        if (isset($info['artist']) && $info['artist'] && isset($info['song']) && $info['song'] && isset($info['album']) && $info['album']) {
+            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist=annie%20lennox&album=diva&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1"
+            $url = 'https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist='.urlClean($info['artist']).'&album='.urlClean($info['album']).'&api_key='.$lastfmApikey.'&format=json&limit=1';
+            if ($lastfmCalled) {
+                // sleep for 0.5 second before calling last.fm again
+                usleep(500000);
+            }
+            $retval = get_lastFm($redis, $url);
+            $lastfmCalled = true;
+            if (isset($retval['album']['name']) && $retval['album']['name']) {
+                if (isset($retval['album']['mbid']) && $retval['album']['mbid']) {
+                    $info['album_mbid'] = $retval['album']['mbid'];
+                }
+                if (isset($retval['track']['album']['artist']) && $retval['track']['album']['artist']) {
+                    $info['albumartist'] = $retval['album']['artist'];
+                }
+                if (isset($retval['album']['name']) && $retval['album']['name']) {
+                    $info['album'] = $retval['album']['name'];
+                }
+                // album art is rarely supplied by last.fm, but when it is supplied it is accurate
+                //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
+                //  four images are supplied by last.fm: small, medium, large and extralarge
+                //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
+                if (isset($retval['album']['image'][2]['#text']) && $retval['album']['image'][2]['#text'] && !stripos(' '.$retval['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                    // album art info is valid, use it
+                    $info['album_arturl_small'] = trim($retval['album']['image'][2]['#text']);
+                }
+                if (isset($retval['album']['image'][3]['#text']) && $retval['album']['image'][3]['#text'] && !stripos(' '.$retval['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
+                    // album art info is valid, use it
+                    $info['album_arturl_medium'] = trim($retval['album']['image'][3]['#text']);
+                    $info['album_arturl_large'] = trim($retval['album']['image'][3]['#text']);
+                }
+                if (isset($retval['album']['wiki']['summary']) && $retval['album']['wiki']['summary']) {
+                    $info['album_wiki_summary'] = $retval['album']['wiki']['summary'];
+                }
+                if (isset($retval['album']['wiki']['content']) && $retval['album']['wiki']['content']) {
+                    $info['album_wiki_content'] = $retval['album']['wiki']['content'];
+                }
+            }
+        }
+    }
+    return $info;
+}
+
 // function which returns the artist image url artist information, the song lyrics and the album image URL as an array for a webradio string
-function wrk_get_webradio_art($redis, $radiostring)
+function wrk_get_webradio_info($redis, $radiostring)
 // this function also manages cache files containing all the retrieved information for a given webradio string
 {
-    $radiostring = webradioStringClean($radiostring);
     $radiostring = webradioStringRemovePrefix($redis, $radiostring);
+    $radiostringClean = webradioStringClean($radiostring);
     $radiostringClean = strtolower($radiostring);
     // $radiostringClean = metadataStringClean(strtolower($radiostring), 'radiostring');
     if (strlen($radiostringClean) <= 6) {
@@ -12823,7 +14453,11 @@ function wrk_get_webradio_art($redis, $radiostring)
     }
     $info = array();
     $info['webradiostring'] = $radiostring;
-    $info['webradiostring_filename'] = format_radiostring_file_name($radiostring);
+    if (strtolower($radiostring) != $radiostringClean) {
+        // when the radiostring and radiostring_clean differ add radiostring_clean to the parameter list
+        $info['webradiostring_clean'] = $radiostringClean;
+    }
+    $info['webradiostring_filename'] = format_radiostring_file_name($radiostringClean);
     $noRadioCache = true;
     if ($info['webradiostring_filename']) {
         $infoCache = array();
@@ -12845,150 +14479,50 @@ function wrk_get_webradio_art($redis, $radiostring)
     // check all the required elements exist in $info
     $info = setup_metadata_array($info);
     $lastfmApikey = $redis->hGet('lastfm', 'apikey');
-    $discogsToken = $redis->hGet('discogs', 'token');
-    if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song']) {
-        // this is the command to split the $radiostringClean into artist and song from last.fm
-        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://ws.audioscrobbler.com/2.0/?method=track.search&track=annie%20lennox%20why&api_key=ba8ad00468a50732a3860832eaed0882&format=json&limit=1"
-        $url = 'https://ws.audioscrobbler.com/2.0/?method=track.search&track='.urlClean($radiostringClean).'&api_key='.$lastfmApikey.'&format=json&limit=1';
-        $retval = get_lastFm($redis, $url);
-        if ($retval) {
-            if (isset($retval['results']['trackmatches']['track'][0]['name']) && $retval['results']['trackmatches']['track'][0]['name']) {
-                $info['song'] = trim($retval['results']['trackmatches']['track'][0]['name']);
-            }
-            if (isset($retval['results']['trackmatches']['track'][0]['artist']) && $retval['results']['trackmatches']['track'][0]['artist']) {
-                $info['artist'] = ucfirst($retval['results']['trackmatches']['track'][0]['artist']);
-                $info['albumartist'] = ucfirst(metadataStringClean($info['artist'], 'artist'));
-            }
-            if (isset($retval['results']['trackmatches']['track'][0]['mbid']) && $retval['results']['trackmatches']['track'][0]['mbid']) {
-                $info['song_mbid'] = trim($retval['results']['trackmatches']['track'][0]['mbid']);
-            }
+    if ($noRadioCache) {
+        $info = array_merge($info, wrk_get_lastfm_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        $info = array_merge($info, wrk_get_musicbrainz_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        $info = array_merge($info, wrk_get_discogs_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        if ($info['artist'] && !$info['albumartist']) {
+            $info['albumartist'] = $info['artist'];
+        } else if (!$info['artist'] && $info['albumartist'] && ($info['albumartist'] |= 'Various Artists')) {
+            $info['artist'] = $info['albumartist'];
         }
     }
-    if ($redis->get('activePlayer') != 'MPD') {
-        // no longer MPD, just return with the current information
-        return $info;
-    }
-    if ($noRadioCache && (!$info['artist'] && !$info['albumartist']) || !$info['song'] || $info['album']) {
-        // try to pick the artist album and song up from discogs
-        // the album art is will also be returned if there is a match
-        // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
-        $url = 'https://api.discogs.com/database/search?q='.urlClean($radiostringClean).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
-        $retval = get_discogs($redis, $url);
-        if ($retval) {
-            if (isset($retval['results'][0]['title']) && $retval['results'][0]['title']) {
-                $title = explode(' - ', trim(preg_replace('![\s]+!u', ' ', $retval['results'][0]['title'])), 2);
-                if (isset($title[0]) && isset($title[1])) {
-                    if (!$info['artist']) {
-                        $info['artist'] = ucwords($title[0]);
-                        $info['albumartist'] = ucwords(metadataStringClean($info['artist'], 'artist'));
-                    }
-                    if (!$info['album']) {
-                        $info['album'] = ucwords($title[1]);
-                    }
-                    If (!$info['song']) {
-                        $info['song'] = ucwords(trim(str_replace(trim(preg_replace('![\s\'"]+!u', ' ', strtolower($title[0]))), '', $radiostringClean), ' -_'));
-                    }
-                }
-            }
-            if (isset($retval['results'][0]['cover_image']) && $retval['results'][0]['cover_image']) {
-                // album art is filled, use it and save the details
-                $info['album_arturl_large'] = trim($retval['results'][0]['cover_image']);
-                $info['album_arturl_medium'] = trim($retval['results'][0]['cover_image']);
-                $info['album_arturl_small'] = trim($retval['results'][0]['cover_image']);
-            }
-            if (isset($retval['results'][0]['thumb']) && $retval['results'][0]['thumb']) {
-                // album art is filled, use it and save the details
-                $info['album_arturl_small'] = trim($retval['results'][0]['thumb']);
-                if (!$info['album_arturl_large']) {
-                    $info['album_arturl_large'] = trim($retval['results'][0]['thumb']);
-                    $info['album_arturl_medium'] = trim($retval['results'][0]['thumb']);
-                }
-            }
-        }
-    }
-    if ($redis->get('activePlayer') != 'MPD') {
-        // no longer MPD, just return with the current information
-        return $info;
-    }
-    // use music brainz to determine the release (album) and album_mbid (it could also be a single)
-    if ($noRadioCache && !$info['album']) {
-        if ($info['song_mbid']) {
-            // use musicbrainz to pick up the album ablum using
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/28734584-3a00-4072-8e09-dc5c40c0d50a?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json"
-            $url = 'https://musicbrainz.org/ws/2/recording/'.$info['song_mbid'].'?limit=1&inc=releases+artists+tags&media-format=CD&type=album|single&fmt=json';
-            $retval = get_musicBrainz($redis, $url);
-            if ($retval) {
-                if (isset($retval['releases'][0]['id']) && $retval['releases'][0]['id']) {
-                    $info['album_mbid'] = $retval['releases'][0]['id'];
-                    if (isset($retval['releases'][0]['title']) && $retval['releases'][0]['title']) {
-                        $info['album'] = $retval['releases'][0]['title'];
-                    }
-                } else if (isset($retval['releases'][1]['id']) && $retval['releases'][1]['id']) {
-                    $info['album_mbid'] = $retval['releases'][1]['id'];
-                    if (isset($retval['releases'][1]['title']) && $retval['releases'][1]['title']) {
-                        $info['album'] = $retval['releases'][1]['title'];
-                    }
-                } else if (isset($retval['releases'][2]['id']) && $retval['releases'][2]['id']) {
-                    $info['album_mbid'] = $retval['releases'][2]['id'];
-                    if (isset($retval['releases'][2]['title']) && $retval['releases'][2]['title']) {
-                        $info['album'] = $retval['releases'][2]['title'];
-                    }
-                } else if (isset($retval['releases'][0]['title']) && $retval['releases'][0]['title']) {
-                    $info['album'] = $retval['releases'][0]['title'];
-                } else if (isset($retval['releases'][1]['title']) && $retval['releases'][1]['title']) {
-                    $info['album'] = $retval['releases'][1]['title'];
-                } else if (isset($retval['releases'][2]['title']) && $retval['releases'][2]['title']) {
-                    $info['album'] = $retval['releases'][2]['title'];
-                }
-                if (isset($retval['artist-credit'][0]['artist']['id']) && $retval['artist-credit'][0]['artist']['id']) {
-                    // music brainz artist ID is filled, save it
-                    $info['artist_mbid'] = trim($retval['artist-credit'][0]['artist']['id']);
-                    if (isset($retval['artist-credit'][0]['artist']['name']) && $retval['artist-credit'][0]['artist']['name']) {
-                        $info['artist'] = ucfirst($retval['artist-credit'][0]['artist']['name']);
-                        $info['albumartist'] = ucfirst(metadataStringClean($info['artist'], 'artist'));
-                    }
-                } else {
-                    if (isset($retval['artist-credit'][0]['artist']['name']) && $retval['artist-credit'][0]['artist']['name']) {
-                        $info['albumartist'] = ucfirst(metadataStringClean($retval['artist-credit'][0]['artist']['name'], 'artist'));
-                    }
-                }
-            }
-        } else {
-            // use musicbrainz to pick up the album name and art using
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://musicbrainz.org/ws/2/recording/?query=annie+lennox+-+why&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json"
-            $url = 'https://musicbrainz.org/ws/2/recording/?query='.urlClean($radiostringClean).'&limit=1&inc=releases+artists+tags&media-format=CD&fmt=json';
-            $retval = get_musicBrainz($redis, $url);
-            if ($retval) {
-                if (isset($retval['recordings'][0]['releases'][0]['id']) && $retval['recordings'][0]['releases'][0]['id']) {
-                    $info['album_mbid'] = $retval['recordings'][0]['releases'][0]['id'];
-                }
-                if (isset($retval['recordings'][0]['releases'][0]['title']) && $retval['recordings'][0]['releases'][0]['title']) {
-                    $info['album'] = $retval['recordings'][0]['releases'][0]['title'];
-                }
-                if (isset($retval['recordings'][0]['artist_credit'][0]['artist']['id']) && $retval['recordings'][0]['artist_credit'][0]['artist']['id']) {
-                    // music brainz artist ID is filled, save it
-                    $info['artist_mbid'] = $retval['recordings'][0]['artist_credit'][0]['artist']['id'];
-                    if (isset($retval['recordings'][0]['artist_credit'][0]['artist']['name']) && $retval['recordings'][0]['artist_credit'][0]['artist']['name']) {
-                        $info['artist'] = ucfirst($retval['recordings'][0]['artist_credit'][0]['artist']['name']);
-                        $info['albumartist'] = ucfirst(metadataStringClean($info['artist'], 'artist'));
-                    }
-                } else if (isset($retval['recordings'][0]['artist_credit'][0]['artist']['name']) && $retval['recordings'][0]['artist_credit'][0]['artist']['name']) {
-                    $info['albumartist'] = ucfirst(metadataStringClean($retval['recordings'][0]['artist_credit'][0]['artist']['name'], 'artist'));
-                }
-            }
-        }
-    }
-    if ($redis->get('activePlayer') != 'MPD') {
-        // no longer MPD, just return with the current information
-        return $info;
-    }
-
     $retval = get_artistInfo($redis, $info);
     if ($retval) {
         $info = array_merge($info, $retval);
     }
     if ($redis->get('activePlayer') != 'MPD') {
         // no longer MPD, just return with the current information
+        return $info;
+    }
+    if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+        // no longer a radio, just return with current information
         return $info;
     }
     $retval = get_songInfo($redis, $info);
@@ -12999,11 +14533,14 @@ function wrk_get_webradio_art($redis, $radiostring)
         // no longer MPD, just return with the current information
         return $info;
     }
+    if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+        // no longer a radio, just return with current information
+        return $info;
+    }
     $retval = get_albumInfo($redis, $info);
     if ($retval) {
         $info = array_merge($info, $retval);
     }
-
     if ($info['webradiostring'] && $info['webradiostring_filename']) {
         $infoCache = array();
         foreach ($toCacheInfoFields as $toCacheInfoField) {
@@ -13050,8 +14587,8 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
     // set up the wikipedia search url, we use the english search
     $searchUrl = 'https://en.wikipedia.org/w/rest.php/v1/search/page?q='.rawurlencode($artist).'&limit=20';
     // use curl to post the search url with a http GET
-    // e.g. curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie%20lennox&limit=20"
-    $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 "'.$searchUrl.'"')[0];
+    // e.g. curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie%20lennox&limit=20"
+    $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "'.$searchUrl.'"')[0];
     if (isset($retval) && $retval && json_validate($retval)) {
         // a string has been returned which which contains json encoding
         $retval = json_decode($retval, true);
@@ -13298,7 +14835,7 @@ function initialise_playback_array($redis, $playerType = 'MPD')
     // save JSON response for extensions
     $redis->set('act_player_info', json_encode($status));
     ui_render($redis, 'playback', json_encode($status));
-    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+    sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
     sysCmdAsync($redis, '/srv/http/command/ui_update_async', 0);
     return $status;
 }
@@ -13482,8 +15019,8 @@ function wrk_getSpotifyMetadata($redis, $track_id)
     if ($retval['title'] == '-') {
         // still set to default, so try retreving information
         // curl -X GET -s 'https://open.spotify.com/track/<TRACK_ID>' | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -iE 'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'
-        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
-        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:|music:'."'".' | grep -vi country | grep -vi canonical';
         //
         $command = 'curl -X GET -s '."'".'https://open.spotify.com/track/'.$track_id."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:image|og:description|music:duration|music:album|music:musician_description|music:release_date'."'";
         runelog('[wrk_getSpotifyMetadata] track command:', $command);
@@ -13606,8 +15143,8 @@ function wrk_getSpotifyMetadata($redis, $track_id)
         // album name is still the default
         runelog('[wrk_getSpotifyMetadata] ALBUM_URL:', $retval['album_url']);
         // curl -X GET -s '<ALBUM_URL>' | head -c 2000 | sed 's/<meta/\n<meta/g' | sed 's/></>\n</g' | grep -i 'og:title'
-        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
-        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 2 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
+        $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
+        // debug line // $command = 'curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 '."'".$retval['album_url']."'".' | head -c 2000 | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -vi country | grep -vi canonical';
         // $command = 'curl -X GET -s '."'".$album_url."'".' | sed '."'".'s/<meta/\n<meta/g'."'".' | sed '."'".'s/></>\n</g'."'".' | grep -iE '."'".'og:title|og:description'."'";
         runelog('[wrk_getSpotifyMetadata] album command:', $command);
         $albumInfoLines = sysCmd($command);
@@ -14936,11 +16473,15 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                         $type = 'output';
                     } else {
                         // it should never happen
-                        $trpe = 'unknown';
+                        $type = 'unknown';
                     }
                     // save the pcm and type
                     $pcmInfo[$type]['pcm'] = $bluealsaInfoLine;
                     $pcmInfo[$type]['type'] = $type;
+                    continue;
+                }
+                if (!isset($type)) {
+                    // $type must be set
                     continue;
                 }
                 // extract the key and value from the line
@@ -14952,8 +16493,16 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 list($key, $value) = explode(': ',$bluealsaInfoLine, 2);
                 // make the key lower case and replace spaces with underscores
                 $key = str_replace(' ', '_', strtolower(trim($key)));
+                if (!$key) {
+                    // key must have a value
+                    continue;
+                }
                 // trim the value
                 $value = trim($value);
+                if (!strlen($value)) {
+                    // value must have a value
+                    continue;
+                }
                 if (($key == 'volume') || ($key == 'mute'))
                     if (strpos(' '.$value, 'L:') && strpos(' '.$value, 'R:')) {
                         // make values with right and left entries into a single entry, explicitly L: and R:
@@ -14983,20 +16532,31 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                 // there is no input pcm, do nothing
                 break;
             }
-            $currentAoInfo = json_decode($redis->hGet('acards', $redis->get('ao')), 'true');
-            $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
-            if (($player_volume_control != 'enabled') && ($player_volume_control != 'hardware') && ($player_volume_control != 'software')) {
-                // player volume control disabled, switch local volume control off
-                unset($configArray);
-                if ($redis->hget('bluetooth', 'local_volume_control')) {
-                    // set up the configuration array with the local volume control value (off)
-                    $configArray['local_volume_control'] = 0;
+            $ao = $redis->get('ao');
+            if ($ao) {
+                $currentAoInfo = json_decode($redis->hGet('acards', $redis->get('ao')), 'true');
+                $player_volume_control = $redis->hGet('mpdconf', 'mixer_type');
+                if (($player_volume_control != 'enabled') && ($player_volume_control != 'hardware') && ($player_volume_control != 'software')) {
+                    // player volume control disabled, switch local volume control off
+                    unset($configArray);
+                    if ($redis->hget('bluetooth', 'local_volume_control')) {
+                        // set up the configuration array with the local volume control value (off)
+                        $configArray['local_volume_control'] = 0;
+                    }
+                    if (isset($configArray)) {
+                        // use the configuration, when set
+                        wrk_btcfg($redis, 'config', $configArray);
+                    }
+                    // process soft volume as if it is set to automatic
+                    if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
+                        // no mixer device available for the sound card and softvolume is off, set soft volume control on
+                        sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
+                    } else if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
+                        // mixer device available for the sound card and softvolume is on, set soft volume control off
+                        sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
+                    }
+                    break;
                 }
-                if (isset($configArray)) {
-                    // use the configuration, when set
-                    wrk_btcfg($redis, 'config', $configArray);
-                }
-                // process soft volume as if it is set to automatic
                 if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
                     // no mixer device available for the sound card and softvolume is off, set soft volume control on
                     sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
@@ -15004,14 +16564,6 @@ function wrk_btcfg($redis, $action, $param = null, $jobID = null)
                     // mixer device available for the sound card and softvolume is on, set soft volume control off
                     sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
                 }
-                break;
-            }
-            if (!isset($currentAoInfo['mixer_device']) && !$pcmInfo['input']['softvolume']) {
-                // no mixer device available for the sound card and softvolume is off, set soft volume control on
-                sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 1');
-            } else if (isset($currentAoInfo['mixer_device']) && $pcmInfo['input']['softvolume']) {
-                // mixer device available for the sound card and softvolume is on, set soft volume control off
-                sysCmd('bluealsactl soft-volume '.$pcmInfo['input']['pcm'].' 0');
             }
             unset($bluealsaInfoLines,$bluealsaInfoLine, $numericKeys, $type, $pcmInfo, $key, $value, $currentAoInfo, $player_volume_control);
             break;
@@ -15181,7 +16733,7 @@ function wrk_security($redis, $action, $args = null)
                 //  and it is different to the existing password
                 $redis->hSet('AccessPoint', 'passphrase', $args);
                 // send notfy to UI
-                ui_notify($redis, 'Security', 'Access Point password changed, reboot to activate');
+                ui_notify($redis, 'Security', 'Access Point password changed, restart RuneAudio to activate');
                 // // note: we could change the passphrase/password without rebooting using the following code
                 // $apArgs = array();
                 // // set up the arguments to change the Access Point passphrase/password
@@ -16288,13 +17840,16 @@ function wrk_smt($redis)
         if (sysCmd('command -v smartctl')[0]) {
             // monitoring tools software is installed
             // scan for hard disks
-            $drive_list = sysCmd('smartctl --scan-open -- -H -i -s on | grep -v aborted');
+            $drive_list = array();
+            $drive_list = sysCmd('smartctl --scan-open -- -H -i | grep -v aborted');
+            $drive_list = array_unique(array_merge($drive_list, sysCmd('mount | grep "^/dev/sd.. " | cut -d " " -f 1')));
+            asort($drive_list);
             if (isset($drive_list) && !empty($drive_list)) {
                 foreach($drive_list as $drive) {
                     // for each connected drive
                     $drive = trim($drive);
                     if ($drive != "") {
-                        $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is'";
+                        $command = "smartctl ".$drive." | grep -i -E 'Model:|Capacity:|-health self-|SMART support is|SMART Health Status:'";
                         $self_check = sysCmd($command);
                         // the self_check variable now has 5 lines the 1st line must contain the word 'Available' - 'SMART support is: Available...'
                         If (!empty($self_check)) {
@@ -16308,7 +17863,7 @@ function wrk_smt($redis)
                                     // now looking for the lines
                                     // 'SMART support is: Available...' and
                                     // 'SMART support is: Enabled'
-                                    if (strpos(' '.$self_check_line, 'SMART support is')) {
+                                    if (strpos(' '.$self_check_line, 'SMART support is:')) {
                                         if (strpos(' '.$self_check_line, 'Available')) {
                                             $smart_avalable = true;
                                         } else if (strpos(' '.$self_check_line, 'Enabled')) {
@@ -16317,9 +17872,19 @@ function wrk_smt($redis)
                                     }
                                     // now looking for the line containing something like this:
                                     // 'SMART overall-health self-assessment test result: PASSED'
-                                    // actually looking for '-health self-' together with 'OK' or 'PASSED'
+                                    // 'SMART overall-health self-assessment test result: OK'
+                                    // 'SMART Health Status: PASSED'
+                                    // or 'SMART Health Status: OK'
                                     if (strpos(' '.$self_check_line, '-health self-')) {
                                         // there is a result
+                                        $smart_result = true;
+                                        if (strpos(' '.$self_check_line, 'OK')) {
+                                            $smart_good = true;
+                                        } else if (strpos(' '.$self_check_line, 'PASSED')) {
+                                            $smart_good = true;
+                                        }
+                                    } else if (strpos(' '.$self_check_line, 'SMART Health Status: ') && !$smart_result) {
+                                        // this variant can not override the '-health self-' variant
                                         $smart_result = true;
                                         if (strpos(' '.$self_check_line, 'OK')) {
                                             $smart_good = true;
@@ -16335,6 +17900,10 @@ function wrk_smt($redis)
                                 ui_notifyError($redis, 'Disk errors - Action required', implode("\n", $self_check));
                                 // set the disk_error flag to true
                                 $redis->set('disk_error', 1);
+                            }
+                            if ($smart_avalable && !$smart_enabled) {
+                                // SMART is available, but not enabled, try to enable it
+                                sysCmd('smartctl -s on '.$drive.' 2>/dev/null');
                             }
                         }
                     }
@@ -16597,7 +18166,7 @@ function audioCardPi5($redis)
     }
     $redis->set('aocardexceptions', 'Pi5');
     if ($reboot) {
-        ui_notify($redis, "Audio Cards", 'Automatically reconfigured for Pi5 specific settings, rebooting to activate');
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured for Pi5 specific settings, restarting RuneAudio now to activate');
         sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
     }
 }
@@ -16663,7 +18232,7 @@ function audioCardNonPi5($redis)
     }
     $redis->set('aocardexceptions', 'Non-Pi5');
     if ($reboot) {
-        ui_notify($redis, "Audio Cards", 'Automatically reconfigured from Pi5 specific settings, rebooting to activate');
+        ui_notify($redis, "Audio Cards", 'Automatically reconfigured from Pi5 specific settings, restarting RuneAudio now to activate');
         sysCmd('/srv/http/command/rune_shutdown "reboot" ; redis-cli shutdown save ; systemctl stop redis ; shutdown now --reboot --no-wall');
     }
 }
@@ -17265,7 +18834,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     if ($output['selected']) {
                         // set up the command
                         $commandPut =
-                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                            'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                             ' --data '.
                             '"{\"selected\": false'.
                             '}"';
@@ -17276,9 +18845,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     }
                 }
                 // get the actual outputs information
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs"');
                 }
                 if ($retval && is_array($retval)) {
                     $retval = json_decode($retval[0], true);
@@ -17290,7 +18859,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         if ($output['selected']) {
                             // set up the command
                             $commandPut =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{\"selected\": false'.
                                 '}"';
@@ -17842,9 +19411,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // role and the server name are known, the owntone job is running and the role is server
                 //
                 // get the server configuration
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/config"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/config"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/config"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/config"');
                 }
                 if ($retval && is_array($retval)) {
                     $retval = $retval[0];
@@ -17854,9 +19423,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // save the server config, it is already in json format
                 $redis->hSet('owntone', 'server_config', $retval);
                 // get the server queue information
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/queue"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/queue"');
                 }
                 if ($retval && is_array($retval)) {
                     $retval = $retval[0];
@@ -17866,9 +19435,9 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // save the server queue information, it is already in json format
                 $redis->hSet('owntone', 'server_queue', $retval);
                 // get the preset master volume level and save it
-                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/player"');
+                $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/player"');
                 if (!$retval || !is_array($retval)) {
-                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/player"');
+                    $retval = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/player"');
                 }
                 if ($retval && is_array($retval)) {
                     $serverPlayer = json_decode($retval[0], true);
@@ -17897,7 +19466,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                 // the volume for local alsa will be set when activating
                 // when a preset volume for non-alsa outputs is available it will be used when activating
                 // preset entries will be generated with defaults for non-alsa outputs
-                $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs"';
+                $commandGet = 'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs"';
                 $retval = sysCmd($commandGet);
                 if (isset($retval[0])) {
                     // an array is returned
@@ -17939,7 +19508,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         $autoconnect = false;
                         // get the output information again, there could be a long list of them and the content could change
                         $commandGet =
-                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                         // run the command
                         $retval = sysCmd($commandGet);
                         if (isset($retval[0])) {
@@ -18131,10 +19700,10 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                                         // its a runeaudio node, get the volume
                                         if (isset($node['ip']) && $node['ip']) {
                                             // we have an ip address of the node
-                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$node['ip'].'/command/?cmd=status"');
+                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$node['ip'].'/command/?cmd=status"');
                                         } else if (isset($node['hostname']) && $node['hostname']) {
                                             // we have a hostname address of the node
-                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 2 "http://'.$node['hostname'].'/command/?cmd=status"');
+                                            $nodeInfoLines = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "http://'.$node['hostname'].'/command/?cmd=status"');
                                         }
                                         if (count($nodeInfoLines)) {
                                             // we have received information from the node, determine the volume
@@ -18214,7 +19783,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             if ($output['volume'] != 0) {
                                 // non-zero volume, send a disconnect with zero volume
                                 $commandPut =
-                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                    'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                     ' --data '.
                                     '"{';
                                 //
@@ -18235,7 +19804,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             }
                             // set up the real command
                             $commandPut =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
                             //
@@ -18262,7 +19831,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // disconnect
                             // set up the command
                             $commandPut =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
                             //
@@ -18287,7 +19856,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                             // adjust the unconnected volume and offset it required
                             // set up the command
                             $commandPut =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"'.
                                 ' --data '.
                                 '"{';
                             //
@@ -18319,7 +19888,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                         // get the current output data
                         // set up the command
                         $commandGet =
-                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
+                            'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$output['id'].'"';
                         // run the command
                         $retval = sysCmd($commandGet);
                         if (isset($retval[0])) {
@@ -18621,7 +20190,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     "automute" => $automute
                 )));
                 // run the command
-                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
                 // save the id
                 $mutedIds .= '-'.$output['id'];
             }
@@ -18717,7 +20286,7 @@ function wrk_owntone($redis, $action, $args = null, $jobID = null)
                     "volume" => $preset['mute']
                 )));
                 // run the command, ignore the output
-                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
+                sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 -g "http://localhost/db/?cmd=MRmute&params='.$params.'"');
             }
             $master = json_decode($redis->hGet('owntone', 'master'), true);
             $master['volume'] = $master['mute'];
@@ -19288,6 +20857,47 @@ function format_airplay_name_from_owntone($airplayName)
     return trim($airplayName);
 }
 
+// custom version of ucwords, which works consonantly with brackets and quotes
+function custom_ucwords($string)
+// string is the only parameter
+// upper case for first alpha character in the string plus all alpha characters following a
+//  space, [, (, {, <, single quote and double quote, but not a single quote followed by a s
+//  alpha characters include all letters with accents, etc.
+//  the standard word delimiters which are used by ucwords are also included: \t\r\n\f\v
+//  special delimiters and exceptions for the french language are also included
+//  special delimiters for the spanish and portugese languages are also included, but not exceptions
+{
+    // first make the string lower case
+    $string = mb_strtolower($string);
+    // set us a string of the word delimiters, beginning of line is added below
+    $delimiters = '\[{\(<"\s\v\f¿¡';
+    // set up the pattern, which also includes special french delimiters and exceptions
+    $pattern = '/(?:['.$delimiters.']|^)(?!\'s\b)\p{L}|(?<=\b[dlm]’|\b[dlm]\'|\bqu’|\bqu\')\p{L}/ui';
+    // search and make the correct letters uppercase
+    return preg_replace_callback(
+        $pattern,
+        function ($matches) {
+            return mb_strtoupper($matches[0]);
+        },
+        $string
+    );
+}
+
+// function hardwareToBluealsaVolume($hardwareVol)
+// // Converts a linear hardware volume (0.0 to 1.0) to the exact
+// // raw Bluetooth transport value (0 to 127) using an inverse dB curve
+// //  $hardwareVol input target volume between 0.0 and 1.0
+// //  @return the bluealsactl value between 0 and 127
+// {
+    // // Keep the input strictly clamped between 0.0 and 1.0
+    // $hardwareVol = max(0.0, min(1.0, $hardwareVol));
+    // // Calculate the inverse decibel curve (based on a -60 dB dynamic range)
+    // $exponent = (60 * ($hardwareVol - 1)) / 20;
+    // $rawVolume = 127 * pow(10, $exponent);
+    // // Round to the nearest whole integer
+    // return round($rawVolume);
+// }
+
 /*
 // function to encode and send airplay metadata for owntone
 function wrk_airplay_metadata_encoder($redis, $action, $args)
@@ -19408,17 +21018,17 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                 }
                 // create the picture file
                 if (!isset($args['filename']) || !$args['filename']) {
-                    // get the file with the program wget, pipe it to the program imagemagik convert,
+                    // get the file with the program wget, pipe it to the program imagemagick convert,
                     //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
                     //  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
                     //	pipe the output in jpg format to the picture file
-                    sysCmd('wget -q -O - -i '.$args['url'].' | convert - -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 -define jpeg:extent=32kb "'.$filePicture.'"');
+                    sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -O - \''.$args['url'].'\' | convert - -resize \'350x350>\' -sharpen \'0x.5\' -strip -interlace Plane -quality 80 -define jpeg:extent=32kb \''.$filePicture.'\'');
                 } else {
-                    // open the file with the program imagemagik convert,
+                    // open the file with the program imagemagick convert,
                     //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
                     //  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
                     //	pipe the output in jpg format to the picture file
-                    sysCmd('convert '.$args['filename'].' -resize 350x350\\> -sharpen 0x.5 -strip -interlace Plane -quality 80 -define jpeg:extent=32kb "'.$filePicture.'"');
+                    sysCmd('convert \''.$args['filename'].'\' -resize \'350x350>\' -sharpen \'0x.5\' -strip -interlace Plane -quality 80 -define jpeg:extent=32kb \''.$filePicture.'\'');
                 }
             }
             // clear the cache for the picture file

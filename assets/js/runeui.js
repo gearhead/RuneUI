@@ -547,10 +547,10 @@ function loadingSpinner(section, hide) {
 
 // update the playback source
 function setPlaybackSource() {
-    if (typeof GUI.libraryhome.ActivePlayer === 'undefined') {
+    if (typeof GUI.activePlayer === 'undefined') {
         var activePlayer = 'MPD';
     } else {
-        var activePlayer = GUI.libraryhome.ActivePlayer;
+        var activePlayer = GUI.activePlayer;
     }
     // update the playback section
     $('#overlay-playsource-open button').text(activePlayer);
@@ -628,9 +628,17 @@ function setUIbuttons(activePlayer) {
             // most UI knobs are only active for MPD
             // jquery command will not work $('div#time-knob').css('pointer-events', 'none');
             document.getElementById('time-knob').style.pointerEvents = "none";
-            $('#repeat').addClass('hide');
-            $('#random').addClass('hide');
-            $('#single').addClass('hide');
+            if (activePlayer === 'Bluetooth') {
+                // for Bluetooth the buttons repeat random and single are disabled but shown
+                $('#repeat').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
+                $('#random').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
+                $('#single').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
+            } else {
+                // for other players excluding MPD and Bluetooth the buttons repeat random and single are hidden
+                $('#repeat').addClass('hide').removeClass('disabled').css('pointer-events', 'auto');
+                $('#random').addClass('hide').removeClass('disabled').css('pointer-events', 'auto');
+                $('#single').addClass('hide').removeClass('disabled').css('pointer-events', 'auto');
+            }
             if (GUI.local_volume_control === '0') {
                 // local volume control can be on for some streams, here disabled
                 $('#volume-knob').addClass('disabled');
@@ -661,14 +669,14 @@ function setUIbuttons(activePlayer) {
             // MPD
             if (GUI.stream) {
                 // MPD and GUI stream, so MPD radio or MPD stream
-                $('#repeat').addClass('hide');
-                $('#random').addClass('hide');
-                $('#single').addClass('hide');
+                $('#repeat').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
+                $('#random').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
+                $('#single').removeClass('hide').removeClass('disabled').css('pointer-events', 'none');
             } else {
                 // MPD and not GUI stream, so not MPD radio nor MPD stream
-                $('#repeat').removeClass('hide');
-                $('#random').removeClass('hide');
-                $('#single').removeClass('hide');
+                $('#repeat').removeClass('hide').removeClass('disabled').css('pointer-events', 'auto');
+                $('#random').removeClass('hide').removeClass('disabled').css('pointer-events', 'auto');
+                $('#single').removeClass('hide').removeClass('disabled').css('pointer-events', 'auto');
             }
             if (GUI.local_volume_control === '0') {
                 // player is MPD but volume control is switched off
@@ -702,15 +710,15 @@ function setUIbuttons(activePlayer) {
             $('#play').removeClass('disabled');
             $('#next').removeClass('disabled');
         }
-        if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://')) {
-            // sometimes there is no metadata, here no metadata
-            $('#overlay-social-open').addClass('hide');
-            $('#songinfo-open').addClass('hide');
-        } else {
-            // sometimes there is no metadata, here metadata
-            $('#overlay-social-open').removeClass('hide');
-            $('#songinfo-open').removeClass('hide');
-        }
+        // if ((activePlayer === 'Bluetooth') || (GUI.file.substr(0, 7) === 'alsa://')) {
+            // // sometimes there is no metadata, here no metadata
+            // $('#overlay-social-open').addClass('hide');
+            // $('#songinfo-open').addClass('hide');
+        // } else {
+            // // sometimes there is no metadata, here metadata
+            // $('#overlay-social-open').removeClass('hide');
+            // $('#songinfo-open').removeClass('hide');
+        // }
     } else {
         // force setting the main player UI buttons next time
         GUI.activePlayer = '';
@@ -1075,14 +1083,12 @@ function updateGUI() {
     var activePlayer = ((typeof GUI.json.actPlayer == 'undefined') ? '' : GUI.json.actPlayer);
     var file = ((typeof GUI.json.file == 'undefined') ? '' : GUI.json.file);
     var local_volume_control = ((typeof GUI.json.local_volume_control == 'undefined') ? '0' : GUI.json.local_volume_control);
-    // set stream mode if radioname is present, when its a HW input or active player is Bluetooth
+    // set stream mode if radioname is present or when its a HW input
     //  for these streams the time played just continues counting, no reset count on new track
-    if (radioname !== null && radioname !== undefined && radioname !== '') {
+    if ((typeof radioname !== undefined) && (radioname !== null) && (radioname !== '')) {
         GUI.stream = 'radio';
-    } else if (file !== null && (file.substring(0, 7) === 'alsa://')) {
+    } else if ((typeof file !== undefined) && (file !== null) && (file.substring(0, 7) === 'alsa://')) {
         GUI.stream = 'HWinput';
-    } else if (activePlayer !== undefined && activePlayer === 'Bluetooth') {
-        GUI.stream = 'bluetooth';
     } else {
         GUI.stream = '';
     }
@@ -1244,24 +1250,24 @@ function updateGUI() {
         }
         //
         if (GUI.json.repeat === '1') {
-            $('#repeat').addClass('btn-primary');
+            $('#repeat').addClass('btn-primary').blur();
         } else {
-            $('#repeat').removeClass('btn-primary');
+            $('#repeat').removeClass('btn-primary').blur();
         }
         if (GUI.json.random === '1') {
-            $('#random').addClass('btn-primary');
+            $('#random').addClass('btn-primary').blur();
         } else {
-            $('#random').removeClass('btn-primary');
+            $('#random').removeClass('btn-primary').blur();
         }
         if (GUI.consume === '1') {
-            $('#consume').addClass('btn-primary');
+            $('#consume').addClass('btn-primary').blur();
         } else {
-            $('#consume').removeClass('btn-primary');
+            $('#consume').removeClass('btn-primary').blur();
         }
         if (GUI.json.single === '1') {
-            $('#single').addClass('btn-primary');
+            $('#single').addClass('btn-primary').blur();
         } else {
-            $('#single').removeClass('btn-primary');
+            $('#single').removeClass('btn-primary').blur();
         }
         if ((song_lyrics !== '') && (GUI.song_lyrics !== song_lyrics)) {
             GUI.song_lyrics = song_lyrics;
@@ -2282,18 +2288,18 @@ function commandButton(el) {
         if (dataCmd === 'volumedn') {
             vol = Math.max(GUI.volume - 1, 0);
             GUI.volume = vol;
-            $('#volumemute').removeClass('btn-primary');
+            $('#volumemute').removeClass('btn-primary').blur();
         } else if (dataCmd === 'volumeup') {
             vol = Math.min(GUI.volume + 1, 100);
             GUI.volume = vol;
-            $('#volumemute').removeClass('btn-primary');
+            $('#volumemute').removeClass('btn-primary').blur();
         } else if (dataCmd === 'volumemute') {
             if (knobvol !== 0) {
                 GUI.volume = knobvol;
-                el.addClass('btn-primary');
+                el.addClass('btn-primary').blur();
                 vol = 0;
             } else {
-                el.removeClass('btn-primary');
+                el.removeClass('btn-primary').blur();
                 vol = GUI.volume;
             }
         }

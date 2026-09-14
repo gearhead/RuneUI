@@ -452,7 +452,7 @@ while (true) {
                         if ($server) {
                             // set up the command
                             $commandPut =
-                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
+                                'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"'.
                                 ' --data '.
                                 '"{ \"volume\": '.$localVolume.
                                 '}"';
@@ -461,7 +461,7 @@ while (true) {
                             // get the current output data
                             // set up the command
                             $commandGet =
-                                'curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"';
+                                'curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/outputs/'.$localOutput['id'].'"';
                             // run the command
                             $retval = sysCmd($commandGet);
                             if (isset($retval[0])) {
@@ -549,7 +549,7 @@ while (true) {
                 $actPlayerInfoSave = $actPlayerInfo;
                 $serverHostname = $redis->hGet('owntone', 'server_hostname');
                 $serverIpAddress = $redis->hGet('owntone', 'server_ip_address');
-                $commandPut = 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 2 "http://'.$server.':3689/api/queue/items/now_playing?';
+                $commandPut = 'curl -X PUT -s --connect-timeout 2 -m 5 --retry 1 "http://'.$server.':3689/api/queue/items/now_playing?';
                 if (isset($actPlayerInfo['currentsong']) && trim($actPlayerInfo['currentsong'])) {
                     $commandPut .= 'title='.urlencode($actPlayerInfo['currentsong']).'&';
                 } else {
@@ -718,7 +718,7 @@ while (true) {
                             curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
                             // keep a list of nodes which have had at least one render action
                             $renderedNodes[$airplayName] = true;
-                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']){
+                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']) {
                             curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
                             // keep a list of nodes which have had at least one render action
                             $renderedNodes[$airplayName] = true;
@@ -793,7 +793,7 @@ while (true) {
                             curlPost('http://'.$runeaudioNode['ip'].'/pub?id=playback', json_encode($decoded));
                             // keep a list of nodes which have had at least one render action
                             $renderedNodes[$airplayName] = true;
-                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']){
+                        } else if (isset($runeaudioNode['hostname']) && $runeaudioNode['hostname']) {
                             curlPost('http://'.$runeaudioNode['hostname'].'/pub?id=playback', json_encode($decoded));
                             // keep a list of nodes which have had at least one render action
                             $renderedNodes[$airplayName] = true;

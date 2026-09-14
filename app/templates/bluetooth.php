@@ -8,7 +8,7 @@
                 <button type="submit" class="btn btn-primary btn-lg" id="try" name="try" value="try">Try enableing</button>
                 <span class="help-block">Some hardware types have no built-in Bluetooth adaptor. It is possible to add an USB Bluetooth dongle,
                     many types are supported. You can re-check its status by clicking on 'Try enableing'.<br>
-                    <i>Note: You may need to reboot to enable your Bluetooth adaptor</i></span>
+                    <i>Note: You may need to restart RuneAudio to enable your Bluetooth adaptor</i></span>
             </div>
         </form>
     <?php else: ?>

@@ -98,7 +98,11 @@ function enable_overlay_art_cache {
                     artDirUpper="$artDirRoot/upper"
                     mkdir "$artDirWork"
                     mkdir "$artDirUpper"
-                    mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                    mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir" /merged
+                    if [ "$?" != "0" ] ; then
+                        # there has been a syntax change, the new syntax has not worked, try the old syntax
+                        mount -t overlay overlay_art_cache -o noatime,noexec,lowerdir=/home/cache/art,upperdir="$artDirUpper",workdir="$artDirWork" "$artDir"
+                    fi
                     redis-cli set overlay_art_cache 1
                     # set the label of /dev/mmcblk0p3 to 'runecache'
                     e2label /dev/mmcblk0p3 runecache

@@ -59,7 +59,7 @@ if [[ "$enablesplash" != "0" ]] ; then
         echo "power off RuneAudio"
         ply-image '/usr/share/bootsplash/shutdown.png' > /dev/null 2>&1
     elif [ "$shutdownmode" == "reboot" ] ; then
-        echo "reboot RuneAudio"
+        echo "restart RuneAudio"
         ply-image '/usr/share/bootsplash/reboot.png' > /dev/null 2>&1
     else
         shutdownmode=""
@@ -89,6 +89,8 @@ redis-cli del cmd_queue_encoding
 # and also remove entries in the UI queue
 redis-cli del w_queue
 redis-cli del w_queue_fifo
+# clear the last getid3 error
+redis-cli del getID3_error
 # stop most of the systemd units which can be stopped, the order is important
 declare -a stop_arr=(udevil systemd-udevd amixer-webui owntone_monitor avahi-daemon\
     bt_mon_switch bt_scan_output bluealsa-aplay bluealsa-monitor bluealsa bluetooth-agent bluetoothctl_scan bluetooth\
@@ -109,6 +111,10 @@ if [ "$shutdownmode" != "" ] ; then
 fi
 # unmount the local and network storage devices
 sync
+umount -R /mnt/MPD/NAS/*
+umount -R /mnt/MPD/USB/*
+umount -Rl /mnt/MPD/NAS/*
+umount -Rl /mnt/MPD/USB/*
 umount -Rf /mnt/MPD/NAS/*
 umount -Rf /mnt/MPD/USB/*
 rmdir /mnt/MPD/NAS/*
@@ -117,8 +123,12 @@ rmdir /mnt/MPD/USB/*
 udevil clean
 # unmount the persistent cache subsystem
 sync
-umount /srv/http/tmp/art
+umount overlay_art_cache
+umount -l overlay_art_cache
+umount -f overlay_art_cache
 umount /home/cache
+umount -l /home/cache
+umount -f /home/cache
 rmdir /home/cache
 # remove any specified nic from the avahi config file
 sed -i '/allow-interfaces=/c\#allow-interfaces=eth0' /etc/avahi/avahi-daemon.conf
@@ -131,6 +141,7 @@ if [ "$shutdownmode" == "poweroff" ] && [ "$windows" == "xorg" ] ; then
 fi
 date
 fake-hwclock save
+sync
 echo "rune_shutdown finished"
 } > /var/log/runeaudio/rune_shutdown.log 2>&1
 # debug

@@ -859,7 +859,7 @@ while (true)  {
                         if ($magick_resize) {
                             sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \'/tmp/cover.jpg\' \''.$song['albumartfile'].'\'');
                         } else {
-                            sysCmd('convert -resize 350x350\> '.$magick_resize.' '.$magick_opts.' \'/tmp/cover.jpg\' \''.$song['albumartfile'].'\'');
+                            sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \'/tmp/cover.jpg\' \''.$song['albumartfile'].'\'');
                         }
                         list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid
@@ -903,7 +903,7 @@ while (true)  {
                         if ($magick_resize) {
                             sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
                         } else {
-                            sysCmd('convert -resize 350x350\> '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
+                            sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
                         }
                         list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid

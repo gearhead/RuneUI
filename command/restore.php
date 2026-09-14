@@ -102,7 +102,7 @@ if ($fileError) {
     ui_notifyError($redis, 'Restore', 'Error! File content is not a valid archive format.');
     $isError = true;
 } else {
-    ui_notify($redis, 'Restore', 'File is valid and was successfully uploaded, restore and restart will follow...');
+    ui_notify($redis, 'Restore', 'File is valid and was successfully uploaded, restore and RuneAudio restart will follow...');
     // start a job in the back-end (as root) to process the backup file
     $jobID[] = wrk_control($redis, 'newjob', $data = array('wrkcmd' => 'restore', 'args' => $fileDest));
 }

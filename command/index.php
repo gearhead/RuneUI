@@ -82,15 +82,6 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                 }
                 unset($mpdSendResponse, $volume, $sign, $lastvolume);
             }
-            if ($redis->hGet('owntone', 'active')) {
-                if ($mpdSendResponse && strpos(' '.$response, 'OK')) {
-                    if (strpos(' '.$_GET['cmd'], 'play') || strpos(' '.$_GET['cmd'], 'previous') || strpos(' '.$_GET['cmd'], 'next')) {
-                        ui_notify($redis, 'Multi-room', 'There is a delay when using Multi-room');
-                    } else if (strpos(' '.$_GET['cmd'], 'stop') || strpos(' '.$_GET['cmd'], 'pause')) {
-                        wrk_owntone($redis, 'muteasync', 'unmute');
-                    }
-                }
-            }
         } else if ($activePlayer === 'Bluetooth') {
             list($command, $value) = explode(' ', trim(preg_replace('/\s+/', ' ', $_GET['cmd']), 2));
             if (isset($command)) {
@@ -102,19 +93,11 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
             $btMessage = array();
             switch ($command) {
                 case 'setvol':
-                    $pcms = wrk_btcfg($redis, 'auto_volume');
-                    if (isset($pcms['input']['pcm']) && $pcms['input']['pcm']) {
-                        $volume = round(($value * 127) / 100);
-                        $x = sysCmd('bluealsactl volume '.$pcms['input']['pcm'].' '.$volume);
-                    } else {
-                        $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
-                        if (isset($acard['mixer_control']) && $acard['mixer_control']) {
-                            $x = sysCmd('mpc volume '.$value);
-                        }
-                    }
-
-                    $response = implode('\n', $x);
-                    unset($x);
+                    $mpdSendResponse = sendMpdCommand($mpd, $_GET['cmd']);
+                    // debug
+                    // runelog('--- [command/index.php] --- CLOSE MPD SOCKET <<< (1) ---','');
+                    // ui_notify($redis, 'MPD command', $_GET['cmd']);
+                    if (isset($mpdSendResponse) && $mpdSendResponse) $response = readMpdResponse($mpd);
                     break;
                 case 'previous':
                     $btMessage = sysCmd('bluetoothctl player.previous');
@@ -135,8 +118,23 @@ if (isset($_GET['switchplayer']) && $_GET['switchplayer'] !== '') {
                     break;
             }
             if (count($btMessage)) {
+                $response = '';
                 foreach ($btMessage as $btMessage_line) {
-                    ui_notify($redis, 'Bluetooth', $btMessage_line);
+                    if (strpos(' '.$btMessage_line, 'successful')) {
+                        $response = 'OK';
+                    }
+                }
+                if ($response != 'OK') {
+                    ui_notify($redis, 'Bluetooth', 'Remote \''.$command.'\' command unsuccessful');
+                }
+            }
+        }
+        if ($redis->hGet('owntone', 'active')) {
+            if ($mpdSendResponse && strpos(' '.$response, 'OK')) {
+                if (strpos(' '.$_GET['cmd'], 'play') || strpos(' '.$_GET['cmd'], 'previous') || strpos(' '.$_GET['cmd'], 'next')) {
+                    ui_notify($redis, 'Multi-room', 'There is a delay when using Multi-room');
+                } else if (strpos(' '.$_GET['cmd'], 'stop') || strpos(' '.$_GET['cmd'], 'pause')) {
+                    wrk_owntone($redis, 'muteasync', 'unmute');
                 }
             }
         }

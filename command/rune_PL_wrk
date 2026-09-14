@@ -83,7 +83,7 @@ while (true) {
     }
     $activePlayer = $redis->get('activePlayer');
     $proxy = $redis->hGetall('proxy');
-    $lastfm_apikey = $redis->get('lastfm_apikey');
+    // $lastfmApikey = $redis->get('lastfm', 'apikey');
     runelog('rune_PL_wrk: open MPD local UNIX socket');
     if ($socket) {
         // close the socket if open
@@ -147,7 +147,7 @@ while (true) {
                     $status = array();
                 }
                 runelog('----------------------------------- FORCE UPDATE MPD -----------------------------------');
-                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
                 $status = array_merge($status, initialise_playback_array($redis, 'MPD'));
                 $status['mainArtURL'] = $artUrl.'/none.png';
                 $status['smallArtURL'] = $artUrl.'/black.png';
@@ -164,7 +164,7 @@ while (true) {
                     $status['radio'] = false;
                 }
                 // ui_render($redis, 'playback', json_encode($status));
-                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+                // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
             } else {
                 // no status returned, assume mpd not yet ready
                 if ($socket) {
@@ -220,7 +220,7 @@ while (true) {
             $redis->set('pl_length', $status['playlistlength']);
             $redis->set('act_player_info', json_encode($status));
             ui_render($redis, 'playback', json_encode($status));
-            // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 2 "http://localhost/command/?cmd=renderui"');
+            // sysCmd('curl -X GET -s --connect-timeout 2 -m 5 --retry 1 "http://localhost/command/?cmd=renderui"');
             // set the mpd volume to the last value set via the UI, if a value is available and volume control is enabled
             // the streaming services can change the alsa volume, we want to change it back to the last set value
             set_last_mpd_volume($redis);
@@ -529,7 +529,7 @@ while (true) {
                                 if ($magick_resize) {
                                     sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
                                 } else {
-                                    sysCmd('convert -resize 350x350\> '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
+                                    sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
                                 }
                                 list($width, $height, $type, $attr) = getimagesize($artFileNameTarget);
                                 // width and height are in pixels (null when invalid), type is a non zero/null value when valid
@@ -689,7 +689,7 @@ while (true) {
                     // local volume control unset or player volume control changed
                     $player_volume_control = $player_volume_control_new;
                     if ($redis->get('ao') && (($player_volume_control == 'enabled') || ($player_volume_control == 'hardware') || ($player_volume_control == 'software'))) {
-                        // outpt available and player volume control active
+                        // output available and player volume control active
                         $status['local_volume_control'] = 1;
                     } else if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
                         // there is a local output and owntone is active
@@ -719,7 +719,7 @@ while (true) {
                             // no longer MPD, just break the loop
                             break;
                         }
-                        $retval = wrk_get_webradio_art($redis, $status['currentsong']);
+                        $retval = wrk_get_webradio_info($redis, $status['currentsong']);
                     } else {
                         // currentsong has no value or coverart is switched off
                         $retval = false;
@@ -1098,33 +1098,62 @@ while (true) {
             }
             $bluetooth_timeout = $redis->hGet('bluetooth', 'timeout');
             $bluetooth_timeout_count = $bluetooth_timeout;
-            $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
-            if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
-                // there is a local output and owntone is active
-                $local_volume_control = 1;
-            }
-            $status['local_volume_control'] = 0;
             $status['state'] = '';
+            // set up the default output quality: 16bit, 44,100hz, 2 channels
+            $audio_channels = 'Stereo';
+            $audio_channels_number = '2';
+            $audio_sample_depth = '16';
+            $audio_sample_rate = $redis->hget('bluetooth', 'samplerate');
             $bitrate = '~190';
+            $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
             $sleepUntilTime = microtime(true)+2;
             $checkAudioCnt = 2;
             $checkElapsedCnt = 2;
-            $state = '';
+            $state = 'stop';
             $time = 120;
             $duration = $time;
             $elapsed = 0;
             $song_percent = 0;
+            $status['state'] = '';
+            $status['duration'] = $time;
+            $status['time'] = $time;
+            $status['song_percent'] = 0;
+            $status['elapsed'] = 0;
+            $status['last_elapsed'] = 0;
             $status['time_last_elapsed'] = microtime(true);
-            $firstTimeLastElapsed = $status['time_last_elapsed'];
             $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
             $btDeviceName = '';
             $artistAlbumTrackSave = '';
             $metadataCnt = 0;
             do {
+                // this loop runs nominally each 2 seconds, its generally longer due to the processing
                 $status = json_decode($redis->get('act_player_info'), true);
-                runelog('rune_PL_wrk: Bluetooth idle loop');
+                // get the local volume control setting
+                $status['local_volume_control'] = $redis->hGet('bluetooth', 'local_volume_control');
+                // get the audio output device name, when null there is no local output device
+                $ao = $redis->get('ao');
+                // the the activation status of owntone
+                $owntoneActive = $redis->hGet('owntone', 'active');
                 // get a list of bluealsa pcms for input
                 $pcmInfo = wrk_btcfg($redis, 'auto_volume');
+                if ($ao) {
+                    // there is an audio output
+                    if ($owntoneActive) {
+                        // owntone is active, always use the local volume control
+                        $status['local_volume_control'] = 1;
+                    }
+                } else {
+                    // there is no local audio output, cannot use a local volume control
+                    $status['local_volume_control'] = 0;
+                }
+                if ($owntoneActive && isset($pcmInfo[input][pcm])) {
+                    // owntone is active, audio is routed via owntone, bluetooth volume level must be 100% (value = 127)
+                    //  a valid pcm is required to change the volume
+                    //  a hardware or software mixer makes no difference
+                    //  owntome controls the output device volume level
+                    sysCmd('bluealsactl volume '.$pcmInfo[input][pcm].' 127');
+                }
+                runelog('rune_PL_wrk: Bluetooth idle loop');
                 // test for something playing
                 if (is_playing($redis) || (isset($pcmInfo['input']['running']) && $pcmInfo['input']['running'])) {
                     // there is a pcm connected, assume play, could be paused or stopped (after playing)
@@ -1153,7 +1182,16 @@ while (true) {
                         }
                         $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                         $bitrate = '~190';
-                        $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                        if ($ao) {
+                            $acard = json_decode($redis->hGet('acards', $ao), true);
+                        }
+                        if ($owntoneActive || ($ao && (!isset($acard['mixer_control']) || !$acard['mixer_control']))) {
+                            // owntone active or local output available with software volume control, use the volume from bluetooth
+                            $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
+                        } else if ($ao && isset($acard['mixer_control']) && $acard['mixer_control']) {
+                            // owntone inactive, local output with a hardware volume control, get the volume from mpd using mpc
+                            $volume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep -i "^volume: " | tail -n 1 | xargs')[0]));
+                        }
                         // debug
                         // echo "Volume: '".$volume."'\n";
                         // automatic volume changing via bluealsa sometimes works incorrectly for hardware mixers
@@ -1161,14 +1199,15 @@ while (true) {
                         //  if the output device has a hardware mixer change the volume as required when ('bluetooth', 'fix_input_ba_volume') is set
                         //  MPD is still running in the background and it has the same output device as Bluetooth so mpc can
                         //      be used to change the volume
-                        $acard = json_decode($redis->hGet('acards', $redis->get('ao')), true);
                         if ($redis->hGet('bluetooth', 'fix_input_ba_volume') || ($acard['device'] == $acard['swdevice'])) {
                             // check that there is a hardware mixer
                             if (isset($acard['mixer_control']) && $acard['mixer_control']) {
+                                // get the bluetooth volume
+                                $volume = round(($pcmInfo['input']['volume'] * 100) / 127);
                                 // get the actual volume level
                                 $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume | grep -i "^volume: " | tail -n 1 | xargs')[0]));
                                 // debug
-                                echo "Actual volume: '".$actualVolume."'\n";
+                                // echo "Actual volume: '".$actualVolume."'\n";
                                 // set the maximum number of iterations (worst case = 7 : 100, 50, 25, 13, 7, 4, 2, 1, 0)
                                 $cnt = 7;
                                 // set big change to false
@@ -1177,7 +1216,7 @@ while (true) {
                                     // loop until the volume level difference is less then 3%
                                     //  this is a soft volume change changing by 50% of the difference on each iteration
                                     $actualVolume = intval(preg_replace('/[^0-9]/', '', sysCmd('mpc volume '.round($actualVolume + (($volume - $actualVolume) / 2)).' | grep -i "^volume: " | tail -n 1 | xargs')[0]));
-                                    echo "Actual volume: '".$actualVolume."'\n";
+                                    // echo "Actual volume: '".$actualVolume."'\n";
                                     // sleep for 1/10 of a second
                                     usleep(100000);
                                     // set big change to true
@@ -1194,42 +1233,49 @@ while (true) {
                             }
                         }
                     }
-                    if (isset($trackElapsedTime) && ($trackElapsedTime <= microtime(true))) {
-                        $checkAudioCnt = 0;
-                        unset($trackElapsedTime);
-                    }
                     if ($checkAudioCnt-- <= 0) {
                         // a value of 5 for $checkAudioCnt means that this code is run every 10 seconds since the do loop has a 2 second cycle
                         $checkAudioCnt = 5;
                         $volume = preg_replace('/[^0-9]/', '', sysCmd('mpc volume | xargs')[0]);
-                        $local_volume_control = $redis->hGet('bluetooth', 'local_volume_control');
-                        if ($redis->get('ao') && $redis->hGet('owntone', 'active')) {
-                            // there is a local output and owntone is active
-                            $local_volume_control = 1;
-                        }
-                        $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
-                        if ($playing) {
-                            $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
-                            if ($audio_channels_number == 1) {
-                                $audio_channels = 'Mono';
-                            } else if ($audio_channels_number == 2) {
-                                $audio_channels = 'Stereo';
-                            } else {
-                                $audio_channels = 'Multichannel';
+                        // set up the default output quality: 16bit, 44,100hz, 2 channels, owntone always uses these settings
+                        $audio_channels = 'Stereo';
+                        $audio_channels_number = '2';
+                        $audio_sample_depth = '16';
+                        $audio_sample_rate = $redis->hget('bluetooth', 'samplerate');
+                        $bitrate = '~190';
+                        $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
+                        if (!$owntoneActive && $ao) {
+                            // owntone is not active and there is a local output, try to get the playback quality from the first active alsa device
+                            //  when there are no local outputs, it could still be playing (i.e. via httpd) but we will get no information
+                            $playing = trim(sysCmd('grep -vihs closed /proc/asound/card?/pcm?p/sub?/hw_params | xargs')[0]);
+                            if ($playing) {
+                                $audio_channels_number = preg_replace('/[^0-9]/', '', get_between_data($playing, 'channels: ', ' '));
+                                if ($audio_channels_number == 1) {
+                                    $audio_channels = 'Mono';
+                                } else if ($audio_channels_number == 2) {
+                                    $audio_channels = 'Stereo';
+                                } else {
+                                    $audio_channels = 'Multichannel';
+                                }
+                                $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
+                                $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
+                                $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
                             }
-                            $audio_sample_depth = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'format: ', ' ')));
-                            $audio_sample_rate = intval(preg_replace('/[^0-9]/', '', get_between_data($playing, 'rate: ', ' ')));
-                            $audio = $audio_sample_rate.':'.$audio_sample_depth.':'.$audio_channels_number;
-                            $bitrate = '~190';
+                        }
+                        if (is_playing($redis) || $owntoneActive) {
+                            // something is playing
                             if (!isset($btDeviceName) || !$btDeviceName || ($btDeviceName == '-')) {
+                                // bluetooth device name has not been determined
                                 $btDeviceArray = wrk_btcfg($redis, 'status');
                                 foreach ($btDeviceArray as $btDevice) {
                                     if ($btDevice['connected'] && $btDevice['source']) {
+                                        // found, only one input device is allowed
                                         $btDeviceName = $btDevice['name'];
                                         break;
                                     }
                                 }
                                 if (!isset($btDeviceName) || !$btDeviceName) {
+                                    // not found
                                     $btDeviceName = '-';
                                 }
                             }
@@ -1291,6 +1337,7 @@ while (true) {
                                                     break;
                                                 case 'Position':
                                                     $elapsed = round(get_between_data($value, '(', ')') / 1000);
+                                                    $time_last_elapsed = microtime(true);
                                                     break;
                                                 case 'Title':
                                                     $title = $value;
@@ -1317,73 +1364,98 @@ while (true) {
                                         }
                                     }
                                 }
-                                if (isset($artist) && isset($album) && isset($title)) {
-                                    $artistAlbumTrack = $artist.$album.$title;
+                            }
+                            $artistAlbumTrack = '';
+                            if (isset($artist)) {
+                                $artistAlbumTrack .= $artist;
+                            }
+                            if (isset($album)) {
+                                $artistAlbumTrack .= $album;
+                            }
+                            if (isset($title)) {
+                                $artistAlbumTrack .= $title;
+                            }
+                            if ($artistAlbumTrack) {
+                                // we have some metadata
+                                if (($artistAlbumTrack != $artistAlbumTrackSave) ||
+                                        (isset($state) && ($state != $status['state'])) ||
+                                        (isset($elapsed) && (!isset($status['elapsed']) || ($elapsed != $status['elapsed']))) ||
+                                        (isset($duration) && $duration && (!isset($status['duration']) || ($duration != $status['duration'])))) {
+                                    // new song, state change, new elapsed or new duration
                                     if ($artistAlbumTrack != $artistAlbumTrackSave) {
-                                        // new song
-                                        $artistAlbumTrackSave = $artistAlbumTrack;
-                                        $status['time_last_elapsed'] = microtime(true);
-                                        $firstTimeLastElapsed = $status['time_last_elapsed'];
-                                        $status['state'] = $state;
-                                        $status['audio'] = $audio;
-                                        $status['audio_channels'] = $audio_channels;
-                                        $status['audio_sample_depth'] = $audio_sample_depth;
-                                        $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
-                                        $status['bitrate'] = $bitrate;
-                                        $status['local_volume_control'] = $local_volume_control;
-                                        $status['volume'] = $volume;
+                                        // song change
+                                        $songChange = true;
+                                    } else {
+                                        $songChange = false;
+                                    }
+                                    $artistAlbumTrackSave = $artistAlbumTrack;
+                                    $status['time_last_elapsed'] = microtime(true);
+                                    $status['state'] = $state;
+                                    $status['audio'] = $audio;
+                                    $status['audio_channels'] = $audio_channels;
+                                    $status['audio_sample_depth'] = $audio_sample_depth;
+                                    $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
+                                    $status['bitrate'] = $bitrate;
+                                    $status['volume'] = $volume;
+                                    $status['currentalbum'] = $album;
+                                    $status['currentalbumartist'] = $artist;
+                                    $status['currentartist'] = $artist;
+                                    $status['currentsong'] = $title;
+                                    if (isset($repeat)) {
+                                        $status['repeat'] = $repeat;
+                                    } else {
+                                        $status['repeat'] = 0;
+                                    }
+                                    if (isset($single)) {
+                                        $status['single'] = $single;
+                                    } else {
+                                        $status['single'] = 0;
+                                    }
+                                    if (isset($random)) {
+                                        $status['random'] = $random;
+                                    } else {
+                                        $status['random'] = 0;
+                                    }
+                                    if (isset($duration)) {
+                                        $status['duration'] = $duration;
+                                        $status['time'] = $time;
+                                    } else {
+                                        $status['duration'] = 120;
+                                        $status['time'] = $status['duration'];
+                                    }
+                                    if (isset($elapsed)) {
+                                        $status['elapsed'] = $elapsed;
+                                    } else {
+                                        $status['elapsed'] = 0;
+                                    }
+                                    $status['time_last_elapsed'] = microtime(true);
+                                    $status['last_elapsed'] = $status['elapsed'];
+                                    if (isset($duration) && isset($elapsed)) {
+                                        $status['song_percent'] = round(($elapsed * 100) / $duration);
+                                    } else {
+                                        $status['song_percent'] = 0;
+                                    }
+                                    if ($songChange) {
                                         $status['mainArtURL'] = 'tmp/art/black.png';
                                         $status['bigArtURL'] = 'tmp/art/black.png';
                                         $status['smallArtURL'] = 'tmp/art/black.png';
                                         $status['artist_bio_summary'] = '';
                                         $status['artist_similar'] = '';
-                                        $status['currentalbum'] = $album;
-                                        $status['currentalbumartist'] = $artist;
-                                        $status['currentartist'] = $artist;
-                                        $status['currentsong'] = $title;
-                                        if (isset($repeat)) {
-                                            $status['repeat'] = $repeat;
-                                        } else {
-                                            $status['repeat'] = 0;
-                                        }
-                                        if (isset($single)) {
-                                            $status['single'] = $single;
-                                        } else {
-                                            $status['single'] = 0;
-                                        }
-                                        if (isset($random)) {
-                                            $status['random'] = $random;
-                                        } else {
-                                            $status['random'] = 0;
-                                        }
-                                        if (isset($duration)) {
-                                            $status['duration'] = $duration;
-                                            $status['time'] = $time;
-                                        } else {
-                                            $status['duration'] = 120;
-                                            $status['time'] = $status['duration'];
-                                        }
-                                        if (isset($elapsed)) {
-                                            $status['elapsed'] = $elapsed;
-                                            $firstTimeLastElapsed -= $elapsed;
-                                        } else {
-                                            $status['elapsed'] = 0;
-                                        }
-                                        $status['time_last_elapsed'] = microtime(true);
-                                        $status['last_elapsed'] = $status['elapsed'];
-                                        if (isset($duration) && isset($elapsed)) {
-                                            $status['song_percent'] = round(($elapsed * 100) / $duration);
-                                        } else {
-                                            $status['song_percent'] = 0;
-                                        }
-                                        ui_render($redis, 'playback', json_encode($status));
-                                        $redis->set('act_player_info', json_encode($status));
+                                        $status['song_lyrics'] = '';
+                                    }
+                                    ui_render($redis, 'playback', json_encode($status));
+                                    $redis->set('act_player_info', json_encode($status));
+                                    if ($songChange) {
                                         // now get the artist art and song information, this can take a while to retrieve
                                         $info = array();
                                         $info['artist'] = $artist;
                                         $info['albumartist'] = $artist;
                                         $info['song'] = $title;
                                         $info['album'] = $album;
+                                        $info['single'] = $status['single'];
+                                        $info = array_merge($info, wrk_get_lastfm_info($redis, $info));
+                                        $info = array_merge($info, wrk_get_musicbrainz_info($redis, $info));
+                                        $info = array_merge($info, wrk_get_discogs_info($redis, $info));
                                         $retval = get_artistInfo($redis, $info);
                                         if ($retval) {
                                             $info = array_merge($info, $retval);
@@ -1445,43 +1517,54 @@ while (true) {
                                         if ($status['currentsong'] == '') {
                                             $status['currentsong'] = 'Bluetooth';
                                         }
-                                        $trackElapsedTime = $status['time_last_elapsed'] - $status['elapsed'] + $status['time'];
-                                        unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
+                                        if ($state == 'play') {
+                                            $now = microtime(true);
+                                            $status['elapsed'] = $status['last_elapsed'] + $now - $status['time_last_elapsed'];
+                                            $status['time_last_elapsed'] = $now;
+                                            $status['last_elapsed'] = $status['elapsed'];
+                                            if (isset($status['duration']) && isset($status['elapsed'])) {
+                                                $status['song_percent'] = round(($status['elapsed'] * 100) / $status['duration']);
+                                            } else {
+                                                $status['song_percent'] = 0;
+                                            }
+                                        } else {
+                                            unset($song_percent, $status['elapsed'], $status['song_percent']);
+                                        }
                                         ui_render($redis, 'playback', json_encode($status));
+                                        unset($elapsed, $duration, $status['elapsed'], $status['song_percent']);
                                         $redis->set('act_player_info', json_encode($status));
                                         $checkElapsedCnt = 0;
-                                        $metadataCnt = 2;
-                                    } else {
-                                        // same song, we have metadata so use the duration and elapsed if available
-                                        //  do it every 60 seconds or when state changes
-                                        if (isset($duration) && isset($elapsed) && (($checkElapsedCnt-- <= 0) || $state != $status['state'])) {
-                                            $status['time_last_elapsed'] = microtime(true);
-                                            $firstTimeLastElapsed = $status['time_last_elapsed'] - $elapsed;
-                                            $status['state'] = $state;
-                                            $status['audio'] = $audio;
-                                            $status['audio_channels'] = $audio_channels;
-                                            $status['audio_sample_depth'] = $audio_sample_depth;
-                                            $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
-                                            $status['bitrate'] = $bitrate;
-                                            $status['local_volume_control'] = $local_volume_control;
-                                            $status['volume'] = $volume;
-                                            $status['duration'] = $duration;
-                                            $status['time'] = round($status['duration']);
-                                            $status['last_elapsed'] = $status['elapsed'];
-                                            $status['song_percent'] = round(($elapsed * 100) / $duration);
-                                            ui_render($redis, 'playback', json_encode($status));
-                                            unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
-                                            $redis->set('act_player_info', json_encode($status));
-                                            // repeat after 6 cycles (outside loop 2 seconds x inner loop 5 seconds)x6 = 60 seconds
-                                            $checkElapsedCnt = 6;
-                                        }
-                                        $metadataCnt = 2;
                                     }
+                                    $metadataCnt = 2;
+                                } else {
+                                    // same song
+                                    if (isset($duration) && isset($elapsed) && (($checkElapsedCnt-- <= 0) || $state != $status['state'])) {
+                                        $status['time_last_elapsed'] = microtime(true);
+                                        $status['state'] = $state;
+                                        $status['audio'] = $audio;
+                                        $status['audio_channels'] = $audio_channels;
+                                        $status['audio_sample_depth'] = $audio_sample_depth;
+                                        $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
+                                        $status['bitrate'] = $bitrate;
+                                        $status['volume'] = $volume;
+                                        $status['duration'] = $duration;
+                                        $status['time'] = round($status['duration']);
+                                        $status['elapsed'] = $elapsed;
+                                        $status['last_elapsed'] = $elapsed;
+                                        $status['time_last_elapsed'] = microtime(true);
+                                        $status['song_percent'] = round(($elapsed * 100) / $duration);
+                                        ui_render($redis, 'playback', json_encode($status));
+                                        unset($elapsed, $duration, $status['elapsed'], $status['song_percent']);
+                                        $redis->set('act_player_info', json_encode($status));
+                                        // repeat after 6 cycles (outside loop 2 seconds x inner loop 5 seconds)x6 = 60 seconds
+                                        $checkElapsedCnt = 6;
+                                    }
+                                    $metadataCnt = 2;
                                 }
                             } else {
                                 // no metadata or failed to get bluetooth metadata
                                 if ($metadataCnt-- <= 0) {
-                                    $metadataCnt = 0;
+                                    $metadataCnt = 2;
                                     $status['mainArtURL'] = 'tmp/art/bluetooth.png';
                                     $status['bigArtURL'] = 'tmp/art/black.png';
                                     $status['smallArtURL'] = 'tmp/art/black.png';
@@ -1492,79 +1575,94 @@ while (true) {
                                     $status['currentalbumartist'] = 'Streaming';
                                     $status['currentalbum'] = $btDeviceName;
                                     $status['currentsong'] = 'Bluetooth';
+                                    $status['state'] = $state;
                                     if ($state == 'play') {
                                         if ($checkElapsedCnt-- <= 0) {
-                                            $elapsed = round(microtime(true) - $firstTimeLastElapsed);
-                                            if ($elapsed == 0) {
-                                                $song_percent = 0;
+                                            $now = microtime(true);
+                                            $status['elapsed'] = round($status['last_elapsed'] + $now - $status['time_last_elapsed']);
+                                            $status['last_elapsed'] = $status['elapsed'];
+                                            $status['time_last_elapsed'] = $now;
+                                            if (!isset($status['time']) || !isset($status['duration']) || !is_numeric($status['time']) || !is_numeric($status['duration']) || ($status['time'] < 0) || ($status['duration'] < 0)) {
+                                                $status['time'] = 120;
+                                                $status['duration'] = 120;
+                                            }
+                                            if ($status['elapsed'] <= 0) {
+                                                $status['song_percent'] = 0;
+                                                $status['elapsed'] = 0;
                                             } else {
-                                                $song_percent = min(100, round((100 * $elapsed) / $time));
+                                                $status['song_percent'] = max(0, min(100, round((100 * $status['last_elapsed']) / $status['time'])));
                                             }
                                             // repeat after 12 cycles (outside loop 2 seconds x inner loop 5 seconds)x12 = 120 seconds
                                             $checkElapsedCnt = 12;
                                         } else {
-                                            unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
+                                            unset($status['elapsed'], $status['song_percent']);
                                         }
                                     } else {
-                                        $elapsed = 0;
-                                        $time = 0;
-                                        $duration = 120;
-                                        $song_percent = 0;
+                                        $status['elapsed'] = 0;
+                                        $status['last_elapsed'] = 0;
                                         $status['time_last_elapsed'] = microtime(true);
+                                        $status['time'] = 120;
+                                        $status['duration'] = 120;
+                                        $status['song_percent'] = 0;
                                     }
+                                    ui_render($redis, 'playback', json_encode($status));
+                                    unset($status['elapsed'], $status['song_percent']);
+                                    $redis->set('act_player_info', json_encode($status));
                                 }
                             }
                         }
                     }
+                    if (($state = 'stop') || ($status['state'] = 'stop')) {
+                        $bluetooth_timeout_count -= 2;
+                    } else {
+                        $bluetooth_timeout_count = $bluetooth_timeout;
+                    }
                 } else if ($redis->hGet('bluetooth', 'initialising')) {
                     runelog('rune_PL_wrk: Bluetooth is initialising');
-                    $state = 'stop';
-                    $elapsed = 0;
-                    $song_percent = 0;
-                    $status['time_last_elapsed'] = microtime(true);
                     $bluetooth_timeout_count = $bluetooth_timeout;
+                    $state = 'stop';
                 } else {
                     runelog('rune_PL_wrk: Bluetooth is not playing');
-                    $state = 'stop';
-                    $elapsed = 0;
-                    $song_percent = 0;
-                    $status['time_last_elapsed'] = microtime(true);
                     $bluetooth_timeout_count -= 2;
+                    $state = 'stop';
+                    $status['elapsed'] = 0;
+                    $status['last_elapsed'] = 0;
+                    $status['time_last_elapsed'] = microtime(true);
+                    $status['time'] = 120;
+                    $status['duration'] = 120;
+                    $status['song_percent'] = 0;
+                    $status['mainArtURL'] = 'tmp/art/bluetooth.png';
+                    $status['bigArtURL'] = 'tmp/art/black.png';
+                    $status['smallArtURL'] = 'tmp/art/black.png';
+                    $status['song_lyrics'] = '';
+                    $status['artist_bio_summary'] = '';
+                    $status['artist_similar'] = '';
+                    $status['currentartist'] = 'Streaming';
+                    $status['currentalbumartist'] = 'Streaming';
+                    $status['currentalbum'] = $btDeviceName;
+                    $status['currentsong'] = 'Bluetooth';
+                    if (
+                            ($audio != $status['audio']) ||
+                            ($state != $status['state']) ||
+                            ($volume != $status['volume'])
+                            ) {
+                        $status['state'] = $state;
+                        $status['audio'] = $audio;
+                        $status['audio_channels'] = $audio_channels;
+                        $status['audio_sample_depth'] = $audio_sample_depth;
+                        $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
+                        $status['bitrate'] = $bitrate;
+                        ui_render($redis, 'playback', json_encode($status));
+                    }
+                    unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);
+                    $redis->set('act_player_info', json_encode($status));
                 }
-                if ($bluetooth_timeout_count <= 0) {
+                if (($status['state'] = 'stop') && ($bluetooth_timeout_count <= 0)) {
+                    // bluetooth is not playing and timeout time expired
                     runelog('rune_PL_wrk: Bluetooth timeout initiated');
                     wrk_stopPlayer($redis);
-                    continue;
+                    break;
                 }
-                if (
-                        ($audio != $status['audio']) ||
-                        ($state != $status['state']) ||
-                        ($local_volume_control != $status['local_volume_control']) ||
-                        ($volume != $status['volume']) ||
-                        ($time != $status['time']) ||
-                        (isset($elapsed))
-                        ) {
-                    $status['state'] = $state;
-                    $status['audio'] = $audio;
-                    $status['audio_channels'] = $audio_channels;
-                    $status['audio_sample_depth'] = $audio_sample_depth;
-                    $status['audio_sample_rate'] = round(intval($audio_sample_rate)/1000, 1);
-                    $status['bitrate'] = $bitrate;
-                    $status['local_volume_control'] = $local_volume_control;
-                    $status['volume'] = $volume;
-                    $status['time'] = $time;
-                    $status['duration'] = $duration;
-                    if (isset($elapsed)) {
-                        $status['elapsed'] = $elapsed;
-                        $status['time_last_elapsed'] = microtime(true);
-                        $status['last_elapsed'] = $status['elapsed'];
-                        if (isset($song_percent)) {
-                            $status['song_percent'] = $song_percent;
-                        }
-                    }
-                    ui_render($redis, 'playback', json_encode($status));
-                    unset($elapsed, $song_percent, $status['elapsed'], $status['song_percent']);                }
-                    $redis->set('act_player_info', json_encode($status));
                 runelog('rune_PL_wrk: Bluetooth timeout count', $bluetooth_timeout_count);
                 // 2 second sleep
                 //  always sleep for a minimum of a quarter of a second
