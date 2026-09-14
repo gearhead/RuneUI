@@ -12348,7 +12348,7 @@ function get_albumInfo($redis, $info = array())
     // try once to retrieve the album art url from last.fm, it only occasionally returns a useful
     //  value, mostly it returns an image of a star, but when it returns something it is accurate
     if (!$info['album_arturl_large']) {
-        $info = array_merge($info, ui_lastFM_coverart($redis, $searchArtists[0], $searchAlbums[0]), ($info['song'] ?? ''));
+        $info = array_merge($info, ui_lastFM_coverart($redis, $searchArtists[0], $searchAlbums[0], ($info['song'] ?? '')));
     }
     //
     // album art is normally sourced from coverartarchive.org using album_mbid as key
