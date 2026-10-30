@@ -35,7 +35,7 @@
 if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
     require_once($_SERVER['HOME'].'/app/config/config.php');
 } else {
-    require_once('/var/www/app/config/config.php');
+    require_once('/srv/http/app/config/config.php');
 }
 $response = 'OK';
 // check current player backend

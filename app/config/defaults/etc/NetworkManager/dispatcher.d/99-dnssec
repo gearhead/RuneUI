@@ -26,12 +26,12 @@
 #  along with RuneAudio; see the file COPYING. If not, see
 #  <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
-#  file: app/default/config/etc/NetworkManager/dsipatch.d/dnssec_fix
+#  file: app/default/config/etc/NetworkManager/dsipatch.d/99-dnssec
 #  version: 0.7
 #  coder: gearhead
 #  date: February 2026
 #
-# The RPi doe snot have a real time clock and at bootup, the time may not be close enough to sync
+# The RPi does not have a real time clock and at bootup, the time may not be close enough to sync
 # When systemd-resolved is running with DNSSEC switched on the nts time servers will return an invalid
 # response when the certificate is checked and therefore not be available to sync time
 # at boot because time is incorrect. The incorrect time prevents systemd-resolved resoving the NTS URL's
@@ -43,7 +43,6 @@
 # DNSSEC will only be enabled when the redis variable network_dnssec has a value of 1
 #
 
-#!/bin/bash
 # Handle DNSSEC on devices without RTC (e.g. Raspberry Pi)
 # When DNSSEC is enabled, temporarily disable it until time is synced
 # then re-enable it to ensure valid DNSSEC validation

@@ -36,7 +36,7 @@
 if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
     require_once($_SERVER['HOME'].'/app/config/config.php');
 } else {
-    require_once('/var/www/app/config/config.php');
+    require_once('/srv/http/app/config/config.php');
 }
 ini_set('display_errors', -1);
 error_reporting(E_ALL);

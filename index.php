@@ -37,9 +37,9 @@ if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/ro
     // main include
     require_once($_SERVER['HOME'].'/app/libs/vendor/autoload.php');
 } else {
-    require_once('/var/www/app/config/config.php');
+    require_once('/srv/http/app/config/config.php');
     // main include
-    require_once('/var/www/app/libs/vendor/autoload.php');
+    require_once('/srv/http/app/libs/vendor/autoload.php');
 }
 // open session
 session_start();

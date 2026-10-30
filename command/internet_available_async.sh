@@ -44,7 +44,7 @@ down=$( ip -o -br  address | grep -i 'down' | cut -d ' ' -f1 | xargs )
 # get a list of all nics which have an IP address
 ip_address=$( ip -o address | cut -d ' ' -f 2 | sort -u | xargs )
 # get a list of all Wi-Fi nics
-nics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
+nics=$( iw dev | grep -i '^\s*interface' | cut -d ' ' -f2 | xargs )
 # determine if Wi-Fi is on
 allwifi_on=$( redis-cli get allwifi_on )
 # determine if access point is on
@@ -180,16 +180,12 @@ for nic in $nics ; do
             ip link set dev $nic down
         fi
     fi
-done
-# scan for wireless networks
-if [ "$allwifi_on" == "1" ] && [ "$ap_on" == "1" ] ; then
-    # wifi is on and the access point is on
-    if [ "$wifinicdown" == "1" ] ; then
-        # at least one wifi nic is down
-#        connmanctl scan wifi
-        iw dev wlan0 scan &>/dev/null
+    # scan for wireless networks
+    if [ "$allwifi_on" == "1" ] ; then
+        # wifi is on for active wifi nics, just trigger the scan - don’t wait for the output
+        iw dev $nic scan trigger
     fi
-fi
+done
 #
 # determine if there is a non-AP nic which is up
 up_cnt="0"

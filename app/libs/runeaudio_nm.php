@@ -2431,7 +2431,7 @@ function wrk_backup($redis, $bktype = null)
     // build up the backup command string
     if ($bktype === 'dev') {
         $filepath = $fileDestDir.'dev-backup-total-'.date("Y-m-d").'.tar.gz';
-        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null ; redis-cli save ; sync ; \\\n".
+        $cmdstring = "rm -f '".$fileDestDir."backup-*' &> /dev/null; redis-cli save ; sync ; \\\n".
             " bsdtar -c -z -p -f '".$filepath."' \\\n".
             " /mnt/MPD/Webradio \\\n".
             " /var/lib/redis/rune.rdb \\\n".
@@ -2748,17 +2748,14 @@ function wrk_apconfig($redis, $action, $args = null, $jobID = null)
                     sysCmd('sysctl net.ipv4.ip_forward=0');
                     $redis->hSet('AccessPoint', 'NAT-configured', 0);
                 }
-                // stop the hostapd AP jobs if they are running
-//                wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
-                // stop and remove the iwd access point
+                // stop and remove the AP
                 $interface = $redis->hGet('AccessPoint', 'interface');
-// this may be with hostapd instead of iwd...
-                exec('systemctl is-active --quiet iwd', $_, $code); $useIwd = !$code;
-                if ($useIwd) {
+                if (wrk_systemd_unit($redis, 'is-active', 'iwd')) {
+                    // iwd is running (with connman) stop the AP with iwctl
                     sysCmd('iwctl ap '.$interface.' stop');
                 } else {
-                    wrk_systemd_unit($redis, 'stop', 'hostapd');
-                    wrk_systemd_unit($redis, 'stop', 'dnsmasq');
+                    // NetworkManager is running, stop the hostapd and dnsmasq AP jobs if they are running
+                    wrk_systemd_unit($redis, 'stop', 'hostapd dnsmasq');
                 }
                 // get the wlan nic used for accesspoint
                 $wlanNic = $redis->hGet('AccessPoint', 'wlanNic');
@@ -2966,10 +2963,18 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                     $value     = trim($recordcontent[1]);
                     if ($parameter === 'name' && $value) {
                         $profilearray[++$counter]['name'] = $value;
-                    } elseif ($parameter === 'passphrase' && $value) {
+                    } elseif ($parameter === 'passphrase' && $value && !isset($profilearray[$counter]['passphrase'])) {
                         $profilearray[$counter]['passphrase'] = $value;
-                    } elseif ($parameter === 'hidden') {
+                    } elseif ($parameter === 'hidden' && $value && !isset($profilearray[$counter]['hidden'])) {
                         $profilearray[$counter]['hidden'] = filter_var(strtolower($value), FILTER_VALIDATE_BOOLEAN);
+                    } elseif ($parameter === 'security' && $value && !isset($profilearray[$counter]['security'])) {
+                        // remove whitespace
+                        $value = strtolower(preg_replace('/\s/u', '', $value));
+                        if (!strpos(' wep wpa wpa1 wpa2 wpa3 ', $value)) {
+                            // not a valid network type
+                            continue;
+                        }
+                        $profilearray[$counter]['security'] = strtoupper($value);
                     }
                 }
                 sysCmd('rm \'' . $directory . DIRECTORY_SEPARATOR . $fileName . '\'');
@@ -2989,6 +2994,9 @@ function wrk_netconfig($redis, $action, $arg = '', $args = array())
                 ];
                 if (isset($profile['hidden'])) {
                     $storedProfiles[$ssidHexKey]['hidden'] = (bool)$profile['hidden'];
+                }
+                if (isset($profile['security'])) {
+                    $storedProfiles[$ssidHexKey]['security'] = $profile['security'];
                 }
                 $ssidCol = array_map('strtolower', array_column($storedProfiles, 'ssid'));
                 array_multisort($ssidCol, SORT_ASC, $storedProfiles);
@@ -3407,20 +3415,94 @@ function connectWifi($redis, $args, $options = [])
     $connName    = 'wifi-' . $args['nic'] . '-' . $args['ssid'];
     $connNameEsc = escapeshellarg($connName);
     $ipv6Method  = $redis->get('network_ipv6') ? 'auto' : 'disabled';
+    $args['security'] = get_highest_wifi_security($args['security']);
 
     // Delete any existing profile for this connection (one call)
     sysCmd("nmcli connection delete $connNameEsc 2>/dev/null");
 
-    // Build a single `nmcli connection add` call with all parameters.
-    // This replaces the original pattern of add + multiple modify calls,
-    // saving 3-6 separate process forks.
+    // Some documentation concerning the various networks
+    // OPEN        - Supported, never set to autoconnect, must be explicitly connected each time
+    //               e.g. nmcli connection add type wifi con-name "MyOpenNet" ifname "wlan0" ssid "OpenWiFi" wifi-sec.key-mgmt "none"
+    // OWE         - Supported, ever set to autoconnect, must be explicitly connected each time
+    //               e.g. nmcli connection add type wifi con-name "MyOweNet" ifname "wlan0" ssid "SecureOpenWiFi" wifi-sec.key-mgmt "owe"
+    // WEP         - Supported, not advised
+    //               e.g. nmcli connection add type wifi con-name "WepOsaNet" ifname "wlan0" ssid "LegacyWiFi" wifi-sec.key-mgmt "none" wifi-sec.wep-key0 "mywepkey12345"
+    // WPA1 PSK    - Third choice also know as WPA
+    //               e.g. nmcli connection add type wifi con-name "Wpa1Net" ifname "wlan0" ssid "LegacyWpaWiFi" wifi-sec.key-mgmt "wpa-psk" wifi-sec.psk "mywpapassword123"
+    // WPA1 802.1X - Not Supported
+    //               e.g. nmcli connection add type wifi con-name "MyCorpNet" ifname "wlan0" ssid "CompanyWiFi" -- wifi-sec.key-mgmt "wpa-eap" 802-1x.eap "peap" 802-1x.phase2-auth "mschapv2" 802-1x.identity "username@company.com" 802-1x.password "UserPassword123"
+    // WPA2 PSK    - The default also known as WPA2
+    //               e.g nmcli connection add type wifi con-name "Wpa2Net" ifname "wlan0" ssid "MyWpa2WiFi" wifi-sec.key-mgmt "wpa-psk" wifi-sec.proto "rsn" wifi-sec.pairwise "ccmp" wifi-sec.group "ccmp" wifi-sec.psk "mywpa2password123"
+    // WPA2 802.1X - Not Supported
+    //               e.g nmcli connection add type wifi con-name "My8021xNet" ifname ""wlan0"" ssid "CompanyWiFi" wifi-sec.key-mgmt "wpa-eap" 802-1x.eap "peap" 802-1x.identity "jouw_gebruikersnaam" 802-1x.password "jouw_wachtwoord" 802-1x.phase2-auth "mschapv2"
+    // WPA3 SAE    - Preferred also known as WPA3
+    //               e.g. nmcli connection add type wifi con-name "MyWpa3Net" ifname "wlan0" ssid "ModernWiFi" wifi-sec.key-mgmt "sae" 802-11-wireless.pmf 2 wifi-sec.psk "MySecretPassword123"
+    // WPA3 802.1X - Not Supported
+    //               e.g. nmcli connection add type wifi con-name "MyWpa3Enterprise" ifname "wlan0" ssid "SecureModernWiFi" wifi-sec.key-mgmt "wpa-eap" 802-11-wireless.pmf 2 802-1x.eap "peap" 802-1x.identity "jouw_gebruikersnaam" 802-1x.password "jouw_wachtwoord" 802-1x.phase2-auth "mschapv2"
+    // It is possible to set up wep to supports WEP1 and WEP2 networks
+    //              e.g nmcli connection add type wifi con-name "MyWpa1Wpa2" ifname "wlan0" ssid "ModernWiFi" wifi-sec.key-mgmt "wpa-psk" wifi-sec.proto "wpa rsn" wifi-sec.pairwise "tkip ccmp" wifi-sec.group "tkip ccmp" wifi-sec.psk "MySecretPassword123"
+    // It is possible to set up wep to supports WEP2 and WEP3 networks
+    //              e.g nmcli connection add type wifi con-name "WiFi_Modern" ifname "wlan0" ssid "ModernWiFi" wifi-sec.key-mgmt "sae" 802-11-wireless.pmf 1 wifi-sec.proto "rsn" wifi-sec.psk "MySecretPassword123" wifi-sec.sae-password "MySecretPassword123"
+    //
+    // OPEN, OWE and WEP are connected using their respective native command
+    // WPA WPA1 PSK, WPA1 802.1X, WPA2 PSK, WPA2 802.1X are connected using the WEP1/WEP2 combined command
+    // WPA3 SAE and WPA3 802.1X are connected using the WEP2/WEP3 combined command
+    // hidden networks are always connected using the WEP1/WEP2 combined command because we cannot pre-determine the security type, however it could be specified
+
     if (!empty($args['passphrase'])) {
         $passEsc  = escapeshellarg($args['passphrase']);
-        $security = "wifi-sec.key-mgmt wpa-psk wifi-sec.psk $passEsc";
-    } else {
-        $security = 'wifi-sec.key-mgmt none';
-    }
+        $security = strtoupper($args['security']);
+        switch ($security) {
+            // WEP types
+            case 'WEP':
+            case 'WEP1':
+            case 'WEP2':
+                ui_notify($redis, 'Network', 'An insecure WEP network has been detected. Attempting to connect. THIS NETWORK IS NOT SECURE, you should change you router security settings to WPA or replace your router');
+                $security = "wifi-sec.key-mgmt 'none' wifi-sec.wep-key0 $passEsc";
+                break;
 
+            // WPA3 types, connect in WPA2/WPA3 compatibility mode
+            case 'WPA3 802.1X':
+                ui_notify($redis, 'Network', 'An unsupported '.$args['security'].' network has been detected attempting to connect using WPA2/WPA3 compatibility mode');
+            case 'WPA3':
+            case 'WPA3 SAE':
+                $security = "wifi-sec.key-mgmt 'sae' 802-11-wireless.pmf 1 wifi-sec.proto 'rsn' wifi-sec.psk $passEsc wifi-sec.sae-password $passEsc";
+                break;
+
+            // WPA WPA1, WPA2 and undefined types, connect in WPA1/WPA2 compatibility mode
+            case 'WPA1 802.1X':
+            case 'WPA2 802.1X':
+                ui_notify($redis, 'Network', 'An unsupported '.$args['security'].' network has been detected attempting to connect using WPA1/WPA2 compatibility mode');
+            case 'WPA':
+            case 'WPA1 PSK':
+            case 'WPA2 PSK':
+            default:
+                $security = "wifi-sec.key-mgmt 'wpa-psk' wifi-sec.proto 'wpa rsn' wifi-sec.pairwise 'tkip ccmp' wifi-sec.group 'tkip ccmp' wifi-sec.psk $passEsc";
+                break;
+        }
+        $autoconnect = "connection.autoconnect yes";
+    } else {
+        switch ($args['security']) {
+            // OWE
+            case 'OWE':
+                $security = "wifi-sec.key-mgmt 'owe'";
+                break;
+
+            // OPEN and undefined types
+            case "OPEN":
+            default:
+                $security = "wifi-sec.key-mgmt 'none'";
+                break;
+        }
+        $autoconnect = "connection.autoconnect no";
+    }
+    // set up for hidden networks
+    if (isset($args['hidden']) && $args['hidden']) {
+        $hidden = "802-11-wireless.hidden yes";
+    } else {
+        $hidden = "802-11-wireless.hidden no";
+    }
+    // set up the fixed IP /DHCP connection
     if (strtoupper($args['ipAssignment'] ?? 'DHCP') === 'STATIC') {
         $ipCIDR  = escapeshellarg($args['ipv4Address'] . '/' . $args['ipv4Mask']);
         $gw      = escapeshellarg($args['defaultGateway']);
@@ -3432,16 +3514,36 @@ function connectWifi($redis, $args, $options = [])
     }
 
     // One call to add the connection with all settings in place
+    echo 
+        "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc \\\n" .
+        "$security \\\n" .
+        "$ipv4 \\\n" .
+        "ipv6.method $ipv6Method \\\n" .
+        "$autoconnect \\\n" .
+        "$hidden\n";
+    $redis->set('wrk_connect', "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc \\\n" .
+        "$security \\\n" .
+        "$ipv4 \\\n" .
+        "ipv6.method $ipv6Method \\\n" .
+        "$autoconnect \\\n" .
+        "$hidden");
     sysCmd(
-        "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc " .
-        "$security " .
-        "$ipv4 " .
-        "ipv6.method $ipv6Method " .
-        "connection.autoconnect yes"
+        "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc \\\n" .
+        "$security \\\n" .
+        "$ipv4 \\\n" .
+        "ipv6.method $ipv6Method \\\n" .
+        "$autoconnect \\\n" .
+        "$hidden"
     );
 
     // Bring the connection up
-    sysCmd("nmcli connection up $connNameEsc");
+    // normally OWE and OPEN connections are not automatically connected, but this routine is only called
+    // when an explicit connect is issued via the UI or via the boot initialise routine
+    if (sysCmd("nmcli connection up $connNameEsc >/dev/null 2>&1 | echo $? | xargs")) {
+        ui_notifyError($redis, 'Network', 'Failed to connect network '.$args['ssid'].' on '.$args['nic']);
+    } else {
+        ui_notify($redis, 'Network', 'Network '.$args['ssid'].' connected on '.$args['nic']);
+    }
 }
 
 function disconnectWifi($redis, $args, $options = [])
@@ -3535,14 +3637,14 @@ function wrk_audioOutput($redis, $action, $data=null)
                 // handle vc4 as hardware cards
                 if ($redis->get('audio_on_off')) {
                     // all cards when on-board audio is enabled
-                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback"');
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback" | grep -v "Dummy PCM"');
                 } else {
                     // eliminate hdmi cards when on-board audio is disabled
-                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback" | grep -vi "hdmi"');
+                    $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "loopback" | grep -v "Dummy PCM" | grep -vi "hdmi"');
                 }
             } else {
                 // eliminate vc4 from the hardware cards
-                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback"');
+                $cardlist = sysCmd('aplay -l -v | grep -i "^card " | grep -vi "vc4" | grep -vi "loopback" | grep -v "Dummy PCM"');
                 // handle vc4 as software cards, but only when on-board audio is enabled
                 if ($redis->get('audio_on_off')) {
                     // get a separate list of SW HDMI vc4 cards
@@ -5024,6 +5126,7 @@ function wrk_mpdconf($redis, $action, $args = null, $jobID = null)
             $output .="\tformat \t\t\"".$redis->hGet('owntone', 'rate').":".preg_replace('|[^0-9]|', '', $redis->hGet('owntone', 'format')).":2\"\n";
             $output .= "\tdevice \t\t\"".$redis->hGet('owntone', 'device_mpd')."\"\n";
             // null mixer
+            $output .= "\treplay_gain_handler \"none\"\n";
             $output .= "\tmixer_type \t\"null\"\n";
             $output .="\tauto_resample \t\"no\"\n";
             $output .="\tauto_format \t\"no\"\n";
@@ -6232,7 +6335,7 @@ function wrk_sourcemount($redis, $action, $id = null, $quiet = 0, $quick = 0)
                 }
             }
             // strip special characters, spaces, tabs, etc. (hex 00 to 20 and 7F), from the options string
-            $mp['options'] = preg_replace("|[\\x00-\\x20\\x7F]|u", "", $mp['options']);
+            $mp['options'] = preg_replace('/[^\PC\s]/u', '', $mp['options']);
             // trim leasing and trailing whitespace from username and password
             $mp['username'] = trim($mp['username']);
             $mp['password'] = trim($mp['password']);
@@ -7276,6 +7379,10 @@ function wrk_restartSamba($redis, $args = 'restart')
         // all detected variations are used to stop samba
         // start order: (smb or smdb), (nmb or nmbd), (winbind or winbindd) then wsdd - this is important!
         // stop order: wsdd, winbindd, winbind, nmbd then nmb, smbd, smd (each being stopped when applicable)
+        // in addition to this complexity, on a modern samba configuration nmb(d) and winbind(d) are normally disabled and masked,
+        //  therefore only smb(d) will be started, stopped or reloaded
+        //  the logic for masking/unmasking nmb(d) and winbind(d) is handled by the samba_pre_symlinks service which also handles
+        //      the selection of the correct [global] configuration file for samba based on the hardware and rpios version
         if (is_file('/usr/lib/systemd/system/smb.service') && !is_link('/usr/lib/systemd/system/smb.service')) {
             $stopServiceNames[6] = 'smb';
             $startServiceNames[0] = 'smb';
@@ -7405,7 +7512,7 @@ function wrk_restartSamba($redis, $args = 'restart')
         // when samba is enabled RuneAudio takes ages to boot
         //  samba will be started by rune_SY_wrk when it runs command/usbmount
         // sysCmd($sambaEnableCommand);
-        if ($args != 'reload') {
+        if ($args == 'reload') {
             runelog('Samba Reloading...', '');
             sysCmd($sambaReloadCommand);
         } else {
@@ -8265,19 +8372,15 @@ function ui_lastFM_coverart($redis, $artist, $album, $song=null)
     // album art is rarely supplied by last.fm, but when it is supplied it is accurate
     //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
     //  four images are supplied by last.fm: small, medium, large and extralarge
-    //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
-    // image key [2] == large last.fm image
+    //  we use the last.fm extralarge image as our small medium and large images
     // image key [3] == extralarge last.fm image
     $info = array();
     if (isset($retval['album']['mbid']) && $retval['album']['mbid']) {
         $info['album_mbid'] = $retval['album']['mbid'];
     }
-    if (isset($retval['album']['image'][2]['#text']) && $retval['album']['image'][2]['#text'] && !stripos(' '.$retval['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
-        // album art info is valid, use it
-        $info['album_arturl_small'] = trim($retval['album']['image'][2]['#text']);
-    }
     if (isset($retval['album']['image'][3]['#text']) && $retval['album']['image'][3]['#text'] && !stripos(' '.$retval['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
         // album art info is valid, use it
+        $info['album_arturl_small'] = trim($retval['album']['image'][3]['#text']);
         $info['album_arturl_medium'] = trim($retval['album']['image'][3]['#text']);
         $info['album_arturl_large'] = trim($retval['album']['image'][3]['#text']);
     }
@@ -8802,16 +8905,11 @@ function webradioStringClean($string)
 {
     // do some basic cleanup
     $string = urldecode($string);
-    $string = html_entity_decode($string);
-    $string = htmlentities($string, ENT_XML1 | ENT_SUBSTITUTE | ENT_DISALLOWED, 'UTF-8');
-    // trim after replacing all combinations of single or multiple tab, space, <cr> and <lf> and slash with a single space
-    $string = trim(preg_replace('/[\t\n\r\s]+/u', ' ', $string));
+    $string = html_entity_decode($string, ENT_XML1 | ENT_SUBSTITUTE, 'UTF-8');
     // convert escaped characters to their actual value
     $string = stripcslashes($string);
     // replace characters with accents, etc. with normal characters
     $string = squashCharacters($string);
-    // replace characters outside of the hex range 00 to FF with a space
-    $string = preg_replace("/[^\x{00}-\x{FF}]+/u", ' ', $string);
     // remove leading and trailing spaces, tabs, linefeeds, etc. after reducing all whitespace to a single space
     $string = trim(preg_replace('!\s+!u', ' ', $string));
     return $string;
@@ -9022,18 +9120,18 @@ function refresh_nics($redis)
 
     $excluded_nics = ['ifb0', 'ifb1', 'p2p0', 'bridge', 'lo'];
 
-    if ($redis->get('allwifi_on')) {
-        $enabled_technology  = ['wifi', 'ethernet'];
-        $disabled_technology = [];
-        $process_technology  = ['wifi', 'ethernet'];
-    } else {
-        $enabled_technology  = ['ethernet'];
-        $disabled_technology = ['wifi'];
-        $process_technology  = ['wifi', 'ethernet'];
-    }
+    // if ($redis->get('allwifi_on')) {
+        // $enabled_technology  = ['wifi', 'ethernet'];
+        // $disabled_technology = [];
+        // $process_technology  = ['wifi', 'ethernet'];
+    // } else {
+        // $enabled_technology  = ['ethernet'];
+        // $disabled_technology = ['wifi'];
+        // $process_technology  = ['wifi', 'ethernet'];
+    // }
 
-    foreach ($enabled_technology  as $technology) { /* Enable logic if needed  */ }
-    foreach ($disabled_technology as $technology) { /* Disable logic if needed */ }
+    // foreach ($enabled_technology  as $technology) { /* Enable logic if needed  */ }
+    // foreach ($disabled_technology as $technology) { /* Disable logic if needed */ }
 
     // Default gateway
     $defaultGateway = sysCmd("ip route | grep -i 'default via'");
@@ -9464,15 +9562,14 @@ function refresh_nics($redis)
                 : '000000000000';
         }
 
-        // Trigger rescan then poll — avoids the hard sleep(2) in the original
-        sysCmd('nmcli device wifi rescan ifname ' . $nic . ' 2>/dev/null');
-
-        $wifiList = [];
-        $attempts = 0;
-        while (empty($wifiList) && $attempts < 4) {
-            usleep(500000); // 0.5 s per attempt, max 2 s total
-            $wifiList = sysCmd('nmcli -t -f SSID,SIGNAL,SECURITY -m multiline device wifi list ifname ' . $nic);
-            $attempts++;
+        // The wifi network rescan is carried out in command/internet_available.sh every 15 minuets
+        // sysCmd('nmcli device wifi rescan');
+        // try once to get the information, this will normally work fine
+        $wifiList = sysCmd('nmcli -t -f SSID,SIGNAL,SECURITY -m multiline device wifi list ifname ' . $nic);
+        $attempts = 2;
+        // if no information is returned try again twice, but now with a forced refresh before retrieval
+        while (empty($wifiList) && $attempts-- <= 0) {
+            $wifiList = sysCmd('nmcli -t -f SSID,SIGNAL,SECURITY -m multiline device wifi list ifname ' . $nic .' --rescan yes');
         }
 
         if (empty($wifiList)) continue;
@@ -9734,6 +9831,55 @@ function refresh_nics($redis)
     return $networkInterfaces;
 }
 
+// function to parse an nmcli security string and returns ONLY the highest security type,
+// fully resolving any implicit AKM modifiers (e.g. assuming PSK if omitted)
+function get_highest_wifi_security(string $securityString): string
+// @param string $securityString - the raw security string from nmcli (e.g., "WPA2 WPA3 SAE")
+// @return string - the single highest security type resolved (e.g., "WPA3 SAE")
+{
+    $securityString = trim($securityString);
+    if ($securityString === '--' || empty($securityString)) {
+        return 'OPEN';
+    }
+    // 1. define the security ranking from lowest (0) to highest (7)
+    $rankings = [
+        'OPEN'         => 0,
+        'OWE'          => 1,
+        'WEP'          => 2,
+        'WPA1 PSK'     => 3,
+        'WPA1 802.1X'  => 4,
+        'WPA2 PSK'     => 5,
+        'WPA2 802.1X'  => 6,
+        'WPA3 SAE'     => 7,
+        'WPA3 802.1X'  => 8
+    ];
+    // 2. extract base protocols (WPA1, WPA2, WPA3, WEP, OWE)
+    // we split on spaces, but ensure we don't break modifiers apart yet
+    preg_match_all('/(?:WPA\s+(?:PSK|SAE|802\.1X)|WPA|WEP|OWE)/i', $securityString, $matches);
+    $foundProtocols = !empty($matches[0]) ? $matches[0] : array_filter(explode(' ', $securityString));
+    $highestNormalized = 'OPEN';
+    $highestScore = -1;
+    foreach ($foundProtocols as $rawProtocol) {
+        $normalized = strtoupper(trim($rawProtocol));
+        // 3. Resolve Implicit Modifiers
+        // If it's pure WPA1 / WPA2 / WPA3 without an AKM modifier, the default is PSK/SAE
+        if ($normalized === 'WPA1') {
+            $normalized = 'WPA1 PSK';
+        } elseif ($normalized === 'WPA2') {
+            $normalized = 'WPA2 PSK';
+        } elseif ($normalized === 'WPA3') {
+            $normalized = 'WPA3 SAE';
+        }
+        // 4. score and compare
+        $currentScore = isset($rankings[$normalized]) ? $rankings[$normalized] : 0;
+        if ($currentScore > $highestScore) {
+            $highestScore = $currentScore;
+            $highestNormalized = $normalized;
+        }
+    }
+    return $highestNormalized;
+}
+
 // function to correct a cheap network card which all seem to have the same MAC address (00:e0:4c:53:44:58)
 function fix_mac($redis, $nic)
 {
@@ -9773,8 +9919,8 @@ function fix_mac($redis, $nic)
 //    $connmanConfDir = '/var/lib/connman/*'.str_replace(':','',$macCurrent).'*';
 //    sysCmd('rm -fr '.$connmanConfDir);
 //    wrk_systemd_unit($redis, 'reload-or-restart', 'connman');
-    // construct a systemd unit file to automatically change the MAC address on boot
-    $file = '/etc/systemd/system/macfix_'.$nic.'.service';
+    // construct a systemd network link file to automatically change the MAC address on boot
+    $file = '/etc/systemd/network/99-rune-'.$nic.'-mac-fix.link';
     // clear the cache otherwise file_exists() returns incorrect values
     clearstatcache(true, $file);
     if ((!file_exists($file)) || (!sysCmd('grep -ihc '.$macNew.' '.$file)[0])) {
@@ -9782,27 +9928,21 @@ function fix_mac($redis, $nic)
         $fileContent = '# file '.$file."\n"
             .'# some cheap network cards have an identical MAC address for all cards (e.g. 00:e0:4c:53:44:58)'."\n"
             .'# change it to a fixed (previouly ranomised) address'."\n"
-            .'# this service is for nic:'.$nic.', spoofing to the Mac Address:'.$macNew."\n"
-            .'# once activated the spoofed address will remain for the nic, regardless of the need'."\n\n"
-            .'[Unit]'."\n"
-            .'Description=MAC Address Fix for '.$nic.' when it has the MAC address: '.$macCurrent."\n"
-            // .'Wants=network-pre.target'."\n"
-            // .'Before=network-pre.target'."\n"
-            // .'BindsTo=sys-subsystem-net-devices-'.$nic.'.device'."\n"
-            // .'After=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
-            .'PartOf=sys-subsystem-net-devices-'.$nic.'.device'."\n\n"
-            .'[Service]'."\n"
-            // .'Type=oneshot'."\n"
-            ."ExecStart=/bin/bash -c '/usr/bin/ip link set dev ".$nic.' address '.$macNew.' ; /usr/bin/ip link set dev '.$nic.' down ; /usr/bin/ip link set dev '.$nic.' up'."'\n"
-            .'[Install]'."\n"
-            .'WantedBy=multi-user.target'."\n";
+            .'[Match]'."\n"
+             .'OriginalName='.$nic."\n";
+         foreach ($networkSpoofArray as $mac) {
+             if (!isset($mac) || !$mac) {
+                 continue;
+             }
+             $fileContent .= 'PermanentMACAddress='.$mac."\n";
+         }
+         $fileContent .= '[Network]'."\n"
+            .'MACAddress=00:e0:4c:7d:b1:38'."\n";
         // write the file
         $fp = fopen($file, 'w');
         fwrite($fp, $fileContent);
         fclose($fp);
     }
-    // enable the service
-    wrk_systemd_unit($redis, 'enable', 'macfix_'.$nic);
     return $macNew;
 }
 // work function to set, reset of check (including start and stop) ashuffle
@@ -10392,7 +10532,7 @@ function wrk_check_MPD_outputs($redis)
 function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
 // when $clearAll is set to a true value all cached information will be cleared
 // it should be noted that the synchronisation of a upper directory with a lower directory within a overlay file system should
-//  not work correctly or consistently
+//  NOT work correctly or consistently
 //  the overlay file system is not aware of the synchronisation action and it remembers what should be in the upper and lower
 //      directories regardless of their actual content
 //      there is a trick implemented to make it work, see the last lines in this function for details
@@ -10482,24 +10622,19 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         $cleaned = true;
     }
     unset($today);
-    // check for large files
-    // if they exist in the lower directory delete them in the upper directory
+    // check for large jpg files
+    // if they exist in the lower directory delete them
     // this should not be happening, but it is:
     //  the remounting of the overlay cache could be creating anomalies or the ImageMagick size reduction is sometimes failing
     if ($overlay_art_cache) {
-        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
-        if ($maxsize == 0) {
-            // when $maxsize is unset, set it to 100 and save it
-            $maxsize = 100;
-            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
-        }
+        $maxsize = 100;
         // we are interested in *.jpg files created more than 15 minutes ago with a size greater than $maxsize
         $files = sysCmd("find '".$cleanUpperDir."' -maxdepth 1 -type f -mmin +15 -size +".$maxsize."k -name '*.jpg'");
         foreach ($files as $file) {
             $fileName = $cleanLowerDir.'/'.basename($file);
             clearstatcache(true, $fileName);
             if (file_exists($fileName)) {
-                unlink($file);
+                unlink($fileName);
                 $cleaned = true;
             }
         }
@@ -10600,169 +10735,358 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
             }
         }
     }
-    if (!$overlay_art_cache) {
-        // lower directory not in use
-        return;
-    }
-    // clean up the album art files in the lower directory
-    //
-    // files in the $requiredFiles array are never deleted
-    $requiredFiles = array();
-    $fileToSave = 0;
-    //
-    // always remove files which over 3 months (90 days) old
-    //  and files without content after 1 month (30 days)
-    //  and song files created when the lyrics service was down after 2 days
-    //  do it once per day!
-    //  spread the load by performing the actions on separate runs of this script
-    $today = date("Y-m-d");
-    if ($today != $redis->hGet('cleancache', '90lowerdate')) {
-        // the following command removes all files from the lower directory which are older than 90 days
-        // the strategy is that we have used them for 3 months, but their source information may now have changed
-        // song files are never deleted, these contain validated lyrics, those without lyrics are deleted elsewhere
-        sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +90 \! -name *.song -exec rm {} \;');
-        $redis->hSet('cleancache', '90lowerdate', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '60lowerdate_jpg')) {
-        // the following command removes all *.jpg files from the lower directory which are older than 60 days
-        // the strategy is that we have used them for 2 months, but their source information may now have changed
-        // these files can be large
-        sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +60 -exec rm {} \;");
-        $redis->hSet('cleancache', '60lowerdate_jpg', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
-        // the following command removes all *.mpd files from the lower directory which are older than 30 days
-        // the strategy is that we have used them for 1 month, but their source information may now have changed
-        // there is one file for each played song, so lots of files
-        sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
-        $redis->hSet('cleancache', '30lowerdate_mpd', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
-        // artist files without any content (these can contain the text 'Sorry, no details available') are deleted after 30 days
-        // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
-        //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.artist' > '/tmp/exclude.filelist'");
-        //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Sorry, no details available' ".$cleanLowerDir."/*.artist &> /dev/null");
-        //  remove the exclude file
-        unlink('/tmp/exclude.filelist');
-        // delete the files
-        foreach ($files as $file) {
-            unlink($file);
-        }
-        $redis->hSet('cleancache', '30lowerdate_artist', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
-        // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted' or 'We don't have lyrics for this song') are
-        //  deleted after 30 days
-        // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
-        //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
-        //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
-        $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted|We don't have lyrics for this song' ".$cleanLowerDir."/*.song &> /dev/null");
-        //  remove the exclude file
-        unlink('/tmp/exclude.filelist');
-        // delete the files
-        foreach ($files as $file) {
-            unlink($file);
-        }
-        $redis->hSet('cleancache', '30lowerdate_song', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '1lowerdate_song')) {
-        // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
-        // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
-        //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' > '/tmp/exclude.filelist'");
-        //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song &> /dev/null");
-        //  remove the exclude file
-        unlink('/tmp/exclude.filelist');
-        // delete the files
-        foreach ($files as $file) {
-            unlink($file);
-        }
-        $redis->hSet('cleancache', '1lowerdate_song', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '1lowerdate_spotify')) {
-        // incomplete spotify artist and song files (these can contain the text 'artist":"Spotify"') are deleted after 1 day
-        // these files are created when the spotify metadata screen scraper has timed out, they have no real cached value
-        //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
-        //  they all have 'spotify' as the artist, so most have a file name 'spotify*.*'
-        sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name 'spotify*.*' > '/tmp/exclude.filelist'");
-        //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
-        $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'artist\":\"Spotify\"' ".$cleanLowerDir."/* &> /dev/null");
-        //  remove the exclude file
-        unlink('/tmp/exclude.filelist');
-        // delete the files
-        foreach ($files as $file) {
-            unlink($file);
-        }
-        $redis->hSet('cleancache', '1lowerdate_song', $today);
-        $cleaned = true;
-    } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
-        // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
-        // even though ImageMagick shows an error the files can be converted correctly, here we try to convert large the files again
-        // Important: only files with an image size larger than the specified magick options will be converted, regardless of the file size
-        //  there seems to be a bug in ImageMagick which causes repeatedly resized files to grow by about 150b per conversion
-        //  resizing files changes their creation date, so these will never be purged after their cache-expiry (30 days)
-        $maxsize = intval($redis->hGet('cleancache', 'max_lower_size'));
-        if ($maxsize == 0) {
-            // when $maxsize is unset, set it to 100 and save it
-            $maxsize = 100;
-            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
-        }
-        // we search for *.jpg files with a file size greater than $maxsize
-        $files = sysCmd("find '".$cleanLowerDir."' -maxdepth 1 -type f -size +".$maxsize."k -name '*.jpg'");
-        // convert the files
-        $magick_opts = trim($redis->hGet('magick', 'opts'));
-        $magick_resize = trim($redis->hGet('magick', 'resize'));
-        $magickSize = substr($magick_resize, 0, strpos($magick_resize, 'x'));
-        $reduceMaxsize = true;
-        foreach ($files as $file) {
-            // check that it is a valid image file, get some information about the file
-            clearstatcache(true, $file);
-            // check that the file is an image
-            list($width, $height, $type, $attr) = getimagesize($file);
-            // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-            if (!isset($width) || !isset($height) || !isset($type) || !($width > 20) || !($height > 20) || !$type) {
-                // it is not a valid image file (or at least it has a invalid header) or it is smaller than 20x20px
-                // the image file has an invalid format or is very small, delete it
+    if ($overlay_art_cache && $redis->hget('service', 'internet')) {
+        // lower directory is in use and internet is available, clean the lower directory
+        //
+        // files in the $requiredFiles array are never deleted
+        $requiredFiles = array();
+        $fileToSave = 0;
+        //
+        // always remove files which over 6 months (183 days) old
+        //  and files without content after 1 month (30 days)
+        //  and song files created when the lyrics service was down after 2 days
+        //  do it once per day!
+        //  spread the load by performing the actions on separate runs of this script
+        $today = date("Y-m-d");
+        if ($today != $redis->hGet('cleancache', '183lowerdate')) {
+            // the following command removes all files from the lower directory which are older than 183 days
+            // the strategy is that we have used them for 6 months, but their source information may now have changed
+            // song files are never deleted, these contain validated lyrics, those without lyrics are deleted elsewhere
+            // incomplete metadata files are removed quicker than those containing complete information
+            sysCmd('find "'.$cleanLowerDir.'" -type f -mtime +183 \! -name *.song -exec rm {} \;');
+            $redis->hSet('cleancache', '183lowerdate', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '60lowerdate_jpg')) {
+            // the following command removes all *.jpg files from the lower directory which are older than 60 days
+            // the strategy is that we have used them for 2 months, but their source information may now have changed
+            // files *.album.jpg are not removed here, see below
+            // files *.artist.jpg are not removed here, see below
+            sysCmd("find '".$cleanLowerDir."' -type f -name '*.jpg' -mtime +60 -not -name '*.album.jpg' -not -name '*.artist.jpg' -exec rm {} \;");
+            $redis->hSet('cleancache', '60lowerdate_jpg', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '30lowerdate_mpd')) {
+            // the following command removes all *.mpd files from the lower directory which are older than 30 days
+            // the strategy is that we have used them for 1 month, but their source information may now have changed
+            // there is one file for each played song, so lots of files
+            sysCmd("find '".$cleanLowerDir."' -type f -name '*.mpd' -mtime +30 -exec rm {} \;");
+            $redis->hSet('cleancache', '30lowerdate_mpd', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '30lowerdate_artist')) {
+            // artist files without any biography information (these can contain the text 'Sorry, no details available') or
+            // without an artist image url (containing the text 'tmp\/art\/none.png') are deleted after 30 days
+            // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.artist' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
+            // empty biography
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Sorry, no details available' ".$cleanLowerDir."/*.artist 2>/dev/null");
+            // no album artist art
+            $files = array_merge($files, sysCmd("grep -ilF --exclude-from='/tmp/exclude.filelist' 'tmp\/art\/none.png' ".$cleanLowerDir."/*.artist 2>/dev/null"));
+            // remove duplicates
+            $files = array_unique($files);
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
                 unlink($file);
-                $cleaned = true;
+            }
+            $redis->hSet('cleancache', '30lowerdate_artist', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '30lowerdate_album')) {
+            // album files without an album art url (containing the text 'tmp\/art\/none.png') are deleted after 30 days
+            // the strategy is that new artists may get modified information within a couple of weeks, in this way they are refreshed quickly
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.album' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
+            $files = sysCmd("grep -ilF --exclude-from='/tmp/exclude.filelist' 'tmp\/art\/none.png' ".$cleanLowerDir."/*.album 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '30lowerdate_album', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '30lowerdate_song')) {
+            // song files without any content (these can contain the text 'No lyrics available' or 'Lyrics retrieval omitted' or 'We don't have lyrics for this song') are
+            //  deleted after 30 days
+            // the strategy is that new songs may get modified information within a couple of weeks, in this way they are refreshed quickly
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 30 days)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.song' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 30 days)
+            $files = sysCmd("grep --exclude-from='/tmp/exclude.filelist' -ilE 'No lyrics available|Lyrics retrieval omitted|We don't have lyrics for this song' ".$cleanLowerDir."/*.song 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '30lowerdate_song', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '1lowerdate_song')) {
+            // song files without any content (these can contain the text 'Lyrics service unavailable') are deleted after 1 day
+            // the strategy is that the lyrics service may take a few days to fix and there is no point retrying until then
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.song' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'Lyrics service unavailable' ".$cleanLowerDir."/*.song 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '1lowerdate_song', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '1lowerdate_radio')) {
+            // radio files without any content (these contain the text "" 6 times) are deleted after 1 day
+            // the strategy is that retrying on the same day will result in no data, maybe something went wrong, it may be fixed tomorrow
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name '*.radio' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' '".'"".*"".*"".*"".*"".*""'."' ".$cleanLowerDir."/*.radio 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '1lowerdate_radio', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '15lowerdate_radio')) {
+            // radio files with some (one out of three items) missing content (these contain the text "" 4 times) are deleted after 15 days
+            // the strategy is that these have some use, but maybe the song is new, or the metadata retrieval services were running slow
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 15 days)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -15 -name '*.radio' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 15 day's)
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' '".'"".*"".*"".*""'."' ".$cleanLowerDir."/*.radio 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '15lowerdate_radio', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '30lowerdate_radio')) {
+            // radio files with missing content (these contain the text "" at least once) are deleted after 30 days
+            // the strategy is that these have some use, but maybe the song is new, or the metadata retrieval services were running slow
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 15 days)
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -30 -name '*.radio' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 15 day's)
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' '".'""'."' ".$cleanLowerDir."/*.radio 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '30lowerdate_radio', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '1lowerdate_spotify')) {
+            // incomplete spotify artist and song files (these can contain the text 'artist":"Spotify"') are deleted after 1 day
+            // these files are created when the spotify metadata screen scraper has timed out, they have no real cached value
+            //  first create a file containing file-names to exclude from the delete action (modified during the last 1 day)
+            //  they all have 'spotify' as the artist, so most have a file name 'spotify*.*'
+            sysCmd("find '".$cleanLowerDir."' -type f -mtime -1 -name 'spotify*.*' > '/tmp/exclude.filelist'");
+            //  then create a list of files to be deleted (this excludes the files modified during the last 1 day)
+            $files = sysCmd("grep -il --exclude-from='/tmp/exclude.filelist' 'artist\":\"Spotify\"' ".$cleanLowerDir."/* 2>/dev/null");
+            //  remove the exclude file
+            unlink('/tmp/exclude.filelist');
+            // delete the files
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            $redis->hSet('cleancache', '1lowerdate_spotify', $today);
+            $cleaned = true;
+        } else if ($today != $redis->hGet('cleancache', '0lowerdate_large_jpg')) {
+            // some album art files throw an error when being converted by ImageMagick, these are copied unaltered the cache
+            // even though ImageMagick shows an error the files can be converted correctly, here we try to convert large the files again
+            // Important: only files with an image size larger than the specified magick maxsize option will be converted, regardless of the image size in pixels
+            //  there seems to be a bug in ImageMagick which causes repeatedly resized files to grow by about 150b per conversion
+            // files *.album.jpg are not processed here
+            // files *.artist.jpg are not processed here
+            // get the max file size, default is 32kb
+            $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+            if (is_numeric($magickFilesize) && $magickFilesize) {
+                $magickFilesize = ($magickFilesize / 1000).'k';
             } else {
-                // it is a valid image file
-                if (($width > $magickSize) || ($height > $magickSize)) {
-                    // the image size (h x w) is larger than the requested size
-                    // use ImageMagick to resize the image
-                    if ($magick_resize) {
-                        sysCmd("convert -resize ".$magick_resize." ".$magick_opts." '".$file."' '".$file."'");
-                    } else {
-                        sysCmd('convert -resize \'350x350>\' '.$magick_opts." '".$file."' '".$file."'");
-                    }
+                $magickFilesize = '32k';
+            }
+            // search image files grater than the magic file size
+            $files = sysCmd("find '".$cleanLowerDir."' -type f -size +".$magickFilesize." -name '*.jpg' -not -name '*.album.jpg' -not -name '*.artist.jpg'");
+            foreach ($files as $file) {
+                // check that it is a valid image file, get some information about the file
+                clearstatcache(true, $file);
+                // check that the file is an image
+                list($width, $height, $type, $attr) = getimagesize($file);
+                // width and height are in pixels (null when invalid), type is a non zero/null value when valid
+                if (!isset($width) || !isset($height) || !isset($type) || !($width > 100) || !($height > 100) || !$type) {
+                    // it is not a valid image file (or at least it has a invalid header) or it is smaller than 100x100px
+                    // the image file has an invalid format or is very small, delete it
+                    unlink($file);
                     $cleaned = true;
-                    // get the modified image height and width
-                    clearstatcache(true, $file);
-                    list($width, $height, $type, $attr) = getimagesize($file);
-                }
-                if (($width == $magickSize) || ($height == $magickSize)) {
-                    // the size of the file is the same as requested for the ImageMagick reduction
-                    // get the file size in kb
-                    $fileSizeK = intval(intval(filesize($file)) / 1024);
-                    if ($fileSizeK > $maxsize)  {
-                        // the file size is greater than the defined $maxsize, increase $maxsize
-                        $maxsize = $fileSizeK;
-                        $redis->hSet('cleancache', 'max_lower_size', $maxsize);
-                        $reduceMaxsize = false;
+                } else {
+                    // it is a valid image file
+                    // the image file size is larger than the requested size
+                    // use ImageMagick to resize the image
+                    $magickOpts = trim($redis->hGet('magick', 'opts'));
+                    if (!$magickOpts) {
+                        // no info, set to the defailt setting
+                        $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
                     }
+                    $magickResize = trim($redis->hGet('magick', 'resize'));
+                    if (!$magickResize) {
+                        // no info, set to the defailt setting
+                        $magickResize = "'350x350>'";
+                    }
+                    $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                    if (is_numeric($magickFilesize) && $magickFilesize) {
+                        $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                    } else {
+                        $magicFilesize = ' -define jpeg:extent=32kb';
+                    }
+                    sysCmd("magick '".$file."' -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$file."'");
+                    $cleaned = true;
                 }
             }
+            $redis->hSet('cleancache', '0lowerdate_large_jpg', $today);
+        } else if ($today != $redis->hGet('cleancache', '0lowerdate_localartistart_jpg')) {
+            // download artist art for 30 artist files which are not locally cached
+            //  also delete artist art files when there is no corresponding artist file
+            //  also refreshes 0.5% of randomly chosen artist images
+            //      most artists have many images on internet, the image is chosen randomly from those available
+            // search artist files which reference an image on internet
+            $artistFiles = sysCmd('grep -ril \'artist_arturl":"http\' "'.$cleanLowerDir.'/"*.artist');
+            // randomly refresh 0.5% of artist art images, but never more than 20
+            $artistFilesCnt = count($artistFiles);
+            $refresh = min(round($artistFilesCnt / 200), 20);
+            for ($i = 1; $i <= $refresh; $i++) {
+                // generate a random index for $artistFiles
+                $key = rand(1, $artistFilesCnt) - 1;
+                // debug
+                // echo "$artistFiles[$key]\n";
+                // extract the data from the artist file and clear the artist art url
+                $info = json_decode(file_get_contents($artistFiles[$key]), true);
+                $info['artist_arturl'] = '';
+                // remove the artist file in the upper and lower directories
+                $artistFile = $artDir.'/'.$info['artist_filename'].'.artist';
+                unlink($artistFile);
+                unlink($artistFiles[$key]);
+                // regenerate the artist info (only missing fields will be processed)
+                get_artistInfo($redis, $info);
+                // copy the file from the upper directory to the lower directory
+                copy($artistFile, $artistFiles[$key]);
+                // remove the artist art file in the upper and lower directories if they exist
+                $artistartFile = $artistFile.'.jpg';
+                clearstatcache(true, $artistartFile);
+                if (file_exists($artistartFile)) {
+                    unlink($artistartFile);
+                }
+                $artistartFile = $artistFiles[$key].'.jpg';
+                clearstatcache(true, $artistartFile);
+                if (file_exists($artistartFile)) {
+                    unlink($artistartFile);
+                }
+                unset($info, $artistartFile, $key, $artistFile);
+            }
+            // search for all local artist art files
+            $artistartFiles = sysCmd('find "'.$cleanLowerDir.'" -type f -name *.artist.jpg');
+            // process each local artist art file
+            foreach ($artistartFiles as $artistartFile) {
+                // reformat the artist art filename to match the artist file name
+                $artistFile = substr($artistartFile, 0, -4);
+                $key = array_search($artistFile, $artistFiles);
+                if ($key !== false) {
+                    // this artist file already has a artist art file, remove its name from the artist files list
+                    unset($artistFiles[$key]);
+                } else {
+                    // there is no artist file for this artist art file, delete the artist art file
+                    unlink($artistartFile);
+                    $cleaned = true;
+                }
+            }
+            // $artistFiles now contains all files without a local art file
+            unset($artistartFiles, $artistartFile, $key);
+            // we nominally process art images for 30 art files,
+            //  also when 1% of unprocessed art files is higher, 1% are processed, but never more than 60
+            $cnt = max(30, min(round(count($artistFiles) / 100), 60));
+            foreach ($artistFiles as $artistFile) {
+                $info = json_decode(file_get_contents($artistFile), true);
+                // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                // resizes the image to 500x500 pixels when bigger, strips comments and text, uses interlace Plane, sharpens by 0x.5, attempts quality of 90, with a maximum file size of 50kb
+                //  when the file size exceeds 50k the quality of the image will be reduced
+                sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['artist_arturl']."' | magick - -resize '500x500>' -strip -interlace Plane -sharpen '0x.5' -quality 90 -define jpeg:extent=50kb '".$artistFile.".jpg'");
+                // no problem if it fails, retry next time
+                $cleaned = true;
+                if (--$cnt <= 0) {
+                    // done 30, do some more next time
+                    break;
+                }
+                // sleep for 2 seconds before retrieving the next one
+                sleep(2);
+            }
+            unset($artistFiles, $artistFile);
+            $redis->hSet('cleancache', '0lowerdate_localartistart_jpg', $today);
+        } else if ($today != $redis->hGet('cleancache', '0lowerdate_localalbumart_jpg')) {
+            // download album art for 30 album files which are not locally cached
+            //  also delete album art files when there is no corresponding album file
+            // search album files which reference an image on internet
+            $albumFiles = sysCmd('grep -ril \'album_arturl_large":"http\' "'.$cleanLowerDir.'/"*.album');
+            // search for all local album art files
+            $albumartFiles = sysCmd('find "'.$cleanLowerDir.'" -type f -name *.album.jpg');
+            // process each local album art file
+            foreach ($albumartFiles as $albumartFile) {
+                // reformat the album art filename to match the album file name
+                $albumFile = substr($albumartFile, 0, -4);
+                $key = array_search($albumFile, $albumFiles);
+                if ($key !== false) {
+                    // this album file already has a album art file, remove its name from the album files list
+                    unset($albumFiles[$key]);
+                } else {
+                    // there is no album file for this album art file, delete the album art file
+                    unlink($albumFile);
+                    $cleaned = true;
+                }
+            }
+            // $albumFiles now contains all files without a local art file
+            unset($albumartFiles, $albumartFile, $key);
+            // we nominally process art images for 30 art files,
+            //  also when 1% of unprocessed art files is higher, 1% are processed, but never more than 60
+            $cnt = max(30, min(round(count($albumFiles) / 100), 60));
+            foreach ($albumFiles as $albumFile) {
+                $info = json_decode(file_get_contents($albumFile), true);
+                // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                //  processes it according to the parameters
+                $magickOpts = trim($redis->hGet('magick', 'opts'));
+                if (!$magickOpts) {
+                    // no info, set to the defailt setting
+                    $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
+                }
+                $magickResize = trim($redis->hGet('magick', 'resize'));
+                if (!$magickResize) {
+                    // no info, set to the defailt setting
+                    $magickResize = "'350x350>'";
+                }
+                $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                if (is_numeric($magickFilesize) && $magickFilesize) {
+                    $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                } else {
+                    $magicFilesize = ' -define jpeg:extent=32kb';
+                }
+                sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['album_arturl_large']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$albumFile.".jpg'");
+                // no problem if it fails, retry next time
+                $cleaned = true;
+                if (--$cnt <= 0) {
+                    // done 30, do some more next time
+                    break;
+                }
+                // sleep for 2 seconds before retrieving the next one
+                sleep(2);
+            }
+            unset($albumFiles, $albumFile);
+            $redis->hSet('cleancache', '0lowerdate_localalbumart_jpg', $today);
         }
-        if ($reduceMaxsize) {
-            // files have been processed and no file had a larger size than $maxsize, reduce $maxsize by 2% (but not lower than 55)
-            $maxsize = max(intval(intval($maxsize) * 0.98), 55);
-            $redis->hSet('cleancache', 'max_lower_size', $maxsize);
-        }
-        $redis->hSet('cleancache', '0lowerdate_large_jpg', $today);
     }
     unset($today, $files, $file);
     // initialise the amount of diskspace to recover (kB)
@@ -10836,33 +11160,9 @@ function wrk_clean_music_metadata($redis, $logfile = null, $clearAll = null)
         }
     }
     //
-    if ($cleaned || $redis->get('cleaned_last_time')) {
-        // this runs when the upper file system has been changed within this function, when files are deleted
-        //  from the lower file system within this function and on the first following run when nothing has been changed
-        //  there is no need to run this after synchronising the upper file system to the lower
-        // this is the trick:
-        //  command 1: forces caches to be flushed, clearing many dirty caches
-        //  command 2: forces the kernel to the free page cache and reclaimable slab objects (caches, dentries and i-node data)
-        //      this causes the overlay file system to forget its previous contents, it will then
-        //      rebuild its information based on what is actually there
-        //          Note: since we don't use a pagefile its probably enough to use 'echo 2 > /proc/sys/vm/drop_caches'
-        //  command 3: remounts the overlay file system
-        //      this causes new content of the lower directory to be included in the overlay file system and deleted
-        //      content of the lower directory to be omitted
-        //  echoing 4 to drop_caches switches logging off, run it once - it is sticky,
-        //      otherwise dmesg floods with drop_caches: 3 messages
-        if (is_firstTime($redis, 'drop_caches')) {
-            sysCmd('sync ; echo 4 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
-        } else {
-            sysCmd('sync ; echo 3 > /proc/sys/vm/drop_caches ; mount -o remount overlay_art_cache');
-        }
-    }
     if ($cleaned) {
-        // do it again on the following run when nothing has been changed
-        //  it seems to provide better results
-        $redis->set('cleaned_last_time', 1);
-    } else {
-        $redis->set('cleaned_last_time', 0);
+        // this runs when the upper or lower file system has been changed within this function
+        sysCmd('/srv/http/command/remount_overlay_art_cache.sh');
     }
     //
     // test commands
@@ -11103,6 +11403,7 @@ function is_radioUrl($redis, $url)
     // $radios = $redis->hGetall('webradios');
     // foreach ($radios as $radioName => $radioUrl) {
         // $radioUrlRedirected = sysCmd('curl -X GET -L -s -I --connect-timeout 5 -m 10 --retry 1 -o /dev/null -w %{url_effective} '.$radioUrl.' 2> /dev/null || echo ""')[0];
+        // $radioUrlRedirected = preg_replace('/[^\PC\s]/u', '', $radioUrlRedirected);
         // if (isset($radioUrlRedirected) && $radioUrlRedirected && $radioUrlRedirected != $radioUrl) {
             // $redis->hSet('webradios_redirected', $radioName, $radioUrlRedirected);
         // }
@@ -11127,7 +11428,8 @@ function get_lastFm($redis, $url)
     // using a proxy is possible but not implemented
     $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
     if (isset($retval[0])) {
-        $retval = json_decode($retval[0], true);
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval[0]);
+        $retval = json_decode($retval, true);
     } else {
         // no response
         $retval = '';
@@ -11190,7 +11492,8 @@ function get_musicBrainz($redis, $url)
         // Note: curl with retry = 0, since this is in a loop which will try twice
         $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 15 --retry 0 --user-agent "'.$runeAudioUserAgent.'" "'.$url.'"');
         if (isset($retval) && $retval) {
-            $retval = json_decode($retval[0], true);
+            $retval = preg_replace('/[^\PC\s]/u', '', $retval[0]);
+            $retval = json_decode($retval, true);
         } else {
             // nothing returned, musicbrains is probably too busy or offline, save the details and disable musicbrainz
             $redis->hSet('musicbrainz', 'url', $url);
@@ -11323,13 +11626,37 @@ function get_discogs($redis, $url)
         // discogs is down
         return 0;
     }
+    $runeAudioUserAgent = 'RuneAudio - '.$redis->get('buildversion').' ( https://github.com/gearhead/RuneUI/tree/'.$redis->hGet('git', 'branch').' - https://github.com/janui )';
     // $proxy = $redis->hGetall('proxy');
     // using a proxy is possible but not implemented
-    $retval = json_decode(sysCmd('curl -X GET -s -f --connect-timeout 5 -m 15 --retry 1 "'.$url.'"')[0], true);
-    if (!isset($retval['pagination']['items'])) {
-        // unexpected response, disable discogs, items should always be set
+    $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 15 --retry 1 --user-agent "'.$runeAudioUserAgent.'" "'.$url.'"');
+    if (isset($retval[0]) && $retval[0]) {
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval[0]);
+        $retval = json_decode($retval, true);
+    } else {
+        // nothing returned, musicbrains is probably too busy or offline, save the details and disable musicbrainz
+        $redis->hSet('discogs', 'url', $url);
+        $redis->hSet('discogs', 'error', 'No response from discogs');
+        $redis->hSet('discogs', 'retval', '');
         $redis->hSet('service', 'discogs', 0);
-        // this will be reset each 15 minutes, if the discogs site is up
+        // this will be reset each 15 minutes (so after 7,5 minutes on average), if the discogs site is up
+        return 0;
+    }
+    if (stripos(' '.$url, 'api.discogs.com/masters') || stripos(' '.$url, 'api.discogs.com/releases')) {
+        // its a master or release request, it has no pagination entry in the response
+        if (isset($retval['id']) && $retval['id']) {
+            // id is present, its a valid response
+            return $retval;
+        } else {
+            return 0;
+        }
+    } else if (!isset($retval['pagination']['items'])) {
+        // unexpected response, disable discogs, items should always be set
+        $redis->hSet('discogs', 'url', $url);
+        $redis->hSet('discogs', 'error', 'Retval pagination items not set');
+        $redis->hSet('discogs', 'retval', '');
+        $redis->hSet('service', 'discogs', 0);
+        // this will be reset each 15 minutes (so after 7,5 minutes on average), if the discogs site is up
         return 0;
     } else if (!$retval['pagination']['items']) {
         // a zero number of items has been returned, valid response but no results
@@ -11361,7 +11688,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval);
         if (!$retval) {
             // retval is an empty string
             $retval = '';
@@ -11468,7 +11795,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         $retval = sysCmd('curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "'.$url.'"');
         $retval = trim(preg_replace('!\s+!u', ' ', implode('<br>', $retval)));
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval);
         $artist = get_between_data($retval, '<LyricArtist>', '</LyricArtist>');
         $song = get_between_data($retval, '<LyricSong>', '</LyricSong>');
         $rank = get_between_data($retval, '<LyricRank>', '</LyricRank>');
@@ -11567,7 +11894,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         // using a proxy is possible but not implemented
         $retval = sysCmd('curl -A "'.$runeAudioUserAgent.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval);
         if (!$retval) {
             // retval is an empty string
             $retval = '';
@@ -11672,7 +11999,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
         // using a proxy is possible but not implemented
         $retval = sysCmd('curl -H "'.$geniuscomHeader.'" -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$url.'"')[0];
         // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-        $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval);
         if (!$retval) {
             // retval is an empty string
             $retval = '';
@@ -11740,7 +12067,7 @@ function get_lyrics($redis, $searchArtist, $searchSong)
                     // example: curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "https://genius.com/Annie-lennox-little-bird-lyrics"
                     $retval = implode('',sysCmd('curl -X GET -s --connect-timeout 10 -m 20 --retry 1 "'.$lyricsUrl.'"'));
                     // remove any control characters (hex 00 to 1F inclusive), delete character (hex 7F) and 'not assigned' characters (hex 81, 8D, 8F, 90 and 9D)
-                    $retval = preg_replace("/[\x{00}-\x{1F}\x{7F}\x{81}\x{8D}\x{8F}\x{90}\x{9D}]+/u", '', $retval);
+                    $retval = preg_replace('/[^\PC\s]/u', '', $retval);
                     if ($retval) {
                         // something returned, use document object model processing to extract the lyrics
                         // Suppress malformed HTML markup warnings commonly produced by tracking scripts inside web layouts
@@ -11898,6 +12225,7 @@ function get_coverartarchiveorg($redis, $url)
         return 0;
     } else {
         $retval = trim(implode(' ', $retval));
+        $retval = preg_replace('/[^\PC\s]/u', '', $retval);
         if (stripos(' '.$retval, '<title>400 Bad Request</title>')) {
             // misformatted/invalid request
             return 0;
@@ -12194,7 +12522,7 @@ function get_songInfo($redis, $info = array())
 // function to search internet sources for album information
 function get_albumInfo($redis, $info = array())
 // $info is an array of already set information, this can include:
-//  the string delevered from the webradio station (webradiostring)
+//  the string delivered from the webradio station (webradiostring)
 //  artist name (artist and albumartist),
 //  artist musicbrainz-id (artist_mbid),
 //  the url of a image of the artist (artist_arturl),
@@ -12236,6 +12564,24 @@ function get_albumInfo($redis, $info = array())
             break;
         }
     }
+    // get the imagemagick parameters
+    $magickOpts = trim($redis->hGet('magick', 'opts'));
+    if (!$magickOpts) {
+        // no info, set to the defailt setting
+        $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
+    }
+    $magickResize = trim($redis->hGet('magick', 'resize'));
+    if (!$magickResize) {
+        // no info, set to the defailt setting
+        $magickResize = "'350x350>'";
+    }
+    $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+    if (is_numeric($magickFilesize) && $magickFilesize) {
+        $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+    } else {
+        $magicFilesize = ' -define jpeg:extent=32kb';
+    }
+    // get the discogs token
     $discogsToken = $redis->hGet('discogs', 'token');
     $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
     $artUrl = trim($redis->get('albumart_image_url_dir'), " \n\r\t\v\0/");
@@ -12248,6 +12594,23 @@ function get_albumInfo($redis, $info = array())
         $fileName = $artDir.'/'.$infoCache['album_filename'].'.album';
         // don't worry if the file exists, just overwrite it
         file_put_contents($fileName , json_encode($infoCache)."\n");
+        // get a local copy if the image if required
+        $localArtFile = $artDir.'/'.$info['album_filename'].'.album.jpg';
+        clearstatcache(true, $localArtFile);
+        if ($info['album_arturl_large'] && preg_match('/^https?:/i', $info['album_arturl_large']) && !file_exists($localArtFile)) {
+            // set up a wget command to retrieve the art file, piping the output into imagemagick which
+            //  processes it according to the parameters
+            sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['album_arturl_large']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$localArtFile."'");
+            // no problem if it fails, there is a batch process which will correct this
+        }
+        clearstatcache(true, $localArtFile);
+        if (file_exists($localArtFile)) {
+            // we have a local art file, use it
+            touch($localArtFile);
+            $info['album_arturl_large'] = $artUrl.'/'.$info['album_filename'].'.album.jpg';
+            $info['album_arturl_medium'] = $info['album_arturl_large'];
+            $info['album_arturl_small'] = $info['album_arturl_large'];
+        }
         return $info;
     }
     if (!isset($info['album_filename']) || !$info['album_filename']) {
@@ -12268,6 +12631,23 @@ function get_albumInfo($redis, $info = array())
                     if (trim($value) != '') {
                         $info[$key] = trim($value);
                     }
+                }
+                // get a local copy if the image if required
+                $localArtFile = $artDir.'/'.$info['album_filename'].'.album.jpg';
+                clearstatcache(true, $localArtFile);
+                if ($info['album_arturl_large'] && preg_match('/^https?:/i', $info['album_arturl_large']) && !file_exists($localArtFile)) {
+                    // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                    //  processes it according to the parameters
+                    sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['album_arturl_large']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$localArtFile."'");
+                    // no problem if it fails, there is a batch process which will correct this
+                }
+                clearstatcache(true, $localArtFile);
+                if (file_exists($localArtFile)) {
+                    // we have a local art file, use it
+                    touch($localArtFile);
+                    $info['album_arturl_large'] = $artUrl.'/'.$info['album_filename'].'.album.jpg';
+                    $info['album_arturl_medium'] = $info['album_arturl_large'];
+                    $info['album_arturl_small'] = $info['album_arturl_large'];
                 }
                 return $info;
             }
@@ -12338,6 +12718,23 @@ function get_albumInfo($redis, $info = array())
                         if (trim($value) != '') {
                             $info[$key] = trim($value);
                         }
+                    }
+                    // get a local copy if the image if required
+                    $localArtFile = $artDir.'/'.$info['album_filename'].'.album.jpg';
+                    clearstatcache(true, $localArtFile);
+                    if ($info['album_arturl_large'] && preg_match('/^https?:/i', $info['album_arturl_large']) && !file_exists($localArtFile)) {
+                        // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                        //  processes it according to the parameters
+                        sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['album_arturl_large']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$localArtFile."'");
+                        // no problem if it fails, there is a batch process which will correct this
+                    }
+                    clearstatcache(true, $localArtFile);
+                    if (file_exists($localArtFile)) {
+                        // we have a local art file, use it
+                        touch($localArtFile);
+                        $info['album_arturl_large'] = $artUrl.'/'.$info['album_filename'].'.album.jpg';
+                        $info['album_arturl_medium'] = $info['album_arturl_large'];
+                        $info['album_arturl_small'] = $info['album_arturl_large'];
                     }
                     return $info;
                 }
@@ -12422,15 +12819,15 @@ function get_albumInfo($redis, $info = array())
         }
         if (!$info['album_arturl_large'] && $info['album'] && $info['albumartist']) {
             // still nothing found try discogs
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=single|album&format=CD"
-            $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=single|album&format=CD';
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://api.discogs.com/database/search?release_title=diva&artist=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=master&format=album|single"
+            $url = 'https://api.discogs.com/database/search?release_title'.urlClean($info['album']).'&artist='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=master&format=album|single';
             $retval = get_discogs($redis, $url);
             if ($retval) {
                 // check the validity of the album art
                 $match_percentage = $redis->get('albumart_match_percentage');
                 if (isset($retval['results'][0]['title']) &&
                         (strlen(trim($retval['results'][0]['title'])) >= 5) &&
-                        (count_word_occurancies(trim($info['albumartist']).' '.trim($info['album']), trim($retval['results'][0]['title'])) >= $match_percentage) &&
+                        (count_word_occurancies(trim($info['albumartist']).' - '.trim($info['album']), trim($retval['results'][0]['title'])) >= $match_percentage) &&
                         (count_word_occurancies(trim($retval['results'][0]['title']), trim($info['albumartist']).' - '.trim($info['album'])) >= $match_percentage)) {
                     if (isset($retval['results'][0]['cover_image']) && $retval['results'][0]['cover_image']) {
                         // album art is filled, use it and save the details
@@ -12477,6 +12874,23 @@ function get_albumInfo($redis, $info = array())
             // don't worry if the file exists, just overwrite it
             file_put_contents($fileName , json_encode($infoCache)."\n");
         }
+    }
+    // get a local copy if the image if required
+    $localArtFile = $artDir.'/'.$info['album_filename'].'.album.jpg';
+    clearstatcache(true, $localArtFile);
+    if ($info['album_arturl_large'] && preg_match('/^https?:/i', $info['album_arturl_large']) && !file_exists($localArtFile)) {
+        // set up a wget command to retrieve the art file, piping the output into imagemagick which
+        //  processes it according to the parameters
+        sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['album_arturl_large']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$localArtFile."'");
+        // no problem if it fails, there is a batch process which will correct this
+    }
+    clearstatcache(true, $localArtFile);
+    if (file_exists($localArtFile)) {
+        // we have a local art file, use it
+        touch($localArtFile);
+        $info['album_arturl_large'] = $artUrl.'/'.$info['album_filename'].'.album.jpg';
+        $info['album_arturl_medium'] = $info['album_arturl_large'];
+        $info['album_arturl_small'] = $info['album_arturl_large'];
     }
     return $info;
 }
@@ -12535,6 +12949,22 @@ function get_artistInfo($redis, $info = array())
         $fileName = $artDir.'/'.$infoCache['artist_filename'].'.artist';
         // don't worry if the file exists, just overwrite it
         file_put_contents($fileName , json_encode($infoCache)."\n");
+        // get a local copy if the image if required
+        $localArtFile = $artDir.'/'.$info['artist_filename'].'.artist.jpg';
+        clearstatcache(true, $localArtFile);
+        if ($info['artist_arturl'] && preg_match('/^https?:/i', $info['artist_arturl']) && !file_exists($localArtFile)) {
+            // set up a wget command to retrieve the art file, piping the output into imagemagick which
+            // resizes the image to 500x500 pixels when bigger, strips comments and text, uses interlace Plane, sharpens by 0x.5, attempts quality of 90, with a maximum file size of 50kb
+            //  when the file size exceeds 50k the quality of the image will be reduced
+            sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['artist_arturl']."' | magick - -resize '500x500>' -strip -interlace Plane -sharpen '0x.5' -quality 90 -define jpeg:extent=50kb '".$localArtFile."'");
+            // no problem if it fails, there is a batch process which will correct this
+        }
+        clearstatcache(true, $localArtFile);
+        if (file_exists($localArtFile)) {
+            // we have a local art file, use it
+            touch($localArtFile);
+            $info['artist_arturl'] = $artUrl.'/'.$info['artist_filename'].'.artist.jpg';
+        }
         return $info;
     }
     if (!isset($info['artist_filename']) || !$info['artist_filename']) {
@@ -12555,6 +12985,22 @@ function get_artistInfo($redis, $info = array())
                     if (trim($value) != '') {
                         $info[$key] = trim($value);
                     }
+                }
+                // get a local copy if the image if required
+                $localArtFile = $artDir.'/'.$info['artist_filename'].'.artist.jpg';
+                clearstatcache(true, $localArtFile);
+                if ($info['artist_arturl'] && preg_match('/^https?:/i', $info['artist_arturl']) && !file_exists($localArtFile)) {
+                    // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                    // resizes the image to 500x500 pixels when bigger, strips comments and text, uses interlace Plane, sharpens by 0x.5, attempts quality of 90, with a maximum file size of 50kb
+                    //  when the file size exceeds 50k the quality of the image will be reduced
+                    sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['artist_arturl']."' | magick - -resize '500x500>' -strip -interlace Plane -sharpen '0x.5' -quality 90 -define jpeg:extent=50kb '".$localArtFile."'");
+                    // no problem if it fails, there is a batch process which will correct this
+                }
+                clearstatcache(true, $localArtFile);
+                if (file_exists($localArtFile)) {
+                    // we have a local art file, use it
+                    touch($localArtFile);
+                    $info['artist_arturl'] = $artUrl.'/'.$info['artist_filename'].'.artist.jpg';
                 }
                 return $info;
             }
@@ -12621,6 +13067,8 @@ function get_artistInfo($redis, $info = array())
             if (!$notFound) {
                 // file found on the owntone server, copy it to the local file name
                 sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'" -O "'.$fileName.'" 2>&1');
+                // also copy the associated art file, ignore any failures
+                sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 "'.$fileNameRemote.'.jpg" -O "'.$fileName.'.jpg" > /dev/null 2>&1');
                 // just to be sure, recheck that the file exists
                 clearstatcache(true, $fileName);
                 $fileExists = file_exists($fileName);
@@ -12635,6 +13083,22 @@ function get_artistInfo($redis, $info = array())
                     if (trim($value) != '') {
                         $info[$key] = trim($value);
                     }
+                }
+                // get a local copy if the image if required
+                $localArtFile = $artDir.'/'.$info['artist_filename'].'.artist.jpg';
+                clearstatcache(true, $localArtFile);
+                if ($info['artist_arturl'] && preg_match('/^https?:/i', $info['artist_arturl']) && !file_exists($localArtFile)) {
+                    // set up a wget command to retrieve the art file, piping the output into imagemagick which
+                    // resizes the image to 500x500 pixels when bigger, strips comments and text, uses interlace Plane, sharpens by 0x.5, attempts quality of 90, with a maximum file size of 50kb
+                    //  when the file size exceeds 50k the quality of the image will be reduced
+                    sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['artist_arturl']."' | magick - -resize '500x500>' -strip -interlace Plane -sharpen '0x.5' -quality 90 -define jpeg:extent=50kb '".$localArtFile."'");
+                    // no problem if it fails, there is a batch process which will correct this
+                }
+                clearstatcache(true, $localArtFile);
+                if (file_exists($localArtFile)) {
+                    // we have a local art file, use it
+                    touch($localArtFile);
+                    $info['artist_arturl'] = $artUrl.'/'.$info['artist_filename'].'.artist.jpg';
                 }
                 return $info;
             }
@@ -12729,18 +13193,36 @@ function get_artistInfo($redis, $info = array())
         }
     }
     if (!$info['artist_arturl']) {
-        // art url has no value
+        // art url has no value, first try to get a fanart.tv artist image
         if (!$info['artist_mbid']) {
             // try to get the musicbrainz id from musicbrainz
+            $bestScore = 999;
             foreach ($searchArtists as $searchArtist) {
+                $searchArtistLc = strtolower($searchArtist);
                 // use the command: curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://musicbrainz.org/ws/2/artist/?query=annie%20lennox&limit=1&fmt=json"
                 $url = 'https://musicbrainz.org/ws/2/artist/?query='.urlClean($searchArtist).'&limit=1&fmt=json';
                 $retval = get_musicBrainz($redis, $url);
                 if ($retval) {
-                    // found the artist on musicbrainz, use the data
-                    if (isset($retval['artists'][0]['id'])) {
-                        // music brainz id is set
-                        $info['artist_mbid'] = $retval['artists'][0]['id'];
+                    // check that the artist name is correct
+                    if (!isset($retval['artists'][0]['name']) || !$retval['artists'][0]['name']) {
+                        continue;
+                    }
+                    $score = levenshtein($searchArtistLc, strtolower($retval['artists'][0]['name']));
+                    if ($score > 4) {
+                        // must have a score of 4 or less
+                        continue;
+                    }
+                    if ($score < $bestScore) {
+                        // found the artist on musicbrainz, use the data
+                        if (isset($retval['artists'][0]['id']) && $retval['artists'][0]['id']) {
+                            // music brainz id is set
+                            $info['artist_mbid'] = $retval['artists'][0]['id'];
+                            $bestScore = $score;
+                        }
+                    }
+                    if ($bestScore == 0) {
+                        // perfect match
+                        sleep(2);
                         break;
                     }
                 }
@@ -12750,15 +13232,65 @@ function get_artistInfo($redis, $info = array())
         }
         if ($info['artist_mbid']) {
             // mbid is set so we can try to get the art url from fanart.tv
-            // call: curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
+            // call: curl -X GET -s -f --connect-timeout 1 -m 10 --retry 1 "http://webservice.fanart.tv/v3/music/3e30aebd-0557-4cfd-8fb9-3945afa5d72b?api_key=90fa4838789ea346c5e9cff6715f6e9b"
             // e.g.: http://webservice.fanart.tv/v3/music/<mbid>?api_key=<token>
             $url = 'http://webservice.fanart.tv/v3/music/'.$info['artist_mbid'].'?api_key='.$fanarttvToken;
             $retval = get_fanartTv($redis, $url);
-            if ($retval && isset($retval['artistthumb'][0])) {
+            if (isset($retval['artistthumb'][0])) {
                 // several image url's can be returned, randomly choose one
                 $cnt = count($retval['artistthumb']);
                 $indx = rand(0, $cnt-1);
                 $info['artist_arturl'] = $retval['artistthumb'][$indx]['url'];
+            }
+        }
+    }
+    if (!$info['artist_arturl']) {
+        // art url has no value, try to get a discogs artist image
+        $discogsToken = $redis->hGet('discogs', 'token');
+        $bestScore = 999;
+        unset($discogsArtistUrl);
+        foreach ($searchArtists as $searchArtist) {
+            $searchArtistLc = strtolower($searchArtist);
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://api.discogs.com/database/search?q=annie%20lennox&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=1&page=1&type=artist"
+            $url = 'https://api.discogs.com/database/search?q='.urlClean($info['albumartist']).'&token='.$discogsToken.'&per_page=1&page=1&type=artist';
+            $retval = get_discogs($redis, $url);
+            if (isset($retval['results']) && count($retval['results'])) {
+                // check that the artist name is correct
+                if (!isset($retval['results'][0]['title']) || !$retval['results'][0]['title']) {
+                    continue;
+                }
+                $score = levenshtein($searchArtistLc, strtolower($retval['results'][0]['title']));
+                if ($score > 4) {
+                    // must have a score of 4 or less
+                    continue;
+                }
+                if ($score < $bestScore) {
+                    // found the artist on discogs, use the data
+                    if (isset($retval['results'][0]['resource_url']) && $retval['results'][0]['resource_url']) {
+                        // discogs resource url is set is set
+                        $discogsArtistUrl = $retval['results'][0]['resource_url'];
+                        $bestScore = $score;
+                    }
+                }
+                if ($bestScore == 0) {
+                    // perfect match
+                    sleep(2);
+                    break;
+                }
+            }
+            // sleep before trying again
+            sleep(2);
+        }
+        if (isset($discogsArtistUrl) && $discogsArtistUrl) {
+            // we have a match, get the details
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 "https://api.discogs.com/artists/23825"
+            // note: no discogs token is present in the url
+            $retval = get_discogs($redis, $discogsArtistUrl);
+            if (isset($retval['images'][0])) {
+                // several image url's can be returned, randomly choose one
+                $cnt = count($retval['images']);
+                $indx = rand(0, $cnt-1);
+                $info['artist_arturl'] = $retval['images'][$indx]['uri'];
             }
         }
     }
@@ -12808,6 +13340,22 @@ function get_artistInfo($redis, $info = array())
             file_put_contents($fileName , json_encode($infoCache)."\n");
         }
     }
+    // get a local copy if the image if required
+    $localArtFile = $artDir.'/'.$info['artist_filename'].'.artist.jpg';
+    clearstatcache(true, $localArtFile);
+    if ($info['artist_arturl'] && preg_match('/^https?:/i', $info['artist_arturl']) && !file_exists($localArtFile)) {
+        // set up a wget command to retrieve the art file, piping the output into imagemagick which
+        // resizes the image to 500x500 pixels when bigger, strips comments and text, uses interlace Plane, sharpens by 0x.5, attempts quality of 90, with a maximum file size of 50kb
+        //  when the file size exceeds 50k the quality of the image will be reduced
+        sysCmd("wget -q --force-html --connect-timeout=5 --timeout=10 --tries=2 -O - '".$info['artist_arturl']."' | magick - -resize '500x500>' -strip -interlace Plane -sharpen '0x.5' -quality 90 -define jpeg:extent=50kb '".$localArtFile."'");
+        // no problem if it fails, there is a batch process which will correct this
+    }
+    clearstatcache(true, $localArtFile);
+    if (file_exists($localArtFile)) {
+        // we have a local art file, use it
+        touch($localArtFile);
+        $info['artist_arturl'] = $artUrl.'/'.$info['artist_filename'].'.artist.jpg';
+    }
     return $info;
 }
 
@@ -12844,6 +13392,7 @@ function wrk_get_discogs_info($redis, $info)
         // no radiostring, and no song and artist and no song and album, cannot process the request, return an empty array
         return array();
     }
+    $matchPercentage = $redis->get('albumart_match_percentage');
     $discogsToken = $redis->hGet('discogs', 'token');
     if ((!isset($info['song']) || !$info['song']) || ((!isset($info['artist']) || !$info['artist']) && (!isset($info['album']) || !$info['album']))) {
         // song or artist and/or album need to be determined from the radiostring (when song and artist or song and album are available we don't use the radiostring, see below)
@@ -12866,7 +13415,7 @@ function wrk_get_discogs_info($redis, $info)
                 continue;
             }
             // first get the best master match of song and albumartist for the given radio string, exclude unofficial releases and reissues
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox+-unofficial+-reissue&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=10&page=1&format=album|single&type=master"
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=little%20bird%20annie%20lennox+-unofficial+-reissue&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=10&page=1&format=album|single&type=master"
             $url = 'https://api.discogs.com/database/search?q='.urlClean($info[$radiostring]).'+-unofficial+-reissue&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
             $retval = get_discogs($redis, $url);
             if (isset($retval['results']) && count($retval['results'])) {
@@ -12983,19 +13532,19 @@ function wrk_get_discogs_info($redis, $info)
         // if ($albumartistScore == 999) {
             // unset($albumartistScore);
         // }
-        // echo "Debug - discogs1 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".$info['song'].", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
+        // echo "Debug - discogs1 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".($info['song'] ?? '').", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
     } else {
         // at this point $info['song'] is present
         if (isset($info['album']) && $info['album'] && isset($info['artist']) && $info['artist']) {
             // get the master id for the artist & album & song, exclude unofficial releases and reissues
-            // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&artist='annie%20lennox'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+            // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&artist='annie%20lennox'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
             $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title=\''.urlClean($info['album']).'\'&track=\''.urlClean($info['song']).'\'&artist=\''.urlClean($info['artist']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
             $retval = get_discogs($redis, $url);
         }
         if (!isset($retval['results']) || !count($retval['results'])) {
             if (isset($info['album']) && $info['album']) {
                 // get the master id for the artist & album, exclude unofficial releases and reissues
-                // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+                // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title='diva'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
                 $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&release_title=\''.urlClean($info['album']).'\'&track=\''.urlClean($info['song']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
                 $retval = get_discogs($redis, $url);
             }
@@ -13003,7 +13552,7 @@ function wrk_get_discogs_info($redis, $info)
         if (!isset($retval['results']) || !count($retval['results'])) {
             if (isset($info['artist']) && $info['artist']) {
                 // get the master id for the artist & song, exclude unofficial releases and reissues
-                // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&artist='annie%20lennox'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
+                // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/database/search?q=-unofficial+-reissue&artist='annie%20lennox'&track='why'&token=KFlNcwbmGJPjHGejEwSdjJjAcbDFFlycriUQSITI&per_page=5&page=1&format=album|single&type=master"
                 $url = 'https://api.discogs.com/database/search?q=-unofficial+-reissue&artist=\''.urlClean($info['artist']).'\'&track=\''.urlClean($info['song']).'\'&token='.$discogsToken.'&per_page=10&page=1&format=album|single&type=master';
                 $retval = get_discogs($redis, $url);
             }
@@ -13125,7 +13674,7 @@ function wrk_get_discogs_info($redis, $info)
         // if ($albumartistScore == 999) {
             // unset($albumartistScore);
         // }
-        // echo "Debug - discogs2 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".$info['song'].", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
+        // echo "Debug - discogs2 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", albumartist: ".($lastAlbumartist ?? '').", album: ".($lastAlbum ?? '').", song: ".($info['song'] ?? '').", album score: ".($albumScore ?? '').", albumartist score: ".($albumartistScore ?? '')."\n";
     }
     unset ($retval, $result, $year, $albumartist, $album, $single, $type, $score, $scoreA, $scoreAA, $albumScore, $albumartistScore);
     if (isset($lastAlbumartist) && isset($lastAlbum) && ($lastAlbumartist != 'Various Artists')) {
@@ -13137,18 +13686,18 @@ function wrk_get_discogs_info($redis, $info)
     }
     if (!isset($lastMasterId)) {
         // we don't have a master id so cannot determine the song or album art, return the information which we have
-        if (!isset($info['artist']) && !$info['artist'] && isset($lastAlbumartist) && $lastAlbumartist && ($lastAlbumartist != 'Various Artists')) {
+        if ((!isset($info['artist']) || !$info['artist']) && isset($lastAlbumartist) && $lastAlbumartist && ($lastAlbumartist != 'Various Artists')) {
             $info['artist'] = $lastAlbumartist;
         }
         return $info;
     }
     unset($lastAlbumartist, $lastAlbum, $lastYear, $lastSingle);
     // debug
-    // echo "Debug - discogs3 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".$info['albumartist'].", album: ".$info['album'].", song: ".$info['song']."\n";
+    // echo "Debug - discogs3 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", albumartist: ".($info['albumartist'] ?? '').", album: ".($info['album'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     // now get the master entry for the master id
     //  one or none will be returned
     // note: the discogs token is not used for a master (or release) retrieval
-    // curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/masters/33599"
+    // curl -X GET -s --connect-timeout 5 -m 10 --retry 1 --user-agent "RuneAudio ( https://github.com/gearhead/RuneUI )" "https://api.discogs.com/masters/33599"
     $url = 'https://api.discogs.com/masters/'.$lastMasterId;
     // sleep for 0.5 seconds before calling discogs again
     usleep(500000);
@@ -13228,12 +13777,12 @@ function wrk_get_discogs_info($redis, $info)
                         $artistSongLc = strtolower($retval['artists'][0]['name'].' - '.$track['title']);
                         $songArtistLc = strtolower($track['title'].' - '.$retval['artists'][0]['name']);
                         // check the word match search vs results and results vs search
-                        if (count_word_occurancies($radiostringLc, $artistSongLc) < 50) {
-                            // need to have at least a 50% word match, continue
+                        if (count_word_occurancies($radiostringLc, $artistSongLc) < $matchPercentage) {
+                            // need to have a word match better than $matchPercentage (default 55%), continue
                             continue;
                         }
-                        if (count_word_occurancies($artistSongLc, $radiostringLc) < 50) {
-                            // need to have at least a 50% word match, continue
+                        if (count_word_occurancies($artistSongLc, $radiostringLc) < $matchPercentage) {
+                            // need to have a word match better than $matchPercentage (default 55%), continue
                             continue;
                         }
                         $score1 = levenshtein($radiostringLc, $artistSongLc);
@@ -13279,10 +13828,10 @@ function wrk_get_discogs_info($redis, $info)
         }
     }
     // debug
-    if (isset($bestScore) && ($bestScore == 999)) {
-        unset($bestScore);
-    }
-    echo "Debug - discogs4 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", albumartist: ".$info['albumartist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".$bestScore."\n";
+    // if (isset($bestScore) && ($bestScore == 999)) {
+        // unset($bestScore);
+    // }
+    // echo "Debug - discogs4 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", albumartist: ".($info['albumartist'] ?? '').", album: ".($info['album'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     unset($retval, $track, $trackArtist, $images, $artist, $albumartist, $song, $score, $bestScore);
     // return any set values
     return $info;
@@ -13321,6 +13870,7 @@ function wrk_get_musicbrainz_info($redis, $info)
         // no radiostring, and no song and artist and no song and album, cannot process the request, return an empty array
         return array();
     }
+    $matchPercentage = $redis->get('albumart_match_percentage');
     $musicbrainzCalled = false;
     if ((!isset($info['song']) || !$info['song']) || (!isset($info['artist']) || !$info['artist']) && (!isset($info['album']) || !$info['album'])) {
         // song or artist and/or album need to be determined from the radiostring (when song and artist or song and album are available we don't use the radiostring, see below)
@@ -13538,15 +14088,15 @@ function wrk_get_musicbrainz_info($redis, $info)
                                         if (isset($track['title']) && $track['title']) {
                                             if (stripos(' '.$info['webradiostring'], $track['title'])) {
                                                 $ok = true;
-                                                $BestScore = 0;
+                                                $bestScore = 0;
                                                 break;
                                             } else if (stripos(' '.$info['webradiostring_clean'], $track['title'])) {
                                                 $ok = true;
-                                                $BestScore = 0;
+                                                $bestScore = 0;
                                                 break;
                                             } else if (isset($songLc) && (strtolower($track['title']) == $songLc)) {
                                                 $ok = true;
-                                                $BestScore = 0;
+                                                $bestScore = 0;
                                                 break;
                                             } else {
                                                 foreach ($radiostrings as $radiostring) {
@@ -13558,12 +14108,12 @@ function wrk_get_musicbrainz_info($redis, $info)
                                                     $artistSongLc = strtolower($recordingArtistCredit['artist']['name'].' - '.$track['title']);
                                                     $songArtistLc = strtolower($track['title'].' - '.$recordingArtistCredit['artist']['name']);
                                                     // check the word match search vs results and results vs search
-                                                    if (count_word_occurancies($radiostringLc, $artistSongLc) < 50) {
-                                                        // need to have at least a 50% word match, continue
+                                                    if (count_word_occurancies($radiostringLc, $artistSongLc) < $matchPercentage) {
+                                                        // need to have a word match better than $matchPercentage (default 55%), continue
                                                         continue;
                                                     }
-                                                    if (count_word_occurancies($artistSongLc, $radiostringLc) < 50) {
-                                                        // need to have at least a 50% word match, continue
+                                                    if (count_word_occurancies($artistSongLc, $radiostringLc) < $matchPercentage) {
+                                                        // need to have a word match better than $matchPercentage (default 55%), continue
                                                         continue;
                                                     }
                                                     $score1 = levenshtein($radiostringLc, $artistSongLc);
@@ -13698,10 +14248,10 @@ function wrk_get_musicbrainz_info($redis, $info)
             }
         }
         // debug
-        if (isset($bestScore) && ($bestScore == 999)) {
-            unset($bestScore);
-        }
-        echo "Debug - musicbrainz1 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
+        // if (isset($bestScore) && ($bestScore == 999)) {
+            // unset($bestScore);
+        // }
+        // echo "Debug - musicbrainz1 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", album: ".($info['album'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     }
     // when the release id has been determined all other fields are also set
     // release id is required to search for album art
@@ -13968,10 +14518,10 @@ function wrk_get_musicbrainz_info($redis, $info)
             }
         }
         // debug
-        if (isset($bestScore) && ($bestScore == 999)) {
-            unset($bestScore);
-        }
-        echo "Debug - musicbrainz2 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".($bestScore ?? '')."\n";
+        // if (isset($bestScore) && ($bestScore == 999)) {
+            // unset($bestScore);
+        // }
+        // echo "Debug - musicbrainz2 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", album: ".($info['album'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     }
     // now determine the musicbrainz album art (large, medium & small) url
     //  the musicbrainz artist id, musicbrainz recording id, musicbrainz release id and musicbrainz song id are also determined
@@ -14051,10 +14601,10 @@ function wrk_get_musicbrainz_info($redis, $info)
                 }
             }
         }
-        if (isset($bestScore) && ($bestScore == 999)) {
-            unset($bestScore);
-        }
-        echo "Debug - musicbrainz3 - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", album: ".$info['album'].", song: ".$info['song'].", score: ".($bestScore ?? '')."\n";
+        // if (isset($bestScore) && ($bestScore == 999)) {
+            // unset($bestScore);
+        // }
+        // echo "Debug - musicbrainz3 - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", album: ".($info['album'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     }
     return $info;
 }
@@ -14105,6 +14655,8 @@ function wrk_get_lastfm_info($redis, $info)
         }
         $webradiostringLc = strtolower($info['webradiostring']);
         $webradiostringCleanLc = strtolower($info['webradiostring_clean']);
+        $score = 999;
+        $bestScore = 999;
         // loop for each radiostring
         foreach ($radiostrings as $radiostring) {
             if (!$info[$radiostring]) {
@@ -14147,7 +14699,7 @@ function wrk_get_lastfm_info($redis, $info)
                     }
                     // sometimes the artist name is included as a prefix to the song name
                     //  strip the the artist name plus a ' - ' (space, hyphen, space) from the song name and trim the result
-                    $song = trim(str_ireplace($info['artist'].' -', '', $song));
+                    $song = trim(str_ireplace($artist.' -', '', $song));
                     if (!$song) {
                         // invalid song name
                         continue;
@@ -14162,9 +14714,6 @@ function wrk_get_lastfm_info($redis, $info)
                     $songArtistScore = levenshtein($songArtist, $webradiostringLc);
                     $songArtistCleanScore = levenshtein($songArtist, $webradiostringCleanLc);
                     $score = min($artistSongScore, $artistSongCleanScore, $songArtistScore, $songArtistCleanScore);
-                    if (!isset($bestScore)) {
-                        $bestScore = $score;
-                    }
                     if ($score > $bestScore) {
                         // a worse score has been determined, get the next one
                         continue;
@@ -14177,6 +14726,24 @@ function wrk_get_lastfm_info($redis, $info)
                         // the score must be less than or equal to a fifth of the radiostring length
                         continue;
                     }
+                    if ($score >= strlen($artist)) {
+                        // the score is the same or greater than the the length of the artist name
+                        //  artist name is 8 or less characters, since scores greater than 8 have been eliminated, so it is a short artist name
+                        //  we also know that the score is less than less than or equal to on fifth of the radio string, so song name length is long
+                        //  could be a near 100% match on song but the wrong artist, check that the artist name occurs in the radiostring
+                        if (!stripos(' '.$webradiostringLc, $artist) && !stripos(' '.$webradiostringCleanLc, $artist)) {
+                            continue;
+                        }
+                    }
+                    if ($score >= strlen($song)) {
+                        // the score is the same or greater than the the length of the song name
+                        //  song name is 8 or less characters, since scores greater than 8 have been eliminated, so it is a short song name
+                        //  we also know that the score is less than less than or equal to on fifth of the radio string, so artist name length is long
+                        //  could be a near 100% match on artist but the wrong song, check that the song name occurs in the radiostring
+                        if (!stripos(' '.$webradiostringLc, $song) && !stripos(' '.$webradiostringCleanLc, $song)) {
+                            continue;
+                        }
+                    }
                     $bestScore = $score;
                     $info['song'] = $song;
                     $info['artist'] = $artist;
@@ -14187,13 +14754,10 @@ function wrk_get_lastfm_info($redis, $info)
                     // album art is rarely supplied by last.fm, but when it is supplied it is accurate
                     //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
                     //  four images are supplied by last.fm: small, medium, large and extralarge
-                    //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
-                    if (isset($track['image'][1]['#text']) && $track['image'][1]['#text'] && !stripos(' '.$track['image'][1]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
-                        // album art info is valid, use it
-                        $info['album_arturl_small'] = trim($track['image'][1]['#text']);
-                    }
+                    //  we use the last.fm extralarge image as our small medium and large images
                     if (isset($track['image'][3]['#text']) && $track['image'][3]['#text'] && !stripos(' '.$track['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
                         // album art info is valid, use it
+                        $info['album_arturl_small'] = trim($track['image'][3]['#text']);
                         $info['album_arturl_medium'] = trim($track['image'][3]['#text']);
                         $info['album_arturl_large'] = trim($track['image'][3]['#text']);
                     }
@@ -14205,10 +14769,10 @@ function wrk_get_lastfm_info($redis, $info)
             }
         }
         // debug
-        if (isset($bestScore) && ($bestScore == 999)) {
-            unset($bestScore);
-        }
-        echo "Debug - lastfm - radiostring: ".$info['webradiostring'].", artist: ".$info['artist'].", song: ".$info['song'].", score: ".($bestScore ?? $score ?? '')."\n";
+        // if (isset($bestScore) && ($bestScore == 999)) {
+            // unset($bestScore);
+        // }
+        // echo "Debug - lastfm - radiostring: ".$info['webradiostring'].", artist: ".($info['artist'] ?? '').", song: ".($info['song'] ?? '').", score: ".($bestScore ?? '')."\n";
     }
     if (!isset($info['album']) || !$info['album'] ||
             !isset($info['album_arturl_small']) || !$info['album_arturl_small'] ||
@@ -14239,13 +14803,10 @@ function wrk_get_lastfm_info($redis, $info)
                 // album art is rarely supplied by last.fm, but when it is supplied it is accurate
                 //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
                 //  four images are supplied by last.fm: small, medium, large and extralarge
-                //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
-                if (isset($retval['track']['album']['image'][2]['#text']) && $retval['track']['album']['image'][2]['#text'] && !stripos(' '.$retval['track']['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
-                    // album art info is valid, use it
-                    $info['album_arturl_small'] = trim($retval['track']['album']['image'][2]['#text']);
-                }
+                //   we use the last.fm extralarge image as our small medium and large images
                 if (isset($retval['track']['album']['image'][3]['#text']) && $retval['track']['album']['image'][3]['#text'] && !stripos(' '.$retval['track']['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
                     // album art info is valid, use it
+                    $info['album_arturl_small'] = trim($retval['track']['album']['image'][3]['#text']);
                     $info['album_arturl_medium'] = trim($retval['track']['album']['image'][3]['#text']);
                     $info['album_arturl_large'] = trim($retval['track']['album']['image'][3]['#text']);
                 }
@@ -14283,13 +14844,10 @@ function wrk_get_lastfm_info($redis, $info)
                 // album art is rarely supplied by last.fm, but when it is supplied it is accurate
                 //  invalid album art always has the file name '2a96cbd8b46e442fc41c2b86b821562f.jpg', this is a valid image depicting a star but has no relationship with the album
                 //  four images are supplied by last.fm: small, medium, large and extralarge
-                //  we use the last.fm large image as our small image and the last.fm extralarge image as our medium and large images
-                if (isset($retval['album']['image'][2]['#text']) && $retval['album']['image'][2]['#text'] && !stripos(' '.$retval['album']['image'][2]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
-                    // album art info is valid, use it
-                    $info['album_arturl_small'] = trim($retval['album']['image'][2]['#text']);
-                }
+                //  we use the last.fm extralarge image as our small medium and large images
                 if (isset($retval['album']['image'][3]['#text']) && $retval['album']['image'][3]['#text'] && !stripos(' '.$retval['album']['image'][3]['#text'], '2a96cbd8b46e442fc41c2b86b821562f')) {
                     // album art info is valid, use it
+                    $info['album_arturl_small'] = trim($retval['album']['image'][3]['#text']);
                     $info['album_arturl_medium'] = trim($retval['album']['image'][3]['#text']);
                     $info['album_arturl_large'] = trim($retval['album']['image'][3]['#text']);
                 }
@@ -14300,6 +14858,141 @@ function wrk_get_lastfm_info($redis, $info)
                     $info['album_wiki_content'] = $retval['album']['wiki']['content'];
                 }
             }
+        }
+    }
+    return $info;
+}
+
+// function which returns the artist image url artist information, the song lyrics and the album image URL as an array for a webradio string
+function wrk_get_webradio_info($redis, $radiostring)
+// this function also manages cache files containing all the retrieved information for a given webradio string
+{
+    $toSetInfoFields = array('webradiostring', 'webradiostring_filename', 'artist', 'artist_filename', 'album', 'album_filename', 'song', 'song_filename');
+    $toCacheInfoFields = $toSetInfoFields;
+    // check all the required elements exist in $info
+    $info = array();
+    $info = setup_metadata_array($info);
+    // tidy up the radiostring
+    // replace all unicode horizontal whitespace with a single space
+    $radiostring = preg_replace('/\h+/u', ' ', $radiostring);
+    // remove all unicode control characters, including <bs>, <del>, <lf>, <ret>, <vt>
+    $radiostring = trim(preg_replace('/\p{Cc}/u', '', $radiostring));
+    $radiostring = webradioStringRemovePrefix($redis, $radiostring);
+    $radiostringClean = webradioStringClean($radiostring);
+    $radiostringClean = strtolower($radiostring);
+    // $radiostringClean = metadataStringClean(strtolower($radiostring), 'radiostring');
+    if (strlen($radiostringClean) < 5) {
+        // the assumption here is that a that a valid string has at least one letter for an
+        //  artist, one letter for the song and a ' - ' (space-hyphen-space) separating them
+        // so just return false
+        return 0;
+    }
+    $internetUp = $redis->hGet('service', 'internet');
+    if (!$internetUp) {
+        // no internet connection, just return a false value
+        return 0;
+    }
+    $artDir = rtrim(trim($redis->get('albumart_image_dir')), '/');
+    $fileName = $artDir.'/none.png';
+    clearstatcache(true, $fileName);
+    if (!file_exists($fileName)) {
+        // metadata cache has not yet been initialised (on startup)
+        // so just return false
+        return 0;
+    }
+    $info = array();
+    $info['webradiostring'] = $radiostring;
+    if (strtolower($radiostring) != $radiostringClean) {
+        // when the radiostring and radiostring_clean differ add radiostring_clean to the parameter list
+        $info['webradiostring_clean'] = $radiostringClean;
+    }
+    $info['webradiostring_filename'] = format_radiostring_file_name($radiostringClean);
+    $noRadioCache = true;
+    if ($info['webradiostring_filename']) {
+        $infoCache = array();
+        $fileName = $artDir.'/'.$info['webradiostring_filename'].'.radio';
+        clearstatcache(true, $fileName);
+        if (file_exists($fileName)) {
+            $infoCache = json_decode(trim(file_get_contents($fileName)), true);
+            if ($info['webradiostring_filename'] == $infoCache['webradiostring_filename']) {
+                // update the file time stamp and use it
+                touch($fileName);
+                $info  = $infoCache;
+                $noRadioCache = false;
+            }
+            unset($infoCache);
+        }
+    }
+    if ($noRadioCache) {
+        $info = array_merge($info, wrk_get_lastfm_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        $info = array_merge($info, wrk_get_musicbrainz_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        $info = array_merge($info, wrk_get_discogs_info($redis, $info));
+        if ($redis->get('activePlayer') != 'MPD') {
+            // no longer MPD, just return with the current information
+            return $info;
+        }
+        if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+            // no longer a radio, just return with current information
+            return $info;
+        }
+        if (isset($info['artist']) && $info['artist'] && (!isset($info['albumartist']) || !$info['albumartist'])) {
+            $info['albumartist'] = $info['artist'];
+        } else if ((!isset($info['artist']) || !$info['artist']) && isset($info['albumartist']) && $info['albumartist'] && ($info['albumartist'] |= 'Various Artists')) {
+            $info['artist'] = $info['albumartist'];
+        }
+    }
+    $retval = get_artistInfo($redis, $info);
+    if ($retval) {
+        $info = array_merge($info, $retval);
+    }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
+    }
+    if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+        // no longer a radio, just return with current information
+        return $info;
+    }
+    $retval = get_songInfo($redis, $info);
+    if ($retval) {
+        $info = array_merge($info, $retval);
+    }
+    if ($redis->get('activePlayer') != 'MPD') {
+        // no longer MPD, just return with the current information
+        return $info;
+    }
+    if (!json_decode($redis->get('act_player_info'), true)['radio']) {
+        // no longer a radio, just return with current information
+        return $info;
+    }
+    $retval = get_albumInfo($redis, $info);
+    if ($retval) {
+        $info = array_merge($info, $retval);
+    }
+    if ($info['webradiostring'] && $info['webradiostring_filename']) {
+        $infoCache = array();
+        foreach ($toCacheInfoFields as $toCacheInfoField) {
+            $infoCache[$toCacheInfoField] = trim($info[$toCacheInfoField]);
+        }
+        if ($infoCache['webradiostring_filename']) {
+            $fileName = $artDir.'/'.$infoCache['webradiostring_filename'].'.radio';
+            file_put_contents($fileName, json_encode($infoCache)."\n");
         }
     }
     return $info;
@@ -14340,6 +15033,7 @@ function wrk_get_wikipedia_artist_link($redis, $artist, $clickableText='Read mor
     // use curl to post the search url with a http GET
     // e.g. curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "https://en.wikipedia.org/w/rest.php/v1/search/page?q=annie%20lennox&limit=20"
     $retval = sysCmd('curl -X GET -s -f --connect-timeout 5 -m 10 --retry 1 "'.$searchUrl.'"')[0];
+    $retval = preg_replace('/[^\PC\s]/u', '', $retval);
     if (isset($retval) && $retval && json_validate($retval)) {
         // a string has been returned which which contains json encoding
         $retval = json_decode($retval, true);
@@ -20601,7 +21295,7 @@ function format_airplay_name_from_owntone($airplayName)
     // in the Airplay name replace each non-breaking space with a space
     $airplayName = str_replace("\xc2\xa0", ' ', $airplayName);
     // remove control characters, delete and values over 256
-    $airplayName = preg_replace('/[\x00-\x1F\x7F]/', '', $airplayName);
+    $airplayName = preg_replace('/[^\x20-\x7E]/', '', $airplayName);
     return trim($airplayName);
 }
 
@@ -20765,18 +21459,35 @@ function wrk_airplay_metadata_encoder($redis, $action, $args)
                     unlink($filePicture);
                 }
                 // create the picture file
-                if (!isset($args['filename']) || !$args['filename']) {
-                    // get the file with the program wget, pipe it to the program imagemagik convert,
-                    //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
-                    //  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
-                    //	pipe the output in jpg format to the picture file
-                    sysCmd('wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -O - \''.$args['url'].'\' | convert - -resize \'350x350>\' -sharpen \'0x.5\' -strip -interlace Plane -quality 80 -define jpeg:extent=32kb \''.$filePicture.'\'');
+                $magickOpts = trim($redis->hGet('magick', 'opts'));
+                if (!$magickOpts) {
+                    // no info, set to default
+                    $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
+                }
+                $magickResize = trim($redis->hGet('magick', 'resize'));
+                if (!$magickResize) {
+                    // no info, set to default
+                    $magickResize = "'350x350>'";
+                }
+                $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                if (is_numeric($magickFilesize) && $magickFilesize) {
+                    $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
                 } else {
-                    // open the file with the program imagemagik convert,
+                    // no info, set to default
+                    $magicFilesize = ' -define jpeg:extent=32kb';
+                }
+                if (!isset($args['filename']) || !$args['filename']) {
+                    // get the file with the program wget, pipe it to the program imagemagick convert,
                     //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
                     //  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
                     //	pipe the output in jpg format to the picture file
-                    sysCmd('convert \''.$args['filename'].'\' -resize \'350x350>\' -sharpen \'0x.5\' -strip -interlace Plane -quality 80 -define jpeg:extent=32kb \''.$filePicture.'\'');
+                    sysCmd("wget -q --force-html --connect-timeout=10 --timeout=10 --tries=2 -O - '".$args['url']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$filePicture."'");
+                } else {
+                    // open the file with the program imagemagick convert,
+                    //  resize if the image is greater then 350x350 pixels to 350x350, sharpen it a little , strip any metadata,
+                    //  use '-interlace Plane' and '-quality 80' to reduce the file size, max file size of 32kb (larger files will lose more quality),
+                    //	pipe the output in jpg format to the picture file
+                    sysCmd("magick '".$args['filename']."' -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$filePicture."'");
                 }
             }
             // clear the cache for the picture file

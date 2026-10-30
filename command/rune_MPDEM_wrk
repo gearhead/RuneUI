@@ -28,7 +28,7 @@
  * <http://www.gnu.org/licenses/gpl-3.0.txt>.
  *
  *  file: command/rune_MPDEM_wrk
- *  version: 0.5
+ *  version: 0.6
  *  coder: janui
  *  date: March 2022
  *  description:
@@ -89,7 +89,7 @@ foreach ($lyricsTags as $key => $lyricsTag) {
     // remove quotes from the tag and trim
     $lyricsTags[$key] = trim(preg_replace('/[\"\']/', '', $lyricsTag));
     // skip and remove empty tag names
-    if (!$lyricsTag) {
+    if (!$lyricsTags[$key]) {
         unset($lyricsTags[$key]);
     }
 }
@@ -99,7 +99,7 @@ foreach ($omit_lyrics as $key => $omit_lyric) {
     // remove quotes from the tag and trim
     $omit_lyrics[$key] = trim(preg_replace("/[\"\']/", '', $omit_lyric));
     // skip and remove empty tag names
-    if (!$omit_lyrics) {
+    if (!$omit_lyrics[$key]) {
         unset($omit_lyrics[$key]);
     }
 }
@@ -125,6 +125,12 @@ while (true)  {
         sleep(3);
         continue;
     }
+    if (isset($status['actPlayer']) && ($status['actPlayer'] != 'MPD')) {
+        // a different player (Bluetooth, Airplay, Spotify Connect) currently owns act_player_info,
+        //  stay out of its way rather than overwriting it with stale MPD status
+        sleep(3);
+        continue;
+    }
     $redis->watch('act_player_info');
     if (isset($status['radio']) && trim($status['radio'])) {
         $curSongIsRadio = true;
@@ -132,17 +138,18 @@ while (true)  {
         $curSongIsRadio = false;
     }
     // this part corrects missing bio or lyrics on the first number after switching back to MPD from another source
-    if ((trim($status['artist_bio_summary']) == '')
-            || (trim($status['song_lyrics']) == '')) {
+    if (!$curSongIsRadio
+            && ((trim($status['artist_bio_summary'] ?? '') == '')
+                || (trim($status['song_lyrics'] ?? '') == ''))) {
         $saveFile = '';
     }
     // this part handles play-lists playing multiple songs from one source file
     //  normally it is enough to check a changed file name ($status['file']),
     //  here $currentAlbumArtistSong is set with album, artist and song up to detect a change
     if (isset($status['currentartist']) && $status['currentartist']) {
-        $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', $status['currentalbum'].$status['currentartist'].$status['currentsong']));
+        $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', ($status['currentalbum'] ?? '').$status['currentartist'].($status['currentsong'] ?? '')));
     } else {
-        $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', $status['currentalbum'].$status['currentalbumartist'].$status['currentsong']));
+        $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', ($status['currentalbum'] ?? '').($status['currentalbumartist'] ?? '').($status['currentsong'] ?? '')));
     }
     //
     while (isset($status['actPlayer']) && isset($status['file'])
@@ -164,6 +171,7 @@ while (true)  {
         $socket = openMpdSocket($redis->hGet('mpdconf', 'bind_to_address'), 0);
         $currsongid = '';
         $nextsongid = '';
+        $state = '';
         //
         // get the current status, this includes pointers to the current song and the next song
         //
@@ -282,10 +290,8 @@ while (true)  {
             unset($songinfo['currsong']);
         } else if (strpos(' '.strtolower($songinfo['currsong']['file']), 'http') === 1) {
             // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
-            if (is_radioUrl($redis, $songinfo['currsong']['file'])) {
-                // it exists and its a radio, don't process it, remove it from the array
-                unset($songinfo['currsong']);
-            }
+            // a radio or a UPnP/DLNA/other http stream, there is no local file to analyse, don't process it
+            unset($songinfo['currsong']);
         } else if (strpos(' '.$songinfo['currsong']['file'], 'alsa:') === 1) {
             // hardware alsa input, don't process it, remove it from the array
             unset($songinfo['currsong']);
@@ -346,10 +352,8 @@ while (true)  {
             unset($songinfo['nextsong']);
         } else if (strpos(' '.strtolower($songinfo['nextsong']['file']), 'http') === 1) {
             // the file has a prefix of http, so it could still be a radio, otherwise it could be a UPnP/DLNA stream
-            if (is_radioUrl($redis, $songinfo['nextsong']['file'])) {
-                // it exists and its a radio, don't process it, remove it from the array
-                unset($songinfo['nextsong']);
-            }
+            // a radio or a UPnP/DLNA/other http stream, there is no local file to analyse, don't process it
+            unset($songinfo['nextsong']);
         } else if (strpos(' '.$songinfo['nextsong']['file'], 'alsa:') === 1) {
             // hardware alsa input, don't process it, remove it from the array
             unset($songinfo['nextsong']);
@@ -374,8 +378,8 @@ while (true)  {
         // process the songinfo array, which has one or two entries, current song 'currsong' and in most cases also next song 'nextsong'
         //
         if (!count($songinfo)) {
-            // songinfo array empty, nothing to do, the foreach below will do nothing
-            $saveFile = '';
+            // songinfo array empty (radio, stream, alsa, cdda), nothing to do
+            //  $saveFile stays set to the current file, so this is not retried until the song changes
             break;
         }
         foreach ($songinfo as $songkey => &$song) {
@@ -402,8 +406,9 @@ while (true)  {
             } else if (isset($song['uri']) && $song['uri']) {
                 $datafile = md5($song['uri']);
             } else {
-                // no song info, just exit
-                exit;
+                // no usable song info (e.g. a stream without tags or a uri), skip this entry, never exit
+                unset($songinfo[$songkey]);
+                continue;
             }
             //
             // determine the image file name
@@ -422,8 +427,9 @@ while (true)  {
             } else if (isset($song['uri']) && $song['uri']) {
                 $imagename = md5($song['uri']);
             } else {
-                // no song info, just exit
-                exit;
+                // no usable song info (e.g. a stream without tags or a uri), skip this entry, never exit
+                unset($songinfo[$songkey]);
+                continue;
             }
             //
             $song['datafile'] = $artDir.'/'.$datafile.'.mpd';
@@ -536,13 +542,13 @@ while (true)  {
                     if (isset($auinfo['comments']['picture']) && is_array($auinfo['comments']['picture'])) {
                         // there appears to be images available
                         for ($i = 0; $i <= array_key_last($auinfo['comments']['picture']); $i++) {
-                            if (!isset($pictureIndex) && isset($auinfo['comments']['picture'][$i]['data']) && (strlen($auinfo['comments']['picture'][$i]['data']) > 200)) {
+                            if (!isset($pictureIndex) && isset($auinfo['comments']['picture'][$i]['data']) && (strlen($auinfo['comments']['picture'][$i]['data']) > 1000)) {
                                 // found the first valid image, save the key
                                 $pictureIndex = $i;
                                 continue;
                             }
                             if (isset($auinfo['comments']['picture'][$i]['picturetype']) && strpos($auinfo['comments']['picture'][$i]['picturetype'], 'front') &&
-                                    isset($auinfo['comments']['picture'][$i]['data']) && (strlen($auinfo['comments']['picture'][$i]['data']) > 200)) {
+                                    isset($auinfo['comments']['picture'][$i]['data']) && (strlen($auinfo['comments']['picture'][$i]['data']) > 1000)) {
                                 // found another valid image with name 'front', delete any already saved images and save the key
                                 if (isset($pictureIndex)) {
                                     // unset previously saved picture data to save memory
@@ -556,7 +562,7 @@ while (true)  {
                         }
                     }
                     if (isset($pictureIndex)) {
-                        // the music file has embedded metadata and it has a size of more than 200 bytes, save it
+                        // the music file has embedded metadata and it has a size of more than 1000 bytes, save it
                         // send the image to the file using ImageMagick, this will convert to the required format
                         $descriptorspec = array(
                            0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
@@ -564,13 +570,24 @@ while (true)  {
                            2 => array("pipe", "w"),  // stderr is a pipe that the child will write to
                         );
                         $cwd = '/tmp';
-                        $magick_opts = trim($redis->hGet('magick', 'opts'));
-                        $magick_resize = trim($redis->hGet('magick', 'resize'));
-                        if ($magick_resize) {
-                            $process = proc_open('convert -resize '.$magick_resize.' '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
-                        } else {
-                            $process = proc_open('convert '.$magick_opts.' - \''.$song['albumartfile'].'\'', $descriptorspec, $pipes, $cwd);
+                        $magickOpts = trim($redis->hGet('magick', 'opts'));
+                        if (!$magickOpts) {
+                            // no info, set to default
+                            $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
                         }
+                        $magickResize = trim($redis->hGet('magick', 'resize'));
+                        if (!$magickResize) {
+                            // no info, set to default
+                            $magickResize = "'350x350>'";
+                        }
+                        $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                        if (is_numeric($magickFilesize) && $magickFilesize) {
+                            $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                        } else {
+                            // no info, set to default
+                            $magicFilesize = ' -define jpeg:extent=32kb';
+                        }
+                        $process = proc_open("magick - --resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$song['albumartfile']."'", $descriptorspec, $pipes, $cwd);
                         $return_value = 0;
                         if (is_resource($process)) {
                             // $pipes now looks like this:
@@ -609,10 +626,14 @@ while (true)  {
                         if ($return_value) {
                             // zero is returned for correct execution, so it has failed, but sometimes the image conversion is correct
                             // get some information about the file
-                            list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                            clearstatcache(true, $song['albumartfile']);
+                            $fileExists = file_exists($song['albumartfile']);
+                            if ($fileExists) {
+                                list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
+                            }
                             // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                            if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                                // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                            if ($fileExists && isset($width) && isset($height) && isset($type) && ($width > 100) && ($height > 100) && $type) {
+                                // it is a valid image file (or at least it has a valid header) and it is at least 100x100px
                                 $song['artFound'] = true;
                             } else {
                                 // the image file has an invalid format or is very small, write the unaltered image
@@ -623,8 +644,8 @@ while (true)  {
                             // get some information about the album art file
                             list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                             // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                            if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                                // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                            if (isset($width) && isset($height) && isset($type) && ($width > 100) && ($height > 100) && $type) {
+                                // it is a valid image file (or at least it has a valid header) and it is at least 100x100px
                                 $song['artFound'] = true;
                             } else {
                                 // the image file has an invalid format or is very small, delete it
@@ -847,35 +868,45 @@ while (true)  {
                 //
                 // 2. try to extract coverart via MPD using mpc
                 //
-                sysCmd('mpc readpicture '.$song['uri'].' > /tmp/cover.jpg');
-                clearstatcache(true, '/tmp/cover.jpg');
-                if (file_exists('/tmp/cover.jpg')) {
+                // get the imagemagick parameters
+                $magickOpts = trim($redis->hGet('magick', 'opts'));
+                if (!$magickOpts) {
+                    // no info, set to default
+                    $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
+                }
+                $magickResize = trim($redis->hGet('magick', 'resize'));
+                if (!$magickResize) {
+                    // no info, set to default
+                    $magickResize = "'350x350>'";
+                }
+                $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                if (is_numeric($magickFilesize) && $magickFilesize) {
+                    $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                } else {
+                    // no info, set to default
+                    $magicFilesize = ' -define jpeg:extent=32kb';
+                }
+                // extract the song and pipe it via imagemagick to the song file
+                sysCmd("mpc readpicture '".$song['uri']."' | magick - -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$song['albumartfile']."'");
+                clearstatcache(true, $song['albumartfile']);
+                if (file_exists($song['albumartfile'])) {
                     // echo "Exists\n";
-                    $filesize = intval(trim(filesize('/tmp/cover.jpg')));
-                    if (isset($filesize) && $filesize && ($filesize > 200)) {
-                        // echo "Greater than 200\n";
-                        $magick_opts = trim($redis->hGet('magick', 'opts'));
-                        $magick_resize = trim($redis->hGet('magick', 'resize'));
-                        if ($magick_resize) {
-                            sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \'/tmp/cover.jpg\' \''.$song['albumartfile'].'\'');
-                        } else {
-                            sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \'/tmp/cover.jpg\' \''.$song['albumartfile'].'\'');
-                        }
+                    $filesize = intval(trim(filesize($song['albumartfile'])));
+                    if (isset($filesize) && $filesize && ($filesize > 1000)) {
+                        // echo "Greater than 1000\n";
                         list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                        if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                            // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                        if (isset($width) && isset($height) && isset($type) && ($width > 100) && ($height > 100) && $type) {
+                            // it is a valid image file (or at least it has a valid header) and it is at least 100x100px
                             $song['artFound'] = true;
                         } else {
                             // the image file has an invalid format or is very small, delete it
                             unlink($song['albumartfile']);
                         }
+                    } else {
+                        unlink($song['albumartfile']);
                     }
                 }
-            }
-            clearstatcache(true, '/tmp/cover.jpg');
-            if (file_exists('/tmp/cover.jpg')) {
-                unlink('/tmp/cover.jpg');
             }
             //
             if (isset($song['file']) && $song['file']) {
@@ -898,17 +929,28 @@ while (true)  {
                     clearstatcache(true, $coverArtDirectory.$coverArtFileName);
                     if (file_exists($coverArtDirectory.$coverArtFileName)) {
                         // there is a valid art file in the album directory, copy it to the art directory and reduce its size as specified
-                        $magick_opts = trim($redis->hGet('magick', 'opts'));
-                        $magick_resize = trim($redis->hGet('magick', 'resize'));
-                        if ($magick_resize) {
-                            sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
-                        } else {
-                            sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \''.$coverArtDirectory.$coverArtFileName."' '".$song['albumartfile']."'");
+                        $magickOpts = trim($redis->hGet('magick', 'opts'));
+                        if (!$magickOpts) {
+                            // no info, set to default
+                            $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
                         }
+                        $magickResize = trim($redis->hGet('magick', 'resize'));
+                        if (!$magickResize) {
+                            // no info, set to default
+                            $magickResize = "'350x350>'";
+                        }
+                        $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                        if (is_numeric($magickFilesize) && $magickFilesize) {
+                            $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                        } else {
+                            // no info, set to default
+                            $magicFilesize = ' -define jpeg:extent=32kb';
+                        }
+                        sysCmd("magick '".$coverArtDirectory.$coverArtFileName."' -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$song['albumartfile']."'");
                         list($width, $height, $type, $attr) = getimagesize($song['albumartfile']);
                         // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                        if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                            // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                        if (isset($width) && isset($height) && isset($type) && ($width > 100) && ($height > 100) && $type) {
+                            // it is a valid image file (or at least it has a valid header) and it is at least 100x100px
                             $song['artFound'] = true;
                             // finish when one is found, exit the innermost loop
                             break;
@@ -1075,7 +1117,7 @@ while (true)  {
             if ($retval) {
                 $info = array_merge($info, $retval);
             }
-            // some lyrics are omitted since they almost never exits, default is 'classical, baroque'
+            // some lyrics are omitted since they almost never exist, default is 'classical, baroque'
             $omit_string = '';
             if (isset($song['song_lyrics']) && trim($song['song_lyrics'])) {
                 // we already have lyrics so use them
@@ -1249,10 +1291,14 @@ while (true)  {
         $redis->unwatch();
         $status = json_decode($redis->get('act_player_info'), true);
         $redis->watch('act_player_info');
+        if (!is_array($status)) {
+            // act_player_info vanished, let the outside loop sort it out
+            break;
+        }
         if (isset($status['currentartist']) && $status['currentartist']) {
-            $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', $status['currentalbum'].$status['currentartist'].$status['currentsong']));
+            $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', ($status['currentalbum'] ?? '').$status['currentartist'].($status['currentsong'] ?? '')));
         } else {
-            $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', $status['currentalbum'].$status['currentalbumartist'].$status['currentsong']));
+            $currentAlbumArtistSong = trim(preg_replace('/\s+/', '', ($status['currentalbum'] ?? '').($status['currentalbumartist'] ?? '').($status['currentsong'] ?? '')));
         }
     }
     $redis->unwatch();

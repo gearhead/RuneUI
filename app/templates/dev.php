@@ -858,28 +858,40 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="artResizing">Local album art resizing</label>
+                    <label class="col-sm-2 control-label" for="artResizing">Album art resizing maximum image size in pixels</label>
                     <div class="col-sm-10">
                         <input class="form-control osk-trigger input-lg" type="number" id="artResizing" name="mode[artResizing]" value="<?=$artResizing ?>" min="100" max="1000" placeholder="350" data-trigger="change">
                         <span class="help-block">In the main UI, the locally sourced album art is displayed with a maximum format of n pixels high and n pixels wide.
                         When the locally sourced album art is larger it will be reduced in size so that it fits into n by n pixels.
                         The image aspect ratio remains unchanged.
                         You can change the 'n' value if you require a lower or higher image resolution.
-                        Valid values are 100 to 1000, the default is 350 (350x350 pixels).<br>
-                        <i>Notes: Local album art is embedded in the music files or stored in the directories with the music.
-                        An attempt has been made to find a balance between image quality and processing overhead.
-                        The images are cached in memory to improve performance.
-                        By limiting format of album art the performance of the UI is further improved and system I/O overhead is lowered,
-                        which can improve audio quality</i></span>
+                        Valid values are 100 to 1000, the default is 350 (350x350 pixels)</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="col-sm-2 control-label" for="artResizingOpts">Local album art resizing options</label>
+                    <label class="col-sm-2 control-label" for="artMaxsize">Album art resizing maximum file size</label>
                     <div class="col-sm-10">
-                        <input class="form-control osk-trigger input-lg" id="artResizingOpts" name="mode[artResizingOpts]" value="<?=$artResizingOpts ?>" placeholder="-strip -interlace Plane -quality 90" data-trigger="change">
+                        <input class="form-control osk-trigger input-lg" id="artMaxsize" name="mode[artMaxsize]" value="<?=$artMaxsize ?>" placeholder="32000" data-trigger="change" type="number" min="25000" max="50000" step="1000">
+                        <span class="help-block">The maximum file size for which ImageMagick will use.
+                        The default value is '32000', you can change it if required. Values from 25000 to 50000 are valid.
+                        When required, ImageMagick will reduce image quality in order to fit the file size</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="artResizingOpts">Album art resizing options</label>
+                    <div class="col-sm-10">
+                        <input class="form-control osk-trigger input-lg" id="artResizingOpts" name="mode[artResizingOpts]" value="<?=$artResizingOpts ?>" placeholder="-strip -interlace Plane -sharpen '0x.5' -quality 90" data-trigger="change">
                         <span class="help-block">The options used by ImageMagic to optimize the resized images, see the ImageMagick manual for details.
-                        The default settings are '<strong>-strip -interlace Plane -quality 90</strong>', you can change these if required.<br>
-                        <i>Note: The values of changed resizing options are not validated, please ensure that the new settings are tested</i></span>
+                        The default settings are '<strong>-strip -interlace Plane -sharpen '0x.5' -quality 90</strong>', you can change these if required.<br>
+                        <i>Note: The values of changed resizing options are not validated, please ensure that the new settings are tested</i><br><br>
+                        <i>Notes for album art resizing: ImageMagick is used for album art image manipulation.
+                        Album art is embedded in the music files or stored in the directories with the music.
+                        It is also retrieved from internet when playing CD's, Webradio's, Bluetooth and Spotify Connect or when it is not embedded in the music files.
+                        The image size and image file size have an impact on multi-room metadata distribution and UI performance.
+                        The maximum image file size is a limitation imposed by the multi-room metadata distribution processing.
+                        An attempt has been made to find a balance between image quality and processing overhead.
+                        These images are often cached in memory to improve performance.
+                        Good performance of the UI and multi-room metadata distribution can improve audio quality</i></span>
                     </div>
                 </div>
                 <div class="form-group">

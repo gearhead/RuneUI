@@ -37,7 +37,7 @@
 ini_set('display_errors', '1');
 ini_set('error_reporting', -1);
 ini_set('error_log', '/var/log/runeaudio/spotify_connect_command.log');
-require_once('/var/www/app/libs/runeaudio.php');
+require_once('/srv/http/app/libs/runeaudio.php');
 error_reporting(E_ALL & ~E_NOTICE);
 
 // reset logfile

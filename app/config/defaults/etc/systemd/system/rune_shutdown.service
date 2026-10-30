@@ -6,14 +6,14 @@
 #
 [Unit]
 Description=RuneAudio shutdown script
-ConditionFileIsExecutable=/var/www/command/rune_shutdown
+ConditionFileIsExecutable=/srv/http/command/rune_shutdown
 DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStartPre=-/var/www/command/rune_shutdown
+ExecStartPre=-/srv/http/command/rune_shutdown
 ExecStart=/bin/bash -c 'exit 0'
 
 [Install]

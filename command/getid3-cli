@@ -80,6 +80,9 @@ if ((substr($argv[1], 0, 2) == '-h') || ($argv[1] == '--help')) {
     fwrite(STDOUT, " -l (number) : --length(=<number>)\n");
     fwrite(STDOUT, "                      The maximum length in characters of the tag value, default 200 characters.\n");
     fwrite(STDOUT, "                      When exceeded the tag value will be replaced with an explanatory text.\n");
+    fwrite(STDOUT, " -e <extract string> : --extract=<extract string\n");
+    fwrite(STDOUT, "                      Extracts tags matching the ectract string and (sub-)parts thereof. Valid for\n");
+    fwrite(STDOUT, "                      all options which output tags\n");
     fwrite(STDOUT, " -i (<number>) : --image(=<number>)\n");
     fwrite(STDOUT, "                      The image will be echoed (raw) to std_out. When <number> is 1 or\n");
     fwrite(STDOUT, "                      is not specified, the first valid (or front) image is used,\n");
@@ -97,7 +100,7 @@ if ((substr($argv[1], 0, 2) == '-h') || ($argv[1] == '--help')) {
     fwrite(STDOUT, "                      All tags and their values will be saved in json format in the\n");
     fwrite(STDOUT, "                      <redis_variable> instead of std_out.\n");
     fwrite(STDOUT, "Notes: The raw image tag values are always replaced with an explanatory text in the tag output.\n");
-    fwrite(STDOUT, "       Options -p, -j and -m will be ignored when -i is set without -o.\n");
+    fwrite(STDOUT, "       Options -p, -j, -l, -e and -m will be ignored when -i is set without -o.\n");
     fwrite(STDOUT, "       When no options are set, -p is set automatically.\n");
     fwrite(STDOUT, "       Any file name or parameter containing spaces must be enclosed with single or double\n");
     fwrite(STDOUT, "       quotes. Examples:\n");
@@ -134,7 +137,7 @@ foreach ($argv as $key => $arg) {
         $skipnext = false;
         continue;
     }
-    while ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) > 1) && strpos(' hpjilomtr', substr($arg_lower, 1, 1))) {
+    while ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) > 1) && strpos(' hpjilomtre', substr($arg_lower, 1, 1))) {
         if (substr($arg_lower, 1, 1) == 'h') {
             $arg_lower = '-'.substr($arg_lower, 2);
         } else if (substr($arg_lower, 1, 1) == 'p') {
@@ -196,6 +199,15 @@ foreach ($argv as $key => $arg) {
                 // error condition
                 $arg_lower .= 'x';
             }
+        } else if (substr($arg_lower, 1, 1) == 'e') {
+            $arg_lower = '-'.substr($arg_lower, 2);
+            if ((strlen($arg_lower) == 1) && isset($argv[$key + 1]) && (substr($argv[$key + 1], 0, 1) != '-')) {
+                $extract_string = $argv[$key + 1];
+                $skipnext = true;
+            } else {
+                // error condition
+                $arg_lower .= 'x';
+            }
         }
     }
     if (substr($arg_lower, 0, 2) == '--') {
@@ -231,6 +243,12 @@ foreach ($argv as $key => $arg) {
                 continue;
             }
         }
+        if (substr($arg, 2, 8) == 'extract=') {
+            $extract_string = trim(explode('=', $arg, 2)[1], "'");
+            if (isset($extract_string) && $extract_string) {
+                continue;
+            }
+        }
         if (substr($arg, 2, 7) == 'magick=') {
             $magick_opts = trim(explode('=', $arg, 2)[1], "'");
             if (isset($magick_opts) && $magick_opts) {
@@ -250,9 +268,9 @@ foreach ($argv as $key => $arg) {
             }
         }
         if ((substr($arg_lower, 0, 1) == '-') && (strlen($arg_lower) > 1)) {
-            fwrite(STDERR, "Invalid options: (-[h|p|j]) (-l <number>) (-i (<number>)) (-o <filename>) (-m <magickopts>)...\n");
+            fwrite(STDERR, "Invalid options: (-[h|p|j]) (-l <number>) (-e <string>) (-i (<number>)) (-o <filename>) (-m <magickopts>)...\n");
             fwrite(STDERR, "                 (-t <filename>) (-r <redis_var>)\n");
-            fwrite(STDERR, "             Or: (--[help|print|json]) (--length=<number>) (--image(=<number>)) (--outfile=<filename>)...\n");
+            fwrite(STDERR, "             Or: (--[help|print|json]) (--length=<number>) (--extract=<string>) (--image(=<number>)) (--outfile=<filename>)...\n");
             fwrite(STDERR, "                 (--magick=<magickopts>) (--tagfile=<filename>) (--redis=<redis_var>)\n");
             fwrite(STDERR, "Usage: ".$path."getid3-cli <options> <input_filename>\n");
             fwrite(STDERR, "Use: ".$path."getid3-cli --help for more information\n");
@@ -439,6 +457,11 @@ if ($image_key != -1) {
     }
 }
 //
+// extract the required tags
+if ($extract_string) {
+    $auinfo = filterArrayToOnlyKeepKey($auinfo, $extract_string);
+}
+//
 // process the tags to std_out human readable
 if ($print) {
     fwrite(STDOUT, "File: \"".$infile."\"\n");
@@ -464,6 +487,22 @@ if ($tag_redis) {
 }
 //
 // functions
+function filterArrayToOnlyKeepKey(array $array, string $searchKey) {
+    $filtered = [];
+
+    foreach ($array as $key => $value) {
+        if (strpos(' '.$key, $searchKey)) {
+            $filtered[$key] = $value;
+        } else if (is_array($value)) {
+            $nested = filterArrayToOnlyKeepKey($value, $searchKey);
+            if (!empty($nested)) {
+                $filtered[$key] = $nested;
+            }
+        }
+    }
+
+    return $filtered;
+}
 function print_array($array, $spaces='')
 {
     $tag_value_length = $GLOBALS['tag_value_length'];

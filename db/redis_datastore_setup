@@ -528,7 +528,8 @@ function redisDatastore($redis, $action) {
             $redis->set('mpd_playback_lastnumber', '');
             $redis->set('last_pl_randomfile', 'exists');
             $redis->hSet('magick', 'resize', "'350x350>'");
-            $redis->hSet('magick', 'opts', '-strip -interlace Plane -quality 90');
+            $redis->hSet('magick', 'opts', '-strip -interlace Plane -sharpen \'0x.5\' -quality 90');
+            $redis->hSet('magick', 'maxsize', '32000');
             // local browser
             $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hSet('local_browser', 'enable', 0);
@@ -814,7 +815,8 @@ function redisDatastore($redis, $action) {
             $redis->exists('mpd_playback_lastnumber') || $redis->set('mpd_playback_lastnumber', '');
             $redis->exists('last_pl_randomfile') || $redis->set('last_pl_randomfile', 'exists');
             $redis->hExists('magick', 'resize') || $redis->hSet('magick', 'resize', "'350x350>'");
-            $redis->hExists('magick', 'opts') || $redis->hSet('magick', 'opts', '-strip -interlace Plane -quality 90');
+            $redis->hExists('magick', 'opts') || $redis->hSet('magick', 'opts', '-strip -interlace Plane -sharpen \'0x.5\' -quality 90');
+            $redis->hExists('magick', 'maxsize') || $redis->hSet('magick', 'maxsize', '32000');
             // local browser
             $redis->hExists('local_browser', 'browser') || $redis->hSet('local_browser', 'browser', 'chromium');
             $redis->hExists('local_browser', 'enable') || $redis->hSet('local_browser', 'enable', 0);

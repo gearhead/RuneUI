@@ -112,22 +112,22 @@ declare -a disable_arr=(ashuffle bluealsa bluealsa-aplay bluealsa-monitor blueto
     owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt plymouth-lite-poweroff plymouth-lite-reboot\
     plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_MPDEM_wrk rune_PL_wrk rune_shutdown rune_SSM_wrk samba-ad-dc\
     shairport-sync shairport-sync-ap1 shairport-sync-ap2 smartmontools smb smbd systemd-homed systemd-networkd triggerhappy udevil udisks2\
-    upmpdcli upower uwsgi winbind winbindd)
-declare -a enable_arr=(amixer-webui avahi-daemon cmd_async_queue connman dbus fix_ethx fix_usbdevices fix_wlanx iwd mpdversion nginx\
-    redis rune_SY_wrk sshd systemd-journald systemd-resolved systemd-timesyncd udevil uwsgi-app@amixer-webui)
+    upmpdcli upower uwsgi winbind winbindd  wsdd wsdd2)
+declare -a enable_arr=(amixer-webui avahi-daemon cmd_async_queue connman dbus fix_ethx fix_usbdevices fix_wlanx iwd mpdversion NetworkManager nginx\
+    redis rune_SY_wrk samba_pre_symlinks sshd systemd-journald systemd-resolved systemd-timesyncd udevil uwsgi-app@amixer-webui)
 declare -a stop_arr=(amixer-webui ashuffle bluealsa bluealsa-aplay bluealsa-monitor bluetooth bluetooth-agent\
     bluetoothctl_scan bootsplash bt_mon_switch bt_scan_output chronyd cmd_async_queue connman-wait-online cron cronie dhcpcd dnsmasq\
     dphys-swapfile dundee fix_ethx fix_usbdevices haveged hciuart llmnrd local-browser local-browser-w ModemManager mosquitto mpd mpdversion nginx nmb\
     nmbd ofono owntone owntone_monitor owntone@.service pcscd php7.4-fpm php8.2-fpm php8.4-fpm php-fpm plymouth-lite-halt\
     plymouth-lite-poweroff plymouth-lite-reboot plymouth-lite-start redis-server rpi-display-backlight rsyslog rune_MPDEM_wrk rune_PL_wrk rune_shutdown\
-    rune_SSM_wrk rune_SY_wrk samba-ad-dc shairport-sync shairport-sync-ap1 shairport-sync-ap2 smartmontools smb smbd systemd-homed systemd-networkd\
-    systemd-timesyncd triggerhappy udevil udisks2 upmpdcli upower uwsgi uwsgi-app@amixer-webui winbind winbindd wsdd)
+    rune_SSM_wrk rune_SY_wrk samba-ad-dc samba_pre_symlinks shairport-sync shairport-sync-ap1 shairport-sync-ap2 smartmontools smb smbd systemd-homed systemd-networkd\
+    systemd-timesyncd triggerhappy udevil udisks2 upmpdcli upower uwsgi uwsgi-app@amixer-webui winbind winbindd wsdd wsdd2)
 if [ "$1" == "consolelogin" ] || [ "$2" == "consolelogin" ] ; then
-    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee exim4 haveged llmnrd ofono\
+    declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee exim4 haveged llmnrd ModemManager ofono \
         php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 else
     declare -a mask_arr=(bluealsa-monitor connman-vpn dhcpcd dphys-swapfile dundee exim4 getty@tty1\
-        haveged llmnrd ofono php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
+        haveged llmnrd ModemManager ofono php7.4-fpm php8.2-fpm php8.4-fpm redis-server rsyncd rsyncd@ rsyslog systemd-homed udisks2 upower uwsgi)
 fi
 declare -a unmask_arr=(systemd-journald)
 #
@@ -196,28 +196,6 @@ rmdir /mnt/MPD/NAS/*
 rmdir /mnt/MPD/USB/*
 # clean up any no longer valid mounts
 udevil clean
-#
-# set up connman
-# delete the file/link at /etc/resolv.conf
-#   Note this section can be removed in the next release
-# rm -f /etc/resolv.conf
-# symlink it to connman's dynamically created resolv.conf
-# ln -sfT /run/connman/resolv.conf /etc/resolv.conf
-#
-# # fix for removing openresolv
-# #   Note this section can be removed in the next version
-# if [ "$os" == "RPiOS" ] ; then
-    # a=$( apt -qq list openresolv 2> /dev/null | grep -ci installed )
-    # if [ "$a" == "0" ] ; then
-        # bash -c "apt install -y openresolv >/dev/null 2>&1"
-    # fi
-    # rm -f /etc/resolv.conf
-    # resolvconf -u
-    # # bash -c "apt purge -y openresolv >/dev/null 2>&1"
-# elif [ "$os" == "ARCH" ] ; then
-    # # install openresolv if missing, dont run resolvconf -u
-    # pacman -Q openresolv || pacman -Sy openresolv --noconfirm
-# fi
 #
 # remove rerns addons menu (if installed)
 systemctl stop addons
@@ -597,28 +575,35 @@ if [ -f "/bin/xinit" ] ; then
 fi
 #
 # remove the network configuration files, these could contain Wi-Fi passwords
-#   for the connman and iwd user files, connman needs to be stopped
-systemctl stop connman
-# get the networks known to iwd
-#   iwd uses formatted output, this sed command removes it: "sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g'"
-networks=$( iwctl known-networks list | tail -n +5 | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g' | cut -b 2-36 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
-# forget each network known to iwd
-#   cant use a for loop because the network name (ssid) can contain spaces
-while IFS= read -r line; do
-    # echo "$line"
-    if [ "$line" == "" ] ; then
-        continue
-    fi
-    iwctl known-networks "$line" forget
-done <<< "$networks"
-# delete the connman configuration files
-rm -rf /var/lib/connman/*
-# delete the iwd configuration files (there should be none after forgetting the known networks)
-rm -rf /var/lib/iwd/*
-# copy the default connman config file
-cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
-# start connman which will refresh the network information
-systemctl start connman
+if systemctl is-active --quiet iwd; then
+    # for the connman and iwd user files
+    #   connman needs to be stopped
+    systemctl stop connman
+    # get the networks known to iwd
+    #   iwd uses formatted output, this sed command removes it: "sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g'"
+    networks=$( iwctl known-networks list | tail -n +5 | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g' | cut -b 2-36 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' )
+    # forget each network known to iwd
+    #   cant use a for loop because the network name (ssid) can contain spaces
+    while IFS= read -r line; do
+        # echo "$line"
+        if [ "$line" == "" ] ; then
+            continue
+        fi
+        iwctl known-networks "$line" forget
+    done <<< "$networks"
+    # delete the connman configuration files
+    rm -rf /var/lib/connman/*
+    # delete the iwd configuration files (there should be none after forgetting the known networks)
+    rm -rf /var/lib/iwd/*
+    # copy the default connman config file
+    cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+    # start connman which will refresh the network information
+    systemctl start connman
+else
+    # for the NetworkManager user files
+    nmcli -g UUID connection show | while read -r uuid; do nmcli connection delete uuid "$uuid"; done
+    systemctl restart NetworkManager
+fi
 #
 # reset the service and configuration files to the distribution standard
 # the following commands should also be run after a system update or any package updates
@@ -676,6 +661,8 @@ touch /run/bluealsa-monitor/asoundrc
 rm /etc/udev/rules.d/99-runeaudio.rules
 rm /etc/udev/rules.d/70-bluealsa.rules
 rm /etc/udev/rules.d/90-touchscreen.rules
+rm /etc/NetworkManager/conf.d/100-disable-wifi-mac-randomization.conf
+rm /etc/sysctl.d/redis.conf
 # if certain udev rules files are not present use the defaults, otherwise remove the defaults (these files could be created in the image)
 for f in /etc/udev/rules.d/*.default ;  do
     f1=${f::-8}
@@ -689,7 +676,13 @@ for f in /etc/udev/rules.d/*.default ;  do
 done
 # make appropriate links
 ln -sfT /etc/samba/smb-prod.conf /etc/samba/smb.conf
+ln -sfT /etc/samba/smb-global-trixie-32bit.conf /etc/samba/smb-global.conf
 ln -sfT /etc/default/bluealsa.default /etc/default/bluealsa
+# when NetworkManager is enabled make sure the following symlink is made for resolv.conf and that Multipath TCP (MPTCP) settings are correct
+systemctl is-enabled NetworkManager >/dev/null 2>&1
+if [ "$?" == "0" ] ; then
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+fi
 #
 # set op logrotate
 if [ "$os" == "ARCH" ] ; then
@@ -1233,6 +1226,13 @@ find /usr/share/doc -type f -name *.gz -delete
 if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     echo "Zero filling the file system"
     # zero fill the file system : p1mountpoint="/boot/firmware"
+    # first remove large unused packages
+    apt purge chromium-l10n firmware-atheros firmware-nvidia-graphics firmware-intel-graphics
+    # and remove the package documentation
+    find /usr/share/doc -type f -name *.gz -delete
+    apt install --fix-broken -y
+    apt autoremove -y --purge
+    apt autoclean
     cd $p1mountpoint
     sync
     cat /dev/zero > zero.file
@@ -1247,11 +1247,18 @@ if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     cd /home
 fi
 #
-# remove connman wired network configuration files
-#   dont stop connman
-rm -rf /var/lib/connman/*
-# copy the default connman config file
-cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+# remove current wired network configuration files and state files
+if systemctl is-active --quiet iwd; then
+    # connman
+    #   dont stop or restart connman
+    rm -rf /var/lib/connman/*
+    # copy the default connman config file
+    cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
+else
+    # NetworkManager
+    #   don't restart NetworkManager
+    rm -rf /var/lib/NetworkManager/* /etc/NetworkManager/system-connections/*
+fi
 #
 # shutdown & poweroff
 shutdown -P now
