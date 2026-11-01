@@ -10,16 +10,20 @@ set +e # continue on errors
 #
 
 #clean up the package database
+{
 apt install --fix-broken -y
 apt autoremove -y --purge
 apt autoclean
+}
 
 # stop the major background processes
 /srv/http/command/rune_shutdown
 systemctl stop rune_SY_wrk rune_PL_wrk rune_MPDEM_wrk
 
 # install network-manager
+{
 apt install network-manager -y
+}
 # disable and stop connman and iwd
 systemctl disable connman
 systemctl disable iwd
@@ -31,16 +35,22 @@ systemctl restart NetworkManager
 systemctl enable NetworkManager
 
 # remove connman and iwd
+{
 apt remove connman-git -y --purge
 apt remove iwd -y --purge
+}
 
 # also purge openresolv and resolvconf
+{
 apt purge openresolv resolvconf -y
+}
 
 #clean up the package database
+{
 apt install --fix-broken -y
 apt autoremove -y --purge
 apt autoclean
+}
 
 #stop disable and mask ModemManager (GSM support for NetworkManager)
 systemctl stop ModemManager
