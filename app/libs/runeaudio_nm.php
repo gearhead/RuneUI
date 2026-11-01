@@ -3514,7 +3514,7 @@ function connectWifi($redis, $args, $options = [])
     }
 
     // One call to add the connection with all settings in place
-    echo 
+    echo
         "nmcli connection add type wifi ifname $nicEsc con-name $connNameEsc ssid $ssidEsc \\\n" .
         "$security \\\n" .
         "$ipv4 \\\n" .
