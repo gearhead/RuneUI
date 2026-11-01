@@ -1,5 +1,5 @@
 [Unit]
-Description = generate mpd --version informtion during boot
+Description = generate mpd --version information during boot
 # on some models the command mpd --version throws errors when called by php
 # this workarount will generate a file containing the required output
 # DefaultDependencies=no

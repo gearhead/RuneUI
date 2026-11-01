@@ -42,17 +42,32 @@ done="0"
 # loop 20 times with a 5 second sleep, the job runs for a maximum of 100 seconds
 for i in {0..20..1} ; do
     # echo $i
-    pgrep iwd >/dev/null 2>&1
-    if [ "$?" != "0" ] ; then
-        # iwd is not running, loop
-        sleep 5
-        continue
+    systemctl is-enabled iwd >/dev/null 2>&1
+    if [ "$?" == "0" ] ; then
+        pgrep iwd >/dev/null 2>&1
+        if [ "$?" != "0" ] ; then
+            # iwd is enabled (and installed) but is not running, loop
+            sleep 5
+            continue
+        fi
     fi
-    pgrep connman >/dev/null 2>&1
-    if [ "$?" != "0" ] ; then
-        # connman is not running, loop
-        sleep 5
-        continue
+    systemctl is-enabled connman >/dev/null 2>&1
+    if [ "$?" == "0" ] ; then
+        pgrep connman >/dev/null 2>&1
+        if [ "$?" != "0" ] ; then
+            # connman is enabled (and installed) but is not running, loop
+            sleep 5
+            continue
+        fi
+    fi
+    systemctl is-enabled NetworkManager >/dev/null 2>&1
+    if [ "$?" == "0" ] ; then
+        pgrep NetworkManager >/dev/null 2>&1
+        if [ "$?" != "0" ] ; then
+            # Network Manager is enabled (and installed) but is not running, loop
+            sleep 5
+            continue
+        fi
     fi
     pgrep redis >/dev/null 2>&1
     if [ "$?" != "0" ] ; then
@@ -69,7 +84,7 @@ for i in {0..20..1} ; do
     # get a list of all nics
     nics=$( ip -o -br  address | cut -d ' ' -f1 | xargs )
     # get a list of all Wi-Fi nics
-    wifinics=$( iw dev | grep -i interface | cut -d ' ' -f2 | xargs )
+    wifinics=$( iw dev | grep -i '^\s*interface' | cut -d ' ' -f2 | xargs )
     # get a list of nics with an ip-address
     ipnics=$( ip -o -br  address | grep -i '/' | cut -d ' ' -f1 | xargs )
     done="1"

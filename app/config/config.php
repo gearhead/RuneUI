@@ -35,7 +35,7 @@
 if ((isset($_SERVER['HOME'])) && ($_SERVER['HOME']) && ($_SERVER['HOME'] != '/root')) {
     define('APP',$_SERVER['HOME'].'/app/');
 } else {
-    define('APP','/var/www/app/');
+    define('APP','/srv/http/app/');
 }
 // extend include path for Vendor Libs
 $libs = APP.'libs/vendor';
@@ -61,7 +61,7 @@ $activePlayer = $redis->get('activePlayer');
 //  but, if no MPD connection can be made the rest will fail, so keep trying
 //  should only be a problem during start up or after restarting MPD
 $repeat = 30;
-if ((isset($_SERVER["SCRIPT_FILENAME"])) && (($activePlayer === 'MPD') || ($activePlayer === 'Bluetooth')) && (($_SERVER["SCRIPT_FILENAME"] === '/var/www/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
+if ((isset($_SERVER["SCRIPT_FILENAME"])) && (($activePlayer === 'MPD') || ($activePlayer === 'Bluetooth')) && (($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php') || ($_SERVER["SCRIPT_FILENAME"] === '/srv/http/command/index.php'))) {
     // debug
     runelog('[config.php] >>> OPEN MPD SOCKET [NORMAL MODE [0] (blocking)] <<<','');
     if (isset($mpd) && is_array($mpd)) {

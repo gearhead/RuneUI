@@ -213,13 +213,13 @@ if (isset($_POST)) {
         // ----- Local album art resizing -----
         if ((isset($_POST['mode']['artResizing'])) && ($_POST['mode']['artResizing'])) {
             // value is set
-            $magick_resize = "'".$_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].">'";
-            if ($redis->hGet('magick', 'resize') != $magick_resize) {
+            $magickResize = "'".$_POST['mode']['artResizing'].'x'.$_POST['mode']['artResizing'].">'";
+            if ($redis->hGet('magick', 'resize') != $magickResize) {
                 // value has changed, save it
-                $redis->hSet('magick', 'resize', $magick_resize);
+                $redis->hSet('magick', 'resize', $magickResize);
                 $redis->del('cleancache');
             }
-            unset($magick_opts);
+            unset($magickOpts);
         }
         // ----- Local album art resizing options -----
         if ((isset($_POST['mode']['artResizingOpts'])) && ($_POST['mode']['artResizingOpts'])) {
@@ -227,6 +227,15 @@ if (isset($_POST)) {
             if ($redis->hGet('magick', 'opts') != $_POST['mode']['artResizingOpts']) {
                 // value has changed, save it
                 $redis->hSet('magick', 'opts', $_POST['mode']['artResizingOpts']);
+                $redis->del('cleancache');
+            }
+        }
+        // ----- Local album art resizing maxsize -----
+        if ((isset($_POST['mode']['artMaxsize'])) && ($_POST['mode']['artMaxsize'])) {
+            // value is set
+            if ($redis->hGet('magick', 'maxsize') != $_POST['mode']['artMaxsize']) {
+                // value has changed, save it
+                $redis->hSet('magick', 'maxsize', $_POST['mode']['artMaxsize']);
                 $redis->del('cleancache');
             }
         }
@@ -521,10 +530,11 @@ $templateData['WSsamplerate'] = $redis->hGet('webstreaming', 'samplerate');
 $templateData['conf'] = $redis->hGetAll('mpdconf');
 $templateData['replaygain'] = sysCmd('pgrep _replaygain_ | wc -l | xargs')[0];
 $templateData['lyrics'] = $redis->hGetAll('lyrics');
+$templateData['artResizing'] = preg_replace('/[^0-9]/', '', get_between_data($redis->hGet('magick', 'resize'), '', 'x'));
+$templateData['artMaxsize'] = trim($redis->hGet('magick', 'maxsize'));
 $templateData['artResizingOpts'] = trim($redis->hGet('magick', 'opts'));
 $templateData['artMatchPercentage'] = $redis->get('albumart_match_percentage');
 $templateData['webradioRejectCount'] = $redis->get('webradio_reject_count');
-$templateData['artResizing'] = preg_replace('/[^0-9]/', '', get_between_data($redis->hGet('magick', 'resize'), '', 'x'));
 $templateData['fix_input_ba_volume_enabled'] = $redis->hGet('bluetooth', 'fix_input_ba_volume');
 $templateData['fix_output_ba_volume_enabled'] = $redis->hGet('bluetooth', 'fix_output_ba_volume');
 $templateData['local_browser_browser'] = $redis->hGet('local_browser', 'browser');

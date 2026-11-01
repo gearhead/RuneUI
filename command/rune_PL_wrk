@@ -523,18 +523,29 @@ while (true) {
                                 // the art file already exists
                                 $newStatus['mainArtURL'] = $artFileUrl;
                             } else if (file_exists($artFileNameSource)) {
-                                // a source art file exists, use imagemagik convert to make a copy in the art directory
-                                $magick_opts = trim($redis->hGet('magick', 'opts'));
-                                $magick_resize = trim($redis->hGet('magick', 'resize'));
-                                if ($magick_resize) {
-                                    sysCmd('convert -resize '.$magick_resize.' '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
-                                } else {
-                                    sysCmd('convert -resize \'350x350>\' '.$magick_opts.' \''.$artFileNameSource."' '".$artFileNameTarget."'");
+                                // a source art file exists, use imagemagick convert to make a copy in the art directory
+                                $magickOpts = trim($redis->hGet('magick', 'opts'));
+                                if (!$magickOpts) {
+                                    // no info, set to default
+                                    $magickOpts = "-strip -interlace Plane -sharpen '0x.5' -quality 90";
                                 }
+                                $magickResize = trim($redis->hGet('magick', 'resize'));
+                                if (!$magickResize) {
+                                    // no info, set to default
+                                    $magickResize = "'350x350>'";
+                                }
+                                $magickFilesize = trim($redis->hGet('magick', 'maxsize'));
+                                if (is_numeric($magickFilesize) && $magickFilesize) {
+                                    $magicFilesize = ' -define jpeg:extent='.round(($magickFilesize / 1000)).'kb';
+                                } else {
+                                    // no info, set to default
+                                    $magicFilesize = ' -define jpeg:extent=32kb';
+                                }
+                                sysCmd("magick '".$artFileNameSource."' -resize ".$magickResize." ".$magickOpts.$magicFilesize." '".$artFileNameTarget."'");
                                 list($width, $height, $type, $attr) = getimagesize($artFileNameTarget);
                                 // width and height are in pixels (null when invalid), type is a non zero/null value when valid
-                                if (isset($width) && isset($height) && isset($type) && ($width > 20) && ($height > 20) && $type) {
-                                    // it is a valid image file (or at least it has a valid header) and it is at least 20x20px
+                                if (isset($width) && isset($height) && isset($type) && ($width > 100) && ($height > 100) && $type) {
+                                    // it is a valid image file (or at least it has a valid header) and it is at least 100x100px
                                     $newStatus['mainArtURL'] = $artFileUrl;
                                 } else {
                                     // the image file has an invalid format or is very small, delete it and its source
@@ -607,7 +618,7 @@ while (true) {
                                 }
                             }
                         }
-                        unset($cdDeviceParts, $cdTrack, $rateParts, $tracks, $artFileNameSource, $md5Name, $artFileNameTarget, $artFileUrl, $magick_opts, $magick_resize);
+                        unset($cdDeviceParts, $cdTrack, $rateParts, $tracks, $artFileNameSource, $md5Name, $artFileNameTarget, $artFileUrl, $magickOpts, $magickResize);
                         unset($width, $height, $type, $attr, $info, $retval);
                     }
                     $status = $newStatus;
@@ -1453,9 +1464,9 @@ while (true) {
                                         $info['song'] = $title;
                                         $info['album'] = $album;
                                         $info['single'] = $status['single'];
-                                        $info = array_merge($info, wrk_get_lastfm_info($redis, $info));
-                                        $info = array_merge($info, wrk_get_musicbrainz_info($redis, $info));
-                                        $info = array_merge($info, wrk_get_discogs_info($redis, $info));
+                                        // $info = array_merge($info, wrk_get_lastfm_info($redis, $info));
+                                        // $info = array_merge($info, wrk_get_musicbrainz_info($redis, $info));
+                                        // $info = array_merge($info, wrk_get_discogs_info($redis, $info));
                                         $retval = get_artistInfo($redis, $info);
                                         if ($retval) {
                                             $info = array_merge($info, $retval);

@@ -84,12 +84,16 @@ if (count($usbMountedList)) {
     $usbDevices = sysCmd("lsblk -farno NAME,FSTYPE,MOUNTPOINT | grep '^sd[a-z][0-9]'");
     foreach ($usbMountedList as $usbMountedDevice) {
         // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-        $usbMountedDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbMountedDevice));
+        $usbMountedDevice = preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbMountedDevice);
+        // replace all whitespace with a single space and trim leading and trailing whitespace, cr and lf
+        $usbMountedDevice = trim(preg_replace('/\s\s+/u',' ', $usbMountedDevice));
         // extract the device name ([0]), size ([1]), used ([2]), available([3]), use as % ([4]) and mount point ([5])
         $usbMountedDeviceInfo = explode(' ', $usbMountedDevice);
         foreach ($usbDevices as $usbDevice) {
             // allow only 0 to 9, a to z, A to Z, '.', '%', '/', '-' and '_' in the string, convert all other characters to a single space
-            $usbDevice = trim(preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbDevice));
+            $usbDevice = preg_replace('/[^0-9a-zA-Z\%\.\/\-\_]+/u',' ', $usbDevice);
+            // replace all whitespace with a single space and trim leading and trailing whitespace, cr and lf
+            $usbDevice = trim(preg_replace('/\s\s+/u',' ', $usbDevice));
             // extract the devics name ([0]), file system ([1]) and mount point ([2])
             $devInfo = explode(' ', $usbDevice);
             $usbDevice = '/dev/'.$devInfo[0];
@@ -98,6 +102,9 @@ if (count($usbMountedList)) {
                 continue 2;
             }
         }
+        // debug
+        // echo "usbMountedDevice: $usbMountedDevice\n";
+        // echo "usbDevice $usbDevice\n";
         // the current device is not valid dismount it (it has possibly been unplugged without dismounting)
         sysCmd('udevil umount '.$usbMountedDeviceInfo[0]);
         // remove entries for this device from the unmounted list and the mounted list (don't bother to check for the existence of these hashes)

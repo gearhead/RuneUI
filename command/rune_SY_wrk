@@ -1114,9 +1114,9 @@ while (true) {
             case 'sambaconfreset':
                 // reset the config files
                 sysCmd('rm -f /etc/samba/*.conf');
-                sysCmd('cp /srv/http/app/config/defaults//etc/samba/smb-dev.conf /etc/samba/smb-dev.conf');
-                sysCmd('cp /srv/http/app/config/defaults//etc/samba/smb-prod.conf /etc/samba/smb-prod.conf');
+                sysCmd('cp /srv/http/app/config/defaults/etc/samba/*.conf /etc/samba/');
                 sysCmd('ln -s /etc/samba/smb-prod.conf /etc/samba/smb.conf');
+                sysCmd('/srv/http/command/samba_pre_symlinks.sh');
                 sysCmd('find /etc/samba -name "*.conf" -exec chmod 644 {} \;');
                 // reset the redis varables for samba (set to OFF and Read-Only)
                 $redis->del('samba');

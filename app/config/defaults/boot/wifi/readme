@@ -1,29 +1,35 @@
 RuneAudio Wi-Fi setup at boot
 =============================
 
+You can use this RuneAudio feature to initially create Wi-Fi profiles or recover a Wi-Fi-only
+configuration when you have lost all connectivity.
+
 Create one or more files in the wifi directory which contain the lines:
 ---
 Name=<ssid>
 Passphrase=<passphrase>
 ---
 
-Optionally the following line can also be added:
+Optionally the following lines can also be added:
 ---
 Hidden=[true|false]
+Security=[wep|wpa|wpa1|wpa2|wpa3]
 ---
+The Security parameter is recommended when defining Hidden networks.
 
 Any file name can be used. Use a text editor on your PC to create the files, on the Micro-SD card.
-Only lines beginning with 'Name=', 'Passphrase=' and 'Hidden=' will be processed.
-The groups of values can be repeated in a single file or there can be multiple files. Each time a
-line is encountered beginning with 'Name=' a new profile is defined. Only network names with a
-corresponding passphrase are processed.
+Only lines beginning with 'Name=', 'Passphrase=', 'Hidden=' and 'Security=' will be processed as
+parameters. The groups of values can be repeated in a single file or there can be multiple files.
+Each time a line is encountered beginning with 'Name=' a new profile is defined. Duplicate valid
+parameters occurring without a new network name will be ignored. A Passphrase is required per network Name.
+Open networks are ignored. Comments or other text must not be added to parameter lines
 
 There are some example files in the directory /wifi/examples.
 
 This action should be carried out on your PC after inserting the Micro-SD card, the
 directory then appears as /wifi, (for Mac users, this is in the first disk partition).
 
-All user created files in the wifi directoy will be processed during the RuneAudio startup process. The files will
+All user created files in the wifi directory will be processed during the RuneAudio startup process. The files will
 also be deleted, regardless of the success of the processing. During processing your existing Wi-Fi configuration
 will will be left unchanged except for the network names specified in the files in the wifi directory.
 
@@ -37,7 +43,11 @@ Example:
 this line will be ignored
 Name=My network name
 Passphrase=my P@66w0rd
+Hidden=true
+Security=wpa2
+sometext this line will be ignored
+Name this line will be ignored
+The lines below will be ignored because these parameters have already been processed fro the previous 'Name='
+Passphrase=my 2nd P@66w0rd
 Hidden=false
-adi this line will be ignored
-Hidden this line will be ignored
 ---

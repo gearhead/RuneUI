@@ -146,8 +146,8 @@ function debug_data($redis, $fp=null)
         gzwrite($fp, $output);
         $output = '';
     }
-    $output .= "###### Memory statistics (free -l) ######\n";
-    $command = sysCmd('free -l');
+    $output .= "###### Memory statistics (free -lvtw) ######\n";
+    $command = sysCmd('free -lvtw');
     $output .= implode("\n", $command)."\n\n\n";
     unset($command);
     if ($fp) {
@@ -485,8 +485,8 @@ function debug_data($redis, $fp=null)
         }
     }
     $output .= "\n";
-    $output .= "###### Network, Wi-Fi status (iwconfig) ######\n";
-    $command = sysCmd('iwconfig');
+    $output .= "###### Network, Wi-Fi status (iw dev) ######\n";
+    $command = sysCmd("iw dev 2>/dev/null | grep -v '^\s*$'");
     $output .= implode("\n", $command)."\n\n";
     unset($command);
     if ($fp) {

@@ -1,0 +1,12 @@
+[Unit]
+Description=RuneAudio Samba Architecture Configuration Symlink
+Before=smbd.service nmbd.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/srv/http/command/samba_pre_symlinks.sh
+
+[Install]
+WantedBy=multi-user.target

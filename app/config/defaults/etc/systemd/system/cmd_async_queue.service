@@ -3,8 +3,15 @@ Description=RuneAudio Asynchronous FIFO command queue
 After=network.target sound.target redis.service
 
 [Service]
-ExecStart=/var/www/command/cmd_async_queue
-Nice=15
+ExecStart=/srv/http/command/cmd_async_queue
+
+# specifically for legacy Pi's the following lines throttle the command queue
+# allowing other processes to claim the cpu cycles
+# On modern multiprocessor Pi's these commands have little effect
+Nice=19
+CPUQuota=25%
+IOSchedulingClass=idle
+
 Restart=always
 MemoryDenyWriteExecute=true
 NoNewPrivileges=true
