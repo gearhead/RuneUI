@@ -602,6 +602,7 @@ if systemctl is-active --quiet iwd; then
 else
     # for the NetworkManager user files
     nmcli -g UUID connection show | while read -r uuid; do nmcli connection delete uuid "$uuid"; done
+    rm -f /var/lib/NetworkManager_quality_*
     systemctl restart NetworkManager
 fi
 #
@@ -1258,6 +1259,8 @@ else
     # NetworkManager
     #   don't restart NetworkManager
     rm -rf /var/lib/NetworkManager/* /etc/NetworkManager/system-connections/*
+    rm -f /var/lib/NetworkManager_quality_*
+    /srv/http/command/NetworkManager_update.sh
 fi
 #
 # shutdown & poweroff
