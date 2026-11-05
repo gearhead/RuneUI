@@ -8,6 +8,10 @@ set +e # continue on errors
 #
 # run this script using: nohup /srv/http/command/NetworkManager_update.sh > /NetworkManager_update.log 2>&1 &
 #
+# the script can be run with one of the following parameters:
+#   symlinks - the script will only set up the NetworkManager sysmlinks and also no reboot will be initialised
+#   noreboot - the script will not initiate a reboot
+#
 
 #clean up the package database
 {
@@ -16,53 +20,55 @@ apt autoremove -y --purge
 apt autoclean
 }
 
-# stop the major background processes
-/srv/http/command/rune_shutdown
-systemctl stop rune_SY_wrk rune_PL_wrk rune_MPDEM_wrk
+if [ "$1" != "symlinks" ] ; then
+    # stop the major background processes
+    /srv/http/command/rune_shutdown
+    systemctl stop rune_SY_wrk rune_PL_wrk rune_MPDEM_wrk
 
-# install network-manager
-{
-apt install network-manager -y
-}
-# disable and stop connman and iwd
-systemctl disable connman
-systemctl disable iwd
-systemctl stop connman
-systemctl stop iwd
+    # install network-manager
+    {
+    apt install network-manager -y
+    }
+    # disable and stop connman and iwd
+    systemctl disable connman
+    systemctl disable iwd
+    systemctl stop connman
+    systemctl stop iwd
 
-# start and enable NetworkManager
-systemctl restart NetworkManager
-systemctl enable NetworkManager
+    # start and enable NetworkManager
+    systemctl restart NetworkManager
+    systemctl enable NetworkManager
 
-# remove connman and iwd
-{
-apt remove connman-git -y --purge
-apt remove iwd -y --purge
-}
+    # remove connman and iwd
+    {
+    apt remove connman-git -y --purge
+    apt remove iwd -y --purge
+    }
 
-# also purge openresolv and resolvconf
-{
-apt purge openresolv resolvconf -y
-}
+    # also purge openresolv and resolvconf
+    {
+    apt purge openresolv -y
+    apt purge resolvconf -y
+    }
 
-#clean up the package database
-{
-apt install --fix-broken -y
-apt autoremove -y --purge
-apt autoclean
-}
+    #clean up the package database
+    {
+    apt install --fix-broken -y
+    apt autoremove -y --purge
+    apt autoclean
+    }
 
-#stop disable and mask ModemManager (GSM support for NetworkManager)
-systemctl stop ModemManager
-systemctl disable ModemManager
-systemctl mask ModemManager
+    #stop disable and mask ModemManager (GSM support for NetworkManager)
+    systemctl stop ModemManager
+    systemctl disable ModemManager
+    systemctl mask ModemManager
 
-# create symlink for resolv.conf
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    # create symlink for resolv.conf
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
-# create some files when they do not exist, these turn off the use of ifupdown by NetworkManager
-if [ ! -f "/etc/tmpfiles.d/NetworkManager.conf" ] ; then
-    cat << 'EOF' > /etc/tmpfiles.d/NetworkManager.conf
+    # create some files when they do not exist, these turn off the use of ifupdown by NetworkManager
+    if [ ! -f "/etc/tmpfiles.d/NetworkManager.conf" ] ; then
+        cat << 'EOF' > /etc/tmpfiles.d/NetworkManager.conf
 # This is part of RuneAudio
 #
 # This configuration file creates a directory and an empty file for NetworkManager which then suppresses
@@ -74,9 +80,9 @@ f /run/network/ifstate 0644 root root -
 #
 # end of file
 EOF
-fi
-if [ ! -f "/etc/NetworkManager/conf.d/99-disable-ifupdown.conf" ] ; then
-    cat << 'EOF' > /etc/NetworkManager/conf.d/99-disable-ifupdown.conf
+    fi
+    if [ ! -f "/etc/NetworkManager/conf.d/99-disable-ifupdown.conf" ] ; then
+        cat << 'EOF' > /etc/NetworkManager/conf.d/99-disable-ifupdown.conf
 # This is part of RuneAudio
 #
 # This configuration file suppresses the use of ifupdown
@@ -87,6 +93,8 @@ plugins=keyfile
 #
 # end of file
 EOF
+    fi
+
 fi
 
 # save current versions of runeauio.php, debug_colector internet_available.sh and refresh_nics
@@ -103,10 +111,12 @@ ln -s /srv/http/command/internet_available_async_nm.sh /srv/http/command/interne
 mv /srv/http/command/refresh_nics /srv/http/command/refresh_nics_orig
 ln -s /srv/http/command/refresh_nics_nm /srv/http/command/refresh_nics
 
-# initiate a rune shutdown
-/srv/http/command/rune_shutdown
-# reboot
-reboot now
+# initiate a rune reboot but only when the noreboot and symlinks argument are not set
+if [ "$1" != "noreboot" ] && [ "$1" != "symlinks" ] ; then
+    /srv/http/command/rune_shutdown
+    # reboot
+    reboot now
+fi
 #
 #---
 #End script

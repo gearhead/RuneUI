@@ -1248,7 +1248,13 @@ if [ "$1" == "full" ] || [ "$2" == "full" ] ; then
     cd /home
 fi
 #
-# remove current wired network configuration files and state files
+# clear all software-level (soft) blocks on wireless devices
+rfkill unblock all
+# block gps, wwan, and nfc
+rfkill block wwan
+rfkill block gps
+rfkill block nfc
+# remove current wired network configuration and state files and initialise
 if systemctl is-active --quiet iwd; then
     # connman
     #   dont stop or restart connman
@@ -1257,10 +1263,21 @@ if systemctl is-active --quiet iwd; then
     cp /srv/http/app/config/defaults/var/lib/connman/* /var/lib/connman/
 else
     # NetworkManager
-    #   don't restart NetworkManager
-    rm -rf /var/lib/NetworkManager/* /etc/NetworkManager/system-connections/*
-    rm -f /var/lib/NetworkManager_quality_*
-    /srv/http/command/NetworkManager_update.sh
+    # temporary command to set up the symlinks for NetworkManager files
+    /srv/http/command/NetworkManager_update.sh symlinks
+    #
+    #   don't stop or restart NetworkManager
+    rm -rf /etc/NetworkManager/system-connections/*
+    rm -rf /var/lib/NetworkManager/dhclient*
+    rm -rf /var/lib/NetworkManager/internal*
+    rm -rf /var/lib/NetworkManager_quality_*
+    # enable networking for NetworkManager (persistent)
+    nmcli networking on
+    # enable the Wi-Fi radio for NetworkManager (persistent)
+    nmcli radio wifi on
+    # disable gsm and wimax (legacy) radio for NetworkManager (persistent)
+    nmcli radio wwan off
+    nmcli radio wimax off
 fi
 #
 # shutdown & poweroff
